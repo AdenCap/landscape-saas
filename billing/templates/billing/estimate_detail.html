@@ -31,6 +31,9 @@
 
 <div class="estimate-preview card">
   <div class="estimate-header">
+    {% if estimate.business.logo %}
+    <img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}" class="estimate-logo">
+    {% endif %}
     <h2>{{ estimate.title }}</h2>
     <p class="meta">Estimate #{{ estimate.id }} · {{ estimate.customer.name }}{% if estimate.valid_until %} · Valid until {{ estimate.valid_until }}{% endif %}</p>
   </div>
@@ -84,6 +87,9 @@
 
   <div class="estimate-total">
     <strong>Total: ${{ estimate.total }}</strong>
+    {% if estimate.status == 'accepted' and estimate.accepted_total %}
+    <br><span class="accepted-note">Client accepted at ${{ estimate.accepted_total }}</span>
+    {% endif %}
   </div>
 
   {% if estimate.notes %}
@@ -97,6 +103,7 @@
 <style>
   .estimate-actions { display: flex; gap: 10px; flex-wrap: wrap; }
   .estimate-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--primary); }
+  .estimate-logo { max-height: 48px; max-width: 160px; object-fit: contain; margin-bottom: 12px; }
   .estimate-header h2 { margin: 0 0 8px 0; font-size: 24px; }
   .estimate-header .meta { margin: 0; color: var(--text-muted); }
   .estimate-images { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
@@ -105,6 +112,7 @@
   .addon-row { background: var(--surface-alt); }
   .badge-addon { font-size: 11px; padding: 2px 6px; background: #e0f2fe; color: #0369a1; border-radius: 4px; margin-left: 6px; }
   .estimate-total { margin-top: 20px; padding-top: 16px; border-top: 2px solid var(--border); font-size: 20px; text-align: right; }
+  .accepted-note { font-size: 14px; color: var(--text-muted); font-weight: normal; }
   .estimate-notes { margin-top: 24px; padding: 16px; background: var(--surface-alt); border-radius: 10px; }
   .estimate-notes h3 { margin: 0 0 8px 0; font-size: 14px; }
   .badge-draft { background: #e2e8f0; color: #475569; }

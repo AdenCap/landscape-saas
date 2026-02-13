@@ -5,21 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 24px; }
+    .brand-logo { max-height: 48px; max-width: 160px; margin-bottom: 20px; }
     h1 { font-size: 24px; margin: 0 0 8px 0; color: #0f172a; }
     .meta { color: #64748b; font-size: 14px; margin-bottom: 24px; }
     table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-    th { font-size: 12px; text-transform: uppercase; color: #64748b; }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; font-weight: 600; }
     .num { text-align: right; }
-    .addon { background: #f8fafc; }
-    .addon td:first-child::after { content: " (Optional add-on)"; font-size: 12px; color: #64748b; margin-left: 6px; }
+    .optional { background: #f8fafc; }
     .total { font-size: 18px; font-weight: 700; text-align: right; padding-top: 16px; border-top: 2px solid #0d9488; margin-top: 16px; }
-    .notes { background: #f8fafc; padding: 16px; border-radius: 8px; margin-top: 24px; font-size: 14px; }
-    img { max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; }
+    .notes { background: #f8fafc; padding: 16px; border-radius: 10px; margin-top: 24px; font-size: 14px; }
+    .est-img { max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; }
     .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; }
+    .cta-block { margin-top: 24px; padding: 20px; background: #ecfdf5; border-radius: 12px; text-align: center; }
+    .cta-btn { display: inline-block; margin-top: 12px; padding: 14px 28px; background: #0d9488; color: white !important; text-decoration: none; font-weight: 600; border-radius: 10px; }
   </style>
 </head>
 <body>
+  {% if logo_url %}<img src="{{ logo_url }}" alt="{{ business.name }}" class="brand-logo">{% endif %}
   <h1>{{ estimate.title }}</h1>
   <p class="meta">
     Estimate #{{ estimate.id }} from {{ business.name }}<br>
@@ -47,8 +50,8 @@
     </thead>
     <tbody>
       {% for item in estimate.line_items.all %}
-      <tr class="{% if item.is_addon %}addon{% endif %}">
-        <td>{{ item.description }}{% if item.is_addon %} <em>(Optional add-on)</em>{% endif %}</td>
+      <tr class="{% if item.is_addon %}optional{% endif %}">
+        <td>{{ item.description }}{% if item.is_addon %} <em>(Optional)</em>{% endif %}</td>
         <td class="num">{{ item.quantity }}</td>
         <td>{{ item.unit }}</td>
         <td class="num">${{ item.unit_price }}</td>
@@ -58,7 +61,15 @@
     </tbody>
   </table>
 
-  <p class="total">Total: ${{ estimate.total }}</p>
+  <p class="total">Base total: ${{ estimate.base_total }}{% if estimate.addons_total > 0 %} (+ optional items if selected){% endif %}</p>
+
+  {% if view_url %}
+  <div class="cta-block">
+    <strong>View your estimate and select optional items</strong><br>
+    <a href="{{ view_url }}" class="cta-btn">View & Accept Estimate</a>
+  </div>
+  <p style="font-size: 13px; color: #64748b;">On that page you can add any optional items and see your total before accepting.</p>
+  {% endif %}
 
   {% if estimate.notes %}
   <div class="notes">
@@ -68,7 +79,12 @@
   {% endif %}
 
   <p class="footer">
-    This estimate was sent by {{ business.name }}. Please reply to this email with any questions or to accept.
+    This estimate was sent by {{ business.name }}.
+    {% if business.contact_email or business.contact_phone %}
+    Contact us: {% if business.contact_email %}{{ business.contact_email }}{% endif %}{% if business.contact_email and business.contact_phone %} · {% endif %}{% if business.contact_phone %}{{ business.contact_phone }}{% endif %}
+    {% else %}
+    Reply to this email with any questions.
+    {% endif %}
   </p>
 </body>
 </html>

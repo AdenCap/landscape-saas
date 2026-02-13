@@ -1,3 +1,4 @@
+import secrets
 from io import BytesIO
 from decimal import Decimal
 
@@ -7,11 +8,13 @@ from django.core.mail import EmailMultiAlternatives
 from django.forms import modelformset_factory, inlineformset_factory
 from django.http import FileResponse
 from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
 from reportlab.lib.pagesizes import LETTER
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 from accounts.decorators import role_required
@@ -34,7 +37,10 @@ def invoice_list(request):
 
 @role_required("owner")
 def invoice_detail(request, invoice_id):
-    invoice = get_object_or_404(Invoice, id=invoice_id)
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("business", "customer"),
+        id=invoice_id,
+    )
     items = invoice.line_items.all()
     return render(request, "billing/invoice_detail.html", {"invoice": invoice, "items": items})
 
@@ -52,59 +58,90 @@ def send_invoice(request, invoice_id):
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
+def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160):
+    """Draw business logo on ReportLab canvas if present."""
+    if not business or not business.logo:
+        return
+    try:
+        path = business.logo.path
+        if not path:
+            return
+        img = ImageReader(path)
+        iw, ih = img.getSize()
+        scale = min(max_width / iw, max_height / ih, 1.0)
+        w, h = iw * scale, ih * scale
+        p.drawImage(path, x, y_top - h, width=w, height=h)
+    except Exception:
+        pass
+
+
 @role_required("owner")
 def invoice_pdf(request, invoice_id):
-    invoice = get_object_or_404(Invoice, id=invoice_id)
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("business", "customer"),
+        id=invoice_id,
+    )
     items = invoice.line_items.all()
 
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=LETTER)
     width, height = LETTER
 
-    y = height - 50
-    p.setFont("Helvetica-Bold", 16)
-    p.drawString(50, y, f"Invoice #{invoice.id}")
-    y -= 25
+    y = height - 40
+    business = invoice.business
+    if business and business.logo:
+        _draw_pdf_logo(p, business, x=50, y_top=y + 10, max_height=44, max_width=140)
+        p.setFont("Helvetica-Bold", 20)
+        p.drawString(50, y - 28, f"Invoice #{invoice.id}")
+        y -= 50
+    else:
+        p.setFont("Helvetica-Bold", 20)
+        p.drawString(50, y, f"Invoice #{invoice.id}")
+        y -= 28
 
     p.setFont("Helvetica", 10)
-    p.drawString(50, y, f"Issue Date: {invoice.issue_date}")
+    p.setFillColorRGB(0.4, 0.45, 0.55)
+    p.drawString(50, y, f"Issue date: {invoice.issue_date}")
     y -= 14
-    p.drawString(50, y, f"Due Date: {invoice.due_date}")
+    p.drawString(50, y, f"Due date: {invoice.due_date or '—'}")
     y -= 14
-    p.drawString(50, y, f"Customer: {invoice.customer}")
+    p.setFillColorRGB(0.1, 0.1, 0.15)
+    p.drawString(50, y, f"Bill to: {invoice.customer.name}")
     y -= 14
-    p.drawString(50, y, f"Status: {invoice.status}")
-    y -= 25
+    if invoice.customer.full_address:
+        p.setFont("Helvetica", 9)
+        p.drawString(50, y, invoice.customer.full_address[:60])
+        y -= 12
+    p.setFont("Helvetica", 10)
+    y -= 8
 
+    p.setFillColorRGB(0.1, 0.1, 0.15)
     p.setFont("Helvetica-Bold", 10)
     p.drawString(50, y, "Description")
-    p.drawString(320, y, "Qty")
-    p.drawString(380, y, "Unit Price")
-    p.drawString(470, y, "Line Total")
-    y -= 15
+    p.drawString(340, y, "Qty")
+    p.drawString(400, y, "Unit Price")
+    p.drawString(500, y, "Line Total")
+    y -= 18
 
     p.setFont("Helvetica", 10)
-
     computed_total = Decimal("0.00")
     for item in items:
         line_total = item.quantity * item.unit_price
         computed_total += line_total
-
         p.drawString(50, y, str(item.description)[:45])
-        p.drawRightString(350, y, str(item.quantity))
-        p.drawRightString(440, y, f"${item.unit_price}")
-        p.drawRightString(540, y, f"${line_total}")
-        y -= 15
-
-        if y < 80:
+        p.drawRightString(370, y, str(item.quantity))
+        p.drawRightString(460, y, f"${item.unit_price}")
+        p.drawRightString(560, y, f"${line_total}")
+        y -= 16
+        if y < 100:
             p.showPage()
             y = height - 50
             p.setFont("Helvetica", 10)
 
-    y -= 10
+    y -= 6
     p.setFont("Helvetica-Bold", 12)
     total_to_show = getattr(invoice, "total", None) or computed_total
-    p.drawRightString(540, y, f"Total: ${total_to_show}")
+    p.drawRightString(560, y, f"Total: ${total_to_show}")
 
     p.showPage()
     p.save()
@@ -197,26 +234,33 @@ def estimate_detail(request, estimate_id):
         messages.error(request, "You must be associated with a business.")
         return redirect("/")
 
-    estimate = get_object_or_404(Estimate, id=estimate_id, business=business)
+    estimate = get_object_or_404(
+        Estimate.objects.select_related("business", "customer"),
+        id=estimate_id,
+        business=business,
+    )
     return render(request, "billing/estimate_detail.html", {"estimate": estimate})
 
 
-@role_required("owner")
-def estimate_pdf(request, estimate_id):
-    business = _get_business(request)
-    if not business:
-        return redirect("/")
-
-    estimate = get_object_or_404(Estimate, id=estimate_id, business=business)
+def _build_estimate_pdf(estimate, business):
+    """Build estimate PDF bytes (with logo if business has one)."""
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=LETTER)
     width, height = LETTER
 
-    y = height - 50
-    p.setFont("Helvetica-Bold", 18)
-    p.drawString(50, y, estimate.title)
-    y -= 20
+    y = height - 40
+    if business and business.logo:
+        _draw_pdf_logo(p, business, x=50, y_top=y + 10, max_height=44, max_width=140)
+        p.setFont("Helvetica-Bold", 18)
+        p.drawString(50, y - 28, estimate.title)
+        y -= 50
+    else:
+        p.setFont("Helvetica-Bold", 18)
+        p.drawString(50, y, estimate.title)
+        y -= 28
+
     p.setFont("Helvetica", 10)
+    p.setFillColorRGB(0.4, 0.45, 0.55)
     p.drawString(50, y, f"Estimate #{estimate.id}")
     y -= 14
     p.drawString(50, y, f"Prepared for: {estimate.customer.name}")
@@ -227,15 +271,16 @@ def estimate_pdf(request, estimate_id):
     if estimate.valid_until:
         p.drawString(50, y, f"Valid until: {estimate.valid_until}")
         y -= 14
+    p.setFillColorRGB(0.1, 0.1, 0.15)
     y -= 10
 
     p.setFont("Helvetica-Bold", 10)
     p.drawString(50, y, "Description")
     p.drawString(320, y, "Qty")
-    p.drawString(380, y, "Unit")
-    p.drawString(430, y, "Unit Price")
+    p.drawString(370, y, "Unit")
+    p.drawString(420, y, "Unit Price")
     p.drawString(500, y, "Total")
-    y -= 15
+    y -= 18
 
     p.setFont("Helvetica", 10)
     base_items = estimate.line_items.filter(is_addon=False)
@@ -248,17 +293,17 @@ def estimate_pdf(request, estimate_id):
         p.drawString(360, y, str(item.unit)[:6])
         p.drawRightString(450, y, f"${item.unit_price}")
         p.drawRightString(560, y, f"${lt}")
-        y -= 14
+        y -= 16
         if y < 100:
             p.showPage()
             y = height - 50
             p.setFont("Helvetica", 10)
 
     if addon_items.exists():
-        y -= 5
+        y -= 6
         p.setFont("Helvetica-Oblique", 10)
-        p.drawString(50, y, "Optional add-ons:")
-        y -= 14
+        p.drawString(50, y, "Optional items:")
+        y -= 16
         p.setFont("Helvetica", 10)
         for item in addon_items:
             lt = item.line_total()
@@ -266,18 +311,18 @@ def estimate_pdf(request, estimate_id):
             p.drawRightString(350, y, str(item.quantity))
             p.drawRightString(450, y, f"${item.unit_price}")
             p.drawRightString(560, y, f"${lt}")
-            y -= 14
+            y -= 16
             if y < 100:
                 p.showPage()
                 y = height - 50
                 p.setFont("Helvetica", 10)
 
-    y -= 10
+    y -= 8
     p.setFont("Helvetica-Bold", 12)
     p.drawRightString(560, y, f"Total: ${estimate.total()}")
 
     if estimate.notes:
-        y -= 25
+        y -= 24
         p.setFont("Helvetica", 9)
         for line in estimate.notes.split("\n")[:8]:
             p.drawString(50, y, line[:80])
@@ -288,7 +333,18 @@ def estimate_pdf(request, estimate_id):
     p.showPage()
     p.save()
     buffer.seek(0)
-    return FileResponse(buffer, as_attachment=True, filename=f"estimate_{estimate.id}.pdf")
+    return buffer.read()
+
+
+@role_required("owner")
+def estimate_pdf(request, estimate_id):
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+
+    estimate = get_object_or_404(Estimate, id=estimate_id, business=business)
+    pdf_bytes = _build_estimate_pdf(estimate, business)
+    return FileResponse(BytesIO(pdf_bytes), as_attachment=True, filename=f"estimate_{estimate.id}.pdf")
 
 
 @require_POST
@@ -310,68 +366,91 @@ def estimate_send(request, estimate_id):
         messages.error(request, "Add at least one line item before sending.")
         return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
+    # Set view token before sending so we can include the link in the email
+    if not estimate.view_token:
+        estimate.view_token = secrets.token_urlsafe(32)
+        estimate.save(update_fields=["view_token"])
+
+    view_url = request.build_absolute_uri(
+        reverse("billing:estimate_client_view", args=[estimate.id, estimate.view_token])
+    )
+
+    logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
     html_content = render_to_string("billing/estimate_email.html", {
         "estimate": estimate,
         "customer": customer,
         "business": business,
         "request": request,
+        "view_url": view_url,
+        "logo_url": logo_url,
     })
 
     subject = f"{estimate.title} - {business.name}"
-    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@landscape.local")
-    msg = EmailMultiAlternatives(subject, "Please see the attached estimate.", from_email, [customer.email])
+    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@landscape.local")
+    reply_to = [business.contact_email] if business.contact_email else None
+    msg = EmailMultiAlternatives(
+        subject, "Please see the attached estimate.", from_email, [customer.email], reply_to=reply_to
+    )
     msg.attach_alternative(html_content, "text/html")
 
-    # Attach PDF
-    buffer = BytesIO()
-    from reportlab.lib.pagesizes import LETTER
-    from reportlab.pdfgen import canvas as pdf_canvas
-    p = pdf_canvas.Canvas(buffer, pagesize=LETTER)
-    w, h = LETTER
-    y = h - 50
-    p.setFont("Helvetica-Bold", 18)
-    p.drawString(50, y, estimate.title)
-    y -= 25
-    p.setFont("Helvetica", 10)
-    p.drawString(50, y, f"Estimate #{estimate.id} - {customer.name}")
-    y -= 20
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(50, y, "Description")
-    p.drawString(320, y, "Qty")
-    p.drawString(430, y, "Unit Price")
-    p.drawString(500, y, "Total")
-    y -= 15
-    p.setFont("Helvetica", 10)
-    for item in estimate.line_items.all():
-        lt = item.line_total()
-        addon = " (optional)" if item.is_addon else ""
-        p.drawString(50, y, str(item.description)[:40] + addon)
-        p.drawRightString(350, y, str(item.quantity))
-        p.drawRightString(450, y, f"${item.unit_price}")
-        p.drawRightString(560, y, f"${lt}")
-        y -= 14
-        if y < 80:
-            p.showPage()
-            y = h - 50
-            p.setFont("Helvetica", 10)
-    y -= 10
-    p.setFont("Helvetica-Bold", 12)
-    p.drawRightString(560, y, f"Total: ${estimate.total()}")
-    p.showPage()
-    p.save()
-    buffer.seek(0)
-    msg.attach(f"estimate_{estimate.id}.pdf", buffer.read(), "application/pdf")
+    pdf_bytes = _build_estimate_pdf(estimate, business)
+    msg.attach(f"estimate_{estimate.id}.pdf", pdf_bytes, "application/pdf")
 
     try:
         msg.send()
         estimate.status = "sent"
         estimate.sent_at = timezone.now()
-        estimate.save()
-        messages.success(request, f"Estimate sent to {customer.email}")
+        if not estimate.view_token:
+            messages.success(request, f"Estimate sent to {customer.email}")
     except Exception as e:
         messages.error(request, f"Failed to send: {str(e)}")
 
     return redirect("billing:estimate_detail", estimate_id=estimate.id)
+
+
+def estimate_client_view(request, estimate_id, token):
+    """Public page for clients to view estimate and select optional items. No login required."""
+    estimate = get_object_or_404(
+        Estimate.objects.select_related("business", "customer"),
+        id=estimate_id,
+        view_token=token,
+        status="sent",
+    )
+    base_items = list(estimate.line_items.filter(is_addon=False))
+    optional_items = list(estimate.line_items.filter(is_addon=True))
+    base_total = sum(item.line_total() for item in base_items)
+    return render(request, "billing/estimate_client_view.html", {
+        "estimate": estimate,
+        "base_items": base_items,
+        "optional_items": optional_items,
+        "base_total": base_total,
+        "token": token,
+    })
+
+
+@require_POST
+def estimate_client_accept(request, estimate_id, token):
+    """Client accepts estimate with selected optional items."""
+    estimate = get_object_or_404(
+        Estimate.objects.select_related("business", "customer"),
+        id=estimate_id,
+        view_token=token,
+        status="sent",
+    )
+    selected_ids = [int(x) for x in request.POST.getlist("optional_items") if str(x).isdigit()]
+    base_total = sum(item.line_total() for item in estimate.line_items.filter(is_addon=False))
+    optional_total = sum(
+        item.line_total() for item in estimate.line_items.filter(is_addon=True, id__in=selected_ids)
+    )
+    total = base_total + optional_total
+    estimate.status = "accepted"
+    estimate.accepted_at = timezone.now()
+    estimate.accepted_total = total
+    estimate.save()
+    return render(request, "billing/estimate_client_accepted.html", {
+        "estimate": estimate,
+        "accepted_total": total,
+    })
 
 
 @require_POST

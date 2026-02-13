@@ -1,55 +1,125 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Invoice #{{ invoice.id }}</h1>
-  <p>Customer: {{ invoice.customer }} · Status: <strong>{{ invoice.status }}</strong></p>
+<div class="invoice-page">
+  <div class="invoice-header-row">
+    <div class="invoice-branding">
+      {% if invoice.business.logo %}
+      <img src="{{ invoice.business.logo.url }}" alt="{{ invoice.business.name }}" class="invoice-logo">
+      {% else %}
+      <h1 class="invoice-brand-name">{{ invoice.business.name }}</h1>
+      {% endif %}
+    </div>
+    <div class="invoice-title-block">
+      <h1 class="invoice-title">Invoice #{{ invoice.id }}</h1>
+      <div class="invoice-status status-{{ invoice.status|lower }}">{{ invoice.status }}</div>
+    </div>
+  </div>
+
+  <div class="invoice-meta-bar">
+    <div class="meta-group">
+      <span class="meta-label">Issue date</span>
+      <span class="meta-value">{{ invoice.issue_date }}</span>
+    </div>
+    <div class="meta-group">
+      <span class="meta-label">Due date</span>
+      <span class="meta-value">{{ invoice.due_date|default:"—" }}</span>
+    </div>
+    <div class="meta-group meta-total">
+      <span class="meta-label">Total</span>
+      <span class="meta-value">${{ invoice.total }}</span>
+    </div>
+  </div>
+
+  <div class="invoice-layout">
+    <div class="invoice-parties">
+      <div class="party-block">
+        <h3 class="party-label">Bill to</h3>
+        <p class="party-name">{{ invoice.customer.name }}</p>
+        {% if invoice.customer.email %}<p class="party-detail">{{ invoice.customer.email }}</p>{% endif %}
+        {% if invoice.customer.full_address %}<p class="party-detail">{{ invoice.customer.full_address }}</p>{% endif %}
+      </div>
+      <div class="party-block from-block">
+        <h3 class="party-label">From</h3>
+        <p class="party-name">{{ invoice.business.name }}</p>
+        {% if invoice.business.contact_email %}<p class="party-detail">{{ invoice.business.contact_email }}</p>{% endif %}
+        {% if invoice.business.contact_phone %}<p class="party-detail">{{ invoice.business.contact_phone }}</p>{% endif %}
+      </div>
+    </div>
+
+    <div class="invoice-table-card">
+      <table class="invoice-table">
+        <thead>
+          <tr>
+            <th class="col-desc">Description</th>
+            <th class="col-qty">Qty</th>
+            <th class="col-price">Unit Price</th>
+            <th class="col-total">Line Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>{{ item.description }}</td>
+            <td class="num">{{ item.quantity }}</td>
+            <td class="num">${{ item.unit_price }}</td>
+            <td class="num">${{ item.line_total }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="empty-cell">No line items yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="invoice-total-row">
+        <span class="total-label">Total</span>
+        <span class="total-amount">${{ invoice.total }}</span>
+      </div>
+    </div>
+
+    <div class="invoice-actions">
+      <a href="{% url 'billing:invoice_pdf' invoice.id %}" class="btn btn-primary">Download PDF</a>
+      {% if invoice.status == "draft" %}
+      <form method="post" action="{% url 'billing:send_invoice' invoice.id %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary">Mark as Sent</button>
+      </form>
+      {% endif %}
+      <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">← Back to Invoices</a>
+    </div>
+  </div>
 </div>
 
-<div class="invoice-meta card" style="margin-bottom: 20px;">
-  <p style="margin: 0;">
-    <strong>Issue Date:</strong> {{ invoice.issue_date }} &nbsp;|&nbsp;
-    <strong>Due Date:</strong> {{ invoice.due_date }} &nbsp;|&nbsp;
-    <strong>Total:</strong> ${{ invoice.total }}
-  </p>
-</div>
-
-<div class="quick-actions">
-  <a href="{% url 'billing:invoice_pdf' invoice.id %}" class="btn btn-primary">
-    Download PDF
-  </a>
-  {% if invoice.status == "draft" %}
-  <form method="post" action="{% url 'billing:send_invoice' invoice.id %}" style="display: inline;">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-secondary">Mark as Sent</button>
-  </form>
-  {% endif %}
-  <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">← Back to Invoices</a>
-</div>
-
-<div class="card" style="margin-top: 24px;">
-  <h2 class="card-title">Line Items</h2>
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Description</th>
-        <th class="num">Qty</th>
-        <th class="num">Unit Price</th>
-        <th class="num">Line Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in items %}
-      <tr>
-        <td>{{ item.description }}</td>
-        <td class="num">{{ item.quantity }}</td>
-        <td class="num">${{ item.unit_price }}</td>
-        <td class="num">${{ item.quantity|floatformat:0 }} × ${{ item.unit_price }}</td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No line items yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+<style>
+  .invoice-page { max-width: 880px; margin: 0 auto; }
+  .invoice-header-row { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 24px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid var(--border); }
+  .invoice-logo { max-height: 64px; max-width: 200px; object-fit: contain; }
+  .invoice-brand-name { margin: 0; font-size: 24px; font-weight: 700; color: var(--primary); }
+  .invoice-title-block { text-align: right; }
+  .invoice-title { margin: 0 0 8px 0; font-size: 28px; font-weight: 700; color: var(--text); }
+  .invoice-status { display: inline-block; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; text-transform: capitalize; }
+  .status-draft { background: #f1f5f9; color: #475569; }
+  .status-sent { background: #e0f2fe; color: #0369a1; }
+  .status-paid { background: #d1fae5; color: #065f46; }
+  .status-void { background: #fee2e2; color: #991b1b; }
+  .invoice-meta-bar { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 32px; padding: 20px 24px; background: var(--surface-alt); border-radius: 12px; }
+  .meta-group { display: flex; flex-direction: column; gap: 4px; }
+  .meta-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+  .meta-value { font-size: 16px; font-weight: 600; }
+  .meta-total .meta-value { font-size: 20px; color: var(--primary); }
+  .invoice-layout { display: flex; flex-direction: column; gap: 28px; }
+  .invoice-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  .party-block { padding: 20px; background: white; border: 1px solid var(--border); border-radius: 12px; }
+  .party-label { margin: 0 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+  .party-name { margin: 0 0 8px 0; font-size: 16px; font-weight: 600; }
+  .party-detail { margin: 0 0 4px 0; font-size: 14px; color: var(--text-muted); }
+  .invoice-table-card { background: white; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .invoice-table { width: 100%; border-collapse: collapse; }
+  .invoice-table th { text-align: left; padding: 16px 20px; background: var(--surface-alt); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; }
+  .invoice-table td { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .invoice-table .num { text-align: right; }
+  .invoice-table .col-desc { width: 45%; }
+  .invoice-table .empty-cell { text-align: center; color: var(--text-muted); padding: 32px; }
+  .invoice-total-row { display: flex; justify-content: flex-end; align-items: center; gap: 24px; padding: 20px 24px; background: var(--surface-alt); font-size: 18px; font-weight: 700; }
+  .invoice-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+</style>
 {% endblock %}
