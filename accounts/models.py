@@ -19,11 +19,4 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.username} ({self.role})"
-    
-    ROLE_CHOICES = [
-        ("owner", "Owner"),
-        ("crew", "Crew"),
-    ]
-
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="owner")
 

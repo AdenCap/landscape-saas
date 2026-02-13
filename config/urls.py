@@ -17,8 +17,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
+admin.site.site_header = "Landscape Admin"
+admin.site.site_title = "Landscape"
+admin.site.index_title = "Manage your business, employees, and customers"
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('accounts/', include('django.contrib.auth.urls')),
 
     # Homepage = Dashboard
     path('', include('dashboard.urls')),
