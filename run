@@ -1,0 +1,40 @@
+#!/bin/bash
+# Run Django manage.py with the correct Python/venv
+# Usage: ./run runserver | ./run migrate | ./run shell | etc.
+
+cd "$(dirname "$0")"
+
+# Try venv_mac first (Mac-native)
+if [ -f "venv_mac/bin/python" ]; then
+    exec venv_mac/bin/python manage.py "$@"
+fi
+
+# Try venv/bin (Mac/Linux)
+if [ -f "venv/bin/python" ]; then
+    exec venv/bin/python manage.py "$@"
+fi
+
+# Try venv/Lib (Windows venv on Mac)
+if [ -d "venv/Lib/site-packages" ]; then
+    for py in /opt/homebrew/opt/python@3.14/bin/python3.14 \
+             /opt/homebrew/opt/python@3/bin/python3 \
+             /usr/local/opt/python@3.11/bin/python3.11 \
+             python3.12 python3.11 python3.10 python3; do
+        if [ -x "$py" ] 2>/dev/null || command -v "$py" &>/dev/null; then
+            ver=$("$py" -c "import sys; print(sys.version_info.major * 100 + sys.version_info.minor)" 2>/dev/null) || continue
+            if [ "$ver" -ge 310 ] 2>/dev/null; then
+                exec env PYTHONPATH="venv/Lib/site-packages" "$py" manage.py "$@"
+            fi
+        fi
+    done
+    echo "Error: Python 3.10+ required. Install with: brew install python@3.11"
+    exit 1
+fi
+
+# Fallback to system python3
+if command -v python3 &>/dev/null; then
+    exec python3 manage.py "$@"
+fi
+
+echo "Error: No Python found. Create a venv: python3 -m venv venv_mac && source venv_mac/bin/activate && pip install -r requirements.txt"
+exit 1
