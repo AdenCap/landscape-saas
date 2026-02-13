@@ -223,6 +223,9 @@
           <a href="/time/timesheets/" class="btn btn-nav {% if '/time/timesheets' in request.path %}active{% endif %}">
             ⏱️ Timesheets
           </a>
+          <a href="/employees/" class="btn btn-nav {% if '/employees' in request.path %}active{% endif %}">
+            👷 Employees
+          </a>
         {% endif %}
       </nav>
 
@@ -244,6 +247,7 @@
         <a href="/clients/" class="btn btn-nav">Clients</a>
         <a href="/billing/" class="btn btn-nav">Invoices</a>
         <a href="/time/timesheets/" class="btn btn-nav">Timesheets</a>
+        <a href="/employees/" class="btn btn-nav">Employees</a>
       {% endif %}
       <a href="{% url 'logout' %}" class="btn btn-nav">Logout</a>
     </header>

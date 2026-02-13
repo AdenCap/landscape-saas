@@ -8,8 +8,10 @@
 
 <div class="quick-actions" style="margin-bottom: 20px;">
   <a href="{% url 'customer_create' %}" class="btn btn-primary">+ Add Client</a>
+  <a href="{% url 'employee_add' %}" class="btn btn-secondary">+ Add Employee</a>
   <a href="{% url 'create_job' %}" class="btn btn-secondary">Create Job</a>
   <a href="/clients/" class="btn btn-secondary">Clients</a>
+  <a href="/employees/" class="btn btn-secondary">Employees</a>
   <a href="/jobs/calendar/" class="btn btn-secondary">Calendar</a>
   <a href="/jobs/routes/" class="btn btn-secondary">Daily Routes</a>
 </div>
@@ -35,7 +37,10 @@
 </div>
 
 <div class="card" style="margin-top: 24px;">
-  <h2 class="card-title">Today by Crew</h2>
+  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+    Today by Crew
+    <a href="/employees/" class="btn btn-secondary btn-sm">Manage employees</a>
+  </h2>
   <table class="data-table">
     <thead>
       <tr>
@@ -49,9 +54,8 @@
       {% for row in crew_table %}
       <tr>
         <td>
-          <a href="{% url 'crew_day_detail' row.user_id %}" class="btn btn-secondary btn-sm">
-            {{ row.name }}
-          </a>
+          <a href="{% url 'crew_day_detail' row.user_id %}" class="btn btn-secondary btn-sm">{{ row.name }}</a>
+          <a href="{% url 'employee_edit' row.user_id %}" class="link-primary" style="margin-left: 8px; font-size: 13px;">Edit profile</a>
         </td>
         <td class="num">{{ row.total }}</td>
         <td class="num">{{ row.completed }}</td>

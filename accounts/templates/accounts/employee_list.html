@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Employees</h1>
+    <p>Manage your team: contact info, pay, roles, and login credentials</p>
+  </div>
+  <a href="{% url 'employee_add' %}" class="btn btn-primary">+ Add Employee</a>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Role</th>
+        <th>Contact</th>
+        <th class="num">Pay</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for emp in employees %}
+      <tr>
+        <td>
+          <a href="{% url 'employee_edit' emp.id %}" class="link-primary">
+            {{ emp.get_full_name|default:emp.username }}
+          </a>
+        </td>
+        <td><span class="badge badge-{{ emp.role }}">{{ emp.get_role_display }}</span></td>
+        <td>
+          {% if emp.phone %}{{ emp.phone }}{% endif %}
+          {% if emp.phone and emp.email %} · {% endif %}
+          {% if emp.email %}{{ emp.email }}{% endif %}
+          {% if not emp.phone and not emp.email %}—{% endif %}
+        </td>
+        <td class="num">{% if emp.hourly_rate %}${% endif %}{{ emp.hourly_rate|default:"—" }}</td>
+        <td>
+          <a href="{% url 'employee_edit' emp.id %}" class="btn btn-secondary btn-sm">Edit</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No employees yet. <a href="{% url 'employee_add' %}" class="link-primary">Add your first employee</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .badge-owner { background: #e0f2fe; color: #0369a1; }
+  .badge-crew { background: #d1fae5; color: #065f46; }
+</style>
+{% endblock %}

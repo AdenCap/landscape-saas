@@ -16,7 +16,8 @@ class UserAdmin(BaseUserAdmin):
 
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        (_('Personal info'), {'fields': ('first_name', 'last_name', 'email')}),
+        (_('Personal info'), {'fields': ('first_name', 'last_name', 'email', 'phone')}),
+        (_('Address'), {'fields': ('address_line1', 'address_line2', 'city', 'state', 'postal_code')}),
         (_('Business & Role'), {
             'fields': ('business', 'role', 'hourly_rate'),
             'description': 'Assign this user to a business and set their role. Crew = employee with field access. Hourly rate is used for labor cost in timesheets.',
@@ -35,7 +36,7 @@ class UserAdmin(BaseUserAdmin):
         }),
         (_('Personal info (optional)'), {
             'classes': ('wide',),
-            'fields': ('first_name', 'last_name', 'email'),
+            'fields': ('first_name', 'last_name', 'email', 'phone'),
         }),
         (_('Create employee login'), {
             'classes': ('wide',),

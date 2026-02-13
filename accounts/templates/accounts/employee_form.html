@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ title }}</h1>
+  <p>{% if employee %}Editing {{ employee.get_full_name|default:employee.username }}{% else %}Add a new employee with app login credentials{% endif %}</p>
+</div>
+
+<div class="form-grid">
+  <div class="card">
+    <h2 class="card-title">Profile</h2>
+    <form method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="alert alert-error">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      {% if is_create %}
+      <div class="form-section">
+        <h3>Login</h3>
+        <div class="field">{{ form.username.label_tag }}{{ form.username }}{{ form.username.errors }}</div>
+        <div class="field">{{ form.password1.label_tag }}{{ form.password1 }}{{ form.password1.errors }}</div>
+        <div class="field">{{ form.password2.label_tag }}{{ form.password2 }}{{ form.password2.errors }}</div>
+      </div>
+      {% endif %}
+
+      <div class="form-section">
+        <h3>Name & Contact</h3>
+        <div class="form-row">
+          <div class="field">{{ form.first_name.label_tag }}{{ form.first_name }}{{ form.first_name.errors }}</div>
+          <div class="field">{{ form.last_name.label_tag }}{{ form.last_name }}{{ form.last_name.errors }}</div>
+        </div>
+        <div class="form-row">
+          <div class="field">{{ form.email.label_tag }}{{ form.email }}{{ form.email.errors }}</div>
+          <div class="field">{{ form.phone.label_tag }}{{ form.phone }}{{ form.phone.errors }}</div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>Address</h3>
+        <div class="field">{{ form.address_line1.label_tag }}{{ form.address_line1 }}{{ form.address_line1.errors }}</div>
+        <div class="field">{{ form.address_line2.label_tag }}{{ form.address_line2 }}{{ form.address_line2.errors }}</div>
+        <div class="form-row three">
+          <div class="field">{{ form.city.label_tag }}{{ form.city }}{{ form.city.errors }}</div>
+          <div class="field">{{ form.state.label_tag }}{{ form.state }}{{ form.state.errors }}</div>
+          <div class="field">{{ form.postal_code.label_tag }}{{ form.postal_code }}{{ form.postal_code.errors }}</div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>Role & Pay</h3>
+        <div class="form-row">
+          <div class="field">{{ form.role.label_tag }}{{ form.role }}{{ form.role.errors }}</div>
+          <div class="field">{{ form.hourly_rate.label_tag }}{{ form.hourly_rate }}{{ form.hourly_rate.errors }}</div>
+        </div>
+        {% if not is_create %}
+        <div class="field checkbox-field">{{ form.is_active }}{{ form.is_active.label_tag }}{{ form.is_active.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save</button>
+        {% if employee %}
+        <a href="{% url 'employee_list' %}" class="btn btn-secondary">Back to list</a>
+        {% else %}
+        <a href="{% url 'employee_list' %}" class="btn btn-secondary">Cancel</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  {% if employee and not is_create %}
+  <div class="card">
+    <h2 class="card-title">Login</h2>
+    <p class="muted">Username: <strong>{{ employee.username }}</strong></p>
+    <a href="{% url 'employee_password' employee.id %}" class="btn btn-secondary">Change password</a>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+  .form-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+  @media (min-width: 800px) { .form-grid { grid-template-columns: 2fr 1fr; } }
+  .form-section { margin-bottom: 20px; }
+  .form-section h3 { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 0 0 10px 0; text-transform: uppercase; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-row.three { grid-template-columns: 2fr 1fr 1fr; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .field input, .field select { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; font-family: inherit; }
+  .checkbox-field { display: flex; align-items: center; gap: 8px; }
+  .checkbox-field input { width: auto; }
+  .form-actions { display: flex; gap: 10px; margin-top: 24px; }
+  .muted { color: var(--text-muted); font-size: 14px; }
+</style>
+{% endblock %}

@@ -40,8 +40,11 @@ def _month_range(d: date):
 @role_required("owner")
 def owner_dashboard(request):
     today = timezone.localdate()
+    business = getattr(request.user, "business", None)
     # --- Today by Crew (ops view) ---
     crew_users = User.objects.filter(role="crew").order_by("username")
+    if business:
+        crew_users = crew_users.filter(business=business)
 
     crew_stats = (
         Job.objects.filter(scheduled_date=today, assigned_to__role="crew")
@@ -134,7 +137,6 @@ def owner_dashboard(request):
        Invoice.objects.select_related("customer").order_by("-issue_date", "-id")[:10]
     )
 
-    business = getattr(request.user, "business", None)
     recent_customers = []
     if business:
         recent_customers = Customer.objects.filter(business=business).order_by("-updated_at")[:8]
