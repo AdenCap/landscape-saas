@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Today’s Jobs</h2>
+
+{% for job in jobs %}
+  <div style="background:white;padding:15px;margin-bottom:10px;border-radius:8px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong>{{ job.property.address }}</strong>
+      <span style="
+        padding:4px 8px;
+        border-radius:6px;
+        background:#eee;
+        font-size:12px;
+      ">
+        {{ job.status }}
+      </span>
+    </div>
+
+    {% if job.notes %}
+      <p style="margin:10px 0 0 0;"><em>{{ job.notes }}</em></p>
+    {% endif %}
+
+    <div style="margin-top:12px;">
+      {% if job.status == "scheduled" %}
+        <form method="post" action="{% url 'start_job' job.id %}">
+          {% csrf_token %}
+          <button style="width:100%;padding:10px;background:#2563eb;color:white;border:none;border-radius:6px;">
+            Start Job
+          </button>
+        </form>
+
+      {% elif job.status == "in_progress" %}
+        <form method="post" action="{% url 'complete_job' job.id %}">
+          {% csrf_token %}
+          <button style="width:100%;padding:10px;background:green;color:white;border:none;border-radius:6px;">
+            Complete Job
+          </button>
+        </form>
+
+      {% elif job.status == "completed" %}
+        <button disabled style="width:100%;padding:10px;background:#9ca3af;color:white;border:none;border-radius:6px;">
+          Completed
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+{% empty %}
+  <p>No jobs assigned to you today.</p>
+{% endfor %}
+
+{% endblock %}

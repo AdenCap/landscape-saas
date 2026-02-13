@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Business Dashboard</h2>
+
+<h3>Today’s Jobs</h3>
+<ul>
+  {% for job in today_jobs %}
+    <li>{{ job.property.address }} — {{ job.status }}</li>
+  {% empty %}
+    <li>No jobs today</li>
+  {% endfor %}
+</ul>
+
+<h3>Open Invoices</h3>
+<ul>
+  {% for invoice in open_invoices %}
+    <li>
+      <a href="/invoices/{{ invoice.id }}/">
+        Invoice #{{ invoice.id }} — ${{ invoice.total }}
+      </a>
+    </li>
+  {% empty %}
+    <li>No open invoices</li>
+  {% endfor %}
+</ul>
+{% endblock %}

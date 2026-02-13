@@ -1,0 +1,31 @@
+<h1>Crew: {{ crew_user.username }}</h1>
+<p>
+  Date: <strong>{{ day }}</strong><br>
+  Completed: {{ completed }} / {{ total }}
+</p>
+
+<p>
+  <a href="/">← Back to Dashboard</a>
+</p>
+
+<hr>
+
+<table style="width:100%;border-collapse:collapse;">
+  <tr style="text-align:left;">
+    <th>Order</th>
+    <th>Address</th>
+    <th>Status</th>
+    <th>Notes</th>
+  </tr>
+
+  {% for job in jobs %}
+  <tr>
+    <td>{{ job.route_order }}</td>
+    <td>{{ job.property.address }}</td>
+    <td>{{ job.status }}</td>
+    <td>{{ job.notes|default:"-" }}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="4">No jobs assigned.</td></tr>
+  {% endfor %}
+</table>

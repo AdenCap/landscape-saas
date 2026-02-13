@@ -1,0 +1,103 @@
+<h1>Owner Dashboard</h1>
+<p>{{ today }}</p>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0;">
+  <div style="padding:14px;border:1px solid #ddd;border-radius:10px;">
+    <div style="opacity:.7;">Revenue (this month)</div>
+    <div style="font-size:26px;font-weight:700;">${{ revenue_this_month }}</div>
+    <div style="opacity:.7;font-size:12px;">{{ month_start }} → {{ month_end }}</div>
+  </div>
+
+  <div style="padding:14px;border:1px solid #ddd;border-radius:10px;">
+    <div style="opacity:.7;">Outstanding (sent, unpaid)</div>
+    <div style="font-size:26px;font-weight:700;">${{ ar_outstanding }}</div>
+  </div>
+
+  <div style="padding:14px;border:1px solid #ddd;border-radius:10px;">
+    <div style="opacity:.7;">Jobs today</div>
+    <div style="font-size:26px;font-weight:700;">{{ jobs_today }}</div>
+    <div style="margin-top:8px;">
+      <a href="/jobs/calendar/">Calendar</a> ·
+      <a href="/jobs/routes/">Routes</a>
+    </div>
+  </div>
+
+  <div style="padding:14px;border:1px solid #ddd;border-radius:10px;">
+    <div style="opacity:.7;">Completed this week</div>
+    <div style="font-size:26px;font-weight:700;">{{ completed_this_week }}</div>
+  </div>
+</div>
+
+<div style="padding:14px;border:1px solid #ddd;border-radius:10px;margin:18px 0;">
+  <h2 style="margin-top:0;">Today by Crew</h2>
+
+  <table style="width:100%;border-collapse:collapse;">
+    <tr style="text-align:left;">
+      <th>Crew</th>
+      <th style="text-align:right;">Assigned</th>
+      <th style="text-align:right;">Completed</th>
+      <th style="text-align:right;">Remaining</th>
+    </tr>
+
+    {% for row in crew_table %}
+    <tr>
+      <td>
+        <a href="{% url 'crew_day_detail' row.user_id %}">
+          {{ row.name }}
+        </a>
+      </td>
+
+      <td style="text-align:right;">{{ row.total }}</td>
+      <td style="text-align:right;">{{ row.completed }}</td>
+      <td style="text-align:right;">{{ row.remaining }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;">
+  <div style="padding:14px;border:1px solid #ddd;border-radius:10px;">
+    <h2 style="margin-top:0;">Upcoming jobs (7 days)</h2>
+    <table style="width:100%;border-collapse:collapse;">
+      <tr style="text-align:left;">
+        <th>Date</th>
+        <th>Address</th>
+        <th>Crew</th>
+      </tr>
+      {% for job in upcoming_jobs %}
+      <tr>
+        <td>{{ job.scheduled_date }}</td>
+        <td>{{ job.property.address }}</td>
+        <td>{% if job.assigned_to %}{{ job.assigned_to.username }}{% else %}-{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3">No upcoming jobs.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div style="padding:14px;border:1px solid #ddd;border-radius:10px;">
+    <h2 style="margin-top:0;">Recent invoices</h2>
+    <table style="width:100%;border-collapse:collapse;">
+      <tr style="text-align:left;">
+        <th>ID</th>
+        <th>Customer</th>
+        <th>Status</th>
+      </tr>
+      {% for inv in recent_invoices %}
+      <tr>
+        <td><a href="/billing/{{ inv.id }}/">#{{ inv.id }}</a></td>
+        <td>{{ inv.customer }}</td>
+        <td>{{ inv.status }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3">No invoices yet.</td></tr>
+      {% endfor %}
+    </table>
+
+    <div style="margin-top:10px;">
+      <a href="/billing/">View all invoices</a>
+    </div>
+  </div>
+</div>

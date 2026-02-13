@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Landscape Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      min-height: 100vh;
+      background: #f4f6f8;
+    }
+
+    .sidebar {
+      width: 220px;
+      background: #1f2933;
+      color: white;
+      padding: 15px;
+    }
+
+    .sidebar h3 { margin-top: 0; }
+
+    .sidebar a {
+      display: block;
+      color: white;
+      text-decoration: none;
+      margin: 10px 0;
+      padding: 8px 10px;
+      border-radius: 6px;
+    }
+
+    .sidebar a:hover {
+      background: rgba(255,255,255,0.12);
+    }
+
+    .content {
+      flex: 1;
+      padding: 20px;
+    }
+
+    .topbar {
+      display: none;
+      width: 100%;
+      background: #1f2933;
+      color: white;
+      padding: 12px 16px;
+      box-sizing: border-box;
+    }
+
+    .topbar a {
+      color: white;
+      text-decoration: none;
+      margin-right: 14px;
+      font-weight: bold;
+    }
+
+    @media (max-width: 768px) {
+      body { display: block; }
+      .sidebar { display: none; }
+      .topbar { display: block; }
+      .content { padding: 14px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  {% if user.is_authenticated %}
+    <!-- Mobile top bar -->
+    <div class="topbar">
+      {% if user.role == "crew" %}
+        <a href="/jobs/crew/">Today</a>
+      {% else %}
+        <a href="/">Dashboard</a>
+        <a href="/jobs/calendar/">Calendar</a>
+        <a href="/jobs/routes/">Routes</a>
+        <a href="/billing/">Invoices</a>
+      {% endif %}
+      <a href="/admin/logout/">Logout</a>
+    </div>
+
+    <!-- Desktop sidebar -->
+    <div class="sidebar">
+      <h3>Landscape</h3>
+
+      {% if user.role == "crew" %}
+        <a href="/jobs/crew/">Today’s Jobs</a>
+      {% else %}
+        <a href="/">Dashboard</a>
+        <a href="/jobs/calendar/">Calendar</a>
+        <a href="/jobs/routes/">Daily Routes</a>
+        <a href="/billing/">Invoices</a>
+      {% endif %}
+
+      <hr style="border: none; border-top: 1px solid rgba(255,255,255,0.2); margin: 14px 0;">
+
+      <a href="/admin/logout/">Logout</a>
+    </div>
+  {% endif %}
+
+  <div class="content">
+    {% block content %}{% endblock %}
+  </div>
+
+</body>
+</html>

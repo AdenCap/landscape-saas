@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Invoice #{{ invoice.id }}</h1>
+<p>
+  Customer: {{ invoice.customer }}<br>
+  Issue Date: {{ invoice.issue_date }}<br>
+  Due Date: {{ invoice.due_date }}<br>
+  Status: <strong>{{ invoice.status }}</strong><br>
+  Total: ${{ invoice.total }}
+</p>
+
+<p>
+  <a href="{% url 'billing:invoice_pdf' invoice.id %}">Download PDF</a>
+</p>
+
+{% if invoice.status == "draft" %}
+<form method="post" action="{% url 'billing:send_invoice' invoice.id %}">
+  {% csrf_token %}
+  <button type="submit">Mark as Sent</button>
+</form>
+{% endif %}
+
+<hr>
+
+<h2>Line Items</h2>
+<table border="1" cellpadding="6">
+  <tr>
+    <th>Description</th>
+    <th>Qty</th>
+    <th>Unit Price</th>
+    <th>Line Total</th>
+  </tr>
+  {% for item in items %}
+  <tr>
+    <td>{{ item.description }}</td>
+    <td>{{ item.quantity }}</td>
+    <td>${{ item.unit_price }}</td>
+    <td>${{ item.quantity|floatformat:0 }} × ${{ item.unit_price }}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="4">No line items yet.</td></tr>
+  {% endfor %}
+</table>
+
+<p><a href="{% url 'billing:invoice_list' %}">← Back to invoices</a></p>
+
+{% endblock %}

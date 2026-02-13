@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Job: {{ job.property.address }} ({{ job.scheduled_date }})</h2>
+
+<h3>Add service</h3>
+<form method="post" action="{% url 'add_job_service_item' job.id %}">
+  {% csrf_token %}
+  <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
+    <div>
+      <label>Service</label><br>
+      {{ form.service }}
+    </div>
+    <div>
+      <label>Qty</label><br>
+      {{ form.quantity }}
+    </div>
+    <button style="padding:8px 12px;">Add / Update</button>
+  </div>
+</form>
+
+<hr>
+
+<h3>Job items</h3>
+
+<table style="width:100%;background:white;border-radius:8px;padding:10px;">
+  <tr>
+    <th align="left">Service</th>
+    <th align="right">Qty</th>
+    <th align="right">Rate</th>
+    <th align="right">Total</th>
+    <th></th>
+  </tr>
+
+  {% for i in items %}
+  <tr>
+    <td>{{ i.service.name }}</td>
+    <td align="right">{{ i.quantity }} {{ i.unit }}</td>
+    <td align="right">${{ i.unit_price }}</td>
+    <td align="right">${{ i.line_total }}</td>
+    <td align="right">
+      <form method="post" action="{% url 'remove_job_service_item' job.id i.id %}">
+        {% csrf_token %}
+        <button style="padding:6px 10px;">Remove</button>
+      </form>
+    </td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="5">No items yet.</td></tr>
+  {% endfor %}
+</table>
+
+{% endblock %}
