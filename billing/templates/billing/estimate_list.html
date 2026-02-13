@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Estimates</h1>
+    <p>Create and send professional estimates to customers</p>
+  </div>
+  <a href="{% url 'billing:estimate_create' %}" class="btn btn-primary">+ Create Estimate</a>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Customer</th>
+        <th>Title</th>
+        <th class="num">Total</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for est in estimates %}
+      <tr>
+        <td>{{ est.id }}</td>
+        <td><a href="{% url 'customer_detail' est.customer.id %}" class="link-primary">{{ est.customer.name }}</a></td>
+        <td>{{ est.title }}</td>
+        <td class="num">${{ est.total }}</td>
+        <td><span class="badge badge-{{ est.status }}">{{ est.status|title }}</span></td>
+        <td>
+          <a href="{% url 'billing:estimate_detail' est.id %}" class="btn btn-secondary btn-sm">View</a>
+          {% if est.status == 'draft' %}
+          <a href="{% url 'billing:estimate_edit' est.id %}" class="btn btn-secondary btn-sm">Edit</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">No estimates yet. <a href="{% url 'billing:estimate_create' %}" class="link-primary">Create your first estimate</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .badge-draft { background: #e2e8f0; color: #475569; }
+  .badge-sent { background: #e0f2fe; color: #0369a1; }
+  .badge-accepted { background: #d1fae5; color: #065f46; }
+  .badge-declined { background: #fee2e2; color: #991b1b; }
+</style>
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Edit Estimate #{{ estimate.id }}</h1>
+    <p>{{ estimate.customer.name }} · {{ estimate.title }}</p>
+  </div>
+  <a href="{% url 'billing:estimate_detail' estimate.id %}" class="btn btn-secondary">View / Send</a>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="card" style="margin-bottom: 20px;">
+    <h2 class="card-title">Estimate Details</h2>
+    <div class="form-row">
+      <div class="field">{{ form.customer.label_tag }}{{ form.customer }}{{ form.customer.errors }}</div>
+      <div class="field">{{ form.title.label_tag }}{{ form.title }}{{ form.title.errors }}</div>
+    </div>
+    <div class="form-row">
+      <div class="field">{{ form.valid_until.label_tag }}{{ form.valid_until }}{{ form.valid_until.errors }}</div>
+    </div>
+    <div class="field">{{ form.notes.label_tag }}{{ form.notes }}{{ form.notes.errors }}</div>
+  </div>
+
+  <div class="card" style="margin-bottom: 20px;">
+    <h2 class="card-title">Line Items</h2>
+    <p class="muted">Add as many items as needed. Check "Optional add-on" for extras the customer can choose.</p>
+    {{ formset.management_form }}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Qty</th>
+          <th>Unit</th>
+          <th>Unit Price</th>
+          <th>Add-on</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in formset %}
+        <tr class="formset-row">
+          <td>{{ f.description }}{{ f.id }}</td>
+          <td>{{ f.quantity }}</td>
+          <td>{{ f.unit }}</td>
+          <td>{{ f.unit_price }}</td>
+          <td>{{ f.is_addon }}</td>
+          <td>{% if f.instance.pk %}{{ f.DELETE }} Delete{% endif %}{{ f.order }}</td>
+        </tr>
+        {% if f.errors %}<tr><td colspan="6" class="error">{{ f.errors }}</td></tr>{% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+    <button type="submit" class="btn btn-primary" style="margin-top: 16px;">Save Changes</button>
+  </div>
+</form>
+
+<div class="card">
+  <h2 class="card-title">Pictures</h2>
+  {% for img in estimate.images.all %}
+  <div class="estimate-image-row">
+    <img src="{{ img.image.url }}" alt="{{ img.caption }}" style="max-width: 200px; max-height: 150px; border-radius: 8px;">
+    <div>
+      <p>{{ img.caption|default:"—" }}</p>
+    </div>
+  </div>
+  {% empty %}
+  <p class="muted">No images yet. Add photos below.</p>
+  {% endfor %}
+  <form method="post" action="{% url 'billing:estimate_add_image' estimate.id %}" enctype="multipart/form-data" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+    {% csrf_token %}
+    <div class="field">
+      <label>Add image</label>
+      <input type="file" name="image" accept="image/*" required>
+    </div>
+    <div class="field">
+      <label>Caption (optional)</label>
+      <input type="text" name="caption" placeholder="e.g. Front yard, Before photo">
+    </div>
+    <button type="submit" class="btn btn-secondary">Upload Image</button>
+  </form>
+</div>
+
+<style>
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-weight: 500; margin-bottom: 4px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); }
+  .formset-row td input[type="text"], .formset-row td input[type="number"] { width: 100%; padding: 6px 8px; }
+  .formset-row td input[type="checkbox"] { width: auto; }
+  .estimate-image-row { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
+  .muted { color: var(--text-muted); font-size: 14px; }
+</style>
+{% endblock %}

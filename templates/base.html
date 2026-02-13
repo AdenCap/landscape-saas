@@ -217,8 +217,11 @@
           <a href="/clients/" class="btn btn-nav {% if '/clients' in request.path %}active{% endif %}">
             👥 Clients
           </a>
-          <a href="/billing/" class="btn btn-nav {% if '/billing' in request.path %}active{% endif %}">
+          <a href="/billing/" class="btn btn-nav {% if '/billing' in request.path and 'estimates' not in request.path %}active{% endif %}">
             💳 Invoices
+          </a>
+          <a href="/billing/estimates/" class="btn btn-nav {% if '/billing/estimates' in request.path %}active{% endif %}">
+            📋 Estimates
           </a>
           <a href="/time/timesheets/" class="btn btn-nav {% if '/time/timesheets' in request.path %}active{% endif %}">
             ⏱️ Timesheets
@@ -246,6 +249,7 @@
         <a href="/jobs/routes/" class="btn btn-nav">Routes</a>
         <a href="/clients/" class="btn btn-nav">Clients</a>
         <a href="/billing/" class="btn btn-nav">Invoices</a>
+        <a href="/billing/estimates/" class="btn btn-nav">Estimates</a>
         <a href="/time/timesheets/" class="btn btn-nav">Timesheets</a>
         <a href="/employees/" class="btn btn-nav">Employees</a>
       {% endif %}

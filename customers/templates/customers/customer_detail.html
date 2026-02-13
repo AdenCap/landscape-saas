@@ -107,7 +107,10 @@
   </div>
 
   <div class="card card-full">
-    <h2 class="card-title">Invoices</h2>
+    <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+      Invoices
+      <a href="{% url 'billing:estimate_create' %}?customer={{ customer.id }}" class="btn btn-primary btn-sm">+ Create Estimate</a>
+    </h2>
     <p class="kpi-sub">Total paid: <strong>${{ total_revenue }}</strong></p>
     <table class="data-table">
       <thead>
