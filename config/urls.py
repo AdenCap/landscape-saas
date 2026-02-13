@@ -32,4 +32,5 @@ urlpatterns = [
     path("dashboard", include("dashboard.urls")),  # owner dashboard becomes homepage
     path("billing/", include(("billing.urls", "billing"), namespace="billing")),
     path("jobs/", include("jobs.urls")),
+    path("time/", include("time_tracking.urls")),
 ]

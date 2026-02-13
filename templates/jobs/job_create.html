@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Create Job</h1>
+  <p>Schedule a new landscaping job for a property</p>
+</div>
+
+<div class="quick-actions" style="margin-bottom: 24px;">
+  <a href="/" class="btn btn-secondary">← Back to Dashboard</a>
+</div>
+
+<div class="card" style="max-width: 640px;">
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="form-group" style="margin-bottom: 20px;">
+      <label for="id_property">Property / Lawn</label>
+      {{ form.property }}
+      {% if form.property.errors %}<span class="error">{{ form.property.errors.0 }}</span>{% endif %}
+    </div>
+
+    <div class="form-group" style="margin-bottom: 20px;">
+      <label for="id_scheduled_date">Scheduled Date</label>
+      {{ form.scheduled_date }}
+      {% if form.scheduled_date.errors %}<span class="error">{{ form.scheduled_date.errors.0 }}</span>{% endif %}
+    </div>
+
+    <div class="form-group" style="margin-bottom: 20px;">
+      <label for="id_assigned_to">Assigned Crew</label>
+      {{ form.assigned_to }}
+    </div>
+
+    <div class="form-group" style="margin-bottom: 20px;">
+      <label for="id_notes">Notes</label>
+      {{ form.notes }}
+      <small style="color: var(--text-muted); display: block; margin-top: 4px;">Gate codes, dog on premises, access instructions, special requests</small>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 600; margin: 24px 0 16px;">Services</h3>
+    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">Add at least one landscaping service (mowing, edging, fertilization, mulching, etc.)</p>
+
+    {{ formset.management_form }}
+    {% for f in formset %}
+    <div class="form-row form-row-service">
+      <div class="form-group flex-2">
+        <label>Service</label>
+        {{ f.service }}
+      </div>
+      <div class="form-group flex-1">
+        <label>Qty</label>
+        {{ f.quantity }}
+      </div>
+    </div>
+    {% endfor %}
+
+    <div style="margin-top: 28px; display: flex; gap: 12px;">
+      <button type="submit" class="btn btn-primary">Create Job</button>
+      <a href="/" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<style>
+  .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px;
+  }
+  .form-row-service { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-end; }
+  .flex-2 { flex: 2; }
+  .flex-1 { flex: 1; max-width: 120px; }
+  .error { color: #dc2626; font-size: 13px; display: block; margin-top: 4px; }
+</style>
+{% endblock %}

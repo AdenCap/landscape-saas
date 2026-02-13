@@ -18,8 +18,8 @@ class UserAdmin(BaseUserAdmin):
         (None, {'fields': ('username', 'password')}),
         (_('Personal info'), {'fields': ('first_name', 'last_name', 'email')}),
         (_('Business & Role'), {
-            'fields': ('business', 'role'),
-            'description': 'Assign this user to a business and set their role. Crew = employee with field access.',
+            'fields': ('business', 'role', 'hourly_rate'),
+            'description': 'Assign this user to a business and set their role. Crew = employee with field access. Hourly rate is used for labor cost in timesheets.',
         }),
         (_('Permissions'), {
             'fields': ('is_active', 'is_staff', 'is_superuser'),
@@ -39,8 +39,8 @@ class UserAdmin(BaseUserAdmin):
         }),
         (_('Create employee login'), {
             'classes': ('wide',),
-            'fields': ('business', 'role'),
-            'description': 'Select the business and set role to Crew for field employees. Employees use this login to access their daily schedule.',
+            'fields': ('business', 'role', 'hourly_rate'),
+            'description': 'Select the business and set role to Crew for field employees. Hourly rate is used for labor cost in timesheets.',
         }),
     )
 

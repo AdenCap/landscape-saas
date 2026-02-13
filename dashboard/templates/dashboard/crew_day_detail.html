@@ -1,31 +1,48 @@
-<h1>Crew: {{ crew_user.username }}</h1>
-<p>
-  Date: <strong>{{ day }}</strong><br>
-  Completed: {{ completed }} / {{ total }}
-</p>
+{% extends "base.html" %}
 
-<p>
-  <a href="/">← Back to Dashboard</a>
-</p>
+{% block content %}
+<div class="page-header">
+  <h1>Crew: {{ crew_user.username }}</h1>
+  <p>Date: <strong>{{ day }}</strong> · Completed: {{ completed }} / {{ total }}</p>
+</div>
 
-<hr>
+<div class="quick-actions" style="margin-bottom: 20px;">
+  <a href="/" class="btn btn-secondary">← Back to Dashboard</a>
+</div>
 
-<table style="width:100%;border-collapse:collapse;">
-  <tr style="text-align:left;">
-    <th>Order</th>
-    <th>Address</th>
-    <th>Status</th>
-    <th>Notes</th>
-  </tr>
+<div class="card">
+  <h2 class="card-title">Jobs for the day</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Order</th>
+        <th>Address</th>
+        <th>Status</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr>
+        <td>{{ job.route_order }}</td>
+        <td>{{ job.property.address }}</td>
+        <td><span class="badge badge-{{ job.status }}">{{ job.status }}</span></td>
+        <td>{{ job.notes|default:"-" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">No jobs assigned.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 
-  {% for job in jobs %}
-  <tr>
-    <td>{{ job.route_order }}</td>
-    <td>{{ job.property.address }}</td>
-    <td>{{ job.status }}</td>
-    <td>{{ job.notes|default:"-" }}</td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="4">No jobs assigned.</td></tr>
-  {% endfor %}
-</table>
+<style>
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th, .data-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  .data-table th { font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+  .badge-scheduled { background: #e0f2fe; color: #0369a1; }
+  .badge-in_progress { background: #fef3c7; color: #92400e; }
+  .badge-completed { background: #d1fae5; color: #065f46; }
+</style>
+{% endblock %}

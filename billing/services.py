@@ -38,6 +38,19 @@ def _decimal(val, default="0.00"):
 
 
 @transaction.atomic
+def create_and_send_invoice_for_job(job, send=True):
+    """
+    Create invoice for job, add line items from JobServiceItems, optionally mark as sent.
+    Use for immediate billing when job is completed.
+    """
+    invoice = create_draft_invoice_for_job(job)
+    if send and invoice.status == "draft":
+        invoice.status = "sent"
+        invoice.save(update_fields=["status"])
+    return invoice
+
+
+@transaction.atomic
 def create_invoice_for_job(job):
     # derive business/customer from your existing relationships
     business = getattr(job.property, "business", None)
@@ -76,7 +89,7 @@ def create_draft_invoice_for_job(job):
     invoice, created = Invoice.objects.get_or_create(
         job=job,
         defaults={
-            "business": job.property.business if hasattr(job.property, "business") else job.property.customer.business,
+            "business": job.property.customer.business,
             "customer": job.property.customer,
             "issue_date": timezone.localdate(),
             "due_date": timezone.localdate(),  # adjust if you want net-15/net-30

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Job Completed</h1>
+  <p>{{ job.property.address }} — {{ job.scheduled_date }}</p>
+</div>
+
+<div class="card" style="max-width: 520px;">
+  <h2 class="card-title">How would you like to bill this job?</h2>
+  <p style="color: var(--text-muted); margin-bottom: 24px;">
+    Create an invoice now or add this job to {{ customer.name }}'s monthly invoice.
+  </p>
+
+  <div style="display: flex; flex-direction: column; gap: 12px;">
+    <form method="post" action="{% url 'job_bill_now' job.id %}" style="display: block;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+        Send Invoice Now
+      </button>
+    </form>
+    <p style="font-size: 13px; color: var(--text-muted); margin: 0;">
+      Creates an invoice for this job and marks it as sent. Best for one-off or urgent billing.
+    </p>
+
+    <form method="post" action="{% url 'job_add_to_monthly' job.id %}" style="display: block;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-secondary" style="width: 100%; justify-content: center;">
+        Add to Monthly Invoice
+      </button>
+    </form>
+    <p style="font-size: 13px; color: var(--text-muted); margin: 0;">
+      Adds this job to {{ customer.name }}'s invoice for {{ job.scheduled_date|date:"F Y" }}. Use when combining with other services this month.
+    </p>
+  </div>
+
+  <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
+    <a href="{% url 'job_detail' job.id %}" class="link-primary">View job details</a>
+    &nbsp;·&nbsp;
+    <a href="/" class="link-primary">Back to Dashboard</a>
+  </div>
+</div>
+{% endblock %}

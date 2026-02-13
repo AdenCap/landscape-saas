@@ -2,11 +2,13 @@ import json
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
+from django.contrib import messages
 from accounts.decorators import role_required
-from billing.services import create_draft_invoice_for_job
+from billing.services import create_draft_invoice_for_job, create_and_send_invoice_for_job
+from billing.monthly import generate_monthly_invoice_for_customer
 from .models import Job, JobServiceItem
-from .forms import AddJobServiceItemForm
+from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset
 from pricing.utils import get_effective_rate
 
 
@@ -48,6 +50,8 @@ def update_route_order(request):
 
 @role_required("owner", "crew")
 def crew_today_view(request):
+    from time_tracking.models import TimeEntry
+
     today = timezone.now().date()
 
     jobs = Job.objects.filter(scheduled_date=today).select_related("property")
@@ -57,7 +61,15 @@ def crew_today_view(request):
 
     jobs = jobs.order_by("route_order")
 
-    return render(request, "jobs/crew_today.html", {"jobs": jobs})
+    # For clock in/out widget
+    time_clock_current_entry = TimeEntry.objects.filter(
+        user=request.user, clock_out__isnull=True
+    ).order_by('-clock_in').first() if request.user.is_authenticated else None
+
+    return render(request, "jobs/crew_today.html", {
+        "jobs": jobs,
+        "time_clock_current_entry": time_clock_current_entry,
+    })
 
 @require_POST
 @role_required("owner", "crew")
@@ -84,10 +96,108 @@ def complete_job(request, job_id):
     job.status = "completed"
     job.save()
 
-    # Create invoice draft (NOT sent)
-    create_draft_invoice_for_job(job)
-
+    # Owner: choose billing (send now or add to monthly). Crew: done, owner bills later.
+    if request.user.role == "owner":
+        return redirect("job_billing_options", job_id=job_id)
+    messages.success(request, "Job completed. The owner will handle billing.")
     return redirect("crew_today")
+
+@role_required("owner")
+def create_job(request):
+    """Create a new landscaping job from the dashboard."""
+    business = request.user.business
+    if not business:
+        messages.error(request, "You must be associated with a business to create jobs.")
+        return redirect("owner_dashboard")
+
+    if request.method == "POST":
+        form = CreateJobForm(request.POST, business=business)
+        ServiceFormSet = get_job_service_formset(business)
+        formset = ServiceFormSet(request.POST)
+        if form.is_valid() and formset.is_valid():
+            prop = form.cleaned_data["property"]
+            job = Job.objects.create(
+                property=prop,
+                scheduled_date=form.cleaned_data["scheduled_date"],
+                assigned_to=form.cleaned_data.get("assigned_to"),
+                notes=form.cleaned_data.get("notes") or "",
+                status="scheduled",
+            )
+            for form_data in formset:
+                if form_data.cleaned_data.get("service"):
+                    service = form_data.cleaned_data["service"]
+                    qty = form_data.cleaned_data["quantity"]
+                    unit, rate = get_effective_rate(prop, service)
+                    JobServiceItem.objects.create(
+                        job=job,
+                        service=service,
+                        quantity=qty,
+                        unit=unit,
+                        unit_price=rate,
+                    )
+            messages.success(request, f"Job created for {prop.address} on {job.scheduled_date}.")
+            return redirect("job_detail", job_id=job.id)
+    else:
+        form = CreateJobForm(business=business)
+        ServiceFormSet = get_job_service_formset(business)
+        formset = ServiceFormSet()
+
+    return render(request, "jobs/job_create.html", {
+        "form": form,
+        "formset": formset,
+    })
+
+
+@role_required("owner")
+def job_billing_options(request, job_id):
+    """After job completion: choose to send invoice now or add to monthly."""
+    job = get_object_or_404(Job, id=job_id)
+    if job.status != "completed":
+        return redirect("job_detail", job_id=job_id)
+
+    return render(request, "jobs/job_billing_options.html", {
+        "job": job,
+        "customer": job.property.customer,
+    })
+
+
+@require_POST
+@role_required("owner")
+def job_bill_now(request, job_id):
+    """Create and send invoice immediately for completed job."""
+    job = get_object_or_404(Job, id=job_id)
+    if job.status != "completed":
+        messages.error(request, "Only completed jobs can be invoiced.")
+        return redirect("job_detail", job_id=job_id)
+
+    if not job.service_items.exists():
+        messages.error(request, "Add at least one service to the job before invoicing.")
+        return redirect("job_detail", job_id=job_id)
+
+    create_and_send_invoice_for_job(job, send=True)
+    messages.success(request, f"Invoice created and sent for {job.property.address}.")
+    return redirect("billing:invoice_list")
+
+
+@require_POST
+@role_required("owner")
+def job_add_to_monthly(request, job_id):
+    """Add completed job to customer's monthly invoice."""
+    job = get_object_or_404(Job, id=job_id)
+    if job.status != "completed":
+        messages.error(request, "Only completed jobs can be added to monthly invoice.")
+        return redirect("job_detail", job_id=job_id)
+
+    customer = job.property.customer
+    d = job.scheduled_date
+    invoice = generate_monthly_invoice_for_customer(customer, d.year, d.month)
+    messages.success(
+        request,
+        f"Job added to {customer.name}'s monthly invoice for {d.strftime('%B %Y')}. "
+        f"Invoice #{invoice.id} is in draft.",
+    )
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
 
 @role_required("owner")
 def job_detail(request, job_id):
@@ -100,10 +210,12 @@ def job_detail(request, job_id):
 
     form = AddJobServiceItemForm(business=business)
 
+    has_unbilled = job.service_items.filter(billed_invoice__isnull=True).exists()
     return render(request, "jobs/job_detail.html", {
         "job": job,
         "form": form,
         "items": job.service_items.select_related("service").all(),
+        "has_unbilled_items": has_unbilled,
     })
 
 

@@ -1,108 +1,265 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Landscape Manager</title>
+  <title>{% block title %}Landscape Manager{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
 
   <style>
+    :root {
+      --primary: #0d9488;
+      --primary-hover: #0f766e;
+      --primary-light: #ccfbf1;
+      --secondary: #334155;
+      --accent: #059669;
+      --surface: #ffffff;
+      --surface-alt: #f8fafc;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+    }
+
+    * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
-      display: flex;
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--surface-alt);
+      color: var(--text);
       min-height: 100vh;
-      background: #f4f6f8;
+      display: flex;
     }
+
+    /* Button styles – used across the app */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 10px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary {
+      background: white;
+      color: var(--secondary);
+      border: 2px solid var(--border);
+    }
+    .btn-secondary:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .btn-nav {
+      width: 100%;
+      justify-content: flex-start;
+      padding: 12px 16px;
+      background: transparent;
+      color: rgba(255,255,255,0.9);
+      border-radius: 10px;
+      text-align: left;
+    }
+    .btn-nav:hover {
+      background: rgba(255,255,255,0.12);
+      color: white;
+    }
+    .btn-nav.active {
+      background: rgba(255,255,255,0.18);
+      color: white;
+    }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
 
     .sidebar {
-      width: 220px;
-      background: #1f2933;
-      color: white;
-      padding: 15px;
-    }
-
-    .sidebar h3 { margin-top: 0; }
-
-    .sidebar a {
-      display: block;
-      color: white;
-      text-decoration: none;
-      margin: 10px 0;
-      padding: 8px 10px;
-      border-radius: 6px;
-    }
-
-    .sidebar a:hover {
-      background: rgba(255,255,255,0.12);
-    }
-
-    .content {
-      flex: 1;
+      width: 260px;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
       padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-brand {
+      font-size: 22px;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 28px;
+      padding: 0 4px;
+      letter-spacing: -0.02em;
+    }
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .sidebar-divider {
+      height: 1px;
+      background: rgba(255,255,255,0.12);
+      margin: 16px 0;
+    }
+    .sidebar-footer .btn-nav {
+      color: rgba(255,255,255,0.7);
+    }
+
+    .main-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
     }
 
     .topbar {
       display: none;
-      width: 100%;
-      background: #1f2933;
-      color: white;
+      background: #0f172a;
       padding: 12px 16px;
-      box-sizing: border-box;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .topbar .btn-nav {
+      width: auto;
+      padding: 10px 14px;
     }
 
-    .topbar a {
-      color: white;
-      text-decoration: none;
-      margin-right: 14px;
-      font-weight: bold;
+    .content {
+      flex: 1;
+      padding: 24px;
     }
+
+    .page-header {
+      margin-bottom: 24px;
+    }
+    .page-header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin: 0 0 4px 0;
+      letter-spacing: -0.02em;
+    }
+    .page-header p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border: 1px solid var(--border);
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 16px 0;
+    }
+
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th, .data-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    .data-table th { font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); }
+    .data-table .num { text-align: right; }
+
+    .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+
+    .link-primary { color: var(--primary); font-weight: 500; text-decoration: none; }
+    .link-primary:hover { text-decoration: underline; }
+
+    .messages { margin-bottom: 20px; }
+    .alert { padding: 12px 16px; border-radius: 10px; font-size: 14px; }
+    .alert-success { background: #d1fae5; color: #065f46; }
+    .alert-error { background: #fee2e2; color: #991b1b; }
+    .alert-warning { background: #fef3c7; color: #92400e; }
+    .alert-info { background: #dbeafe; color: #1e40af; }
 
     @media (max-width: 768px) {
-      body { display: block; }
+      body { flex-direction: column; }
       .sidebar { display: none; }
-      .topbar { display: block; }
-      .content { padding: 14px; }
+      .topbar { display: flex; }
+      .content { padding: 16px; }
     }
   </style>
+  {% block extra_css %}{% endblock %}
 </head>
-
 <body>
 
   {% if user.is_authenticated %}
-    <!-- Mobile top bar -->
-    <div class="topbar">
-      {% if user.role == "crew" %}
-        <a href="/jobs/crew/">Today</a>
-      {% else %}
-        <a href="/">Dashboard</a>
-        <a href="/jobs/calendar/">Calendar</a>
-        <a href="/jobs/routes/">Routes</a>
-        <a href="/billing/">Invoices</a>
-      {% endif %}
-      <a href="/admin/logout/">Logout</a>
-    </div>
-
     <!-- Desktop sidebar -->
-    <div class="sidebar">
-      <h3>Landscape</h3>
+    <aside class="sidebar">
+      <div class="sidebar-brand">Landscape</div>
 
+      <nav class="sidebar-nav">
+        {% if user.role == "crew" %}
+          <a href="/jobs/crew/" class="btn btn-nav {% if '/jobs/crew' in request.path %}active{% endif %}">
+            📋 Today's Jobs
+          </a>
+          <a href="/time/" class="btn btn-nav {% if '/time' in request.path %}active{% endif %}">
+            ⏱️ Time Clock
+          </a>
+        {% else %}
+          <a href="/" class="btn btn-nav {% if request.path == '/' or request.path == '' %}active{% endif %}">
+            📊 Dashboard
+          </a>
+          <a href="/jobs/calendar/" class="btn btn-nav {% if '/jobs/calendar' in request.path %}active{% endif %}">
+            📅 Calendar
+          </a>
+          <a href="/jobs/routes/" class="btn btn-nav {% if '/jobs/routes' in request.path %}active{% endif %}">
+            🗺️ Daily Routes
+          </a>
+          <a href="/billing/" class="btn btn-nav {% if '/billing' in request.path %}active{% endif %}">
+            💳 Invoices
+          </a>
+          <a href="/time/timesheets/" class="btn btn-nav {% if '/time/timesheets' in request.path %}active{% endif %}">
+            ⏱️ Timesheets
+          </a>
+        {% endif %}
+      </nav>
+
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-footer">
+        <a href="{% url 'logout' %}" class="btn btn-nav">Logout</a>
+      </div>
+    </aside>
+
+    <!-- Mobile top bar -->
+    <header class="topbar">
       {% if user.role == "crew" %}
-        <a href="/jobs/crew/">Today’s Jobs</a>
+        <a href="/jobs/crew/" class="btn btn-nav">Today</a>
+        <a href="/time/" class="btn btn-nav">Time</a>
       {% else %}
-        <a href="/">Dashboard</a>
-        <a href="/jobs/calendar/">Calendar</a>
-        <a href="/jobs/routes/">Daily Routes</a>
-        <a href="/billing/">Invoices</a>
+        <a href="/" class="btn btn-nav">Dashboard</a>
+        <a href="/jobs/calendar/" class="btn btn-nav">Calendar</a>
+        <a href="/jobs/routes/" class="btn btn-nav">Routes</a>
+        <a href="/billing/" class="btn btn-nav">Invoices</a>
+        <a href="/time/timesheets/" class="btn btn-nav">Timesheets</a>
       {% endif %}
-
-      <hr style="border: none; border-top: 1px solid rgba(255,255,255,0.2); margin: 14px 0;">
-
-      <a href="/admin/logout/">Logout</a>
-    </div>
+      <a href="{% url 'logout' %}" class="btn btn-nav">Logout</a>
+    </header>
   {% endif %}
 
-  <div class="content">
-    {% block content %}{% endblock %}
-  </div>
+  <main class="main-wrap">
+    <div class="content">
+      {% if messages %}
+      <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+          {{ message }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </div>
+  </main>
 
+  {% block extra_js %}{% endblock %}
 </body>
 </html>

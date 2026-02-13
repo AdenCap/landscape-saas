@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Time Clock</h1>
+  <p>Clock in and out to track your hours</p>
+</div>
+
+<div class="clock-card card">
+  {% if current_entry %}
+  <div class="clock-status clocked-in">
+    <span class="clock-badge">Clocked In</span>
+    <p class="clock-time">Since {{ current_entry.clock_in|date:"g:i A" }}</p>
+    <form method="post" action="{% url 'time_clock_out' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary btn-clock">
+        Clock Out
+      </button>
+    </form>
+  </div>
+  {% else %}
+  <div class="clock-status clocked-out">
+    <span class="clock-badge">Clocked Out</span>
+    <form method="post" action="{% url 'time_clock_in' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary btn-clock">
+        Clock In
+      </button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-top: 20px;">
+  <h2 class="card-title">Today's Hours</h2>
+  <p class="today-total">{{ today_hours_display }}</p>
+  <p class="today-label">Total time today</p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Clock In</th>
+        <th>Clock Out</th>
+        <th class="num">Duration</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in today_entries %}
+      <tr>
+        <td>{{ e.clock_in|date:"g:i A" }}</td>
+        <td>{% if e.clock_out %}{{ e.clock_out|date:"g:i A" }}{% else %}—{% endif %}</td>
+        <td class="num">{{ e.duration_display }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3">No entries today.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .clock-card { max-width: 400px; text-align: center; padding: 32px; }
+  .clock-status { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .clock-badge { font-size: 14px; font-weight: 600; padding: 6px 14px; border-radius: 20px; }
+  .clocked-in .clock-badge { background: #d1fae5; color: #065f46; }
+  .clocked-out .clock-badge { background: #e2e8f0; color: #475569; }
+  .clock-time { margin: 0; color: var(--text-muted); font-size: 15px; }
+  .btn-clock { min-width: 180px; padding: 14px 24px; font-size: 16px; }
+  .today-total { font-size: 24px; font-weight: 700; margin: 0 0 4px 0; }
+  .today-label { margin: 0; color: var(--text-muted); font-size: 14px; }
+</style>
+{% endblock %}

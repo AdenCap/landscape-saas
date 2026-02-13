@@ -18,6 +18,7 @@ def generate_monthly_invoice_for_customer(customer, year, month):
         customer=customer,
         period_start=period_start,
         period_end=period_end,
+        job__isnull=True,
         defaults={"status": "draft"},
     )
 

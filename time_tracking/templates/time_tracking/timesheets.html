@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Employee Timesheets</h1>
+  <p>Weekly and yearly hours and labor costs</p>
+</div>
+
+<div class="kpi-grid" style="margin-bottom: 24px;">
+  <div class="kpi-card card">
+    <div class="kpi-label">This Week's Labor Cost</div>
+    <div class="kpi-value">${{ total_week_cost }}</div>
+    <div class="kpi-sub">{{ week_start }} → {{ week_end }}</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-label">This Year's Labor Cost</div>
+    <div class="kpi-value">${{ total_year_cost }}</div>
+    <div class="kpi-sub">{{ year_start }} → {{ year_end }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="card-title">By Employee</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Employee</th>
+        <th class="num">Hourly Rate</th>
+        <th class="num">Week Hours</th>
+        <th class="num">Week Cost</th>
+        <th class="num">Year Hours</th>
+        <th class="num">Year Cost</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for stat in employee_stats %}
+      <tr>
+        <td>{{ stat.user.get_full_name|default:stat.user.username }}</td>
+        <td class="num">${{ stat.hourly_rate }}/hr</td>
+        <td class="num">{{ stat.week_display }}</td>
+        <td class="num">${{ stat.week_cost }}</td>
+        <td class="num">{{ stat.year_display }}</td>
+        <td class="num">${{ stat.year_cost }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">No crew members. Add employees with the "Crew" role to see timesheets.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .kpi-card .kpi-label { color: var(--text-muted); font-size: 13px; margin-bottom: 4px; }
+  .kpi-card .kpi-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .kpi-card .kpi-sub { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+</style>
+{% endblock %}

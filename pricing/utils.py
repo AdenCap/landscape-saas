@@ -3,8 +3,8 @@ from decimal import Decimal
 from pricing.models import ServiceTemplate
 
 class JobServiceItem(models.Model):
-    job = models.ForeignKey("jobs.Job", on_delete=models.CASCADE, related_name="service_items")
-    service = models.ForeignKey(ServiceTemplate, on_delete=models.PROTECT)
+    job = models.ForeignKey("jobs.Job", on_delete=models.CASCADE, related_name="pricing_service_items")
+    service = models.ForeignKey(ServiceTemplate, on_delete=models.PROTECT, related_name="pricing_jobserviceitem_set")
 
     description = models.CharField(max_length=255, blank=True)  # optional override label
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("1.00"))

@@ -1,48 +1,55 @@
 {% extends "base.html" %}
+
 {% block content %}
+<div class="page-header">
+  <h1>Invoice #{{ invoice.id }}</h1>
+  <p>Customer: {{ invoice.customer }} · Status: <strong>{{ invoice.status }}</strong></p>
+</div>
 
-<h1>Invoice #{{ invoice.id }}</h1>
-<p>
-  Customer: {{ invoice.customer }}<br>
-  Issue Date: {{ invoice.issue_date }}<br>
-  Due Date: {{ invoice.due_date }}<br>
-  Status: <strong>{{ invoice.status }}</strong><br>
-  Total: ${{ invoice.total }}
-</p>
+<div class="invoice-meta card" style="margin-bottom: 20px;">
+  <p style="margin: 0;">
+    <strong>Issue Date:</strong> {{ invoice.issue_date }} &nbsp;|&nbsp;
+    <strong>Due Date:</strong> {{ invoice.due_date }} &nbsp;|&nbsp;
+    <strong>Total:</strong> ${{ invoice.total }}
+  </p>
+</div>
 
-<p>
-  <a href="{% url 'billing:invoice_pdf' invoice.id %}">Download PDF</a>
-</p>
+<div class="quick-actions">
+  <a href="{% url 'billing:invoice_pdf' invoice.id %}" class="btn btn-primary">
+    Download PDF
+  </a>
+  {% if invoice.status == "draft" %}
+  <form method="post" action="{% url 'billing:send_invoice' invoice.id %}" style="display: inline;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-secondary">Mark as Sent</button>
+  </form>
+  {% endif %}
+  <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">← Back to Invoices</a>
+</div>
 
-{% if invoice.status == "draft" %}
-<form method="post" action="{% url 'billing:send_invoice' invoice.id %}">
-  {% csrf_token %}
-  <button type="submit">Mark as Sent</button>
-</form>
-{% endif %}
-
-<hr>
-
-<h2>Line Items</h2>
-<table border="1" cellpadding="6">
-  <tr>
-    <th>Description</th>
-    <th>Qty</th>
-    <th>Unit Price</th>
-    <th>Line Total</th>
-  </tr>
-  {% for item in items %}
-  <tr>
-    <td>{{ item.description }}</td>
-    <td>{{ item.quantity }}</td>
-    <td>${{ item.unit_price }}</td>
-    <td>${{ item.quantity|floatformat:0 }} × ${{ item.unit_price }}</td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="4">No line items yet.</td></tr>
-  {% endfor %}
-</table>
-
-<p><a href="{% url 'billing:invoice_list' %}">← Back to invoices</a></p>
-
+<div class="card" style="margin-top: 24px;">
+  <h2 class="card-title">Line Items</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="num">Qty</th>
+        <th class="num">Unit Price</th>
+        <th class="num">Line Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.description }}</td>
+        <td class="num">{{ item.quantity }}</td>
+        <td class="num">${{ item.unit_price }}</td>
+        <td class="num">${{ item.quantity|floatformat:0 }} × ${{ item.unit_price }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No line items yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}

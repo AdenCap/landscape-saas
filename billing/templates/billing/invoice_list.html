@@ -1,23 +1,50 @@
 {% extends "base.html" %}
+
 {% block content %}
+<div class="page-header">
+  <h1>Invoices</h1>
+  <p>Manage and view all invoices</p>
+</div>
 
-<h1>Invoices</h1>
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Customer</th>
+        <th>Issue Date</th>
+        <th>Status</th>
+        <th>Total</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in invoices %}
+      <tr>
+        <td><a href="{% url 'billing:invoice_detail' inv.id %}" class="link-primary">#{{ inv.id }}</a></td>
+        <td>{{ inv.customer }}</td>
+        <td>{{ inv.issue_date }}</td>
+        <td><span class="badge badge-{{ inv.status|lower }}">{{ inv.status }}</span></td>
+        <td><strong>${{ inv.total }}</strong></td>
+        <td>
+          <a href="{% url 'billing:invoice_detail' inv.id %}" class="btn btn-primary btn-sm">View</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">
+          No invoices yet.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 
-<table border="1" cellpadding="6">
-  <tr>
-    <th>ID</th>
-    <th>Customer</th>
-    <th>Issue Date</th>
-    <th>Status</th>
-    <th>Total</th>
-  </tr>
-  {% for inv in invoices %}
-  <tr>
-    <td><a href="{% url 'billing:invoice_detail' inv.id %}">{{ inv.id }}</a></td>
-    <td>{{ inv.customer }}</td>
-    <td>{{ inv.issue_date }}</td>
-    <td>{{ inv.status }}</td>
-    <td>${{ inv.total }}</td>
-  </tr>
-  {% endfor %}
-</table>
+<style>
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+  .badge-sent { background: #fef3c7; color: #92400e; }
+  .badge-paid { background: #d1fae5; color: #065f46; }
+  .badge-draft { background: #e2e8f0; color: #475569; }
+</style>
+{% endblock %}

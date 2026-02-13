@@ -1,52 +1,80 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h2>Today’s Jobs</h2>
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Today's Jobs</h1>
+    <p>Your assigned jobs for today</p>
+  </div>
+  <div class="clock-widget card">
+    {% if time_clock_current_entry %}
+    <form method="post" action="{% url 'time_clock_out' %}" style="margin: 0;">
+      {% csrf_token %}
+      <span class="clock-badge in">Clocked in</span>
+      <button type="submit" class="btn btn-secondary btn-sm">Clock Out</button>
+    </form>
+    {% else %}
+    <form method="post" action="{% url 'time_clock_in' %}" style="margin: 0;">
+      {% csrf_token %}
+      <span class="clock-badge out">Clocked out</span>
+      <button type="submit" class="btn btn-primary btn-sm">Clock In</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
 
 {% for job in jobs %}
-  <div style="background:white;padding:15px;margin-bottom:10px;border-radius:8px;">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <strong>{{ job.property.address }}</strong>
-      <span style="
-        padding:4px 8px;
-        border-radius:6px;
-        background:#eee;
-        font-size:12px;
-      ">
-        {{ job.status }}
-      </span>
-    </div>
-
-    {% if job.notes %}
-      <p style="margin:10px 0 0 0;"><em>{{ job.notes }}</em></p>
-    {% endif %}
-
-    <div style="margin-top:12px;">
-      {% if job.status == "scheduled" %}
-        <form method="post" action="{% url 'start_job' job.id %}">
-          {% csrf_token %}
-          <button style="width:100%;padding:10px;background:#2563eb;color:white;border:none;border-radius:6px;">
-            Start Job
-          </button>
-        </form>
-
-      {% elif job.status == "in_progress" %}
-        <form method="post" action="{% url 'complete_job' job.id %}">
-          {% csrf_token %}
-          <button style="width:100%;padding:10px;background:green;color:white;border:none;border-radius:6px;">
-            Complete Job
-          </button>
-        </form>
-
-      {% elif job.status == "completed" %}
-        <button disabled style="width:100%;padding:10px;background:#9ca3af;color:white;border:none;border-radius:6px;">
-          Completed
-        </button>
-      {% endif %}
-    </div>
+<div class="job-card card">
+  <div class="job-card-header">
+    <strong>{{ job.property.address }}</strong>
+    <span class="badge badge-{{ job.status|cut:'_' }}">{{ job.status }}</span>
   </div>
 
+  {% if job.notes %}
+  <p class="job-notes"><em>{{ job.notes }}</em></p>
+  {% endif %}
+
+  <div class="job-actions">
+    {% if job.status == "scheduled" %}
+    <form method="post" action="{% url 'start_job' job.id %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary" style="width: 100%;">
+        Start Job
+      </button>
+    </form>
+    {% elif job.status == "in_progress" %}
+    <form method="post" action="{% url 'complete_job' job.id %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary" style="width: 100%; background: var(--accent);">
+        Complete Job
+      </button>
+    </form>
+    {% elif job.status == "completed" %}
+    <button disabled class="btn btn-secondary" style="width: 100%; opacity: 0.7; cursor: not-allowed;">
+      ✓ Completed
+    </button>
+    {% endif %}
+  </div>
+</div>
 {% empty %}
-  <p>No jobs assigned to you today.</p>
+<div class="card">
+  <p style="margin: 0; color: var(--text-muted);">No jobs assigned to you today.</p>
+</div>
 {% endfor %}
 
+<style>
+  .clock-widget { padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .clock-widget form { display: flex; align-items: center; gap: 12px; }
+  .clock-badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; }
+  .clock-badge.in { background: #d1fae5; color: #065f46; }
+  .clock-badge.out { background: #e2e8f0; color: #475569; }
+  .job-card { margin-bottom: 16px; }
+  .job-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .job-notes { margin: 10px 0 0 0; color: var(--text-muted); font-size: 14px; }
+  .job-actions { margin-top: 14px; }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+  .badge-scheduled { background: #e0f2fe; color: #0369a1; }
+  .badge-inprogress { background: #fef3c7; color: #92400e; }
+  .badge-completed { background: #d1fae5; color: #065f46; }
+</style>
 {% endblock %}

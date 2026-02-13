@@ -1,14 +1,28 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>Daily Routes</h2>
 
-<ul id="route-list">
-  {% for job in jobs %}
-    <li data-id="{{ job.id }}">{{ job.property.address }}</li>
-  {% empty %}
-    <li>No jobs for this day.</li>
-  {% endfor %}
-</ul>
+{% block content %}
+<div class="page-header">
+  <h1>Daily Routes</h1>
+  <p>Drag to reorder jobs for the day</p>
+</div>
+
+<div class="quick-actions" style="margin-bottom: 20px;">
+  <a href="/jobs/calendar/" class="btn btn-primary">View Calendar</a>
+  <a href="/" class="btn btn-secondary">Back to Dashboard</a>
+</div>
+
+<div class="card">
+  <ul id="route-list" class="route-list">
+    {% for job in jobs %}
+    <li class="route-item" data-id="{{ job.id }}">
+      <span class="route-handle">⋮⋮</span>
+      <span class="route-address">{{ job.property.address }}</span>
+    </li>
+    {% empty %}
+    <li class="route-item route-item-empty">No jobs for this day.</li>
+    {% endfor %}
+  </ul>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
@@ -35,4 +49,14 @@
     });
   }
 </script>
+
+<style>
+  .route-list { list-style: none; padding: 0; margin: 0; }
+  .route-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: grab; background: white; }
+  .route-item:last-child { border-bottom: none; }
+  .route-item:active { cursor: grabbing; }
+  .route-handle { color: var(--text-muted); font-size: 14px; cursor: grab; }
+  .route-address { font-weight: 500; flex: 1; }
+  .route-item-empty { cursor: default; color: var(--text-muted); }
+</style>
 {% endblock %}

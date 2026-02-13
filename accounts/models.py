@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from businesses.models import Business
 
+
 class User(AbstractUser):
     ROLE_CHOICES = [
         ('owner', 'Owner'),
@@ -16,6 +17,13 @@ class User(AbstractUser):
         blank=True
     )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='crew')
+    hourly_rate = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Hourly cost for crew members (used for labor cost reporting)'
+    )
 
     def __str__(self):
         return f"{self.username} ({self.role})"

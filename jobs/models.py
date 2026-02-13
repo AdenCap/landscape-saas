@@ -47,26 +47,9 @@ class Job(models.Model):
         return f"{self.property.address} - {self.scheduled_date}"
     
     def save(self, *args, **kwargs):
-        is_new_completion = False
-
-        if self.pk:
-            previous = Job.objects.get(pk=self.pk)
-            if previous.status != 'completed' and self.status == 'completed':
-                is_new_completion = True
-
         super().save(*args, **kwargs)
 
-        if is_new_completion:
-            from billing.services import create_invoice_for_job
-            create_invoice_for_job(self)
 
-
-def line_total(self):
-    return self.quantity * self.unit_price
-
-def __str__(self):
-    return f"{self.job} - {self.service.name}"
-    
 class JobServiceItem(models.Model):
         job = models.ForeignKey("jobs.Job", on_delete=models.CASCADE, related_name="service_items")
         service = models.ForeignKey(ServiceTemplate, on_delete=models.PROTECT)
@@ -87,6 +70,11 @@ class JobServiceItem(models.Model):
         )
         billed_at = models.DateTimeField(null=True, blank=True)
 
+        def line_total(self):
+            return self.quantity * self.unit_price
+
+        def __str__(self):
+            return f"{self.job} - {self.service.name}"
 
 
 class RecurringJob(models.Model):
@@ -121,25 +109,4 @@ class RecurringJob(models.Model):
 
     def __str__(self):
         return f"{self.property.address} ({self.frequency})"
-    
-    
-
-
-recurring_job = models.ForeignKey(
-    RecurringJob,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    related_name='jobs'
-)
-
-
-from billing.models import Service
-
-service = models.ForeignKey(
-    Service,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True
-)
 

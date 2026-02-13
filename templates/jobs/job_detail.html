@@ -1,53 +1,85 @@
 {% extends "base.html" %}
+
 {% block content %}
+<div class="page-header">
+  <h1>{{ job.property.address }}</h1>
+  <p>Scheduled: {{ job.scheduled_date }} · <span class="badge badge-{{ job.status|cut:'_' }}">{{ job.status }}</span></p>
+</div>
 
-<h2>Job: {{ job.property.address }} ({{ job.scheduled_date }})</h2>
+<div class="quick-actions" style="margin-bottom: 24px;">
+  <a href="/jobs/calendar/" class="btn btn-secondary">← Back to Calendar</a>
+  <a href="/" class="btn btn-secondary">Dashboard</a>
+</div>
 
-<h3>Add service</h3>
-<form method="post" action="{% url 'add_job_service_item' job.id %}">
-  {% csrf_token %}
-  <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
-    <div>
-      <label>Service</label><br>
-      {{ form.service }}
+{% if job.status == "completed" and has_unbilled_items %}
+  <div class="card" style="margin-bottom: 20px; background: var(--primary-light); border-color: var(--primary);">
+    <h2 class="card-title">Billing</h2>
+    <p style="margin-bottom: 16px;">This job is completed but not yet billed. Choose how to invoice:</p>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+      <a href="{% url 'job_billing_options' job.id %}" class="btn btn-primary">Choose billing option</a>
     </div>
-    <div>
-      <label>Qty</label><br>
-      {{ form.quantity }}
-    </div>
-    <button style="padding:8px 12px;">Add / Update</button>
   </div>
-</form>
+{% endif %}
 
-<hr>
+<div class="card" style="margin-bottom: 20px;">
+  <h2 class="card-title">Add service</h2>
+  <form method="post" action="{% url 'add_job_service_item' job.id %}">
+    {% csrf_token %}
+    <div class="form-row">
+      <div class="form-group">
+        <label>Service</label>
+        {{ form.service }}
+      </div>
+      <div class="form-group">
+        <label>Qty</label>
+        {{ form.quantity }}
+      </div>
+      <button type="submit" class="btn btn-primary">Add / Update</button>
+    </div>
+  </form>
+</div>
 
-<h3>Job items</h3>
+<div class="card">
+  <h2 class="card-title">Job items</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Service</th>
+        <th class="num">Qty</th>
+        <th class="num">Rate</th>
+        <th class="num">Total</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in items %}
+      <tr>
+        <td>{{ i.service.name }}</td>
+        <td class="num">{{ i.quantity }} {{ i.unit }}</td>
+        <td class="num">${{ i.unit_price }}</td>
+        <td class="num">${{ i.line_total }}</td>
+        <td>
+          <form method="post" action="{% url 'remove_job_service_item' job.id i.id %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No items yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 
-<table style="width:100%;background:white;border-radius:8px;padding:10px;">
-  <tr>
-    <th align="left">Service</th>
-    <th align="right">Qty</th>
-    <th align="right">Rate</th>
-    <th align="right">Total</th>
-    <th></th>
-  </tr>
-
-  {% for i in items %}
-  <tr>
-    <td>{{ i.service.name }}</td>
-    <td align="right">{{ i.quantity }} {{ i.unit }}</td>
-    <td align="right">${{ i.unit_price }}</td>
-    <td align="right">${{ i.line_total }}</td>
-    <td align="right">
-      <form method="post" action="{% url 'remove_job_service_item' job.id i.id %}">
-        {% csrf_token %}
-        <button style="padding:6px 10px;">Remove</button>
-      </form>
-    </td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="5">No items yet.</td></tr>
-  {% endfor %}
-</table>
-
+<style>
+  .form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+  .form-group input, .form-group select { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+  .badge-scheduled { background: #e0f2fe; color: #0369a1; }
+  .badge-inprogress { background: #fef3c7; color: #92400e; }
+  .badge-completed { background: #d1fae5; color: #065f46; }
+  .badge-skipped { background: #e2e8f0; color: #475569; }
+</style>
 {% endblock %}
