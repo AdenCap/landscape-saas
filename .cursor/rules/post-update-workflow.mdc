@@ -1,0 +1,43 @@
+---
+description: After code updates, push to Git, restart server, and provide dashboard links
+alwaysApply: true
+---
+
+# Post-Update Workflow
+
+Whenever code is modified in this project, follow this sequence:
+
+## 1. Push Updates to Git
+
+After making edits, run:
+```bash
+git add -A && git status
+```
+Review changes, then:
+```bash
+git commit -m "Descriptive message of changes" && git push
+```
+Use `git_write` permission when pushing.
+
+## 2. Restart the Django Server
+
+- Check if a server is already running (terminals folder or `lsof -i :8000`)
+- If running: stop it (Ctrl+C or kill the process), then start fresh
+- Start: `python manage.py runserver` (from project root with venv activated)
+- Run in background so the user can continue
+
+## 3. Provide Dashboard Links
+
+Always include these links in your response after updates:
+
+| Page | URL |
+|------|-----|
+| **Owner Dashboard** (homepage) | http://127.0.0.1:8000/ |
+| **Dashboard** (alternate) | http://127.0.0.1:8000/dashboard |
+| **Admin** | http://127.0.0.1:8000/admin/ |
+| **Billing** | http://127.0.0.1:8000/billing/ |
+| **Jobs** | http://127.0.0.1:8000/jobs/ |
+
+---
+
+**Note:** If the user only asked a question or requested no edits, skip this workflow.
