@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ title }}</h1>
+  <p>{% if contract %}Editing contract{% else %}Add a contract for {{ customer.name }}{% endif %}</p>
+</div>
+
+<div class="card" style="max-width: 500px;">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-row">
+      <div class="field">{{ form.contract_type.label_tag }}{{ form.contract_type }}{{ form.contract_type.errors }}</div>
+      <div class="field">{{ form.status.label_tag }}{{ form.status }}{{ form.status.errors }}</div>
+    </div>
+    <div class="form-row">
+      <div class="field">{{ form.start_date.label_tag }}{{ form.start_date }}{{ form.start_date.errors }}</div>
+      <div class="field">{{ form.end_date.label_tag }}{{ form.end_date }}{{ form.end_date.errors }}</div>
+    </div>
+    <div class="field">{{ form.amount.label_tag }}{{ form.amount }}{{ form.amount.errors }}</div>
+    <div class="field">{{ form.notes.label_tag }}{{ form.notes }}{{ form.notes.errors }}</div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{% url 'customer_detail' customer.id %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<style>
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; font-family: inherit; }
+  .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+</style>
+{% endblock %}

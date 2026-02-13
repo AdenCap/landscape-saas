@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ title }}</h1>
+  <p>{% if customer %}Editing {{ customer.name }}{% else %}Add a new client to your CRM{% endif %}</p>
+</div>
+
+<div class="card" style="max-width: 600px;">
+  <form method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <div class="form-section">
+      <h3>Contact Info</h3>
+      <div class="field">{{ form.name.label_tag }}{{ form.name }}{{ form.name.errors }}</div>
+      <div class="form-row">
+        <div class="field">{{ form.phone.label_tag }}{{ form.phone }}{{ form.phone.errors }}</div>
+        <div class="field">{{ form.alt_phone.label_tag }}{{ form.alt_phone }}{{ form.alt_phone.errors }}</div>
+      </div>
+      <div class="field">{{ form.email.label_tag }}{{ form.email }}{{ form.email.errors }}</div>
+    </div>
+    <div class="form-section">
+      <h3>Address</h3>
+      <div class="field">{{ form.address_line1.label_tag }}{{ form.address_line1 }}{{ form.address_line1.errors }}</div>
+      <div class="field">{{ form.address_line2.label_tag }}{{ form.address_line2 }}{{ form.address_line2.errors }}</div>
+      <div class="form-row three">
+        <div class="field">{{ form.city.label_tag }}{{ form.city }}{{ form.city.errors }}</div>
+        <div class="field">{{ form.state.label_tag }}{{ form.state }}{{ form.state.errors }}</div>
+        <div class="field">{{ form.postal_code.label_tag }}{{ form.postal_code }}{{ form.postal_code.errors }}</div>
+      </div>
+    </div>
+    <div class="form-section">
+      <h3>Notes</h3>
+      <div class="field">{{ form.notes.label_tag }}{{ form.notes }}{{ form.notes.errors }}</div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save</button>
+      {% if customer %}
+      <a href="{% url 'customer_detail' customer.id %}" class="btn btn-secondary">Cancel</a>
+      {% else %}
+      <a href="{% url 'customer_list' %}" class="btn btn-secondary">Cancel</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<style>
+  .form-section { margin-bottom: 24px; }
+  .form-section h3 { font-size: 14px; font-weight: 600; color: var(--text-muted); margin: 0 0 10px 0; text-transform: uppercase; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-row.three { grid-template-columns: 2fr 1fr 1fr; }
+  .form-row.three { grid-template-columns: 2fr 1fr 1fr; }
+  .form-section input, .form-section textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; font-family: inherit; }
+  .form-section .field { margin-bottom: 14px; }
+  .form-section .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .form-section .field ul { color: #991b1b; font-size: 13px; margin: 4px 0 0 0; }
+  .form-actions { display: flex; gap: 10px; margin-top: 24px; }
+</style>
+{% endblock %}

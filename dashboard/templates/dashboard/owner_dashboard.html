@@ -7,7 +7,9 @@
 </div>
 
 <div class="quick-actions" style="margin-bottom: 20px;">
-  <a href="{% url 'create_job' %}" class="btn btn-primary">+ Create Job</a>
+  <a href="{% url 'customer_create' %}" class="btn btn-primary">+ Add Client</a>
+  <a href="{% url 'create_job' %}" class="btn btn-secondary">Create Job</a>
+  <a href="/clients/" class="btn btn-secondary">Clients</a>
   <a href="/jobs/calendar/" class="btn btn-secondary">Calendar</a>
   <a href="/jobs/routes/" class="btn btn-secondary">Daily Routes</a>
 </div>
@@ -83,6 +85,31 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">Recent clients</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Contact</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in recent_customers %}
+        <tr>
+          <td><a href="{% url 'customer_detail' c.id %}" class="link-primary">{{ c.name }}</a></td>
+          <td>{{ c.phone|default:"" }}{% if c.phone and c.email %} · {% endif %}{{ c.email|default:"" }}{% if not c.phone and not c.email %}—{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="2">No clients yet. <a href="{% url 'customer_create' %}" class="link-primary">Add one</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div style="margin-top: 16px;">
+      <a href="{% url 'customer_list' %}" class="btn btn-secondary btn-sm">View all clients</a>
+    </div>
   </div>
 
   <div class="card">

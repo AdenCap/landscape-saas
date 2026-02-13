@@ -8,6 +8,7 @@ from accounts.decorators import role_required
 from jobs.models import Job
 from billing.models import Invoice, InvoiceLineItem
 from accounts.models import User
+from customers.models import Customer
 
 from datetime import date, timedelta
 from django.contrib.auth import get_user_model
@@ -133,6 +134,11 @@ def owner_dashboard(request):
        Invoice.objects.select_related("customer").order_by("-issue_date", "-id")[:10]
     )
 
+    business = getattr(request.user, "business", None)
+    recent_customers = []
+    if business:
+        recent_customers = Customer.objects.filter(business=business).order_by("-updated_at")[:8]
+
     context = {
         "today": today,
         "jobs_today": jobs_today,
@@ -143,7 +149,8 @@ def owner_dashboard(request):
         "recent_invoices": recent_invoices,
         "month_start": month_start,
         "month_end": month_end,
-        "crew_table": crew_table
+        "crew_table": crew_table,
+        "recent_customers": recent_customers,
     }
     return render(request, "dashboard/owner_dashboard.html", context)
 

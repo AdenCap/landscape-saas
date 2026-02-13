@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>{{ customer.name }}</h1>
+    <p>Client profile</p>
+  </div>
+  <a href="{% url 'customer_edit' customer.id %}" class="btn btn-secondary">Edit Client</a>
+</div>
+
+<div class="crm-grid">
+  <div class="card">
+    <h2 class="card-title">Contact</h2>
+    <dl class="contact-dl">
+      {% if customer.phone %}
+      <dt>Phone</dt>
+      <dd><a href="tel:{{ customer.phone }}">{{ customer.phone }}</a></dd>
+      {% endif %}
+      {% if customer.alt_phone %}
+      <dt>Alt. Phone</dt>
+      <dd><a href="tel:{{ customer.alt_phone }}">{{ customer.alt_phone }}</a></dd>
+      {% endif %}
+      {% if customer.email %}
+      <dt>Email</dt>
+      <dd><a href="mailto:{{ customer.email }}">{{ customer.email }}</a></dd>
+      {% endif %}
+      {% if customer.full_address != "—" %}
+      <dt>Address</dt>
+      <dd>{{ customer.full_address }}</dd>
+      {% endif %}
+      {% if not customer.phone and not customer.email and customer.full_address == "—" %}
+      <dd>No contact info. <a href="{% url 'customer_edit' customer.id %}" class="link-primary">Add</a></dd>
+      {% endif %}
+    </dl>
+    {% if customer.notes %}
+    <div class="notes-box">
+      <strong>Notes</strong>
+      <p>{{ customer.notes }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+      Properties
+      <a href="{% url 'property_add' customer.id %}" class="btn btn-primary btn-sm">+ Add</a>
+    </h2>
+    {% for prop in properties %}
+    <div class="property-row">
+      <div>
+        <strong>{{ prop.address }}</strong>
+        {% if prop.gate_code %}<span class="badge badge-muted">Gate: {{ prop.gate_code }}</span>{% endif %}
+        {% if prop.has_dog %}<span class="badge badge-warning">Dog</span>{% endif %}
+        {% if prop.notes %}<p class="prop-notes">{{ prop.notes }}</p>{% endif %}
+      </div>
+      <a href="{% url 'property_edit' customer.id prop.id %}" class="btn btn-secondary btn-sm">Edit</a>
+    </div>
+    {% empty %}
+    <p>No properties. <a href="{% url 'property_add' customer.id %}" class="link-primary">Add one</a> to schedule jobs.</p>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+      Contracts
+      <a href="{% url 'contract_add' customer.id %}" class="btn btn-primary btn-sm">+ Add</a>
+    </h2>
+    {% for c in contracts %}
+    <div class="contract-row">
+      <div>
+        <strong>{{ c.get_contract_type_display }}</strong>
+        <span class="badge badge-{{ c.status }}">{{ c.status|title }}</span>
+        {% if c.amount %} · ${{ c.amount }}{% endif %}
+        {% if c.start_date %} · {{ c.start_date }}{% endif %}
+        {% if c.end_date %}–{{ c.end_date }}{% endif %}
+      </div>
+      <a href="{% url 'contract_edit' customer.id c.id %}" class="btn btn-secondary btn-sm">Edit</a>
+    </div>
+    {% empty %}
+    <p>No contracts. <a href="{% url 'contract_add' customer.id %}" class="link-primary">Add one</a></p>
+    {% endfor %}
+  </div>
+
+  <div class="card card-full">
+    <h2 class="card-title">Past Services</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Property</th>
+          <th>Crew</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in past_jobs %}
+        <tr>
+          <td>{{ job.scheduled_date }}</td>
+          <td><a href="{% url 'job_detail' job.id %}" class="link-primary">{{ job.property.address }}</a></td>
+          <td>{% if job.assigned_to %}{{ job.assigned_to.username }}{% else %}—{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3">No completed services yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card card-full">
+    <h2 class="card-title">Invoices</h2>
+    <p class="kpi-sub">Total paid: <strong>${{ total_revenue }}</strong></p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Date</th>
+          <th class="num">Total</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td><a href="{% url 'billing:invoice_detail' inv.id %}" class="link-primary">#{{ inv.id }}</a></td>
+          <td>{{ inv.issue_date }}</td>
+          <td class="num">${{ inv.total }}</td>
+          <td><span class="badge badge-{{ inv.status|lower }}">{{ inv.status }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">No invoices yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+  .crm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+  .card-full { grid-column: 1 / -1; }
+  .contact-dl { margin: 0; }
+  .contact-dl dt { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+  .contact-dl dd { margin: 2px 0 0 0; }
+  .contact-dl dd a { color: var(--primary); }
+  .notes-box { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .property-row, .contract-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+  .property-row:last-child, .contract-row:last-child { border-bottom: none; }
+  .prop-notes { margin: 4px 0 0 0; font-size: 13px; color: var(--text-muted); }
+  .badge-muted { background: #e2e8f0; color: #475569; }
+  .badge-warning { background: #fef3c7; color: #92400e; }
+  .badge-active { background: #d1fae5; color: #065f46; }
+  .badge-pending { background: #e0f2fe; color: #0369a1; }
+  .badge-expired, .badge-cancelled { background: #f1f5f9; color: #64748b; }
+  .badge-void { background: #fee2e2; color: #991b1b; }
+</style>
+{% endblock %}

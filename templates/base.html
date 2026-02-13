@@ -214,6 +214,9 @@
           <a href="/jobs/routes/" class="btn btn-nav {% if '/jobs/routes' in request.path %}active{% endif %}">
             🗺️ Daily Routes
           </a>
+          <a href="/clients/" class="btn btn-nav {% if '/clients' in request.path %}active{% endif %}">
+            👥 Clients
+          </a>
           <a href="/billing/" class="btn btn-nav {% if '/billing' in request.path %}active{% endif %}">
             💳 Invoices
           </a>
@@ -238,6 +241,7 @@
         <a href="/" class="btn btn-nav">Dashboard</a>
         <a href="/jobs/calendar/" class="btn btn-nav">Calendar</a>
         <a href="/jobs/routes/" class="btn btn-nav">Routes</a>
+        <a href="/clients/" class="btn btn-nav">Clients</a>
         <a href="/billing/" class="btn btn-nav">Invoices</a>
         <a href="/time/timesheets/" class="btn btn-nav">Timesheets</a>
       {% endif %}
