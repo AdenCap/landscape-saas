@@ -16,7 +16,13 @@
     {% csrf_token %}
 
     <div class="form-group" style="margin-bottom: 20px;">
-      <label for="id_property">Property / Lawn</label>
+      <label for="id_customer">Client</label>
+      {{ form.customer }}
+      <small style="color: var(--text-muted); font-size: 12px;">Select the client first, then choose a property</small>
+      {% if form.customer.errors %}<span class="error">{{ form.customer.errors.0 }}</span>{% endif %}
+    </div>
+    <div class="form-group" style="margin-bottom: 20px;">
+      <label for="id_property">Property / Address</label>
       {{ form.property }}
       {% if form.property.errors %}<span class="error">{{ form.property.errors.0 }}</span>{% endif %}
     </div>
@@ -99,8 +105,11 @@
   .assignee-type-radio { list-style: none; padding: 0; margin: 0; display: flex; gap: 16px; flex-wrap: wrap; }
   .assignee-type-radio li { display: flex; align-items: center; gap: 6px; }
 </style>
+{{ customers_with_properties|json_script:"customers-data" }}
 <script>
 (function() {
+  var customersWithProperties = JSON.parse(document.getElementById('customers-data').textContent);
+
   function updateAssigneeVisibility() {
     var val = document.querySelector('input[name="assignee_type"]:checked');
     val = val ? val.value : '';
@@ -109,10 +118,33 @@
     if (crewEl) crewEl.style.display = val === 'crew' ? 'block' : 'none';
     if (empEl) empEl.style.display = val === 'employee' ? 'block' : 'none';
   }
+
+  function updatePropertyDropdown() {
+    var customerId = document.getElementById('id_customer').value;
+    var propSel = document.getElementById('id_property');
+    var currentVal = propSel.value;
+    propSel.innerHTML = '<option value="">---------</option>';
+    propSel.disabled = !customerId;
+    if (customerId) {
+      var cust = customersWithProperties.find(function(c) { return String(c.id) === String(customerId); });
+      if (cust && cust.properties && cust.properties.length) {
+        cust.properties.forEach(function(p) {
+          var opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.address;
+          propSel.appendChild(opt);
+        });
+        propSel.value = currentVal || (cust.properties.length === 1 ? cust.properties[0].id : '');
+      }
+    }
+  }
+
   document.querySelectorAll('input[name="assignee_type"]').forEach(function(r) {
     r.addEventListener('change', updateAssigneeVisibility);
   });
+  document.getElementById('id_customer').addEventListener('change', updatePropertyDropdown);
   updateAssigneeVisibility();
+  updatePropertyDropdown();
 })();
 </script>
 {% endblock %}

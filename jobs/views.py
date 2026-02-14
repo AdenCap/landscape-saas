@@ -583,13 +583,24 @@ def create_job(request):
         formset = ServiceFormSet()
 
     from pricing.models import ServiceTemplate
+    from customers.models import Customer
     service_templates = []
+    customers_with_properties = []
     if business:
         service_templates = list(ServiceTemplate.objects.filter(business=business, active=True).order_by("name").values("name"))
+        customers_with_properties = [
+            {
+                "id": c.id,
+                "name": c.name,
+                "properties": [{"id": p.id, "address": p.address} for p in c.properties.all().order_by("address")],
+            }
+            for c in Customer.objects.filter(business=business).prefetch_related("properties").order_by("name")
+        ]
     return render(request, "jobs/job_create.html", {
         "form": form,
         "formset": formset,
         "service_templates": service_templates,
+        "customers_with_properties": customers_with_properties,
     })
 
 

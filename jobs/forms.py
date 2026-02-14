@@ -1,7 +1,7 @@
 from django import forms
 from decimal import Decimal
 from pricing.models import ServiceTemplate
-from customers.models import Property
+from customers.models import Customer, Property
 from accounts.models import User
 from .models import Crew
 
@@ -19,10 +19,15 @@ class AddJobServiceItemForm(forms.Form):
 
 class CreateJobForm(forms.Form):
     """Landscaping job creation form with service selection."""
+    customer = forms.ModelChoiceField(
+        queryset=Customer.objects.none(),
+        label="Client",
+        help_text="Select the client for this job",
+    )
     property = forms.ModelChoiceField(
         queryset=Property.objects.none(),
-        label="Property / Lawn",
-        help_text="Select the customer property for this job",
+        label="Property / Address",
+        help_text="Select the property (after choosing a client)",
     )
     scheduled_date = forms.DateField(
         required=False,
@@ -60,13 +65,24 @@ class CreateJobForm(forms.Form):
         business = kwargs.pop("business", None)
         super().__init__(*args, **kwargs)
         if business:
-            self.fields["property"].queryset = Property.objects.filter(
-                customer__business=business
-            ).select_related("customer").order_by("address")
+            self.fields["customer"].queryset = Customer.objects.filter(
+                business=business
+            ).order_by("name")
+            # Property queryset set in clean; initial empty for client-first flow
+            self.fields["property"].queryset = Property.objects.none()
             self.fields["assigned_crew"].queryset = Crew.objects.filter(business=business).order_by("name")
             self.fields["assigned_to"].queryset = User.objects.filter(
                 business=business, role__in=["crew", "owner"]
             ).order_by("first_name", "username")
+
+        # On POST: restrict property to selected customer's properties
+        if args and hasattr(args[0], "get"):
+            customer_id = args[0].get("customer")
+            if customer_id and business:
+                self.fields["property"].queryset = Property.objects.filter(
+                    customer_id=customer_id, customer__business=business
+                ).order_by("address")
+
 
     def clean_scheduled_date(self):
         from django.utils import timezone
@@ -74,6 +90,13 @@ class CreateJobForm(forms.Form):
         if date and date < timezone.localdate():
             raise forms.ValidationError("Scheduled date cannot be in the past.")
         return date
+
+    def clean_property(self):
+        customer = self.cleaned_data.get("customer")
+        property_obj = self.cleaned_data.get("property")
+        if customer and property_obj and property_obj.customer_id != customer.id:
+            raise forms.ValidationError("Property must belong to the selected client.")
+        return property_obj
 
 
 class JobServiceInlineForm(forms.Form):
