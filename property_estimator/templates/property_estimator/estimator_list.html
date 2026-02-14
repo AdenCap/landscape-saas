@@ -2,12 +2,13 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>Property Estimator</h1>
+  <h1>Property Estimates</h1>
   <p>Upload satellite/aerial images to automatically detect grass, pavement, mulch, trees, and bushes</p>
 </div>
 
 <div class="quick-actions" style="margin-bottom: 20px;">
-  <a href="{% url 'customer_list' %}" class="btn btn-secondary">← Back to Clients</a>
+  <a href="{% url 'estimator_index' %}" class="btn btn-secondary">← Back to Estimator</a>
+  <a href="{% url 'customer_list' %}" class="btn btn-secondary">Clients</a>
 </div>
 
 <div class="card">

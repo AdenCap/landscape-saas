@@ -584,7 +584,7 @@ def start_job(request, job_id):
 @require_POST
 @role_required("owner", "crew")
 def complete_job(request, job_id):
-    job = get_object_or_404(Job.objects.select_related("assigned_crew"), id=job_id)
+    job = get_object_or_404(Job.objects.select_related("assigned_crew", "property", "property__customer"), id=job_id)
 
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -598,6 +598,23 @@ def complete_job(request, job_id):
         return JsonResponse({"status": "ok", "redirect": None})
 
     if request.user.role == "owner":
+        customer = job.property.customer
+        freq = getattr(customer, "invoice_frequency", None) or ""
+        has_items = job.service_items.exists()
+
+        if has_items and freq == "per_service":
+            create_and_send_invoice_for_job(job, send=True)
+            messages.success(request, f"Job completed. Invoice created and sent for {job.property.address}.")
+            return redirect("billing:invoice_list")
+        if has_items and freq == "monthly":
+            d = job.scheduled_date or timezone.now().date()
+            invoice = generate_monthly_invoice_for_customer(customer, d.year, d.month, include_job=job)
+            messages.success(
+                request,
+                f"Job completed. Added to {customer.name}'s monthly invoice for {d.strftime('%B %Y')} (Invoice #{invoice.id}).",
+            )
+            return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
         return redirect("job_billing_options", job_id=job_id)
     messages.success(request, "Job completed. The owner will handle billing.")
     return redirect("crew_today")
@@ -832,11 +849,21 @@ def job_detail(request, job_id):
     form = AddJobServiceItemForm(business=business)
 
     has_unbilled = job.service_items.filter(billed_invoice__isnull=True).exists()
+
+    from django.db.models import Sum
+    from django.utils import timezone as tz
+    job_receipts = list(job.receipts.all().order_by("-receipt_date"))
+    job_receipts_total = sum((r.amount or 0) for r in job_receipts)
+    today_iso = tz.now().date().isoformat()
+
     return render(request, "jobs/job_detail.html", {
         "job": job,
         "form": form,
         "items": job.service_items.select_related("service").all(),
         "has_unbilled_items": has_unbilled,
+        "job_receipts": job_receipts,
+        "job_receipts_total": job_receipts_total,
+        "today_iso": today_iso,
     })
 
 

@@ -52,3 +52,31 @@ class User(AbstractUser):
         ]
         return ", ".join(p for p in parts if p) or ""
 
+
+class EmployeePayment(models.Model):
+    """Record of a payment made to an employee (e.g. payroll)."""
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.CASCADE,
+        related_name='employee_payments',
+    )
+    employee = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='payments_received',
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    paid_date = models.DateField()
+    notes = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    quickbooks_journal_entry_id = models.CharField(
+        max_length=32, blank=True, null=True,
+        help_text="QuickBooks Journal Entry Id after sync",
+    )
+
+    class Meta:
+        ordering = ['-paid_date', '-created_at']
+
+    def __str__(self):
+        return f"{self.employee} – ${self.amount} on {self.paid_date}"
+

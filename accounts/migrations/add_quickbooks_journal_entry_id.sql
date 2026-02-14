@@ -1,0 +1,4 @@
+-- Add QuickBooks Journal Entry Id to payroll payments (run if migrate not used):
+-- sqlite3 db.sqlite3 "ALTER TABLE accounts_employeepayment ADD COLUMN quickbooks_journal_entry_id VARCHAR(32) NULL;"
+-- Then record the migration:
+-- sqlite3 db.sqlite3 "INSERT OR IGNORE INTO django_migrations (app, name, applied) VALUES ('accounts', '0007_employeepayment_quickbooks_journal_entry_id', datetime('now'));"

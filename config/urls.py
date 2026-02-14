@@ -19,8 +19,8 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 
-admin.site.site_header = "Landscape Admin"
-admin.site.site_title = "Landscape"
+admin.site.site_header = "Field Ops Admin"
+admin.site.site_title = "Field Ops"
 admin.site.index_title = "Manage your business, employees, and customers"
 
 urlpatterns = [
@@ -40,6 +40,7 @@ urlpatterns = [
     path("time/", include("time_tracking.urls")),
     path("settings/", include("businesses.urls")),
     path("quickbooks/", include(("quickbooks.urls", "quickbooks"), namespace="quickbooks")),
+    path("financials/", include(("financials.urls", "financials"), namespace="financials")),
     path("estimator/", include("property_estimator.urls")),
 ]
 if settings.DEBUG:

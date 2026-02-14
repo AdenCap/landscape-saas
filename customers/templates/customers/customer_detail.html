@@ -29,6 +29,15 @@
       <dt>Address</dt>
       <dd>{{ customer.full_address }}</dd>
       {% endif %}
+      <dt>Invoicing</dt>
+      <dd>
+        {{ customer.get_invoice_frequency_display|default:"Ask each time" }}
+        {% if customer.invoice_frequency == "monthly" and customer.monthly_invoice_send_day %}
+          — Invoice to be sent on day {{ customer.monthly_invoice_send_day }} of each month
+        {% elif customer.invoice_frequency == "monthly" %}
+          — Send manually (no day set)
+        {% endif %}
+      </dd>
       {% if not customer.phone and not customer.email and customer.full_address == "—" %}
       <dd>No contact info. <a href="{% url 'customer_edit' customer.id %}" class="link-primary">Add</a></dd>
       {% endif %}
@@ -149,11 +158,11 @@
   .property-row, .contract-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 12px; }
   .property-row:last-child, .contract-row:last-child { border-bottom: none; }
   .prop-notes { margin: 4px 0 0 0; font-size: 13px; color: var(--text-muted); }
-  .badge-muted { background: #e2e8f0; color: #475569; }
-  .badge-warning { background: #fef3c7; color: #92400e; }
-  .badge-active { background: #d1fae5; color: #065f46; }
-  .badge-pending { background: #e0f2fe; color: #0369a1; }
-  .badge-expired, .badge-cancelled { background: #f1f5f9; color: #64748b; }
-  .badge-void { background: #fee2e2; color: #991b1b; }
+  .badge-muted { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
+  .badge-warning { background: rgba(234, 179, 8, 0.25); color: #fde047; }
+  .badge-active { background: rgba(34, 197, 94, 0.25); color: #86efac; }
+  .badge-pending { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
+  .badge-expired, .badge-cancelled { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
+  .badge-void { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
 </style>
 {% endblock %}

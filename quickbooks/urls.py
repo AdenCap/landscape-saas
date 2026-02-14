@@ -9,4 +9,5 @@ urlpatterns = [
     path("callback/", views.oauth_callback, name="oauth_callback"),
     path("disconnect/", views.oauth_disconnect, name="oauth_disconnect"),
     path("invoice/<int:invoice_id>/push/", views.push_invoice, name="push_invoice"),
+    path("sync-payroll/", views.sync_payroll, name="sync_payroll"),
 ]

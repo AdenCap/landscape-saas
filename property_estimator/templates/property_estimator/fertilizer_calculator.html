@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Fertilizer Calculator</h1>
+  <p>Calculate total pounds and material cost from area and application rate</p>
+</div>
+
+<div class="quick-actions" style="margin-bottom: 20px;">
+  <a href="{% url 'estimator_index' %}" class="btn btn-secondary">← Back to Estimator</a>
+</div>
+
+<div class="card calc-card">
+  <h2 class="card-title">Inputs</h2>
+  <div class="calc-grid">
+    <div class="field">
+      <label for="lbs_per_1000">Lbs per 1,000 sq ft</label>
+      <input type="number" id="lbs_per_1000" min="0" step="0.5" value="4" placeholder="e.g. 4">
+    </div>
+    <div class="field">
+      <label for="total_sqft">Total sq ft</label>
+      <input type="number" id="total_sqft" min="0" step="100" value="5000" placeholder="e.g. 5000">
+    </div>
+    <div class="field">
+      <label for="pricing_type">Pricing</label>
+      <select id="pricing_type">
+        <option value="per_pound">Per pound</option>
+        <option value="per_bag">Per bag</option>
+      </select>
+    </div>
+    <div class="field fertilizing-per-pound">
+      <label for="cost_per_pound">Cost per lb ($)</label>
+      <input type="number" id="cost_per_pound" min="0" step="0.01" value="0.50" placeholder="0.50">
+    </div>
+    <div class="field fertilizing-per-bag" style="display: none;">
+      <label for="cost_per_bag">Cost per bag ($)</label>
+      <input type="number" id="cost_per_bag" min="0" step="0.01" value="25" placeholder="25">
+    </div>
+    <div class="field fertilizing-per-bag" style="display: none;">
+      <label for="lbs_per_bag">Lbs per bag</label>
+      <input type="number" id="lbs_per_bag" min="0.1" step="0.1" value="50" placeholder="50">
+    </div>
+  </div>
+  <div class="calc-result" id="fertilizer_result">
+    Total pounds: 20.0 · Material cost: $10.00
+  </div>
+</div>
+
+<div class="card calc-card" style="margin-top: 24px;">
+  <h2 class="card-title">Create estimate from this calculation</h2>
+  <p class="muted" style="margin-bottom: 16px;">Creates a new estimate for the selected customer with one fertilizing line item using the values above.</p>
+  {% if customers %}
+  <form method="post" action="{% url 'billing:estimate_create_from_fertilizer' %}" id="fertilizer_create_estimate_form">
+    {% csrf_token %}
+    <input type="hidden" name="lbs_per_1000" id="form_lbs_per_1000">
+    <input type="hidden" name="total_sqft" id="form_total_sqft">
+    <input type="hidden" name="pricing_type" id="form_pricing_type">
+    <input type="hidden" name="cost_per_pound" id="form_cost_per_pound">
+    <input type="hidden" name="cost_per_bag" id="form_cost_per_bag">
+    <input type="hidden" name="lbs_per_bag" id="form_lbs_per_bag">
+    <div class="calc-grid">
+      <div class="field">
+        <label for="create_estimate_customer">Customer</label>
+        <select name="customer_id" id="create_estimate_customer" required>
+          <option value="">Select customer…</option>
+          {% for c in customers %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="create_estimate_product">Product name (optional)</label>
+        <input type="text" name="product" id="create_estimate_product" placeholder="e.g. Scotts Turf Builder" value="Fertilizer">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top: 16px;">Create estimate</button>
+  </form>
+  {% else %}
+  <p class="muted">Add a <a href="{% url 'customer_list' %}" class="link-primary">client</a> to create estimates.</p>
+  {% endif %}
+</div>
+
+<style>
+  .calc-card .calc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .calc-card .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+  .calc-card .field input, .calc-card .field select { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px; }
+  .calc-result { margin-top: 16px; padding: 14px 16px; background: var(--primary-light); border-radius: 10px; font-size: 15px; font-weight: 500; color: var(--primary); }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var lbsPer1000 = document.getElementById('lbs_per_1000');
+  var totalSqft = document.getElementById('total_sqft');
+  var pricingType = document.getElementById('pricing_type');
+  var costPerPound = document.getElementById('cost_per_pound');
+  var costPerBag = document.getElementById('cost_per_bag');
+  var lbsPerBag = document.getElementById('lbs_per_bag');
+  var resultEl = document.getElementById('fertilizer_result');
+
+  function togglePricing() {
+    var isPerBag = pricingType.value === 'per_bag';
+    document.querySelectorAll('.fertilizing-per-pound').forEach(function(el) { el.style.display = isPerBag ? 'none' : 'block'; });
+    document.querySelectorAll('.fertilizing-per-bag').forEach(function(el) { el.style.display = isPerBag ? 'block' : 'none'; });
+  }
+  function update() {
+    var rate = parseFloat(lbsPer1000.value) || 0;
+    var sqft = parseFloat(totalSqft.value) || 0;
+    var totalPounds = (rate / 1000) * sqft;
+    var msg = 'Total pounds: ' + totalPounds.toFixed(1);
+    var cost = 0;
+    if (pricingType.value === 'per_bag') {
+      var costBag = parseFloat(costPerBag.value) || 0;
+      var lbsBag = parseFloat(lbsPerBag.value) || 1;
+      if (lbsBag > 0) {
+        var bags = Math.ceil(totalPounds / lbsBag);
+        cost = bags * costBag;
+        msg = 'Bags needed: ' + bags + ' · Material cost: $' + cost.toFixed(2);
+      }
+    } else {
+      var costLb = parseFloat(costPerPound.value) || 0;
+      cost = totalPounds * costLb;
+      msg = msg + ' · Material cost: $' + cost.toFixed(2);
+    }
+    resultEl.textContent = msg;
+  }
+  pricingType.addEventListener('change', function() { togglePricing(); update(); });
+  togglePricing();
+  [lbsPer1000, totalSqft, costPerPound, costPerBag, lbsPerBag].forEach(function(inp) {
+    inp.addEventListener('input', update);
+  });
+  update();
+
+  var createForm = document.getElementById('fertilizer_create_estimate_form');
+  if (createForm) {
+    createForm.addEventListener('submit', function() {
+      document.getElementById('form_lbs_per_1000').value = lbsPer1000.value;
+      document.getElementById('form_total_sqft').value = totalSqft.value;
+      document.getElementById('form_pricing_type').value = pricingType.value;
+      document.getElementById('form_cost_per_pound').value = costPerPound.value;
+      document.getElementById('form_cost_per_bag').value = costPerBag.value;
+      document.getElementById('form_lbs_per_bag').value = lbsPerBag.value;
+    });
+  }
+});
+</script>
+{% endblock %}

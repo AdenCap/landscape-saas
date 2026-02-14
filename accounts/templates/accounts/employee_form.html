@@ -83,6 +83,49 @@
     <p class="muted">Username: <strong>{{ employee.username }}</strong></p>
     <a href="{% url 'employee_password' employee.id %}" class="btn btn-secondary">Change password</a>
   </div>
+
+  <div class="card payment-card">
+    <h2 class="card-title">Payment history</h2>
+    <p class="section-desc">Record payments when you pay this employee. Total paid: <strong>${{ total_paid|floatformat:2 }}</strong></p>
+    <form method="post" action="{% url 'employee_record_payment' employee.id %}" class="payment-form">
+      {% csrf_token %}
+      <div class="payment-form-row">
+        <div class="field">
+          <label for="id_amount">Amount</label>
+          <input type="number" name="amount" id="id_amount" step="0.01" min="0" placeholder="0.00" required>
+        </div>
+        <div class="field">
+          <label for="id_paid_date">Date paid</label>
+          <input type="date" name="paid_date" id="id_paid_date" value="{{ default_paid_date }}" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Record payment</button>
+      </div>
+      <div class="field" style="margin-top: 10px;">
+        <label for="id_notes">Notes (optional)</label>
+        <input type="text" name="notes" id="id_notes" maxlength="500" placeholder="e.g. Week of Jan 6, Bonus">
+      </div>
+    </form>
+    <table class="data-table payment-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th class="num">Amount</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in payments %}
+        <tr>
+          <td>{{ p.paid_date }}</td>
+          <td class="num">${{ p.amount|floatformat:2 }}</td>
+          <td>{{ p.notes|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="muted">No payments recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% endif %}
 </div>
 
@@ -100,6 +143,13 @@
   .checkbox-field input { width: auto; }
   .form-actions { display: flex; gap: 10px; margin-top: 24px; }
   .muted { color: var(--text-muted); font-size: 14px; }
+  .payment-card { margin-top: 20px; }
+  .payment-card .section-desc { color: var(--text-muted); font-size: 14px; margin: -4px 0 16px 0; }
+  .payment-form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+  .payment-form-row .field { margin-bottom: 0; }
+  .payment-form-row .field label { display: block; font-size: 13px; margin-bottom: 4px; }
+  .payment-form-row input { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; background: var(--surface-alt); color: var(--text); }
+  .payment-table { margin-top: 16px; }
 </style>
 <script>
 (function() {

@@ -9,13 +9,19 @@ from django.views.decorators.http import require_http_methods, require_POST
 from django.http import JsonResponse, HttpResponse
 
 from accounts.decorators import role_required
-from customers.models import Property
+from customers.models import Customer, Property
 from .models import PropertyEstimate, PropertyEstimateImage
 from .analysis import analyze_image, HAS_OPENCV
 
 
 def _get_business(request):
     return getattr(request.user, 'business', None)
+
+
+@role_required("owner")
+def estimator_index(request):
+    """Landing page for Estimator tab: property estimates, fertilizer calculator, mulch/rock calculator."""
+    return render(request, "property_estimator/estimator_index.html")
 
 
 @role_required("owner")
@@ -28,6 +34,26 @@ def estimator_list(request):
         property__customer__business=business
     ).select_related('property', 'property__customer').order_by('-updated_at')[:50]
     return render(request, "property_estimator/estimator_list.html", {"estimates": estimates})
+
+
+@role_required("owner")
+def fertilizer_calculator(request):
+    """Standalone fertilizer calculator: lbs per 1k sq ft, total sq ft, pricing per lb or per bag."""
+    business = _get_business(request)
+    customers = []
+    if business:
+        customers = Customer.objects.filter(business=business).order_by("name")
+    return render(request, "property_estimator/fertilizer_calculator.html", {"customers": customers})
+
+
+@role_required("owner")
+def mulch_rock_calculator(request):
+    """Standalone mulch and rock calculator: sq ft, depth, pricing per bag or per cubic yard."""
+    business = _get_business(request)
+    customers = []
+    if business:
+        customers = Customer.objects.filter(business=business).order_by("name")
+    return render(request, "property_estimator/mulch_rock_calculator.html", {"customers": customers})
 
 
 @role_required("owner")
@@ -191,7 +217,7 @@ def _geocode_address(address):
     try:
         from geopy.geocoders import Nominatim
         from geopy.extra.rate_limiter import RateLimiter
-        geolocator = Nominatim(user_agent="landscape-saas-estimator")
+        geolocator = Nominatim(user_agent="field-ops-estimator")
         geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1.0)
         location = geocode(address)
         if location:

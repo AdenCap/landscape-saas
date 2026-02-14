@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Mulch &amp; Rock Calculator</h1>
+  <p>Estimate cubic yards and material cost from area and depth</p>
+</div>
+
+<div class="quick-actions" style="margin-bottom: 20px;">
+  <a href="{% url 'estimator_index' %}" class="btn btn-secondary">← Back to Estimator</a>
+</div>
+
+<div class="card calc-card">
+  <h2 class="card-title">Inputs</h2>
+  <div class="calc-grid">
+    <div class="field">
+      <label for="total_sqft">Total sq ft</label>
+      <input type="number" id="total_sqft" min="0" step="50" value="500" placeholder="e.g. 500">
+    </div>
+    <div class="field">
+      <label for="depth_inches">Depth (inches)</label>
+      <input type="number" id="depth_inches" min="0.5" step="0.5" value="3" placeholder="e.g. 3">
+    </div>
+    <div class="field">
+      <label for="pricing_type">Pricing</label>
+      <select id="pricing_type">
+        <option value="per_bag">Per bag</option>
+        <option value="per_cy">Per cubic yard</option>
+      </select>
+    </div>
+    <div class="field mulch-per-bag">
+      <label for="cost_per_bag">Cost per bag ($)</label>
+      <input type="number" id="cost_per_bag" min="0" step="0.01" value="4.50" placeholder="4.50">
+    </div>
+    <div class="field mulch-per-bag">
+      <label for="cf_per_bag">Cu ft per bag</label>
+      <input type="number" id="cf_per_bag" min="0.1" step="0.1" value="2" placeholder="2">
+    </div>
+    <div class="field mulch-per-cy" style="display: none;">
+      <label for="cost_per_cy">Cost per cu yd ($)</label>
+      <input type="number" id="cost_per_cy" min="0" step="0.01" value="45" placeholder="45">
+    </div>
+  </div>
+  <div class="calc-result" id="mulch_result">
+    Cu yd needed: 0.46 · Bags needed: 7 · Material cost: $31.50
+  </div>
+</div>
+
+<div class="card calc-card" style="margin-top: 24px;">
+  <h2 class="card-title">Create estimate from this calculation</h2>
+  <p class="muted" style="margin-bottom: 16px;">Creates a new estimate for the selected customer with one mulch/rock line item using the values above.</p>
+  {% if customers %}
+  <form method="post" action="{% url 'billing:estimate_create_from_mulch' %}" id="mulch_create_estimate_form">
+    {% csrf_token %}
+    <input type="hidden" name="total_sqft" id="form_total_sqft">
+    <input type="hidden" name="depth_inches" id="form_depth_inches">
+    <input type="hidden" name="pricing_type" id="form_pricing_type">
+    <input type="hidden" name="cost_per_bag" id="form_cost_per_bag">
+    <input type="hidden" name="cf_per_bag" id="form_cf_per_bag">
+    <input type="hidden" name="cost_per_cy" id="form_cost_per_cy">
+    <div class="calc-grid">
+      <div class="field">
+        <label for="create_estimate_customer">Customer</label>
+        <select name="customer_id" id="create_estimate_customer" required>
+          <option value="">Select customer…</option>
+          {% for c in customers %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="create_estimate_product">Product name (optional)</label>
+        <input type="text" name="product" id="create_estimate_product" placeholder="e.g. Brown Mulch or Decorative Rock" value="Mulch">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top: 16px;">Create estimate</button>
+  </form>
+  {% else %}
+  <p class="muted">Add a <a href="{% url 'customer_list' %}" class="link-primary">client</a> to create estimates.</p>
+  {% endif %}
+</div>
+
+<style>
+  .calc-card .calc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .calc-card .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+  .calc-card .field input, .calc-card .field select { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px; }
+  .calc-result { margin-top: 16px; padding: 14px 16px; background: var(--primary-light); border-radius: 10px; font-size: 15px; font-weight: 500; color: var(--primary); }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var totalSqft = document.getElementById('total_sqft');
+  var depthInches = document.getElementById('depth_inches');
+  var pricingType = document.getElementById('pricing_type');
+  var costPerBag = document.getElementById('cost_per_bag');
+  var cfPerBag = document.getElementById('cf_per_bag');
+  var costPerCy = document.getElementById('cost_per_cy');
+  var resultEl = document.getElementById('mulch_result');
+
+  function togglePricing() {
+    var isPerCy = pricingType.value === 'per_cy';
+    document.querySelectorAll('.mulch-per-bag').forEach(function(el) { el.style.display = isPerCy ? 'none' : 'block'; });
+    document.querySelectorAll('.mulch-per-cy').forEach(function(el) { el.style.display = isPerCy ? 'block' : 'none'; });
+  }
+  function update() {
+    var sqft = parseFloat(totalSqft.value) || 0;
+    var depth = parseFloat(depthInches.value) || 3;
+    var cubicYards = (sqft * depth) / 324;
+    var msg = 'Cu yd needed: ' + cubicYards.toFixed(2);
+    var cost = 0;
+    if (pricingType.value === 'per_bag') {
+      var costBag = parseFloat(costPerBag.value) || 0;
+      var cfBag = parseFloat(cfPerBag.value) || 2;
+      if (cfBag > 0) {
+        var cubicFt = cubicYards * 27;
+        var bags = Math.ceil(cubicFt / cfBag);
+        cost = bags * costBag;
+        msg = 'Cu yd needed: ' + cubicYards.toFixed(2) + ' · Bags needed: ' + bags + ' · Material cost: $' + cost.toFixed(2);
+      }
+    } else {
+      var costCy = parseFloat(costPerCy.value) || 0;
+      cost = cubicYards * costCy;
+      msg = msg + ' · Material cost: $' + cost.toFixed(2);
+    }
+    resultEl.textContent = msg;
+  }
+  pricingType.addEventListener('change', function() { togglePricing(); update(); });
+  togglePricing();
+  [totalSqft, depthInches, costPerBag, cfPerBag, costPerCy].forEach(function(inp) {
+    inp.addEventListener('input', update);
+  });
+  update();
+
+  var createForm = document.getElementById('mulch_create_estimate_form');
+  if (createForm) {
+    createForm.addEventListener('submit', function() {
+      document.getElementById('form_total_sqft').value = totalSqft.value;
+      document.getElementById('form_depth_inches').value = depthInches.value;
+      document.getElementById('form_pricing_type').value = pricingType.value;
+      document.getElementById('form_cost_per_bag').value = costPerBag.value;
+      document.getElementById('form_cf_per_bag').value = cfPerBag.value;
+      document.getElementById('form_cost_per_cy').value = costPerCy.value;
+    });
+  }
+});
+</script>
+{% endblock %}

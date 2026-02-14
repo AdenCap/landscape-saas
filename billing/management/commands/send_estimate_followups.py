@@ -91,7 +91,7 @@ class Command(BaseCommand):
                 )
 
                 subject = f"Reminder: {estimate.title} - {business.name}"
-                from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@landscape.local")
+                from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldops.local")
                 reply_to = [business.contact_email] if business.contact_email else None
 
                 from django.core.mail import EmailMultiAlternatives

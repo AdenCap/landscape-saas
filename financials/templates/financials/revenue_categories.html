@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <a href="{% url 'financials:revenue_breakdown' %}" class="link-primary" style="font-size: 14px; margin-bottom: 4px; display: inline-block;">← Revenue breakdown</a>
+    <h1>Revenue categories</h1>
+    <p>Define categories (e.g. Mowing, Fertilizing, Mulching, Snow Removal) and assign services so revenue is broken down in Financials.</p>
+  </div>
+  <a href="{% url 'financials:revenue_category_add' %}" class="btn btn-primary">+ Add category</a>
+</div>
+
+<div class="card" style="margin-bottom: 24px;">
+  <h2 class="card-title">Categories</h2>
+  {% if categories %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cat in categories %}
+      <tr>
+        <td>{{ cat.name }}</td>
+        <td>
+          <a href="{% url 'financials:revenue_category_edit' cat.id %}" class="btn btn-secondary btn-sm">Edit</a>
+          <form method="post" action="{% url 'financials:revenue_category_delete' cat.id %}" style="display: inline;" onsubmit="return confirm('Remove this category? Services will become uncategorized.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color: var(--text-muted);">No categories yet. Add one (e.g. Mowing, Fertilizing, Mulching, Snow Removal) then assign your services below.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2 class="card-title">Assign services to categories</h2>
+  <p style="margin: 0 0 16px 0; font-size: 14px; color: var(--text-muted);">Each service (used on jobs and invoices) can be assigned to a revenue category. New invoice line items from jobs will use this category for the revenue breakdown.</p>
+  {% if services %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Service</th>
+        <th>Revenue category</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for svc in services %}
+      <tr>
+        <td>{{ svc.name }}</td>
+        <td>
+          <form method="post" action="{% url 'financials:revenue_category_assign' %}" style="display: inline;">
+            {% csrf_token %}
+            <input type="hidden" name="service_id" value="{{ svc.id }}">
+            <select name="category_id" onchange="this.form.submit()" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px;">
+              <option value="">— None —</option>
+              {% for cat in categories %}
+              <option value="{{ cat.id }}" {% if svc.revenue_category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color: var(--text-muted);">No services defined yet. Add services in <a href="/jobs/" class="link-primary">Jobs</a> or pricing so they appear here.</p>
+  {% endif %}
+</div>
+{% endblock %}

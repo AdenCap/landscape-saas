@@ -5,7 +5,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.decorators import role_required
-from accounts.forms import EmployeeForm, EmployeeCreateForm, EmployeePasswordForm
+from django.utils import timezone as tz
+from accounts.forms import EmployeeForm, EmployeeCreateForm, EmployeePasswordForm, EmployeePaymentForm
+from accounts.models import EmployeePayment
 
 User = get_user_model()
 
@@ -72,12 +74,40 @@ def employee_edit(request, user_id):
     else:
         form = EmployeeForm(instance=employee)
 
+    payments = EmployeePayment.objects.filter(employee=employee).order_by("-paid_date", "-created_at")
+    total_paid = sum(p.amount for p in payments)
+    default_paid_date = tz.localdate().isoformat()
+
     return render(request, "accounts/employee_form.html", {
         "form": form,
         "employee": employee,
         "title": "Edit Employee",
         "is_create": False,
+        "payments": payments,
+        "total_paid": total_paid,
+        "default_paid_date": default_paid_date,
     })
+
+
+@role_required("owner")
+@require_POST
+def employee_record_payment(request, user_id):
+    """Record a payment made to an employee. Redirects back to employee edit."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    employee = get_object_or_404(User, id=user_id, business=business)
+    form = EmployeePaymentForm(request.POST)
+    if form.is_valid():
+        payment = form.save(commit=False)
+        payment.employee = employee
+        payment.business = business
+        payment.save()
+        messages.success(request, f"Recorded payment of ${payment.amount} for {payment.paid_date}.")
+    else:
+        messages.error(request, "Invalid payment details. Check amount and date.")
+    return redirect("employee_edit", user_id=employee.id)
 
 
 @role_required("owner")

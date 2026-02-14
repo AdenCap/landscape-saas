@@ -110,6 +110,15 @@ class InvoiceLineItem(models.Model):
         blank=True
     )
 
+    revenue_category = models.ForeignKey(
+        "financials.RevenueCategory",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invoice_line_items",
+        help_text="For revenue breakdown (from service or manual).",
+    )
+
     description = models.CharField(max_length=255)
     quantity = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)  # Used when importing from jobs
@@ -149,7 +158,7 @@ class Estimate(models.Model):
         related_name='estimates'
     )
 
-    title = models.CharField(max_length=255, default='Landscape Service Estimate')
+    title = models.CharField(max_length=255, default='Field Ops Service Estimate')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     valid_until = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)

@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Employee Management</h1>
+    <p>Employees, timesheets, crews, and payroll in one place</p>
+  </div>
+</div>
+
+<nav class="emp-mgmt-tabs" aria-label="Sections">
+  <a href="#employees" class="emp-tab active" data-tab="employees">Employees</a>
+  <a href="#timesheets" class="emp-tab" data-tab="timesheets">Timesheets</a>
+  <a href="#crews" class="emp-tab" data-tab="crews">Crews</a>
+  <a href="#payroll" class="emp-tab" data-tab="payroll">Payroll</a>
+</nav>
+
+<!-- Employees -->
+<section id="section-employees" class="emp-mgmt-section card emp-tab-panel" data-panel="employees">
+  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+    Employees
+    <a href="{% url 'employee_add' %}" class="btn btn-primary btn-sm">+ Add Employee</a>
+  </h2>
+  <p class="section-desc">Manage your team: contact info, pay, roles, and login credentials.</p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Role</th>
+        <th>Contact</th>
+        <th class="num">Pay</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for emp in employees %}
+      <tr>
+        <td>
+          <a href="{% url 'employee_edit' emp.id %}" class="link-primary">
+            {{ emp.get_full_name|default:emp.username }}
+          </a>
+        </td>
+        <td><span class="badge badge-{{ emp.role }}">{{ emp.get_role_display }}</span></td>
+        <td>
+          {% if emp.phone %}{{ emp.phone }}{% endif %}
+          {% if emp.phone and emp.email %} · {% endif %}
+          {% if emp.email %}{{ emp.email }}{% endif %}
+          {% if not emp.phone and not emp.email %}—{% endif %}
+        </td>
+        <td class="num">{% if emp.hourly_rate %}${% endif %}{{ emp.hourly_rate|default:"—" }}</td>
+        <td>
+          <a href="{% url 'employee_edit' emp.id %}" class="btn btn-secondary btn-sm">Edit</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No employees yet. <a href="{% url 'employee_add' %}" class="link-primary">Add your first employee</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- Timesheets -->
+<section id="section-timesheets" class="emp-mgmt-section card emp-tab-panel" data-panel="timesheets" hidden>
+  <h2 class="card-title">Timesheets</h2>
+  <p class="section-desc">Weekly and yearly hours and labor costs.</p>
+  <div class="kpi-grid" style="margin-bottom: 20px;">
+    <div class="kpi-card card" style="margin-bottom: 0;">
+      <div class="kpi-label">This Week's Labor Cost</div>
+      <div class="kpi-value">${{ total_week_cost }}</div>
+      <div class="kpi-sub">{{ week_start }} → {{ week_end }}</div>
+    </div>
+    <div class="kpi-card card" style="margin-bottom: 0;">
+      <div class="kpi-label">This Year's Labor Cost</div>
+      <div class="kpi-value">${{ total_year_cost }}</div>
+      <div class="kpi-sub">{{ year_start }} → {{ year_end }}</div>
+    </div>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Employee</th>
+        <th class="num">Hourly Rate</th>
+        <th class="num">Week Hours</th>
+        <th class="num">Week Cost</th>
+        <th class="num">Year Hours</th>
+        <th class="num">Year Cost</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for stat in employee_stats %}
+      <tr>
+        <td>{{ stat.user.get_full_name|default:stat.user.username }}</td>
+        <td class="num">${{ stat.hourly_rate }}/hr</td>
+        <td class="num">{{ stat.week_display }}</td>
+        <td class="num">${{ stat.week_cost }}</td>
+        <td class="num">{{ stat.year_display }}</td>
+        <td class="num">${{ stat.year_cost }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">No crew members. Add employees with the "Crew" role to see timesheets.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- Crews -->
+<section id="section-crews" class="emp-mgmt-section card emp-tab-panel" data-panel="crews" hidden>
+  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+    Crews
+    <a href="{% url 'crew_add' %}" class="btn btn-primary btn-sm">+ Add Crew</a>
+  </h2>
+  <p class="section-desc">Organize employees into crews. Assign a leader and set colors for the calendar.</p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Color</th>
+        <th>Name</th>
+        <th>Leader</th>
+        <th>Members</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for crew in crews %}
+      <tr>
+        <td>
+          <span class="crew-color-swatch" style="background: {{ crew.color|default:'#94a3b8' }};" title="{{ crew.color }}"></span>
+        </td>
+        <td><strong>{{ crew.name }}</strong></td>
+        <td>{% if crew.crew_leader %}{{ crew.crew_leader.get_full_name|default:crew.crew_leader.username }}{% else %}—{% endif %}</td>
+        <td>{{ crew.members.count }} member{{ crew.members.count|pluralize }}</td>
+        <td>
+          <a href="{% url 'crew_edit' crew.id %}" class="btn btn-secondary btn-sm">Edit</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No crews yet. <a href="{% url 'crew_add' %}" class="link-primary">Create your first crew</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- Payroll -->
+<section id="section-payroll" class="emp-mgmt-section card emp-tab-panel" data-panel="payroll" hidden>
+  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    Payroll
+    {% if quickbooks_connected and payroll_unsynced_count > 0 %}
+    <form id="payroll-csrf-form" style="display: none;">{% csrf_token %}</form>
+    <button type="button" id="payroll-sync-qb-btn" class="btn btn-primary">Sync {{ payroll_unsynced_count }} to QuickBooks</button>
+    {% elif quickbooks_connected %}
+    <span class="btn btn-secondary" title="All payments synced">✓ All synced to QuickBooks</span>
+    {% else %}
+    <a href="{% url 'quickbooks:settings' %}" class="btn btn-secondary">Connect QuickBooks to sync</a>
+    {% endif %}
+  </h2>
+  <p class="section-desc">Payments recorded when you pay employees. Sync to QuickBooks to transfer them as journal entries.</p>
+  <div class="kpi-grid" style="margin-bottom: 16px;">
+    <div class="kpi-card card" style="margin-bottom: 0;">
+      <div class="kpi-label">Total recorded</div>
+      <div class="kpi-value">${{ payroll_total|floatformat:2 }}</div>
+    </div>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Employee</th>
+        <th>Date paid</th>
+        <th class="num">Amount</th>
+        <th>Notes</th>
+        <th>QuickBooks</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in payroll_payments %}
+      <tr>
+        <td><a href="{% url 'employee_edit' p.employee_id %}" class="link-primary">{{ p.employee.get_full_name|default:p.employee.username }}</a></td>
+        <td>{{ p.paid_date }}</td>
+        <td class="num">${{ p.amount|floatformat:2 }}</td>
+        <td>{{ p.notes|default:"—" }}</td>
+        <td>{% if p.quickbooks_journal_entry_id %}<span class="badge badge-synced">✓ Synced</span>{% else %}<span class="badge badge-unsynced">Not synced</span>{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No payroll payments yet. Record payments on each employee’s profile.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<style>
+  .emp-mgmt-section { margin-bottom: 24px; }
+  .emp-mgmt-section .section-desc { color: var(--text-muted); font-size: 14px; margin: -8px 0 16px 0; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .kpi-card .kpi-label { color: var(--text-muted); font-size: 13px; margin-bottom: 4px; }
+  .kpi-card .kpi-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .kpi-card .kpi-sub { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+  .badge-owner { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
+  .badge-crew { background: rgba(34, 197, 94, 0.25); color: #86efac; }
+  .badge-synced { background: rgba(34, 197, 94, 0.25); color: #86efac; }
+  .badge-unsynced { background: rgba(234, 179, 8, 0.25); color: #fde047; }
+  .crew-color-swatch { display: inline-block; width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); }
+  .emp-mgmt-tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+  .emp-tab { padding: 10px 16px; border-radius: 10px; text-decoration: none; color: var(--text-muted); font-weight: 500; font-size: 14px; }
+  .emp-tab:hover { color: var(--text); background: var(--surface); }
+  .emp-tab.active { background: var(--primary); color: #0a0a0a; }
+</style>
+<script>
+(function() {
+  var tabs = document.querySelectorAll('.emp-tab');
+  var panels = document.querySelectorAll('.emp-tab-panel');
+  function showTab(tabId) {
+    tabId = tabId || 'employees';
+    tabs.forEach(function(t) {
+      t.classList.toggle('active', t.getAttribute('data-tab') === tabId);
+    });
+    panels.forEach(function(p) {
+      p.hidden = p.getAttribute('data-panel') !== tabId;
+    });
+    window.location.hash = tabId;
+  }
+  tabs.forEach(function(t) {
+    t.addEventListener('click', function(e) {
+      e.preventDefault();
+      showTab(this.getAttribute('data-tab'));
+    });
+  });
+  if (window.location.hash) {
+    var id = window.location.hash.replace('#', '');
+    if (id && document.querySelector('[data-panel="' + id + '"]')) showTab(id);
+  }
+})();
+</script>
+{% if quickbooks_connected and payroll_unsynced_count > 0 %}
+<script>
+document.getElementById('payroll-sync-qb-btn').addEventListener('click', function() {
+  var btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  fetch('{% url "quickbooks:sync_payroll" %}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': document.querySelector('#payroll-csrf-form [name=csrfmiddlewaretoken]').value,
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    credentials: 'same-origin',
+    body: JSON.stringify({})
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.ok) {
+      btn.textContent = '✓ Synced ' + (data.synced || 0);
+      window.location.reload();
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Sync to QuickBooks';
+      alert(data.error || 'Sync failed');
+    }
+  }).catch(function() {
+    btn.disabled = false;
+    btn.textContent = 'Sync to QuickBooks';
+    alert('Request failed');
+  });
+});
+</script>
+{% endif %}
+{% endblock %}

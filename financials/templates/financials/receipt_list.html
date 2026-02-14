@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <a href="{% url 'financials:dashboard' %}" class="link-primary" style="font-size: 14px; margin-bottom: 4px; display: inline-block;">← Financials overview</a>
+    <h1>Receipts & expenses</h1>
+    <p>All receipts and material costs in one place</p>
+  </div>
+  <a href="{% url 'financials:receipt_upload' %}" class="btn btn-primary">+ Upload Receipt</a>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+  <h3 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase;">Filters</h3>
+  <form method="get" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+    <select name="category" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px;">
+      <option value="">All categories</option>
+      {% for value, label in receipt_categories %}
+      <option value="{{ value }}" {% if category == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <input type="number" name="year" value="{{ year }}" placeholder="Year" min="2020" max="2030"
+      style="width: 90px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px;">
+    <button type="submit" class="btn btn-secondary btn-sm">Apply</button>
+    {% if category or year or job_id %}
+    <a href="{% url 'financials:receipt_list' %}" class="btn btn-secondary btn-sm">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+<div class="card" style="margin-bottom: 16px;">
+  <p style="margin: 0; font-size: 15px;">Total (filtered): <strong>${{ total|floatformat:2 }}</strong></p>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Vendor</th>
+        <th class="num">Amount</th>
+        <th>Category</th>
+        <th>Job</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in receipts %}
+      <tr>
+        <td>{{ r.receipt_date }}</td>
+        <td>{{ r.vendor|default:"—" }}</td>
+        <td class="num">{% if r.amount is not None %}${{ r.amount|floatformat:2 }}{% else %}—{% endif %}</td>
+        <td><span class="badge badge-cat">{{ r.get_category_display }}</span></td>
+        <td>
+          {% if r.job %}
+          <a href="{% url 'job_detail' r.job_id %}" class="link-primary">{{ r.job.property.address }} ({{ r.job.scheduled_date }})</a>
+          {% else %}—{% endif %}
+        </td>
+        <td style="white-space: nowrap;">
+          {% if r.file %}<a href="{% url 'financials:receipt_download' r.id %}" class="btn btn-secondary btn-sm">Download</a>{% endif %}
+          <form method="post" action="{% url 'financials:receipt_delete' r.id %}" style="display: inline;" onsubmit="return confirm('Delete this receipt?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm" style="margin-left: 4px;">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No receipts yet. <a href="{% url 'financials:receipt_upload' %}" class="link-primary">Upload your first receipt</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .badge-cat { font-size: 11px; padding: 4px 8px; border-radius: 6px; background: rgba(38, 38, 38, 0.8); color: var(--text-muted); }
+</style>
+{% endblock %}

@@ -2,9 +2,12 @@
 {% load billing_filters %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Invoices</h1>
-  <p>Manage and view all invoices</p>
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Invoices</h1>
+    <p>Manage and view all invoices</p>
+  </div>
+  <a href="{% url 'billing:monthly_invoice_list' %}" class="btn btn-secondary">Monthly invoices</a>
 </div>
 
 <div class="card">
@@ -44,8 +47,8 @@
 
 <style>
   .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
-  .badge-sent { background: #fef3c7; color: #92400e; }
-  .badge-paid { background: #d1fae5; color: #065f46; }
-  .badge-draft { background: #e2e8f0; color: #475569; }
+  .badge-sent { background: rgba(234, 179, 8, 0.25); color: #fde047; }
+  .badge-paid { background: rgba(34, 197, 94, 0.25); color: #86efac; }
+  .badge-draft { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
 </style>
 {% endblock %}

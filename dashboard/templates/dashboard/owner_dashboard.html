@@ -6,17 +6,6 @@
   <p>{{ today }}</p>
 </div>
 
-<div class="quick-actions" style="margin-bottom: 20px;">
-  <a href="{% url 'customer_create' %}" class="btn btn-primary">+ Add Client</a>
-  <a href="{% url 'employee_add' %}" class="btn btn-secondary">+ Add Employee</a>
-  <a href="{% url 'create_job' %}" class="btn btn-secondary">Create Job</a>
-  <a href="{% url 'billing:estimate_create' %}" class="btn btn-secondary">Create Estimate</a>
-  <a href="/clients/" class="btn btn-secondary">Clients</a>
-  <a href="/employees/" class="btn btn-secondary">Employees</a>
-  <a href="/jobs/calendar/" class="btn btn-secondary">Calendar</a>
-  <a href="/jobs/routes/" class="btn btn-secondary">Daily Routes</a>
-</div>
-
 <div class="kpi-grid">
   <div class="kpi-card card">
     <div class="kpi-label">Revenue (this month)</div>
@@ -40,7 +29,7 @@
 <div class="card" style="margin-top: 24px;">
   <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
     Today by Crew
-    <a href="/employees/" class="btn btn-secondary btn-sm">Manage employees</a>
+    <a href="{% url 'employee_management' %}" class="btn btn-secondary btn-sm">Employee Management</a>
   </h2>
   <table class="data-table">
     <thead>
@@ -90,31 +79,6 @@
         {% endfor %}
       </tbody>
     </table>
-  </div>
-
-  <div class="card">
-    <h2 class="card-title">Recent clients</h2>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Contact</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for c in recent_customers %}
-        <tr>
-          <td><a href="{% url 'customer_detail' c.id %}" class="link-primary">{{ c.name }}</a></td>
-          <td>{{ c.phone|default:"" }}{% if c.phone and c.email %} · {% endif %}{{ c.email|default:"" }}{% if not c.phone and not c.email %}—{% endif %}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="2">No clients yet. <a href="{% url 'customer_create' %}" class="link-primary">Add one</a></td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <div style="margin-top: 16px;">
-      <a href="{% url 'customer_list' %}" class="btn btn-secondary btn-sm">View all clients</a>
-    </div>
   </div>
 
   <div class="card">
@@ -193,10 +157,10 @@
   .link-primary { color: var(--primary); font-weight: 500; text-decoration: none; }
   .link-primary:hover { text-decoration: underline; }
   .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
-  .badge-sent { background: #fef3c7; color: #92400e; }
-  .badge-paid { background: #d1fae5; color: #065f46; }
-  .badge-draft { background: #e2e8f0; color: #475569; }
-  .badge-accepted { background: #d1fae5; color: #065f46; }
-  .badge-declined { background: #fee2e2; color: #991b1b; }
+  .badge-sent { background: rgba(234, 179, 8, 0.25); color: #fde047; }
+  .badge-paid { background: rgba(34, 197, 94, 0.25); color: #86efac; }
+  .badge-draft { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
+  .badge-accepted { background: rgba(34, 197, 94, 0.25); color: #86efac; }
+  .badge-declined { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
 </style>
 {% endblock %}

@@ -91,11 +91,22 @@ class CustomerForm(forms.ModelForm):
         fields = [
             'name', 'phone', 'alt_phone', 'email',
             'address_line1', 'address_line2', 'city', 'state', 'postal_code',
+            'invoice_frequency',
+            'monthly_invoice_send_day',
             'notes',
         ]
         widgets = {
+            'invoice_frequency': forms.Select(attrs={'class': 'form-select'}),
+            'monthly_invoice_send_day': forms.NumberInput(attrs={'min': 1, 'max': 28, 'placeholder': 'e.g. 1 or 15'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Internal notes about this client...'}),
         }
+
+    def clean_monthly_invoice_send_day(self):
+        val = self.cleaned_data.get('monthly_invoice_send_day')
+        if val is not None and (val < 1 or val > 28):
+            from django import forms as f
+            raise f.ValidationError("Must be between 1 and 28.")
+        return val
 
 
 class PropertyForm(forms.ModelForm):

@@ -11,6 +11,72 @@
   <a href="/" class="btn btn-secondary">Dashboard</a>
 </div>
 
+<!-- Add material cost (inline, optional receipt + parse) -->
+<div class="card" style="margin-bottom: 20px;">
+  <h2 class="card-title">Add material cost</h2>
+  <p style="margin: 0 0 16px 0; color: var(--text-muted); font-size: 14px;">Add a cost for this job. Optionally attach a receipt — you can auto-fill from the receipt image.</p>
+  <form id="material-cost-form" method="post" action="{% url 'financials:job_add_material_cost' job.id %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="material-cost-fields">
+      <div class="form-row material-row">
+        <div class="field">
+          <label for="id_receipt_date">Date *</label>
+          <input type="date" name="receipt_date" id="id_receipt_date" required value="{{ today_iso }}">
+        </div>
+        <div class="field">
+          <label for="id_amount">Amount ($)</label>
+          <input type="number" name="amount" id="id_amount" step="0.01" min="0" placeholder="0.00">
+        </div>
+        <div class="field">
+          <label for="id_category">Category</label>
+          <select name="category" id="id_category">
+            <option value="materials">Materials</option>
+            <option value="fuel">Fuel</option>
+            <option value="equipment">Equipment / Rentals</option>
+            <option value="supplies">Supplies</option>
+            <option value="labor">Labor / Subcontractor</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row material-row">
+        <div class="field" style="flex: 1;">
+          <label for="id_vendor">Vendor</label>
+          <input type="text" name="vendor" id="id_vendor" maxlength="255" placeholder="Store name">
+        </div>
+        <div class="field" style="flex: 1;">
+          <label for="id_description">Description</label>
+          <input type="text" name="description" id="id_description" maxlength="500" placeholder="e.g. Mulch, plants">
+        </div>
+      </div>
+      <div class="form-row material-row">
+        <div class="field">
+          <label for="id_file">Receipt (optional)</label>
+          <input type="file" name="file" id="id_file" accept="image/*,.pdf">
+          <button type="button" id="parse-receipt-btn" class="btn btn-secondary btn-sm" style="margin-top: 6px;">Parse receipt (auto-fill)</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top: 16px;">
+      <button type="submit" class="btn btn-primary">Add material cost</button>
+    </div>
+  </form>
+</div>
+
+{% if job_receipts %}
+  <div class="card" style="margin-bottom: 20px;">
+    <h2 class="card-title">Receipts / materials for this job</h2>
+    <p style="margin: 0 0 12px 0; color: var(--text-muted); font-size: 14px;">Total: ${{ job_receipts_total|floatformat:2 }}</p>
+    <ul style="margin: 0; padding-left: 20px;">
+      {% for r in job_receipts %}
+      <li>{{ r.receipt_date }} — {{ r.vendor|default:r.get_category_display }} {% if r.amount %}(${{ r.amount|floatformat:2 }}){% endif %}
+        {% if r.file %}<a href="{% url 'financials:receipt_download' r.id %}" class="link-primary">Download</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
 {% if job.status == "completed" and has_unbilled_items %}
   <div class="card" style="margin-bottom: 20px; background: var(--primary-light); border-color: var(--primary);">
     <h2 class="card-title">Billing</h2>
@@ -76,10 +142,55 @@
   .form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
   .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
   .form-group input, .form-group select { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; }
+  .material-cost-fields .field { margin-bottom: 12px; }
+  .material-cost-fields .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .material-cost-fields input, .material-cost-fields select { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); }
+  .material-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .material-row .field { min-width: 120px; }
   .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
-  .badge-scheduled { background: #e0f2fe; color: #0369a1; }
-  .badge-inprogress { background: #fef3c7; color: #92400e; }
-  .badge-completed { background: #d1fae5; color: #065f46; }
-  .badge-skipped { background: #e2e8f0; color: #475569; }
+  .badge-scheduled { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
+  .badge-inprogress { background: rgba(234, 179, 8, 0.25); color: #fde047; }
+  .badge-completed { background: rgba(34, 197, 94, 0.25); color: #86efac; }
+  .badge-skipped { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
 </style>
+
+<script>
+(function() {
+  var form = document.getElementById('material-cost-form');
+  var fileInput = document.getElementById('id_file');
+  var parseBtn = document.getElementById('parse-receipt-btn');
+  if (!form || !fileInput || !parseBtn) return;
+
+  parseBtn.addEventListener('click', function() {
+    if (!fileInput.files || !fileInput.files[0]) {
+      alert('Please select a receipt image first (JPEG, PNG, GIF, or WebP).');
+      return;
+    }
+    var file = fileInput.files[0];
+    var type = (file.type || '').toLowerCase();
+    if (type.indexOf('image/') !== 0) {
+      alert('Only image files can be parsed. Please use a photo of the receipt.');
+      return;
+    }
+    parseBtn.disabled = true;
+    parseBtn.textContent = 'Parsing…';
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('csrfmiddlewaretoken', form.querySelector('[name=csrfmiddlewaretoken]').value);
+    fetch('{% url "financials:parse_receipt" %}', { method: 'POST', body: fd, credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.error) {
+          alert(data.error);
+          return;
+        }
+        if (data.receipt_date) document.getElementById('id_receipt_date').value = data.receipt_date;
+        if (data.amount) document.getElementById('id_amount').value = data.amount;
+        if (data.vendor) document.getElementById('id_vendor').value = data.vendor;
+      })
+      .catch(function() { alert('Could not parse receipt.'); })
+      .then(function() { parseBtn.disabled = false; parseBtn.textContent = 'Parse receipt (auto-fill)'; });
+  });
+})();
+</script>
 {% endblock %}

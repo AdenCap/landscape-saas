@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <a href="{% url 'financials:revenue_categories' %}" class="link-primary" style="font-size: 14px; margin-bottom: 4px; display: inline-block;">← Revenue categories</a>
+  <h1>{{ title }}</h1>
+</div>
+
+<div class="card" style="max-width: 400px;">
+  <form method="post">
+    {% csrf_token %}
+    <div class="field">
+      <label for="name">Name</label>
+      <input type="text" name="name" id="name" value="{{ category.name|default:'' }}" required maxlength="100" placeholder="e.g. Mowing, Fertilizing">
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{% url 'financials:revenue_categories' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<style>
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .field input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); }
+  .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+</style>
+{% endblock %}

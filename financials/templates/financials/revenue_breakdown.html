@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <a href="{% url 'financials:dashboard' %}" class="link-primary" style="font-size: 14px; margin-bottom: 4px; display: inline-block;">← Financials</a>
+    <h1>Revenue breakdown</h1>
+    <p>Revenue by category (from paid invoices)</p>
+  </div>
+  <a href="{% url 'financials:revenue_categories' %}" class="btn btn-secondary">Manage categories</a>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+  <form method="get" style="display: flex; gap: 12px; align-items: center;">
+    <label for="year">Year:</label>
+    <select name="year" id="year" onchange="this.form.submit()" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">
+      {% for y in years %}
+      <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="margin: 0 0 16px 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase;">Total revenue ({{ year }}): ${{ total_revenue|floatformat:2 }}</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th class="num">Amount</th>
+        <th class="num">% of total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in breakdown %}
+      <tr>
+        <td>{{ row.name }}</td>
+        <td class="num">${{ row.amount|floatformat:2 }}</td>
+        <td class="num">{{ row.pct|floatformat:1 }}%</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No revenue in {{ year }} or categories not yet set up. <a href="{% url 'financials:revenue_categories' %}" class="link-primary">Add revenue categories</a> and assign them to services.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p style="margin-top: 16px; font-size: 14px; color: var(--text-muted);">Categories are set under <strong>Manage categories</strong>. Assign each service (e.g. Mowing, Fertilizing) to a category so new invoices are grouped here. Existing line items keep their category when created from jobs.</p>
+{% endblock %}

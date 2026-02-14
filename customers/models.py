@@ -1,3 +1,4 @@
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from businesses.models import Business
 
@@ -22,6 +23,25 @@ class Customer(models.Model):
     postal_code = models.CharField(max_length=20, blank=True, verbose_name='ZIP / Postal code')
 
     notes = models.TextField(blank=True)
+
+    INVOICE_FREQUENCY_CHOICES = [
+        ("", "Ask each time (choose when job is completed)"),
+        ("per_service", "Per service — invoice when each job is completed"),
+        ("monthly", "Monthly — add completed jobs to a monthly invoice"),
+    ]
+    invoice_frequency = models.CharField(
+        max_length=20,
+        choices=INVOICE_FREQUENCY_CHOICES,
+        default="",
+        blank=True,
+        help_text="When to send invoices for this client. Leave blank to choose per job.",
+    )
+    monthly_invoice_send_day = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(28)],
+        help_text="For monthly clients: day of month to send the invoice (1–28). E.g. 1 = 1st, 15 = 15th. Leave blank to send manually.",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

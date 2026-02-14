@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import owner_dashboard, crew_day_detail
+from .views import owner_dashboard, crew_day_detail, employee_management
 
 urlpatterns = [
     path("", owner_dashboard, name="owner_dashboard"),
     path("crew/<int:user_id>/", crew_day_detail, name="crew_day_detail"),
+    path("employee-management/", employee_management, name="employee_management"),
 ]

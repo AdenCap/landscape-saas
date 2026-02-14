@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Estimator</h1>
+  <p>Property estimates, fertilizer calculator, and mulch &amp; rock calculator</p>
+</div>
+
+<div class="estimator-tools">
+  <a href="{% url 'estimator_list' %}" class="estimator-tool-card">
+    <span class="estimator-tool-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21H4.6a.6.6 0 0 1-.6-.6V3"/><path d="M21 7V3h-4"/><path d="M7 3v18"/><path d="M21 12h-4"/></svg>
+    </span>
+    <h2 class="estimator-tool-title">Property Estimates</h2>
+    <p class="estimator-tool-desc">Upload satellite or aerial images to detect grass, pavement, mulch, trees, and bushes.</p>
+  </a>
+  <a href="{% url 'fertilizer_calculator' %}" class="estimator-tool-card">
+    <span class="estimator-tool-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22v-8"/><path d="M12 14V8"/><path d="M8 6l4-4 4 4"/><path d="M6 12H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M18 12h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><path d="M6 12a2 2 0 0 1-2 2v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4a2 2 0 0 1-2 2"/></svg>
+    </span>
+    <h2 class="estimator-tool-title">Fertilizer Calculator</h2>
+    <p class="estimator-tool-desc">Calculate fertilizer needed by area and application rate. Price by pound or by bag.</p>
+  </a>
+  <a href="{% url 'mulch_rock_calculator' %}" class="estimator-tool-card">
+    <span class="estimator-tool-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/><path d="M7 7l10 10"/><path d="M17 7L7 17"/></svg>
+    </span>
+    <h2 class="estimator-tool-title">Mulch &amp; Rock Calculator</h2>
+    <p class="estimator-tool-desc">Estimate cubic yards and bags for mulch or rock from area and depth. Price by bag or by cubic yard.</p>
+  </a>
+</div>
+
+<style>
+  .estimator-tools {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 24px;
+  }
+  .estimator-tool-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .estimator-tool-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
+  }
+  .estimator-tool-icon {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-light);
+    color: var(--primary);
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+  .estimator-tool-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+  .estimator-tool-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text);
+  }
+  .estimator-tool-desc {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.5;
+  }
+</style>
+{% endblock %}

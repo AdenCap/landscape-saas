@@ -7,20 +7,36 @@ from .models import Invoice, InvoiceLineItem
 
 @transaction.atomic
 def generate_monthly_invoice_for_customer(customer, year, month, include_job=None):
+    """
+    Add completed job(s) to the customer's monthly invoice for this period.
+    If the existing monthly invoice for this period was already sent/paid, we create
+    a new draft invoice for the same period (so later services get a separate invoice).
+    """
     from django.db.models import Q
     from jobs.models import Job, JobServiceItem
 
     period_start = date(year, month, 1)
     period_end = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
 
-    invoice, _ = Invoice.objects.get_or_create(
+    # Only add to a DRAFT monthly invoice for this period. If the current one was sent/paid,
+    # create a new draft so we don't add to an already-sent invoice.
+    invoice = Invoice.objects.filter(
         business=customer.business,
         customer=customer,
         period_start=period_start,
         period_end=period_end,
         job__isnull=True,
-        defaults={"status": "draft"},
-    )
+        status="draft",
+    ).first()
+
+    if not invoice:
+        invoice = Invoice.objects.create(
+            business=customer.business,
+            customer=customer,
+            period_start=period_start,
+            period_end=period_end,
+            status="draft",
+        )
 
     base_filter = Q(property__customer=customer, status="completed")
     date_filter = Q(scheduled_date__gte=period_start, scheduled_date__lt=period_end)
@@ -41,6 +57,7 @@ def generate_monthly_invoice_for_customer(customer, year, month, include_job=Non
             quantity=item.quantity,
             unit_price=item.unit_price,
             labor_cost=item.quantity * item.unit_price,
+            revenue_category=getattr(item.service, "revenue_category", None),
         )
 
         item.billed_invoice = invoice

@@ -17,6 +17,14 @@ class ServiceTemplate(models.Model):
     default_unit = models.CharField(max_length=20, choices=UNIT_CHOICES, default="visit")
     default_rate = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     active = models.BooleanField(default=True)
+    revenue_category = models.ForeignKey(
+        "financials.RevenueCategory",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="service_templates",
+        help_text="Used for revenue breakdown in Financials (e.g. Mowing, Fertilizing).",
+    )
 
     def __str__(self):
         return self.name

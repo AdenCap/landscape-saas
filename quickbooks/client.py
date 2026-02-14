@@ -191,7 +191,7 @@ def get_or_create_service_item(connection):
     accounts = acc_result.get("QueryResponse", {}).get("Account", [])
     income_ref = {"value": str(accounts[0]["Id"])} if accounts else {"value": "1"}
     payload = {
-        "Name": "Landscape Service",
+        "Name": "Field Ops Service",
         "Type": "Service",
         "IncomeAccountRef": income_ref,
     }
@@ -256,4 +256,75 @@ def push_invoice_to_quickbooks(connection, invoice):
     qb_id = str(qb_invoice["Id"])
     invoice.quickbooks_invoice_id = qb_id
     invoice.save(update_fields=["quickbooks_invoice_id"])
+    return qb_id
+
+
+def _get_first_account_by_type(connection, account_type):
+    """Get first QuickBooks account of given type (e.g. 'Expense', 'Bank'). Returns dict with Id and Name."""
+    q = f"select * from Account where AccountType = '{account_type}' and Active = true maxresults 1"
+    result = _api_request(connection, "GET", "query", params={"query": q})
+    accounts = result.get("QueryResponse", {}).get("Account", [])
+    if not accounts:
+        raise ValueError(f"No {account_type} account found in QuickBooks. Create one in your QB company.")
+    return {"value": str(accounts[0]["Id"]), "name": accounts[0].get("Name", "")}
+
+
+def push_payroll_payment_to_quickbooks(connection, payment):
+    """
+    Create a Journal Entry in QuickBooks for an EmployeePayment.
+    Debit: Payroll expense account. Credit: Bank account.
+    Saves quickbooks_journal_entry_id on payment.
+    Returns QuickBooks Journal Entry Id.
+    """
+    from accounts.models import EmployeePayment
+
+    if not isinstance(payment, EmployeePayment):
+        payment = EmployeePayment.objects.select_related("employee", "business").get(pk=payment)
+    if payment.quickbooks_journal_entry_id:
+        return payment.quickbooks_journal_entry_id
+
+    amount = round(float(payment.amount), 2)
+    if amount <= 0:
+        raise ValueError("Payment amount must be positive")
+
+    expense_account = _get_first_account_by_type(connection, "Expense")
+    bank_account = _get_first_account_by_type(connection, "Bank")
+
+    emp_name = (payment.employee.get_full_name() or payment.employee.username or "Employee")[:100]
+    desc = f"Payroll: {emp_name} – {payment.paid_date}"
+    if payment.notes:
+        desc = (desc + " – " + payment.notes)[:4000]
+
+    payload = {
+        "JournalEntry": {
+            "TxnDate": payment.paid_date.isoformat(),
+            "DocNumber": f"Payroll-{payment.id}",
+            "Line": [
+                {
+                    "Description": desc,
+                    "Amount": amount,
+                    "DetailType": "JournalEntryLineDetail",
+                    "JournalEntryLineDetail": {
+                        "PostingType": "Debit",
+                        "AccountRef": expense_account,
+                    },
+                },
+                {
+                    "Description": desc,
+                    "Amount": amount,
+                    "DetailType": "JournalEntryLineDetail",
+                    "JournalEntryLineDetail": {
+                        "PostingType": "Credit",
+                        "AccountRef": bank_account,
+                    },
+                },
+            ],
+        }
+    }
+
+    result = _api_request(connection, "POST", "journalentry", json_data=payload)
+    qb_je = result.get("JournalEntry", {})
+    qb_id = str(qb_je["Id"])
+    payment.quickbooks_journal_entry_id = qb_id
+    payment.save(update_fields=["quickbooks_journal_entry_id"])
     return qb_id

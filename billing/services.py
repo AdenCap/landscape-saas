@@ -114,6 +114,7 @@ def create_draft_invoice_for_job(job):
             quantity=ji.quantity,
             unit_price=ji.unit_price,
             labor_cost=ji.quantity * ji.unit_price,
+            revenue_category=getattr(ji.service, "revenue_category", None),
         )
 
     # If your Invoice model has subtotal/tax/total fields stored:

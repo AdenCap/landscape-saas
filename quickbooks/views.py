@@ -1,9 +1,11 @@
+from django.db.models import Q
 from django.contrib import messages
 from django.shortcuts import redirect, get_object_or_404, render
 from django.views.decorators.http import require_GET, require_POST
 from django.http import JsonResponse
 
 from accounts.decorators import role_required
+from accounts.models import EmployeePayment
 from billing.models import Invoice
 
 from .models import QuickBooksConnection
@@ -121,3 +123,29 @@ def push_invoice(request, invoice_id):
         return JsonResponse({"ok": True, "quickbooks_invoice_id": qb_id})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
+
+
+@role_required("owner")
+@require_POST
+def sync_payroll(request):
+    """Sync all unsynced employee payments to QuickBooks as journal entries."""
+    business = _get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    conn = getattr(business, "quickbooks_connection", None)
+    if not conn:
+        return JsonResponse({"error": "Connect QuickBooks in Settings first."}, status=400)
+
+    unsynced = list(
+        EmployeePayment.objects.filter(business=business)
+        .filter(Q(quickbooks_journal_entry_id__isnull=True) | Q(quickbooks_journal_entry_id=""))
+        .select_related("employee")
+    )
+    synced = 0
+    for payment in unsynced:
+        try:
+            client.push_payroll_payment_to_quickbooks(conn, payment)
+            synced += 1
+        except Exception as e:
+            return JsonResponse({"error": f"Payment #{payment.id}: {e}"}, status=400)
+    return JsonResponse({"ok": True, "synced": synced})

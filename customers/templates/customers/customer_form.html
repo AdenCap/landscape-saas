@@ -32,6 +32,21 @@
       </div>
     </div>
     <div class="form-section">
+      <h3>Invoicing</h3>
+      <div class="field">
+        {{ form.invoice_frequency.label_tag }}
+        {{ form.invoice_frequency }}
+        <p class="help">When a job is marked completed, invoices are created automatically per this choice. Leave "Ask each time" to choose per job.</p>
+        {{ form.invoice_frequency.errors }}
+      </div>
+      <div class="field">
+        <label for="id_monthly_invoice_send_day">Invoice to be sent on (monthly clients)</label>
+        {{ form.monthly_invoice_send_day }}
+        <p class="help">Day of month to send their monthly invoice (1–28). E.g. 1 = 1st, 15 = 15th. Leave blank to send manually.</p>
+        {{ form.monthly_invoice_send_day.errors }}
+      </div>
+    </div>
+    <div class="form-section">
       <h3>Notes</h3>
       <div class="field">{{ form.notes.label_tag }}{{ form.notes }}{{ form.notes.errors }}</div>
     </div>
@@ -57,7 +72,8 @@
   .form-section input, .form-section textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; font-family: inherit; }
   .form-section .field { margin-bottom: 14px; }
   .form-section .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
-  .form-section .field ul { color: #991b1b; font-size: 13px; margin: 4px 0 0 0; }
+  .form-section .field ul { color: #fca5a5; font-size: 13px; margin: 4px 0 0 0; }
+  .form-section .field .help { font-size: 12px; color: var(--text-muted); margin: 6px 0 0 0; }
   .form-actions { display: flex; gap: 10px; margin-top: 24px; }
 </style>
 {% endblock %}

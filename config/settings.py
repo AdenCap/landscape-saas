@@ -16,6 +16,13 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load .env from project root if present (secrets stay out of version control)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(BASE_DIR / ".env")
+except ImportError:
+    pass
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -49,9 +56,10 @@ INSTALLED_APPS = [
     'time_tracking',
     'property_estimator',
     'quickbooks',
+    'financials',
 ]
 
-# QuickBooks Online integration (optional)
+# QuickBooks Online integration – set via environment variables (never commit secrets)
 QUICKBOOKS_CLIENT_ID = os.environ.get("QUICKBOOKS_CLIENT_ID", "")
 QUICKBOOKS_CLIENT_SECRET = os.environ.get("QUICKBOOKS_CLIENT_SECRET", "")
 QUICKBOOKS_REDIRECT_URI = os.environ.get("QUICKBOOKS_REDIRECT_URI", "")  # e.g. https://yourdomain.com/quickbooks/callback/
@@ -152,4 +160,4 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # Mapbox for satellite imagery in Property Estimator (get free token at mapbox.com)
 MAPBOX_ACCESS_TOKEN = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
-DEFAULT_FROM_EMAIL = "Landscape <noreply@landscape.local>"
+DEFAULT_FROM_EMAIL = "Field Ops <noreply@fieldops.local>"

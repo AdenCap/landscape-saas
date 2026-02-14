@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>{% block title %}Landscape Manager{% endblock %}</title>
+  <title>{% block title %}Field Ops{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -9,16 +9,17 @@
 
   <style>
     :root {
-      --primary: #0d9488;
-      --primary-hover: #0f766e;
-      --primary-light: #ccfbf1;
-      --secondary: #334155;
-      --accent: #059669;
-      --surface: #ffffff;
-      --surface-alt: #f8fafc;
-      --border: #e2e8f0;
-      --text: #0f172a;
-      --text-muted: #64748b;
+      /* Landscaping theme: black & dark grey with bright green accents */
+      --primary: #22c55e;
+      --primary-hover: #16a34a;
+      --primary-light: rgba(34, 197, 94, 0.15);
+      --secondary: #525252;
+      --accent: #4ade80;
+      --surface: #171717;
+      --surface-alt: #0a0a0a;
+      --border: #262626;
+      --text: #fafafa;
+      --text-muted: #a3a3a3;
     }
 
     * { box-sizing: border-box; }
@@ -50,12 +51,12 @@
     }
     .btn-primary {
       background: var(--primary);
-      color: white;
+      color: #0a0a0a;
     }
-    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:hover { background: var(--primary-hover); color: #0a0a0a; }
     .btn-secondary {
-      background: white;
-      color: var(--secondary);
+      background: var(--surface);
+      color: var(--text);
       border: 2px solid var(--border);
     }
     .btn-secondary:hover {
@@ -67,35 +68,88 @@
       justify-content: flex-start;
       padding: 12px 16px;
       background: transparent;
-      color: rgba(255,255,255,0.9);
+      color: rgba(255,255,255,0.85);
       border-radius: 10px;
       text-align: left;
     }
     .btn-nav:hover {
-      background: rgba(255,255,255,0.12);
-      color: white;
+      background: rgba(34, 197, 94, 0.12);
+      color: var(--primary);
     }
     .btn-nav.active {
-      background: rgba(255,255,255,0.18);
-      color: white;
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--primary);
     }
+    .nav-icon {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      color: currentColor;
+    }
+    .sidebar-create-item .nav-icon { margin-right: 10px; }
     .btn-sm { padding: 6px 12px; font-size: 13px; }
 
     .sidebar {
       width: 260px;
       min-height: 100vh;
-      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+      background: linear-gradient(180deg, #0a0a0a 0%, #171717 100%);
       padding: 20px;
       display: flex;
       flex-direction: column;
+      border-right: 1px solid var(--border);
     }
     .sidebar-brand {
       font-size: 22px;
       font-weight: 700;
-      color: white;
-      margin-bottom: 28px;
+      color: var(--primary);
+      margin-bottom: 16px;
       padding: 0 4px;
       letter-spacing: -0.02em;
+    }
+    .sidebar-create-wrap {
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .btn-create {
+      width: 100%;
+      justify-content: center;
+      padding: 12px 16px;
+      background: var(--primary);
+      color: #0a0a0a;
+      font-weight: 600;
+      font-size: 15px;
+      border-radius: 10px;
+    }
+    .btn-create:hover {
+      background: var(--primary-hover);
+      color: #0a0a0a;
+    }
+    .sidebar-create-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      margin-top: 6px;
+      padding: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      z-index: 100;
+    }
+    .sidebar-create-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 14px;
+      border-radius: 8px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 14px;
+      transition: background 0.15s ease;
+    }
+    .sidebar-create-item:hover {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--primary);
     }
     .sidebar-nav {
       display: flex;
@@ -104,11 +158,11 @@
     }
     .sidebar-divider {
       height: 1px;
-      background: rgba(255,255,255,0.12);
+      background: var(--border);
       margin: 16px 0;
     }
     .sidebar-footer .btn-nav {
-      color: rgba(255,255,255,0.7);
+      color: rgba(255,255,255,0.6);
     }
 
     .main-wrap {
@@ -120,10 +174,11 @@
 
     .topbar {
       display: none;
-      background: #0f172a;
+      background: #0a0a0a;
       padding: 12px 16px;
       gap: 8px;
       flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
     }
     .topbar .btn-nav {
       width: auto;
@@ -154,7 +209,7 @@
       background: var(--surface);
       border-radius: 14px;
       padding: 20px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
       border: 1px solid var(--border);
     }
     .card-title {
@@ -170,15 +225,24 @@
 
     .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
 
+    /* Form controls – dark theme */
+    input, select, textarea {
+      background: var(--surface-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    input::placeholder, textarea::placeholder { color: var(--text-muted); }
+
     .link-primary { color: var(--primary); font-weight: 500; text-decoration: none; }
     .link-primary:hover { text-decoration: underline; }
 
     .messages { margin-bottom: 20px; }
     .alert { padding: 12px 16px; border-radius: 10px; font-size: 14px; }
-    .alert-success { background: #d1fae5; color: #065f46; }
-    .alert-error { background: #fee2e2; color: #991b1b; }
-    .alert-warning { background: #fef3c7; color: #92400e; }
-    .alert-info { background: #dbeafe; color: #1e40af; }
+    .alert-success { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4); }
+    .alert-error { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .alert-warning { background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.4); }
+    .alert-info { background: rgba(34, 197, 94, 0.12); color: #bbf7d0; border: 1px solid rgba(34, 197, 94, 0.3); }
 
     @media (max-width: 768px) {
       body { flex-direction: column; }
@@ -194,62 +258,91 @@
   {% if user.is_authenticated %}
     <!-- Desktop sidebar -->
     <aside class="sidebar">
-      <div class="sidebar-brand">Landscape</div>
+      <div class="sidebar-brand">Field Ops</div>
+
+      {% if user.role != "crew" %}
+      <div class="sidebar-create-wrap">
+        <button type="button" class="btn btn-create" id="sidebar-create-btn" aria-expanded="false" aria-haspopup="true">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Create
+        </button>
+        <div class="sidebar-create-dropdown" id="sidebar-create-dropdown" hidden>
+          <a href="{% url 'customer_create' %}" class="sidebar-create-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> New client</a>
+          <a href="{% url 'billing:estimate_create' %}" class="sidebar-create-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> New quote</a>
+          <a href="{% url 'create_job' %}" class="sidebar-create-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/></svg> New job</a>
+          <a href="{% url 'billing:invoice_list' %}" class="sidebar-create-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg> New invoice</a>
+        </div>
+      </div>
+      {% endif %}
 
       <nav class="sidebar-nav">
         {% if user.role == "crew" %}
           <a href="/jobs/crew/" class="btn btn-nav {% if '/jobs/crew' in request.path %}active{% endif %}">
-            📋 Today's Jobs
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/></svg>
+            Today's Jobs
           </a>
           <a href="/time/" class="btn btn-nav {% if '/time' in request.path %}active{% endif %}">
-            ⏱️ Time Clock
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Time Clock
           </a>
         {% else %}
           <a href="/" class="btn btn-nav {% if request.path == '/' or request.path == '' %}active{% endif %}">
-            📊 Dashboard
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Dashboard
           </a>
           <a href="{% url 'job_list' %}" class="btn btn-nav {% if request.path == '/jobs/' or request.path == '/jobs' %}active{% endif %}">
-            📋 Jobs
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/></svg>
+            Jobs
           </a>
           <a href="/jobs/calendar/" class="btn btn-nav {% if '/jobs/calendar' in request.path %}active{% endif %}">
-            📅 Calendar
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Calendar
           </a>
           <a href="/jobs/routes/" class="btn btn-nav {% if '/jobs/routes' in request.path %}active{% endif %}">
-            🗺️ Daily Routes
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+            Daily Routes
           </a>
           <a href="/clients/" class="btn btn-nav {% if '/clients' in request.path %}active{% endif %}">
-            👥 Clients
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Clients
           </a>
           <a href="/estimator/" class="btn btn-nav {% if '/estimator' in request.path %}active{% endif %}">
-            📐 Property Estimator
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21H4.6a.6.6 0 0 1-.6-.6V3"/><path d="M21 7V3h-4"/><path d="M7 3v18"/><path d="M21 12h-4"/></svg>
+            Estimator
           </a>
           <a href="/billing/" class="btn btn-nav {% if '/billing' in request.path and 'estimates' not in request.path %}active{% endif %}">
-            💳 Invoices
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg>
+            Invoices
           </a>
           <a href="/billing/estimates/" class="btn btn-nav {% if '/billing/estimates' in request.path %}active{% endif %}">
-            📋 Estimates
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Estimates
           </a>
-          <a href="/time/timesheets/" class="btn btn-nav {% if '/time/timesheets' in request.path %}active{% endif %}">
-            ⏱️ Timesheets
+          <a href="{% url 'employee_management' %}" class="btn btn-nav {% if '/employee-management' in request.path %}active{% endif %}">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Employee Management
           </a>
-          <a href="/employees/" class="btn btn-nav {% if '/employees' in request.path %}active{% endif %}">
-            👷 Employees
-          </a>
-          <a href="{% url 'crew_list' %}" class="btn btn-nav {% if '/crews' in request.path %}active{% endif %}">
-            👥 Crews
+          <a href="{% url 'financials:dashboard' %}" class="btn btn-nav {% if '/financials' in request.path %}active{% endif %}">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+            Financials
           </a>
           <a href="{% url 'quickbooks:settings' %}" class="btn btn-nav {% if '/quickbooks' in request.path %}active{% endif %}">
-            📒 QuickBooks
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/></svg>
+            QuickBooks
           </a>
           <a href="/settings/" class="btn btn-nav {% if '/settings' in request.path %}active{% endif %}">
-            ⚙️ Settings
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Settings
           </a>
         {% endif %}
       </nav>
 
       <div class="sidebar-divider"></div>
       <div class="sidebar-footer">
-        <a href="{% url 'logout' %}" class="btn btn-nav">Logout</a>
+        <a href="{% url 'logout' %}" class="btn btn-nav">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
+        </a>
       </div>
     </aside>
 
@@ -267,9 +360,8 @@
         <a href="/estimator/" class="btn btn-nav">Estimator</a>
         <a href="/billing/" class="btn btn-nav">Invoices</a>
         <a href="/billing/estimates/" class="btn btn-nav">Estimates</a>
-        <a href="/time/timesheets/" class="btn btn-nav">Timesheets</a>
-        <a href="/employees/" class="btn btn-nav">Employees</a>
-        <a href="{% url 'crew_list' %}" class="btn btn-nav">Crews</a>
+        <a href="{% url 'employee_management' %}" class="btn btn-nav">Employee Management</a>
+        <a href="{% url 'financials:dashboard' %}" class="btn btn-nav">Financials</a>
         <a href="{% url 'quickbooks:settings' %}" class="btn btn-nav">QuickBooks</a>
         <a href="/settings/" class="btn btn-nav">Settings</a>
       {% endif %}
@@ -293,5 +385,24 @@
   </main>
 
   {% block extra_js %}{% endblock %}
+  {% if user.is_authenticated and user.role != "crew" %}
+  <script>
+  (function() {
+    var btn = document.getElementById('sidebar-create-btn');
+    var dropdown = document.getElementById('sidebar-create-dropdown');
+    if (!btn || !dropdown) return;
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var open = !dropdown.hidden;
+      dropdown.hidden = open;
+      btn.setAttribute('aria-expanded', !open);
+    });
+    document.addEventListener('click', function() {
+      dropdown.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    });
+  })();
+  </script>
+  {% endif %}
 </body>
 </html>

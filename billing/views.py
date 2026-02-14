@@ -16,7 +16,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from accounts.decorators import role_required
 from customers.models import Customer
 from .models import Invoice, Estimate, EstimateLineItem, EstimateImage
-from .forms import EstimateForm, EstimateLineItemForm, EstimateImageForm
+from .forms import EstimateForm, EstimateLineItemForm, EstimateImageForm, _compute_fertilizing, _compute_mulch
 
 def invoice_list_view(request):
     invoices = Invoice.objects.all().order_by('-issue_date')
@@ -27,8 +27,53 @@ def invoice_list_view(request):
 
 @role_required("owner")
 def invoice_list(request):
-    invoices = Invoice.objects.select_related("customer").order_by("-issue_date", "-id")[:50]
+    business = getattr(request.user, "business", None)
+    qs = Invoice.objects.select_related("customer")
+    if business:
+        qs = qs.filter(business=business)
+    invoices = qs.order_by("-issue_date", "-id")[:100]
     return render(request, "billing/invoice_list.html", {"invoices": invoices})
+
+
+@role_required("owner")
+def monthly_invoice_list(request):
+    """List monthly invoices (period-based), including drafts being built during the month."""
+    business = getattr(request.user, "business", None)
+    if not business:
+        messages.error(request, "You must be associated with a business to view invoices.")
+        return redirect("/")
+    # Monthly invoices: no single job, have period
+    monthly = (
+        Invoice.objects.filter(business=business, job__isnull=True, period_start__isnull=False)
+        .select_related("customer")
+        .order_by("-period_start", "-id")
+    )
+    # Optional year filter
+    year_param = request.GET.get("year", "").strip()
+    year_int = int(year_param) if year_param.isdigit() else None
+    if year_int:
+        monthly = monthly.filter(period_start__year=year_int)
+    from datetime import date as date_type
+    from django.utils import timezone as tz
+    today = tz.localdate()
+    years = [today.year, today.year - 1, today.year - 2]
+    # Build list with "send on" date for each invoice (when customer has monthly_invoice_send_day)
+    rows = []
+    for inv in monthly[:100]:
+        send_on = None
+        if inv.status == "draft" and inv.period_start and getattr(inv.customer, "monthly_invoice_send_day", None):
+            day = min(inv.customer.monthly_invoice_send_day, 28)
+            try:
+                send_on = date_type(inv.period_start.year, inv.period_start.month, day)
+            except (ValueError, TypeError):
+                pass
+        rows.append({"invoice": inv, "send_on": send_on})
+    return render(request, "billing/monthly_invoice_list.html", {
+        "rows": rows,
+        "year_param": year_param,
+        "year_int": year_int,
+        "years": years,
+    })
 
 
 @role_required("owner")
@@ -40,10 +85,12 @@ def invoice_detail(request, invoice_id):
     invoice = get_object_or_404(qs)
     items = invoice.line_items.all()
     quickbooks_connected = bool(business and getattr(business, "quickbooks_connection", None))
+    is_monthly = bool(invoice.job_id is None and invoice.period_start)
     return render(request, "billing/invoice_detail.html", {
         "invoice": invoice,
         "items": items,
         "quickbooks_connected": quickbooks_connected,
+        "is_monthly_invoice": is_monthly,
     })
 
 
@@ -215,6 +262,104 @@ def estimate_create(request):
                 pass
 
     return render(request, "billing/estimate_form.html", {"form": form, "title": "Create Estimate"})
+
+
+@role_required("owner")
+@require_POST
+def estimate_create_from_fertilizer(request):
+    """Create an estimate with one fertilizing line item from calculator data (POST from estimator)."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    try:
+        customer_id = request.POST.get("customer_id")
+        customer = Customer.objects.get(id=customer_id, business=business)
+    except (Customer.DoesNotExist, TypeError, ValueError):
+        messages.error(request, "Please select a valid customer.")
+        return redirect("fertilizer_calculator")
+    config = {
+        "lbs_per_1000": request.POST.get("lbs_per_1000"),
+        "total_sqft": request.POST.get("total_sqft"),
+        "product": request.POST.get("product") or "Fertilizer",
+        "pricing_type": request.POST.get("pricing_type") or "per_pound",
+        "cost_per_pound": request.POST.get("cost_per_pound"),
+        "cost_per_bag": request.POST.get("cost_per_bag"),
+        "lbs_per_bag": request.POST.get("lbs_per_bag"),
+    }
+    desc, material_cost = _compute_fertilizing(config)
+    if not desc:
+        messages.error(request, "Invalid calculator inputs.")
+        return redirect("fertilizer_calculator")
+    estimate = Estimate.objects.create(
+        business=business,
+        customer=customer,
+        title=request.POST.get("title") or "Field Ops Service Estimate",
+    )
+    EstimateLineItem.objects.create(
+        estimate=estimate,
+        item_type="fertilizing",
+        fertilizing_config=config,
+        mulch_config=None,
+        mowing_config=None,
+        description=desc,
+        quantity=Decimal("1"),
+        unit="application",
+        material_cost=material_cost,
+        labor_cost=Decimal("0"),
+        order=0,
+    )
+    messages.success(request, f"Estimate created for {customer.name}. Add labor or more line items below.")
+    return redirect("billing:estimate_edit", estimate_id=estimate.id)
+
+
+@role_required("owner")
+@require_POST
+def estimate_create_from_mulch(request):
+    """Create an estimate with one mulch/rock line item from calculator data (POST from estimator)."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    try:
+        customer_id = request.POST.get("customer_id")
+        customer = Customer.objects.get(id=customer_id, business=business)
+    except (Customer.DoesNotExist, TypeError, ValueError):
+        messages.error(request, "Please select a valid customer.")
+        return redirect("mulch_rock_calculator")
+    config = {
+        "total_sqft": request.POST.get("total_sqft"),
+        "depth_inches": request.POST.get("depth_inches") or 3,
+        "product": request.POST.get("product") or "Mulch",
+        "pricing_type": request.POST.get("pricing_type") or "per_bag",
+        "cost_per_bag": request.POST.get("cost_per_bag"),
+        "cf_per_bag": request.POST.get("cf_per_bag") or 2,
+        "cost_per_cy": request.POST.get("cost_per_cy"),
+    }
+    desc, material_cost = _compute_mulch(config)
+    if not desc:
+        messages.error(request, "Invalid calculator inputs.")
+        return redirect("mulch_rock_calculator")
+    estimate = Estimate.objects.create(
+        business=business,
+        customer=customer,
+        title=request.POST.get("title") or "Field Ops Service Estimate",
+    )
+    EstimateLineItem.objects.create(
+        estimate=estimate,
+        item_type="mulch",
+        fertilizing_config=None,
+        mulch_config=config,
+        mowing_config=None,
+        description=desc,
+        quantity=Decimal("1"),
+        unit="application",
+        material_cost=material_cost,
+        labor_cost=Decimal("0"),
+        order=0,
+    )
+    messages.success(request, f"Estimate created for {customer.name}. Add labor or more line items below.")
+    return redirect("billing:estimate_edit", estimate_id=estimate.id)
 
 
 @role_required("owner")
@@ -407,7 +552,7 @@ def estimate_send(request, estimate_id):
     })
 
     subject = f"{estimate.title} - {business.name}"
-    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@landscape.local")
+    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldops.local")
     reply_to = [business.contact_email] if business.contact_email else None
     msg = EmailMultiAlternatives(
         subject,
@@ -477,7 +622,7 @@ def estimate_send_followup(request, estimate_id):
     })
 
     subject = f"Reminder: {estimate.title} - {business.name}"
-    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@landscape.local")
+    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldops.local")
     reply_to = [business.contact_email] if business.contact_email else None
     msg = EmailMultiAlternatives(
         subject,

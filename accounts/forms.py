@@ -1,6 +1,9 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.contrib.auth.forms import UserCreationForm
+from django.utils import timezone
+
+from accounts.models import EmployeePayment
 
 User = get_user_model()
 
@@ -53,3 +56,20 @@ class EmployeePasswordForm(forms.Form):
         if p1 and p2 and p1 != p2:
             raise forms.ValidationError("Passwords don't match.")
         return cleaned_data
+
+
+class EmployeePaymentForm(forms.ModelForm):
+    """Form to record a payment made to an employee."""
+    class Meta:
+        model = EmployeePayment
+        fields = ['amount', 'paid_date', 'notes']
+        widgets = {
+            'amount': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': '0.00'}),
+            'paid_date': forms.DateInput(attrs={'type': 'date'}),
+            'notes': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Optional notes (e.g. pay period)'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.instance.pk and 'paid_date' in self.fields:
+            self.fields['paid_date'].initial = timezone.localdate()
