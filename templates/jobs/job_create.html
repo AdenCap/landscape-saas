@@ -63,7 +63,22 @@
     </div>
 
     <h3 style="font-size: 16px; font-weight: 600; margin: 24px 0 16px;">Services</h3>
-    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">Type a service name or choose from existing (e.g. mowing, mulching). New names are saved for future use.</p>
+    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">Type a service name or choose from existing. Optionally enter a price per unit; otherwise the default rate applies. Services go to the monthly invoice when complete.</p>
+
+    {% if accepted_estimates %}
+    <div class="estimate-transfer" style="margin-bottom: 20px; padding: 12px; background: var(--surface-alt, #f8fafc); border-radius: 8px; border: 1px solid var(--border, #e2e8f0);">
+      <label style="font-size: 13px; font-weight: 500; color: var(--text-muted); display: block; margin-bottom: 8px;">Transfer from accepted estimate</label>
+      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <select id="estimate-select" style="flex: 1; min-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+          <option value="">— Select an estimate —</option>
+          {% for est in accepted_estimates %}
+          <option value="{{ est.id }}" data-customer="{{ est.customer_id }}" {% if loaded_estimate_id and loaded_estimate_id|stringformat:"s" == est.id|stringformat:"s" %}selected{% endif %}>#{{ est.id }} {{ est.title }} — ${{ est.total|floatformat:2 }} ({{ est.customer_name }})</option>
+          {% endfor %}
+        </select>
+        <a id="load-estimate-btn" href="#" class="btn btn-secondary btn-sm">Load</a>
+      </div>
+    </div>
+    {% endif %}
 
     <datalist id="services-datalist">
       {% for s in service_templates %}
@@ -84,6 +99,10 @@
           <label>Qty</label>
           {{ f.quantity }}
         </div>
+        <div class="form-group flex-1">
+          <label>Price</label>
+          {{ f.unit_price }}
+        </div>
       </div>
       {% endfor %}
     </div>
@@ -102,6 +121,7 @@
     width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px;
   }
   .form-row-service { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-end; }
+  .form-row-service .flex-1 { max-width: 100px; }
   .btn-add-service {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 8px 14px; margin-top: 8px;
@@ -157,6 +177,32 @@
   updateAssigneeVisibility();
   updatePropertyDropdown();
 
+  var loadBtn = document.getElementById('load-estimate-btn');
+  var estimateSel = document.getElementById('estimate-select');
+  if (loadBtn && estimateSel) {
+    estimateSel.addEventListener('change', function() {
+      loadBtn.style.display = this.value ? 'inline-block' : 'none';
+      var base = window.location.pathname;
+      var params = new URLSearchParams(window.location.search);
+      if (this.value) {
+        params.set('estimate', this.value);
+      } else {
+        params.delete('estimate');
+      }
+      loadBtn.href = base + (params.toString() ? '?' + params.toString() : '');
+    });
+    loadBtn.addEventListener('click', function(e) {
+      if (estimateSel.value) {
+        e.preventDefault();
+        var base = window.location.pathname;
+        var params = new URLSearchParams(window.location.search);
+        params.set('estimate', estimateSel.value);
+        window.location.href = base + '?' + params.toString();
+      }
+    });
+    if (estimateSel.value) loadBtn.style.display = 'inline-block';
+  }
+
   document.getElementById('add-service-row').addEventListener('click', function() {
     var container = document.getElementById('service-rows');
     var totalInput = document.getElementById('id_form-TOTAL_FORMS');
@@ -166,11 +212,15 @@
     row.innerHTML =
       '<div class="form-group flex-2">' +
       '<label>Service</label>' +
-      '<input type="text" name="form-' + n + '-service_name" maxlength="120" placeholder="Type service name (e.g. Mowing, Mulching)..." list="services-datalist" id="id_form-' + n + '-service_name" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">' +
+      '<input type="text" name="form-' + n + '-service_name" maxlength="120" placeholder="Type service name..." list="services-datalist" id="id_form-' + n + '-service_name" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">' +
       '</div>' +
       '<div class="form-group flex-1">' +
       '<label>Qty</label>' +
       '<input type="number" name="form-' + n + '-quantity" step="0.01" value="1.00" min="0.01" id="id_form-' + n + '-quantity" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">' +
+      '</div>' +
+      '<div class="form-group flex-1">' +
+      '<label>Price</label>' +
+      '<input type="number" name="form-' + n + '-unit_price" step="0.01" min="0" placeholder="Optional" id="id_form-' + n + '-unit_price" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">' +
       '</div>';
     container.appendChild(row);
     totalInput.value = n + 1;

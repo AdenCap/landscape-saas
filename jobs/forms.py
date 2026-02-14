@@ -104,6 +104,13 @@ class JobServiceInlineForm(forms.Form):
     service = forms.ModelChoiceField(queryset=ServiceTemplate.objects.none(), required=False)
     service_name = forms.CharField(required=False, max_length=120, widget=forms.TextInput(attrs={"placeholder": "Type service name (e.g. Mowing, Mulching)...", "list": "services-datalist"}))
     quantity = forms.DecimalField(max_digits=10, decimal_places=2, initial=Decimal("1.00"), min_value=Decimal("0.01"))
+    unit_price = forms.DecimalField(
+        required=False,
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0"),
+        widget=forms.NumberInput(attrs={"placeholder": "Price (optional)", "step": "0.01"}),
+    )
 
     def __init__(self, *args, **kwargs):
         business = kwargs.pop("business", None)

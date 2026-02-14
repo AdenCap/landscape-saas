@@ -559,6 +559,10 @@ def create_job(request):
                     service = form_data.cleaned_data["service"]
                     qty = form_data.cleaned_data["quantity"]
                     unit, rate = get_effective_rate(prop, service)
+                    override_price = form_data.cleaned_data.get("unit_price")
+                    if override_price is not None:
+                        rate = override_price
+                    unit = getattr(service, "default_unit", None) or unit
                     JobServiceItem.objects.create(
                         job=job,
                         service=service,
@@ -572,20 +576,56 @@ def create_job(request):
                 return redirect("job_detail", job_id=job.id)
             return redirect("calendar")
     else:
+        from customers.models import Property
         initial = {}
         date_param = request.GET.get("date")
         time_param = request.GET.get("time")
+        estimate_id = request.GET.get("estimate")
+        if estimate_id:
+            estimate_id = str(estimate_id).strip()
+
         if date_param:
             initial["scheduled_date"] = date_param
             initial["scheduled_time"] = time_param if time_param else "08:00"
+
+        formset_initial = []
+        if estimate_id and business:
+            from billing.models import Estimate
+            est = Estimate.objects.filter(
+                id=estimate_id, business=business, status="accepted"
+            ).select_related("customer").prefetch_related("line_items").first()
+            if est:
+                initial["customer"] = est.customer_id
+                props = list(est.customer.properties.all().order_by("address")[:1])
+                if len(props) == 1:
+                    initial["property"] = props[0].id
+                for item in est.line_items.all():
+                    if item.material_cost or item.labor_cost:
+                        price = (item.material_cost or 0) + (item.labor_cost or 0)
+                        if item.quantity and item.quantity > 0:
+                            price = price / item.quantity
+                    else:
+                        price = item.unit_price
+                    formset_initial.append({
+                        "service_name": item.description[:120],
+                        "quantity": item.quantity,
+                        "unit_price": price,
+                    })
+
         form = CreateJobForm(initial=initial, business=business)
+        if initial.get("customer") and business:
+            form.fields["property"].queryset = Property.objects.filter(
+                customer_id=initial["customer"], customer__business=business
+            ).order_by("address")
         ServiceFormSet = get_job_service_formset(business)
-        formset = ServiceFormSet()
+        formset = ServiceFormSet(initial=formset_initial) if formset_initial else ServiceFormSet()
 
     from pricing.models import ServiceTemplate
     from customers.models import Customer
+    from billing.models import Estimate
     service_templates = []
     customers_with_properties = []
+    accepted_estimates = []
     if business:
         service_templates = list(ServiceTemplate.objects.filter(business=business, active=True).order_by("name").values("name"))
         customers_with_properties = [
@@ -596,11 +636,18 @@ def create_job(request):
             }
             for c in Customer.objects.filter(business=business).prefetch_related("properties").order_by("name")
         ]
+        accepted_estimates = [
+            {"id": e.id, "title": e.title, "total": e.base_total(), "customer_id": e.customer_id, "customer_name": e.customer.name}
+            for e in Estimate.objects.filter(business=business, status="accepted")
+            .select_related("customer").order_by("-accepted_at", "-id")[:20]
+        ]
     return render(request, "jobs/job_create.html", {
         "form": form,
         "formset": formset,
         "service_templates": service_templates,
         "customers_with_properties": customers_with_properties,
+        "accepted_estimates": accepted_estimates,
+        "loaded_estimate_id": estimate_id if estimate_id else None,
     })
 
 
