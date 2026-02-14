@@ -30,7 +30,7 @@ def _get_crew_legend(business):
     legend = []
     for crew in Crew.objects.filter(business=business).order_by("name"):
         legend.append({"name": crew.name, "color": crew.color or CREW_COLORS[0]})
-    for u in User.objects.filter(business=business, role="crew").order_by("first_name", "username"):
+    for u in User.objects.filter(business=business, role__in=["crew", "owner"]).order_by("first_name", "username"):
         c = (u.color or "").strip()
         legend.append({"name": u.get_full_name() or u.username, "color": c if c else CREW_COLORS[len(legend) % len(CREW_COLORS)]})
     legend.append({"name": "Unassigned", "color": UNASSIGNED_COLOR})
@@ -100,7 +100,7 @@ def calendar_events(request):
     crew_colors = {c.id: (c.color or CREW_COLORS[i % len(CREW_COLORS)]) for i, c in enumerate(Crew.objects.filter(business=business).order_by("name"))} if business else {}
     user_colors = {}
     if business:
-        for u in User.objects.filter(business=business, role="crew"):
+        for u in User.objects.filter(business=business, role__in=["crew", "owner"]):
             if u.color and u.color.strip():
                 user_colors[u.id] = u.color.strip()
 
@@ -234,7 +234,7 @@ def calendar_job_data(request, job_id):
         crews = [{"id": c.id, "name": c.name} for c in Crew.objects.filter(business=business).order_by("name")]
         employees = [
             {"id": u.id, "name": u.get_full_name() or u.username}
-            for u in User.objects.filter(business=business, role="crew").order_by("first_name", "username")
+            for u in User.objects.filter(business=business, role__in=["crew", "owner"]).order_by("first_name", "username")
         ]
         customer = job.property.customer
         base_response["customer"] = {
@@ -274,7 +274,7 @@ def calendar_job_update(request, job_id):
         if vid is None or vid == "":
             job.assigned_to = None
         else:
-            user = User.objects.filter(business=business, role="crew", id=vid).first()
+            user = User.objects.filter(business=business, role__in=["crew", "owner"], id=vid).first()
             job.assigned_to = user
             job.assigned_crew = None  # clear crew when employee selected
     if "notes" in data:
@@ -378,7 +378,7 @@ def daily_route_view(request):
     crew_colors = {c.id: (c.color or CREW_COLORS[i % len(CREW_COLORS)]) for i, c in enumerate(Crew.objects.filter(business=business).order_by("name"))} if business else {}
     user_colors = {}
     if business:
-        for u in User.objects.filter(business=business, role="crew"):
+        for u in User.objects.filter(business=business, role__in=["crew", "owner"]):
             if u.color and u.color.strip():
                 user_colors[u.id] = u.color.strip()
     jobs_with_colors = [{"job": j, "color": _color_for_assignee(j, crew_colors, user_colors)} for j in jobs]

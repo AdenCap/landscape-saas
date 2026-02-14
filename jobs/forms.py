@@ -35,7 +35,7 @@ class CreateJobForm(forms.Form):
         help_text="Optional start time (for week/day calendar view)",
     )
     assignee_type = forms.ChoiceField(
-        choices=[('', '— Unassigned —'), ('crew', 'Crew'), ('employee', 'Employee')],
+        choices=[('', '— Unassigned —'), ('crew', 'Crew'), ('employee', 'Employee / Owner')],
         required=False,
         label="Assign to",
         widget=forms.RadioSelect(attrs={'class': 'assignee-type-radio'}),
@@ -65,7 +65,7 @@ class CreateJobForm(forms.Form):
             ).select_related("customer").order_by("address")
             self.fields["assigned_crew"].queryset = Crew.objects.filter(business=business).order_by("name")
             self.fields["assigned_to"].queryset = User.objects.filter(
-                business=business, role="crew"
+                business=business, role__in=["crew", "owner"]
             ).order_by("first_name", "username")
 
     def clean_scheduled_date(self):
