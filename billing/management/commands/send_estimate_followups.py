@@ -13,7 +13,8 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.conf import settings
 
-from billing.models import Estimate, Business
+from billing.models import Estimate
+from businesses.models import Business
 
 
 def _build_view_url(estimate):
