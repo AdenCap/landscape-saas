@@ -48,7 +48,13 @@ INSTALLED_APPS = [
     'dashboard',
     'time_tracking',
     'property_estimator',
+    'quickbooks',
 ]
+
+# QuickBooks Online integration (optional)
+QUICKBOOKS_CLIENT_ID = os.environ.get("QUICKBOOKS_CLIENT_ID", "")
+QUICKBOOKS_CLIENT_SECRET = os.environ.get("QUICKBOOKS_CLIENT_SECRET", "")
+QUICKBOOKS_REDIRECT_URI = os.environ.get("QUICKBOOKS_REDIRECT_URI", "")  # e.g. https://yourdomain.com/quickbooks/callback/
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

@@ -37,6 +37,31 @@ def _get_crew_legend(business):
     return legend
 
 
+@role_required("owner", "crew")
+def job_list(request):
+    """List current and upcoming jobs (scheduled today or in the future), plus unscheduled."""
+    business = getattr(request.user, 'business', None)
+    if not business:
+        return redirect("/")
+    today = timezone.now().date()
+    qs = Job.objects.filter(
+        property__customer__business=business,
+    ).select_related('property', 'property__customer', 'assigned_to', 'assigned_crew').prefetch_related('service_items__service').order_by('scheduled_date', 'scheduled_time', 'id')
+    if getattr(request.user, 'role', None) == 'crew':
+        qs = qs.filter(
+            Q(assigned_to=request.user) |
+            Q(assigned_crew__members=request.user) |
+            Q(assigned_crew__crew_leader=request.user)
+        ).distinct()
+    upcoming = list(qs.filter(scheduled_date__gte=today))
+    unscheduled = list(qs.filter(scheduled_date__isnull=True))[:30]
+    return render(request, 'jobs/job_list.html', {
+        'upcoming_jobs': upcoming,
+        'unscheduled_jobs': unscheduled,
+        'today': today,
+    })
+
+
 def calendar_view(request):
     business = getattr(request.user, 'business', None) if request.user.is_authenticated else None
     crew_legend = _get_crew_legend(business)
@@ -54,7 +79,9 @@ def calendar_view(request):
 
 
 def _color_for_assignee(job, crew_colors, user_colors):
-    """Get color for job - crew or employee, using custom colors."""
+    """Get color for job - custom override, crew, or employee."""
+    if job.color and job.color.strip():
+        return job.color.strip()
     if job.assigned_crew_id:
         return crew_colors.get(job.assigned_crew_id) or (job.assigned_crew.color if job.assigned_crew else None) or UNASSIGNED_COLOR
     if job.assigned_to_id:
@@ -226,14 +253,22 @@ def calendar_job_data(request, job_id):
             "images": images,
             "assigned_crew_id": job.assigned_crew_id if is_owner else None,
             "assigned_to_id": job.assigned_to_id if is_owner else None,
+            "color": job.color or "",
             "has_unbilled_items": job.service_items.filter(billed_at__isnull=True).exists() if is_owner else False,
             "has_services": job.service_items.exists(),
         },
     }
     if is_owner:
-        crews = [{"id": c.id, "name": c.name} for c in Crew.objects.filter(business=business).order_by("name")]
+        crew_colors = {c.id: (c.color or CREW_COLORS[i % len(CREW_COLORS)]) for i, c in enumerate(Crew.objects.filter(business=business).order_by("name"))}
+        user_colors_map = {}
+        for i, u in enumerate(User.objects.filter(business=business, role__in=["crew", "owner"]).order_by("first_name", "username")):
+            if u.color and u.color.strip():
+                user_colors_map[u.id] = u.color.strip()
+            else:
+                user_colors_map[u.id] = CREW_COLORS[i % len(CREW_COLORS)]
+        crews = [{"id": c.id, "name": c.name, "color": crew_colors.get(c.id, CREW_COLORS[0])} for c in Crew.objects.filter(business=business).order_by("name")]
         employees = [
-            {"id": u.id, "name": u.get_full_name() or u.username}
+            {"id": u.id, "name": u.get_full_name() or u.username, "color": user_colors_map.get(u.id, CREW_COLORS[0])}
             for u in User.objects.filter(business=business, role__in=["crew", "owner"]).order_by("first_name", "username")
         ]
         customer = job.property.customer
@@ -295,8 +330,54 @@ def calendar_job_update(request, job_id):
     if "customer_phone" in data:
         job.property.customer.phone = (data["customer_phone"] or "")[:20]
         job.property.customer.save()
+    if "color" in data:
+        val = (data["color"] or "").strip()
+        if val:
+            if not val.startswith("#"):
+                val = "#" + val
+            if len(val) in (4, 7) and all(c in "#0123456789abcdefABCDEF" for c in val):
+                job.color = val
+            else:
+                job.color = None
+        else:
+            job.color = None  # Clear override = use crew/employee default
     job.save()
-    return JsonResponse({"status": "ok"})
+
+    # Return new color and assignee so calendar can update the event immediately
+    business = getattr(request.user, 'business', None)
+    crew_colors = {}
+    user_colors = {}
+    if business:
+        crew_colors = {c.id: (c.color or CREW_COLORS[i % len(CREW_COLORS)]) for i, c in enumerate(Crew.objects.filter(business=business).order_by("name"))}
+        for u in User.objects.filter(business=business, role__in=["crew", "owner"]):
+            if u.color and u.color.strip():
+                user_colors[u.id] = u.color.strip()
+            else:
+                user_colors[u.id] = CREW_COLORS[0]
+    job.refresh_from_db()
+    if job.assigned_crew:
+        assignee_name = job.assigned_crew.name
+    elif job.assigned_to:
+        assignee_name = job.assigned_to.get_full_name() or job.assigned_to.username
+    else:
+        assignee_name = "Unassigned"
+    color = _color_for_assignee(job, crew_colors, user_colors)
+    is_completed = job.status == "completed"
+    if is_completed and color:
+        bc = color.lstrip("#")
+        if len(bc) >= 6:
+            r, g, b = int(bc[0:2], 16), int(bc[2:4], 16), int(bc[4:6], 16)
+            bg = f"rgba({r},{g},{b},0.35)"
+        else:
+            bg = UNASSIGNED_COLOR
+    else:
+        bg = color or UNASSIGNED_COLOR
+    return JsonResponse({
+        "status": "ok",
+        "backgroundColor": bg,
+        "borderColor": color or UNASSIGNED_COLOR,
+        "crew": assignee_name,
+    })
 
 
 @require_POST
@@ -545,6 +626,11 @@ def create_job(request):
 
             sched_date = form.cleaned_data.get("scheduled_date")
             sched_time = form.cleaned_data.get("scheduled_time") if sched_date else None
+            color_val = (form.cleaned_data.get("color") or "").strip()
+            if color_val and not color_val.startswith("#"):
+                color_val = "#" + color_val
+            if color_val and len(color_val) not in (4, 7):
+                color_val = None
             job = Job.objects.create(
                 property=prop,
                 scheduled_date=sched_date,
@@ -553,6 +639,7 @@ def create_job(request):
                 assigned_crew=assigned_crew,
                 notes=form.cleaned_data.get("notes") or "",
                 status="scheduled",
+                color=color_val if color_val else None,
             )
             for form_data in formset:
                 if form_data.cleaned_data.get("service"):

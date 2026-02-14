@@ -83,6 +83,13 @@ class Job(models.Model):
 
     notes = models.TextField(blank=True)
 
+    color = models.CharField(
+        max_length=7,
+        blank=True,
+        null=True,
+        help_text="Override color for calendar (hex e.g. #3b82f6). Leave empty to use crew/employee default.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     route_order = models.PositiveIntegerField(default=0)

@@ -39,6 +39,7 @@ urlpatterns = [
     path("jobs/", include("jobs.urls")),
     path("time/", include("time_tracking.urls")),
     path("settings/", include("businesses.urls")),
+    path("quickbooks/", include(("quickbooks.urls", "quickbooks"), namespace="quickbooks")),
     path("estimator/", include("property_estimator.urls")),
 ]
 if settings.DEBUG:

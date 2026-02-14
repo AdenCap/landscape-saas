@@ -101,4 +101,20 @@
   .form-actions { display: flex; gap: 10px; margin-top: 24px; }
   .muted { color: var(--text-muted); font-size: 14px; }
 </style>
+<script>
+(function() {
+  var picker = document.getElementById('id_color_picker');
+  var text = document.getElementById('id_color');
+  if (!picker || !text) return;
+  picker.addEventListener('input', function() { text.value = this.value; });
+  picker.addEventListener('change', function() { text.value = this.value; });
+  text.addEventListener('input', function() {
+    var v = this.value.trim();
+    if (v && v.startsWith('#')) {
+      var hex = v.length === 4 ? '#' + v[1]+v[1]+v[2]+v[2]+v[3]+v[3] : v;
+      if (hex.length === 7) picker.value = hex;
+    }
+  });
+})();
+</script>
 {% endblock %}

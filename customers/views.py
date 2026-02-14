@@ -8,7 +8,7 @@ from accounts.decorators import role_required
 from billing.models import Invoice
 from jobs.models import Job
 from .models import Customer, Property, Contract
-from .forms import CustomerForm, PropertyForm, ContractForm
+from .forms import CustomerForm, CustomerImportForm, parse_csv_customers, PropertyForm, ContractForm
 
 
 def _get_business(request):
@@ -118,6 +118,47 @@ def customer_create(request):
         "title": "Add New Client",
         "return_to_estimate": next_param in ("estimate", "estimate_and_select"),
     })
+
+
+@role_required("owner")
+@require_http_methods(["GET", "POST"])
+def customer_import(request):
+    """Bulk import clients from a CSV file (first row = headers)."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business to import clients.")
+        return redirect("/")
+
+    if request.method == "POST":
+        form = CustomerImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            created = 0
+            errors = []
+            try:
+                for customer, err in parse_csv_customers(request.FILES["csv_file"], business):
+                    if err:
+                        errors.append(err)
+                        continue
+                    customer.save()
+                    created += 1
+            except Exception as e:
+                messages.error(request, f"Error reading CSV: {e}")
+                return render(request, "customers/customer_import.html", {"form": form})
+
+            if created:
+                messages.success(request, f"Imported {created} client(s) successfully.")
+            if errors:
+                for err in errors[:10]:
+                    messages.warning(request, err)
+                if len(errors) > 10:
+                    messages.warning(request, f"... and {len(errors) - 10} more row(s) skipped.")
+            if not created and not errors:
+                messages.warning(request, "No valid rows found. Ensure the first row has headers (e.g. name, email, phone).")
+            return redirect("customer_list")
+    else:
+        form = CustomerImportForm()
+
+    return render(request, "customers/customer_import.html", {"form": form})
 
 
 @role_required("owner")

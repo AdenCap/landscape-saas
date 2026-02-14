@@ -33,12 +33,18 @@ def invoice_list(request):
 
 @role_required("owner")
 def invoice_detail(request, invoice_id):
-    invoice = get_object_or_404(
-        Invoice.objects.select_related("business", "customer"),
-        id=invoice_id,
-    )
+    business = getattr(request.user, "business", None)
+    qs = Invoice.objects.select_related("business", "customer").filter(id=invoice_id)
+    if business:
+        qs = qs.filter(business=business)
+    invoice = get_object_or_404(qs)
     items = invoice.line_items.all()
-    return render(request, "billing/invoice_detail.html", {"invoice": invoice, "items": items})
+    quickbooks_connected = bool(business and getattr(business, "quickbooks_connection", None))
+    return render(request, "billing/invoice_detail.html", {
+        "invoice": invoice,
+        "items": items,
+        "quickbooks_connected": quickbooks_connected,
+    })
 
 
 @require_POST

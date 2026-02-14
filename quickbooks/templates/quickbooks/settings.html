@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>QuickBooks Online</h1>
+  <p>Connect your QuickBooks company to push invoices from Landscape to QuickBooks.</p>
+</div>
+
+<div class="card" style="max-width: 540px;">
+  {% if not quickbooks_configured %}
+  <div class="alert alert-warning">
+    QuickBooks is not configured. Your administrator needs to set <code>QUICKBOOKS_CLIENT_ID</code> and <code>QUICKBOOKS_CLIENT_SECRET</code> in the server environment (or Django settings).
+  </div>
+  {% elif connection %}
+  <div class="form-section">
+    <h3>Status</h3>
+    <p class="status-connected" style="margin: 0;">Connected to QuickBooks</p>
+    <p class="muted" style="font-size: 13px; margin-top: 8px;">Invoices can be pushed from the invoice detail page. Customers are created or matched in QuickBooks by name.</p>
+    <form method="post" action="{% url 'quickbooks:oauth_disconnect' %}" style="margin-top: 16px;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-secondary">Disconnect QuickBooks</button>
+    </form>
+  </div>
+  {% else %}
+  <div class="form-section">
+    <h3>Connect</h3>
+    <p class="muted">Sign in with your Intuit/QuickBooks account to link this business. You will be redirected to Intuit to authorize.</p>
+    <a href="{% url 'quickbooks:oauth_start' %}" class="btn btn-primary">Connect to QuickBooks</a>
+  </div>
+  {% endif %}
+  <div style="margin-top: 24px;">
+    <a href="{% url 'business_settings' %}" class="btn btn-secondary">← Back to Settings</a>
+  </div>
+</div>
+
+<style>
+  .status-connected { color: #059669; font-weight: 600; }
+  .muted { color: var(--text-muted); }
+  .form-section h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px 0; }
+</style>
+{% endblock %}

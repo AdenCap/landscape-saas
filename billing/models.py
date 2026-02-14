@@ -65,6 +65,13 @@ class Invoice(models.Model):
     period_start = models.DateField(null=True, blank=True)
     period_end = models.DateField(null=True, blank=True)
 
+    quickbooks_invoice_id = models.CharField(
+        max_length=32,
+        blank=True,
+        null=True,
+        help_text='QuickBooks Online Invoice Id after push',
+    )
+
     def __str__(self):
         return f"Invoice #{self.id} - {self.customer.name}"
 

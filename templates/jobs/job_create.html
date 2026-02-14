@@ -57,6 +57,15 @@
     </div>
 
     <div class="form-group" style="margin-bottom: 20px;">
+      <label>Job color</label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="color" id="id_color_picker" value="#3b82f6" style="width: 48px; height: 36px; padding: 4px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border, #e2e8f0);">
+        {{ form.color }}
+      </div>
+      <small style="color: var(--text-muted); font-size: 12px;">Optional. Leave empty for crew/employee default.</small>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 20px;">
       <label for="id_notes">Notes</label>
       {{ form.notes }}
       <small style="color: var(--text-muted); display: block; margin-top: 4px;">Gate codes, dog on premises, access instructions, special requests</small>
@@ -135,6 +144,7 @@
   .error { color: #dc2626; font-size: 13px; display: block; margin-top: 4px; }
   .assignee-type-radio { list-style: none; padding: 0; margin: 0; display: flex; gap: 16px; flex-wrap: wrap; }
   .assignee-type-radio li { display: flex; align-items: center; gap: 6px; }
+  #id_color { width: 110px !important; font-family: monospace; }
 </style>
 {{ customers_with_properties|json_script:"customers-data" }}
 <script>
@@ -201,6 +211,21 @@
       }
     });
     if (estimateSel.value) loadBtn.style.display = 'inline-block';
+  }
+
+  var colorPicker = document.getElementById('id_color_picker');
+  var colorInput = document.getElementById('id_color');
+  if (colorPicker && colorInput) {
+    var initVal = (colorInput.value || '').trim();
+    if (initVal) colorPicker.value = initVal.length === 4 ? '#' + initVal[1]+initVal[1]+initVal[2]+initVal[2]+initVal[3]+initVal[3] : initVal;
+    colorPicker.addEventListener('input', function() { colorInput.value = this.value; });
+    colorInput.addEventListener('input', function() {
+      var v = this.value.trim();
+      if (v && v.startsWith('#')) {
+        var hex = v.length === 4 ? '#' + v[1]+v[1]+v[2]+v[2]+v[3]+v[3] : v;
+        if (hex.length === 7) colorPicker.value = hex;
+      }
+    });
   }
 
   document.getElementById('add-service-row').addEventListener('click', function() {

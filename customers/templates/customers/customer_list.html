@@ -6,7 +6,10 @@
     <h1>Clients</h1>
     <p>Manage your customers, properties, and contracts</p>
   </div>
-  <a href="{% url 'customer_create' %}" class="btn btn-primary">+ Add Client</a>
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <a href="{% url 'customer_import' %}" class="btn btn-secondary">Import from CSV</a>
+    <a href="{% url 'customer_create' %}" class="btn btn-primary">+ Add Client</a>
+  </div>
 </div>
 
 <form method="get" class="search-form card" style="margin-bottom: 20px;">

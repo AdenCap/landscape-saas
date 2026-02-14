@@ -68,6 +68,11 @@
         {% if form.estimate_follow_up_days.help_text %}<p class="help">{{ form.estimate_follow_up_days.help_text }}</p>{% endif %}
       </div>
     </div>
+    <div class="form-section">
+      <h3>QuickBooks Online</h3>
+      <p class="muted">Push invoices to QuickBooks. Connect once, then use "Push to QuickBooks" on any invoice.</p>
+      <a href="{% url 'quickbooks:settings' %}" class="btn btn-secondary">Open QuickBooks settings</a>
+    </div>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">Save</button>
       <a href="/" class="btn btn-secondary">Cancel</a>

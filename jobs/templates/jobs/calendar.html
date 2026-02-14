@@ -94,6 +94,15 @@
             </select>
           </div>
         </div>
+        <div class="form-group modal-color-row">
+          <label>Job color</label>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input type="color" id="modal-color-picker" value="#3b82f6" style="width: 48px; height: 36px; padding: 4px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border);">
+            <input type="text" id="modal-color" placeholder="Use crew/employee default" maxlength="7" style="width: 110px; padding: 8px 12px; font-family: monospace; border-radius: 8px; border: 1px solid var(--border);" aria-label="Hex color">
+            <button type="button" id="modal-color-clear" class="btn btn-secondary btn-sm">Use default</button>
+          </div>
+          <p class="help" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Override color for this job, or leave empty for crew/employee default.</p>
+        </div>
         <div class="form-group">
           <label>Client</label>
           <div class="form-row">
@@ -316,6 +325,22 @@ document.addEventListener('DOMContentLoaded', function () {
             empSel.appendChild(opt);
           });
 
+          var colorVal = (job.color || '').trim();
+          var colorPicker = document.getElementById('modal-color-picker');
+          var colorInput = document.getElementById('modal-color');
+          if (colorVal) {
+            colorInput.value = colorVal;
+            var hexForPicker = colorVal;
+            if (colorVal.length === 4 && colorVal[0] === '#') {
+              hexForPicker = '#' + colorVal[1] + colorVal[1] + colorVal[2] + colorVal[2] + colorVal[3] + colorVal[3];
+            }
+            colorPicker.value = hexForPicker;
+          } else {
+            colorInput.value = '';
+            colorInput.placeholder = 'Use crew/employee default';
+            colorPicker.value = '#94a3b8';
+          }
+
           var email = customer.email || '';
           var phone = (customer.phone || '').replace(/\D/g, '');
           document.getElementById('modal-email-link').href = email ? ('mailto:' + email) : '#';
@@ -387,6 +412,22 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   document.getElementById('modal-employee').addEventListener('change', function() {
     if (this.value) document.getElementById('modal-crew').value = '';
+  });
+  document.getElementById('modal-color-picker').addEventListener('input', function() {
+    document.getElementById('modal-color').value = this.value;
+    document.getElementById('modal-color').placeholder = '';
+  });
+  document.getElementById('modal-color').addEventListener('input', function() {
+    var v = this.value.trim();
+    if (v && v.startsWith('#')) {
+      var hex = v.length === 4 ? '#' + v[1]+v[1]+v[2]+v[2]+v[3]+v[3] : v;
+      if (hex.length === 7) document.getElementById('modal-color-picker').value = hex;
+    }
+  });
+  document.getElementById('modal-color-clear').addEventListener('click', function() {
+    document.getElementById('modal-color').value = '';
+    document.getElementById('modal-color').placeholder = 'Use crew/employee default';
+    document.getElementById('modal-color-picker').value = '#94a3b8';
   });
 
   document.getElementById('filter-apply').addEventListener('click', function() {
@@ -508,13 +549,15 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!jobId) return;
     var crewVal = document.getElementById('modal-crew').value;
     var empVal = document.getElementById('modal-employee').value;
+    var colorVal = (document.getElementById('modal-color').value || '').trim();
     var payload = {
       assigned_crew_id: crewVal ? parseInt(crewVal, 10) : null,
       assigned_to_id: empVal ? parseInt(empVal, 10) : null,
       notes: document.getElementById('modal-notes').value,
       scheduled_time: document.getElementById('modal-time').value || null,
       customer_email: document.getElementById('modal-customer-email').value,
-      customer_phone: document.getElementById('modal-customer-phone').value
+      customer_phone: document.getElementById('modal-customer-phone').value,
+      color: colorVal || null
     };
     fetch('/jobs/calendar/job/' + jobId + '/update/', {
       method: 'POST',
@@ -525,11 +568,19 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       body: JSON.stringify(payload)
     }).then(function(r) {
-      if (r.ok) {
-        calendar.refetchEvents();
-        loadUnscheduled();
-        closeJobModal();
+      return r.ok ? r.json() : Promise.reject(new Error('Update failed'));
+    }).then(function(data) {
+      var event = calendar.getEventById(String(jobId));
+      if (event && data.backgroundColor) {
+        event.setProp('backgroundColor', data.backgroundColor);
+        event.setProp('borderColor', data.borderColor || data.backgroundColor);
+        if (data.crew != null) event.setExtendedProp('crew', data.crew);
       }
+      calendar.refetchEvents();
+      loadUnscheduled();
+      closeJobModal();
+    }).catch(function() {
+      calendar.refetchEvents();
     });
   });
 });

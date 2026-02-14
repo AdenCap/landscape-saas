@@ -55,6 +55,13 @@ class CreateJobForm(forms.Form):
         required=False,
         label="Employee",
     )
+    color = forms.CharField(
+        required=False,
+        max_length=7,
+        label="Job color",
+        help_text="Optional. Leave empty to use crew/employee default.",
+        widget=forms.TextInput(attrs={"placeholder": "#3b82f6", "pattern": "^#?[0-9A-Fa-f]{3,6}$"}),
+    )
     notes = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Gate codes, dog on premises, special instructions, access notes..."}),

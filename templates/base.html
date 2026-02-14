@@ -208,6 +208,9 @@
           <a href="/" class="btn btn-nav {% if request.path == '/' or request.path == '' %}active{% endif %}">
             📊 Dashboard
           </a>
+          <a href="{% url 'job_list' %}" class="btn btn-nav {% if request.path == '/jobs/' or request.path == '/jobs' %}active{% endif %}">
+            📋 Jobs
+          </a>
           <a href="/jobs/calendar/" class="btn btn-nav {% if '/jobs/calendar' in request.path %}active{% endif %}">
             📅 Calendar
           </a>
@@ -235,6 +238,9 @@
           <a href="{% url 'crew_list' %}" class="btn btn-nav {% if '/crews' in request.path %}active{% endif %}">
             👥 Crews
           </a>
+          <a href="{% url 'quickbooks:settings' %}" class="btn btn-nav {% if '/quickbooks' in request.path %}active{% endif %}">
+            📒 QuickBooks
+          </a>
           <a href="/settings/" class="btn btn-nav {% if '/settings' in request.path %}active{% endif %}">
             ⚙️ Settings
           </a>
@@ -254,6 +260,7 @@
         <a href="/time/" class="btn btn-nav">Time</a>
       {% else %}
         <a href="/" class="btn btn-nav">Dashboard</a>
+        <a href="{% url 'job_list' %}" class="btn btn-nav">Jobs</a>
         <a href="/jobs/calendar/" class="btn btn-nav">Calendar</a>
         <a href="/jobs/routes/" class="btn btn-nav">Routes</a>
         <a href="/clients/" class="btn btn-nav">Clients</a>
@@ -263,6 +270,7 @@
         <a href="/time/timesheets/" class="btn btn-nav">Timesheets</a>
         <a href="/employees/" class="btn btn-nav">Employees</a>
         <a href="{% url 'crew_list' %}" class="btn btn-nav">Crews</a>
+        <a href="{% url 'quickbooks:settings' %}" class="btn btn-nav">QuickBooks</a>
         <a href="/settings/" class="btn btn-nav">Settings</a>
       {% endif %}
       <a href="{% url 'logout' %}" class="btn btn-nav">Logout</a>
