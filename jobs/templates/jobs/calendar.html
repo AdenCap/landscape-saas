@@ -169,6 +169,7 @@ document.addEventListener('DOMContentLoaded', function () {
     slotDuration: '00:30:00',
     allDaySlot: true,
     nowIndicator: true,
+    eventDisplay: 'block',
     editable: true,
     eventDurationEditable: true,
     events: function(info, successCallback, failureCallback) {
@@ -181,6 +182,12 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(function(r) { return r.json(); })
         .then(successCallback)
         .catch(failureCallback);
+    },
+    eventDidMount: function(arg) {
+      var bg = arg.event.backgroundColor;
+      var border = arg.event.borderColor;
+      if (bg) arg.el.style.backgroundColor = bg;
+      if (border) arg.el.style.borderColor = border;
     },
     eventContent: function(arg) {
       var html = document.createElement('div');
@@ -588,6 +595,9 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   #calendar {
     min-height: 600px;
+  }
+  .fc-event {
+    border-left-width: 3px !important;
   }
   .fc .fc-toolbar-title {
     font-size: 1.25rem;
