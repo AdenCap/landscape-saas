@@ -126,8 +126,8 @@ class JobServiceInlineForm(forms.Form):
         return data
 
 
-def get_job_service_formset(business, extra=2):
-    """Build formset for job services - at least 1 required."""
+def get_job_service_formset(business, extra=0):
+    """Build formset for job services - starts with 1, add more via + button."""
     from django.forms import BaseFormSet, formset_factory
 
     class JobServiceFormSet(BaseFormSet):
@@ -152,6 +152,7 @@ def get_job_service_formset(business, extra=2):
         ServiceFormWithBusiness,
         extra=extra,
         min_num=1,
+        max_num=50,
         validate_min=True,
         formset=JobServiceFormSet,
     )

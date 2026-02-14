@@ -72,19 +72,22 @@
     </datalist>
 
     {{ formset.management_form }}
-    {% for f in formset %}
-    <div class="form-row form-row-service">
-      <div class="form-group flex-2">
-        <label>Service</label>
-        {{ f.service_name }}
-        {% if f.service_name.errors %}<span class="error">{{ f.service_name.errors.0 }}</span>{% endif %}
+    <div id="service-rows">
+      {% for f in formset %}
+      <div class="form-row form-row-service">
+        <div class="form-group flex-2">
+          <label>Service</label>
+          {{ f.service_name }}
+          {% if f.service_name.errors %}<span class="error">{{ f.service_name.errors.0 }}</span>{% endif %}
+        </div>
+        <div class="form-group flex-1">
+          <label>Qty</label>
+          {{ f.quantity }}
+        </div>
       </div>
-      <div class="form-group flex-1">
-        <label>Qty</label>
-        {{ f.quantity }}
-      </div>
+      {% endfor %}
     </div>
-    {% endfor %}
+    <button type="button" id="add-service-row" class="btn-add-service" title="Add another service">+ Add service</button>
 
     <div style="margin-top: 28px; display: flex; gap: 12px;">
       <button type="submit" class="btn btn-primary">Create Job</button>
@@ -99,6 +102,14 @@
     width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px;
   }
   .form-row-service { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-end; }
+  .btn-add-service {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; margin-top: 8px;
+    background: var(--surface-alt, #f1f5f9); border: 1px dashed var(--border, #cbd5e1);
+    border-radius: 8px; font-size: 14px; color: var(--text-muted, #64748b);
+    cursor: pointer;
+  }
+  .btn-add-service:hover { background: var(--border, #e2e8f0); color: var(--text, #334155); }
   .flex-2 { flex: 2; }
   .flex-1 { flex: 1; max-width: 120px; }
   .error { color: #dc2626; font-size: 13px; display: block; margin-top: 4px; }
@@ -145,6 +156,25 @@
   document.getElementById('id_customer').addEventListener('change', updatePropertyDropdown);
   updateAssigneeVisibility();
   updatePropertyDropdown();
+
+  document.getElementById('add-service-row').addEventListener('click', function() {
+    var container = document.getElementById('service-rows');
+    var totalInput = document.getElementById('id_form-TOTAL_FORMS');
+    var n = parseInt(totalInput.value, 10);
+    var row = document.createElement('div');
+    row.className = 'form-row form-row-service';
+    row.innerHTML =
+      '<div class="form-group flex-2">' +
+      '<label>Service</label>' +
+      '<input type="text" name="form-' + n + '-service_name" maxlength="120" placeholder="Type service name (e.g. Mowing, Mulching)..." list="services-datalist" id="id_form-' + n + '-service_name" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">' +
+      '</div>' +
+      '<div class="form-group flex-1">' +
+      '<label>Qty</label>' +
+      '<input type="number" name="form-' + n + '-quantity" step="0.01" value="1.00" min="0.01" id="id_form-' + n + '-quantity" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">' +
+      '</div>';
+    container.appendChild(row);
+    totalInput.value = n + 1;
+  });
 })();
 </script>
 {% endblock %}
