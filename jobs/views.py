@@ -1,8 +1,12 @@
 import json
+from datetime import datetime, timedelta
+
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from accounts.decorators import role_required
 from billing.services import create_draft_invoice_for_job, create_and_send_invoice_for_job
@@ -36,7 +40,17 @@ def _get_crew_legend(business):
 def calendar_view(request):
     business = getattr(request.user, 'business', None) if request.user.is_authenticated else None
     crew_legend = _get_crew_legend(business)
-    return render(request, 'jobs/calendar.html', {'crew_legend': crew_legend})
+    services = []
+    crews = []
+    if business:
+        from pricing.models import ServiceTemplate
+        services = list(ServiceTemplate.objects.filter(business=business, active=True).order_by("name").values("id", "name"))
+        crews = list(Crew.objects.filter(business=business).order_by("name").values("id", "name"))
+    return render(request, 'jobs/calendar.html', {
+        'crew_legend': crew_legend,
+        'filter_services': services,
+        'filter_crews': crews,
+    })
 
 
 def _color_for_assignee(job, crew_colors, user_colors):
@@ -54,11 +68,34 @@ def _color_for_assignee(job, crew_colors, user_colors):
 
 
 def calendar_events(request):
-    jobs = Job.objects.select_related('property', 'assigned_to', 'assigned_crew').all()
+    jobs = Job.objects.select_related(
+        'property', 'property__customer', 'assigned_to', 'assigned_crew'
+    ).prefetch_related('service_items__service').filter(scheduled_date__isnull=False)
 
     business = getattr(request.user, 'business', None) if request.user.is_authenticated else None
     if business:
         jobs = jobs.filter(property__customer__business=business)
+
+    # Crew only sees jobs assigned to them or their crew
+    if request.user.is_authenticated and getattr(request.user, 'role', None) == 'crew':
+        user = request.user
+        jobs = jobs.filter(
+            Q(assigned_to=user) |
+            Q(assigned_crew__members=user) |
+            Q(assigned_crew__crew_leader=user)
+        ).distinct()
+
+    # Filters from query params
+    service_ids = request.GET.get("services", "")
+    crew_ids = request.GET.get("crews", "")
+    if service_ids:
+        ids = [int(x) for x in service_ids.split(",") if x.strip().isdigit()]
+        if ids:
+            jobs = jobs.filter(service_items__service_id__in=ids).distinct()
+    if crew_ids:
+        cids = [int(x) for x in crew_ids.split(",") if x.strip().isdigit()]
+        if cids:
+            jobs = jobs.filter(assigned_crew_id__in=cids)
 
     crew_colors = {c.id: (c.color or CREW_COLORS[i % len(CREW_COLORS)]) for i, c in enumerate(Crew.objects.filter(business=business).order_by("name"))} if business else {}
     user_colors = {}
@@ -88,23 +125,239 @@ def calendar_events(request):
         else:
             assignee_name = 'Unassigned'
 
+        customer_name = job.property.customer.name if job.property.customer else ""
+        service_names = list({si.service.name for si in job.service_items.select_related('service').all() if si.service})
+        services_str = ", ".join(service_names) if service_names else "No services"
+
         title = job.property.address
         if is_completed:
             title = '✓ ' + title
 
-        events.append({
-            "id": job.id,
-            "title": title,
-            "start": job.scheduled_date.isoformat(),
-            "backgroundColor": bg,
-            "borderColor": base_color or UNASSIGNED_COLOR,
-            "extendedProps": {
-                "status": job.status,
-                "crew": assignee_name,
-                "jobId": job.id,
-            },
-        })
+        # Timed events (week/day view) vs all-day (month view)
+        if job.scheduled_time:
+            dt = datetime.combine(job.scheduled_date, job.scheduled_time)
+            start_str = dt.strftime("%Y-%m-%dT%H:%M:%S")
+            end_dt = dt + timedelta(hours=1)
+            end_str = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
+            evt = {
+                "id": job.id,
+                "title": title,
+                "start": start_str,
+                "end": end_str,
+                "backgroundColor": bg,
+                "borderColor": base_color or UNASSIGNED_COLOR,
+                "extendedProps": {
+                    "status": job.status, "crew": assignee_name, "jobId": job.id,
+                    "customer": customer_name, "services": services_str,
+                },
+            }
+        else:
+            evt = {
+                "id": job.id,
+                "title": title,
+                "start": job.scheduled_date.isoformat(),
+                "allDay": True,
+                "backgroundColor": bg,
+                "borderColor": base_color or UNASSIGNED_COLOR,
+                "extendedProps": {
+                    "status": job.status, "crew": assignee_name, "jobId": job.id,
+                    "customer": customer_name, "services": services_str,
+                },
+            }
+        events.append(evt)
     return JsonResponse(events, safe=False)
+
+
+@require_GET
+@login_required
+def calendar_job_data(request, job_id):
+    """Return job details for calendar modal. Owners get full data; crew get address, notes, services, images only."""
+    business = getattr(request.user, 'business', None)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    job = get_object_or_404(
+        Job.objects.select_related('property', 'property__customer', 'assigned_to', 'assigned_crew')
+        .prefetch_related('service_items__service'),
+        id=job_id,
+        property__customer__business=business,
+    )
+    user_role = getattr(request.user, 'role', 'owner')
+    is_owner = user_role == 'owner'
+
+    # Crew may only view jobs assigned to them or their crew
+    if not is_owner:
+        can_view = (
+            job.assigned_to_id == request.user.id or
+            (job.assigned_crew and (
+                request.user in job.assigned_crew.members.all() or
+                job.assigned_crew.crew_leader_id == request.user.id
+            ))
+        )
+        if not can_view:
+            return JsonResponse({"error": "You do not have access to this job."}, status=403)
+
+    # Services list (name, quantity, unit)
+    services = [
+        {"name": si.service.name if si.service else "—", "quantity": str(si.quantity), "unit": si.unit or "visit"}
+        for si in job.service_items.select_related('service').all()
+    ]
+
+    # Property images from estimates (Property Estimator)
+    images = []
+    try:
+        from property_estimator.models import PropertyEstimate
+        for est in PropertyEstimate.objects.filter(property=job.property).prefetch_related('images'):
+            for img in est.images.all():
+                if img.image:
+                    images.append({"url": img.image.url})
+    except Exception:
+        pass
+
+    base_response = {
+        "user_role": user_role,
+        "job": {
+            "id": job.id,
+            "address": job.property.address,
+            "scheduled_date": job.scheduled_date.isoformat() if job.scheduled_date else "",
+            "scheduled_time": job.scheduled_time.strftime("%H:%M") if job.scheduled_time else "",
+            "status": job.status,
+            "notes": job.notes or "",
+            "services": services,
+            "images": images,
+            "assigned_crew_id": job.assigned_crew_id if is_owner else None,
+            "assigned_to_id": job.assigned_to_id if is_owner else None,
+            "has_unbilled_items": job.service_items.filter(billed_at__isnull=True).exists() if is_owner else False,
+            "has_services": job.service_items.exists(),
+        },
+    }
+    if is_owner:
+        crews = [{"id": c.id, "name": c.name} for c in Crew.objects.filter(business=business).order_by("name")]
+        employees = [
+            {"id": u.id, "name": u.get_full_name() or u.username}
+            for u in User.objects.filter(business=business, role="crew").order_by("first_name", "username")
+        ]
+        customer = job.property.customer
+        base_response["customer"] = {
+            "name": customer.name,
+            "email": customer.email or "",
+            "phone": customer.phone or "",
+        }
+        base_response["crews"] = crews
+        base_response["employees"] = employees
+    return JsonResponse(base_response)
+
+
+@require_POST
+@role_required("owner")
+def calendar_job_update(request, job_id):
+    """Update job crew, notes, and customer contact from calendar modal."""
+    business = getattr(request.user, 'business', None)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    job = get_object_or_404(
+        Job.objects.select_related('property', 'property__customer'),
+        id=job_id,
+        property__customer__business=business,
+    )
+    data = json.loads(request.body) if request.body else {}
+    # Crew and employee are mutually exclusive
+    if "assigned_crew_id" in data:
+        vid = data["assigned_crew_id"]
+        if vid is None or vid == "":
+            job.assigned_crew = None
+        else:
+            crew = Crew.objects.filter(business=business, id=vid).first()
+            job.assigned_crew = crew
+            job.assigned_to = None  # clear employee when crew selected
+    if "assigned_to_id" in data:
+        vid = data["assigned_to_id"]
+        if vid is None or vid == "":
+            job.assigned_to = None
+        else:
+            user = User.objects.filter(business=business, role="crew", id=vid).first()
+            job.assigned_to = user
+            job.assigned_crew = None  # clear crew when employee selected
+    if "notes" in data:
+        job.notes = (data["notes"] or "")[:2000]
+    if "scheduled_time" in data:
+        val = data["scheduled_time"]
+        if val is None or val == "":
+            job.scheduled_time = None
+        elif isinstance(val, str) and ":" in val:
+            parts = val.split(":")
+            from datetime import time as dt_time
+            h = int(parts[0] or 0)
+            m = int(parts[1] or 0) if len(parts) > 1 else 0
+            job.scheduled_time = dt_time(h, m, 0)
+    if "customer_email" in data:
+        job.property.customer.email = (data["customer_email"] or "")[:254]
+        job.property.customer.save()
+    if "customer_phone" in data:
+        job.property.customer.phone = (data["customer_phone"] or "")[:20]
+        job.property.customer.save()
+    job.save()
+    return JsonResponse({"status": "ok"})
+
+
+@require_POST
+@role_required("owner")
+def calendar_job_reschedule(request, job_id):
+    """Update job scheduled_date when dragged to new date."""
+    business = getattr(request.user, 'business', None)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    job = get_object_or_404(
+        Job,
+        id=job_id,
+        property__customer__business=business,
+    )
+    data = json.loads(request.body) if request.body else {}
+    new_date = data.get("scheduled_date") or data.get("date")
+    if not new_date:
+        return JsonResponse({"error": "Missing scheduled_date"}, status=400)
+    try:
+        from datetime import time as dt_time
+        date_str = new_date
+        time_obj = None
+        if isinstance(new_date, str) and "T" in new_date:
+            parts = new_date.split("T")
+            date_str = parts[0]
+            if len(parts) > 1 and parts[1]:
+                time_part = parts[1][:8]
+                if ":" in time_part:
+                    tparts = (time_part + ":0:0").split(":")[:3]
+                    h, m, s = int(tparts[0] or 0), int(tparts[1] or 0), int(tparts[2] or 0)
+                    time_obj = dt_time(h, m, s)
+        job.scheduled_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        job.scheduled_time = time_obj
+        job.save()
+        return JsonResponse({"status": "ok", "scheduled_date": date_str})
+    except (ValueError, TypeError) as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+@require_GET
+@role_required("owner")
+def calendar_unscheduled_jobs(request):
+    """List jobs with no scheduled_date (accepted but not yet on calendar)."""
+    business = getattr(request.user, 'business', None)
+    if not business:
+        return JsonResponse({"jobs": []})
+    jobs = Job.objects.filter(
+        property__customer__business=business,
+        scheduled_date__isnull=True,
+    ).select_related('property', 'property__customer').prefetch_related('service_items__service').order_by('-created_at')[:50]
+    out = []
+    for j in jobs:
+        services = list({si.service.name for si in j.service_items.all() if si.service})
+        out.append({
+            "id": j.id,
+            "address": j.property.address,
+            "customer": j.property.customer.name if j.property.customer else "",
+            "services": ", ".join(services) if services else "No services",
+            "status": j.status,
+        })
+    return JsonResponse({"jobs": out})
 
 
 @role_required("owner", "crew")
@@ -253,12 +506,16 @@ def complete_job(request, job_id):
     job = get_object_or_404(Job.objects.select_related("assigned_crew"), id=job_id)
 
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": "Forbidden"}, status=403)
         return redirect("crew_today")
 
     job.status = "completed"
     job.save()
 
-    # Owner: choose billing (send now or add to monthly). Crew: done, owner bills later.
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"status": "ok", "redirect": None})
+
     if request.user.role == "owner":
         return redirect("job_billing_options", job_id=job_id)
     messages.success(request, "Job completed. The owner will handle billing.")
@@ -286,9 +543,12 @@ def create_job(request):
             elif atype == "employee":
                 assigned_to = form.cleaned_data.get("assigned_to")
 
+            sched_date = form.cleaned_data.get("scheduled_date")
+            sched_time = form.cleaned_data.get("scheduled_time") if sched_date else None
             job = Job.objects.create(
                 property=prop,
-                scheduled_date=form.cleaned_data["scheduled_date"],
+                scheduled_date=sched_date,
+                scheduled_time=sched_time,
                 assigned_to=assigned_to,
                 assigned_crew=assigned_crew,
                 notes=form.cleaned_data.get("notes") or "",
@@ -306,17 +566,52 @@ def create_job(request):
                         unit=unit,
                         unit_price=rate,
                     )
-            messages.success(request, f"Job created for {prop.address} on {job.scheduled_date}.")
-            return redirect("job_detail", job_id=job.id)
+            msg = f"Job created for {prop.address}" + (f" on {job.scheduled_date}" if job.scheduled_date else " (unscheduled)")
+            messages.success(request, msg + ".")
+            if job.scheduled_date:
+                return redirect("job_detail", job_id=job.id)
+            return redirect("calendar")
     else:
-        form = CreateJobForm(business=business)
+        initial = {}
+        date_param = request.GET.get("date")
+        time_param = request.GET.get("time")
+        if date_param:
+            initial["scheduled_date"] = date_param
+            initial["scheduled_time"] = time_param if time_param else "08:00"
+        form = CreateJobForm(initial=initial, business=business)
         ServiceFormSet = get_job_service_formset(business)
         formset = ServiceFormSet()
 
+    from pricing.models import ServiceTemplate
+    service_templates = []
+    if business:
+        service_templates = list(ServiceTemplate.objects.filter(business=business, active=True).order_by("name").values("name"))
     return render(request, "jobs/job_create.html", {
         "form": form,
         "formset": formset,
+        "service_templates": service_templates,
     })
+
+
+@require_POST
+@role_required("owner")
+def job_delete(request, job_id):
+    """Delete a job."""
+    business = getattr(request.user, "business", None)
+    if not business:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": "No business"}, status=403)
+        return redirect("/")
+    job = get_object_or_404(
+        Job,
+        id=job_id,
+        property__customer__business=business,
+    )
+    job.delete()
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"status": "ok"})
+    messages.success(request, "Job deleted.")
+    return redirect("calendar")
 
 
 @role_required("owner")
@@ -338,14 +633,20 @@ def job_bill_now(request, job_id):
     """Create and send invoice immediately for completed job."""
     job = get_object_or_404(Job, id=job_id)
     if job.status != "completed":
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": "Only completed jobs can be invoiced."}, status=400)
         messages.error(request, "Only completed jobs can be invoiced.")
         return redirect("job_detail", job_id=job_id)
 
     if not job.service_items.exists():
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": "Add at least one service before invoicing."}, status=400)
         messages.error(request, "Add at least one service to the job before invoicing.")
         return redirect("job_detail", job_id=job_id)
 
     create_and_send_invoice_for_job(job, send=True)
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"status": "ok"})
     messages.success(request, f"Invoice created and sent for {job.property.address}.")
     return redirect("billing:invoice_list")
 
@@ -356,12 +657,16 @@ def job_add_to_monthly(request, job_id):
     """Add completed job to customer's monthly invoice."""
     job = get_object_or_404(Job, id=job_id)
     if job.status != "completed":
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": "Only completed jobs can be added to monthly."}, status=400)
         messages.error(request, "Only completed jobs can be added to monthly invoice.")
         return redirect("job_detail", job_id=job_id)
 
+    d = job.scheduled_date or timezone.now().date()
     customer = job.property.customer
-    d = job.scheduled_date
-    invoice = generate_monthly_invoice_for_customer(customer, d.year, d.month)
+    invoice = generate_monthly_invoice_for_customer(customer, d.year, d.month, include_job=job)
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"status": "ok", "invoice_id": invoice.id})
     messages.success(
         request,
         f"Job added to {customer.name}'s monthly invoice for {d.strftime('%B %Y')}. "

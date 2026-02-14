@@ -3,10 +3,10 @@
 {% block content %}
 <div class="page-header">
   <h1>Job Calendar</h1>
-  <p>View and manage scheduled jobs — color-coded by crew</p>
+  <p>Drag jobs to reschedule · Click to edit crew, client, and notes</p>
 </div>
 
-<div class="quick-actions" style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+<div class="quick-actions" style="margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
   <a href="{% url 'daily_route' %}" class="btn btn-primary">View Daily Routes</a>
   <a href="{% url 'crew_today' %}" class="btn btn-secondary">Crew Today</a>
   <a href="/" class="btn btn-secondary">Back to Dashboard</a>
@@ -21,29 +21,601 @@
   </div>
 </div>
 
+<div class="calendar-filters card" style="padding: 16px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center;">
+  <div class="filter-group" style="display: flex; align-items: center; gap: 8px;">
+    <label for="filter-services" style="font-size: 13px; font-weight: 500; color: var(--text-muted);">Service:</label>
+    <select id="filter-services" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; min-width: 140px;">
+      <option value="">All services</option>
+      {% for s in filter_services %}
+      <option value="{{ s.id }}">{{ s.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-group" style="display: flex; align-items: center; gap: 8px;">
+    <label for="filter-crews" style="font-size: 13px; font-weight: 500; color: var(--text-muted);">Crew:</label>
+    <select id="filter-crews" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; min-width: 140px;">
+      <option value="">All crews</option>
+      {% for c in filter_crews %}
+      <option value="{{ c.id }}">{{ c.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="button" id="filter-apply" class="btn btn-secondary btn-sm">Apply filters</button>
+</div>
+
 <div class="card" style="padding: 20px;">
+  {% csrf_token %}
   <div id="calendar"></div>
+</div>
+
+{% if user.role == "owner" %}
+<div class="unscheduled-panel card" style="margin-top: 24px; padding: 20px;">
+  <h3 style="margin: 0 0 16px 0;">Unscheduled Jobs</h3>
+  <p class="muted" style="font-size: 14px; margin-bottom: 16px;">Jobs accepted but not yet on the calendar. Click Schedule to add to a date.</p>
+  <div id="unscheduled-list" style="display: flex; flex-direction: column; gap: 8px;">
+    <p class="muted" style="padding: 20px; text-align: center;">Loading...</p>
+  </div>
+</div>
+{% endif %}
+
+<div id="job-modal" class="modal-overlay" style="display: none;">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="modal-title">Job Details</h3>
+      <button type="button" class="modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Address</label>
+        <p id="modal-address" class="modal-readonly"></p>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date</label>
+          <p id="modal-date" class="modal-readonly"></p>
+        </div>
+        <div class="form-group">
+          <label for="modal-time">Time</label>
+          <input type="time" id="modal-time" placeholder="Optional">
+        </div>
+      </div>
+      <div id="modal-owner-only" class="owner-only-section">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="modal-crew">Crew</label>
+            <select id="modal-crew">
+              <option value="">— Unassigned —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="modal-employee">Employee</label>
+            <select id="modal-employee">
+              <option value="">— Unassigned —</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Client</label>
+          <div class="form-row">
+            <input type="email" id="modal-customer-email" placeholder="Client email">
+            <input type="tel" id="modal-customer-phone" placeholder="Client phone">
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="modal-notes">Notes</label>
+        <textarea id="modal-notes" rows="2" placeholder="Gate codes, access, special instructions"></textarea>
+      </div>
+      <div id="modal-services-section" class="form-group" style="display: none;">
+        <label>Services</label>
+        <ul id="modal-services-list" class="modal-services-list"></ul>
+      </div>
+      <div id="modal-images-section" class="form-group" style="display: none;">
+        <label>Property images</label>
+        <div id="modal-images-grid" class="modal-images-grid"></div>
+      </div>
+      <div id="modal-owner-actions" class="modal-actions">
+        <a id="modal-email-link" href="#" class="btn btn-secondary btn-sm" target="_blank">Email client</a>
+        <a id="modal-text-link" href="#" class="btn btn-secondary btn-sm" target="_blank">Text client</a>
+      </div>
+      <div id="modal-job-actions" class="modal-job-actions" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+        <h4 style="font-size: 13px; margin: 0 0 10px 0; color: var(--text-muted);">Quick actions</h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <button type="button" id="modal-complete" class="btn btn-primary btn-sm" style="display: none;">Mark complete</button>
+          <button type="button" id="modal-bill-now" class="btn btn-primary btn-sm" style="display: none;">Send invoice</button>
+          <button type="button" id="modal-add-monthly" class="btn btn-secondary btn-sm" style="display: none;">Add to monthly</button>
+          <button type="button" id="modal-delete" class="btn btn-secondary btn-sm" style="color: #dc2626;">Delete job</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <a id="modal-view-job" href="#" class="btn btn-secondary">View full job</a>
+      <button type="button" id="modal-save" class="btn btn-primary">Save</button>
+    </div>
+  </div>
 </div>
 
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    var calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-      initialView: 'dayGridMonth',
-      events: '/jobs/calendar/events/',
-      eventClick: function (info) {
-        var jobId = info.event.extendedProps?.jobId;
-        if (jobId) {
-          window.location.href = '/jobs/' + jobId + '/';
+document.addEventListener('DOMContentLoaded', function () {
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+  var isOwner = {% if user.role == "owner" %}true{% else %}false{% endif %};
+
+  var calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay'
+    },
+    initialView: 'dayGridMonth',
+    views: {
+      dayGridMonth: { buttonText: 'Month' },
+      timeGridWeek: { buttonText: 'Week' },
+      timeGridDay: { buttonText: 'Day' }
+    },
+    slotMinTime: '06:00:00',
+    slotMaxTime: '20:00:00',
+    slotDuration: '00:30:00',
+    allDaySlot: true,
+    nowIndicator: true,
+    editable: true,
+    eventDurationEditable: true,
+    events: function(info, successCallback, failureCallback) {
+      var svc = document.getElementById('filter-services');
+      var crew = document.getElementById('filter-crews');
+      var params = '';
+      if (svc && svc.value) params += '&services=' + svc.value;
+      if (crew && crew.value) params += '&crews=' + crew.value;
+      fetch('/jobs/calendar/events/' + (params ? '?' + params.slice(1) : ''))
+        .then(function(r) { return r.json(); })
+        .then(successCallback)
+        .catch(failureCallback);
+    },
+    eventContent: function(arg) {
+      var html = document.createElement('div');
+      html.className = 'fc-event-main-frame';
+      var title = arg.event.title;
+      var cust = arg.event.extendedProps.customer || '';
+      var svc = arg.event.extendedProps.services || '';
+      html.innerHTML = '<div class="fc-event-title">' + (cust ? '<strong>' + cust + '</strong><br>' : '') + title + (svc ? '<br><small>' + svc + '</small>' : '') + '</div>';
+      return { domNodes: [html] };
+    },
+    dateClick: function(info) {
+      if (!isOwner) return;
+      var date = info.date;
+      if (!date) return;
+      var dateStr = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+      var timeStr = String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+      var url = '/jobs/create/?date=' + dateStr + '&time=' + timeStr;
+      window.location.href = url;
+    },
+    eventDrop: function (info) {
+      var jobId = info.event.extendedProps?.jobId;
+      if (!jobId) return;
+      var start = info.event.start;
+      var dateStr = null;
+      if (start && start instanceof Date) {
+        if (info.event.allDay) {
+          dateStr = start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0') + '-' + String(start.getDate()).padStart(2, '0');
+        } else {
+          dateStr = start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0') + '-' + String(start.getDate()).padStart(2, '0') +
+            'T' + String(start.getHours()).padStart(2, '0') + ':' + String(start.getMinutes()).padStart(2, '0') + ':' + String(start.getSeconds()).padStart(2, '0');
         }
+      }
+      if (!dateStr) return;
+      fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrf
+        },
+        body: JSON.stringify({ scheduled_date: dateStr })
+      }).then(function(r) {
+        if (!r.ok) info.revert();
+        return r.json();
+      }).catch(function() { info.revert(); });
+    },
+    eventResize: function(info) {
+      var jobId = info.event.extendedProps?.jobId;
+      if (!jobId) return;
+      var start = info.event.start;
+      var dateStr = null;
+      if (start && start instanceof Date) {
+        dateStr = start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0') + '-' + String(start.getDate()).padStart(2, '0') +
+          'T' + String(start.getHours()).padStart(2, '0') + ':' + String(start.getMinutes()).padStart(2, '0') + ':' + String(start.getSeconds()).padStart(2, '0');
+      }
+      if (!dateStr) return;
+      fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrf
+        },
+        body: JSON.stringify({ scheduled_date: dateStr })
+      }).then(function(r) {
+        if (!r.ok) info.revert();
+      }).catch(function() { info.revert(); });
+    },
+    eventClick: function (info) {
+      info.jsEvent.preventDefault();
+      var jobId = info.event.extendedProps?.jobId;
+      if (!jobId) return;
+      openJobModal(jobId);
+    },
+    eventDidMount: function (info) {
+      var p = info.event.extendedProps || {};
+      info.el.title = (p.customer || '') + ' — ' + (p.services || '') + ' — ' + (p.crew || '') + ' — ' + (p.status || '');
+    }
+  });
+  calendar.render();
+
+  function openJobModal(jobId) {
+    fetch('/jobs/calendar/job/' + jobId + '/')
+      .then(function(r) {
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Failed to load job'); });
+        return r.json();
+      })
+      .then(function(data) {
+        var job = data.job;
+        var userRole = data.user_role || 'owner';
+        var isOwner = userRole === 'owner';
+
+        document.getElementById('modal-address').textContent = job.address;
+        document.getElementById('modal-date').textContent = job.scheduled_date || 'Unscheduled';
+        document.getElementById('modal-time').value = job.scheduled_time || '';
+        document.getElementById('modal-notes').value = job.notes || '';
+        document.getElementById('modal-notes').readOnly = !isOwner;
+        document.getElementById('modal-time').readOnly = !isOwner;
+        document.getElementById('modal-view-job').href = '/jobs/' + jobId + '/';
+
+        // Owner-only: crew/employee, client contact
+        var ownerOnly = document.getElementById('modal-owner-only');
+        ownerOnly.style.display = isOwner ? 'block' : 'none';
+        if (isOwner) {
+          var customer = data.customer || {};
+          document.getElementById('modal-customer-email').value = customer.email || '';
+          document.getElementById('modal-customer-phone').value = customer.phone || '';
+
+          var crewSel = document.getElementById('modal-crew');
+          crewSel.innerHTML = '<option value="">— Unassigned —</option>';
+          (data.crews || []).forEach(function(c) {
+            var opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            if (job.assigned_crew_id === c.id) opt.selected = true;
+            crewSel.appendChild(opt);
+          });
+
+          var empSel = document.getElementById('modal-employee');
+          empSel.innerHTML = '<option value="">— Unassigned —</option>';
+          (data.employees || []).forEach(function(e) {
+            var opt = document.createElement('option');
+            opt.value = e.id;
+            opt.textContent = e.name;
+            if (job.assigned_to_id === e.id) opt.selected = true;
+            empSel.appendChild(opt);
+          });
+
+          var email = customer.email || '';
+          var phone = (customer.phone || '').replace(/\D/g, '');
+          document.getElementById('modal-email-link').href = email ? ('mailto:' + email) : '#';
+          document.getElementById('modal-email-link').style.display = email ? '' : 'none';
+          document.getElementById('modal-text-link').href = phone ? ('sms:' + phone) : '#';
+          document.getElementById('modal-text-link').style.display = phone ? '' : 'none';
+        }
+
+        // Services list (visible to all)
+        var svcSection = document.getElementById('modal-services-section');
+        var svcList = document.getElementById('modal-services-list');
+        if (job.services && job.services.length) {
+          svcSection.style.display = 'block';
+          svcList.innerHTML = job.services.map(function(s) {
+            return '<li>' + (s.name || '—') + ' — ' + s.quantity + ' ' + (s.unit || 'visit') + '</li>';
+          }).join('');
+        } else {
+          svcSection.style.display = 'none';
+        }
+
+        // Property images (visible to all)
+        var imgSection = document.getElementById('modal-images-section');
+        var imgGrid = document.getElementById('modal-images-grid');
+        if (job.images && job.images.length) {
+          imgSection.style.display = 'block';
+          imgGrid.innerHTML = job.images.map(function(img) {
+            return '<a href="' + img.url + '" target="_blank" rel="noopener"><img src="' + img.url + '" alt="Property" class="modal-img-thumb"></a>';
+          }).join('');
+        } else {
+          imgSection.style.display = 'none';
+        }
+
+        // Quick actions: owner only
+        var jobActions = document.getElementById('modal-job-actions');
+        var ownerActions = document.getElementById('modal-owner-actions');
+        jobActions.style.display = isOwner ? 'block' : 'none';
+        ownerActions.style.display = isOwner ? 'flex' : 'none';
+        if (isOwner) {
+          var completeBtn = document.getElementById('modal-complete');
+          var billBtn = document.getElementById('modal-bill-now');
+          var monthlyBtn = document.getElementById('modal-add-monthly');
+          completeBtn.style.display = job.status !== 'completed' ? '' : 'none';
+          var canBill = job.status === 'completed' && job.has_unbilled_items && job.has_services;
+          billBtn.style.display = canBill ? '' : 'none';
+          monthlyBtn.style.display = canBill ? '' : 'none';
+        }
+
+        // Footer: Save only for owner
+        document.getElementById('modal-save').style.display = isOwner ? '' : 'none';
+
+        document.getElementById('job-modal').dataset.jobId = jobId;
+        document.getElementById('job-modal').style.display = 'flex';
+      })
+      .catch(function(e) { alert(e.message); });
+  }
+
+  function closeJobModal() {
+    document.getElementById('job-modal').style.display = 'none';
+  }
+
+  document.querySelector('.modal-close').addEventListener('click', closeJobModal);
+  document.getElementById('job-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeJobModal();
+  });
+  document.getElementById('modal-crew').addEventListener('change', function() {
+    if (this.value) document.getElementById('modal-employee').value = '';
+  });
+  document.getElementById('modal-employee').addEventListener('change', function() {
+    if (this.value) document.getElementById('modal-crew').value = '';
+  });
+
+  document.getElementById('filter-apply').addEventListener('click', function() {
+    calendar.refetchEvents();
+  });
+
+  function loadUnscheduled() {
+    fetch('/jobs/calendar/unscheduled/')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var list = document.getElementById('unscheduled-list');
+        if (!data.jobs || data.jobs.length === 0) {
+          list.innerHTML = '<p class="muted" style="padding: 20px; text-align: center;">No unscheduled jobs.</p>';
+          return;
+        }
+        list.innerHTML = data.jobs.map(function(j) {
+          return '<div class="unscheduled-item" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface-alt); border-radius: 8px;">' +
+            '<div style="flex: 1;">' +
+            '<strong>' + (j.customer || '') + '</strong> — ' + j.address + '<br><small style="color: var(--text-muted);">' + j.services + '</small>' +
+            '</div>' +
+            '<input type="date" data-job-id="' + j.id + '" class="unscheduled-date" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border);">' +
+            '<a href="/jobs/' + j.id + '/" class="btn btn-secondary btn-sm">View</a>' +
+            '<button type="button" class="btn btn-primary btn-sm schedule-btn" data-job-id="' + j.id + '">Schedule</button>' +
+            '</div>';
+        }).join('');
+        list.querySelectorAll('.schedule-btn').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var jobId = btn.dataset.jobId;
+            var row = btn.closest('.unscheduled-item');
+            var dateInp = row.querySelector('.unscheduled-date');
+            var dateStr = dateInp ? dateInp.value : '';
+            if (!dateStr) {
+              alert('Please select a date.');
+              return;
+            }
+            fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+              body: JSON.stringify({ scheduled_date: dateStr })
+            }).then(function(r) {
+              if (r.ok) {
+                calendar.refetchEvents();
+                loadUnscheduled();
+              }
+            });
+          });
+        });
+        var today = new Date();
+        var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+        list.querySelectorAll('.unscheduled-date').forEach(function(inp) {
+          if (!inp.value) inp.value = todayStr;
+        });
+      });
+  }
+  if (isOwner) loadUnscheduled();
+
+  function ajaxPost(url, cb) {
+    return fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf,
+        'X-Requested-With': 'XMLHttpRequest'
       },
-      eventDidMount: function (info) {
-        info.el.title = (info.event.extendedProps?.crew || '') + ' — ' + (info.event.extendedProps?.status || '');
+      body: JSON.stringify({})
+    }).then(function(r) {
+      if (!r.ok) {
+        return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); }).catch(function() { throw new Error('Request failed'); });
+      }
+      return r.json().then(function(d) { if (cb) cb(d); return d; });
+    });
+  }
+
+  document.getElementById('modal-complete').addEventListener('click', function() {
+    var jobId = document.getElementById('job-modal').dataset.jobId;
+    if (!jobId) return;
+    ajaxPost('/jobs/' + jobId + '/complete/')
+      .then(function() {
+        calendar.refetchEvents();
+        loadUnscheduled();
+        closeJobModal();
+      })
+      .catch(function(e) { alert(e.message); });
+  });
+
+  document.getElementById('modal-bill-now').addEventListener('click', function() {
+    var jobId = document.getElementById('job-modal').dataset.jobId;
+    if (!jobId) return;
+    ajaxPost('/jobs/' + jobId + '/bill-now/')
+      .then(function() {
+        calendar.refetchEvents();
+        loadUnscheduled();
+        closeJobModal();
+      })
+      .catch(function(e) { alert(e.message); });
+  });
+
+  document.getElementById('modal-add-monthly').addEventListener('click', function() {
+    var jobId = document.getElementById('job-modal').dataset.jobId;
+    if (!jobId) return;
+    ajaxPost('/jobs/' + jobId + '/add-to-monthly/')
+      .then(function(d) {
+        calendar.refetchEvents();
+        loadUnscheduled();
+        closeJobModal();
+        if (d && d.invoice_id) window.location.href = '/billing/' + d.invoice_id + '/';
+      })
+      .catch(function(e) { alert(e.message); });
+  });
+
+  document.getElementById('modal-delete').addEventListener('click', function() {
+    if (!confirm('Delete this job? This cannot be undone.')) return;
+    var jobId = document.getElementById('job-modal').dataset.jobId;
+    if (!jobId) return;
+    ajaxPost('/jobs/' + jobId + '/delete/')
+      .then(function() {
+        calendar.refetchEvents();
+        loadUnscheduled();
+        closeJobModal();
+      })
+      .catch(function(e) { alert(e.message); });
+  });
+
+  document.getElementById('modal-save').addEventListener('click', function() {
+    var jobId = document.getElementById('job-modal').dataset.jobId;
+    if (!jobId) return;
+    var crewVal = document.getElementById('modal-crew').value;
+    var empVal = document.getElementById('modal-employee').value;
+    var payload = {
+      assigned_crew_id: crewVal ? parseInt(crewVal, 10) : null,
+      assigned_to_id: empVal ? parseInt(empVal, 10) : null,
+      notes: document.getElementById('modal-notes').value,
+      scheduled_time: document.getElementById('modal-time').value || null,
+      customer_email: document.getElementById('modal-customer-email').value,
+      customer_phone: document.getElementById('modal-customer-phone').value
+    };
+    fetch('/jobs/calendar/job/' + jobId + '/update/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf
+      },
+      body: JSON.stringify(payload)
+    }).then(function(r) {
+      if (r.ok) {
+        calendar.refetchEvents();
+        loadUnscheduled();
+        closeJobModal();
       }
     });
-    calendar.render();
   });
+});
 </script>
+
+<style>
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+  .modal-card {
+    background: var(--surface);
+    border-radius: 14px;
+    max-width: 480px;
+    width: 100%;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    max-height: 90vh;
+    overflow: auto;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 20px 0;
+    margin-bottom: 16px;
+  }
+  .modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-muted);
+    line-height: 1;
+    padding: 0 4px;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 0 20px; }
+  .modal-body .form-group { margin-bottom: 16px; }
+  .modal-body .form-row { display: flex; gap: 12px; }
+  .modal-body .form-row input { flex: 1; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); }
+  .modal-body label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+  .modal-readonly { margin: 0; font-size: 14px; }
+  .modal-body select, .modal-body textarea {
+    width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+  }
+  .modal-actions { display: flex; gap: 8px; margin-bottom: 16px; }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 20px;
+    border-top: 1px solid var(--border);
+  }
+  #calendar {
+    min-height: 600px;
+  }
+  .fc .fc-toolbar-title {
+    font-size: 1.25rem;
+  }
+  .fc .fc-button {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+  .fc-event-title {
+    font-size: 11px;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+  }
+  .fc-event-title small {
+    opacity: 0.9;
+  }
+  .modal-services-list {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .modal-services-list li { margin-bottom: 4px; }
+  .modal-images-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .modal-img-thumb {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+</style>
 {% endblock %}

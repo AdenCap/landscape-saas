@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -142,4 +143,7 @@ LOGIN_REDIRECT_URL = '/'
 
 # Email - each business configures Gmail in Settings; fallback for non-email use
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# Mapbox for satellite imagery in Property Estimator (get free token at mapbox.com)
+MAPBOX_ACCESS_TOKEN = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
 DEFAULT_FROM_EMAIL = "Landscape <noreply@landscape.local>"

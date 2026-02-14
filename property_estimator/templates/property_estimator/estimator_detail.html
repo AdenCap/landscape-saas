@@ -13,6 +13,19 @@
 <div class="alert alert-warning">OpenCV is not installed. Run: <code>pip install opencv-python-headless</code></div>
 {% endif %}
 
+<div class="satellite-section card" style="margin-bottom: 24px;">
+  <h3 style="margin: 0 0 12px 0;">Satellite / Aerial View</h3>
+  <p class="muted" style="margin-bottom: 12px;">Auto-fetched from property address {{ property.address }}</p>
+  {% if has_mapbox %}
+  <div class="satellite-image-wrap" style="border-radius: 10px; overflow: hidden; max-width: 800px;">
+    <img src="{% url 'estimator_satellite_image' property.id %}" alt="Satellite view of {{ property.address }}" style="width: 100%; display: block;" onerror="this.parentElement.innerHTML='<p style=\'padding:40px;color:var(--text-muted)\'>Could not load satellite image. Check that the address is valid and MAPBOX_ACCESS_TOKEN is set.</p>'">
+  </div>
+  <p class="muted" style="font-size: 12px; margin-top: 8px;">You can also upload your own image below for analysis.</p>
+  {% else %}
+  <p class="muted" style="padding: 20px; background: var(--surface-alt); border-radius: 8px;">Set <code>MAPBOX_ACCESS_TOKEN</code> in your environment (get a free token at <a href="https://account.mapbox.com/access-tokens/" target="_blank" rel="noopener">mapbox.com</a>) to show satellite imagery by address.</p>
+  {% endif %}
+</div>
+
 <div class="estimator-layout">
   <div class="card">
     <h3 style="margin: 0 0 16px 0;">Upload Image</h3>

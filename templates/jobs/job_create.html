@@ -7,7 +7,8 @@
 </div>
 
 <div class="quick-actions" style="margin-bottom: 24px;">
-  <a href="/" class="btn btn-secondary">← Back to Dashboard</a>
+  <a href="{% url 'calendar' %}" class="btn btn-secondary">← Back to Calendar</a>
+  <a href="/" class="btn btn-secondary">Dashboard</a>
 </div>
 
 <div class="card" style="max-width: 640px;">
@@ -20,10 +21,18 @@
       {% if form.property.errors %}<span class="error">{{ form.property.errors.0 }}</span>{% endif %}
     </div>
 
-    <div class="form-group" style="margin-bottom: 20px;">
-      <label for="id_scheduled_date">Scheduled Date</label>
-      {{ form.scheduled_date }}
-      {% if form.scheduled_date.errors %}<span class="error">{{ form.scheduled_date.errors.0 }}</span>{% endif %}
+    <div class="form-row" style="display: flex; gap: 16px; margin-bottom: 20px;">
+      <div class="form-group flex-2">
+        <label for="id_scheduled_date">Scheduled Date</label>
+        {{ form.scheduled_date }}
+        <small style="color: var(--text-muted); font-size: 12px;">Leave empty to add to unscheduled (schedule later from calendar)</small>
+        {% if form.scheduled_date.errors %}<span class="error">{{ form.scheduled_date.errors.0 }}</span>{% endif %}
+      </div>
+      <div class="form-group flex-1" style="max-width: 140px;">
+        <label for="id_scheduled_time">Time (optional)</label>
+        {{ form.scheduled_time }}
+        <small style="color: var(--text-muted); font-size: 12px;">For week/day view</small>
+      </div>
     </div>
 
     <div class="form-group" style="margin-bottom: 20px;">
@@ -48,14 +57,21 @@
     </div>
 
     <h3 style="font-size: 16px; font-weight: 600; margin: 24px 0 16px;">Services</h3>
-    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">Add at least one landscaping service (mowing, edging, fertilization, mulching, etc.)</p>
+    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">Type a service name or choose from existing (e.g. mowing, mulching). New names are saved for future use.</p>
+
+    <datalist id="services-datalist">
+      {% for s in service_templates %}
+      <option value="{{ s.name }}"></option>
+      {% endfor %}
+    </datalist>
 
     {{ formset.management_form }}
     {% for f in formset %}
     <div class="form-row form-row-service">
       <div class="form-group flex-2">
         <label>Service</label>
-        {{ f.service }}
+        {{ f.service_name }}
+        {% if f.service_name.errors %}<span class="error">{{ f.service_name.errors.0 }}</span>{% endif %}
       </div>
       <div class="form-group flex-1">
         <label>Qty</label>

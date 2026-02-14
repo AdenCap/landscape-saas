@@ -1,11 +1,12 @@
 import base64
 import json
 from decimal import Decimal, InvalidOperation
+from django.conf import settings
 from django.contrib import messages
 from django.core.files.base import ContentFile
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 
 from accounts.decorators import role_required
 from customers.models import Property
@@ -72,11 +73,13 @@ def estimator_detail(request, property_id, estimate_id):
                     agg["bush_count"] += img.raw_bush_count or 0
                 except (InvalidOperation, TypeError, ValueError):
                     pass
+    has_mapbox = bool(getattr(settings, "MAPBOX_ACCESS_TOKEN", "") or "")
     return render(request, "property_estimator/estimator_detail.html", {
         "property": prop,
         "estimate": estimate,
         "images": images,
         "has_opencv": HAS_OPENCV,
+        "has_mapbox": has_mapbox,
         "aggregated": agg,
     })
 
@@ -181,3 +184,60 @@ def estimator_save(request, property_id, estimate_id):
 
     messages.success(request, "Estimate saved.")
     return redirect("estimator_detail", property_id=property_id, estimate_id=estimate_id)
+
+
+def _geocode_address(address):
+    """Return (lat, lng) for address, or None."""
+    try:
+        from geopy.geocoders import Nominatim
+        from geopy.extra.rate_limiter import RateLimiter
+        geolocator = Nominatim(user_agent="landscape-saas-estimator")
+        geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1.0)
+        location = geocode(address)
+        if location:
+            return (float(location.latitude), float(location.longitude))
+    except Exception:
+        pass
+    return None
+
+
+@role_required("owner")
+def estimator_satellite_image(request, property_id):
+    """Serve satellite/aerial image for property address. Geocodes if needed, uses Mapbox."""
+    business = _get_business(request)
+    if not business:
+        return HttpResponse(status=403)
+    prop = get_object_or_404(Property, id=property_id, customer__business=business)
+
+    lat, lng = None, None
+    if prop.latitude is not None and prop.longitude is not None:
+        lat, lng = float(prop.latitude), float(prop.longitude)
+    if lat is None and prop.address:
+        coords = _geocode_address(prop.address)
+        if coords:
+            lat, lng = coords
+            prop.latitude = Decimal(str(lat))
+            prop.longitude = Decimal(str(lng))
+            prop.save()
+
+    if lat is None or lng is None:
+        return HttpResponse("Address could not be geocoded. Add coordinates in the property settings.", status=400)
+
+    token = getattr(settings, "MAPBOX_ACCESS_TOKEN", "") or ""
+    if not token:
+        return HttpResponse(
+            "Mapbox token not configured. Set MAPBOX_ACCESS_TOKEN in environment for satellite imagery.",
+            status=503,
+        )
+
+    try:
+        import requests
+        url = (
+            f"https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/"
+            f"{lng},{lat},18,0,60/800x600@2x?access_token={token}"
+        )
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        return HttpResponse(resp.content, content_type="image/png")
+    except Exception as e:
+        return HttpResponse(f"Could not fetch satellite image: {e}", status=502)

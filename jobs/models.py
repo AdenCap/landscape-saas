@@ -56,7 +56,8 @@ class Job(models.Model):
         related_name='jobs'
     )
 
-    scheduled_date = models.DateField()
+    scheduled_date = models.DateField(null=True, blank=True, help_text='Null = unscheduled (accepted but not yet on calendar)')
+    scheduled_time = models.TimeField(null=True, blank=True, help_text='Optional start time for week/day view')
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -87,7 +88,7 @@ class Job(models.Model):
     route_order = models.PositiveIntegerField(default=0)
 
     def __str__(self):
-        return f"{self.property.address} - {self.scheduled_date}"
+        return f"{self.property.address} - {self.scheduled_date or 'Unscheduled'}"
     
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
