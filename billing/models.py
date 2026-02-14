@@ -153,6 +153,7 @@ class Estimate(models.Model):
     view_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
     accepted_at = models.DateTimeField(null=True, blank=True)
     accepted_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    last_follow_up_at = models.DateTimeField(null=True, blank=True, help_text="When a follow-up email was last sent")
 
     def __str__(self):
         return f"Estimate #{self.id} - {self.customer.name}"

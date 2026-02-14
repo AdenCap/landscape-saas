@@ -167,7 +167,19 @@ def estimate_list(request):
         messages.error(request, "You must be associated with a business.")
         return redirect("/")
     estimates = Estimate.objects.filter(business=business).select_related("customer").order_by("-created_at")
-    return render(request, "billing/estimate_list.html", {"estimates": estimates})
+
+    status_filter = request.GET.get("status") or "pending"
+    if status_filter == "accepted":
+        estimates = estimates.filter(status="accepted")
+    elif status_filter == "pending":
+        estimates = estimates.exclude(status="accepted")
+    else:
+        status_filter = "all"
+
+    return render(request, "billing/estimate_list.html", {
+        "estimates": estimates,
+        "status_filter": status_filter,
+    })
 
 
 @role_required("owner")
@@ -410,6 +422,76 @@ def estimate_send(request, estimate_id):
         estimate.sent_at = timezone.now()
         estimate.save(update_fields=["status", "sent_at"])
         messages.success(request, f"Estimate sent to {customer.email}")
+    except Exception as e:
+        messages.error(request, f"Failed to send: {str(e)}")
+
+    return redirect("billing:estimate_detail", estimate_id=estimate.id)
+
+
+@require_POST
+@role_required("owner")
+def estimate_send_followup(request, estimate_id):
+    """Send a follow-up / reminder email for an estimate awaiting response."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    estimate = get_object_or_404(Estimate, id=estimate_id, business=business)
+    customer = estimate.customer
+
+    if estimate.status == "accepted":
+        messages.info(request, "This estimate has already been accepted.")
+        return redirect("billing:estimate_detail", estimate_id=estimate.id)
+
+    if not customer.email:
+        messages.error(request, f"{customer.name} has no email address.")
+        return redirect("billing:estimate_detail", estimate_id=estimate.id)
+
+    if not estimate.view_token:
+        estimate.view_token = secrets.token_urlsafe(32)
+        estimate.save(update_fields=["view_token"])
+
+    view_url = request.build_absolute_uri(
+        reverse("billing:estimate_client_view", args=[estimate.id, estimate.view_token])
+    )
+
+    connection = business.get_smtp_connection()
+    if not connection:
+        messages.error(request, "Connect your Gmail in Settings to send follow-ups.")
+        return redirect("billing:estimate_detail", estimate_id=estimate.id)
+
+    logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
+    html_content = render_to_string("billing/estimate_followup_email.html", {
+        "estimate": estimate,
+        "customer": customer,
+        "business": business,
+        "view_url": view_url,
+        "logo_url": logo_url,
+    })
+
+    subject = f"Reminder: {estimate.title} - {business.name}"
+    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@landscape.local")
+    reply_to = [business.contact_email] if business.contact_email else None
+    msg = EmailMultiAlternatives(
+        subject,
+        f"Friendly reminder about your estimate from {business.name}. View it here: {view_url}",
+        from_email,
+        [customer.email],
+        reply_to=reply_to,
+        connection=connection,
+    )
+    msg.attach_alternative(html_content, "text/html")
+
+    pdf_bytes = _build_estimate_pdf(estimate, business)
+    msg.attach(f"estimate_{estimate.id}.pdf", pdf_bytes, "application/pdf")
+
+    try:
+        msg.send()
+        from django.utils import timezone
+        estimate.last_follow_up_at = timezone.now()
+        estimate.save(update_fields=["last_follow_up_at"])
+        messages.success(request, f"Follow-up sent to {customer.email}")
     except Exception as e:
         messages.error(request, f"Failed to send: {str(e)}")
 

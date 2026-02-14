@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from accounts.decorators import role_required
 from jobs.models import Job
-from billing.models import Invoice, InvoiceLineItem
+from billing.models import Invoice, InvoiceLineItem, Estimate
 from accounts.models import User
 from customers.models import Customer
 
@@ -138,8 +138,15 @@ def owner_dashboard(request):
     )
 
     recent_customers = []
+    outgoing_estimates = []
     if business:
         recent_customers = Customer.objects.filter(business=business).order_by("-updated_at")[:8]
+        outgoing_estimates = (
+            Estimate.objects.filter(business=business)
+            .exclude(status="accepted")
+            .select_related("customer")
+            .order_by("-sent_at", "-updated_at")[:10]
+        )
 
     context = {
         "today": today,
@@ -153,6 +160,7 @@ def owner_dashboard(request):
         "month_end": month_end,
         "crew_table": crew_table,
         "recent_customers": recent_customers,
+        "outgoing_estimates": outgoing_estimates,
     }
     return render(request, "dashboard/owner_dashboard.html", context)
 

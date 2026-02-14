@@ -60,6 +60,14 @@
         {% if form.contact_phone.help_text %}<p class="help">{{ form.contact_phone.help_text }}</p>{% endif %}
       </div>
     </div>
+    <div class="form-section">
+      <h3>Estimate Follow-up</h3>
+      <p class="muted">Automatically send follow-up reminders for estimates awaiting response.</p>
+      <div class="field">
+        {{ form.estimate_follow_up_days.label_tag }}{{ form.estimate_follow_up_days }}{{ form.estimate_follow_up_days.errors }}
+        {% if form.estimate_follow_up_days.help_text %}<p class="help">{{ form.estimate_follow_up_days.help_text }}</p>{% endif %}
+      </div>
+    </div>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">Save</button>
       <a href="/" class="btn btn-secondary">Cancel</a>

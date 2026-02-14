@@ -75,4 +75,10 @@ class Business(models.Model):
         default='manual'
     )
 
+    estimate_follow_up_days = models.PositiveIntegerField(
+        default=0,
+        blank=True,
+        help_text="Send automatic follow-up X days after estimate sent (0 = manual only)",
+    )
+
 

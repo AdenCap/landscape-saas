@@ -20,12 +20,14 @@ class BusinessSettingsForm(forms.ModelForm):
             "from_email",
             "contact_email",
             "contact_phone",
+            "estimate_follow_up_days",
         ]
         help_texts = {
             "email_smtp_user": "Your Gmail address for sending estimates to clients.",
             "from_email": "Shown as the sender; use the same Gmail address as above.",
             "contact_email": "Shown to clients so they can reach you.",
             "contact_phone": "Shown to clients so they can call you.",
+            "estimate_follow_up_days": "Auto-send follow-up X days after estimate sent (0 = you send manually).",
         }
         widgets = {
             "email_smtp_password": forms.PasswordInput(

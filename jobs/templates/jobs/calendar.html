@@ -124,7 +124,10 @@
           <button type="button" id="modal-complete" class="btn btn-primary btn-sm" style="display: none;">Mark complete</button>
           <button type="button" id="modal-bill-now" class="btn btn-primary btn-sm" style="display: none;">Send invoice</button>
           <button type="button" id="modal-add-monthly" class="btn btn-secondary btn-sm" style="display: none;">Add to monthly</button>
-          <button type="button" id="modal-delete" class="btn btn-secondary btn-sm" style="color: #dc2626;">Delete job</button>
+          <form id="modal-delete-form" method="post" action="" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" id="modal-delete" class="btn btn-secondary btn-sm" style="color: #dc2626;">Delete job</button>
+          </form>
         </div>
       </div>
     </div>
@@ -357,6 +360,8 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('modal-save').style.display = isOwner ? '' : 'none';
 
         document.getElementById('job-modal').dataset.jobId = jobId;
+        var delForm = document.getElementById('modal-delete-form');
+        if (delForm) delForm.action = '/jobs/' + jobId + '/delete/';
         document.getElementById('job-modal').style.display = 'flex';
       })
       .catch(function(e) { alert(e.message); });
@@ -487,17 +492,8 @@ document.addEventListener('DOMContentLoaded', function () {
       .catch(function(e) { alert(e.message); });
   });
 
-  document.getElementById('modal-delete').addEventListener('click', function() {
-    if (!confirm('Delete this job? This cannot be undone.')) return;
-    var jobId = document.getElementById('job-modal').dataset.jobId;
-    if (!jobId) return;
-    ajaxPost('/jobs/' + jobId + '/delete/')
-      .then(function() {
-        calendar.refetchEvents();
-        loadUnscheduled();
-        closeJobModal();
-      })
-      .catch(function(e) { alert(e.message); });
+  document.getElementById('modal-delete-form').addEventListener('submit', function(e) {
+    if (!confirm('Delete this job? This cannot be undone.')) e.preventDefault();
   });
 
   document.getElementById('modal-save').addEventListener('click', function() {

@@ -1,0 +1,42 @@
+{% load billing_filters %}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 24px; }
+    .brand-logo { max-height: 48px; max-width: 160px; margin-bottom: 20px; }
+    h1 { font-size: 24px; margin: 0 0 8px 0; color: #0f172a; }
+    .meta { color: #64748b; font-size: 14px; margin-bottom: 24px; }
+    .reminder-box { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 12px; padding: 20px; margin: 24px 0; }
+    .cta-block { margin-top: 24px; padding: 20px; background: #ecfdf5; border-radius: 12px; text-align: center; }
+    .cta-btn { display: inline-block; margin-top: 12px; padding: 14px 28px; background: #0d9488; color: white !important; text-decoration: none; font-weight: 600; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  {% if logo_url %}<img src="{{ logo_url }}" alt="{{ business.name }}" class="brand-logo">{% endif %}
+  <h1>Friendly reminder: {{ estimate.title }}</h1>
+  <p class="meta">
+    Hi {{ customer.name }},<br>
+    We wanted to follow up on the estimate we sent you from {{ business.name }}.
+  </p>
+
+  <div class="reminder-box">
+    <strong>Estimate #{{ estimate.id }}</strong> – Total: {{ estimate.base_total|currency }}{% if estimate.addons_total > 0 %} (+ optional items available){% endif %}
+    {% if estimate.valid_until %}<br>Valid until {{ estimate.valid_until }}{% endif %}
+  </div>
+
+  <div class="cta-block">
+    <strong>View your estimate and respond</strong><br>
+    <a href="{{ view_url }}" class="cta-btn">View Estimate</a>
+  </div>
+
+  <p style="font-size: 14px; color: #64748b;">
+    If you have any questions, just reply to this email or contact us.
+    {% if business.contact_email or business.contact_phone %}
+    {% if business.contact_email %}{{ business.contact_email }}{% endif %}{% if business.contact_email and business.contact_phone %} · {% endif %}{% if business.contact_phone %}{{ business.contact_phone }}{% endif %}
+    {% endif %}
+  </p>
+</body>
+</html>

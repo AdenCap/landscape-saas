@@ -9,6 +9,13 @@
   <a href="{% url 'billing:estimate_create' %}" class="btn btn-primary">+ Create Estimate</a>
 </div>
 
+<div class="estimate-filters card" style="padding: 16px; margin-bottom: 16px;">
+  <span style="font-size: 13px; font-weight: 500; color: var(--text-muted); margin-right: 12px;">Filter:</span>
+  <a href="?status=pending" class="btn btn-sm {% if status_filter == 'pending' %}btn-primary{% else %}btn-secondary{% endif %}">Pending (not accepted)</a>
+  <a href="?status=accepted" class="btn btn-sm {% if status_filter == 'accepted' %}btn-primary{% else %}btn-secondary{% endif %}">Accepted</a>
+  <a href="?status=all" class="btn btn-sm {% if status_filter == 'all' %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
+</div>
+
 <div class="card">
   <table class="data-table">
     <thead>

@@ -13,10 +13,17 @@
     <a href="{% url 'billing:estimate_edit' estimate.id %}" class="btn btn-secondary">Edit</a>
     {% endif %}
     {% if estimate.customer.email and estimate.line_items.exists %}
+    {% if estimate.status == 'sent' %}
+    <form method="post" action="{% url 'billing:estimate_send_followup' estimate.id %}" style="display: inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-secondary">Send follow-up</button>
+    </form>
+    {% elif estimate.status == 'draft' %}
     <form method="post" action="{% url 'billing:estimate_send' estimate.id %}" style="display: inline;">
       {% csrf_token %}
       <button type="submit" class="btn btn-primary" style="background: var(--accent);">Send to {{ estimate.customer.email }}</button>
     </form>
+    {% endif %}
     {% endif %}
     <a href="{% url 'billing:estimate_list' %}" class="btn btn-secondary">← Back</a>
   </div>
