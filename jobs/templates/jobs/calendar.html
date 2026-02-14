@@ -139,7 +139,14 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  var csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+  function getCsrfToken() {
+    var el = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (el && el.value) return el.value;
+    var match = document.cookie.match(/csrftoken=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
+    return '{{ csrf_token }}';
+  }
+  var csrf = getCsrfToken();
   var isOwner = {% if user.role == "owner" %}true{% else %}false{% endif %};
 
   var calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
@@ -206,6 +213,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!dateStr) return;
       fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': csrf
@@ -228,6 +236,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!dateStr) return;
       fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': csrf
@@ -403,6 +412,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
               method: 'POST',
+              credentials: 'same-origin',
               headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
               body: JSON.stringify({ scheduled_date: dateStr })
             }).then(function(r) {
@@ -425,6 +435,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function ajaxPost(url, cb) {
     return fetch(url, {
       method: 'POST',
+      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRFToken': csrf,
@@ -504,6 +515,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     fetch('/jobs/calendar/job/' + jobId + '/update/', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRFToken': csrf
