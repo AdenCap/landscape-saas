@@ -4,6 +4,7 @@ from .models import Invoice, InvoiceLineItem, Estimate, EstimateLineItem, Estima
 
 class InvoiceLineItemInline(admin.TabularInline):
     model = InvoiceLineItem
+    fields = ['description', 'quantity', 'material_cost', 'labor_cost']
     extra = 1
 
 
@@ -15,6 +16,7 @@ class InvoiceAdmin(admin.ModelAdmin):
 
 class EstimateLineItemInline(admin.TabularInline):
     model = EstimateLineItem
+    fields = ['description', 'quantity', 'unit', 'material_cost', 'labor_cost', 'is_addon', 'order']
     extra = 1
 
 

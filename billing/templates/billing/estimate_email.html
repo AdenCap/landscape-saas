@@ -1,3 +1,4 @@
+{% load billing_filters %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -42,9 +43,6 @@
     <thead>
       <tr>
         <th>Description</th>
-        <th class="num">Qty</th>
-        <th>Unit</th>
-        <th class="num">Unit Price</th>
         <th class="num">Total</th>
       </tr>
     </thead>
@@ -52,16 +50,13 @@
       {% for item in estimate.line_items.all %}
       <tr class="{% if item.is_addon %}optional{% endif %}">
         <td>{{ item.description }}{% if item.is_addon %} <em>(Optional)</em>{% endif %}</td>
-        <td class="num">{{ item.quantity }}</td>
-        <td>{{ item.unit }}</td>
-        <td class="num">${{ item.unit_price }}</td>
-        <td class="num">${{ item.line_total }}</td>
+        <td class="num">{{ item.line_total|currency }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 
-  <p class="total">Base total: ${{ estimate.base_total }}{% if estimate.addons_total > 0 %} (+ optional items if selected){% endif %}</p>
+  <p class="total">Total: {{ estimate.base_total|currency }}{% if estimate.addons_total > 0 %} (+ optional items if selected){% endif %}</p>
 
   {% if view_url %}
   <div class="cta-block">

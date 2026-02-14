@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Crews</h1>
+    <p>Organize employees into crews. Assign a leader and set colors for the calendar.</p>
+  </div>
+  <a href="{% url 'crew_add' %}" class="btn btn-primary">+ Add Crew</a>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Color</th>
+        <th>Name</th>
+        <th>Leader</th>
+        <th>Members</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for crew in crews %}
+      <tr>
+        <td>
+          <span class="crew-color-swatch" style="background: {{ crew.color|default:'#94a3b8' }};" title="{{ crew.color }}"></span>
+        </td>
+        <td><strong>{{ crew.name }}</strong></td>
+        <td>{% if crew.crew_leader %}{{ crew.crew_leader.get_full_name|default:crew.crew_leader.username }}{% else %}—{% endif %}</td>
+        <td>{{ crew.members.count }} member{{ crew.members.count|pluralize }}</td>
+        <td>
+          <a href="{% url 'crew_edit' crew.id %}" class="btn btn-secondary btn-sm">Edit</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No crews yet. <a href="{% url 'crew_add' %}" class="link-primary">Create your first crew</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .crew-color-swatch { display: inline-block; width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); }
+</style>
+{% endblock %}

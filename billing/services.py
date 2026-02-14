@@ -74,6 +74,7 @@ def create_invoice_for_job(job):
                 description=item.service.name,
                 quantity=item.quantity,
                 unit_price=item.unit_price,
+                labor_cost=item.quantity * item.unit_price,
             )
 
     return invoice
@@ -112,11 +113,12 @@ def create_draft_invoice_for_job(job):
             description=getattr(ji.service, "name", "Service"),
             quantity=ji.quantity,
             unit_price=ji.unit_price,
+            labor_cost=ji.quantity * ji.unit_price,
         )
 
     # If your Invoice model has subtotal/tax/total fields stored:
     # recompute from line items (simple example)
-    subtotal = sum((item.quantity * item.unit_price) for item in invoice.line_items.all())
+    subtotal = sum(item.line_total for item in invoice.line_items.all())
     invoice.subtotal = subtotal
     invoice.tax = 0
     invoice.total = subtotal

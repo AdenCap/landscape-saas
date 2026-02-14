@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Property Estimator</h1>
+  <p>Create an estimate for {{ property.address }}</p>
+</div>
+
+<div class="card" style="max-width: 480px;">
+  <p>Upload satellite or aerial images of the property. The estimator will detect:</p>
+  <ul style="margin: 16px 0;">
+    <li>Grass area (lawn to mow)</li>
+    <li>Pavement (sidewalks, parking — for snow removal)</li>
+    <li>Mulch beds (for mulch quantity)</li>
+    <li>Trees and bushes (count)</li>
+  </ul>
+  <p class="muted">Phase 2: Semi-automated. Review and correct the results after analysis.</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">Create Estimate</button>
+    <a href="{% url 'customer_detail' property.customer_id %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

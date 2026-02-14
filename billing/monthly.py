@@ -40,6 +40,7 @@ def generate_monthly_invoice_for_customer(customer, year, month):
             description=f"{item.service.name} - {item.job.property.address} ({item.job.scheduled_date})",
             quantity=item.quantity,
             unit_price=item.unit_price,
+            labor_cost=item.quantity * item.unit_price,
         )
 
         item.billed_invoice = invoice

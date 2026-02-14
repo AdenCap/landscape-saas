@@ -28,8 +28,25 @@
       </div>
     </div>
     <div class="form-section">
+      <h3>Gmail – Send Estimates to Clients</h3>
+      <p class="muted">Connect your Gmail account to send estimates by email. Uses Gmail App Passwords.</p>
+      <div class="field">
+        {{ form.email_smtp_user.label_tag }}{{ form.email_smtp_user }}{{ form.email_smtp_user.errors }}
+        {% if form.email_smtp_user.help_text %}<p class="help">{{ form.email_smtp_user.help_text }}</p>{% endif %}
+      </div>
+      <div class="field">
+        {{ form.email_smtp_password.label_tag }}{{ form.email_smtp_password }}{{ form.email_smtp_password.errors }}
+        {% if form.email_smtp_password.help_text %}<p class="help">{{ form.email_smtp_password.help_text }}</p>{% endif %}
+      </div>
+      {% if business.email_smtp_user and business.email_smtp_password %}
+      <p class="help status-connected">Gmail connected. Estimates will be sent from this account.</p>
+      {% else %}
+      <p class="help status-disconnected">Add your Gmail and App Password above to send estimates.</p>
+      {% endif %}
+    </div>
+    <div class="form-section">
       <h3>Email & Phone for Client Communication</h3>
-      <p class="muted">These are used when sending estimates and shown to clients so they can reach you.</p>
+      <p class="muted">Shown to clients so they can reach you.</p>
       <div class="field">
         {{ form.from_email.label_tag }}{{ form.from_email }}{{ form.from_email.errors }}
         {% if form.from_email.help_text %}<p class="help">{{ form.from_email.help_text }}</p>{% endif %}
@@ -57,6 +74,8 @@
   .field .help, .form-section .muted { font-size: 13px; color: var(--text-muted); margin: 4px 0 0 0; }
   .form-section { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
   .form-section h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px 0; }
+  .status-connected { color: #059669; font-weight: 500; }
+  .status-disconnected { color: var(--text-muted); }
   .form-actions { display: flex; gap: 10px; margin-top: 24px; }
   .logo-preview { margin-bottom: 12px; }
   .logo-preview img { display: block; border-radius: 8px; }

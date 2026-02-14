@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'pricing',
     'dashboard',
     'time_tracking',
+    'property_estimator',
 ]
 
 MIDDLEWARE = [
@@ -139,6 +140,6 @@ AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
 
-# Email (for estimates - use console backend in dev)
-DEFAULT_FROM_EMAIL = 'Landscape <noreply@landscape.local>'
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Email - each business configures Gmail in Settings; fallback for non-email use
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "Landscape <noreply@landscape.local>"

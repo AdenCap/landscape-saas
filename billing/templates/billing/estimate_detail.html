@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load billing_filters %}
 
 {% block content %}
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
@@ -55,7 +56,8 @@
         <th>Description</th>
         <th class="num">Qty</th>
         <th>Unit</th>
-        <th class="num">Unit Price</th>
+        <th class="num">Materials</th>
+        <th class="num">Labor</th>
         <th class="num">Total</th>
       </tr>
     </thead>
@@ -66,8 +68,9 @@
         <td>{{ item.description }}</td>
         <td class="num">{{ item.quantity }}</td>
         <td>{{ item.unit }}</td>
-        <td class="num">${{ item.unit_price }}</td>
-        <td class="num">${{ item.line_total }}</td>
+        <td class="num">{{ item.material_cost|currency }}</td>
+        <td class="num">{{ item.labor_cost|currency }}</td>
+        <td class="num">{{ item.line_total|currency }}</td>
       </tr>
       {% endif %}
       {% endfor %}
@@ -77,8 +80,9 @@
         <td>{{ item.description }} <span class="badge-addon">Optional</span></td>
         <td class="num">{{ item.quantity }}</td>
         <td>{{ item.unit }}</td>
-        <td class="num">${{ item.unit_price }}</td>
-        <td class="num">${{ item.line_total }}</td>
+        <td class="num">{{ item.material_cost|currency }}</td>
+        <td class="num">{{ item.labor_cost|currency }}</td>
+        <td class="num">{{ item.line_total|currency }}</td>
       </tr>
       {% endif %}
       {% endfor %}
@@ -86,9 +90,9 @@
   </table>
 
   <div class="estimate-total">
-    <strong>Total: ${{ estimate.total }}</strong>
+    <strong>Total: {{ estimate.total|currency }}</strong>
     {% if estimate.status == 'accepted' and estimate.accepted_total %}
-    <br><span class="accepted-note">Client accepted at ${{ estimate.accepted_total }}</span>
+    <br><span class="accepted-note">Client accepted at {{ estimate.accepted_total|currency }}</span>
     {% endif %}
   </div>
 

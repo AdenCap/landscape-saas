@@ -1,3 +1,4 @@
+{% load billing_filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -47,9 +48,6 @@
       <thead>
         <tr>
           <th>Description</th>
-          <th class="num">Qty</th>
-          <th>Unit</th>
-          <th class="num">Unit Price</th>
           <th class="num">Total</th>
         </tr>
       </thead>
@@ -57,10 +55,7 @@
         {% for item in base_items %}
         <tr>
           <td>{{ item.description }}</td>
-          <td class="num">{{ item.quantity }}</td>
-          <td>{{ item.unit }}</td>
-          <td class="num">${{ item.unit_price }}</td>
-          <td class="num">${{ item.line_total }}</td>
+          <td class="num">{{ item.line_total|currency }}</td>
         </tr>
         {% endfor %}
         {% for item in optional_items %}
@@ -70,15 +65,12 @@
             <label for="opt-{{ item.id }}">{{ item.description }}</label>
             <span class="optional-label">Optional</span>
           </td>
-          <td class="num">{{ item.quantity }}</td>
-          <td>{{ item.unit }}</td>
-          <td class="num">${{ item.unit_price }}</td>
-          <td class="num opt-total">${{ item.line_total }}</td>
+          <td class="num opt-total">{{ item.line_total|currency }}</td>
         </tr>
         {% endfor %}
         <tr class="total-row">
-          <td colspan="4" style="text-align: right;">Total:</td>
-          <td class="num" id="grand-total">${{ base_total }}</td>
+          <td style="text-align: right;">Total:</td>
+          <td class="num" id="grand-total">{{ base_total|currency }}</td>
         </tr>
       </tbody>
     </table>
@@ -101,6 +93,10 @@
     const optionalRows = document.querySelectorAll('.optional-row');
     const grandTotalEl = document.getElementById('grand-total');
 
+    function fmtCurrency(n) {
+      const s = n.toFixed(2).replace(/\.?0+$/, '');
+      return '$' + (s || '0');
+    }
     function updateTotal() {
       let total = baseTotal;
       optionalRows.forEach(row => {
@@ -109,7 +105,7 @@
           total += parseFloat(row.dataset.lineTotal);
         }
       });
-      grandTotalEl.textContent = '$' + total.toFixed(2);
+      grandTotalEl.textContent = fmtCurrency(total);
     }
 
     optionalRows.forEach(row => {

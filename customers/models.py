@@ -87,6 +87,8 @@ class Property(models.Model):
     )
 
     address = models.CharField(max_length=255)
+    latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
     notes = models.TextField(blank=True)
 
     gate_code = models.CharField(max_length=50, blank=True)

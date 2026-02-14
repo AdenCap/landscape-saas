@@ -21,7 +21,7 @@ class UserInline(admin.TabularInline):
 
 @admin.register(Business)
 class BusinessAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'employee_count', 'created_at')
+    list_display = ('id', 'name', 'from_email', 'contact_email', 'contact_phone', 'employee_count', 'created_at')
     inlines = [UserInline]
 
     @admin.display(description='Employees')

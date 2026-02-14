@@ -1,12 +1,46 @@
 from django.db import models
 from customers.models import Property
 from accounts.models import User
+from businesses.models import Business
 
 from django.utils import timezone
 from datetime import timedelta
 
 from decimal import Decimal
 from pricing.models import ServiceTemplate
+
+DEFAULT_COLORS = [
+    '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
+    '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
+]
+
+
+class Crew(models.Model):
+    """A crew of employees with a leader. Used for job assignment and calendar coloring."""
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='crews')
+    name = models.CharField(max_length=100)
+    crew_leader = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='led_crews',
+        limit_choices_to={'role': 'crew'}
+    )
+    members = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name='crew_memberships',
+        limit_choices_to={'role': 'crew'}
+    )
+    color = models.CharField(max_length=7, default='#3b82f6', help_text='Hex color for calendar/route display')
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
 
 class Job(models.Model):
     STATUS_CHOICES = [
@@ -34,7 +68,16 @@ class Job(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='jobs'
+        related_name='jobs',
+        help_text='Assign to individual employee'
+    )
+    assigned_crew = models.ForeignKey(
+        Crew,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='jobs',
+        help_text='Or assign to a crew'
     )
 
     notes = models.TextField(blank=True)
@@ -98,12 +141,8 @@ class RecurringJob(models.Model):
     start_date = models.DateField()
     active = models.BooleanField(default=True)
 
-    assigned_to = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    assigned_crew = models.ForeignKey(Crew, on_delete=models.SET_NULL, null=True, blank=True, related_name='recurring_jobs')
 
     notes = models.TextField(blank=True)
 

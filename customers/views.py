@@ -105,13 +105,18 @@ def customer_create(request):
             customer.business = business
             customer.save()
             messages.success(request, f"Client '{customer.name}' added successfully.")
+            next_url = request.GET.get("next")
+            if next_url == "estimate_and_select":
+                return redirect("billing:estimate_create" + "?customer=" + str(customer.id))
             return redirect("customer_detail", customer_id=customer.id)
     else:
         form = CustomerForm()
 
+    next_param = request.GET.get("next")
     return render(request, "customers/customer_form.html", {
         "form": form,
         "title": "Add New Client",
+        "return_to_estimate": next_param in ("estimate", "estimate_and_select"),
     })
 
 

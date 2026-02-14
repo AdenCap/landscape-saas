@@ -12,7 +12,7 @@ class EmployeeForm(forms.ModelForm):
         fields = [
             'first_name', 'last_name', 'email', 'phone',
             'address_line1', 'address_line2', 'city', 'state', 'postal_code',
-            'role', 'hourly_rate', 'is_active',
+            'role', 'hourly_rate', 'color', 'is_active',
         ]
         widgets = {
             'hourly_rate': forms.NumberInput(attrs={'step': '0.01', 'min': '0'}),

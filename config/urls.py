@@ -35,8 +35,11 @@ urlpatterns = [
     path("billing/", include(("billing.urls", "billing"), namespace="billing")),
     path("clients/", include("customers.urls")),
     path("employees/", include("accounts.urls")),
+    path("crews/", include("jobs.crew_urls")),
     path("jobs/", include("jobs.urls")),
     path("time/", include("time_tracking.urls")),
+    path("settings/", include("businesses.urls")),
+    path("estimator/", include("property_estimator.urls")),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Property Estimator</h1>
+  <p>Upload satellite/aerial images to automatically detect grass, pavement, mulch, trees, and bushes</p>
+</div>
+
+<div class="quick-actions" style="margin-bottom: 20px;">
+  <a href="{% url 'customer_list' %}" class="btn btn-secondary">← Back to Clients</a>
+</div>
+
+<div class="card">
+  <h2 class="card-title">Recent Estimates</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Customer</th>
+        <th class="num">Grass (sq ft)</th>
+        <th class="num">Pavement (sq ft)</th>
+        <th class="num">Mulch (sq ft)</th>
+        <th>Trees</th>
+        <th>Bushes</th>
+        <th>Updated</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for est in estimates %}
+      <tr>
+        <td><a href="{% url 'estimator_detail' est.property_id est.id %}" class="link-primary">{{ est.property.address }}</a></td>
+        <td>{{ est.property.customer.name }}</td>
+        <td class="num">{{ est.grass_sqft|default:"—" }}</td>
+        <td class="num">{{ est.pavement_sqft|default:"—" }}</td>
+        <td class="num">{{ est.mulch_bed_sqft|default:"—" }}</td>
+        <td>{{ est.tree_count|default:0 }}</td>
+        <td>{{ est.bush_count|default:0 }}</td>
+        <td>{{ est.updated_at|date:"M j, Y" }}</td>
+        <td><a href="{% url 'estimator_detail' est.property_id est.id %}" class="btn btn-secondary btn-sm">View</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9">No estimates yet. Go to a <a href="{% url 'customer_list' %}" class="link-primary">client's property</a> to create one.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

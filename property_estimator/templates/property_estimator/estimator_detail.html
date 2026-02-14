@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Property Estimator</h1>
+    <p>{{ property.address }} · {{ property.customer.name }}</p>
+  </div>
+  <a href="{% url 'customer_detail' property.customer_id %}" class="btn btn-secondary">← Back to Client</a>
+</div>
+
+{% if not has_opencv %}
+<div class="alert alert-warning">OpenCV is not installed. Run: <code>pip install opencv-python-headless</code></div>
+{% endif %}
+
+<div class="estimator-layout">
+  <div class="card">
+    <h3 style="margin: 0 0 16px 0;">Upload Image</h3>
+    <p class="muted" style="margin-bottom: 12px;">Satellite or aerial image of the property</p>
+    <form method="post" action="{% url 'estimator_upload' property.id estimate.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="file" name="image" accept="image/*" required>
+      <button type="submit" class="btn btn-primary" style="margin-top: 12px;">Upload</button>
+    </form>
+
+    <h3 style="margin: 24px 0 12px 0;">Images</h3>
+    {% for img in images %}
+    <div class="estimator-image-block">
+      <img src="{{ img.image.url }}" alt="Property" style="max-width: 100%; max-height: 200px; border-radius: 8px;">
+      <div style="margin-top: 8px;">
+        <button type="button" class="btn btn-primary btn-sm analyze-btn" data-analyze-url="{% url 'estimator_analyze' property.id estimate.id img.id %}">Analyze</button>
+      </div>
+      {% if img.segmentation_overlay %}
+      <div style="margin-top: 8px;">
+        <strong>Segmentation overlay:</strong><br>
+        <img src="{{ img.segmentation_overlay.url }}" alt="Overlay" style="max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 4px;">
+      </div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <p class="muted">No images yet. Upload one above.</p>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h3 style="margin: 0 0 16px 0;">Results & Corrections</h3>
+    <form method="post" action="{% url 'estimator_save' property.id estimate.id %}">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="total_area_sqft">Total property area (sq ft) — for scale</label>
+        <input type="number" name="total_area_sqft" id="total_area_sqft" value="{{ estimate.total_area_sqft|default:'' }}" step="any" min="0" placeholder="e.g. 10000">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="grass_sqft">Grass (sq ft)</label>
+          <input type="number" name="grass_sqft" id="grass_sqft" value="{% firstof estimate.grass_sqft aggregated.grass_sqft '' %}" step="any" min="0">
+        </div>
+        <div class="form-group">
+          <label for="pavement_sqft">Pavement (sq ft)</label>
+          <input type="number" name="pavement_sqft" id="pavement_sqft" value="{% firstof estimate.pavement_sqft aggregated.pavement_sqft '' %}" step="any" min="0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="mulch_bed_sqft">Mulch beds (sq ft)</label>
+          <input type="number" name="mulch_bed_sqft" id="mulch_bed_sqft" value="{% firstof estimate.mulch_bed_sqft aggregated.mulch_sqft '' %}" step="any" min="0">
+        </div>
+        <div class="form-group">
+          <label for="tree_count">Trees</label>
+          <input type="number" name="tree_count" id="tree_count" value="{% firstof estimate.tree_count aggregated.tree_count 0 %}" min="0">
+        </div>
+        <div class="form-group">
+          <label for="bush_count">Bushes</label>
+          <input type="number" name="bush_count" id="bush_count" value="{% firstof estimate.bush_count aggregated.bush_count 0 %}" min="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="notes">Notes</label>
+        <textarea name="notes" id="notes" rows="2">{{ estimate.notes }}</textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.analyze-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var b = this;
+    var url = b.dataset.analyzeUrl;
+    if (!url) return;
+    var totalArea = document.getElementById('total_area_sqft').value;
+    b.disabled = true;
+    b.textContent = 'Analyzing...';
+    if (!url) return;
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}'
+      },
+      body: JSON.stringify({ total_area_sqft: totalArea ? parseFloat(totalArea) : null })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.grass_sqft != null) document.getElementById('grass_sqft').value = data.grass_sqft;
+      if (data.pavement_sqft != null) document.getElementById('pavement_sqft').value = data.pavement_sqft;
+      if (data.mulch_sqft != null) document.getElementById('mulch_bed_sqft').value = data.mulch_sqft;
+      if (data.tree_count != null) document.getElementById('tree_count').value = data.tree_count;
+      if (data.bush_count != null) document.getElementById('bush_count').value = data.bush_count;
+      if (data.overlay_url) location.reload();
+    })
+    .finally(function() {
+      b.disabled = false;
+      b.textContent = 'Analyze';
+    });
+  });
+});
+</script>
+
+<style>
+  .estimator-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+  @media (max-width: 900px) { .estimator-layout { grid-template-columns: 1fr; } }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-weight: 500; margin-bottom: 4px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .estimator-image-block { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+</style>
+{% endblock %}

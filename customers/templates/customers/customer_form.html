@@ -39,6 +39,8 @@
       <button type="submit" class="btn btn-primary">Save</button>
       {% if customer %}
       <a href="{% url 'customer_detail' customer.id %}" class="btn btn-secondary">Cancel</a>
+      {% elif return_to_estimate %}
+      <a href="{% url 'billing:estimate_create' %}" class="btn btn-secondary">Cancel</a>
       {% else %}
       <a href="{% url 'customer_list' %}" class="btn btn-secondary">Cancel</a>
       {% endif %}

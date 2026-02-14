@@ -25,30 +25,65 @@
 
   <div class="card" style="margin-bottom: 20px;">
     <h2 class="card-title">Line Items</h2>
-    <p class="muted">Add as many items as needed. Check "Optional add-on" for extras the customer can choose.</p>
+    <p class="muted">Select a service type (Fertilizing, Mulch, or Mowing) for estimator options. Materials auto-calc from inputs. Check "Optional" for add-ons.</p>
     {{ formset.management_form }}
-    <table class="data-table">
+    <table class="data-table line-items-table">
       <thead>
         <tr>
-          <th>Description</th>
+          <th>Type</th>
+          <th>Details / Options</th>
           <th>Qty</th>
           <th>Unit</th>
-          <th>Unit Price</th>
-          <th>Add-on</th>
+          <th>Materials</th>
+          <th>Labor</th>
+          <th>Optional</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {% for f in formset %}
-        <tr class="formset-row">
-          <td>{{ f.description }}{{ f.id }}</td>
+        <tr class="formset-row" data-form-index="{{ forloop.counter0 }}">
+          <td class="type-cell">{{ f.item_type }}{{ f.id }}{{ f.fertilizing_config }}{{ f.mulch_config }}{{ f.mowing_config }}</td>
+          <td class="desc-cell">
+            <div class="type-panel standard-panel" data-type="standard">
+              {{ f.description }}
+            </div>
+            <div class="type-panel fertilizing-panel" data-type="fertilizing" style="display: none;">
+              <div class="estimator-row"><label>Lbs per 1,000 sq ft</label>{{ f.fertilizing_lbs_per_1000 }}</div>
+              <div class="estimator-row"><label>Total sq ft</label>{{ f.fertilizing_total_sqft }}</div>
+              <div class="estimator-row"><label>Fertilizer product</label>{{ f.fertilizing_product }}</div>
+              <div class="estimator-row"><label>Pricing</label>{{ f.fertilizing_pricing_type }}</div>
+              <div class="estimator-row fertilizing-per-pound"><label>Cost per lb ($)</label>{{ f.fertilizing_cost_per_pound }}</div>
+              <div class="estimator-row fertilizing-per-bag" style="display: none;"><label>Cost per bag ($)</label>{{ f.fertilizing_cost_per_bag }}</div>
+              <div class="estimator-row fertilizing-per-bag" style="display: none;"><label>Lbs per bag</label>{{ f.fertilizing_lbs_per_bag }}</div>
+              <div class="estimator-result fertilizing-result"></div>
+            </div>
+            <div class="type-panel mulch-panel" data-type="mulch" style="display: none;">
+              <div class="estimator-row"><label>Total sq ft</label>{{ f.mulch_total_sqft }}</div>
+              <div class="estimator-row"><label>Depth (inches)</label>{{ f.mulch_depth_inches }}</div>
+              <div class="estimator-row"><label>Mulch product</label>{{ f.mulch_product }}</div>
+              <div class="estimator-row"><label>Pricing</label>{{ f.mulch_pricing_type }}</div>
+              <div class="estimator-row mulch-per-bag"><label>Cost per bag ($)</label>{{ f.mulch_cost_per_bag }}</div>
+              <div class="estimator-row mulch-per-bag"><label>Cu ft per bag</label>{{ f.mulch_cf_per_bag }}</div>
+              <div class="estimator-row mulch-per-cy" style="display: none;"><label>Cost per cu yd ($)</label>{{ f.mulch_cost_per_cy }}</div>
+              <div class="estimator-result mulch-result"></div>
+            </div>
+            <div class="type-panel mowing-panel" data-type="mowing" style="display: none;">
+              <div class="estimator-row"><label>Total sq ft</label>{{ f.mowing_total_sqft }}</div>
+              <div class="estimator-row"><label>Number of cuts</label>{{ f.mowing_num_cuts }}</div>
+              <div class="estimator-row"><label>Cost per cut ($)</label>{{ f.mowing_cost_per_cut }}</div>
+              <div class="estimator-row"><label>Service name</label>{{ f.mowing_product }}</div>
+              <div class="estimator-result mowing-result"></div>
+            </div>
+          </td>
           <td>{{ f.quantity }}</td>
           <td>{{ f.unit }}</td>
-          <td>{{ f.unit_price }}</td>
+          <td>{{ f.material_cost }}</td>
+          <td>{{ f.labor_cost }}</td>
           <td>{{ f.is_addon }}</td>
           <td>{% if f.instance.pk %}{{ f.DELETE }} Delete{% endif %}{{ f.order }}</td>
         </tr>
-        {% if f.errors %}<tr><td colspan="6" class="error">{{ f.errors }}</td></tr>{% endif %}
+        {% if f.errors %}<tr><td colspan="8" class="error">{{ f.errors }}</td></tr>{% endif %}
         {% endfor %}
       </tbody>
     </table>
@@ -91,5 +126,127 @@
   .formset-row td input[type="checkbox"] { width: auto; }
   .estimate-image-row { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
   .muted { color: var(--text-muted); font-size: 14px; }
+  .type-cell select { min-width: 110px; }
+  .type-panel .estimator-row { margin-bottom: 10px; }
+  .type-panel .estimator-row label { display: block; font-size: 12px; margin-bottom: 4px; color: var(--text-muted); }
+  .type-panel input, .type-panel select { width: 100%; max-width: 160px; padding: 6px 8px; }
+  .estimator-result { margin-top: 10px; padding: 8px 10px; background: var(--surface-alt); border-radius: 6px; font-size: 13px; }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  function updateRow(row) {
+    var typeSelect = row.querySelector('.type-cell select.item-type-select');
+    if (!typeSelect) return;
+    var v = typeSelect.value;
+    row.querySelectorAll('.type-panel').forEach(function(p) {
+      p.style.display = p.dataset.type === v ? 'block' : 'none';
+    });
+    if (v === 'fertilizing') {
+      toggleFertilizingPricing(row);
+      calcFertilizing(row);
+    } else if (v === 'mulch') {
+      toggleMulchPricing(row);
+      calcMulch(row);
+    } else if (v === 'mowing') {
+      calcMowing(row);
+    }
+  }
+  function toggleFertilizingPricing(row) {
+    var panel = row.querySelector('.fertilizing-panel');
+    if (!panel) return;
+    var t = panel.querySelector('select.fertilizing-pricing-type')?.value || 'per_pound';
+    panel.querySelectorAll('.fertilizing-per-pound').forEach(function(el) { el.style.display = t === 'per_pound' ? 'block' : 'none'; });
+    panel.querySelectorAll('.fertilizing-per-bag').forEach(function(el) { el.style.display = t === 'per_bag' ? 'block' : 'none'; });
+  }
+  function toggleMulchPricing(row) {
+    var panel = row.querySelector('.mulch-panel');
+    if (!panel) return;
+    var t = panel.querySelector('select.mulch-pricing-type')?.value || 'per_bag';
+    panel.querySelectorAll('.mulch-per-bag').forEach(function(el) { el.style.display = t === 'per_bag' ? 'block' : 'none'; });
+    panel.querySelectorAll('.mulch-per-cy').forEach(function(el) { el.style.display = t === 'per_cy' ? 'block' : 'none'; });
+  }
+  function calcFertilizing(row) {
+    var panel = row.querySelector('.fertilizing-panel');
+    var resultEl = row.querySelector('.fertilizing-result');
+    var materialsInput = row.querySelector('input[name$="-material_cost"]');
+    if (!panel || !resultEl) return;
+    var rate = parseFloat(panel.querySelector('input[name$="-fertilizing_lbs_per_1000"]')?.value) || 0;
+    var sqft = parseFloat(panel.querySelector('input[name$="-fertilizing_total_sqft"]')?.value) || 0;
+    var pricing = panel.querySelector('select[name$="-fertilizing_pricing_type"]')?.value || 'per_pound';
+    var totalPounds = (rate / 1000) * sqft;
+    var cost = 0;
+    var msg = 'Total pounds: ' + totalPounds.toFixed(1);
+    if (pricing === 'per_bag') {
+      var costBag = parseFloat(panel.querySelector('input[name$="-fertilizing_cost_per_bag"]')?.value) || 0;
+      var lbsBag = parseFloat(panel.querySelector('input[name$="-fertilizing_lbs_per_bag"]')?.value) || 1;
+      if (lbsBag > 0) {
+        var bags = Math.ceil(totalPounds / lbsBag);
+        cost = bags * costBag;
+        msg = 'Bags needed: ' + bags + ' &middot; Material cost: $' + cost.toFixed(2);
+      }
+    } else {
+      var costLb = parseFloat(panel.querySelector('input[name$="-fertilizing_cost_per_pound"]')?.value) || 0;
+      cost = totalPounds * costLb;
+      msg = msg + ' &middot; Material cost: $' + cost.toFixed(2);
+    }
+    resultEl.innerHTML = msg;
+    if (materialsInput) materialsInput.value = cost.toFixed(2);
+  }
+  function calcMulch(row) {
+    var panel = row.querySelector('.mulch-panel');
+    var resultEl = row.querySelector('.mulch-result');
+    var materialsInput = row.querySelector('input[name$="-material_cost"]');
+    if (!panel || !resultEl) return;
+    var sqft = parseFloat(panel.querySelector('input[name$="-mulch_total_sqft"]')?.value) || 0;
+    var depth = parseFloat(panel.querySelector('input[name$="-mulch_depth_inches"]')?.value) || 3;
+    var pricing = panel.querySelector('select[name$="-mulch_pricing_type"]')?.value || 'per_bag';
+    var cubicYards = (sqft * depth) / 324;
+    var cost = 0;
+    var msg = 'Cu yd needed: ' + cubicYards.toFixed(2);
+    if (pricing === 'per_bag') {
+      var costBag = parseFloat(panel.querySelector('input[name$="-mulch_cost_per_bag"]')?.value) || 0;
+      var cfBag = parseFloat(panel.querySelector('input[name$="-mulch_cf_per_bag"]')?.value) || 2;
+      if (cfBag > 0) {
+        var cubicFt = cubicYards * 27;
+        var bags = Math.ceil(cubicFt / cfBag);
+        cost = bags * costBag;
+        msg = 'Bags needed: ' + bags + ' &middot; Material cost: $' + cost.toFixed(2);
+      }
+    } else {
+      var costCy = parseFloat(panel.querySelector('input[name$="-mulch_cost_per_cy"]')?.value) || 0;
+      cost = cubicYards * costCy;
+      msg = msg + ' &middot; Material cost: $' + cost.toFixed(2);
+    }
+    resultEl.innerHTML = msg;
+    if (materialsInput) materialsInput.value = cost.toFixed(2);
+  }
+  function calcMowing(row) {
+    var panel = row.querySelector('.mowing-panel');
+    var resultEl = row.querySelector('.mowing-result');
+    var materialsInput = row.querySelector('input[name$="-material_cost"]');
+    if (!panel || !resultEl) return;
+    var cuts = parseFloat(panel.querySelector('input[name$="-mowing_num_cuts"]')?.value) || 1;
+    var rate = parseFloat(panel.querySelector('input[name$="-mowing_cost_per_cut"]')?.value) || 0;
+    var cost = cuts * rate;
+    resultEl.innerHTML = 'Material cost: $' + cost.toFixed(2);
+    if (materialsInput) materialsInput.value = cost.toFixed(2);
+  }
+  document.querySelectorAll('.formset-row').forEach(function(row) {
+    var typeSelect = row.querySelector('.type-cell select.item-type-select');
+    if (typeSelect) {
+      updateRow(row);
+      typeSelect.addEventListener('change', function() { updateRow(row); });
+    }
+    row.querySelector('select.fertilizing-pricing-type')?.addEventListener('change', function() { toggleFertilizingPricing(row); calcFertilizing(row); });
+    row.querySelector('select.mulch-pricing-type')?.addEventListener('change', function() { toggleMulchPricing(row); calcMulch(row); });
+    row.querySelectorAll('.fertilizing-panel input, .mulch-panel input, .mowing-panel input').forEach(function(inp) {
+      inp.addEventListener('input', function() {
+        var t = row.querySelector('.type-cell select')?.value;
+        if (t === 'fertilizing') calcFertilizing(row); else if (t === 'mulch') calcMulch(row); else if (t === 'mowing') calcMowing(row);
+      });
+    });
+  });
+});
+</script>
 {% endblock %}

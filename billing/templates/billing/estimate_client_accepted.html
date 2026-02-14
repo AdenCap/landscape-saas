@@ -1,3 +1,4 @@
+{% load billing_filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,7 +21,7 @@
     <div class="doc-logo"><img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}"></div>
     {% endif %}
     <h1>Thank you!</h1>
-    <p>You've accepted the estimate for <strong>${{ accepted_total }}</strong>.</p>
+    <p>You've accepted the estimate for <strong>{{ accepted_total|currency }}</strong>.</p>
     <p style="margin-top: 16px; font-size: 14px;">{{ estimate.business.name }} will be in touch shortly.</p>
   </div>
 </body>

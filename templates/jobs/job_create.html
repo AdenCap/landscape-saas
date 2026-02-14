@@ -27,8 +27,18 @@
     </div>
 
     <div class="form-group" style="margin-bottom: 20px;">
-      <label for="id_assigned_to">Assigned Crew</label>
-      {{ form.assigned_to }}
+      <label>Assignment</label>
+      <div class="assignee-type" style="display: flex; gap: 16px; margin-bottom: 12px;">
+        {{ form.assignee_type }}
+      </div>
+      <div class="assignee-crew" style="display: none;">
+        <label for="id_assigned_crew">Crew</label>
+        {{ form.assigned_crew }}
+      </div>
+      <div class="assignee-employee" style="display: none;">
+        <label for="id_assigned_to">Employee</label>
+        {{ form.assigned_to }}
+      </div>
     </div>
 
     <div class="form-group" style="margin-bottom: 20px;">
@@ -70,5 +80,23 @@
   .flex-2 { flex: 2; }
   .flex-1 { flex: 1; max-width: 120px; }
   .error { color: #dc2626; font-size: 13px; display: block; margin-top: 4px; }
+  .assignee-type-radio { list-style: none; padding: 0; margin: 0; display: flex; gap: 16px; flex-wrap: wrap; }
+  .assignee-type-radio li { display: flex; align-items: center; gap: 6px; }
 </style>
+<script>
+(function() {
+  function updateAssigneeVisibility() {
+    var val = document.querySelector('input[name="assignee_type"]:checked');
+    val = val ? val.value : '';
+    var crewEl = document.querySelector('.assignee-crew');
+    var empEl = document.querySelector('.assignee-employee');
+    if (crewEl) crewEl.style.display = val === 'crew' ? 'block' : 'none';
+    if (empEl) empEl.style.display = val === 'employee' ? 'block' : 'none';
+  }
+  document.querySelectorAll('input[name="assignee_type"]').forEach(function(r) {
+    r.addEventListener('change', updateAssigneeVisibility);
+  });
+  updateAssigneeVisibility();
+})();
+</script>
 {% endblock %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load billing_filters %}
 
 {% block content %}
 <div class="page-header">
@@ -25,7 +26,7 @@
         <td>{{ inv.customer }}</td>
         <td>{{ inv.issue_date }}</td>
         <td><span class="badge badge-{{ inv.status|lower }}">{{ inv.status }}</span></td>
-        <td><strong>${{ inv.total }}</strong></td>
+        <td><strong>{{ inv.total|currency }}</strong></td>
         <td>
           <a href="{% url 'billing:invoice_detail' inv.id %}" class="btn btn-primary btn-sm">View</a>
         </td>

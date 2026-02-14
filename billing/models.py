@@ -6,9 +6,10 @@ from jobs.models import Job
 
 class Invoice(models.Model):
     STATUS_CHOICES = [
-        ('draft', 'Draft'),
-        ('sent', 'Sent'),
-        ('paid', 'Paid'),
+        ("draft", "Draft"),
+        ("sent", "Sent"),
+        ("paid", "Paid"),
+        ("void", "Void"),
     ]
 
     business = models.ForeignKey(
@@ -30,7 +31,7 @@ class Invoice(models.Model):
     )
 
     status = models.CharField(
-        max_length=10,
+        max_length=20,
         choices=STATUS_CHOICES,
         default='draft'
     )
@@ -61,19 +62,11 @@ class Invoice(models.Model):
         related_name="invoice",
     )
 
-    def __str__(self):
-        return f"Invoice #{self.id} - {self.customer.name}"
-    
     period_start = models.DateField(null=True, blank=True)
     period_end = models.DateField(null=True, blank=True)
 
-    STATUS_CHOICES = [
-        ("draft", "Draft"),
-        ("sent", "Sent"),
-        ("paid", "Paid"),
-        ("void", "Void"),
-    ]
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
+    def __str__(self):
+        return f"Invoice #{self.id} - {self.customer.name}"
 
 
 class Service(models.Model):
@@ -112,9 +105,20 @@ class InvoiceLineItem(models.Model):
 
     description = models.CharField(max_length=255)
     quantity = models.PositiveIntegerField(default=1)
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)  # Used when importing from jobs
+    material_cost = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text="Cost of materials for this line"
+    )
+    labor_cost = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text="Cost of labor for this line"
+    )
 
+    @property
     def line_total(self):
+        if self.material_cost or self.labor_cost:
+            return self.material_cost + self.labor_cost
         return self.quantity * self.unit_price
 
 
@@ -146,44 +150,86 @@ class Estimate(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     sent_at = models.DateTimeField(null=True, blank=True)
+    view_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    accepted_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
         return f"Estimate #{self.id} - {self.customer.name}"
 
     def total(self):
-        return sum(item.line_total() for item in self.line_items.all())
+        return sum(item.line_total for item in self.line_items.all())
 
     def base_total(self):
         """Total excluding add-ons."""
         return sum(
-            item.line_total() for item in self.line_items.filter(is_addon=False)
+            item.line_total for item in self.line_items.filter(is_addon=False)
         )
 
     def addons_total(self):
         """Total of add-on items only."""
         return sum(
-            item.line_total() for item in self.line_items.filter(is_addon=True)
+            item.line_total for item in self.line_items.filter(is_addon=True)
         )
 
 
 class EstimateLineItem(models.Model):
+    ITEM_TYPE_CHOICES = [
+        ('standard', 'Standard'),
+        ('fertilizing', 'Fertilizing'),
+        ('mulch', 'Mulch'),
+        ('mowing', 'Mowing'),
+    ]
+
     estimate = models.ForeignKey(
         Estimate,
         on_delete=models.CASCADE,
         related_name='line_items'
     )
+    item_type = models.CharField(
+        max_length=20,
+        choices=ITEM_TYPE_CHOICES,
+        default='standard',
+        help_text='Service type for estimator options'
+    )
+    fertilizing_config = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='Stores fertilizing calculator inputs when item_type=fertilizing'
+    )
+    mulch_config = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='Stores mulch calculator inputs when item_type=mulch'
+    )
+    mowing_config = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='Stores mowing calculator inputs when item_type=mowing'
+    )
     description = models.CharField(max_length=500)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
     unit = models.CharField(max_length=50, default='ea')
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
-    is_addon = models.BooleanField(default=False, verbose_name='Optional add-on')
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    material_cost = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text="Cost of materials for this line"
+    )
+    labor_cost = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text="Cost of labor for this line"
+    )
+    is_addon = models.BooleanField(default=False, verbose_name='Optional')
 
     order = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ['order', 'id']
 
+    @property
     def line_total(self):
+        if self.material_cost or self.labor_cost:
+            return self.material_cost + self.labor_cost
         return self.quantity * self.unit_price
 
 

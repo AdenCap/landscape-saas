@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load billing_filters %}
 
 {% block content %}
 <div class="invoice-page">
@@ -27,7 +28,7 @@
     </div>
     <div class="meta-group meta-total">
       <span class="meta-label">Total</span>
-      <span class="meta-value">${{ invoice.total }}</span>
+      <span class="meta-value">{{ invoice.total|currency }}</span>
     </div>
   </div>
 
@@ -53,8 +54,9 @@
           <tr>
             <th class="col-desc">Description</th>
             <th class="col-qty">Qty</th>
-            <th class="col-price">Unit Price</th>
-            <th class="col-total">Line Total</th>
+            <th class="col-mat">Materials</th>
+            <th class="col-lab">Labor</th>
+            <th class="col-total">Total</th>
           </tr>
         </thead>
         <tbody>
@@ -62,17 +64,18 @@
           <tr>
             <td>{{ item.description }}</td>
             <td class="num">{{ item.quantity }}</td>
-            <td class="num">${{ item.unit_price }}</td>
-            <td class="num">${{ item.line_total }}</td>
+            <td class="num">{{ item.material_cost|currency }}</td>
+            <td class="num">{{ item.labor_cost|currency }}</td>
+            <td class="num">{{ item.line_total|currency }}</td>
           </tr>
           {% empty %}
-          <tr><td colspan="4" class="empty-cell">No line items yet.</td></tr>
+          <tr><td colspan="5" class="empty-cell">No line items yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>
       <div class="invoice-total-row">
         <span class="total-label">Total</span>
-        <span class="total-amount">${{ invoice.total }}</span>
+        <span class="total-amount">{{ invoice.total|currency }}</span>
       </div>
     </div>
 

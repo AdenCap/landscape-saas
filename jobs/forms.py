@@ -3,6 +3,7 @@ from decimal import Decimal
 from pricing.models import ServiceTemplate
 from customers.models import Property
 from accounts.models import User
+from .models import Crew
 
 
 class AddJobServiceItemForm(forms.Form):
@@ -27,11 +28,21 @@ class CreateJobForm(forms.Form):
         widget=forms.DateInput(attrs={"type": "date"}),
         help_text="When should this work be done?",
     )
+    assignee_type = forms.ChoiceField(
+        choices=[('', '— Unassigned —'), ('crew', 'Crew'), ('employee', 'Employee')],
+        required=False,
+        label="Assign to",
+        widget=forms.RadioSelect(attrs={'class': 'assignee-type-radio'}),
+    )
+    assigned_crew = forms.ModelChoiceField(
+        queryset=Crew.objects.none(),
+        required=False,
+        label="Crew",
+    )
     assigned_to = forms.ModelChoiceField(
         queryset=User.objects.none(),
         required=False,
-        label="Assigned Crew",
-        help_text="Crew member to perform the work",
+        label="Employee",
     )
     notes = forms.CharField(
         required=False,
@@ -46,9 +57,10 @@ class CreateJobForm(forms.Form):
             self.fields["property"].queryset = Property.objects.filter(
                 customer__business=business
             ).select_related("customer").order_by("address")
+            self.fields["assigned_crew"].queryset = Crew.objects.filter(business=business).order_by("name")
             self.fields["assigned_to"].queryset = User.objects.filter(
                 business=business, role="crew"
-            ).order_by("username")
+            ).order_by("first_name", "username")
 
     def clean_scheduled_date(self):
         from django.utils import timezone

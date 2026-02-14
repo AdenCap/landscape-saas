@@ -33,6 +33,13 @@ class User(AbstractUser):
     state = models.CharField(max_length=50, blank=True)
     postal_code = models.CharField(max_length=20, blank=True, verbose_name='ZIP / Postal code')
 
+    color = models.CharField(
+        max_length=7,
+        blank=True,
+        default='',
+        help_text='Hex color for calendar/route (e.g. #3b82f6). Owner can customize.'
+    )
+
     def __str__(self):
         return f"{self.username} ({self.role})"
 
