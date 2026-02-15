@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
   <h1>Dashboard</h1>
-  <p>{{ today }}</p>
+  <p>{{ today }} — key metrics at a glance</p>
 </div>
 
 <div class="kpi-grid">
@@ -11,130 +11,40 @@
     <div class="kpi-label">Revenue (this month)</div>
     <div class="kpi-value">${{ revenue_this_month }}</div>
     <div class="kpi-sub">{{ month_start }} → {{ month_end }}</div>
+    <div class="kpi-actions">
+      <a href="{% url 'financials:dashboard' %}" class="btn btn-secondary btn-sm">Financials</a>
+    </div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-label">Invoices overdue</div>
+    <div class="kpi-value {% if invoices_overdue_count %}kpi-alert{% endif %}">{{ invoices_overdue_count }} — ${{ invoices_overdue_total }}</div>
+    <div class="kpi-sub">Past due date, unpaid</div>
+    <div class="kpi-actions">
+      <a href="/billing/" class="btn btn-secondary btn-sm">Invoices</a>
+    </div>
   </div>
   <div class="kpi-card card">
     <div class="kpi-label">Outstanding (sent, unpaid)</div>
     <div class="kpi-value">${{ ar_outstanding }}</div>
+    <div class="kpi-sub">Awaiting payment</div>
+    <div class="kpi-actions">
+      <a href="/billing/" class="btn btn-secondary btn-sm">Invoices</a>
+    </div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-label">Profit (this month)</div>
+    <div class="kpi-value kpi-profit">${{ profit_this_month }}</div>
+    <div class="kpi-sub">Revenue − costs</div>
+    <div class="kpi-actions">
+      <a href="{% url 'financials:dashboard' %}" class="btn btn-secondary btn-sm">Financials</a>
+    </div>
   </div>
   <div class="kpi-card card">
     <div class="kpi-label">Jobs today</div>
     <div class="kpi-value">{{ jobs_today }}</div>
-  </div>
-  <div class="kpi-card card">
-    <div class="kpi-label">Completed this week</div>
-    <div class="kpi-value">{{ completed_this_week }}</div>
-  </div>
-</div>
-
-<div class="card" style="margin-top: 24px;">
-  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-    Today by Crew
-    <a href="{% url 'employee_management' %}" class="btn btn-secondary btn-sm">Employee Management</a>
-  </h2>
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Crew</th>
-        <th class="num">Assigned</th>
-        <th class="num">Completed</th>
-        <th class="num">Remaining</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in crew_table %}
-      <tr>
-        <td>
-          <a href="{% url 'crew_day_detail' row.user_id %}" class="btn btn-secondary btn-sm">{{ row.name }}</a>
-          <a href="{% url 'employee_edit' row.user_id %}" class="link-primary" style="margin-left: 8px; font-size: 13px;">Edit profile</a>
-        </td>
-        <td class="num">{{ row.total }}</td>
-        <td class="num">{{ row.completed }}</td>
-        <td class="num">{{ row.remaining }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<div class="grid-2">
-  <div class="card">
-    <h2 class="card-title">Upcoming jobs (7 days)</h2>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Address</th>
-          <th>Crew</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for job in upcoming_jobs %}
-        <tr>
-          <td>{{ job.scheduled_date }}</td>
-          <td>{{ job.property.address }}</td>
-          <td>{% if job.assigned_to %}{{ job.assigned_to.username }}{% else %}-{% endif %}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="3">No upcoming jobs.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  <div class="card">
-    <h2 class="card-title">Outgoing estimates</h2>
-    <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 12px 0;">Estimates awaiting response</p>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Customer</th>
-          <th class="num">Total</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for est in outgoing_estimates %}
-        <tr>
-          <td><a href="{% url 'billing:estimate_detail' est.id %}" class="link-primary">#{{ est.id }}</a></td>
-          <td><a href="{% url 'customer_detail' est.customer.id %}" class="link-primary">{{ est.customer.name }}</a></td>
-          <td class="num">${{ est.base_total }}</td>
-          <td><span class="badge badge-{{ est.status }}">{{ est.status|title }}</span></td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4">No estimates pending.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <div style="margin-top: 16px;">
-      <a href="{% url 'billing:estimate_list' %}" class="btn btn-secondary btn-sm">View all estimates</a>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2 class="card-title">Recent invoices</h2>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Customer</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for inv in recent_invoices %}
-        <tr>
-          <td><a href="/billing/{{ inv.id }}/" class="link-primary">#{{ inv.id }}</a></td>
-          <td>{{ inv.customer }}</td>
-          <td><span class="badge badge-{{ inv.status|lower }}">{{ inv.status }}</span></td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="3">No invoices yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <div style="margin-top: 16px;">
-      <a href="/billing/" class="btn btn-primary">View all invoices</a>
+    <div class="kpi-sub">Scheduled</div>
+    <div class="kpi-actions">
+      <a href="{% url 'job_list' %}" class="btn btn-secondary btn-sm">Jobs</a>
     </div>
   </div>
 </div>
@@ -142,25 +52,14 @@
 <style>
   .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 16px;
   }
   .kpi-card .kpi-label { color: var(--text-muted); font-size: 13px; margin-bottom: 4px; }
-  .kpi-card .kpi-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .kpi-card .kpi-value { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .kpi-card .kpi-value.kpi-profit { color: var(--primary); }
+  .kpi-card .kpi-value.kpi-alert { color: #f59e0b; }
   .kpi-card .kpi-sub { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
-  .kpi-actions { margin-top: 12px; display: flex; gap: 8px; }
-  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-top: 24px; }
-  .data-table { width: 100%; border-collapse: collapse; }
-  .data-table th, .data-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
-  .data-table th { font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); }
-  .data-table .num { text-align: right; }
-  .link-primary { color: var(--primary); font-weight: 500; text-decoration: none; }
-  .link-primary:hover { text-decoration: underline; }
-  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
-  .badge-sent { background: rgba(234, 179, 8, 0.25); color: #fde047; }
-  .badge-paid { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .badge-draft { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
-  .badge-accepted { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .badge-declined { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+  .kpi-actions { margin-top: 12px; }
 </style>
 {% endblock %}

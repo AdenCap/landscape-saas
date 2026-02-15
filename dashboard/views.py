@@ -1,27 +1,16 @@
 from datetime import date, timedelta
-from django.db.models import Sum, F, DecimalField, Count, Q
-from django.db.models.functions import Coalesce
-from django.shortcuts import render
-from django.utils import timezone
-
-from accounts.decorators import role_required
-from jobs.models import Job
-from billing.models import Invoice, InvoiceLineItem, Estimate
-from accounts.models import User
-from datetime import date, timedelta
-from django.contrib.auth import get_user_model
-from django.db.models import Sum, F, DecimalField, Count, Q
-from django.db.models.functions import Coalesce
-from django.shortcuts import render
-from django.utils import timezone
-
-from accounts.decorators import role_required
-from jobs.models import Job
-from billing.models import Invoice, InvoiceLineItem
-
 from decimal import Decimal
-from django.db.models import Sum, DecimalField
+from django.db.models import Sum, DecimalField, Count
 from django.db.models.functions import Coalesce
+from django.shortcuts import render
+from django.utils import timezone
+from django.contrib.auth import get_user_model
+
+from accounts.decorators import role_required
+from accounts.utils import get_business
+from accounts.models import User
+from jobs.models import Job
+from billing.models import Invoice
 
 
 
@@ -38,77 +27,18 @@ def _month_range(d: date):
 @role_required("owner")
 def owner_dashboard(request):
     today = timezone.localdate()
-    business = getattr(request.user, "business", None)
-    # --- Today by Crew (ops view) ---
-    crew_users = User.objects.filter(role="crew").order_by("username")
-    if business:
-        crew_users = crew_users.filter(business=business)
-
-    crew_stats = (
-        Job.objects.filter(scheduled_date=today, assigned_to__role="crew")
-        .values("assigned_to_id", "assigned_to__username")
-        .annotate(
-            total=Count("id"),
-            completed=Count("id", filter=Q(status="completed")),
-            remaining=Count("id", filter=~Q(status="completed")),
-        )
-        .order_by("assigned_to__username")
-)
-
-    # Also show crew members with zero jobs today
-    stats_by_id = {row["assigned_to_id"]: row for row in crew_stats}
-
-    crew_table = []
-    for u in crew_users:
-        row = stats_by_id.get(u.id, None)
-        if row:
-            crew_table.append({
-                "name": row["assigned_to__username"],
-                "total": row["total"],
-                "completed": row["completed"],
-                "remaining": row["remaining"],
-                "user_id": u.id,
-            })
-        else:
-            crew_table.append({
-                "name": u.username,
-                "total": 0,
-                "completed": 0,
-                "remaining": 0,
-                "user_id": u.id,
-            })
-
-    week_start = today - timedelta(days=today.weekday())  # Monday
-    week_end = week_start + timedelta(days=7)
+    business = get_business(request)
+    if not business:
+        from django.shortcuts import redirect
+        if request.user.is_superuser:
+            return redirect("platform_home")
+        return redirect("/accounts/login/")
 
     month_start, month_end = _month_range(today)
 
-    # --- Jobs KPIs ---
-    jobs_today = Job.objects.filter(scheduled_date=today).count()
-    completed_this_week = Job.objects.filter(
-        status="completed",
-        scheduled_date__gte=week_start,
-        scheduled_date__lt=week_end,
-    ).count()
-
-    upcoming_jobs = (
-        Job.objects.select_related("property", "assigned_to")
-        .filter(scheduled_date__gte=today, scheduled_date__lt=today + timedelta(days=7))
-        .order_by("scheduled_date", "route_order")[:15]
-    )
-
-    # --- Invoice KPIs ---
-    # Revenue this month = sum of PAID invoice line totals for invoices whose period_start is in month
-    # If you don't use period_start/period_end, we can switch to created_at/sent_at later.
-    paid_invoices_this_month = Invoice.objects.filter(
-        status="paid",
-        period_start__gte=month_start,
-        period_start__lt=month_end,
-    )
-
-
-
+    # --- Revenue this month (paid invoices) ---
     revenue_this_month = Invoice.objects.filter(
+        business=business,
         status="paid",
         period_start__gte=month_start,
         period_start__lt=month_end,
@@ -120,7 +50,27 @@ def owner_dashboard(request):
         )
     )["total"]
 
+    # --- Invoices overdue (sent, due_date < today) ---
+    overdue_qs = Invoice.objects.filter(
+        business=business,
+        status="sent",
+        due_date__lt=today,
+        due_date__isnull=False,
+    )
+    overdue_agg = overdue_qs.aggregate(
+        count=Count("id"),
+        total=Coalesce(
+            Sum("total"),
+            Decimal("0.00"),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        ),
+    )
+    invoices_overdue_count = overdue_agg["count"] or 0
+    invoices_overdue_total = overdue_agg["total"] or Decimal("0.00")
+
+    # --- Outstanding AR (sent, unpaid) ---
     ar_outstanding = Invoice.objects.filter(
+        business=business,
         status="sent",
     ).aggregate(
         total=Coalesce(
@@ -130,32 +80,43 @@ def owner_dashboard(request):
         )
     )["total"]
 
+    # --- Jobs today ---
+    jobs_today = Job.objects.filter(property__customer__business=business, scheduled_date=today).count()
 
-    recent_invoices = (
-       Invoice.objects.select_related("customer").order_by("-issue_date", "-id")[:10]
+    # --- Profit this month (revenue − costs) ---
+    from financials.models import Receipt
+    from time_tracking.models import TimeEntry
+    receipts_this_month = (
+        Receipt.objects.filter(
+            business=business,
+            receipt_date__gte=month_start,
+            receipt_date__lt=month_end,
+        ).aggregate(Sum("amount"))["amount__sum"] or Decimal("0")
     )
-
-    outgoing_estimates = []
-    if business:
-        outgoing_estimates = (
-            Estimate.objects.filter(business=business)
-            .exclude(status="accepted")
-            .select_related("customer")
-            .order_by("-sent_at", "-updated_at")[:10]
-        )
+    time_entries_month = TimeEntry.objects.filter(
+        user__business=business,
+        clock_out__isnull=False,
+        clock_in__date__gte=month_start,
+        clock_in__date__lt=month_end,
+    ).select_related("user")
+    labor_this_month = Decimal("0")
+    for e in time_entries_month:
+        rate = (e.user.hourly_rate or Decimal("0"))
+        mins = e.duration_minutes or 0
+        labor_this_month += Decimal(str(mins)) / Decimal("60") * rate
+    costs_this_month = receipts_this_month + labor_this_month
+    profit_this_month = revenue_this_month - costs_this_month
 
     context = {
         "today": today,
-        "jobs_today": jobs_today,
-        "completed_this_week": completed_this_week,
         "revenue_this_month": revenue_this_month,
+        "profit_this_month": profit_this_month,
+        "invoices_overdue_count": invoices_overdue_count,
+        "invoices_overdue_total": invoices_overdue_total,
         "ar_outstanding": ar_outstanding,
-        "upcoming_jobs": upcoming_jobs,
-        "recent_invoices": recent_invoices,
+        "jobs_today": jobs_today,
         "month_start": month_start,
         "month_end": month_end,
-        "crew_table": crew_table,
-        "outgoing_estimates": outgoing_estimates,
     }
     return render(request, "dashboard/owner_dashboard.html", context)
 
