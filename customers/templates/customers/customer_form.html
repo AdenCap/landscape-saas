@@ -20,6 +20,12 @@
         <div class="field">{{ form.alt_phone.label_tag }}{{ form.alt_phone }}{{ form.alt_phone.errors }}</div>
       </div>
       <div class="field">{{ form.email.label_tag }}{{ form.email }}{{ form.email.errors }}</div>
+      <div class="field">
+        {{ form.communication_preference.label_tag }}
+        {{ form.communication_preference }}
+        <p class="help">How this client prefers to be contacted (email, text, or both).</p>
+        {{ form.communication_preference.errors }}
+      </div>
     </div>
     <div class="form-section">
       <h3>Address</h3>

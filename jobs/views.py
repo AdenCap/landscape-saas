@@ -9,6 +9,7 @@ from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from accounts.decorators import role_required
+from accounts.utils import get_business
 from billing.services import create_draft_invoice_for_job, create_and_send_invoice_for_job
 from billing.monthly import generate_monthly_invoice_for_customer
 from .models import Job, JobServiceItem, Crew
@@ -40,7 +41,7 @@ def _get_crew_legend(business):
 @role_required("owner", "crew")
 def job_list(request):
     """List current and upcoming jobs (scheduled today or in the future), plus unscheduled."""
-    business = getattr(request.user, 'business', None)
+    business = get_business(request)
     if not business:
         return redirect("/")
     today = timezone.now().date()
@@ -63,7 +64,7 @@ def job_list(request):
 
 
 def calendar_view(request):
-    business = getattr(request.user, 'business', None) if request.user.is_authenticated else None
+    business = get_business(request) if request.user.is_authenticated else None
     crew_legend = _get_crew_legend(business)
     services = []
     crews = []
@@ -99,7 +100,7 @@ def calendar_events(request):
         'property', 'property__customer', 'assigned_to', 'assigned_crew'
     ).prefetch_related('service_items__service').filter(scheduled_date__isnull=False)
 
-    business = getattr(request.user, 'business', None) if request.user.is_authenticated else None
+    business = get_business(request) if request.user.is_authenticated else None
     if business:
         jobs = jobs.filter(property__customer__business=business)
 
@@ -199,7 +200,7 @@ def calendar_events(request):
 @login_required
 def calendar_job_data(request, job_id):
     """Return job details for calendar modal. Owners get full data; crew get address, notes, services, images only."""
-    business = getattr(request.user, 'business', None)
+    business = get_business(request)
     if not business:
         return JsonResponse({"error": "No business"}, status=403)
     job = get_object_or_404(
@@ -286,7 +287,7 @@ def calendar_job_data(request, job_id):
 @role_required("owner")
 def calendar_job_update(request, job_id):
     """Update job crew, notes, and customer contact from calendar modal."""
-    business = getattr(request.user, 'business', None)
+    business = get_business(request)
     if not business:
         return JsonResponse({"error": "No business"}, status=403)
     job = get_object_or_404(
@@ -344,7 +345,7 @@ def calendar_job_update(request, job_id):
     job.save()
 
     # Return new color and assignee so calendar can update the event immediately
-    business = getattr(request.user, 'business', None)
+    business = get_business(request)
     crew_colors = {}
     user_colors = {}
     if business:
@@ -384,7 +385,7 @@ def calendar_job_update(request, job_id):
 @role_required("owner")
 def calendar_job_reschedule(request, job_id):
     """Update job scheduled_date when dragged to new date."""
-    business = getattr(request.user, 'business', None)
+    business = get_business(request)
     if not business:
         return JsonResponse({"error": "No business"}, status=403)
     job = get_object_or_404(
@@ -421,7 +422,7 @@ def calendar_job_reschedule(request, job_id):
 @role_required("owner")
 def calendar_unscheduled_jobs(request):
     """List jobs with no scheduled_date (accepted but not yet on calendar)."""
-    business = getattr(request.user, 'business', None)
+    business = get_business(request)
     if not business:
         return JsonResponse({"jobs": []})
     jobs = Job.objects.filter(
@@ -449,7 +450,7 @@ def daily_route_view(request):
     else:
         jobs = Job.objects.filter(scheduled_date=timezone.now().date())
 
-    business = getattr(request.user, 'business', None) if request.user.is_authenticated else None
+    business = get_business(request) if request.user.is_authenticated else None
     if business:
         jobs = jobs.filter(property__customer__business=business)
 
@@ -474,7 +475,7 @@ def daily_route_view(request):
 @require_POST
 @role_required("owner")
 def update_route_order(request):
-    business = getattr(request.user, 'business', None) if request.user.is_authenticated else None
+    business = get_business(request) if request.user.is_authenticated else None
     data = json.loads(request.body)
     for item in data:
         qs = Job.objects.filter(id=item["id"])
@@ -496,7 +497,7 @@ def optimize_route(request):
     else:
         jobs = list(Job.objects.filter(scheduled_date=timezone.now().date()))
 
-    business = getattr(request.user, 'business', None) if request.user.is_authenticated else None
+    business = get_business(request) if request.user.is_authenticated else None
     if business:
         jobs = [j for j in jobs if j.property.customer.business_id == business.id]
 
@@ -622,7 +623,7 @@ def complete_job(request, job_id):
 @role_required("owner")
 def create_job(request):
     """Create a new landscaping job from the dashboard."""
-    business = request.user.business
+    business = get_business(request)
     if not business:
         messages.error(request, "You must be associated with a business to create jobs.")
         return redirect("owner_dashboard")
@@ -759,7 +760,7 @@ def create_job(request):
 @role_required("owner")
 def job_delete(request, job_id):
     """Delete a job."""
-    business = getattr(request.user, "business", None)
+    business = get_business(request)
     if not business:
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return JsonResponse({"error": "No business"}, status=403)
@@ -852,8 +853,12 @@ def job_detail(request, job_id):
 
     from django.db.models import Sum
     from django.utils import timezone as tz
+    from decimal import Decimal
     job_receipts = list(job.receipts.all().order_by("-receipt_date"))
-    job_receipts_total = sum((r.amount or 0) for r in job_receipts)
+    job_receipts_total = sum((r.amount or Decimal("0")) for r in job_receipts)
+    job_total_cost = job_receipts_total + (job.labor_cost or Decimal("0")) + (job.material_cost or Decimal("0"))
+    job_revenue = getattr(job.invoice, "total", None) if getattr(job, "invoice", None) else None
+    job_profit = (job_revenue - job_total_cost) if job_revenue is not None else None
     today_iso = tz.now().date().isoformat()
 
     return render(request, "jobs/job_detail.html", {
@@ -863,6 +868,9 @@ def job_detail(request, job_id):
         "has_unbilled_items": has_unbilled,
         "job_receipts": job_receipts,
         "job_receipts_total": job_receipts_total,
+        "job_total_cost": job_total_cost,
+        "job_revenue": job_revenue,
+        "job_profit": job_profit,
         "today_iso": today_iso,
     })
 
@@ -905,4 +913,24 @@ def add_job_service_item(request, job_id):
 def remove_job_service_item(request, job_id, item_id):
     job = get_object_or_404(Job, id=job_id)
     JobServiceItem.objects.filter(id=item_id, job=job).delete()
+    return redirect("job_detail", job_id=job.id)
+
+
+@require_POST
+@role_required("owner")
+def job_update_costs(request, job_id):
+    """Update labor_cost and material_cost for profit tracking."""
+    from decimal import Decimal
+    job = get_object_or_404(Job, id=job_id)
+    try:
+        labor = request.POST.get("labor_cost")
+        material = request.POST.get("material_cost")
+        if labor is not None and labor != "":
+            job.labor_cost = Decimal(str(labor))
+        if material is not None and material != "":
+            job.material_cost = Decimal(str(material))
+        job.save(update_fields=["labor_cost", "material_cost"])
+        messages.success(request, "Job costs updated.")
+    except Exception:
+        messages.error(request, "Invalid cost values.")
     return redirect("job_detail", job_id=job.id)

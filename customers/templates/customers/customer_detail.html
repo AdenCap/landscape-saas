@@ -29,6 +29,10 @@
       <dt>Address</dt>
       <dd>{{ customer.full_address }}</dd>
       {% endif %}
+      {% if customer.communication_preference %}
+      <dt>Preferred contact</dt>
+      <dd>{{ customer.get_communication_preference_display }}</dd>
+      {% endif %}
       <dt>Invoicing</dt>
       <dd>
         {{ customer.get_invoice_frequency_display|default:"Ask each time" }}
@@ -71,10 +75,48 @@
     {% endfor %}
   </div>
 
+  <div class="card card-communication">
+    <h2 class="card-title">Communication</h2>
+    <p class="card-subtitle">Send a message and view all correspondence in one place.</p>
+    <form method="post" action="{% url 'customer_send_message' customer.id %}" class="send-message-form">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="id_channel">Send via</label>
+        {{ send_message_form.channel }}
+      </div>
+      <div class="form-group form-group-subject">
+        <label for="id_subject">Subject <span class="muted">(email only)</span></label>
+        {{ send_message_form.subject }}
+      </div>
+      <div class="form-group">
+        <label for="id_body">Message</label>
+        {{ send_message_form.body }}
+      </div>
+      <button type="submit" class="btn btn-primary">Send message</button>
+    </form>
+    <h3 class="comm-history-title">Message history</h3>
+    <div id="message-history" class="message-history">
+      {% for msg in client_messages %}
+      <div class="message-row message-{{ msg.direction }} message-{{ msg.channel }}">
+        <div class="message-meta">
+          <span class="message-date">{{ msg.created_at|date:"M j, Y g:i A" }}</span>
+          <span class="message-channel">{{ msg.get_channel_display }}</span>
+          <span class="message-direction badge badge-{{ msg.direction }}">{{ msg.get_direction_display }}</span>
+          {% if msg.to_address %}<span class="message-to">→ {{ msg.to_address }}</span>{% endif %}
+        </div>
+        {% if msg.subject %}<div class="message-subject">{{ msg.subject }}</div>{% endif %}
+        <div class="message-body">{{ msg.body|truncatewords:40 }}</div>
+      </div>
+      {% empty %}
+      <p class="no-messages">No messages yet. Send an email or text above to start the log.</p>
+      {% endfor %}
+    </div>
+  </div>
+
   <div class="card">
     <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
       Contracts
-      <a href="{% url 'contract_add' customer.id %}" class="btn btn-primary btn-sm">+ Add</a>
+    <a href="{% url 'contract_add' customer.id %}" class="btn btn-primary btn-sm">+ Add</a>
     </h2>
     {% for c in contracts %}
     <div class="contract-row">
@@ -164,5 +206,22 @@
   .badge-pending { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
   .badge-expired, .badge-cancelled { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
   .badge-void { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+  .card-communication { grid-column: 1 / -1; }
+  .card-subtitle { color: var(--text-muted); font-size: 14px; margin: -4px 0 16px 0; }
+  .send-message-form { margin-bottom: 24px; }
+  .send-message-form .form-group { margin-bottom: 12px; }
+  .send-message-form .form-group label { display: block; font-size: 13px; margin-bottom: 4px; color: var(--text-muted); }
+  .send-message-form .form-control, .send-message-form .form-select { width: 100%; max-width: 400px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .form-group-subject .form-control { max-width: 100%; }
+  .comm-history-title { font-size: 16px; margin: 0 0 12px 0; }
+  .message-history { display: flex; flex-direction: column; gap: 12px; }
+  .message-row { padding: 12px; border-radius: 8px; border-left: 3px solid var(--border); background: rgba(38, 38, 38, 0.5); }
+  .message-row.message-sent { border-left-color: var(--primary); }
+  .message-row.message-received { border-left-color: #3b82f6; }
+  .message-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .message-channel { text-transform: uppercase; }
+  .message-subject { font-weight: 600; margin-bottom: 4px; }
+  .message-body { font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  .no-messages { color: var(--text-muted); font-style: italic; margin: 0; }
 </style>
 {% endblock %}

@@ -1,7 +1,7 @@
 import csv
 import io
 from django import forms
-from .models import Customer, Property, Contract
+from .models import Customer, Property, Contract, ClientMessage
 
 
 # CSV column header -> Customer model field (flexible names)
@@ -90,12 +90,14 @@ class CustomerForm(forms.ModelForm):
         model = Customer
         fields = [
             'name', 'phone', 'alt_phone', 'email',
+            'communication_preference',
             'address_line1', 'address_line2', 'city', 'state', 'postal_code',
             'invoice_frequency',
             'monthly_invoice_send_day',
             'notes',
         ]
         widgets = {
+            'communication_preference': forms.Select(attrs={'class': 'form-select'}),
             'invoice_frequency': forms.Select(attrs={'class': 'form-select'}),
             'monthly_invoice_send_day': forms.NumberInput(attrs={'min': 1, 'max': 28, 'placeholder': 'e.g. 1 or 15'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Internal notes about this client...'}),
@@ -127,3 +129,28 @@ class ContractForm(forms.ModelForm):
             'end_date': forms.DateInput(attrs={'type': 'date'}),
             'notes': forms.Textarea(attrs={'rows': 2}),
         }
+
+
+class SendMessageForm(forms.Form):
+    """Form to send an email or SMS to a client from their profile."""
+    channel = forms.ChoiceField(
+        choices=[("email", "Email"), ("sms", "Text (SMS)")],
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    subject = forms.CharField(
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Subject (email only)"}),
+    )
+    body = forms.CharField(
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 4, "placeholder": "Your message..."}),
+        required=True,
+    )
+
+    def clean(self):
+        data = super().clean()
+        channel = data.get("channel")
+        if channel == "email" and not data.get("subject"):
+            # Allow blank subject; we could require it for email
+            pass
+        return data

@@ -4,12 +4,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.decorators import role_required
+from accounts.utils import get_business as _get_business
 from .models import Crew
 from .crew_forms import CrewForm
-
-
-def _get_business(request):
-    return getattr(request.user, 'business', None)
 
 
 @role_required("owner")

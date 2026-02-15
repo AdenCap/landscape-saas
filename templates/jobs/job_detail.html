@@ -63,6 +63,24 @@
   </form>
 </div>
 
+<div class="card" style="margin-bottom: 20px;">
+  <h2 class="card-title">Job cost & profit</h2>
+  <p style="margin: 0 0 12px 0; color: var(--text-muted); font-size: 14px;">Track labor and materials for profit reporting.</p>
+  <form method="post" action="{% url 'job_update_costs' job.id %}" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 12px;">
+    {% csrf_token %}
+    <div class="field">
+      <label for="id_labor_cost">Labor cost ($)</label>
+      <input type="number" name="labor_cost" id="id_labor_cost" step="0.01" min="0" value="{{ job.labor_cost|default:0 }}" style="width: 100px;">
+    </div>
+    <div class="field">
+      <label for="id_material_cost">Material cost ($)</label>
+      <input type="number" name="material_cost" id="id_material_cost" step="0.01" min="0" value="{{ job.material_cost|default:0 }}" style="width: 100px;">
+    </div>
+    <button type="submit" class="btn btn-secondary btn-sm">Save costs</button>
+  </form>
+  <p style="margin: 0; font-size: 14px;">Receipts linked to this job: ${{ job_receipts_total|floatformat:2 }} · Total cost: ${{ job_total_cost|floatformat:2 }}{% if job_revenue is not None %} · Revenue: ${{ job_revenue|floatformat:2 }} · <strong>Profit: ${{ job_profit|floatformat:2 }}</strong>{% endif %}</p>
+</div>
+
 {% if job_receipts %}
   <div class="card" style="margin-bottom: 20px;">
     <h2 class="card-title">Receipts / materials for this job</h2>

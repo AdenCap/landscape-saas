@@ -17,9 +17,12 @@
 
 <!-- Employees -->
 <section id="section-employees" class="emp-mgmt-section card emp-tab-panel" data-panel="employees">
-  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
     Employees
-    <a href="{% url 'employee_add' %}" class="btn btn-primary btn-sm">+ Add Employee</a>
+    <span style="display: flex; gap: 8px;">
+      <a href="{% url 'notification_send' %}" class="btn btn-secondary btn-sm">Send notification</a>
+      <a href="{% url 'employee_add' %}" class="btn btn-primary btn-sm">+ Add Employee</a>
+    </span>
   </h2>
   <p class="section-desc">Manage your team: contact info, pay, roles, and login credentials.</p>
   <table class="data-table">

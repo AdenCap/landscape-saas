@@ -86,8 +86,24 @@
       height: 20px;
       color: currentColor;
     }
+    .nav-badge {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 18px;
+      text-align: center;
+      background: var(--primary);
+      color: #0a0a0a;
+      border-radius: 9px;
+    }
     .sidebar-create-item .nav-icon { margin-right: 10px; }
     .btn-sm { padding: 6px 12px; font-size: 13px; }
+    .platform-banner { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; margin-bottom: 16px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 10px; color: #93c5fd; }
 
     .sidebar {
       width: 260px;
@@ -285,6 +301,11 @@
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             Time Clock
           </a>
+          <a href="{% url 'notification_inbox' %}" class="btn btn-nav {% if '/notifications/inbox' in request.path %}active{% endif %}" style="position: relative;">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13 21a2 2 0 0 1-2 2 2 2 0 0 1-2-2"/></svg>
+            Notifications
+            {% if notification_unread_count > 0 %}<span class="nav-badge">{{ notification_unread_count }}</span>{% endif %}
+          </a>
         {% else %}
           <a href="/" class="btn btn-nav {% if request.path == '/' or request.path == '' %}active{% endif %}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -302,9 +323,13 @@
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
             Daily Routes
           </a>
-          <a href="/clients/" class="btn btn-nav {% if '/clients' in request.path %}active{% endif %}">
+          <a href="/clients/" class="btn btn-nav {% if '/clients' in request.path and '/clients/messages' not in request.path %}active{% endif %}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Clients
+          </a>
+          <a href="{% url 'client_messages_list' %}" class="btn btn-nav {% if '/clients/messages' in request.path %}active{% endif %}">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Client messaging
           </a>
           <a href="/estimator/" class="btn btn-nav {% if '/estimator' in request.path %}active{% endif %}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21H4.6a.6.6 0 0 1-.6-.6V3"/><path d="M21 7V3h-4"/><path d="M7 3v18"/><path d="M21 12h-4"/></svg>
@@ -321,6 +346,10 @@
           <a href="{% url 'employee_management' %}" class="btn btn-nav {% if '/employee-management' in request.path %}active{% endif %}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Employee Management
+          </a>
+          <a href="{% url 'notification_send' %}" class="btn btn-nav {% if '/notifications/send' in request.path %}active{% endif %}">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13 21a2 2 0 0 1-2 2 2 2 0 0 1-2-2"/></svg>
+            Notifications
           </a>
           <a href="{% url 'financials:dashboard' %}" class="btn btn-nav {% if '/financials' in request.path %}active{% endif %}">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
@@ -339,6 +368,13 @@
 
       <div class="sidebar-divider"></div>
       <div class="sidebar-footer">
+        {% if user.is_superuser %}
+        {% if request.session.platform_business_id %}
+        <a href="{% url 'platform_exit' %}" class="btn btn-nav">Exit business view</a>
+        {% else %}
+        <a href="{% url 'platform_home' %}" class="btn btn-nav">Platform admin</a>
+        {% endif %}
+        {% endif %}
         <a href="{% url 'logout' %}" class="btn btn-nav">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           Logout
@@ -351,16 +387,19 @@
       {% if user.role == "crew" %}
         <a href="/jobs/crew/" class="btn btn-nav">Today</a>
         <a href="/time/" class="btn btn-nav">Time</a>
+        <a href="{% url 'notification_inbox' %}" class="btn btn-nav">Notifications{% if notification_unread_count > 0 %} ({{ notification_unread_count }}){% endif %}</a>
       {% else %}
         <a href="/" class="btn btn-nav">Dashboard</a>
         <a href="{% url 'job_list' %}" class="btn btn-nav">Jobs</a>
         <a href="/jobs/calendar/" class="btn btn-nav">Calendar</a>
         <a href="/jobs/routes/" class="btn btn-nav">Routes</a>
         <a href="/clients/" class="btn btn-nav">Clients</a>
+        <a href="{% url 'client_messages_list' %}" class="btn btn-nav">Client messaging</a>
         <a href="/estimator/" class="btn btn-nav">Estimator</a>
         <a href="/billing/" class="btn btn-nav">Invoices</a>
         <a href="/billing/estimates/" class="btn btn-nav">Estimates</a>
         <a href="{% url 'employee_management' %}" class="btn btn-nav">Employee Management</a>
+        <a href="{% url 'notification_send' %}" class="btn btn-nav">Notifications</a>
         <a href="{% url 'financials:dashboard' %}" class="btn btn-nav">Financials</a>
         <a href="{% url 'quickbooks:settings' %}" class="btn btn-nav">QuickBooks</a>
         <a href="/settings/" class="btn btn-nav">Settings</a>
@@ -371,6 +410,12 @@
 
   <main class="main-wrap">
     <div class="content">
+      {% if user.is_superuser and request.session.platform_business_name %}
+      <div class="platform-banner">
+        <span>Viewing as: <strong>{{ request.session.platform_business_name }}</strong></span>
+        <a href="{% url 'platform_exit' %}" class="btn btn-secondary btn-sm">Exit</a>
+      </div>
+      {% endif %}
       {% if messages %}
       <div class="messages">
         {% for message in messages %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Send notification – Field Ops{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Send notification</h1>
+    <p>Send a message to selected employees and/or crews.</p>
+  </div>
+  <a href="{% url 'notification_inbox' %}" class="btn btn-secondary">View my notifications</a>
+</div>
+
+<div class="card" style="max-width: 640px;">
+  <form method="post" action="{% url 'notification_send' %}">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <p style="color: #fca5a5; margin-bottom: 16px; font-size: 14px;">{{ form.non_field_errors.0 }}</p>
+    {% endif %}
+
+    <div style="margin-bottom: 24px;">
+      <label class="notification-send-option" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+        <input type="checkbox" name="send_to_all" id="id_send_to_all" {% if form.send_to_all.value %}checked{% endif %} style="margin-top: 4px;">
+        <span>
+          <strong>All employees</strong>
+          <span style="display: block; color: var(--text-muted); font-size: 13px;">{{ form.send_to_all.help_text }}</span>
+        </span>
+      </label>
+    </div>
+
+    <div style="margin-bottom: 24px;">
+      <span style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">{{ form.employees.label }}</span>
+      <p style="color: var(--text-muted); font-size: 13px; margin: -4px 0 10px 0;">{{ form.employees.help_text }}</p>
+      <div class="notification-checkbox-group" id="employees-group">
+        {% for value, label in form.employees.field.choices %}
+        <label class="notification-send-option" style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 0;">
+          <input type="checkbox" name="employees" value="{{ value }}" id="id_employees_{{ forloop.counter0 }}" {% if form.employees.value and value in form.employees.value %}checked{% endif %}>
+          <span>{{ label }}</span>
+        </label>
+        {% empty %}
+        <p style="color: var(--text-muted); font-size: 14px;">No employees yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div style="margin-bottom: 24px;">
+      <span style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">{{ form.crews.label }}</span>
+      <p style="color: var(--text-muted); font-size: 13px; margin: -4px 0 10px 0;">{{ form.crews.help_text }}</p>
+      <div class="notification-checkbox-group" id="crews-group">
+        {% for value, label in form.crews.field.choices %}
+        <label class="notification-send-option" style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 0;">
+          <input type="checkbox" name="crews" value="{{ value }}" id="id_crews_{{ forloop.counter0 }}" {% if form.crews.value and value in form.crews.value %}checked{% endif %}>
+          <span>{{ label }}</span>
+        </label>
+        {% empty %}
+        <p style="color: var(--text-muted); font-size: 14px;">No crews yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div style="margin-bottom: 24px;">
+      <label for="id_message" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px;">{{ form.message.label }}</label>
+      <textarea name="message" id="id_message" required rows="4" maxlength="2000" placeholder="Type your message…" style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px; resize: vertical;">{{ form.message.value|default:'' }}</textarea>
+      {% if form.message.errors %}<p style="color: #fca5a5; font-size: 13px; margin-top: 4px;">{{ form.message.errors.0 }}</p>{% endif %}
+    </div>
+    <button type="submit" class="btn btn-primary">Send notification</button>
+  </form>
+</div>
+
+<script>
+(function() {
+  var sendToAll = document.getElementById('id_send_to_all');
+  var employeesGroup = document.getElementById('employees-group');
+  var crewsGroup = document.getElementById('crews-group');
+  function toggleSpecific() {
+    var disabled = sendToAll && sendToAll.checked;
+    if (employeesGroup) {
+      employeesGroup.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.disabled = disabled; });
+    }
+    if (crewsGroup) {
+      crewsGroup.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.disabled = disabled; });
+    }
+  }
+  if (sendToAll) {
+    sendToAll.addEventListener('change', toggleSpecific);
+    toggleSpecific();
+  }
+})();
+</script>
+{% endblock %}

@@ -5,15 +5,12 @@ from django.views.decorators.http import require_GET, require_POST
 from django.http import JsonResponse
 
 from accounts.decorators import role_required
+from accounts.utils import get_business as _get_business
 from accounts.models import EmployeePayment
 from billing.models import Invoice
 
 from .models import QuickBooksConnection
 from . import client
-
-
-def _get_business(request):
-    return getattr(request.user, "business", None)
 
 
 @role_required("owner")

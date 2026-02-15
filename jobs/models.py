@@ -90,6 +90,22 @@ class Job(models.Model):
         help_text="Override color for calendar (hex e.g. #3b82f6). Leave empty to use crew/employee default.",
     )
 
+    # Cost tracking for profit (COGS)
+    labor_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0"),
+        blank=True,
+        help_text="Labor cost for this job (used for profit reporting). Materials from linked receipts.",
+    )
+    material_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0"),
+        blank=True,
+        help_text="Material cost for this job if not tracked via receipts.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     route_order = models.PositiveIntegerField(default=0)

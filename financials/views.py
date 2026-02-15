@@ -9,14 +9,10 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.utils import timezone
 
 from accounts.decorators import role_required
+from accounts.utils import get_business as _get_business
 from .models import Receipt, RevenueCategory
 from .forms import ReceiptForm
 from .receipt_parser import parse_receipt_image
-
-
-def _get_business(request):
-    business = getattr(request.user, "business", None)
-    return business
 
 
 @role_required("owner")

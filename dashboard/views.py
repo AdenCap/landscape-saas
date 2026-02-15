@@ -11,6 +11,7 @@ from accounts.utils import get_business
 from accounts.models import User
 from jobs.models import Job
 from billing.models import Invoice
+from customers.models import ClientMessage
 
 
 
@@ -107,6 +108,18 @@ def owner_dashboard(request):
     costs_this_month = receipts_this_month + labor_this_month
     profit_this_month = revenue_this_month - costs_this_month
 
+    # --- Client messages: latest only (read-only on dashboard), unread count ---
+    client_messages = list(
+        ClientMessage.objects.filter(customer__business=business)
+        .select_related("customer")
+        .order_by("-created_at")[:20]
+    )
+    unread_messages_count = ClientMessage.objects.filter(
+        customer__business=business,
+        direction=ClientMessage.DIRECTION_RECEIVED,
+        is_read=False,
+    ).count()
+
     context = {
         "today": today,
         "revenue_this_month": revenue_this_month,
@@ -117,6 +130,8 @@ def owner_dashboard(request):
         "jobs_today": jobs_today,
         "month_start": month_start,
         "month_end": month_end,
+        "client_messages": client_messages,
+        "unread_messages_count": unread_messages_count,
     }
     return render(request, "dashboard/owner_dashboard.html", context)
 

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications – Field Ops{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Notifications</h1>
+    <p>Messages from your manager or business owner.</p>
+  </div>
+  {% if unread_count > 0 %}
+  <button type="button" class="btn btn-secondary" id="mark-all-read">Mark all as read</button>
+  {% endif %}
+</div>
+
+<div class="card">
+  {% for n in notifications %}
+  <div class="notification-item" data-id="{{ n.id }}" style="padding: 16px; border-bottom: 1px solid var(--border); {% if not n.read_at %}background: rgba(34, 197, 94, 0.08);{% endif %}">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">
+          From {{ n.from_user.get_full_name|default:n.from_user.username }}
+          <span style="margin-left: 8px;">{{ n.created_at|timesince }} ago</span>
+        </div>
+        <p style="margin: 0; white-space: pre-wrap; word-break: break-word;">{{ n.message }}</p>
+      </div>
+      {% if not n.read_at %}
+      <form method="post" action="{% url 'notification_mark_read' n.id %}" style="flex-shrink: 0;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary btn-sm">Mark read</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% empty %}
+  <p style="padding: 24px; color: var(--text-muted); margin: 0;">No notifications yet.</p>
+  {% endfor %}
+</div>
+
+<style>
+  .notification-item:last-child { border-bottom: none; }
+</style>
+{% if unread_count > 0 %}
+<script>
+(function() {
+  var markAllBtn = document.getElementById('mark-all-read');
+  if (markAllBtn) {
+    markAllBtn.addEventListener('click', function() {
+      var forms = document.querySelectorAll('form[action*="/read/"]');
+      var csrf = document.querySelector('input[name=csrfmiddlewaretoken]');
+      var token = csrf ? csrf.value : '';
+      var done = 0;
+      forms.forEach(function(f) {
+        if (f.querySelector('button[type=submit]')) {
+          fetch(f.action, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-CSRFToken': token,
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: 'csrfmiddlewaretoken=' + encodeURIComponent(token),
+            credentials: 'same-origin'
+          }).then(function() { done++; if (done >= forms.length) window.location.reload(); });
+        }
+      });
+      if (forms.length === 0) window.location.reload();
+    });
+  }
+})();
+</script>
+{% endif %}
+{% endblock %}

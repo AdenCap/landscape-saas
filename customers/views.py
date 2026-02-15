@@ -1,21 +1,24 @@
+from django.conf import settings
 from django.contrib import messages
+from django.core.mail import EmailMultiAlternatives
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
 
 from accounts.decorators import role_required
+from accounts.utils import get_business as _get_business
 from billing.models import Invoice
 from jobs.models import Job
-from .models import Customer, Property, Contract
-from .forms import CustomerForm, CustomerImportForm, parse_csv_customers, PropertyForm, ContractForm
-
-
-def _get_business(request):
-    business = getattr(request.user, 'business', None)
-    if not business:
-        return None
-    return business
+from .models import Customer, Property, Contract, ClientMessage
+from .forms import (
+    CustomerForm,
+    CustomerImportForm,
+    parse_csv_customers,
+    PropertyForm,
+    ContractForm,
+    SendMessageForm,
+)
 
 
 @role_required("owner")
@@ -51,6 +54,44 @@ def customer_list(request):
 
 
 @role_required("owner")
+def client_messages_list(request):
+    """Dedicated client messaging hub: all messages, search, send new, reply."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business to view messages.")
+        return redirect("/")
+
+    messages_search_q = (request.GET.get("q") or "").strip()
+    qs = (
+        ClientMessage.objects.filter(customer__business=business)
+        .select_related("customer")
+        .order_by("-created_at")
+    )
+    if messages_search_q:
+        qs = qs.filter(
+            Q(customer__name__icontains=messages_search_q)
+            | Q(body__icontains=messages_search_q)
+            | Q(subject__icontains=messages_search_q)
+            | Q(to_address__icontains=messages_search_q)
+        )
+    client_messages = list(qs[:200])
+    unread_messages_count = ClientMessage.objects.filter(
+        customer__business=business,
+        direction=ClientMessage.DIRECTION_RECEIVED,
+        is_read=False,
+    ).count()
+    customers_list = list(Customer.objects.filter(business=business).order_by("name"))
+
+    return render(request, "customers/client_messages_list.html", {
+        "client_messages": client_messages,
+        "messages_search_q": messages_search_q,
+        "unread_messages_count": unread_messages_count,
+        "customers_list": customers_list,
+        "send_message_form": SendMessageForm(),
+    })
+
+
+@role_required("owner")
 def customer_detail(request, customer_id):
     """Full CRM profile: contact info, properties, past services, contracts, invoices."""
     business = _get_business(request)
@@ -80,6 +121,12 @@ def customer_detail(request, customer_id):
         total=Sum('total')
     )['total'] or 0
 
+    # Mark received messages as read when viewing the client profile
+    customer.messages.filter(direction=ClientMessage.DIRECTION_RECEIVED, is_read=False).update(is_read=True)
+
+    client_messages = customer.messages.all()[:50]
+    send_message_form = SendMessageForm()
+
     return render(request, "customers/customer_detail.html", {
         "customer": customer,
         "properties": properties,
@@ -87,6 +134,8 @@ def customer_detail(request, customer_id):
         "contracts": contracts,
         "invoices": invoices,
         "total_revenue": total_revenue,
+        "client_messages": client_messages,
+        "send_message_form": send_message_form,
     })
 
 
@@ -297,3 +346,86 @@ def contract_edit(request, customer_id, contract_id):
         "contract": contract,
         "title": "Edit Contract",
     })
+
+
+def _send_message_redirect(request, customer_id, fallback_view="customer_detail"):
+    """Redirect after send: to 'next' param or customer detail."""
+    from django.urls import reverse
+    next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
+    if next_url:
+        return redirect(next_url)
+    return redirect(fallback_view, customer_id=customer_id)
+
+
+@require_POST
+@role_required("owner")
+def customer_send_message(request, customer_id):
+    """Send an email or SMS to the client and log it under their profile."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+    form = SendMessageForm(request.POST)
+    if not form.is_valid():
+        for _field, errors in form.errors.items():
+            for err in errors:
+                messages.error(request, err)
+        return _send_message_redirect(request, customer_id)
+
+    channel = form.cleaned_data["channel"]
+    subject = (form.cleaned_data.get("subject") or "").strip()
+    body = form.cleaned_data["body"].strip()
+    if not body:
+        messages.error(request, "Message body is required.")
+        return redirect("customer_detail", customer_id=customer.id)
+
+    to_address = ""
+    if channel == "email":
+        to_address = customer.email or ""
+        if not to_address:
+            messages.error(request, "This client has no email address. Add one in Edit Client.")
+            return _send_message_redirect(request, customer.id)
+        connection = business.get_smtp_connection()
+        if not connection:
+            messages.error(
+                request,
+                "Connect your Gmail in Settings to send emails. Go to Settings and add your Gmail address and App Password.",
+            )
+            return _send_message_redirect(request, customer.id)
+        from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com")
+        reply_to = [business.contact_email] if business.contact_email else None
+        msg = EmailMultiAlternatives(
+            subject or f"Message from {business.name}",
+            body,
+            from_email,
+            [to_address],
+            reply_to=reply_to,
+            connection=connection,
+        )
+        try:
+            msg.send()
+        except Exception as e:
+            messages.error(request, f"Failed to send email: {str(e)}")
+            return _send_message_redirect(request, customer.id)
+        messages.success(request, f"Email sent to {to_address}")
+    else:
+        # SMS: use primary phone; log only (actual SMS can be added via Twilio later)
+        to_address = customer.phone or customer.alt_phone or ""
+        if not to_address:
+            messages.error(request, "This client has no phone number. Add one in Edit Client.")
+            return _send_message_redirect(request, customer.id)
+        # TODO: integrate Twilio (or similar) to send real SMS when configured
+        messages.success(request, f"Message logged for {to_address}. Configure Twilio in Settings to send real SMS.")
+
+    ClientMessage.objects.create(
+        customer=customer,
+        channel=channel,
+        direction=ClientMessage.DIRECTION_SENT,
+        subject=subject,
+        body=body,
+        to_address=to_address,
+        created_by=request.user,
+    )
+    return _send_message_redirect(request, customer.id)

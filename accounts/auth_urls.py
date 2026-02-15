@@ -1,11 +1,12 @@
-"""Auth URLs under /accounts/: login, logout, password reset, and 2FA (post-login check, verify, setup, revoke)."""
+"""Auth URLs under /accounts/: signup, login, logout, password reset, and 2FA (post-login check, verify, setup, revoke)."""
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from accounts import twofa_views
-from accounts.views import LoginView
+from accounts.views import LoginView, signup
 
 urlpatterns = [
+    path("signup/", signup, name="signup"),
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("password_change/", auth_views.PasswordChangeView.as_view(), name="password_change"),

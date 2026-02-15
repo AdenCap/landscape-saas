@@ -2,17 +2,27 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.views import LoginView as AuthLoginView
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.decorators import role_required
 from accounts.utils import get_business as _get_business
 from django.utils import timezone as tz
-from accounts.forms import EmployeeForm, EmployeeCreateForm, EmployeePasswordForm, EmployeePaymentForm
-from accounts.models import EmployeePayment
+from accounts.forms import (
+    EmployeeForm,
+    EmployeeCreateForm,
+    EmployeePasswordForm,
+    EmployeePaymentForm,
+    SignUpForm,
+    SendNotificationForm,
+)
+from accounts.models import EmployeePayment, Notification
+from businesses.models import Business
+from jobs.models import Crew
 
 User = get_user_model()
 
@@ -27,6 +37,28 @@ class LoginView(AuthLoginView):
         if redirect_to:
             return base + "?" + urlencode({self.redirect_field_name: redirect_to})
         return base
+
+
+@require_http_methods(["GET", "POST"])
+def signup(request):
+    """Public signup: create a business and an owner user, then log them in."""
+    if request.user.is_authenticated:
+        return redirect("/")
+    if request.method == "POST":
+        form = SignUpForm(request.POST)
+        if form.is_valid():
+            business_name = form.cleaned_data.pop("business_name")
+            business = Business.objects.create(name=business_name)
+            user = form.save(commit=False)
+            user.business = business
+            user.role = "owner"
+            user.save()
+            login(request, user)
+            messages.success(request, f"Welcome! Your business '{business.name}' is set up.")
+            return redirect("/")
+    else:
+        form = SignUpForm()
+    return render(request, "registration/signup.html", {"form": form})
 
 
 @role_required("owner")
@@ -121,6 +153,89 @@ def employee_record_payment(request, user_id):
     else:
         messages.error(request, "Invalid payment details. Check amount and date.")
     return redirect("employee_edit", user_id=employee.id)
+
+
+@role_required("owner")
+@require_http_methods(["GET", "POST"])
+def notification_send(request):
+    """Owner: send a notification to selected employees and/or crews (multi-select)."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    if request.method == "POST":
+        form = SendNotificationForm(request.POST, business=business)
+        if form.is_valid():
+            message = form.cleaned_data["message"].strip()
+            if not message:
+                messages.error(request, "Please enter a message.")
+            else:
+                recipient_ids = set()
+                if form.cleaned_data.get("send_to_all"):
+                    recipient_ids.update(
+                        User.objects.filter(business=business)
+                        .exclude(pk=request.user.pk)
+                        .values_list("pk", flat=True)
+                    )
+                else:
+                    emp_ids = [int(x) for x in (form.cleaned_data.get("employees") or [])]
+                    crew_ids = [int(x) for x in (form.cleaned_data.get("crews") or [])]
+                    if emp_ids:
+                        recipient_ids.update(
+                            User.objects.filter(business=business, id__in=emp_ids).values_list("pk", flat=True)
+                        )
+                    if crew_ids:
+                        for crew in Crew.objects.filter(business=business, id__in=crew_ids).prefetch_related("members"):
+                            recipient_ids.update(crew.members.values_list("pk", flat=True))
+                recipient_ids.discard(request.user.pk)
+                created = 0
+                for to_user_id in recipient_ids:
+                    Notification.objects.create(
+                        business=business,
+                        from_user=request.user,
+                        to_user_id=to_user_id,
+                        message=message,
+                    )
+                    created += 1
+                if created:
+                    messages.success(request, f"Notification sent to {created} employee(s).")
+                else:
+                    messages.warning(request, "No recipients found.")
+                return redirect("notification_send")
+    else:
+        form = SendNotificationForm(business=business)
+    return render(request, "accounts/notification_send.html", {"form": form})
+
+
+@login_required
+@require_http_methods(["GET"])
+def notification_inbox(request):
+    """Employees (and owner) see notifications sent to them."""
+    notifications = (
+        Notification.objects.filter(to_user=request.user)
+        .select_related("from_user")
+        .order_by("-created_at")[:100]
+    )
+    unread_count = Notification.objects.filter(to_user=request.user, read_at__isnull=True).count()
+    return render(request, "accounts/notification_inbox.html", {
+        "notifications": notifications,
+        "unread_count": unread_count,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def notification_mark_read(request, notification_id):
+    """Mark a notification as read (only the recipient)."""
+    notification = get_object_or_404(Notification, id=notification_id, to_user=request.user)
+    if not notification.read_at:
+        from django.utils import timezone as tz
+        notification.read_at = tz.now()
+        notification.save(update_fields=["read_at"])
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accepts("application/json"):
+        from django.http import JsonResponse
+        return JsonResponse({"ok": True})
+    return redirect("notification_inbox")
 
 
 @role_required("owner")

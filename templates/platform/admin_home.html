@@ -1,0 +1,206 @@
+{% extends "platform/base_platform.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 24px;">
+  <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 8px 0;">Platform Dashboard</h1>
+  <p style="margin: 0; color: var(--platform-muted); font-size: 15px;">Users, revenue, and tenants across your software. Separate from each company’s dashboard.</p>
+</div>
+
+<section class="kpi-row">
+  <div class="kpi-card card">
+    <div class="kpi-value">{{ total_users }}</div>
+    <div class="kpi-label">Total users</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">{{ total_businesses }}</div>
+    <div class="kpi-label">Businesses</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">${{ platform_revenue|floatformat:0 }}</div>
+    <div class="kpi-label">All-time revenue</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">${{ revenue_this_month|floatformat:0 }}</div>
+    <div class="kpi-label">Revenue this month</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">{{ new_users_this_month }}</div>
+    <div class="kpi-label">New users this month</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">{{ total_customers }}</div>
+    <div class="kpi-label">Clients</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">{{ total_jobs }}</div>
+    <div class="kpi-label">Jobs</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">{{ paid_invoices_count }}</div>
+    <div class="kpi-label">Paid invoices</div>
+  </div>
+</section>
+
+<section class="charts-section">
+  <div class="card chart-card">
+    <h2 class="card-title">Revenue over time</h2>
+    <p class="card-sub">Paid invoices across all businesses, last 12 months</p>
+    <div class="chart-wrap">
+      <canvas id="chartRevenue" width="400" height="200"></canvas>
+    </div>
+  </div>
+  <div class="card chart-card">
+    <h2 class="card-title">New users by month</h2>
+    <p class="card-sub">Signups per month, last 12 months</p>
+    <div class="chart-wrap">
+      <canvas id="chartUsers" width="400" height="200"></canvas>
+    </div>
+  </div>
+</section>
+
+<section class="grid-2">
+  <div class="card">
+    <h2 class="card-title">Businesses</h2>
+    <p class="card-sub">Open a company’s dashboard for support.</p>
+    <ul class="business-list">
+      {% for b in businesses %}
+      <li>
+        <span>{{ b.name }}</span>
+        <form method="post" action="{% url 'platform_enter' b.id %}" style="margin: 0;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary btn-sm">Enter dashboard</button>
+        </form>
+      </li>
+      {% empty %}
+      <li class="empty">No businesses yet. Create one via Django Admin.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="card">
+    <h2 class="card-title">Audit log (recent)</h2>
+    <p class="card-sub">Platform admin actions and security events.</p>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Action</th>
+            <th>User</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in audit_logs %}
+          <tr>
+            <td>{{ log.created_at|date:"M j, Y H:i" }}</td>
+            <td>{{ log.get_action_display }}</td>
+            <td>{% if log.user %}{{ log.user.username }}{% else %}—{% endif %}</td>
+            <td>{{ log.details }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4">No audit entries yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<p class="footer-links">
+  <a href="{% url 'admin:index' %}" class="link-primary">Django Admin</a>
+  &nbsp;·&nbsp;
+  <a href="/" class="link-primary">Back to app</a>
+</p>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  var revenue = {{ monthly_revenue_json|safe }};
+  if (revenue && revenue.length && document.getElementById('chartRevenue')) {
+    new Chart(document.getElementById('chartRevenue'), {
+      type: 'line',
+      data: {
+        labels: revenue.map(function(m) { return m.label; }),
+        datasets: [{
+          label: 'Revenue',
+          data: revenue.map(function(m) { return m.value; }),
+          borderColor: 'rgb(99, 102, 241)',
+          backgroundColor: 'rgba(99, 102, 241, 0.2)',
+          fill: true,
+          tension: 0.35
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8', maxRotation: 45 } },
+          y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
+  }
+  var users = {{ new_users_by_month_json|safe }};
+  if (users && users.length && document.getElementById('chartUsers')) {
+    new Chart(document.getElementById('chartUsers'), {
+      type: 'bar',
+      data: {
+        labels: users.map(function(m) { return m.label; }),
+        datasets: [{
+          label: 'New users',
+          data: users.map(function(m) { return m.value; }),
+          backgroundColor: 'rgba(99, 102, 241, 0.7)'
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } },
+          y: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
+  }
+})();
+</script>
+
+<style>
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .kpi-card { text-align: center; padding: 16px; }
+  .kpi-card .kpi-value { font-size: 26px; font-weight: 700; color: var(--platform-primary); }
+  .kpi-card .kpi-label { font-size: 12px; color: var(--platform-muted); margin-top: 4px; }
+  .charts-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+  .chart-card .card-title { margin-bottom: 4px; }
+  .card-sub { font-size: 13px; color: var(--platform-muted); margin: 0 0 12px 0; }
+  .chart-wrap { height: 220px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  .business-list { list-style: none; padding: 0; margin: 0; }
+  .business-list li {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--platform-border);
+  }
+  .business-list li.empty { color: var(--platform-muted); }
+  .table-wrap { overflow-x: auto; }
+  .footer-links { margin-top: 8px; }
+  @media (max-width: 900px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .charts-section { grid-template-columns: 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}

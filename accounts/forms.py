@@ -4,8 +4,30 @@ from django.contrib.auth.forms import UserCreationForm
 from django.utils import timezone
 
 from accounts.models import EmployeePayment
+from businesses.models import Business
 
 User = get_user_model()
+
+
+class SignUpForm(UserCreationForm):
+    """Public signup: create a business and an owner user."""
+    business_name = forms.CharField(
+        max_length=255,
+        label="Business name",
+        help_text="Your company or business name.",
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            "business_name",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "password1",
+            "password2",
+        ]
 
 
 class EmployeeForm(forms.ModelForm):
@@ -73,3 +95,47 @@ class EmployeePaymentForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if not self.instance.pk and 'paid_date' in self.fields:
             self.fields['paid_date'].initial = timezone.localdate()
+
+
+class SendNotificationForm(forms.Form):
+    """Owner sends a notification to selected employees and/or crews (multi-select)."""
+    send_to_all = forms.BooleanField(
+        required=False,
+        label="All employees",
+        help_text="Send to everyone in your business (overrides individual selections below).",
+    )
+    employees = forms.MultipleChoiceField(
+        required=False,
+        label="Employees",
+        widget=forms.CheckboxSelectMultiple,
+        help_text="Select one or more employees.",
+    )
+    crews = forms.MultipleChoiceField(
+        required=False,
+        label="Crews",
+        widget=forms.CheckboxSelectMultiple,
+        help_text="Select one or more crews (every member receives the notification).",
+    )
+    message = forms.CharField(
+        label="Message",
+        widget=forms.Textarea(attrs={"rows": 4, "placeholder": "Type your message…"}),
+        max_length=2000,
+    )
+
+    def __init__(self, *args, business=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if business:
+            emp_list = User.objects.filter(business=business).order_by("first_name", "last_name", "username")
+            self.fields["employees"].choices = [(str(u.id), u.get_full_name() or u.username) for u in emp_list]
+            from jobs.models import Crew
+            crew_list = Crew.objects.filter(business=business).order_by("name")
+            self.fields["crews"].choices = [(str(c.id), c.name) for c in crew_list]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        send_to_all = cleaned_data.get("send_to_all")
+        employees = cleaned_data.get("employees") or []
+        crews = cleaned_data.get("crews") or []
+        if not send_to_all and not employees and not crews:
+            raise forms.ValidationError("Select at least one option: All employees, specific employees, and/or crews.")
+        return cleaned_data

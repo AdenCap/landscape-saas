@@ -100,6 +100,34 @@ class TrustedDevice(models.Model):
         return f"{self.user.username} – {self.name or self.token[:8]}…"
 
 
+class Notification(models.Model):
+    """In-app notification from business owner to employee(s)."""
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    from_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications_sent",
+    )
+    to_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications_received",
+    )
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.from_user} → {self.to_user}: {self.message[:50]}…"
+
+
 class AuditLog(models.Model):
     """Security audit trail: platform admin actions, logins, etc."""
     ACTION_CHOICES = [

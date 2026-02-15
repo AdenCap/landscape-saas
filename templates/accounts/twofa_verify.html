@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Two-factor authentication</h1>
+  <p>Enter the 6-digit code from your authenticator app.</p>
+</div>
+<div class="card" style="max-width: 360px;">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="token">Code</label>
+      <input type="text" name="token" id="token" maxlength="8" placeholder="000000" autocomplete="one-time-code" pattern="[0-9]*" inputmode="numeric" class="form-control" style="width: 100%; padding: 12px; font-size: 20px; letter-spacing: 6px; text-align: center;" autofocus />
+    </div>
+    <button type="submit" class="btn btn-primary">Verify</button>
+  </form>
+</div>
+{% endblock %}

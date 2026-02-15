@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from businesses.models import Business
@@ -14,6 +15,20 @@ class Customer(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     alt_phone = models.CharField(max_length=20, blank=True, verbose_name='Alternate phone')
     email = models.EmailField(blank=True)
+
+    COMMUNICATION_PREFERENCE_CHOICES = [
+        ("", "— Not set —"),
+        ("email", "Email"),
+        ("sms", "Text (SMS)"),
+        ("both", "Email and Text"),
+    ]
+    communication_preference = models.CharField(
+        max_length=10,
+        choices=COMMUNICATION_PREFERENCE_CHOICES,
+        default="",
+        blank=True,
+        help_text="How this client prefers to be contacted.",
+    )
 
     # Billing / mailing address (properties have service addresses)
     address_line1 = models.CharField(max_length=255, blank=True, verbose_name='Address')
@@ -119,3 +134,50 @@ class Property(models.Model):
 
     def __str__(self):
         return self.address
+
+
+class ClientMessage(models.Model):
+    """Stores all client communications (email and SMS) for history under the client profile."""
+    CHANNEL_EMAIL = "email"
+    CHANNEL_SMS = "sms"
+    CHANNEL_CHOICES = [(CHANNEL_EMAIL, "Email"), (CHANNEL_SMS, "SMS")]
+
+    DIRECTION_SENT = "sent"
+    DIRECTION_RECEIVED = "received"
+    DIRECTION_CHOICES = [(DIRECTION_SENT, "Sent"), (DIRECTION_RECEIVED, "Received")]
+
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name="messages",
+    )
+    channel = models.CharField(max_length=10, choices=CHANNEL_CHOICES)
+    direction = models.CharField(max_length=10, choices=DIRECTION_CHOICES)
+
+    subject = models.CharField(max_length=255, blank=True, help_text="Email subject; blank for SMS.")
+    body = models.TextField()
+    to_address = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Email address or phone number the message was sent to or received from.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sent_client_messages",
+        help_text="User who sent this message (null for received or system).",
+    )
+    is_read = models.BooleanField(
+        default=False,
+        help_text="Received messages are unread until viewed on the client profile.",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_direction_display()} {self.get_channel_display()} to {self.customer.name} at {self.created_at}"

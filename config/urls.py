@@ -42,6 +42,7 @@ urlpatterns = [
     path("billing/", include(("billing.urls", "billing"), namespace="billing")),
     path("clients/", include("customers.urls")),
     path("employees/", include("accounts.urls")),
+    path("notifications/", include("accounts.notification_urls")),
     path("crews/", include("jobs.crew_urls")),
     path("jobs/", include("jobs.urls")),
     path("time/", include("time_tracking.urls")),

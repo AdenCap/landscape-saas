@@ -9,13 +9,10 @@ from django.views.decorators.http import require_http_methods, require_POST
 from django.http import JsonResponse, HttpResponse
 
 from accounts.decorators import role_required
+from accounts.utils import get_business as _get_business
 from customers.models import Customer, Property
 from .models import PropertyEstimate, PropertyEstimateImage
 from .analysis import analyze_image, HAS_OPENCV
-
-
-def _get_business(request):
-    return getattr(request.user, 'business', None)
 
 
 @role_required("owner")

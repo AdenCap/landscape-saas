@@ -14,7 +14,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.decorators import role_required
-from customers.models import Customer
+from accounts.utils import get_business as _get_business
+from customers.models import Customer, ClientMessage
 from .models import Invoice, Estimate, EstimateLineItem, EstimateImage
 from .forms import EstimateForm, EstimateLineItemForm, EstimateImageForm, _compute_fertilizing, _compute_mulch
 
@@ -208,9 +209,6 @@ def invoice_pdf(request, invoice_id):
 
 
 # --- Estimates ---
-
-def _get_business(request):
-    return getattr(request.user, "business", None)
 
 
 @role_required("owner")
@@ -572,6 +570,15 @@ def estimate_send(request, estimate_id):
         estimate.status = "sent"
         estimate.sent_at = timezone.now()
         estimate.save(update_fields=["status", "sent_at"])
+        ClientMessage.objects.create(
+            customer=customer,
+            channel=ClientMessage.CHANNEL_EMAIL,
+            direction=ClientMessage.DIRECTION_SENT,
+            subject=subject,
+            body=f"Estimate «{estimate.title}» sent to client. View estimate #{estimate.id} in Billing.",
+            to_address=customer.email,
+            created_by=request.user,
+        )
         messages.success(request, f"Estimate sent to {customer.email}")
     except Exception as e:
         messages.error(request, f"Failed to send: {str(e)}")
@@ -639,9 +646,17 @@ def estimate_send_followup(request, estimate_id):
 
     try:
         msg.send()
-        from django.utils import timezone
         estimate.last_follow_up_at = timezone.now()
         estimate.save(update_fields=["last_follow_up_at"])
+        ClientMessage.objects.create(
+            customer=customer,
+            channel=ClientMessage.CHANNEL_EMAIL,
+            direction=ClientMessage.DIRECTION_SENT,
+            subject=subject,
+            body=f"Estimate follow-up «{estimate.title}» sent to client.",
+            to_address=customer.email,
+            created_by=request.user,
+        )
         messages.success(request, f"Follow-up sent to {customer.email}")
     except Exception as e:
         messages.error(request, f"Failed to send: {str(e)}")

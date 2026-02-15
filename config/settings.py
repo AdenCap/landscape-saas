@@ -28,17 +28,20 @@ except ImportError:
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-irt9nv(azv+l0u$gw0@v0u8ttl_$+52jw9nh8*l47zr&efj*_a'
+# Set DJANGO_SECRET_KEY in production (e.g. a 50-char random string).
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-irt9nv(azv+l0u$gw0@v0u8ttl_$+52jw9nh8*l47zr&efj*_a")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Default to True so you see full error pages in development; set DJANGO_DEBUG=0 to disable.
 DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 
-# In development, allow common hosts so you don't get "DisallowedHost" / generic 500.
-ALLOWED_HOSTS = (
-    ["*"] if DEBUG
-    else ["127.0.0.1", "localhost"]
-)
+# In production, set ALLOWED_HOSTS (comma-separated) or leave unset to allow only 127.0.0.1/localhost.
+_allowed = os.environ.get("ALLOWED_HOSTS", "").strip()
+ALLOWED_HOSTS = [h.strip() for h in _allowed.split(",") if h.strip()] if _allowed else (["*"] if DEBUG else ["127.0.0.1", "localhost"])
+
+# For HTTPS in production, set CSRF_TRUSTED_ORIGINS (comma-separated), e.g. https://yourapp.com,https://www.yourapp.com
+_csrf_origins = os.environ.get("CSRF_TRUSTED_ORIGINS", "").strip()
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()] if _csrf_origins else []
 
 
 # Application definition
@@ -69,8 +72,13 @@ QUICKBOOKS_CLIENT_ID = os.environ.get("QUICKBOOKS_CLIENT_ID", "")
 QUICKBOOKS_CLIENT_SECRET = os.environ.get("QUICKBOOKS_CLIENT_SECRET", "")
 QUICKBOOKS_REDIRECT_URI = os.environ.get("QUICKBOOKS_REDIRECT_URI", "")  # e.g. https://yourdomain.com/quickbooks/callback/
 
-MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
+_middleware = ['django.middleware.security.SecurityMiddleware']
+try:
+    import whitenoise  # noqa: F401
+    _middleware.append('whitenoise.middleware.WhiteNoiseMiddleware')
+except ImportError:
+    pass
+_middleware += [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -78,6 +86,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+MIDDLEWARE = _middleware
 # Optional 2FA: pip install django-otp qrcode, then add to INSTALLED_APPS: 'django_otp', 'django_otp.plugins.otp_totp'
 # and insert after AuthenticationMiddleware: 'django_otp.middleware.OTPMiddleware',
 
@@ -94,6 +103,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'accounts.context_processors.notification_unread_count',
             ],
         },
     },
@@ -146,8 +156,8 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
-
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media files (uploads)
 MEDIA_URL = 'media/'

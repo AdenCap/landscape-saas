@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
-from .models import User
+from .models import User, AuditLog, Notification
 
 
 @admin.register(User)
@@ -50,3 +50,26 @@ class UserAdmin(BaseUserAdmin):
         return name or '—'
 
     get_full_name.short_description = 'Name'
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "from_user", "to_user", "message_preview", "read_at")
+    list_filter = ("business", "read_at")
+    search_fields = ("message", "from_user__username", "to_user__username")
+    readonly_fields = ("business", "from_user", "to_user", "message", "created_at", "read_at")
+    date_hierarchy = "created_at"
+
+    def message_preview(self, obj):
+        return (obj.message[:60] + "…") if len(obj.message) > 60 else obj.message
+
+    message_preview.short_description = "Message"
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "action", "user", "details", "ip_address")
+    list_filter = ("action",)
+    search_fields = ("details", "user__username")
+    readonly_fields = ("user", "action", "details", "ip_address", "created_at")
+    date_hierarchy = "created_at"

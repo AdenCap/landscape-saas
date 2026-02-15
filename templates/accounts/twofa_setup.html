@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Enable two-factor authentication</h1>
+  <p>Scan the QR code with an authenticator app (e.g. Google Authenticator, Authy), then enter a code to confirm.</p>
+</div>
+<div class="card" style="max-width: 420px;">
+  <div style="margin-bottom: 16px;">
+    <img src="data:image/svg+xml;base64,{{ qr_b64 }}" alt="QR code" width="220" height="220" style="display: block; margin: 0 auto; background: white; padding: 12px; border-radius: 10px;" />
+  </div>
+  <p style="font-size: 13px; color: var(--text-muted);">Or enter this key manually: <code style="word-break: break-all;">{{ secret }}</code></p>
+  <form method="post" style="margin-top: 20px;">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="token">Enter 6-digit code from app</label>
+      <input type="text" name="token" id="token" maxlength="8" placeholder="000000" autocomplete="one-time-code" pattern="[0-9]*" inputmode="numeric" class="form-control" style="width: 100%; max-width: 160px; padding: 10px; font-size: 18px; letter-spacing: 4px; text-align: center;" />
+    </div>
+    <button type="submit" class="btn btn-primary">Confirm and enable 2FA</button>
+  </form>
+</div>
+<p style="margin-top: 16px;"><a href="{% url 'business_settings' %}" class="link-primary">Back to Settings</a></p>
+{% endblock %}
