@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Django: runserver (auto-reload on save)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/manage.py",
+      "args": ["runserver"],
+      "django": true,
+      "justMyCode": false,
+      "console": "integratedTerminal"
+    }
+  ]
+}
