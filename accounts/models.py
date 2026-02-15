@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from businesses.models import Business
@@ -79,4 +80,49 @@ class EmployeePayment(models.Model):
 
     def __str__(self):
         return f"{self.employee} – ${self.amount} on {self.paid_date}"
+
+
+class TrustedDevice(models.Model):
+    """Devices that have passed 2FA once; we skip 2FA on next login from this device."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="trusted_devices",
+    )
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    name = models.CharField(max_length=255, blank=True, help_text="e.g. Chrome on Mac")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} – {self.name or self.token[:8]}…"
+
+
+class AuditLog(models.Model):
+    """Security audit trail: platform admin actions, logins, etc."""
+    ACTION_CHOICES = [
+        ("platform_enter", "Platform admin entered business"),
+        ("platform_exit", "Platform admin exited business"),
+        ("login", "User login"),
+        ("login_failed", "Failed login attempt"),
+    ]
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audit_logs",
+    )
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    details = models.CharField(max_length=500, blank=True, help_text="e.g. business name, IP, reason")
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.action} by {self.user_id} at {self.created_at}"
 

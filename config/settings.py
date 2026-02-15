@@ -31,9 +31,14 @@ except ImportError:
 SECRET_KEY = 'django-insecure-irt9nv(azv+l0u$gw0@v0u8ttl_$+52jw9nh8*l47zr&efj*_a'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Default to True so you see full error pages in development; set DJANGO_DEBUG=0 to disable.
+DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+# In development, allow common hosts so you don't get "DisallowedHost" / generic 500.
+ALLOWED_HOSTS = (
+    ["*"] if DEBUG
+    else ["127.0.0.1", "localhost"]
+)
 
 
 # Application definition
@@ -73,6 +78,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+# Optional 2FA: pip install django-otp qrcode, then add to INSTALLED_APPS: 'django_otp', 'django_otp.plugins.otp_totp'
+# and insert after AuthenticationMiddleware: 'django_otp.middleware.OTPMiddleware',
 
 ROOT_URLCONF = 'config.urls'
 
@@ -153,7 +160,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/'
+# After password login we hit this view; it redirects to 2FA verify only on new devices
+LOGIN_REDIRECT_URL = '/accounts/post-login/'
+
+# Session security: auto-logout after inactivity (12 hours); refresh session on each request
+SESSION_COOKIE_AGE = 60 * 60 * 12  # 12 hours
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# Two-factor auth (optional): pip install django-otp qrcode, then add apps & OTPMiddleware
+# OTP_LOGIN_URL = '/accounts/verify/'
+# OTP_TOTP_ISSUER = 'Field Ops'
 
 # Email - each business configures Gmail in Settings; fallback for non-email use
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

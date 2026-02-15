@@ -23,9 +23,16 @@ admin.site.site_header = "Field Ops Admin"
 admin.site.site_title = "Field Ops"
 admin.site.index_title = "Manage your business, employees, and customers"
 
+from config.platform_views import platform_home, platform_enter, platform_exit
+
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('accounts/', include('django.contrib.auth.urls')),
+    path("accounts/", include("accounts.auth_urls")),
+
+    # Platform admin (superuser only): list businesses and enter any dashboard
+    path('platform/', platform_home, name='platform_home'),
+    path('platform/enter/<int:business_id>/', platform_enter, name='platform_enter'),
+    path('platform/exit/', platform_exit, name='platform_exit'),
 
     # Homepage = Dashboard
     path('', include('dashboard.urls')),

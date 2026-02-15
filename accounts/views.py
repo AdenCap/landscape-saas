@@ -1,10 +1,15 @@
+from urllib.parse import urlencode
+
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import SetPasswordForm
+from django.contrib.auth.views import LoginView as AuthLoginView
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.decorators import role_required
+from accounts.utils import get_business as _get_business
 from django.utils import timezone as tz
 from accounts.forms import EmployeeForm, EmployeeCreateForm, EmployeePasswordForm, EmployeePaymentForm
 from accounts.models import EmployeePayment
@@ -12,8 +17,16 @@ from accounts.models import EmployeePayment
 User = get_user_model()
 
 
-def _get_business(request):
-    return getattr(request.user, 'business', None)
+class LoginView(AuthLoginView):
+    """After password login, always send to post-login check (2FA on new device); preserve next."""
+
+    def get_success_url(self):
+        # Always go through post-login check; pass through intended destination
+        base = settings.LOGIN_REDIRECT_URL
+        redirect_to = self.get_redirect_url()  # already validates safe URL
+        if redirect_to:
+            return base + "?" + urlencode({self.redirect_field_name: redirect_to})
+        return base
 
 
 @role_required("owner")
