@@ -41,10 +41,10 @@ def customer_list(request):
             Q(city__icontains=search)
         )
 
-    # Annotate with property and invoice counts
+    # Annotate with property and invoice counts (distinct=True so the JOIN doesn't inflate counts)
     customers = customers.annotate(
-        property_count=Count('properties'),
-        invoice_count=Count('invoices'),
+        property_count=Count('properties', distinct=True),
+        invoice_count=Count('invoices', distinct=True),
     ).select_related('business').order_by('name')
 
     return render(request, "customers/customer_list.html", {

@@ -7,18 +7,24 @@
 </div>
 
 <div class="kpi-grid">
-  <div class="kpi-card card">
-    <div class="kpi-label">Revenue (this month)</div>
+  <div class="kpi-card card kpi-card-revenue">
+    <div class="kpi-label">Revenue this month</div>
     <div class="kpi-value">${{ revenue_this_month }}</div>
     <div class="kpi-sub">{{ month_start }} → {{ month_end }}</div>
+    <div class="kpi-secondary">This year: ${{ revenue_this_year }}</div>
     <div class="kpi-actions">
       <a href="{% url 'financials:dashboard' %}" class="btn btn-secondary btn-sm">Financials</a>
     </div>
   </div>
-  <div class="kpi-card card">
+  <div class="kpi-card card kpi-card-overdue">
     <div class="kpi-label">Invoices overdue</div>
     <div class="kpi-value {% if invoices_overdue_count %}kpi-alert{% endif %}">{{ invoices_overdue_count }} — ${{ invoices_overdue_total }}</div>
     <div class="kpi-sub">Past due date, unpaid</div>
+    <div class="kpi-aging">
+      <div class="kpi-aging-row"><span>0–30 days</span><span>${{ overdue_0_30.total|floatformat:2 }} ({{ overdue_0_30.count }})</span></div>
+      <div class="kpi-aging-row"><span>30–60 days</span><span>${{ overdue_30_60.total|floatformat:2 }} ({{ overdue_30_60.count }})</span></div>
+      <div class="kpi-aging-row"><span>60+ days</span><span>${{ overdue_60_plus.total|floatformat:2 }} ({{ overdue_60_plus.count }})</span></div>
+    </div>
     <div class="kpi-actions">
       <a href="/billing/" class="btn btn-secondary btn-sm">Invoices</a>
     </div>
@@ -45,6 +51,28 @@
     <div class="kpi-sub">Scheduled</div>
     <div class="kpi-actions">
       <a href="{% url 'job_list' %}" class="btn btn-secondary btn-sm">Jobs</a>
+    </div>
+  </div>
+  <div class="kpi-card card kpi-card-work-completed">
+    <div class="kpi-label">Work completed this month</div>
+    <div class="kpi-value">${{ work_completed_this_month }}</div>
+    <div class="kpi-sub">Value of completed jobs (not payments received)</div>
+    <div class="kpi-actions">
+      <a href="{% url 'job_list' %}" class="btn btn-secondary btn-sm">Jobs</a>
+    </div>
+  </div>
+  <div class="kpi-card card kpi-card-payroll">
+    <div class="kpi-label">Payroll balance</div>
+    {% if next_pay_date %}
+    <div class="kpi-value">${{ payroll_balance|floatformat:2 }}</div>
+    <div class="kpi-sub">Due {{ next_pay_date }}{% if pay_frequency_label %} ({{ pay_frequency_label }}){% endif %}</div>
+    {% else %}
+    <div class="kpi-value kpi-muted">—</div>
+    <div class="kpi-sub">Set pay schedule in Financials</div>
+    {% endif %}
+    <div class="kpi-actions">
+      <a href="{% url 'financials:dashboard' %}" class="btn btn-secondary btn-sm">Financials</a>
+      <a href="{% url 'employee_management' %}" class="btn btn-secondary btn-sm">Payroll</a>
     </div>
   </div>
 </div>
@@ -79,13 +107,21 @@
 </div>
 
 <style>
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-  .kpi-card .kpi-label { color: var(--text-muted); font-size: 13px; margin-bottom: 4px; }
-  .kpi-card .kpi-value { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px; }
+  .kpi-card { padding: 24px; min-height: 140px; display: flex; flex-direction: column; justify-content: space-between; }
+  .kpi-card .kpi-label { color: var(--text-muted); font-size: 14px; margin-bottom: 6px; }
+  .kpi-card .kpi-value { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
   .kpi-card .kpi-value.kpi-profit { color: var(--primary); }
   .kpi-card .kpi-value.kpi-alert { color: #f59e0b; }
-  .kpi-card .kpi-sub { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
-  .kpi-actions { margin-top: 12px; }
+  .kpi-card .kpi-value.kpi-muted { color: var(--text-muted); font-size: 24px; }
+  .kpi-card-payroll .kpi-value { color: #f59e0b; }
+  .kpi-card .kpi-sub { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+  .kpi-card .kpi-secondary { color: var(--text-muted); font-size: 14px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .kpi-card-revenue .kpi-secondary { font-weight: 500; color: var(--text); }
+  .kpi-aging { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+  .kpi-aging-row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
+  .kpi-aging-row span:last-child { font-weight: 500; color: var(--text); }
+  .kpi-actions { margin-top: 16px; }
 
   .dashboard-section { margin-top: 24px; }
   .card-subtitle { color: var(--text-muted); font-size: 14px; margin: -4px 0 16px 0; }

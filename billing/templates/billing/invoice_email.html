@@ -1,0 +1,96 @@
+{% load billing_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Invoice #{{ invoice.id }} – {{ business.name }}</title>
+</head>
+<body style="margin:0; padding:0; background-color:#0a0a0a; font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:15px; line-height:1.5; color:#fafafa;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#0a0a0a;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px; background-color:#171717; border:1px solid #262626; border-radius:14px; overflow:hidden;">
+          <tr>
+            <td style="padding:24px 24px 16px 24px; border-bottom:1px solid #262626;">
+              {% if logo_url %}
+              <img src="{{ logo_url }}" alt="{{ business.name }}" style="max-height:48px; max-width:160px; display:block; margin-bottom:16px;">
+              {% endif %}
+              <h1 style="margin:0; font-size:22px; font-weight:700; color:#fafafa; letter-spacing:-0.02em;">Invoice #{{ invoice.id }}</h1>
+              <p style="margin:10px 0 0 0; font-size:14px; color:#a3a3a3;">
+                From {{ business.name }}<br>
+                Bill to: {{ invoice.customer.name }}<br>
+                Issue date: {{ invoice.issue_date }} · Due: {{ invoice.due_date|default:"—" }}
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 24px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="text-align:left; padding:12px 0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#a3a3a3; border-bottom:1px solid #262626;">Description</th>
+                    <th style="text-align:right; padding:12px 0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#a3a3a3; border-bottom:1px solid #262626;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in invoice.line_items.all %}
+                  <tr>
+                    <td style="padding:12px 0; border-bottom:1px solid #262626; color:#fafafa;">{{ item.description }}</td>
+                    <td style="text-align:right; padding:12px 0; border-bottom:1px solid #262626; color:#fafafa;">{{ item.line_total|currency }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <p style="margin:16px 0 0 0; font-size:18px; font-weight:700; text-align:right; color:#22c55e; border-top:2px solid #22c55e; padding-top:12px;">
+                Total: {{ invoice.total|currency }}
+              </p>
+            </td>
+          </tr>
+          {% if business.venmo_username or business.zelle_email_or_phone or business.cashapp_cashtag %}
+          <tr>
+            <td style="padding:8px 24px 24px 24px;">
+              <p style="margin:0 0 12px 0; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#a3a3a3;">How to pay</p>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                {% if business.venmo_username %}
+                <tr>
+                  <td style="padding:8px 0; vertical-align:middle;">
+                    <img src="https://cdn.simpleicons.org/venmo/008CFF" width="24" height="24" alt="Venmo" style="display:inline-block; vertical-align:middle; margin-right:10px;">
+                    <span style="color:#fafafa;">Venmo: {{ business.venmo_username }}</span>
+                  </td>
+                </tr>
+                {% endif %}
+                {% if business.zelle_email_or_phone %}
+                <tr>
+                  <td style="padding:8px 0; vertical-align:middle;">
+                    <img src="https://cdn.simpleicons.org/zelle/6D1ED4" width="24" height="24" alt="Zelle" style="display:inline-block; vertical-align:middle; margin-right:10px;">
+                    <span style="color:#fafafa;">Zelle: {{ business.zelle_email_or_phone }}</span>
+                  </td>
+                </tr>
+                {% endif %}
+                {% if business.cashapp_cashtag %}
+                <tr>
+                  <td style="padding:8px 0; vertical-align:middle;">
+                    <img src="https://cdn.simpleicons.org/cashapp/00D54B" width="24" height="24" alt="Cash App" style="display:inline-block; vertical-align:middle; margin-right:10px;">
+                    <span style="color:#fafafa;">Cash App: {{ business.cashapp_cashtag }}</span>
+                  </td>
+                </tr>
+                {% endif %}
+              </table>
+            </td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td style="padding:20px 24px; border-top:1px solid #262626; font-size:13px; color:#a3a3a3;">
+              Your invoice is attached as a PDF. This email was sent by {{ business.name }}.
+              {% if business.contact_email or business.contact_phone %}
+              Contact: {% if business.contact_email %}{{ business.contact_email }}{% endif %}{% if business.contact_email and business.contact_phone %} · {% endif %}{% if business.contact_phone %}{{ business.contact_phone }}{% endif %}
+              {% endif %}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

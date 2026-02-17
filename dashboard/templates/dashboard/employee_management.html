@@ -3,19 +3,24 @@
 {% block content %}
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
   <div>
-    <h1>Employee Management</h1>
-    <p>Employees, timesheets, crews, and payroll in one place</p>
+    <h1>{% if is_owner %}Employee Management{% else %}Time off &amp; Schedule{% endif %}</h1>
+    <p>{% if is_owner %}Employees, timesheets, crews, payroll, time off, and schedules{% else %}Your time off requests and work schedule{% endif %}</p>
   </div>
 </div>
 
 <nav class="emp-mgmt-tabs" aria-label="Sections">
+  {% if is_owner %}
   <a href="#employees" class="emp-tab active" data-tab="employees">Employees</a>
   <a href="#timesheets" class="emp-tab" data-tab="timesheets">Timesheets</a>
   <a href="#crews" class="emp-tab" data-tab="crews">Crews</a>
   <a href="#payroll" class="emp-tab" data-tab="payroll">Payroll</a>
+  {% endif %}
+  <a href="#timeoff" class="emp-tab {% if not is_owner %}active{% endif %}" data-tab="timeoff">Time off</a>
+  <a href="#schedule" class="emp-tab" data-tab="schedule">Schedule</a>
 </nav>
 
-<!-- Employees -->
+<!-- Employees (owner only) -->
+{% if is_owner %}
 <section id="section-employees" class="emp-mgmt-section card emp-tab-panel" data-panel="employees">
   <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
     Employees
@@ -61,8 +66,10 @@
     </tbody>
   </table>
 </section>
+{% endif %}
 
-<!-- Timesheets -->
+<!-- Timesheets (owner only) -->
+{% if is_owner %}
 <section id="section-timesheets" class="emp-mgmt-section card emp-tab-panel" data-panel="timesheets" hidden>
   <h2 class="card-title">Timesheets</h2>
   <p class="section-desc">Weekly and yearly hours and labor costs.</p>
@@ -105,8 +112,10 @@
     </tbody>
   </table>
 </section>
+{% endif %}
 
-<!-- Crews -->
+<!-- Crews (owner only) -->
+{% if is_owner %}
 <section id="section-crews" class="emp-mgmt-section card emp-tab-panel" data-panel="crews" hidden>
   <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
     Crews
@@ -142,8 +151,10 @@
     </tbody>
   </table>
 </section>
+{% endif %}
 
-<!-- Payroll -->
+<!-- Payroll (owner only) -->
+{% if is_owner %}
 <section id="section-payroll" class="emp-mgmt-section card emp-tab-panel" data-panel="payroll" hidden>
   <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
     Payroll
@@ -188,6 +199,120 @@
     </tbody>
   </table>
 </section>
+{% endif %}
+
+<!-- Time off -->
+<section id="section-timeoff" class="emp-mgmt-section card emp-tab-panel" data-panel="timeoff" {% if is_owner %}hidden{% endif %}>
+  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+    Time off
+    <span style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <a href="{% url 'time_off_create' %}" class="btn btn-primary btn-sm">+ Request time off</a>
+      {% if is_owner and time_off_employees %}
+      <select class="form-control" style="max-width: 200px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px;" onchange="if(this.value) window.location.href='{% url 'time_off_create' %}?user_id=' + this.value;">
+        <option value="">Request for employee…</option>
+        {% for emp in time_off_employees %}
+        <option value="{{ emp.id }}">{{ emp.get_full_name|default:emp.username }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+    </span>
+  </h2>
+  <p class="section-desc">{% if is_owner %}View and manage employee time off requests.{% else %}Your time off requests.{% endif %}</p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        {% if is_owner %}<th>Employee</th>{% endif %}
+        <th>Start</th>
+        <th>End</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Submitted</th>
+        {% if is_owner %}<th>Actions</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for req in time_off_requests %}
+      <tr>
+        {% if is_owner %}
+        <td>{{ req.user.get_full_name|default:req.user.username }}</td>
+        {% endif %}
+        <td>{{ req.start_date }}</td>
+        <td>{{ req.end_date }}</td>
+        <td>{{ req.get_request_type_display }}</td>
+        <td>
+          <span class="badge badge-{% if req.status == 'approved' %}success{% elif req.status == 'denied' %}danger{% else %}warning{% endif %}">
+            {{ req.get_status_display }}
+          </span>
+        </td>
+        <td>{{ req.created_at|date:"M j, Y" }}</td>
+        {% if is_owner and req.status == 'pending' %}
+        <td>
+          <form action="{% url 'time_off_approve' req.pk %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm">Approve</button>
+          </form>
+          <form action="{% url 'time_off_deny' req.pk %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm" style="margin-left:4px;">Deny</button>
+          </form>
+        </td>
+        {% elif is_owner %}
+        <td>—</td>
+        {% endif %}
+      </tr>
+      {% if req.notes %}
+      <tr>
+        <td colspan="{% if is_owner %}7{% else %}5{% endif %}" style="color: var(--text-muted); font-size: 13px; padding-top: 0;">Note: {{ req.notes }}</td>
+      </tr>
+      {% endif %}
+      {% empty %}
+      <tr>
+        <td colspan="{% if is_owner %}7{% else %}5{% endif %}">No time off requests yet. <a href="{% url 'time_off_create' %}" class="link-primary">Submit a request</a>.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- Schedule -->
+<section id="section-schedule" class="emp-mgmt-section card emp-tab-panel" data-panel="schedule" hidden>
+  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+    Schedule
+    {% if is_owner %}
+    <span style="display: flex; gap: 8px; align-items: center;">
+      <select id="schedule-employee-select" class="form-control" style="max-width: 220px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px;" onchange="window.location.href='?schedule_user_id=' + this.value;">
+        {% for emp in schedule_employees %}
+        <option value="{{ emp.id }}" {% if schedule_selected_user and schedule_selected_user.id == emp.id %}selected{% endif %}>{{ emp.get_full_name|default:emp.username }}</option>
+        {% endfor %}
+      </select>
+      <a href="{% url 'time_schedule_edit' %}{% if schedule_selected_user %}?user_id={{ schedule_selected_user.id }}{% endif %}" class="btn btn-primary btn-sm">Edit schedule</a>
+    </span>
+    {% endif %}
+  </h2>
+  <p class="section-desc">{% if is_owner %}Weekly work schedule per employee. Only owners can edit schedules.{% else %}Your typical weekly schedule (set by your manager).{% endif %}</p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Day</th>
+        <th>Start time</th>
+        <th>End time</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for day_name, slot in schedule_rows %}
+      <tr>
+        <td>{{ day_name }}</td>
+        <td>{% if slot and slot.start_time %}{{ slot.start_time|time:"g:i A" }}{% else %}—{% endif %}</td>
+        <td>{% if slot and slot.end_time %}{{ slot.end_time|time:"g:i A" }}{% else %}—{% endif %}</td>
+        <td>{% if slot and slot.start_time and slot.end_time %}Working{% else %}Off{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">No schedule set yet.{% if is_owner %} Select an employee and click Edit schedule.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
 
 <style>
   .emp-mgmt-section { margin-bottom: 24px; }
@@ -196,10 +321,14 @@
   .kpi-card .kpi-label { color: var(--text-muted); font-size: 13px; margin-bottom: 4px; }
   .kpi-card .kpi-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
   .kpi-card .kpi-sub { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
   .badge-owner { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
   .badge-crew { background: rgba(34, 197, 94, 0.25); color: #86efac; }
   .badge-synced { background: rgba(34, 197, 94, 0.25); color: #86efac; }
   .badge-unsynced { background: rgba(234, 179, 8, 0.25); color: #fde047; }
+  .badge-success { background: rgba(34, 197, 94, 0.25); color: #86efac; }
+  .badge-danger { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+  .badge-warning { background: rgba(234, 179, 8, 0.25); color: #fde047; }
   .crew-color-swatch { display: inline-block; width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); }
   .emp-mgmt-tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
   .emp-tab { padding: 10px 16px; border-radius: 10px; text-decoration: none; color: var(--text-muted); font-weight: 500; font-size: 14px; }
@@ -229,6 +358,9 @@
   if (window.location.hash) {
     var id = window.location.hash.replace('#', '');
     if (id && document.querySelector('[data-panel="' + id + '"]')) showTab(id);
+  } else {
+    var activeTab = document.querySelector('.emp-tab.active');
+    if (activeTab) showTab(activeTab.getAttribute('data-tab'));
   }
 })();
 </script>

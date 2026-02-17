@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from businesses.models import Business
 from customers.models import Customer
@@ -72,8 +73,23 @@ class Invoice(models.Model):
         help_text='QuickBooks Online Invoice Id after push',
     )
 
+    payment_token = models.CharField(
+        max_length=64,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text="Secret token for the customer 'mark as paid' link. Set when invoice is sent.",
+    )
+
     def __str__(self):
         return f"Invoice #{self.id} - {self.customer.name}"
+
+    def recompute_totals(self):
+        """Recalculate subtotal and total from line items and save. Call after adding/editing line items."""
+        subtotal = sum(item.line_total for item in self.line_items.all())
+        self.subtotal = subtotal
+        self.total = subtotal + (self.tax or Decimal("0"))
+        self.save(update_fields=["subtotal", "total"])
 
 
 class Service(models.Model):
@@ -136,6 +152,15 @@ class InvoiceLineItem(models.Model):
         if self.material_cost or self.labor_cost:
             return self.material_cost + self.labor_cost
         return self.quantity * self.unit_price
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.invoice.recompute_totals()
+
+    def delete(self, *args, **kwargs):
+        invoice = self.invoice
+        super().delete(*args, **kwargs)
+        invoice.recompute_totals()
 
 
 class Estimate(models.Model):

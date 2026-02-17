@@ -34,11 +34,9 @@ urlpatterns = [
     path('platform/enter/<int:business_id>/', platform_enter, name='platform_enter'),
     path('platform/exit/', platform_exit, name='platform_exit'),
 
-    # Homepage = Dashboard
+    # Homepage = dashboard; /dashboard/ and sub-paths also go here
     path('', include('dashboard.urls')),
-
-    # App routes
-    path("dashboard", include("dashboard.urls")),  # owner dashboard becomes homepage
+    path("dashboard/", include('dashboard.urls')),
     path("billing/", include(("billing.urls", "billing"), namespace="billing")),
     path("clients/", include("customers.urls")),
     path("employees/", include("accounts.urls")),

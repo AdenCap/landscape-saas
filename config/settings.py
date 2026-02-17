@@ -172,6 +172,7 @@ AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = '/accounts/login/'
 # After password login we hit this view; it redirects to 2FA verify only on new devices
 LOGIN_REDIRECT_URL = '/accounts/post-login/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # Session security: auto-logout after inactivity (12 hours); refresh session on each request
 SESSION_COOKIE_AGE = 60 * 60 * 12  # 12 hours
@@ -188,4 +189,7 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # Mapbox for satellite imagery in Property Estimator (get free token at mapbox.com)
 MAPBOX_ACCESS_TOKEN = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
+
+# Google Maps for Daily Routes: map view and route optimization by address (enable Maps JavaScript API, Geocoding API, Directions API)
+GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 DEFAULT_FROM_EMAIL = "Field Ops <noreply@fieldops.local>"

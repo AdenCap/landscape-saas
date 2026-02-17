@@ -1,6 +1,8 @@
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from urllib.parse import quote
 
+from django.conf import settings
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -12,7 +14,8 @@ from accounts.decorators import role_required
 from accounts.utils import get_business
 from billing.services import create_draft_invoice_for_job, create_and_send_invoice_for_job
 from billing.monthly import generate_monthly_invoice_for_customer
-from .models import Job, JobServiceItem, Crew
+from .models import Job, JobServiceItem, Crew, RecurringJob
+from customers.models import Property
 from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset
 from pricing.utils import get_effective_rate
 from accounts.models import User
@@ -465,10 +468,12 @@ def daily_route_view(request):
                 user_colors[u.id] = u.color.strip()
     jobs_with_colors = [{"job": j, "color": _color_for_assignee(j, crew_colors, user_colors)} for j in jobs]
 
+    google_maps_key = getattr(settings, "GOOGLE_MAPS_API_KEY", "") or ""
     return render(request, 'jobs/daily_route.html', {
         "jobs": jobs,
         "jobs_with_colors": jobs_with_colors,
         "date_param": date_param,
+        "google_maps_api_key": google_maps_key,
     })
 
 
@@ -488,47 +493,88 @@ def update_route_order(request):
 @require_POST
 @role_required("owner")
 def optimize_route(request):
-    """Reorder jobs by nearest-neighbor from first job (or centroid). Requires property lat/lng."""
-    from math import sqrt
-
+    """Reorder jobs using Google Directions API waypoint optimization (by driving time/distance). Uses addresses."""
     date_str = request.POST.get("date") or request.GET.get("date")
     if date_str:
-        jobs = list(Job.objects.filter(scheduled_date=date_str))
+        jobs = list(Job.objects.filter(scheduled_date=date_str).order_by("route_order"))
     else:
-        jobs = list(Job.objects.filter(scheduled_date=timezone.now().date()))
+        jobs = list(Job.objects.filter(scheduled_date=timezone.now().date()).order_by("route_order"))
 
     business = get_business(request) if request.user.is_authenticated else None
     if business:
         jobs = [j for j in jobs if j.property.customer.business_id == business.id]
 
     if not jobs:
-        return JsonResponse({"status": "ok", "message": "No jobs to optimize"})
+        messages.info(request, "No jobs to optimize.")
+        return redirect("daily_route" + ("?date=" + date_str if date_str else ""))
 
-    def has_coords(j):
-        return j.property.latitude is not None and j.property.longitude is not None
+    api_key = getattr(settings, "GOOGLE_MAPS_API_KEY", "") or ""
+    if not api_key:
+        messages.error(request, "Google Maps API key not set. Add GOOGLE_MAPS_API_KEY to enable route optimization by address.")
+        return redirect("daily_route" + ("?date=" + date_str if date_str else ""))
 
-    coords_jobs = [(j, float(j.property.latitude), float(j.property.longitude)) for j in jobs if has_coords(j)]
-    if len(coords_jobs) < 2:
-        return JsonResponse({"status": "ok", "message": "Need 2+ properties with lat/lng to optimize"})
+    # Need at least 2 jobs with non-empty addresses
+    jobs_with_address = [j for j in jobs if (j.property and j.property.address and j.property.address.strip())]
+    if len(jobs_with_address) < 2:
+        messages.info(request, "Need 2+ jobs with property addresses to optimize.")
+        return redirect("daily_route" + ("?date=" + date_str if date_str else ""))
 
-    def dist(a, b):
-        return sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
+    # Google Directions API allows max 25 waypoints (so origin + 25 waypoints + destination = 27 stops)
+    if len(jobs_with_address) > 27:
+        jobs_with_address = jobs_with_address[:27]
 
-    remaining = set(range(len(coords_jobs)))
-    order = [0]
-    remaining.discard(0)
-    current = coords_jobs[0]
+    origin_addr = jobs_with_address[0].property.address.strip()
+    destination_addr = jobs_with_address[-1].property.address.strip()
+    waypoint_addrs = [j.property.address.strip() for j in jobs_with_address[1:-1]]
 
-    while remaining:
-        best_idx = min(remaining, key=lambda i: dist(current[1:], coords_jobs[i][1:]))
-        order.append(best_idx)
-        remaining.discard(best_idx)
-        current = coords_jobs[best_idx]
+    if not waypoint_addrs:
+        # Only 2 jobs: order is already origin -> destination
+        messages.info(request, "Route order unchanged (2 stops).")
+        return redirect("daily_route" + ("?date=" + date_str if date_str else ""))
 
-    for i, idx in enumerate(order):
-        Job.objects.filter(id=coords_jobs[idx][0].id).update(route_order=i)
+    # Build waypoints parameter: optimize:true|addr1|addr2|...
+    waypoints_param = "optimize:true|" + "|".join(quote(a) for a in waypoint_addrs)
+    url = (
+        "https://maps.googleapis.com/maps/api/directions/json?"
+        "origin={}&destination={}&waypoints={}&key={}"
+    ).format(quote(origin_addr), quote(destination_addr), waypoints_param, api_key)
 
-    return JsonResponse({"status": "ok", "message": "Route optimized"})
+    try:
+        import requests
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        messages.error(request, "Google Directions request failed: " + str(e))
+        return redirect("daily_route" + ("?date=" + date_str if date_str else ""))
+
+    if data.get("status") != "OK":
+        err = data.get("error_message") or data.get("status", "Unknown error")
+        messages.error(request, "Google Directions: " + str(err))
+        return redirect("daily_route" + ("?date=" + date_str if date_str else ""))
+
+    routes = data.get("routes", [])
+    if not routes:
+        messages.error(request, "No route returned from Google.")
+        return redirect("daily_route" + ("?date=" + date_str if date_str else ""))
+
+    waypoint_order = routes[0].get("waypoint_order", [])
+    # waypoint_order is 0-based indices into waypoint_addrs (jobs_with_address[1:-1])
+    # Full order: jobs_with_address[0], then waypoints in waypoint_order, then jobs_with_address[-1]
+    ordered_indices = [0] + [1 + i for i in waypoint_order] + [len(jobs_with_address) - 1]
+    ordered_jobs = [jobs_with_address[i] for i in ordered_indices]
+
+    # Preserve jobs not in jobs_with_address (no address): append them at the end in current order
+    job_ids_with_addr = {j.id for j in jobs_with_address}
+    for j in jobs:
+        if j.id not in job_ids_with_addr:
+            ordered_jobs.append(j)
+
+    for i, j in enumerate(ordered_jobs):
+        Job.objects.filter(id=j.id).update(route_order=i)
+
+    messages.success(request, "Route optimized with Google Maps.")
+    return redirect("daily_route" + ("?date=" + date_str if date_str else ""))
 
 
 @role_required("owner", "crew")
@@ -649,6 +695,41 @@ def create_job(request):
                 color_val = "#" + color_val
             if color_val and len(color_val) not in (4, 7):
                 color_val = None
+            repeat_freq = form.cleaned_data.get("repeat_frequency")
+            custom_days = form.cleaned_data.get("custom_interval_days") if repeat_freq == "custom" else None
+
+            # Build service snapshot for recurring (so we can create RecurringJob and generate future jobs with same services)
+            service_snapshot = []
+            for form_data in formset:
+                if form_data.cleaned_data.get("service"):
+                    service = form_data.cleaned_data["service"]
+                    qty = form_data.cleaned_data["quantity"]
+                    unit, rate = get_effective_rate(prop, service)
+                    override_price = form_data.cleaned_data.get("unit_price")
+                    if override_price is not None:
+                        rate = override_price
+                    unit = getattr(service, "default_unit", None) or unit
+                    service_snapshot.append({
+                        "service_id": service.pk,
+                        "quantity": str(qty),
+                        "unit": unit,
+                        "unit_price": str(rate),
+                    })
+
+            recurring_job = None
+            if repeat_freq and sched_date:
+                recurring_job = RecurringJob.objects.create(
+                    property=prop,
+                    frequency=repeat_freq,
+                    custom_interval_days=custom_days,
+                    start_date=sched_date,
+                    active=True,
+                    assigned_to=assigned_to,
+                    assigned_crew=assigned_crew,
+                    notes=form.cleaned_data.get("notes") or "",
+                    service_snapshot=service_snapshot,
+                )
+
             job = Job.objects.create(
                 property=prop,
                 scheduled_date=sched_date,
@@ -658,6 +739,7 @@ def create_job(request):
                 notes=form.cleaned_data.get("notes") or "",
                 status="scheduled",
                 color=color_val if color_val else None,
+                recurring_job=recurring_job,
             )
             for form_data in formset:
                 if form_data.cleaned_data.get("service"):
@@ -675,7 +757,10 @@ def create_job(request):
                         unit=unit,
                         unit_price=rate,
                     )
-            msg = f"Job created for {prop.address}" + (f" on {job.scheduled_date}" if job.scheduled_date else " (unscheduled)")
+            if recurring_job:
+                msg = f"Recurring job created for {prop.address} ({recurring_job.get_frequency_display()}); first date {sched_date}. Future dates will be generated automatically."
+            else:
+                msg = f"Job created for {prop.address}" + (f" on {job.scheduled_date}" if job.scheduled_date else " (unscheduled)")
             messages.success(request, msg + ".")
             if job.scheduled_date:
                 return redirect("job_detail", job_id=job.id)
@@ -934,3 +1019,120 @@ def job_update_costs(request, job_id):
     except Exception:
         messages.error(request, "Invalid cost values.")
     return redirect("job_detail", job_id=job.id)
+
+
+def _fertilization_dates_for_year(year, n_services, start_month=3, end_month=10):
+    """Return n_services dates spread across the growing season (start_month to end_month)."""
+    from calendar import monthrange
+    try:
+        first = date(year, start_month, 1)
+        last_day = monthrange(year, end_month)[1]
+        last = date(year, end_month, last_day)
+    except (ValueError, TypeError):
+        first = date(year, 3, 1)
+        last = date(year, 10, 31)
+    if n_services < 1:
+        return []
+    if n_services == 1:
+        return [first + (last - first) // 2]
+    delta = (last - first).days
+    step = delta / (n_services - 1) if n_services > 1 else 0
+    return [first + timedelta(days=int(i * step)) for i in range(n_services)]
+
+
+@role_required("owner")
+def fertilization_schedule(request):
+    """List properties with fertilization programs and create optimized schedule (same N = same dates)."""
+    business = get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    from pricing.models import ServiceTemplate
+    from django.db import transaction
+
+    # Properties that have fertilization_services_per_year set
+    properties = list(
+        Property.objects.filter(
+            customer__business=business,
+            fertilization_services_per_year__isnull=False,
+        )
+        .select_related("customer")
+        .order_by("fertilization_services_per_year", "customer__name", "address")
+    )
+
+    # Group by N (services per year) so we use the same dates for same N (optimization)
+    from collections import defaultdict
+    by_n = defaultdict(list)
+    for p in properties:
+        by_n[p.fertilization_services_per_year].append(p)
+
+    start_m = getattr(business, "growing_season_start_month", None) or 3
+    end_m = getattr(business, "growing_season_end_month", None) or 10
+    year = timezone.now().year
+    if request.GET.get("year"):
+        try:
+            year = int(request.GET.get("year"))
+        except ValueError:
+            pass
+
+    # Build suggested dates per N
+    dates_by_n = {}
+    for n in by_n:
+        dates_by_n[n] = _fertilization_dates_for_year(year, n, start_m, end_m)
+
+    if request.method == "POST":
+        service_id = request.POST.get("service_id")
+        year_post = request.POST.get("year", str(year))
+        try:
+            year_post = int(year_post)
+        except ValueError:
+            year_post = year
+        if not service_id:
+            messages.error(request, "Select a service (e.g. Fertilization) to create jobs.")
+            return redirect("fertilization_schedule")
+        try:
+            service = ServiceTemplate.objects.get(pk=service_id, business=business)
+        except ServiceTemplate.DoesNotExist:
+            messages.error(request, "Invalid service.")
+            return redirect("fertilization_schedule")
+        created = 0
+        with transaction.atomic():
+            for prop in properties:
+                n = prop.fertilization_services_per_year
+                for d in dates_by_n.get(n, []):
+                    if d < timezone.now().date():
+                        continue
+                    job, created_job = Job.objects.get_or_create(
+                        property=prop,
+                        scheduled_date=d,
+                        defaults={
+                            "status": "scheduled",
+                            "notes": f"Fertilization application {d}",
+                        },
+                    )
+                    if created_job:
+                        unit, rate = get_effective_rate(prop, service)
+                        JobServiceItem.objects.create(
+                            job=job,
+                            service=service,
+                            quantity=1,
+                            unit=unit,
+                            unit_price=rate,
+                        )
+                        created += 1
+        messages.success(request, f"Created {created} fertilization jobs for {year_post}. Clients with the same number of applications share the same dates for efficiency.")
+        return redirect("job_list")
+
+    services = list(ServiceTemplate.objects.filter(business=business, active=True).order_by("name"))
+    rows = [{"property": p, "dates": dates_by_n.get(p.fertilization_services_per_year, [])} for p in properties]
+    return render(request, "jobs/fertilization_schedule.html", {
+        "properties": properties,
+        "rows": rows,
+        "by_n": dict(by_n),
+        "dates_by_n": dates_by_n,
+        "year": year,
+        "services": services,
+        "start_month": start_m,
+        "end_month": end_m,
+    })

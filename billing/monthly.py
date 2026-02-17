@@ -3,6 +3,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import Invoice, InvoiceLineItem
+from .services import get_invoice_due_date
 
 
 @transaction.atomic
@@ -30,11 +31,15 @@ def generate_monthly_invoice_for_customer(customer, year, month, include_job=Non
     ).first()
 
     if not invoice:
+        issue_date = timezone.localdate()
+        due_date = get_invoice_due_date(issue_date, customer.business, customer)
         invoice = Invoice.objects.create(
             business=customer.business,
             customer=customer,
             period_start=period_start,
             period_end=period_end,
+            issue_date=issue_date,
+            due_date=due_date,
             status="draft",
         )
 
@@ -64,4 +69,5 @@ def generate_monthly_invoice_for_customer(customer, year, month, include_job=Non
         item.billed_at = timezone.now()
         item.save(update_fields=["billed_invoice", "billed_at"])
 
+    invoice.recompute_totals()
     return invoice

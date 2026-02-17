@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Time Off</h1>
+    <p>{% if is_owner %}View and manage employee time off requests.{% else %}Your time off requests and status.{% endif %}</p>
+  </div>
+  <span style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+    <a href="{% url 'time_off_create' %}" class="btn btn-primary">+ Request time off</a>
+    {% if is_owner and employees %}
+    <select class="form-control" style="max-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text);" onchange="if(this.value) window.location.href='{% url 'time_off_create' %}?user_id=' + this.value;">
+      <option value="">Request for employee…</option>
+      {% for emp in employees %}
+      <option value="{{ emp.id }}">{{ emp.get_full_name|default:emp.username }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+  </span>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        {% if is_owner %}<th>Employee</th>{% endif %}
+        <th>Start</th>
+        <th>End</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Submitted</th>
+        {% if is_owner %}<th>Actions</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for req in time_off_requests %}
+      <tr>
+        {% if is_owner %}
+        <td>{{ req.user.get_full_name|default:req.user.username }}</td>
+        {% endif %}
+        <td>{{ req.start_date }}</td>
+        <td>{{ req.end_date }}</td>
+        <td>{{ req.get_request_type_display }}</td>
+        <td>
+          <span class="badge badge-{% if req.status == 'approved' %}success{% elif req.status == 'denied' %}danger{% else %}warning{% endif %}">
+            {{ req.get_status_display }}
+          </span>
+        </td>
+        <td>{{ req.created_at|date:"M j, Y" }}</td>
+        {% if is_owner and req.status == 'pending' %}
+        <td>
+          <form action="{% url 'time_off_approve' req.pk %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm">Approve</button>
+          </form>
+          <form action="{% url 'time_off_deny' req.pk %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm" style="margin-left:4px;">Deny</button>
+          </form>
+        </td>
+        {% elif is_owner %}
+        <td>—</td>
+        {% endif %}
+      </tr>
+      {% if req.notes %}
+      <tr>
+        <td colspan="{% if is_owner %}7{% else %}5{% endif %}" style="color: var(--text-muted); font-size: 13px; padding-top: 0;">Note: {{ req.notes }}</td>
+      </tr>
+      {% endif %}
+      {% empty %}
+      <tr>
+        <td colspan="{% if is_owner %}7{% else %}5{% endif %}">No time off requests yet. <a href="{% url 'time_off_create' %}" class="link-primary">Submit a request</a>.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p style="margin-top: 16px;">
+  <a href="{% url 'time_clock' %}" class="link-primary">← Back to Time clock</a>
+</p>
+<style>
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+  .badge-success { background: rgba(34, 197, 94, 0.25); color: #86efac; }
+  .badge-danger { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+  .badge-warning { background: rgba(234, 179, 8, 0.25); color: #fde047; }
+</style>
+{% endblock %}

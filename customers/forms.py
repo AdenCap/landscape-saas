@@ -94,12 +94,14 @@ class CustomerForm(forms.ModelForm):
             'address_line1', 'address_line2', 'city', 'state', 'postal_code',
             'invoice_frequency',
             'monthly_invoice_send_day',
+            'invoice_due_days',
             'notes',
         ]
         widgets = {
             'communication_preference': forms.Select(attrs={'class': 'form-select'}),
             'invoice_frequency': forms.Select(attrs={'class': 'form-select'}),
             'monthly_invoice_send_day': forms.NumberInput(attrs={'min': 1, 'max': 28, 'placeholder': 'e.g. 1 or 15'}),
+            'invoice_due_days': forms.NumberInput(attrs={'min': 0, 'max': 365, 'placeholder': 'e.g. 15 or 30'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Internal notes about this client...'}),
         }
 
@@ -110,13 +112,24 @@ class CustomerForm(forms.ModelForm):
             raise f.ValidationError("Must be between 1 and 28.")
         return val
 
+    def clean_invoice_due_days(self):
+        val = self.cleaned_data.get('invoice_due_days')
+        if val is not None and (val < 0 or val > 365):
+            from django import forms as f
+            raise f.ValidationError("Must be between 0 and 365.")
+        return val
+
 
 class PropertyForm(forms.ModelForm):
     class Meta:
         model = Property
-        fields = ['address', 'notes', 'gate_code', 'has_dog']
+        fields = ['address', 'notes', 'gate_code', 'has_dog', 'fertilization_services_per_year']
         widgets = {
             'notes': forms.Textarea(attrs={'rows': 2}),
+            'fertilization_services_per_year': forms.NumberInput(attrs={'min': 1, 'max': 12, 'placeholder': 'e.g. 4'}),
+        }
+        help_texts = {
+            'fertilization_services_per_year': 'For fertilization programs: number of applications per year. Enables smart scheduling with other fertilization clients.',
         }
 
 

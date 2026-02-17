@@ -84,6 +84,7 @@ def invoice_detail(request, invoice_id):
     if business:
         qs = qs.filter(business=business)
     invoice = get_object_or_404(qs)
+    invoice.recompute_totals()
     items = invoice.line_items.all()
     quickbooks_connected = bool(business and getattr(business, "quickbooks_connection", None))
     is_monthly = bool(invoice.job_id is None and invoice.period_start)
@@ -97,14 +98,104 @@ def invoice_detail(request, invoice_id):
 
 @require_POST
 @role_required("owner")
+def invoice_update_dates(request, invoice_id):
+    """Owner can change due date (and optionally issue date) on any invoice."""
+    business = _get_business(request)
+    qs = Invoice.objects.filter(id=invoice_id)
+    if business:
+        qs = qs.filter(business=business)
+    invoice = get_object_or_404(qs)
+
+    due_date_str = (request.POST.get("due_date") or "").strip()
+    if not due_date_str:
+        messages.error(request, "Please enter a due date.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    try:
+        from datetime import datetime
+        due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        messages.error(request, "Invalid due date. Use YYYY-MM-DD.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    update_fields = ["due_date"]
+    invoice.due_date = due_date
+    issue_date_str = (request.POST.get("issue_date") or "").strip()
+    if issue_date_str:
+        try:
+            invoice.issue_date = datetime.strptime(issue_date_str, "%Y-%m-%d").date()
+            update_fields.append("issue_date")
+        except ValueError:
+            pass
+    invoice.save(update_fields=update_fields)
+    messages.success(request, f"Due date set to {due_date}.")
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+
+@require_POST
+@role_required("owner")
 def send_invoice(request, invoice_id):
     invoice = get_object_or_404(Invoice, id=invoice_id)
 
-    # Only allow draft -> sent
+    # Only allow draft -> sent; generate payment token for customer pay link
     if invoice.status == "draft":
         invoice.status = "sent"
-        invoice.save(update_fields=["status"])
+        if not invoice.payment_token:
+            invoice.payment_token = secrets.token_urlsafe(32)
+        invoice.save(update_fields=["status", "payment_token"])
 
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+
+def _business_has_payment_methods(business):
+    return bool(
+        (business.venmo_username or "").strip()
+        or (business.zelle_email_or_phone or "").strip()
+        or (business.cashapp_cashtag or "").strip()
+    )
+
+
+@require_http_methods(["GET"])
+def invoice_pay_page(request, invoice_id, token):
+    """Public page: customer sees how to pay (Venmo/Zelle/Cash App). Only the owner can mark the invoice as paid."""
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("business", "customer"),
+        id=invoice_id,
+        payment_token=token,
+    )
+    invoice.recompute_totals()
+    business = invoice.business
+    has_payment_methods = _business_has_payment_methods(business)
+    venmo_link = None
+    if (business.venmo_username or "").strip():
+        uname = (business.venmo_username or "").strip().lstrip("@")
+        venmo_link = f"https://account.venmo.com/pay?recipient={uname}&amount={invoice.total}"
+    cashapp_link = None
+    if (business.cashapp_cashtag or "").strip():
+        tag = (business.cashapp_cashtag or "").strip().lstrip("$")
+        cashapp_link = f"https://cash.app/${tag}/{invoice.total}"
+    return render(request, "billing/invoice_pay_page.html", {
+        "invoice": invoice,
+        "business": business,
+        "has_payment_methods": has_payment_methods,
+        "venmo_link": venmo_link,
+        "cashapp_link": cashapp_link,
+    })
+
+
+@require_POST
+@role_required("owner")
+def mark_invoice_paid(request, invoice_id):
+    """Owner marks a sent invoice as paid (after customer has paid via Venmo/Zelle/Cash App)."""
+    business = _get_business(request)
+    qs = Invoice.objects.filter(id=invoice_id)
+    if business:
+        qs = qs.filter(business=business)
+    invoice = get_object_or_404(qs)
+    if invoice.status == "sent":
+        invoice.status = "paid"
+        invoice.save(update_fields=["status"])
+        messages.success(request, f"Invoice #{invoice.id} marked as paid.")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
@@ -123,66 +214,86 @@ def _get_reportlab():
     return canvas, LETTER
 
 
-def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160):
-    """Draw business logo on ReportLab canvas if present."""
+def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, page_width=None):
+    """Draw business logo on ReportLab canvas if present. Use page_width and x=None to align right."""
     if not business or not business.logo:
         return
     try:
         path = business.logo.path
         if not path:
             return
+        if page_width is not None and x is None:
+            x = page_width - 50 - max_width
         p.drawImage(path, x, y_top - max_height, width=max_width, height=max_height)
     except Exception:
         pass
 
 
-@role_required("owner")
-def invoice_pdf(request, invoice_id):
-    canvas, LETTER = _get_reportlab()
-    invoice = get_object_or_404(
-        Invoice.objects.select_related("business", "customer"),
-        id=invoice_id,
-    )
-    items = invoice.line_items.all()
+# Theme colors for PDFs (match base.html: primary #22c55e, dark #171717, muted #a3a3a3)
+_PDF_GREEN = (34 / 255, 197 / 255, 94 / 255)
+_PDF_DARK = (0.09, 0.09, 0.09)
+_PDF_MUTED = (0.64, 0.64, 0.64)
+_PDF_BORDER = (0.15, 0.15, 0.15)
 
+
+def _build_invoice_pdf(invoice, request):
+    """Build invoice PDF bytes (for download or email). Caller must have run invoice.recompute_totals() if needed."""
+    canvas, LETTER = _get_reportlab()
+    items = invoice.line_items.all()
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=LETTER)
     width, height = LETTER
-
-    y = height - 40
     business = invoice.business
+
+    # Theme: green accent bar at top
+    p.setFillColorRGB(*_PDF_GREEN)
+    p.rect(0, height - 12, width, 12, fill=True, stroke=False)
+
+    y = height - 44
+    p.setFillColorRGB(*_PDF_DARK)
     if business and business.logo:
-        _draw_pdf_logo(p, business, x=50, y_top=y + 10, max_height=44, max_width=140)
+        _draw_pdf_logo(p, business, x=None, y_top=y + 10, max_height=44, max_width=140, page_width=width)
         p.setFont("Helvetica-Bold", 20)
+        p.setFillColorRGB(*_PDF_GREEN)
         p.drawString(50, y - 28, f"Invoice #{invoice.id}")
+        p.setFillColorRGB(*_PDF_DARK)
         y -= 50
     else:
         p.setFont("Helvetica-Bold", 20)
+        p.setFillColorRGB(*_PDF_GREEN)
         p.drawString(50, y, f"Invoice #{invoice.id}")
+        p.setFillColorRGB(*_PDF_DARK)
         y -= 28
 
     p.setFont("Helvetica", 10)
-    p.setFillColorRGB(0.4, 0.45, 0.55)
+    p.setFillColorRGB(*_PDF_MUTED)
     p.drawString(50, y, f"Issue date: {invoice.issue_date}")
     y -= 14
     p.drawString(50, y, f"Due date: {invoice.due_date or '—'}")
     y -= 14
-    p.setFillColorRGB(0.1, 0.1, 0.15)
+    p.setFillColorRGB(*_PDF_DARK)
     p.drawString(50, y, f"Bill to: {invoice.customer.name}")
     y -= 14
     if invoice.customer.full_address:
         p.setFont("Helvetica", 9)
+        p.setFillColorRGB(*_PDF_MUTED)
         p.drawString(50, y, invoice.customer.full_address[:60])
         y -= 12
     p.setFont("Helvetica", 10)
-    y -= 8
+    y -= 12
 
-    p.setFillColorRGB(0.1, 0.1, 0.15)
+    # Table header with green underline
+    p.setFillColorRGB(*_PDF_DARK)
     p.setFont("Helvetica-Bold", 10)
     p.drawString(50, y, "Description")
     p.drawString(450, y, "Total")
-    y -= 18
+    y -= 4
+    p.setFillColorRGB(*_PDF_GREEN)
+    p.setLineWidth(1.5)
+    p.line(50, y, 560, y)
+    y -= 16
 
+    p.setFillColorRGB(*_PDF_DARK)
     p.setFont("Helvetica", 10)
     computed_total = Decimal("0.00")
     for item in items:
@@ -195,17 +306,134 @@ def invoice_pdf(request, invoice_id):
             p.showPage()
             y = height - 50
             p.setFont("Helvetica", 10)
+            p.setFillColorRGB(*_PDF_DARK)
 
     y -= 6
+    p.setFillColorRGB(*_PDF_GREEN)
+    p.line(450, y + 4, 560, y + 4)
+    y -= 4
     p.setFont("Helvetica-Bold", 12)
     total_to_show = getattr(invoice, "total", None) or computed_total
     p.drawRightString(560, y, f"Total: {_fmt_currency(total_to_show)}")
 
+    _has_payment = business and (
+        (business.venmo_username or "").strip()
+        or (business.zelle_email_or_phone or "").strip()
+        or (business.cashapp_cashtag or "").strip()
+    )
+    if _has_payment and y > 140:
+        y -= 28
+        p.setFillColorRGB(*_PDF_DARK)
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(50, y, "How to pay")
+        y -= 18
+        icon_size = 14
+        for label, handle, r, g, b in [
+            ("Venmo", (business.venmo_username or "").strip(), 0, 0.55, 1),
+            ("Zelle", (business.zelle_email_or_phone or "").strip(), 0.43, 0.12, 0.83),
+            ("Cash App", (business.cashapp_cashtag or "").strip(), 0, 0.84, 0.29),
+        ]:
+            if not handle:
+                continue
+            icon_y = y + 10
+            p.setFillColorRGB(r, g, b)
+            p.roundRect(50, icon_y - icon_size, icon_size, icon_size, 3, fill=True, stroke=False)
+            p.setFillColorRGB(1, 1, 1)
+            p.setFont("Helvetica-Bold", 9)
+            p.drawString(53, icon_y - icon_size + 3, label[0])
+            p.setFillColorRGB(*_PDF_DARK)
+            p.setFont("Helvetica", 10)
+            p.drawString(50 + icon_size + 8, icon_y - 10, f"{label}: {handle[:40]}")
+            y -= 22
+
     p.showPage()
     p.save()
     buffer.seek(0)
+    return buffer.read()
 
-    return FileResponse(buffer, as_attachment=True, filename=f"invoice_{invoice.id}.pdf")
+
+@role_required("owner")
+def invoice_pdf(request, invoice_id):
+    business = _get_business(request)
+    qs = Invoice.objects.select_related("business", "customer").filter(id=invoice_id)
+    if business:
+        qs = qs.filter(business=business)
+    invoice = get_object_or_404(qs)
+    invoice.recompute_totals()
+    pdf_bytes = _build_invoice_pdf(invoice, request)
+    return FileResponse(BytesIO(pdf_bytes), as_attachment=True, filename=f"invoice_{invoice.id}.pdf")
+
+
+@require_POST
+@role_required("owner")
+def resend_invoice(request, invoice_id):
+    """Resend the invoice by email to the customer (PDF + pay link). Can be used any number of times for sent/paid invoices."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    qs = Invoice.objects.select_related("business", "customer").filter(id=invoice_id)
+    qs = qs.filter(business=business)
+    invoice = get_object_or_404(qs)
+
+    if invoice.status not in ("sent", "paid"):
+        messages.error(request, "Only sent or paid invoices can be resent. Mark the invoice as Sent first.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    if not invoice.customer.email:
+        messages.error(request, f"{invoice.customer.name} has no email address. Add one in Clients.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    connection = business.get_smtp_connection()
+    if not connection:
+        messages.error(
+            request,
+            "Connect your Gmail in Settings to send invoices. Add your Gmail address and App Password.",
+        )
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    invoice.recompute_totals()
+    pay_url = ""
+    if invoice.payment_token:
+        pay_url = request.build_absolute_uri(
+            reverse("billing:invoice_pay_page", args=[invoice.id, invoice.payment_token])
+        )
+
+    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldops.local")
+    reply_to = [business.contact_email] if business.contact_email else None
+    subject = f"Invoice #{invoice.id} from {business.name}"
+    body_text = f"Hi {invoice.customer.name},\n\nPlease find your invoice #{invoice.id} attached.\n\nTotal: ${invoice.total}\n\n"
+    if pay_url:
+        body_text += f"You can pay online here: {pay_url}\n\n"
+    body_text += f"Thank you,\n{business.name}"
+
+    logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
+    html_content = render_to_string("billing/invoice_email.html", {
+        "invoice": invoice,
+        "business": business,
+        "pay_url": pay_url,
+        "logo_url": logo_url,
+    })
+
+    msg = EmailMultiAlternatives(
+        subject,
+        body_text,
+        from_email,
+        [invoice.customer.email],
+        reply_to=reply_to,
+        connection=connection,
+    )
+    msg.attach_alternative(html_content, "text/html")
+
+    pdf_bytes = _build_invoice_pdf(invoice, request)
+    msg.attach(f"Invoice_{invoice.id}.pdf", pdf_bytes, "application/pdf")
+
+    try:
+        msg.send()
+        messages.success(request, f"Invoice #{invoice.id} resent to {invoice.customer.email}.")
+    except Exception as e:
+        messages.error(request, f"Could not send email: {e}")
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
 # --- Estimates ---
@@ -408,25 +636,34 @@ def estimate_detail(request, estimate_id):
 
 
 def _build_estimate_pdf(estimate, business):
-    """Build estimate PDF bytes (with logo if business has one)."""
+    """Build estimate PDF bytes (with logo if business has one). Theme matches system (green/dark)."""
     canvas, LETTER = _get_reportlab()
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=LETTER)
     width, height = LETTER
 
-    y = height - 40
+    # Theme: green accent bar at top
+    p.setFillColorRGB(*_PDF_GREEN)
+    p.rect(0, height - 12, width, 12, fill=True, stroke=False)
+
+    y = height - 44
+    p.setFillColorRGB(*_PDF_DARK)
     if business and business.logo:
-        _draw_pdf_logo(p, business, x=50, y_top=y + 10, max_height=44, max_width=140)
+        _draw_pdf_logo(p, business, x=None, y_top=y + 10, max_height=44, max_width=140, page_width=width)
         p.setFont("Helvetica-Bold", 18)
+        p.setFillColorRGB(*_PDF_GREEN)
         p.drawString(50, y - 28, estimate.title)
+        p.setFillColorRGB(*_PDF_DARK)
         y -= 50
     else:
         p.setFont("Helvetica-Bold", 18)
+        p.setFillColorRGB(*_PDF_GREEN)
         p.drawString(50, y, estimate.title)
+        p.setFillColorRGB(*_PDF_DARK)
         y -= 28
 
     p.setFont("Helvetica", 10)
-    p.setFillColorRGB(0.4, 0.45, 0.55)
+    p.setFillColorRGB(*_PDF_MUTED)
     p.drawString(50, y, f"Estimate #{estimate.id}")
     y -= 14
     p.drawString(50, y, f"Prepared for: {estimate.customer.name}")
@@ -437,14 +674,19 @@ def _build_estimate_pdf(estimate, business):
     if estimate.valid_until:
         p.drawString(50, y, f"Valid until: {estimate.valid_until}")
         y -= 14
-    p.setFillColorRGB(0.1, 0.1, 0.15)
-    y -= 10
+    p.setFillColorRGB(*_PDF_DARK)
+    y -= 12
 
     p.setFont("Helvetica-Bold", 10)
     p.drawString(50, y, "Description")
     p.drawString(450, y, "Total")
-    y -= 18
+    y -= 4
+    p.setFillColorRGB(*_PDF_GREEN)
+    p.setLineWidth(1.5)
+    p.line(50, y, 560, y)
+    y -= 16
 
+    p.setFillColorRGB(*_PDF_DARK)
     p.setFont("Helvetica", 10)
     base_items = estimate.line_items.filter(is_addon=False)
     addon_items = estimate.line_items.filter(is_addon=True)
@@ -457,13 +699,16 @@ def _build_estimate_pdf(estimate, business):
             p.showPage()
             y = height - 50
             p.setFont("Helvetica", 10)
+            p.setFillColorRGB(*_PDF_DARK)
 
     if addon_items.exists():
         y -= 6
         p.setFont("Helvetica-Oblique", 10)
+        p.setFillColorRGB(*_PDF_MUTED)
         p.drawString(50, y, "Optional items:")
         y -= 16
         p.setFont("Helvetica", 10)
+        p.setFillColorRGB(*_PDF_DARK)
         for item in addon_items:
             p.drawString(50, y, str(item.description)[:50])
             p.drawRightString(560, y, _fmt_currency(item.line_total))
@@ -472,14 +717,19 @@ def _build_estimate_pdf(estimate, business):
                 p.showPage()
                 y = height - 50
                 p.setFont("Helvetica", 10)
+                p.setFillColorRGB(*_PDF_DARK)
 
-    y -= 8
+    y -= 6
+    p.setFillColorRGB(*_PDF_GREEN)
+    p.line(450, y + 4, 560, y + 4)
+    y -= 4
     p.setFont("Helvetica-Bold", 12)
     p.drawRightString(560, y, f"Total: {_fmt_currency(estimate.total())}")
 
     if estimate.notes:
         y -= 24
         p.setFont("Helvetica", 9)
+        p.setFillColorRGB(*_PDF_MUTED)
         for line in estimate.notes.split("\n")[:8]:
             p.drawString(50, y, line[:80])
             y -= 12

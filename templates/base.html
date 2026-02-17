@@ -180,6 +180,12 @@
     .sidebar-footer .btn-nav {
       color: rgba(255,255,255,0.6);
     }
+    .logout-form-inline {
+      display: block;
+      width: 100%;
+    }
+    .sidebar-footer .logout-form-inline { width: 100%; }
+    .topbar .logout-form-inline { display: inline-block; width: auto; }
 
     .main-wrap {
       flex: 1;
@@ -375,10 +381,13 @@
         <a href="{% url 'platform_home' %}" class="btn btn-nav">Platform admin</a>
         {% endif %}
         {% endif %}
-        <a href="{% url 'logout' %}" class="btn btn-nav">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Logout
-        </a>
+        <form action="{% url 'logout' %}" method="post" class="logout-form-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-nav">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Logout
+          </button>
+        </form>
       </div>
     </aside>
 
@@ -387,6 +396,7 @@
       {% if user.role == "crew" %}
         <a href="/jobs/crew/" class="btn btn-nav">Today</a>
         <a href="/time/" class="btn btn-nav">Time</a>
+        <a href="{% url 'employee_management' %}" class="btn btn-nav">Time off &amp; Schedule</a>
         <a href="{% url 'notification_inbox' %}" class="btn btn-nav">Notifications{% if notification_unread_count > 0 %} ({{ notification_unread_count }}){% endif %}</a>
       {% else %}
         <a href="/" class="btn btn-nav">Dashboard</a>
@@ -404,7 +414,10 @@
         <a href="{% url 'quickbooks:settings' %}" class="btn btn-nav">QuickBooks</a>
         <a href="/settings/" class="btn btn-nav">Settings</a>
       {% endif %}
-      <a href="{% url 'logout' %}" class="btn btn-nav">Logout</a>
+      <form action="{% url 'logout' %}" method="post" class="logout-form-inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-nav">Logout</button>
+      </form>
     </header>
   {% endif %}
 

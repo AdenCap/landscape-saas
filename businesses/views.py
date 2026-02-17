@@ -1,6 +1,7 @@
 from django.contrib import messages
+from django.core.mail import EmailMessage
 from django.shortcuts import render, redirect, get_object_or_404
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.decorators import role_required
 from accounts.utils import get_business as _get_business
@@ -42,3 +43,43 @@ def business_settings(request):
         "has_2fa": has_2fa,
         "trusted_devices": trusted_devices,
     })
+
+
+@require_POST
+@role_required("owner")
+def test_gmail_connection(request):
+    """Send a test email to verify Gmail (Settings) is configured correctly."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    connection = business.get_smtp_connection()
+    if not connection:
+        messages.error(
+            request,
+            "Gmail is not connected. Enter your Gmail address and App Password above and save, then try again.",
+        )
+        return redirect("business_settings")
+
+    to_email = business.get_from_email() or business.email_smtp_user
+    if not to_email:
+        messages.error(request, "Set a From address or Gmail address first.")
+        return redirect("business_settings")
+    # Extract address if it's "Name <email>"
+    if isinstance(to_email, str) and "<" in to_email and ">" in to_email:
+        to_email = to_email.split("<")[1].split(">")[0].strip()
+
+    try:
+        msg = EmailMessage(
+            subject="Field Ops – Gmail test",
+            body="This is a test email from Field Ops. Your Gmail connection is working.",
+            from_email=business.get_from_email() or business.email_smtp_user,
+            to=[to_email],
+            connection=connection,
+        )
+        msg.send()
+        messages.success(request, f"Test email sent to {to_email}. Check your inbox.")
+    except Exception as e:
+        messages.error(request, f"Could not send test email: {str(e)}. Check your Gmail and App Password.")
+    return redirect("business_settings")

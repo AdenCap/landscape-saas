@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Edit schedule</h1>
+  <p>Set typical work days and times for {% if target_user %}{{ target_user.get_full_name|default:target_user.username }}{% else %}yourself{% endif %}. Leave start/end blank for days off.</p>
+</div>
+
+<div class="card">
+  <form method="post" action="">
+    {% csrf_token %}
+    {{ formset.management_form }}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Start time</th>
+          <th>End time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for form, day_name in rows %}
+        <tr>
+          <td>{{ day_name }}</td>
+          <td>{{ form.id }}{{ form.day_of_week }}{{ form.start_time }}</td>
+          <td>{{ form.end_time }}</td>
+        </tr>
+        {% if form.errors %}
+        <tr><td colspan="4" class="form-error">{{ form.errors }}</td></tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+    <div style="margin-top: 20px;">
+      <button type="submit" class="btn btn-primary">Save schedule</button>
+      <a href="{% url 'time_schedule' %}" class="btn btn-secondary" style="margin-left: 8px;">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<p style="margin-top: 16px;">
+  <a href="{% url 'time_schedule' %}" class="link-primary">← Back to Schedule</a>
+</p>
+{% endblock %}

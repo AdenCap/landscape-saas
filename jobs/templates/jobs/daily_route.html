@@ -4,7 +4,7 @@
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
   <div>
     <h1>Daily Routes</h1>
-    <p>Drag to reorder jobs. Use Optimize when properties have coordinates.</p>
+    <p>Drag to reorder jobs. Optimize uses Google Maps to order stops by driving time.</p>
   </div>
   <div style="display: flex; gap: 10px; flex-wrap: wrap;">
     <form method="get" action="{% url 'daily_route' %}" style="display: flex; gap: 8px; align-items: center;">
@@ -26,12 +26,12 @@
     <h3 style="margin: 0 0 12px 0;">Route List</h3>
     <ul id="route-list" class="route-list">
       {% for item in jobs_with_colors %}
-      <li class="route-item" data-id="{{ item.job.id }}" data-lat="{{ item.job.property.latitude|default:'' }}" data-lng="{{ item.job.property.longitude|default:'' }}">
+      <li class="route-item" data-id="{{ item.job.id }}" data-address="{{ item.job.property.address }}" data-lat="{{ item.job.property.latitude|default:'' }}" data-lng="{{ item.job.property.longitude|default:'' }}">
         <span class="route-handle">⋮⋮</span>
         <span class="route-num">{{ forloop.counter }}</span>
         <span class="route-color-swatch" style="background: {{ item.color }};" title="Crew/employee"></span>
         <span class="route-address">{{ item.job.property.address }}</span>
-        <span class="route-assignee" style="font-size: 12px; color: var(--text-muted);">{% if item.job.assigned_crew %}{{ item.job.assigned_crew.name }}{% elif item.job.assigned_to %}{{ item.job.assigned_to.get_full_name|default:item.job.assigned_to.username }}{% else %}—{% endif %}</span>
+        <span class="route-assignee" style="font-size: 12px; color: var(--text-muted);">{% if item.job.assigned_crew %}{{ item.job.assigned_crew.name }}{% elif item.job.assigned_to %}{{ item.job.assigned_to.get_full_name|default:item.job.assigned_to.username %}{% else %}—{% endif %}</span>
       </li>
       {% empty %}
       <li class="route-item route-item-empty">No jobs for this day.</li>
@@ -41,15 +41,16 @@
   <div class="card" style="min-height: 400px;">
     <h3 style="margin: 0 0 12px 0;">Map View</h3>
     <div id="route-map" style="height: 400px; border-radius: 8px;"></div>
-    <p class="muted" style="font-size: 12px; margin-top: 8px;">Properties need lat/lng for map display. Add coordinates in Client properties.</p>
+    <p class="muted" style="font-size: 12px; margin-top: 8px;">Powered by Google Maps. Addresses are used for map and route optimization.</p>
   </div>
 </div>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+{% if google_maps_api_key %}
 <script>
 (function() {
+  const GOOGLE_API_KEY = '{{ google_maps_api_key|escapejs }}';
+
   const list = document.getElementById('route-list');
   if (list) {
     Sortable.create(list, {
@@ -69,25 +70,168 @@
   }
 
   const mapEl = document.getElementById('route-map');
-  if (mapEl) {
-    const items = document.querySelectorAll('.route-item[data-id]');
-    const withCoords = Array.from(items).filter(i => i.dataset.lat && i.dataset.lng && parseFloat(i.dataset.lat) && parseFloat(i.dataset.lng));
-    if (withCoords.length > 0) {
-      const map = L.map('route-map').setView([parseFloat(withCoords[0].dataset.lat), parseFloat(withCoords[0].dataset.lng)], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-      const bounds = [];
-      withCoords.forEach((el, i) => {
-        const lat = parseFloat(el.dataset.lat), lng = parseFloat(el.dataset.lng);
-        const marker = L.marker([lat, lng]).addTo(map).bindPopup('<strong>' + (i + 1) + '</strong> ' + (el.querySelector('.route-address')?.textContent || ''));
-        bounds.push([lat, lng]);
+  if (!mapEl) return;
+
+  const items = Array.from(document.querySelectorAll('.route-item[data-id]'));
+  const withAddress = items.filter(function(li) { return li.dataset.address && li.dataset.address.trim(); });
+
+  if (withAddress.length === 0) {
+    mapEl.innerHTML = '<p style="padding: 40px; text-align: center; color: var(--text-muted);">No jobs with addresses. Add addresses to properties to see the map.</p>';
+    return;
+  }
+
+  function initMap() {
+    const map = new google.maps.Map(mapEl, {
+      center: { lat: 39.5, lng: -98.5 },
+      zoom: 4,
+      styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }]
+    });
+    const bounds = new google.maps.LatLngBounds();
+    const markers = [];
+    const addresses = withAddress.map(function(li) { return li.dataset.address.trim(); });
+
+    function addMarker(position, label, title) {
+      const m = new google.maps.Marker({
+        position: position,
+        map: map,
+        label: label ? { text: String(label), color: '#0a0a0a', fontWeight: 'bold' } : null,
+        title: title || ''
       });
-      if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
-    } else {
-      mapEl.innerHTML = '<p style="padding: 40px; text-align: center; color: var(--text-muted);">No properties with coordinates. Add lat/lng to properties to see the map.</p>';
+      markers.push(m);
+      if (position) bounds.extend(position);
+      return m;
     }
+
+    function geocodeOne(address, callback) {
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: address }, function(results, status) {
+        if (status === 'OK' && results[0] && results[0].geometry)
+          callback(results[0].geometry.location);
+        else
+          callback(null);
+      });
+    }
+
+    function drawRouteAndMarkers() {
+      if (addresses.length === 0) return;
+      if (addresses.length === 1) {
+        geocodeOne(addresses[0], function(loc) {
+          if (loc) {
+            addMarker(loc, '1', withAddress[0].querySelector('.route-address').textContent);
+            map.setCenter(loc);
+            map.setZoom(14);
+          }
+        });
+        return;
+      }
+
+      var origin = addresses[0];
+      var destination = addresses[addresses.length - 1];
+      var waypoints = addresses.slice(1, -1).map(function(a) { return { location: a, stopover: true }; });
+      if (waypoints.length > 25) waypoints = waypoints.slice(0, 25);
+
+      const dirService = new google.maps.DirectionsService();
+      const dirRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: true
+      });
+
+      dirService.route(
+        {
+          origin: origin,
+          destination: destination,
+          waypoints: waypoints,
+          travelMode: google.maps.TravelMode.DRIVING
+        },
+        function(response, status) {
+          if (status === 'OK') {
+            dirRenderer.setDirections(response);
+            const route = response.routes[0];
+            const legs = route.legs;
+            var idx = 1;
+            legs.forEach(function(leg, i) {
+              var start = leg.start_location;
+              var end = leg.end_location;
+              addMarker(start, idx++, leg.start_address);
+              if (i === legs.length - 1) addMarker(end, idx, leg.end_address);
+            });
+            map.fitBounds(bounds);
+          } else {
+            addMarkersByGeocode();
+          }
+        }
+      );
+    }
+
+    function addMarkersByGeocode() {
+      var done = 0;
+      withAddress.forEach(function(li, i) {
+        var lat = parseFloat(li.dataset.lat), lng = parseFloat(li.dataset.lng);
+        if (lat && lng) {
+          var pos = { lat: lat, lng: lng };
+          addMarker(pos, i + 1, li.querySelector('.route-address').textContent);
+          done++;
+          if (done === withAddress.length) finishMarkers();
+        } else {
+          geocodeOne(li.dataset.address.trim(), function(loc) {
+            if (loc) addMarker(loc, i + 1, li.querySelector('.route-address').textContent);
+            done++;
+            if (done === withAddress.length) finishMarkers();
+          });
+        }
+      });
+      if (withAddress.length === 0) finishMarkers();
+    }
+
+    function finishMarkers() {
+      if (bounds.getNorthEast().lat() !== bounds.getSouthWest().lat() || bounds.getNorthEast().lng() !== bounds.getSouthWest().lng())
+        map.fitBounds(bounds, 40);
+      else if (markers.length > 0)
+        map.setCenter(markers[0].getPosition());
+    }
+
+    if (addresses.length >= 2)
+      drawRouteAndMarkers();
+    else
+      addMarkersByGeocode();
+  }
+
+  window.initMap = initMap;
+  if (window.google && window.google.maps) {
+    initMap();
+  } else {
+    const script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=' + GOOGLE_API_KEY + '&callback=initMap';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
   }
 })();
 </script>
+{% else %}
+<script>
+(function() {
+  const list = document.getElementById('route-list');
+  if (list) {
+    Sortable.create(list, {
+      animation: 150,
+      onEnd: function () {
+        const order = [];
+        list.querySelectorAll('li[data-id]').forEach(function(item, index) {
+          if (item.dataset.id) order.push({ id: item.dataset.id, order: index });
+        });
+        fetch('{% url "update_route" %}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+          body: JSON.stringify(order)
+        });
+      }
+    });
+  }
+  document.getElementById('route-map').innerHTML = '<p style="padding: 40px; text-align: center; color: var(--text-muted);">Set GOOGLE_MAPS_API_KEY in your environment to show the map and use address-based route optimization. Enable Maps JavaScript API, Geocoding API, and Directions API.</p>';
+})();
+</script>
+{% endif %}
 
 <style>
   .route-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }

@@ -31,6 +31,16 @@
       <span class="meta-value">{{ invoice.total|currency }}</span>
     </div>
   </div>
+  <div class="invoice-dates-edit">
+    <form method="post" action="{% url 'billing:invoice_update_dates' invoice.id %}" class="dates-edit-form">
+      {% csrf_token %}
+      <label for="id_due_date">Change due date</label>
+      <input type="date" name="due_date" id="id_due_date" value="{% if invoice.due_date %}{{ invoice.due_date|date:'Y-m-d' }}{% endif %}" required>
+      <label for="id_issue_date" class="optional">Issue date (optional)</label>
+      <input type="date" name="issue_date" id="id_issue_date" value="{{ invoice.issue_date|date:'Y-m-d' }}">
+      <button type="submit" class="btn btn-secondary btn-sm">Update dates</button>
+    </form>
+  </div>
 
   <div class="invoice-layout">
     <div class="invoice-parties">
@@ -79,6 +89,35 @@
       </div>
     </div>
 
+    {% if invoice.business.venmo_username or invoice.business.zelle_email_or_phone or invoice.business.cashapp_cashtag %}
+    <div class="invoice-payment-handles card">
+      <h3 class="payment-methods-title">How to pay</h3>
+      <p class="payment-handles-desc">You can pay using any of the following:</p>
+      <div class="payment-methods-list">
+        {% if invoice.business.venmo_username %}
+        <span class="payment-badge">Venmo: {{ invoice.business.venmo_username }}</span>
+        {% endif %}
+        {% if invoice.business.zelle_email_or_phone %}
+        <span class="payment-badge">Zelle: {{ invoice.business.zelle_email_or_phone }}</span>
+        {% endif %}
+        {% if invoice.business.cashapp_cashtag %}
+        <span class="payment-badge">Cash App: {{ invoice.business.cashapp_cashtag }}</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if invoice.status == "sent" and invoice.payment_token %}
+    <div class="invoice-pay-link card">
+      <h3 class="payment-methods-title">Customer pay link</h3>
+      <p class="pay-link-desc">Share this link with your customer so they can see the amount and pay via Venmo, Zelle, or Cash App. After they pay, you mark this invoice as paid below.</p>
+      <div class="pay-link-wrap">
+        <input type="text" readonly id="pay-link-input" value="{{ request.scheme }}://{{ request.get_host }}{% url 'billing:invoice_pay_page' invoice.id invoice.payment_token %}" class="pay-link-input">
+        <button type="button" class="btn btn-primary btn-sm" id="copy-pay-link">Copy link</button>
+      </div>
+    </div>
+    {% endif %}
+
     <div class="invoice-actions">
       {% if is_monthly_invoice and invoice.status == "draft" %}
       <p class="invoice-send-early-note">Monthly invoice for {{ invoice.period_start|date:"F Y" }}. You can send it early anytime. If you send this and more services are completed later this month, a new invoice will be created for those.</p>
@@ -88,6 +127,18 @@
       <form method="post" action="{% url 'billing:send_invoice' invoice.id %}" style="display: inline;">
         {% csrf_token %}
         <button type="submit" class="btn btn-secondary">{% if is_monthly_invoice %}Send invoice now (early){% else %}Mark as Sent{% endif %}</button>
+      </form>
+      {% endif %}
+      {% if invoice.status == "sent" or invoice.status == "paid" %}
+      <form method="post" action="{% url 'billing:resend_invoice' invoice.id %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary">Resend invoice</button>
+      </form>
+      {% endif %}
+      {% if invoice.status == "sent" %}
+      <form method="post" action="{% url 'billing:mark_invoice_paid' invoice.id %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">Mark as paid</button>
       </form>
       {% endif %}
       {% if quickbooks_connected %}
@@ -116,8 +167,14 @@
   .status-sent { background: #e0f2fe; color: #0369a1; }
   .status-paid { background: rgba(34, 197, 94, 0.25); color: #86efac; }
   .status-void { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
-  .invoice-meta-bar { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 32px; padding: 20px 24px; background: var(--surface-alt); border-radius: 12px; }
+  .invoice-meta-bar { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 16px; padding: 20px 24px; background: var(--surface-alt); border-radius: 12px; }
   .meta-group { display: flex; flex-direction: column; gap: 4px; }
+  .invoice-dates-edit { margin-bottom: 32px; }
+  .dates-edit-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+  .dates-edit-form label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px; }
+  .dates-edit-form label.optional { margin-left: 16px; }
+  .dates-edit-form input[type="date"] { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); color: var(--text); font-size: 14px; }
+  .dates-edit-form button { margin-left: 4px; }
   .meta-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
   .meta-value { font-size: 16px; font-weight: 600; }
   .meta-total .meta-value { font-size: 20px; color: var(--primary); }
@@ -135,9 +192,32 @@
   .invoice-table .col-desc { width: 45%; }
   .invoice-table .empty-cell { text-align: center; color: var(--text-muted); padding: 32px; }
   .invoice-total-row { display: flex; justify-content: flex-end; align-items: center; gap: 24px; padding: 20px 24px; background: var(--surface-alt); font-size: 18px; font-weight: 700; }
+  .invoice-payment-handles, .invoice-pay-link { margin-top: 24px; padding: 20px; }
+  .invoice-payment-handles { border-top: 1px solid var(--border); }
+  .payment-methods-title { margin: 0 0 12px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+  .payment-handles-desc { margin: 0 0 12px 0; font-size: 14px; color: var(--text-muted); }
+  .payment-methods-list { display: flex; flex-wrap: wrap; gap: 10px; }
+  .payment-badge { display: inline-block; padding: 8px 14px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+  .pay-link-desc { font-size: 14px; color: var(--text-muted); margin: 0 0 12px 0; }
+  .pay-link-wrap { display: flex; gap: 10px; align-items: center; }
+  .pay-link-input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); color: var(--text); font-size: 13px; }
   .invoice-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 24px; padding-top: 24px; border-top: 2px solid var(--border); }
   .invoice-send-early-note { width: 100%; margin: 0 0 12px 0; padding: 12px 16px; background: var(--primary-light); border-radius: 10px; font-size: 14px; color: var(--text); }
 </style>
+<script>
+(function() {
+  var btn = document.getElementById('copy-pay-link');
+  var input = document.getElementById('pay-link-input');
+  if (btn && input) {
+    btn.addEventListener('click', function() {
+      input.select();
+      document.execCommand('copy');
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = 'Copy link'; }, 2000);
+    });
+  }
+})();
+</script>
 {% if quickbooks_connected and not invoice.quickbooks_invoice_id %}
 <script>
 document.getElementById('qb-push-btn').addEventListener('click', function() {

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thank you – {{ invoice.business.name }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary: #22c55e; --surface: #171717; --surface-alt: #0a0a0a; --border: #262626; --text: #fafafa; --text-muted: #a3a3a3; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'DM Sans', sans-serif; background: var(--surface-alt); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .thanks-card { max-width: 380px; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px; text-align: center; }
+    .thanks-card h1 { margin: 0 0 12px 0; font-size: 24px; font-weight: 700; color: var(--primary); }
+    .thanks-card p { margin: 0; font-size: 15px; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div class="thanks-card">
+    <h1>Thank you!</h1>
+    <p>Invoice #{{ invoice.id }} has been marked as paid. {{ invoice.business.name }} will see the update.</p>
+  </div>
+</body>
+</html>

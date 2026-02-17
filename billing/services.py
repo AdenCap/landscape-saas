@@ -1,10 +1,26 @@
+from datetime import timedelta
 from decimal import Decimal
 from django.db import transaction
 from django.core.exceptions import ImproperlyConfigured
 from django.utils import timezone
 from .models import Invoice, InvoiceLineItem
-from billing.models import Invoice, InvoiceLineItem
 from jobs.models import JobServiceItem
+
+
+def get_invoice_due_date(issue_date, business, customer=None):
+    """
+    Return due date for an invoice: issue_date + N days.
+    N = customer.invoice_due_days if set, else business.default_invoice_due_days.
+    Returns None if neither is set.
+    """
+    days = None
+    if customer is not None and getattr(customer, "invoice_due_days", None) is not None:
+        days = customer.invoice_due_days
+    elif business is not None and getattr(business, "default_invoice_due_days", None) is not None:
+        days = business.default_invoice_due_days
+    if days is None:
+        return None
+    return issue_date + timedelta(days=days)
 
 
 def _get_business_from_job(job):
@@ -58,10 +74,17 @@ def create_invoice_for_job(job):
         business = job.property.customer.business
 
     customer = getattr(job.property, "customer", None)
+    issue_date = timezone.localdate()
+    due_date = get_invoice_due_date(issue_date, business, customer)
 
     invoice, _ = Invoice.objects.get_or_create(
         job=job,
-        defaults={"business": business, "customer": customer, "status": "draft"},
+        defaults={
+            "business": business,
+            "customer": customer,
+            "due_date": due_date,
+            "status": "draft",
+        },
     )
 
     if invoice.line_items.exists():
@@ -76,6 +99,7 @@ def create_invoice_for_job(job):
                 unit_price=item.unit_price,
                 labor_cost=item.quantity * item.unit_price,
             )
+        invoice.recompute_totals()
 
     return invoice
 
@@ -87,13 +111,18 @@ def create_draft_invoice_for_job(job):
     Does NOT send the invoice.
     """
     # If your Invoice has a FK to job (your choices list shows invoice.job exists)
+    business = job.property.customer.business
+    customer = job.property.customer
+    issue_date = timezone.localdate()
+    due_date = get_invoice_due_date(issue_date, business, customer) or issue_date
+
     invoice, created = Invoice.objects.get_or_create(
         job=job,
         defaults={
-            "business": job.property.customer.business,
-            "customer": job.property.customer,
-            "issue_date": timezone.localdate(),
-            "due_date": timezone.localdate(),  # adjust if you want net-15/net-30
+            "business": business,
+            "customer": customer,
+            "issue_date": issue_date,
+            "due_date": due_date,
             "period_start": job.scheduled_date,
             "period_end": job.scheduled_date,
             "status": "draft",
@@ -116,13 +145,5 @@ def create_draft_invoice_for_job(job):
             labor_cost=ji.quantity * ji.unit_price,
             revenue_category=getattr(ji.service, "revenue_category", None),
         )
-
-    # If your Invoice model has subtotal/tax/total fields stored:
-    # recompute from line items (simple example)
-    subtotal = sum(item.line_total for item in invoice.line_items.all())
-    invoice.subtotal = subtotal
-    invoice.tax = 0
-    invoice.total = subtotal
-    invoice.save(update_fields=["subtotal", "tax", "total"])
 
     return invoice

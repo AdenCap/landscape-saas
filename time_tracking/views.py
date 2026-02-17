@@ -1,13 +1,14 @@
 from datetime import timedelta
 from decimal import Decimal
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 
 from accounts.decorators import role_required
 from accounts.models import User
-from .models import TimeEntry
+from .models import TimeEntry, TimeOffRequest, EmployeeSchedule
+from .forms import TimeOffRequestForm, EmployeeScheduleFormSet
 
 
 def _hours_from_minutes(minutes):
@@ -141,4 +142,171 @@ def timesheets_view(request):
         'year_end': year_end,
         'total_week_cost': total_week_cost,
         'total_year_cost': total_year_cost,
+    })
+
+
+def _get_business(request):
+    """Business for current context (owner's business or platform-selected)."""
+    user = request.user
+    if user.business_id:
+        return user.business
+    from businesses.models import Business
+    bid = request.session.get("platform_business_id")
+    if bid:
+        return Business.objects.filter(pk=bid).first()
+    return None
+
+
+@role_required("owner", "crew")
+def time_off_list(request):
+    """List time off requests: crew sees own, owner sees all for business."""
+    business = _get_business(request)
+    if not business and request.user.role == "owner":
+        return redirect("/")
+    if request.user.role == "crew":
+        requests_qs = TimeOffRequest.objects.filter(user=request.user).select_related("reviewed_by")
+        employees = None
+    else:
+        requests_qs = TimeOffRequest.objects.filter(business=business).select_related("user", "reviewed_by")
+        employees = User.objects.filter(business=business, role="crew").order_by("first_name", "last_name", "username")
+    requests_qs = requests_qs.order_by("-start_date", "-created_at")
+    return render(request, "time_tracking/time_off_list.html", {
+        "time_off_requests": requests_qs,
+        "is_owner": request.user.role == "owner",
+        "employees": employees or [],
+    })
+
+
+@role_required("owner", "crew")
+def time_off_create(request):
+    """Submit a new time off request (crew) or for selected employee (owner)."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    # Owner can submit on behalf of employee via ?user_id=
+    target_user = request.user
+    if request.user.role == "owner" and request.GET.get("user_id"):
+        target_user = get_object_or_404(User, pk=request.GET["user_id"], business=business, role="crew")
+    if request.method == "POST":
+        form = TimeOffRequestForm(request.POST)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.business = business
+            obj.user = target_user
+            obj.save()
+            messages.success(request, "Time off request submitted.")
+            from django.urls import reverse
+            return redirect(reverse("employee_management") + "#timeoff")
+    else:
+        form = TimeOffRequestForm()
+    return render(request, "time_tracking/time_off_form.html", {
+        "form": form,
+        "target_user": target_user,
+        "is_owner_submitting": request.user != target_user,
+    })
+
+
+@require_POST
+@role_required("owner")
+def time_off_approve(request, pk):
+    """Approve a time off request."""
+    req = get_object_or_404(TimeOffRequest, pk=pk, business=_get_business(request))
+    req.status = "approved"
+    req.reviewed_at = timezone.now()
+    req.reviewed_by = request.user
+    req.save()
+    messages.success(request, "Time off request approved.")
+    from django.urls import reverse
+    return redirect(reverse("employee_management") + "#timeoff")
+
+
+@require_POST
+@role_required("owner")
+def time_off_deny(request, pk):
+    """Deny a time off request."""
+    req = get_object_or_404(TimeOffRequest, pk=pk, business=_get_business(request))
+    req.status = "denied"
+    req.reviewed_at = timezone.now()
+    req.reviewed_by = request.user
+    req.save()
+    messages.success(request, "Time off request denied.")
+    from django.urls import reverse
+    return redirect(reverse("employee_management") + "#timeoff")
+
+
+@role_required("owner", "crew")
+def schedule_view(request):
+    """View schedule: crew sees own, owner sees dropdown to pick employee or overview."""
+    business = _get_business(request)
+    if not business and request.user.role == "owner":
+        return redirect("/")
+    employees = User.objects.filter(business=business, role="crew").order_by("first_name", "last_name", "username")
+    selected_id = request.GET.get("user_id")
+    if request.user.role == "crew":
+        selected_user = request.user
+    elif selected_id:
+        selected_user = get_object_or_404(User, pk=selected_id, business=business, role="crew")
+    else:
+        selected_user = employees.first()
+    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    schedule_rows = []
+    if selected_user:
+        slots = {s.day_of_week: s for s in EmployeeSchedule.objects.filter(user=selected_user)}
+        for i in range(7):
+            schedule_rows.append((day_names[i], slots.get(i)))
+    else:
+        for i in range(7):
+            schedule_rows.append((day_names[i], None))
+    return render(request, "time_tracking/schedule_view.html", {
+        "employees": employees,
+        "selected_user": selected_user,
+        "schedule_rows": schedule_rows,
+        "is_owner": request.user.role == "owner",
+    })
+
+
+def _ensure_schedule_slots(user):
+    """Ensure user has exactly 7 EmployeeSchedule rows (one per day). Returns queryset ordered by day."""
+    existing = set(
+        EmployeeSchedule.objects.filter(user=user).values_list("day_of_week", flat=True)
+    )
+    for day in range(7):
+        if day not in existing:
+            EmployeeSchedule.objects.create(user=user, day_of_week=day)
+    return EmployeeSchedule.objects.filter(user=user).order_by("day_of_week")
+
+
+@role_required("owner")
+def schedule_edit(request):
+    """Edit weekly schedule (owner only). Owners set each employee's schedule."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    target_user = request.user
+    if request.GET.get("user_id"):
+        target_user = get_object_or_404(User, pk=request.GET["user_id"], business=business, role="crew")
+    queryset = _ensure_schedule_slots(target_user)
+    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    if request.method == "POST":
+        formset = EmployeeScheduleFormSet(request.POST, queryset=queryset)
+        if formset.is_valid():
+            for form in formset:
+                if form.cleaned_data:
+                    obj = form.save(commit=False)
+                    obj.user = target_user
+                    obj.save()
+            formset.save()
+            messages.success(request, "Schedule updated.")
+            from django.urls import reverse
+            edit_url = reverse("employee_management") + "#schedule"
+            if target_user and target_user.role == "crew":
+                edit_url = reverse("employee_management") + "?schedule_user_id=" + str(target_user.id) + "#schedule"
+            return redirect(edit_url)
+    else:
+        formset = EmployeeScheduleFormSet(queryset=queryset)
+    rows = list(zip(formset, day_names))
+    return render(request, "time_tracking/schedule_edit.html", {
+        "target_user": target_user,
+        "formset": formset,
+        "rows": rows,
     })

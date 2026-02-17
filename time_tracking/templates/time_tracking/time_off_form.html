@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Request time off</h1>
+  <p>{% if is_owner_submitting %}Submit time off for {{ target_user.get_full_name|default:target_user.username }}{% else %}Submit a new time off request{% endif %}</p>
+</div>
+
+<div class="card" style="max-width: 480px;">
+  <form method="post" action="">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="form-group">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<div class="form-error">{{ field.errors.0 }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    <div style="display: flex; gap: 12px; margin-top: 20px;">
+      <button type="submit" class="btn btn-primary">Submit request</button>
+      <a href="{% url 'time_off_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<p style="margin-top: 16px;">
+  <a href="{% url 'time_off_list' %}" class="link-primary">← Back to Time off</a>
+</p>
+<style>
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 14px; }
+  .form-error { color: #f87171; font-size: 13px; margin-top: 4px; }
+</style>
+{% endblock %}

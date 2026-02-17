@@ -41,6 +41,9 @@
         {% elif customer.invoice_frequency == "monthly" %}
           — Send manually (no day set)
         {% endif %}
+        {% if customer.invoice_due_days is not None %}
+          — Invoices due in {{ customer.invoice_due_days }} days (Net {{ customer.invoice_due_days }})
+        {% endif %}
       </dd>
       {% if not customer.phone and not customer.email and customer.full_address == "—" %}
       <dd>No contact info. <a href="{% url 'customer_edit' customer.id %}" class="link-primary">Add</a></dd>

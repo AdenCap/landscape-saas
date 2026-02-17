@@ -83,7 +83,51 @@
       <span class="fin-value fin-value-large">${{ labor_expenses_year|floatformat:2 }}</span>
     </div>
   </div>
+
+  <div class="card fin-card">
+    <h3 class="fin-card-title">Payroll schedule</h3>
+    <p class="fin-desc">Set pay frequency and next pay date to show <strong>Payroll balance</strong> on the dashboard (amount due at next pay run).</p>
+    <form method="post" action="{% url 'financials:dashboard' %}">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="pay_schedule">
+      {{ pay_schedule_form.non_field_errors }}
+      <div class="fin-form-row">
+        <label for="id_pay_frequency">Pay frequency</label>
+        {{ pay_schedule_form.pay_frequency }}
+      </div>
+      <div class="fin-form-row fin-form-row-custom" id="pay-period-days-row">
+        <label for="id_pay_period_days">Pay period (days)</label>
+        {{ pay_schedule_form.pay_period_days }}
+        <span class="fin-hint">Used when Custom is selected (e.g. 10 = every 10 days)</span>
+      </div>
+      <div class="fin-form-row fin-form-row-custom" id="pay-specific-days-row">
+        <label for="id_pay_specific_days_input">Pay on these days of the month</label>
+        {{ pay_schedule_form.pay_specific_days_input }}
+        {{ pay_schedule_form.pay_specific_days_input.errors }}
+        <span class="fin-hint">Used when Specific dates is selected (e.g. 1, 15 for 1st and 15th)</span>
+      </div>
+      <div class="fin-form-row">
+        <label for="id_next_pay_date">Next pay date</label>
+        {{ pay_schedule_form.next_pay_date }}
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Save</button>
+    </form>
+  </div>
 </div>
+<script>
+(function() {
+  var sel = document.getElementById('id_pay_frequency');
+  var rowDays = document.getElementById('pay-period-days-row');
+  var rowDates = document.getElementById('pay-specific-days-row');
+  if (!sel) return;
+  function toggle() {
+    if (rowDays) rowDays.classList.toggle('visible', sel.value === 'custom');
+    if (rowDates) rowDates.classList.toggle('visible', sel.value === 'custom_dates');
+  }
+  sel.addEventListener('change', toggle);
+  toggle();
+})();
+</script>
 
 <style>
   .fin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-bottom: 24px; }
@@ -101,5 +145,11 @@
   .fin-card-clickable { text-decoration: none; color: inherit; display: block; transition: box-shadow 0.15s ease; }
   .fin-card-clickable:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
   .fin-card-link-hint { margin: 12px 0 0 0; font-size: 13px; color: var(--primary); }
+  .fin-form-row { margin-bottom: 12px; }
+  .fin-form-row label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+  .fin-form-row .form-control, .fin-form-row select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 14px; min-width: 200px; }
+  .fin-hint { display: block; font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  #pay-period-days-row, #pay-specific-days-row { display: none; }
+  #pay-period-days-row.visible, #pay-specific-days-row.visible { display: block; }
 </style>
 {% endblock %}

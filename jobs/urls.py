@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     path("", views.job_list, name="job_list"),
     path("create/", views.create_job, name="create_job"),
+    path("fertilization-schedule/", views.fertilization_schedule, name="fertilization_schedule"),
     path("<int:job_id>/billing/", views.job_billing_options, name="job_billing_options"),
     path("<int:job_id>/bill-now/", views.job_bill_now, name="job_bill_now"),
     path("<int:job_id>/add-to-monthly/", views.job_add_to_monthly, name="job_add_to_monthly"),

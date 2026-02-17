@@ -31,7 +31,7 @@
       <div class="form-group flex-2">
         <label for="id_scheduled_date">Scheduled Date</label>
         {{ form.scheduled_date }}
-        <small style="color: var(--text-muted); font-size: 12px;">Leave empty to add to unscheduled (schedule later from calendar)</small>
+        <small style="color: var(--text-muted); font-size: 12px;">Leave empty to add to unscheduled (schedule later from calendar). Required if repeating.</small>
         {% if form.scheduled_date.errors %}<span class="error">{{ form.scheduled_date.errors.0 }}</span>{% endif %}
       </div>
       <div class="form-group flex-1" style="max-width: 140px;">
@@ -39,6 +39,21 @@
         {{ form.scheduled_time }}
         <small style="color: var(--text-muted); font-size: 12px;">For week/day view</small>
       </div>
+    </div>
+
+    <div class="form-group repeat-group" style="margin-bottom: 20px;">
+      <label>Repeat</label>
+      <div class="repeat-options" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+        {{ form.repeat_frequency }}
+        <span id="custom-interval-wrap" style="display: none;">
+          <label for="id_custom_interval_days" style="margin: 0 4px 0 8px;">Every</label>
+          {{ form.custom_interval_days }}
+          <span style="color: var(--text-muted); font-size: 13px;">days</span>
+        </span>
+      </div>
+      <small style="color: var(--text-muted); font-size: 12px;">Choose how often this job repeats. Future occurrences are generated automatically. Requires a scheduled date above.</small>
+      {% if form.repeat_frequency.errors %}<span class="error">{{ form.repeat_frequency.errors.0 }}</span>{% endif %}
+      {% if form.custom_interval_days.errors %}<span class="error">{{ form.custom_interval_days.errors.0 }}</span>{% endif %}
     </div>
 
     <div class="form-group" style="margin-bottom: 20px;">
@@ -186,6 +201,17 @@
   document.getElementById('id_customer').addEventListener('change', updatePropertyDropdown);
   updateAssigneeVisibility();
   updatePropertyDropdown();
+
+  function updateRepeatCustomVisibility() {
+    var wrap = document.getElementById('custom-interval-wrap');
+    var sel = document.getElementById('id_repeat_frequency');
+    if (wrap && sel) wrap.style.display = (sel.value === 'custom') ? 'inline-flex' : 'none';
+  }
+  var repeatSel = document.getElementById('id_repeat_frequency');
+  if (repeatSel) {
+    repeatSel.addEventListener('change', updateRepeatCustomVisibility);
+    updateRepeatCustomVisibility();
+  }
 
   var loadBtn = document.getElementById('load-estimate-btn');
   var estimateSel = document.getElementById('estimate-select');

@@ -68,6 +68,29 @@ class CreateJobForm(forms.Form):
         help_text="Property access, hazards, or special instructions",
     )
 
+    REPEAT_CHOICES = [
+        ("", "One-time (do not repeat)"),
+        ("weekly", "Weekly"),
+        ("biweekly", "Bi-Weekly"),
+        ("monthly", "Monthly"),
+        ("custom", "Custom (every N days)"),
+    ]
+    repeat_frequency = forms.ChoiceField(
+        choices=REPEAT_CHOICES,
+        required=False,
+        label="Repeat",
+        help_text="Create a recurring schedule; future occurrences will be generated automatically.",
+        widget=forms.Select(attrs={"id": "id_repeat_frequency"}),
+    )
+    custom_interval_days = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=365,
+        label="Every N days",
+        help_text="When Custom is selected: repeat every this many days.",
+        widget=forms.NumberInput(attrs={"placeholder": "e.g. 10", "min": 1, "max": 365}),
+    )
+
     def __init__(self, *args, **kwargs):
         business = kwargs.pop("business", None)
         super().__init__(*args, **kwargs)
@@ -104,6 +127,17 @@ class CreateJobForm(forms.Form):
         if customer and property_obj and property_obj.customer_id != customer.id:
             raise forms.ValidationError("Property must belong to the selected client.")
         return property_obj
+
+    def clean(self):
+        data = super().clean()
+        freq = data.get("repeat_frequency")
+        custom_days = data.get("custom_interval_days")
+        sched_date = data.get("scheduled_date")
+        if freq == "custom" and (custom_days is None or custom_days < 1):
+            self.add_error("custom_interval_days", "Enter how many days between repeats (e.g. 10).")
+        if freq and not sched_date:
+            self.add_error("scheduled_date", "A start date is required when the job repeats.")
+        return data
 
 
 class JobServiceInlineForm(forms.Form):

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Schedule</h1>
+    <p>Weekly work schedule{% if is_owner %} — select an employee to view{% endif %}</p>
+  </div>
+  <a href="{% url 'time_schedule_edit' %}{% if is_owner and selected_user %}?user_id={{ selected_user.id }}{% endif %}" class="btn btn-primary">Edit schedule</a>
+</div>
+
+{% if is_owner and employees %}
+<div class="card" style="margin-bottom: 20px;">
+  <label for="employee-select" class="form-label">Employee</label>
+  <select id="employee-select" class="form-control" style="max-width: 280px;" onchange="window.location.href='?user_id=' + this.value;">
+    {% for emp in employees %}
+    <option value="{{ emp.id }}" {% if selected_user and selected_user.id == emp.id %}selected{% endif %}>
+      {{ emp.get_full_name|default:emp.username }}
+    </option>
+    {% endfor %}
+  </select>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2 class="card-title">{% if selected_user %}{{ selected_user.get_full_name|default:selected_user.username }}{% else %}Schedule{% endif %}</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Day</th>
+        <th>Start time</th>
+        <th>End time</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for day_name, slot in schedule_rows %}
+      <tr>
+        <td>{{ day_name }}</td>
+        <td>{% if slot and slot.start_time %}{{ slot.start_time|time:"g:i A" }}{% else %}—{% endif %}</td>
+        <td>{% if slot and slot.end_time %}{{ slot.end_time|time:"g:i A" }}{% else %}—{% endif %}</td>
+        <td>{% if slot and slot.start_time and slot.end_time %}Working{% else %}Off{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if not selected_user and is_owner %}
+<p class="section-desc">Add crew employees to see their schedules.</p>
+{% endif %}
+
+<p style="margin-top: 16px;">
+  <a href="{% url 'time_clock' %}" class="link-primary">← Back to Time clock</a>
+</p>
+{% endblock %}

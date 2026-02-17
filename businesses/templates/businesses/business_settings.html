@@ -27,21 +27,25 @@
         {{ form.logo.label_tag }}{{ form.logo }}{{ form.logo.errors }}
       </div>
     </div>
-    <div class="form-section">
-      <h3>Gmail – Send Estimates to Clients</h3>
-      <p class="muted">Connect your Gmail account to send estimates by email. Uses Gmail App Passwords.</p>
+    <div class="form-section gmail-section">
+      <h3>Gmail – Send estimates & invoices</h3>
+      <p class="muted">One place to connect Gmail. All client emails (estimates, invoices, follow-ups) are sent from this account. Your App Password is stored encrypted and never shared.</p>
       <div class="field">
         {{ form.email_smtp_user.label_tag }}{{ form.email_smtp_user }}{{ form.email_smtp_user.errors }}
         {% if form.email_smtp_user.help_text %}<p class="help">{{ form.email_smtp_user.help_text }}</p>{% endif %}
       </div>
       <div class="field">
         {{ form.email_smtp_password.label_tag }}{{ form.email_smtp_password }}{{ form.email_smtp_password.errors }}
-        {% if form.email_smtp_password.help_text %}<p class="help">{{ form.email_smtp_password.help_text }}</p>{% endif %}
+        <p class="help">Stored encrypted. <a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noopener">How to create a Gmail App Password</a> (requires 2-Step Verification).</p>
       </div>
       {% if business.email_smtp_user and business.email_smtp_password %}
-      <p class="help status-connected">Gmail connected. Estimates will be sent from this account.</p>
+      <p class="help status-connected">Gmail connected. You can send estimates and invoices from this account.</p>
+      <form method="post" action="{% url 'test_gmail_connection' %}" style="display: inline; margin-left: 8px;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary btn-sm">Send test email</button>
+      </form>
       {% else %}
-      <p class="help status-disconnected">Add your Gmail and App Password above to send estimates.</p>
+      <p class="help status-disconnected">Enter your Gmail and App Password above, then save to connect.</p>
       {% endif %}
     </div>
     <div class="form-section">
@@ -66,6 +70,42 @@
       <div class="field">
         {{ form.estimate_follow_up_days.label_tag }}{{ form.estimate_follow_up_days }}{{ form.estimate_follow_up_days.errors }}
         {% if form.estimate_follow_up_days.help_text %}<p class="help">{{ form.estimate_follow_up_days.help_text }}</p>{% endif %}
+      </div>
+    </div>
+    <div class="form-section">
+      <h3>Invoices – default due date</h3>
+      <p class="muted">New invoices will be due this many days after the issue date. You can override this per client in Clients, or change the due date on any invoice.</p>
+      <div class="field">
+        {{ form.default_invoice_due_days.label_tag }}{{ form.default_invoice_due_days }}{{ form.default_invoice_due_days.errors }}
+        {% if form.default_invoice_due_days.help_text %}<p class="help">{{ form.default_invoice_due_days.help_text }}</p>{% endif %}
+      </div>
+    </div>
+    <div class="form-section">
+      <h3>Fertilization scheduling</h3>
+      <p class="muted">Growing season used when you generate fertilization schedules (Jobs → Fertilization schedule). Same number of applications = same dates for efficiency.</p>
+      <div class="field" style="display: flex; gap: 16px; align-items: flex-end;">
+        <div>
+          {{ form.growing_season_start_month.label_tag }}{{ form.growing_season_start_month }}{{ form.growing_season_start_month.errors }}
+        </div>
+        <div>
+          {{ form.growing_season_end_month.label_tag }}{{ form.growing_season_end_month }}{{ form.growing_season_end_month.errors }}
+        </div>
+      </div>
+    </div>
+    <div class="form-section">
+      <h3>Payment handles (invoices)</h3>
+      <p class="muted">Add your Venmo, Zelle, and Cash App handles. They appear at the bottom of every sent invoice so customers know how to pay you.</p>
+      <div class="field">
+        {{ form.venmo_username.label_tag }}{{ form.venmo_username }}{{ form.venmo_username.errors }}
+        {% if form.venmo_username.help_text %}<p class="help">{{ form.venmo_username.help_text }}</p>{% endif %}
+      </div>
+      <div class="field">
+        {{ form.zelle_email_or_phone.label_tag }}{{ form.zelle_email_or_phone }}{{ form.zelle_email_or_phone.errors }}
+        {% if form.zelle_email_or_phone.help_text %}<p class="help">{{ form.zelle_email_or_phone.help_text }}</p>{% endif %}
+      </div>
+      <div class="field">
+        {{ form.cashapp_cashtag.label_tag }}{{ form.cashapp_cashtag }}{{ form.cashapp_cashtag.errors }}
+        {% if form.cashapp_cashtag.help_text %}<p class="help">{{ form.cashapp_cashtag.help_text }}</p>{% endif %}
       </div>
     </div>
     <div class="form-section">

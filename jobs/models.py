@@ -110,6 +110,15 @@ class Job(models.Model):
 
     route_order = models.PositiveIntegerField(default=0)
 
+    recurring_job = models.ForeignKey(
+        "RecurringJob",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="generated_jobs",
+        help_text="Set when this job was auto-generated from a recurring schedule.",
+    )
+
     def __str__(self):
         return f"{self.property.address} - {self.scheduled_date or 'Unscheduled'}"
     
@@ -146,30 +155,40 @@ class JobServiceItem(models.Model):
 
 class RecurringJob(models.Model):
     FREQUENCY_CHOICES = [
-        ('weekly', 'Weekly'),
-        ('biweekly', 'Bi-Weekly'),
-        ('monthly', 'Monthly'),
+        ("weekly", "Weekly"),
+        ("biweekly", "Bi-Weekly"),
+        ("monthly", "Monthly"),
+        ("custom", "Custom (every N days)"),
     ]
 
     property = models.ForeignKey(
         Property,
         on_delete=models.CASCADE,
-        related_name='recurring_jobs'
+        related_name="recurring_jobs",
     )
-
-    frequency = models.CharField(
-        max_length=20,
-        choices=FREQUENCY_CHOICES
+    frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES)
+    custom_interval_days = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="When frequency is Custom: repeat every this many days.",
     )
-
     start_date = models.DateField()
     active = models.BooleanField(default=True)
 
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    assigned_crew = models.ForeignKey(Crew, on_delete=models.SET_NULL, null=True, blank=True, related_name='recurring_jobs')
+    assigned_crew = models.ForeignKey(Crew, on_delete=models.SET_NULL, null=True, blank=True, related_name="recurring_jobs")
 
     notes = models.TextField(blank=True)
 
+    # Snapshot of services to add to each generated job: [{"service_id": 1, "quantity": "1", "unit": "visit", "unit_price": "50.00"}, ...]
+    service_snapshot = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Services to add when generating jobs from this recurrence.",
+    )
+
     def __str__(self):
-        return f"{self.property.address} ({self.frequency})"
+        if self.frequency == "custom" and self.custom_interval_days:
+            return f"{self.property.address} (every {self.custom_interval_days} days)"
+        return f"{self.property.address} ({self.get_frequency_display()})"
 

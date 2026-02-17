@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Fertilization schedule</h1>
+  <p>Properties with a fertilization program are grouped so clients with the same number of applications get the same dates—optimizing routes and efficiency.</p>
+</div>
+
+<div class="quick-actions" style="margin-bottom: 24px;">
+  <a href="{% url 'job_list' %}" class="btn btn-secondary">← Jobs</a>
+  <a href="{% url 'create_job' %}" class="btn btn-secondary">Create job</a>
+</div>
+
+{% if not properties %}
+<div class="card" style="max-width: 560px;">
+  <p class="muted">No fertilization programs set yet. On each <strong>property</strong> (edit from the client’s page), set <strong>Fertilization services per year</strong> (e.g. 4). Then return here to generate the schedule.</p>
+</div>
+{% else %}
+<div class="card" style="max-width: 900px;">
+  <p class="muted" style="margin-bottom: 16px;">Suggested dates are spread across your growing season (month {{ start_month }}–{{ end_month }}). Same number of applications = same dates so you can run all fertilizations together.</p>
+
+  <form method="get" style="margin-bottom: 20px; display: flex; gap: 12px; align-items: center;">
+    <label for="year">Year</label>
+    <input type="number" name="year" id="year" value="{{ year }}" min="{{ year }}" max="{{ year|add:2 }}" style="width: 80px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+    <button type="submit" class="btn btn-secondary btn-sm">Update</button>
+  </form>
+
+  <table class="data-table" style="width: 100%; margin-bottom: 24px;">
+    <thead>
+      <tr>
+        <th>Client / Property</th>
+        <th>Applications/year</th>
+        <th>Suggested dates ({{ year }})</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><strong>{{ row.property.customer.name }}</strong><br><span class="muted">{{ row.property.address }}</span></td>
+        <td>{{ row.property.fertilization_services_per_year }}</td>
+        <td>
+          {% for d in row.dates %}
+            {{ d|date:"M j" }}{% if not forloop.last %}, {% endif %}
+          {% empty %}
+            —
+          {% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="post" style="padding-top: 20px; border-top: 1px solid var(--border);">
+    {% csrf_token %}
+    <input type="hidden" name="year" value="{{ year }}">
+    <div class="form-group" style="margin-bottom: 16px;">
+      <label for="service_id">Service to use for created jobs</label>
+      <select name="service_id" id="service_id" required style="max-width: 280px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);">
+        <option value="">— Select service (e.g. Fertilization) —</option>
+        {% for s in services %}
+        <option value="{{ s.id }}">{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Create jobs for {{ year }}</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

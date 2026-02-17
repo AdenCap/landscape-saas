@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pay Invoice #{{ invoice.id }} – {{ business.name }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary: #22c55e; --primary-hover: #16a34a; --surface: #171717; --surface-alt: #0a0a0a; --border: #262626; --text: #fafafa; --text-muted: #a3a3a3; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'DM Sans', sans-serif; background: var(--surface-alt); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .pay-card { max-width: 420px; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; }
+    .pay-card h1 { margin: 0 0 8px 0; font-size: 22px; font-weight: 700; }
+    .pay-card .business-name { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; }
+    .pay-total { font-size: 36px; font-weight: 700; color: var(--primary); margin-bottom: 24px; }
+    .pay-methods { margin-bottom: 28px; }
+    .pay-methods h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 0 0 12px 0; }
+    .pay-method { display: block; width: 100%; padding: 14px 18px; margin-bottom: 10px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px; color: var(--text); text-decoration: none; font-weight: 600; font-size: 15px; text-align: center; transition: border-color 0.15s, background 0.15s; }
+    .pay-method:hover { border-color: var(--primary); background: rgba(34, 197, 94, 0.08); }
+    .pay-method.zelle { pointer-events: none; cursor: text; }
+    .pay-method.zelle span { font-weight: 500; font-size: 14px; }
+    .pay-note { font-size: 14px; color: var(--text-muted); margin: 16px 0 0 0; padding-top: 16px; border-top: 1px solid var(--border); }
+    .already-paid { padding: 16px; background: rgba(34, 197, 94, 0.15); border-radius: 10px; color: var(--primary); font-weight: 600; text-align: center; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="pay-card">
+    <h1>Invoice #{{ invoice.id }}</h1>
+    <p class="business-name">{{ business.name }}</p>
+    <div class="pay-total">${{ invoice.total|floatformat:2 }}</div>
+
+    {% if invoice.status == "paid" %}
+    <div class="already-paid">This invoice has been paid. Thank you!</div>
+    {% else %}
+      {% if has_payment_methods %}
+      <div class="pay-methods">
+        <h3>How to pay</h3>
+        {% if venmo_link %}
+        <a href="{{ venmo_link }}" class="pay-method" target="_blank" rel="noopener">Pay with Venmo ({{ business.venmo_username|default:"" }})</a>
+        {% endif %}
+        {% if business.zelle_email_or_phone %}
+        <div class="pay-method zelle"><span>Zelle: {{ business.zelle_email_or_phone }}</span></div>
+        {% endif %}
+        {% if cashapp_link %}
+        <a href="{{ cashapp_link }}" class="pay-method" target="_blank" rel="noopener">Pay with Cash App ({{ business.cashapp_cashtag|default:"" }})</a>
+        {% endif %}
+      </div>
+      <p class="pay-note">After you pay, {{ business.name }} will mark this invoice as paid.</p>
+      {% endif %}
+    {% endif %}
+  </div>
+</body>
+</html>

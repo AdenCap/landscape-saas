@@ -57,6 +57,12 @@ class Customer(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(28)],
         help_text="For monthly clients: day of month to send the invoice (1–28). E.g. 1 = 1st, 15 = 15th. Leave blank to send manually.",
     )
+    invoice_due_days = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(365)],
+        help_text="Override due date for this client: days from issue date (e.g. 15 = Net 15). Leave blank to use business default.",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -118,7 +124,7 @@ class Property(models.Model):
     customer = models.ForeignKey(
         Customer,
         on_delete=models.CASCADE,
-        related_name='properties'
+        related_name="properties",
     )
 
     address = models.CharField(max_length=255)
@@ -128,6 +134,14 @@ class Property(models.Model):
 
     gate_code = models.CharField(max_length=50, blank=True)
     has_dog = models.BooleanField(default=False)
+
+    # Fertilization / seasonal program: number of applications per year (e.g. 4). Used for "schedule fertilization" to suggest dates and group with other clients.
+    fertilization_services_per_year = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        help_text="For fertilization programs: how many applications per year (e.g. 4). Enables smart scheduling with other fertilization clients.",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -11,7 +11,7 @@ from django.utils import timezone
 from accounts.decorators import role_required
 from accounts.utils import get_business as _get_business
 from .models import Receipt, RevenueCategory
-from .forms import ReceiptForm
+from .forms import ReceiptForm, PayScheduleForm
 from .receipt_parser import parse_receipt_image
 
 
@@ -92,6 +92,21 @@ def financials_dashboard(request):
         labor_timesheet += Decimal(str(mins)) / Decimal("60") * rate
     labor_expenses_year = labor_receipts + labor_timesheet
 
+    # Pay schedule form (for payroll balance on dashboard)
+    pay_schedule_form = PayScheduleForm(instance=business)
+    if request.method == "POST" and request.POST.get("form_type") == "pay_schedule":
+        pay_schedule_form = PayScheduleForm(request.POST, instance=business)
+        if pay_schedule_form.is_valid():
+            business = pay_schedule_form.save(commit=False)
+            freq = pay_schedule_form.cleaned_data.get("pay_frequency")
+            if freq == "custom_dates":
+                business.pay_specific_days = pay_schedule_form.cleaned_data.get("pay_specific_days_parsed") or []
+            else:
+                business.pay_specific_days = None
+            business.save()
+            messages.success(request, "Pay schedule updated.")
+            return redirect("financials:dashboard")
+
     return render(request, "financials/dashboard.html", {
         "revenue_today": revenue_today,
         "revenue_month": revenue_month,
@@ -106,6 +121,7 @@ def financials_dashboard(request):
         "total_expenses_year": total_expenses_year,
         "labor_expenses_year": labor_expenses_year,
         "today": today,
+        "pay_schedule_form": pay_schedule_form,
     })
 
 
