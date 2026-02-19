@@ -52,7 +52,7 @@
   <button type="button" id="filter-apply" class="btn btn-secondary btn-sm">Apply filters</button>
 </div>
 
-<div class="card" style="padding: 20px;">
+<div class="card calendar-drop-zone" style="padding: 20px;" id="calendar-wrapper">
   {% csrf_token %}
   <div id="calendar"></div>
 </div>
@@ -60,7 +60,7 @@
 {% if user.role == "owner" %}
 <div class="unscheduled-panel card" style="margin-top: 24px; padding: 20px;">
   <h3 style="margin: 0 0 16px 0;">Unscheduled Jobs</h3>
-  <p class="muted" style="font-size: 14px; margin-bottom: 16px;">Jobs accepted but not yet on the calendar. Click Schedule to add to a date.</p>
+  <p class="muted" style="font-size: 14px; margin-bottom: 16px;">Drag a job onto the calendar to schedule it, or pick a date and click Schedule.</p>
   <div id="unscheduled-list" style="display: flex; flex-direction: column; gap: 8px;">
     <p class="muted" style="padding: 20px; text-align: center;">Loading...</p>
   </div>
@@ -534,8 +534,10 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         list.innerHTML = data.jobs.map(function(j) {
-          return '<div class="unscheduled-item" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface-alt); border-radius: 8px;">' +
-            '<div style="flex: 1;">' +
+          var title = (j.customer || '') + ' — ' + (j.address || '');
+          return '<div class="unscheduled-item" data-job-id="' + j.id + '" draggable="true" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface-alt); border-radius: 8px; cursor: grab;" title="Drag onto calendar to schedule">' +
+            '<span class="unscheduled-drag-handle" style="color: var(--text-muted); cursor: grab;" aria-hidden="true">⋮⋮</span>' +
+            '<div class="unscheduled-item-title" style="flex: 1;">' +
             '<strong>' + (j.customer || '') + '</strong> — ' + j.address + '<br><small style="color: var(--text-muted);">' + j.services + '</small>' +
             '</div>' +
             '<input type="date" data-job-id="' + j.id + '" class="unscheduled-date" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border);">' +
@@ -574,6 +576,86 @@ document.addEventListener('DOMContentLoaded', function () {
       });
   }
   if (isOwner) loadUnscheduled();
+
+  // Drag unscheduled job onto calendar to schedule
+  function getDateAtPoint(clientX, clientY) {
+    var el = document.elementFromPoint(clientX, clientY);
+    if (!el || !el.closest) return null;
+    var withDate = el.closest('[data-date]');
+    if (withDate) return withDate.getAttribute('data-date');
+    var dayCell = el.closest('.fc-daygrid-day');
+    if (dayCell) {
+      var inner = dayCell.querySelector('[data-date]');
+      if (inner) return inner.getAttribute('data-date');
+    }
+    var timeCol = el.closest('.fc-timegrid-col');
+    if (timeCol) {
+      var d = timeCol.getAttribute('data-date');
+      if (d) return d;
+    }
+    return null;
+  }
+
+  function scheduleUnscheduledJobAtPoint(jobId, clientX, clientY) {
+    var dateStr = getDateAtPoint(clientX, clientY);
+    if (!dateStr) {
+      alert('Drop the job on a calendar day to schedule it.');
+      return;
+    }
+    fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify({ scheduled_date: dateStr })
+    }).then(function(r) {
+      if (r.ok) {
+        calendar.refetchEvents();
+        loadUnscheduled();
+      } else {
+        r.json().then(function(d) { alert(d.error || 'Could not schedule job'); }).catch(function() { alert('Could not schedule job'); });
+      }
+    }).catch(function() { alert('Could not schedule job'); });
+  }
+
+  if (isOwner) {
+    var unscheduledList = document.getElementById('unscheduled-list');
+    if (unscheduledList) {
+      unscheduledList.addEventListener('dragstart', function(e) {
+        if (e.target.closest('input, button, a')) return;
+        var item = e.target.closest('.unscheduled-item');
+        if (!item) return;
+        var jobId = item.getAttribute('data-job-id');
+        if (!jobId) return;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('application/json', JSON.stringify({ jobId: jobId }));
+        e.dataTransfer.setData('text/plain', jobId);
+        e.dataTransfer.setData('text/x-unscheduled-job-id', jobId);
+      });
+      unscheduledList.addEventListener('dragend', function(e) {
+        var item = e.target.closest('.unscheduled-item');
+        if (item) item.style.opacity = '';
+      });
+      unscheduledList.addEventListener('drag', function(e) {
+        var item = e.target.closest('.unscheduled-item');
+        if (item) item.style.opacity = '0.5';
+      });
+    }
+    var calendarWrapper = document.getElementById('calendar-wrapper');
+    if (calendarWrapper) {
+      calendarWrapper.addEventListener('dragover', function(e) {
+        if (e.dataTransfer.types.indexOf('text/x-unscheduled-job-id') !== -1) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        }
+      });
+      calendarWrapper.addEventListener('drop', function(e) {
+        var jobId = e.dataTransfer.getData('text/x-unscheduled-job-id') || e.dataTransfer.getData('text/plain');
+        if (!jobId) return;
+        e.preventDefault();
+        scheduleUnscheduledJobAtPoint(jobId, e.clientX, e.clientY);
+      });
+    }
+  }
 
   function ajaxPost(url, cb) {
     return fetch(url, {
