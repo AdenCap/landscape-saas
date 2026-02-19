@@ -5,11 +5,12 @@ from django.views.decorators.http import require_GET, require_POST
 from django.http import JsonResponse
 
 from accounts.decorators import role_required
+from accounts.ratelimit import ratelimit
 from accounts.utils import get_business as _get_business
 from accounts.models import EmployeePayment
 from billing.models import Invoice
 
-from .models import QuickBooksConnection
+from .models import QuickBooksConnection, QuickBooksErrorLog
 from . import client
 
 
@@ -23,10 +24,11 @@ def quickbooks_settings(request):
         return redirect("/")
     conn = getattr(business, "quickbooks_connection", None)
     client_id, _ = client.get_client_credentials()
+    error_logs = QuickBooksErrorLog.objects.filter(business=business)[:20]
     return render(
         request,
         "quickbooks/settings.html",
-        {"connection": conn, "quickbooks_configured": bool(client_id)},
+        {"connection": conn, "quickbooks_configured": bool(client_id), "error_logs": error_logs},
     )
 
 
@@ -52,6 +54,7 @@ def oauth_start(request):
 
 
 @role_required("owner")
+@ratelimit(key="ip", rate="10/h", block=True)
 @require_GET
 def oauth_callback(request):
     """Handle Intuit redirect: exchange code for tokens and save connection."""
@@ -119,6 +122,12 @@ def push_invoice(request, invoice_id):
         qb_id = client.push_invoice_to_quickbooks(conn, invoice)
         return JsonResponse({"ok": True, "quickbooks_invoice_id": qb_id})
     except Exception as e:
+        QuickBooksErrorLog.objects.create(
+            business=business,
+            action="push_invoice",
+            reference_id=str(invoice_id),
+            error_message=str(e),
+        )
         return JsonResponse({"error": str(e)}, status=400)
 
 
@@ -144,5 +153,11 @@ def sync_payroll(request):
             client.push_payroll_payment_to_quickbooks(conn, payment)
             synced += 1
         except Exception as e:
+            QuickBooksErrorLog.objects.create(
+                business=business,
+                action="sync_payroll",
+                reference_id=str(payment.id),
+                error_message=str(e),
+            )
             return JsonResponse({"error": f"Payment #{payment.id}: {e}"}, status=400)
     return JsonResponse({"ok": True, "synced": synced})

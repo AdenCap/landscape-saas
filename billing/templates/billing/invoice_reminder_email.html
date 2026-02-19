@@ -1,0 +1,39 @@
+{% load billing_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payment reminder – Invoice #{{ invoice.id }}</title>
+</head>
+<body style="margin:0; padding:0; background-color:#0a0a0a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:15px; line-height:1.5; color:#fafafa;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#0a0a0a;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px; background-color:#171717; border:1px solid #262626; border-radius:14px; overflow:hidden;">
+          <tr>
+            <td style="padding:24px;">
+              <h1 style="margin:0; font-size:20px; font-weight:700; color:#fafafa;">Payment reminder</h1>
+              <p style="margin:16px 0 0 0; font-size:15px; color:#e5e5e5;">
+                Hi {{ invoice.customer.name }},
+              </p>
+              <p style="margin:12px 0 0 0; font-size:15px; color:#e5e5e5;">
+                This is a friendly reminder that <strong>Invoice #{{ invoice.id }}</strong> (total {{ invoice.total|currency }}) was due on {{ invoice.due_date }}.
+                {% if days_overdue %}({{ days_overdue }} day{{ days_overdue|pluralize }} overdue){% endif %}
+              </p>
+              {% if pay_url %}
+              <p style="margin:20px 0 0 0;">
+                <a href="{{ pay_url }}" style="display:inline-block; padding:12px 24px; background-color:#22c55e; color:#0a0a0a; font-weight:600; text-decoration:none; border-radius:8px;">Pay now</a>
+              </p>
+              {% endif %}
+              <p style="margin:24px 0 0 0; font-size:13px; color:#a3a3a3;">
+                Thank you,<br>{{ business.name }}
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

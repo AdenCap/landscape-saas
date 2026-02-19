@@ -1,7 +1,8 @@
 from django import forms
+from django.forms import BaseInlineFormSet, inlineformset_factory
 from decimal import Decimal, ROUND_CEILING
 
-from .models import Estimate, EstimateLineItem, EstimateImage
+from .models import Estimate, EstimateLineItem, EstimateImage, Invoice, InvoiceLineItem
 from customers.models import Customer
 
 
@@ -21,6 +22,45 @@ class EstimateForm(forms.ModelForm):
             self.fields['customer'].queryset = Customer.objects.filter(business=business).order_by('name')
 
 
+class InvoiceLineItemForm(forms.ModelForm):
+    """Owner edit of draft invoice line items: description, quantity, unit_price, material_cost, labor_cost."""
+    class Meta:
+        model = InvoiceLineItem
+        fields = ["description", "quantity", "unit_price", "material_cost", "labor_cost"]
+        widgets = {
+            "description": forms.TextInput(attrs={"placeholder": "Description", "class": "form-control"}),
+            "quantity": forms.NumberInput(attrs={"min": 1, "step": 1, "class": "form-control"}),
+            "unit_price": forms.NumberInput(attrs={"min": 0, "step": "0.01", "class": "form-control"}),
+            "material_cost": forms.NumberInput(attrs={"min": 0, "step": "0.01", "class": "form-control"}),
+            "labor_cost": forms.NumberInput(attrs={"min": 0, "step": "0.01", "class": "form-control"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Allow empty rows in formset; view will only save rows with description
+        self.fields["description"].required = False
+        self.fields["quantity"].required = False
+        self.fields["unit_price"].required = False
+
+
+InvoiceLineItemFormSet = inlineformset_factory(
+    Invoice,
+    InvoiceLineItem,
+    form=InvoiceLineItemForm,
+    extra=2,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)
+
+
+def _fmt_qty(d):
+    """Format quantity for display: whole number if integer, else 1 decimal."""
+    if d % 1 == 0:
+        return str(int(d))
+    return f"{float(d):.1f}".rstrip('0').rstrip('.')
+
+
 def _compute_fertilizing(config):
     """Returns (description, material_cost). Bags/pounds computed from inputs."""
     if not config:
@@ -37,10 +77,11 @@ def _compute_fertilizing(config):
             return None, Decimal('0')
         bags = (total_pounds / lbs_bag).quantize(Decimal('1'), rounding=ROUND_CEILING)
         cost = bags * cost_bag
+        desc = f"{int(bags)} bag{'s' if bags != 1 else ''} of {product} ({sqft:,.0f} sq ft)"
     else:
         cost_per_lb = Decimal(str(config.get('cost_per_pound') or 0))
         cost = total_pounds * cost_per_lb
-    desc = f"Fertilizing — {product} ({sqft:,.2f} sq ft)"
+        desc = f"{_fmt_qty(total_pounds)} lbs of {product} ({sqft:,.0f} sq ft)"
     return desc, cost
 
 
@@ -52,6 +93,8 @@ def _compute_mulch(config):
     depth = Decimal(str(config.get('depth_inches') or 3))
     product = str(config.get('product') or 'Mulch').strip() or 'Mulch'
     cubic_yards = (sqft * depth) / Decimal('324')
+    yd_str = _fmt_qty(cubic_yards)
+    desc = f"{yd_str} cubic yard{'s' if float(cubic_yards) != 1 else ''} of {product}"
     pricing = config.get('pricing_type') or 'per_bag'
     if pricing == 'per_bag':
         cost_bag = Decimal(str(config.get('cost_per_bag') or 0))
@@ -64,7 +107,6 @@ def _compute_mulch(config):
     else:
         cost_cy = Decimal(str(config.get('cost_per_cy') or 0))
         cost = cubic_yards * cost_cy
-    desc = f"Mulch — {product} ({sqft:,.2f} sq ft, {depth}\" depth)"
     return desc, cost
 
 
@@ -77,7 +119,8 @@ def _compute_mowing(config):
     rate = Decimal(str(config.get('cost_per_cut') or 0))
     product = str(config.get('product') or 'Lawn Mowing').strip() or 'Lawn Mowing'
     cost = cuts * rate
-    desc = f"Mowing — {product} ({sqft:,.2f} sq ft, {cuts:g} cuts)"
+    cut_str = _fmt_qty(cuts)
+    desc = f"{cut_str} cut{'s' if float(cuts) != 1 else ''} of {product} ({sqft:,.0f} sq ft)"
     return desc, cost
 
 
@@ -118,18 +161,41 @@ class EstimateLineItemForm(forms.ModelForm):
 
     class Meta:
         model = EstimateLineItem
-        fields = ['item_type', 'fertilizing_config', 'mulch_config', 'mowing_config', 'description', 'quantity', 'unit', 'material_cost', 'labor_cost', 'is_addon', 'order']
+        fields = ['item_type', 'fertilizing_config', 'mulch_config', 'mowing_config', 'description', 'quantity', 'material_cost', 'labor_cost', 'total_override', 'is_addon', 'order']
         widgets = {
             'fertilizing_config': forms.HiddenInput(),
             'mulch_config': forms.HiddenInput(),
             'mowing_config': forms.HiddenInput(),
-            'quantity': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': 'Qty'}),
-            'material_cost': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': '0'}),
-            'labor_cost': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': '0'}),
+            'description': forms.TextInput(attrs={'placeholder': 'Description'}),
+            'quantity': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': ''}),
+            'material_cost': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': ''}),
+            'labor_cost': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': ''}),
+            'total_override': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': 'Auto', 'class': 'total-override-input'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Optional: don't require fields so one line can be filled at a time
+        self.fields['description'].required = False
+        self.fields['quantity'].required = False
+        self.fields['material_cost'].required = False
+        self.fields['labor_cost'].required = False
+        self.fields['total_override'].required = False
+        # Show blank instead of 0 for number fields
+        if not self.instance.pk:
+            self.initial['quantity'] = None
+            self.initial['material_cost'] = None
+            self.initial['labor_cost'] = None
+            self.initial['total_override'] = None
+        else:
+            if self.instance.quantity == 0:
+                self.initial['quantity'] = None
+            if self.instance.material_cost == 0:
+                self.initial['material_cost'] = None
+            if self.instance.labor_cost == 0:
+                self.initial['labor_cost'] = None
+            if self.instance.total_override is None:
+                self.initial['total_override'] = None
         if self.instance and self.instance.fertilizing_config:
             c = self.instance.fertilizing_config
             self.fields['fertilizing_lbs_per_1000'].initial = c.get('lbs_per_1000')
@@ -215,6 +281,15 @@ class EstimateLineItemForm(forms.ModelForm):
             data['fertilizing_config'] = None
             data['mulch_config'] = None
             data['mowing_config'] = None
+        # Default empty fields so model can save (formset still skips fully empty new rows)
+        if data.get('quantity') is None or data.get('quantity') == '':
+            data['quantity'] = Decimal('1')
+        if data.get('material_cost') is None or data.get('material_cost') == '':
+            data['material_cost'] = Decimal('0')
+        if data.get('labor_cost') is None or data.get('labor_cost') == '':
+            data['labor_cost'] = Decimal('0')
+        if data.get('total_override') is None or data.get('total_override') == '':
+            data['total_override'] = None
         return data
 
     def save(self, commit=True):
@@ -223,9 +298,54 @@ class EstimateLineItemForm(forms.ModelForm):
         obj.fertilizing_config = self.cleaned_data.get('fertilizing_config')
         obj.mulch_config = self.cleaned_data.get('mulch_config')
         obj.mowing_config = self.cleaned_data.get('mowing_config')
+        if not (obj.description or '').strip():
+            obj.description = 'Line item'
         if commit:
             obj.save()
         return obj
+
+
+class BaseEstimateLineItemFormSet(BaseInlineFormSet):
+    """Only save new line items that have real data; skip empty rows."""
+
+    def save(self, commit=True):
+        """Save only non-empty new forms. Existing forms are saved as usual (including delete)."""
+        if not commit:
+            return super().save(commit=False)
+        instances = []
+        for form in self.forms:
+            if not form.cleaned_data:
+                continue
+            if form.cleaned_data.get('DELETE'):
+                if form.instance.pk:
+                    form.instance.delete()
+                continue
+            # Skip new (no pk) forms that are completely empty
+            if not form.instance.pk:
+                desc = (form.cleaned_data.get('description') or '').strip()
+                mat = form.cleaned_data.get('material_cost')
+                labor = form.cleaned_data.get('labor_cost')
+                total_ov = form.cleaned_data.get('total_override')
+                if mat is None:
+                    mat = Decimal('0')
+                if labor is None:
+                    labor = Decimal('0')
+                if total_ov is None or total_ov == Decimal('0'):
+                    total_ov = None
+                if not desc and mat == Decimal('0') and labor == Decimal('0') and total_ov is None:
+                    continue
+            instances.append(form.save(commit=True))
+        return instances
+
+
+EstimateLineItemFormSet = inlineformset_factory(
+    Estimate,
+    EstimateLineItem,
+    form=EstimateLineItemForm,
+    formset=BaseEstimateLineItemFormSet,
+    extra=1,
+    can_delete=True,
+)
 
 
 class EstimateImageForm(forms.ModelForm):

@@ -12,11 +12,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from accounts.decorators import role_required
 from accounts.utils import get_business
-from billing.services import create_draft_invoice_for_job, create_and_send_invoice_for_job
+from accounts.models import Notification
+from billing.services import create_draft_invoice_for_job
 from billing.monthly import generate_monthly_invoice_for_customer
-from .models import Job, JobServiceItem, Crew, RecurringJob
+from .models import Job, JobServiceItem, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobAssignmentLog, Meeting
 from customers.models import Property
-from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset
+from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset, ReportIssueForm, MeetingForm
 from pricing.utils import get_effective_rate
 from accounts.models import User
 
@@ -171,7 +172,7 @@ def calendar_events(request):
             end_dt = dt + timedelta(hours=1)
             end_str = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
             evt = {
-                "id": job.id,
+                "id": str(job.id),
                 "title": title,
                 "start": start_str,
                 "end": end_str,
@@ -184,7 +185,7 @@ def calendar_events(request):
             }
         else:
             evt = {
-                "id": job.id,
+                "id": str(job.id),
                 "title": title,
                 "start": job.scheduled_date.isoformat(),
                 "allDay": True,
@@ -196,6 +197,32 @@ def calendar_events(request):
                 },
             }
         events.append(evt)
+
+    # Owner-only: add meetings to calendar
+    if business and getattr(request.user, "role", None) == "owner":
+        meetings = Meeting.objects.filter(business=business).select_related("customer").order_by("scheduled_at")
+        meeting_color = "#7c3aed"
+        for m in meetings:
+            start_dt = m.scheduled_at
+            end_dt = start_dt + timedelta(minutes=m.duration_minutes or 60)
+            start_str = start_dt.strftime("%Y-%m-%dT%H:%M:%S")
+            end_str = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
+            customer_name = m.customer.name if m.customer else ""
+            evt = {
+                "id": "m-%s" % m.id,
+                "title": m.title,
+                "start": start_str,
+                "end": end_str,
+                "backgroundColor": meeting_color,
+                "borderColor": meeting_color,
+                "extendedProps": {
+                    "type": "meeting",
+                    "meetingId": m.id,
+                    "customer": customer_name,
+                },
+            }
+            events.append(evt)
+
     return JsonResponse(events, safe=False)
 
 
@@ -347,6 +374,14 @@ def calendar_job_update(request, job_id):
             job.color = None  # Clear override = use crew/employee default
     job.save()
 
+    if "assigned_crew_id" in data or "assigned_to_id" in data:
+        assignee = job.assigned_crew.name if job.assigned_crew else (job.assigned_to.get_full_name() or job.assigned_to.username if job.assigned_to else "Unassigned")
+        JobAssignmentLog.objects.create(
+            job=job,
+            user=request.user,
+            details=f"Assignment set to {assignee} (from calendar)",
+        )
+
     # Return new color and assignee so calendar can update the event immediately
     business = get_business(request)
     crew_colors = {}
@@ -443,6 +478,26 @@ def calendar_unscheduled_jobs(request):
             "status": j.status,
         })
     return JsonResponse({"jobs": out})
+
+
+@require_GET
+@login_required
+def calendar_meeting_data(request, meeting_id):
+    """Return meeting details for calendar modal. Owner only."""
+    business = get_business(request)
+    if not business or getattr(request.user, "role", None) != "owner":
+        return JsonResponse({"error": "Forbidden"}, status=403)
+    meeting = get_object_or_404(Meeting, id=meeting_id, business=business)
+    return JsonResponse({
+        "id": meeting.id,
+        "title": meeting.title,
+        "scheduled_at": meeting.scheduled_at.isoformat() if meeting.scheduled_at else None,
+        "duration_minutes": meeting.duration_minutes or 60,
+        "customer": meeting.customer.name if meeting.customer else "",
+        "customer_id": meeting.customer_id,
+        "location": meeting.location or "",
+        "notes": meeting.notes or "",
+    })
 
 
 @role_required("owner", "crew")
@@ -589,10 +644,16 @@ def crew_today_view(request):
         from django.db.models import Q
         jobs = jobs.filter(
             Q(assigned_to=request.user) |
-            Q(assigned_crew__members=request.user)
+            Q(assigned_crew__members=request.user) |
+            Q(assigned_crew__crew_leader=request.user)
         ).distinct()
 
-    jobs = jobs.order_by("route_order")
+    jobs = list(jobs.order_by("route_order"))
+    job_ids_with_photos = set(
+        JobCompletionPhoto.objects.filter(job__in=jobs).values_list("job_id", flat=True)
+    ) if jobs else set()
+    business = get_business(request)
+    require_completion_photo = bool(business and getattr(business, "require_completion_photo", False))
 
     # For clock in/out widget
     time_clock_current_entry = TimeEntry.objects.filter(
@@ -602,16 +663,21 @@ def crew_today_view(request):
     return render(request, "jobs/crew_today.html", {
         "jobs": jobs,
         "time_clock_current_entry": time_clock_current_entry,
+        "job_ids_with_photos": job_ids_with_photos,
+        "require_completion_photo": require_completion_photo,
     })
 
 def _user_can_access_job(user, job):
-    """Crew can access if assigned to them or if they're in the assigned crew."""
+    """Crew can access if assigned to them or if they're in the assigned crew (or crew leader)."""
     if user.role == "owner":
         return True
     if job.assigned_to_id == user.id:
         return True
-    if job.assigned_crew_id and job.assigned_crew.members.filter(id=user.id).exists():
-        return True
+    if job.assigned_crew_id:
+        if job.assigned_crew.crew_leader_id == user.id:
+            return True
+        if job.assigned_crew.members.filter(id=user.id).exists():
+            return True
     return False
 
 
@@ -638,6 +704,14 @@ def complete_job(request, job_id):
             return JsonResponse({"error": "Forbidden"}, status=403)
         return redirect("crew_today")
 
+    business = getattr(job.property.customer, "business", None)
+    if business and getattr(business, "require_completion_photo", False):
+        if not job.completion_photos.exists():
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return JsonResponse({"error": "Upload at least one completion photo before marking this job complete."}, status=400)
+            messages.error(request, "Upload at least one completion photo before marking this job complete.")
+            return redirect("crew_today")
+
     job.status = "completed"
     job.save()
 
@@ -650,9 +724,12 @@ def complete_job(request, job_id):
         has_items = job.service_items.exists()
 
         if has_items and freq == "per_service":
-            create_and_send_invoice_for_job(job, send=True)
-            messages.success(request, f"Job completed. Invoice created and sent for {job.property.address}.")
-            return redirect("billing:invoice_list")
+            invoice = create_draft_invoice_for_job(job)
+            messages.success(
+                request,
+                f"Job completed. Draft invoice #{invoice.id} created. Review and approve & send from Billing.",
+            )
+            return redirect("billing:invoice_detail", invoice_id=invoice.id)
         if has_items and freq == "monthly":
             d = job.scheduled_date or timezone.now().date()
             invoice = generate_monthly_invoice_for_customer(customer, d.year, d.month, include_job=job)
@@ -665,6 +742,89 @@ def complete_job(request, job_id):
         return redirect("job_billing_options", job_id=job_id)
     messages.success(request, "Job completed. The owner will handle billing.")
     return redirect("crew_today")
+
+
+@role_required("owner", "crew")
+def report_issue(request, job_id):
+    """Crew or owner reports an issue on a job (type, description, optional photo)."""
+    job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id)
+    if request.user.role == "crew" and not _user_can_access_job(request.user, job):
+        messages.error(request, "You don't have access to this job.")
+        return redirect("crew_today")
+    business = getattr(job.property.customer, "business", None)
+    if request.method == "POST":
+        form = ReportIssueForm(request.POST, request.FILES)
+        if form.is_valid():
+            issue = JobIssue.objects.create(
+                job=job,
+                reported_by=request.user,
+                issue_type=form.cleaned_data["issue_type"],
+                description=form.cleaned_data["description"].strip(),
+            )
+            photo = form.cleaned_data.get("photo")
+            if photo:
+                JobIssuePhoto.objects.create(job_issue=issue, image=photo)
+            business = getattr(job.property.customer, "business", None)
+            if business and request.user.role == "crew":
+                owners = User.objects.filter(business=business, role="owner")
+                desc_preview = (issue.description[:80] + "…") if len(issue.description) > 80 else issue.description
+                msg = f"Job issue reported at {job.property.address}: {issue.get_issue_type_display()}. {desc_preview}"
+                for owner in owners:
+                    Notification.objects.create(
+                        business=business,
+                        from_user=request.user,
+                        to_user=owner,
+                        message=msg,
+                    )
+            messages.success(request, "Issue reported. The owner will be notified.")
+            if request.user.role == "owner":
+                return redirect("job_detail", job_id=job_id)
+            return redirect("crew_today")
+    else:
+        form = ReportIssueForm()
+    return render(request, "jobs/report_issue.html", {
+        "job": job,
+        "form": form,
+    })
+
+
+@require_POST
+@role_required("owner")
+def resolve_issue(request, issue_id):
+    """Owner marks an issue as resolved with notes."""
+    issue = get_object_or_404(JobIssue, id=issue_id)
+    business = getattr(issue.job.property.customer, "business", None)
+    if not business or request.user.business_id != business.id:
+        messages.error(request, "Not allowed.")
+        return redirect("job_detail", job_id=issue.job_id)
+    issue.status = "resolved"
+    issue.resolution_notes = (request.POST.get("resolution_notes") or "").strip()
+    issue.resolved_at = timezone.now()
+    issue.resolved_by = request.user
+    issue.save()
+    messages.success(request, "Issue marked resolved.")
+    return redirect("job_detail", job_id=issue.job_id)
+
+
+@role_required("owner", "crew")
+def upload_completion_photo(request, job_id):
+    """Crew or owner uploads a completion photo for a job (proof of work)."""
+    job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id)
+    if request.user.role == "crew" and not _user_can_access_job(request.user, job):
+        messages.error(request, "You don't have access to this job.")
+        return redirect("crew_today")
+    if request.method == "POST":
+        image = request.FILES.get("photo") or request.FILES.get("image")
+        if not image:
+            messages.error(request, "Please select a photo to upload.")
+            return render(request, "jobs/upload_completion_photo.html", {"job": job})
+        JobCompletionPhoto.objects.create(job=job, image=image, uploaded_by=request.user)
+        messages.success(request, "Completion photo uploaded.")
+        if request.user.role == "owner":
+            return redirect("job_detail", job_id=job_id)
+        return redirect("crew_today")
+    return render(request, "jobs/upload_completion_photo.html", {"job": job})
+
 
 @role_required("owner")
 def create_job(request):
@@ -741,6 +901,8 @@ def create_job(request):
                 color=color_val if color_val else None,
                 recurring_job=recurring_job,
             )
+            assignee = assigned_crew.name if assigned_crew else (assigned_to.get_full_name() or assigned_to.username if assigned_to else "Unassigned")
+            JobAssignmentLog.objects.create(job=job, user=request.user, details=f"Job created; assigned to {assignee}")
             for form_data in formset:
                 if form_data.cleaned_data.get("service"):
                     service = form_data.cleaned_data["service"]
@@ -862,6 +1024,84 @@ def job_delete(request, job_id):
     return redirect("calendar")
 
 
+# ---------- Meetings (owner-only) ----------
+
+@role_required("owner")
+def meeting_list(request):
+    """List upcoming meetings for the business."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    now = timezone.now()
+    meetings = Meeting.objects.filter(
+        business=business,
+        scheduled_at__gte=now,
+    ).select_related("customer").order_by("scheduled_at")[:50]
+    return render(request, "jobs/meeting_list.html", {"meetings": meetings})
+
+
+@role_required("owner")
+def meeting_create(request):
+    """Create a new meeting (e.g. client meeting)."""
+    business = get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    initial = {}
+    date_param = request.GET.get("date")
+    time_param = request.GET.get("time")
+    if date_param:
+        initial["scheduled_date"] = date_param
+        initial["scheduled_time"] = time_param if time_param else "09:00"
+    if request.method == "POST":
+        form = MeetingForm(request.POST, business=business)
+        if form.is_valid():
+            meeting = form.save(commit=False)
+            meeting.business = business
+            meeting.created_by = request.user
+            meeting.save()
+            messages.success(request, f"Meeting “{meeting.title}” added to your schedule.")
+            return redirect("calendar")
+        messages.error(request, "Please correct the errors below.")
+    else:
+        form = MeetingForm(initial=initial, business=business)
+    return render(request, "jobs/meeting_form.html", {"form": form, "meeting": None})
+
+
+@role_required("owner")
+def meeting_edit(request, meeting_id):
+    """Edit an existing meeting."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    meeting = get_object_or_404(Meeting, id=meeting_id, business=business)
+    if request.method == "POST":
+        form = MeetingForm(request.POST, instance=meeting, business=business)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Meeting “{meeting.title}” updated.")
+            return redirect("calendar")
+        messages.error(request, "Please correct the errors below.")
+    else:
+        form = MeetingForm(instance=meeting, business=business)
+    return render(request, "jobs/meeting_form.html", {"form": form, "meeting": meeting})
+
+
+@role_required("owner")
+def meeting_delete(request, meeting_id):
+    """Delete a meeting."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    meeting = get_object_or_404(Meeting, id=meeting_id, business=business)
+    title = meeting.title
+    meeting.delete()
+    messages.success(request, f"Meeting “{title}” deleted.")
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"status": "ok"})
+    return redirect("calendar")
+
+
 @role_required("owner")
 def job_billing_options(request, job_id):
     """After job completion: choose to send invoice now or add to monthly."""
@@ -892,11 +1132,14 @@ def job_bill_now(request, job_id):
         messages.error(request, "Add at least one service to the job before invoicing.")
         return redirect("job_detail", job_id=job_id)
 
-    create_and_send_invoice_for_job(job, send=True)
+    invoice = create_draft_invoice_for_job(job)
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return JsonResponse({"status": "ok"})
-    messages.success(request, f"Invoice created and sent for {job.property.address}.")
-    return redirect("billing:invoice_list")
+        return JsonResponse({"status": "ok", "invoice_id": invoice.id})
+    messages.success(
+        request,
+        f"Draft invoice #{invoice.id} created. Review and approve & send from Billing.",
+    )
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
 @require_POST
@@ -925,7 +1168,10 @@ def job_add_to_monthly(request, job_id):
 
 @role_required("owner")
 def job_detail(request, job_id):
-    job = get_object_or_404(Job, id=job_id)
+    job = get_object_or_404(
+        Job.objects.prefetch_related("issues__photos", "completion_photos", "issues__reported_by"),
+        id=job_id,
+    )
 
     # figure out business (adjust if your Property model stores business differently)
     business = getattr(job.property, "business", None)
@@ -946,6 +1192,9 @@ def job_detail(request, job_id):
     job_profit = (job_revenue - job_total_cost) if job_revenue is not None else None
     today_iso = tz.now().date().isoformat()
 
+    job_issues = list(job.issues.all())
+    job_completion_photos = list(job.completion_photos.all())
+
     return render(request, "jobs/job_detail.html", {
         "job": job,
         "form": form,
@@ -957,6 +1206,8 @@ def job_detail(request, job_id):
         "job_revenue": job_revenue,
         "job_profit": job_profit,
         "today_iso": today_iso,
+        "job_issues": job_issues,
+        "job_completion_photos": job_completion_photos,
     })
 
 

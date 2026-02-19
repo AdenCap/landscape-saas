@@ -33,6 +33,33 @@
   </div>
 </div>
 
+{% if error_logs %}
+<div class="card" style="max-width: 640px; margin-top: 24px;">
+  <h2 class="card-title">Recent QuickBooks errors</h2>
+  <p class="muted" style="font-size: 13px; margin: 0 0 12px 0;">Last sync failures for transparency. Fix the cause and try again from the invoice or payroll page.</p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>When</th>
+        <th>Action</th>
+        <th>Reference</th>
+        <th>Error</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in error_logs %}
+      <tr>
+        <td>{{ log.created_at|date:"M j, g:i A" }}</td>
+        <td>{{ log.get_action_display }}</td>
+        <td>{{ log.reference_id|default:"—" }}</td>
+        <td style="max-width: 280px; word-break: break-word;">{{ log.error_message }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 <style>
   .status-connected { color: #059669; font-weight: 600; }
   .muted { color: var(--text-muted); }

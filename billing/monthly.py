@@ -2,7 +2,7 @@ from datetime import date
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Invoice, InvoiceLineItem
+from .models import Invoice, InvoiceLineItem, InvoiceAuditLog
 from .services import get_invoice_due_date
 
 
@@ -41,6 +41,12 @@ def generate_monthly_invoice_for_customer(customer, year, month, include_job=Non
             issue_date=issue_date,
             due_date=due_date,
             status="draft",
+        )
+        InvoiceAuditLog.objects.create(
+            invoice=invoice,
+            action="created",
+            user=None,
+            details={"source": "monthly", "period": f"{year}-{month:02d}"},
         )
 
     base_filter = Q(property__customer=customer, status="completed")

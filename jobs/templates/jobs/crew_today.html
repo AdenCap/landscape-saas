@@ -34,6 +34,15 @@
   <p class="job-notes"><em>{{ job.notes }}</em></p>
   {% endif %}
 
+  <div class="job-links" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+    <a href="{% url 'report_issue' job.id %}" class="btn btn-secondary btn-sm">Report issue</a>
+    <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-secondary btn-sm">Upload completion photo</a>
+  </div>
+
+  {% if require_completion_photo and job.id not in job_ids_with_photos and job.status != "completed" %}
+  <p class="photo-required-msg">Photo required before you can complete this job.</p>
+  {% endif %}
+
   <div class="job-actions">
     {% if job.status == "scheduled" %}
     <form method="post" action="{% url 'start_job' job.id %}">
@@ -43,12 +52,18 @@
       </button>
     </form>
     {% elif job.status == "in_progress" %}
+    {% if require_completion_photo and job.id not in job_ids_with_photos %}
+    <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-primary" style="width: 100%; display: block; text-align: center; box-sizing: border-box;">
+      Upload photo to complete
+    </a>
+    {% else %}
     <form method="post" action="{% url 'complete_job' job.id %}">
       {% csrf_token %}
       <button type="submit" class="btn btn-primary" style="width: 100%; background: var(--accent);">
         Complete Job
       </button>
     </form>
+    {% endif %}
     {% elif job.status == "completed" %}
     <button disabled class="btn btn-secondary" style="width: 100%; opacity: 0.7; cursor: not-allowed;">
       ✓ Completed
@@ -76,5 +91,6 @@
   .badge-scheduled { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
   .badge-inprogress { background: rgba(234, 179, 8, 0.25); color: #fde047; }
   .badge-completed { background: rgba(34, 197, 94, 0.25); color: #86efac; }
+  .photo-required-msg { font-size: 13px; color: var(--primary); margin: 0 0 8px 0; }
 </style>
 {% endblock %}

@@ -77,6 +77,23 @@ class Business(models.Model):
         default='manual'
     )
 
+    require_completion_photo = models.BooleanField(
+        default=False,
+        help_text="If set, crew must upload at least one completion photo before marking the job complete.",
+    )
+
+    # Payment reminders for sent/unpaid invoices
+    invoice_reminder_enabled = models.BooleanField(
+        default=False,
+        help_text="Send automatic payment reminder emails for overdue invoices.",
+    )
+    invoice_reminder_days = models.CharField(
+        max_length=64,
+        blank=True,
+        default="7,14,21",
+        help_text="Comma-separated days after due date to send reminders (e.g. 7,14,21).",
+    )
+
     estimate_follow_up_days = models.PositiveIntegerField(
         default=0,
         blank=True,

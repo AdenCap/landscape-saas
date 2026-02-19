@@ -3,7 +3,7 @@ from decimal import Decimal
 from pricing.models import ServiceTemplate
 from customers.models import Customer, Property
 from accounts.models import User
-from .models import Crew
+from .models import Crew, JobIssue, Meeting
 
 
 class AddJobServiceItemForm(forms.Form):
@@ -204,4 +204,92 @@ def get_job_service_formset(business, extra=0):
         validate_min=True,
         formset=JobServiceFormSet,
     )
+
+
+class ReportIssueForm(forms.Form):
+    """Crew reports an issue on a job (type, description, optional photo)."""
+    issue_type = forms.ChoiceField(
+        choices=JobIssue.TYPE_CHOICES,
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+    description = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3, "class": "form-control", "placeholder": "Describe the issue..."}),
+        required=True,
+    )
+    photo = forms.ImageField(required=False, help_text="Optional photo")
+
+
+class MeetingForm(forms.ModelForm):
+    """Owner creates/edits a meeting (e.g. client meeting) for the schedule."""
+    scheduled_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="Date",
+    )
+    scheduled_time = forms.TimeField(
+        required=False,
+        widget=forms.TimeInput(attrs={"type": "time"}),
+        label="Time",
+        help_text="Leave empty for all-day.",
+    )
+
+    class Meta:
+        model = Meeting
+        fields = (
+            "title",
+            "scheduled_date",
+            "scheduled_time",
+            "duration_minutes",
+            "customer",
+            "location",
+            "notes",
+            "reminder_hours_before",
+        )
+        widgets = {
+            "title": forms.TextInput(attrs={"placeholder": "e.g. Client walkthrough – Smith"}),
+            "duration_minutes": forms.NumberInput(attrs={"min": 15, "max": 480, "step": 15}),
+            "location": forms.TextInput(attrs={"placeholder": "Address or place name"}),
+            "notes": forms.Textarea(attrs={"rows": 3, "placeholder": "Agenda, prep notes..."}),
+            "reminder_hours_before": forms.NumberInput(attrs={"min": 0, "max": 168}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self._business = kwargs.pop("business", None)
+        super().__init__(*args, **kwargs)
+        if self._business:
+            self.fields["customer"].queryset = self._business.customers.order_by("name")
+        self.fields["customer"].required = False
+        if self.instance and self.instance.pk and getattr(self.instance, "scheduled_at", None):
+            from django.utils import timezone
+            dt = self.instance.scheduled_at
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt)
+            self.initial.setdefault("scheduled_date", dt.date())
+            self.initial.setdefault("scheduled_time", dt.time())
+
+    def clean(self):
+        data = super().clean()
+        from datetime import datetime
+        from django.utils import timezone
+        d = data.get("scheduled_date")
+        t = data.get("scheduled_time")
+        if d and t:
+            dt = timezone.make_aware(datetime.combine(d, t))
+            if dt < timezone.now():
+                self.add_error("scheduled_date", "Meeting cannot be in the past.")
+        return data
+
+    def save(self, commit=True):
+        from django.utils import timezone
+        from datetime import datetime
+        meeting = super().save(commit=False)
+        d = self.cleaned_data.get("scheduled_date")
+        t = self.cleaned_data.get("scheduled_time")
+        if d:
+            if t:
+                meeting.scheduled_at = timezone.make_aware(datetime.combine(d, t))
+            else:
+                meeting.scheduled_at = timezone.make_aware(datetime.combine(d, datetime.min.time()))
+        if commit:
+            meeting.save()
+        return meeting
 

@@ -341,12 +341,12 @@ def employee_management(request):
         for user in crew_users:
             rate = getattr(user, "hourly_rate", None) or Decimal("0")
             week_entries = TimeEntry.objects.filter(
-                user=user, clock_out__isnull=False,
+                user=user, status="approved", clock_out__isnull=False,
                 clock_in__date__gte=week_start, clock_in__date__lt=week_end,
             )
             week_minutes = sum(e.duration_minutes or 0 for e in week_entries)
             year_entries = TimeEntry.objects.filter(
-                user=user, clock_out__isnull=False,
+                user=user, status="approved", clock_out__isnull=False,
                 clock_in__date__gte=year_start, clock_in__date__lt=year_end,
             )
             year_minutes = sum(e.duration_minutes or 0 for e in year_entries)
@@ -370,6 +370,11 @@ def employee_management(request):
         payroll_total = sum(p.amount for p in payroll_payments)
         payroll_unsynced = [p for p in payroll_payments if not p.quickbooks_journal_entry_id]
         quickbooks_connected = bool(getattr(business, "quickbooks_connection", None))
+        pending_time_entries_count = TimeEntry.objects.filter(
+            user__business_id=business.id,
+            status="pending_approval",
+            clock_out__isnull=False,
+        ).count()
         # Time off: all requests for business; schedule: pick employee
         time_off_requests = TimeOffRequest.objects.filter(business=business).select_related("user", "reviewed_by").order_by("-start_date", "-created_at")
         schedule_employees = User.objects.filter(business=business, role="crew").order_by("first_name", "last_name", "username")
@@ -389,6 +394,7 @@ def employee_management(request):
         payroll_total = Decimal("0")
         payroll_unsynced = []
         quickbooks_connected = False
+        pending_time_entries_count = 0
         time_off_requests = TimeOffRequest.objects.filter(user=request.user).select_related("reviewed_by").order_by("-start_date", "-created_at")
         schedule_employees = []
         schedule_selected_user = request.user
@@ -414,6 +420,7 @@ def employee_management(request):
         "schedule_selected_user": schedule_selected_user,
         "schedule_rows": schedule_rows,
         "time_off_employees": User.objects.filter(business=business, role="crew").order_by("first_name", "last_name", "username") if is_owner else [],
+        "pending_time_entries_count": pending_time_entries_count,
     })
 
 

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Invoice, InvoiceLineItem, Estimate, EstimateLineItem, EstimateImage
+from .models import Invoice, InvoiceLineItem, InvoiceAuditLog, Estimate, EstimateLineItem, EstimateImage
 
 
 class InvoiceLineItemInline(admin.TabularInline):
@@ -8,10 +8,18 @@ class InvoiceLineItemInline(admin.TabularInline):
     extra = 1
 
 
+class InvoiceAuditLogInline(admin.TabularInline):
+    model = InvoiceAuditLog
+    extra = 0
+    readonly_fields = ("action", "user", "created_at", "details")
+    can_delete = False
+    ordering = ["-created_at"]
+
+
 @admin.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):
-    list_display = ('id', 'customer', 'status', 'total')
-    inlines = [InvoiceLineItemInline]
+    list_display = ("id", "customer", "status", "total", "approved_at", "approved_by")
+    inlines = [InvoiceLineItemInline, InvoiceAuditLogInline]
 
 
 class EstimateLineItemInline(admin.TabularInline):

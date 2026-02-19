@@ -1,5 +1,6 @@
 from decimal import Decimal
 from django.db import models
+from django.conf import settings
 from businesses.models import Business
 from customers.models import Customer
 from jobs.models import Job
@@ -79,6 +80,26 @@ class Invoice(models.Model):
         blank=True,
         null=True,
         help_text="Secret token for the customer 'mark as paid' link. Set when invoice is sent.",
+    )
+
+    approved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the owner approved and sent this invoice (audit).",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invoices_approved",
+        help_text="Owner who approved and sent this invoice (audit).",
+    )
+
+    last_reminder_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When a payment reminder email was last sent (for automated reminders).",
     )
 
     def __str__(self):
@@ -161,6 +182,37 @@ class InvoiceLineItem(models.Model):
         invoice = self.invoice
         super().delete(*args, **kwargs)
         invoice.recompute_totals()
+
+
+class InvoiceAuditLog(models.Model):
+    """Audit trail for invoice actions: created, approved_sent, sent, paid, void, line_items_edited."""
+    ACTION_CHOICES = [
+        ("created", "Created"),
+        ("approved_sent", "Approved & sent"),
+        ("sent", "Sent"),
+        ("paid", "Marked paid"),
+        ("void", "Voided"),
+        ("line_items_edited", "Line items edited"),
+        ("dates_updated", "Dates updated"),
+    ]
+    invoice = models.ForeignKey(
+        Invoice,
+        on_delete=models.CASCADE,
+        related_name="audit_logs",
+    )
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invoice_audit_logs",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    details = models.JSONField(default=dict, blank=True, help_text="Optional extra context (e.g. line count).")
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
 class Estimate(models.Model):
@@ -261,6 +313,10 @@ class EstimateLineItem(models.Model):
         max_digits=10, decimal_places=2, default=0,
         help_text="Cost of labor for this line"
     )
+    total_override = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="If set, this amount is used as the line total instead of materials + labor."
+    )
     is_addon = models.BooleanField(default=False, verbose_name='Optional')
 
     order = models.PositiveIntegerField(default=0)
@@ -270,6 +326,8 @@ class EstimateLineItem(models.Model):
 
     @property
     def line_total(self):
+        if self.total_override is not None:
+            return self.total_override
         if self.material_cost or self.labor_cost:
             return self.material_cost + self.labor_cost
         return self.quantity * self.unit_price

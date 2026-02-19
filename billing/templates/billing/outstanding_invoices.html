@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load billing_filters %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Outstanding Invoices</h1>
+    <p>Sent and unpaid · aging by due date</p>
+  </div>
+  <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">← All invoices</a>
+</div>
+
+<div class="kpi-grid" style="margin-bottom: 24px;">
+  <div class="kpi-card card">
+    <div class="kpi-label">Total outstanding</div>
+    <div class="kpi-value">{{ total_outstanding|currency }}</div>
+    <div class="kpi-sub">{{ outstanding_list|length }} invoice{{ outstanding_list|length|pluralize }}</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-label">Not yet due</div>
+    <div class="kpi-value">{{ total_not_due|currency }}</div>
+  </div>
+  <div class="kpi-card card card-warning">
+    <div class="kpi-label">0–30 days overdue</div>
+    <div class="kpi-value">{{ total_0_30|currency }}</div>
+    <div class="kpi-sub">{{ overdue_0_30|length }} invoice{{ overdue_0_30|length|pluralize }}</div>
+  </div>
+  <div class="kpi-card card card-warning">
+    <div class="kpi-label">31–60 days overdue</div>
+    <div class="kpi-value">{{ total_30_60|currency }}</div>
+  </div>
+  <div class="kpi-card card card-danger">
+    <div class="kpi-label">61+ days overdue</div>
+    <div class="kpi-value">{{ total_60_plus|currency }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="card-title">All outstanding (sent, unpaid)</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Customer</th>
+        <th>Due date</th>
+        <th>Days overdue</th>
+        <th class="num">Total</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in outstanding_list %}
+      <tr>
+        <td><a href="{% url 'billing:invoice_detail' inv.id %}" class="link-primary">#{{ inv.id }}</a></td>
+        <td>{{ inv.customer.name }}</td>
+        <td>{{ inv.due_date|default:"—" }}</td>
+        <td>{% if inv.days_overdue is not None %}{{ inv.days_overdue }} day{{ inv.days_overdue|pluralize }}{% else %}—{% endif %}</td>
+        <td class="num">{{ inv.total|currency }}</td>
+        <td><a href="{% url 'billing:invoice_detail' inv.id %}" class="btn btn-primary btn-sm">View</a></td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">No outstanding invoices.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+  .kpi-card .kpi-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .kpi-card .kpi-value { font-size: 22px; font-weight: 700; }
+  .kpi-card .kpi-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .card-warning .kpi-value { color: #f59e0b; }
+  .card-danger .kpi-value { color: #ef4444; }
+</style>
+{% endblock %}

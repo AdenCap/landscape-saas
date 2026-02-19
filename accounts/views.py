@@ -7,9 +7,11 @@ from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.views import LoginView as AuthLoginView
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.decorators import role_required
+from accounts.ratelimit import ratelimit
 from accounts.utils import get_business as _get_business
 from django.utils import timezone as tz
 from accounts.forms import (
@@ -27,6 +29,7 @@ from jobs.models import Crew
 User = get_user_model()
 
 
+@method_decorator(ratelimit(key="ip", rate="10/m", method="POST", block=True), name="dispatch")
 class LoginView(AuthLoginView):
     """After password login, always send to post-login check (2FA on new device); preserve next."""
 

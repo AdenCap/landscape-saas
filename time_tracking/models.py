@@ -69,8 +69,35 @@ class EmployeeSchedule(models.Model):
         return f"{self.user.username} {self.get_day_of_week_display()} (off)"
 
 
+class ScheduleChangeLog(models.Model):
+    """Audit: who changed employee schedule (weekly slots) and when."""
+    business = models.ForeignKey(
+        "businesses.Business",
+        on_delete=models.CASCADE,
+        related_name="schedule_change_logs",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="schedule_changes_made",
+    )
+    target_user_id = models.PositiveIntegerField(null=True, blank=True, help_text="Employee whose schedule was edited")
+    details = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
 class TimeEntry(models.Model):
-    """Records clock in/out punches for employees."""
+    """Records clock in/out punches for employees. Owner approval required before counting for pay."""
+    STATUS_CHOICES = [
+        ("pending_approval", "Pending approval"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -78,6 +105,20 @@ class TimeEntry(models.Model):
     )
     clock_in = models.DateTimeField()
     clock_out = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending_approval",
+        help_text="Only approved entries count for payroll.",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="time_entries_approved",
+    )
 
     class Meta:
         ordering = ['-clock_in']

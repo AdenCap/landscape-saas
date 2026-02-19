@@ -32,6 +32,10 @@
         <span class="route-color-swatch" style="background: {{ item.color }};" title="Crew/employee"></span>
         <span class="route-address">{{ item.job.property.address }}</span>
         <span class="route-assignee" style="font-size: 12px; color: var(--text-muted);">{% if item.job.assigned_crew %}{{ item.job.assigned_crew.name }}{% elif item.job.assigned_to %}{{ item.job.assigned_to.get_full_name|default:item.job.assigned_to.username %}{% else %}—{% endif %}</span>
+        <span class="route-nav-links">
+          <a href="https://maps.apple.com/?daddr={{ item.job.property.address|urlencode }}" target="_blank" rel="noopener" class="route-nav-link" title="Open in Apple Maps">Apple Maps</a>
+          <a href="https://www.google.com/maps/dir/?api=1&destination={{ item.job.property.address|urlencode }}" target="_blank" rel="noopener" class="route-nav-link" title="Open in Google Maps">Google Maps</a>
+        </span>
       </li>
       {% empty %}
       <li class="route-item route-item-empty">No jobs for this day.</li>
@@ -242,7 +246,10 @@
   .route-handle { color: var(--text-muted); font-size: 14px; cursor: grab; }
   .route-num { min-width: 24px; font-weight: 600; color: var(--primary); }
   .route-color-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.1); flex-shrink: 0; }
-  .route-address { flex: 1; font-weight: 500; }
+  .route-address { flex: 1; font-weight: 500; min-width: 0; }
+  .route-nav-links { display: flex; gap: 8px; flex-shrink: 0; }
+  .route-nav-link { font-size: 12px; color: var(--primary); text-decoration: none; white-space: nowrap; }
+  .route-nav-link:hover { text-decoration: underline; }
   .route-item-empty { cursor: default; color: var(--text-muted); }
 </style>
 {% endblock %}

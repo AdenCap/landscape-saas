@@ -2,133 +2,188 @@
 {% load billing_filters %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
-  <div>
-    <h1>{{ estimate.title }}</h1>
-    <p>Estimate #{{ estimate.id }} for {{ estimate.customer.name }} · <span class="badge badge-{{ estimate.status }}">{{ estimate.status|title }}</span></p>
-  </div>
-  <div class="estimate-actions">
-    <a href="{% url 'billing:estimate_pdf' estimate.id %}" class="btn btn-primary">Download PDF</a>
-    {% if estimate.status == 'draft' %}
-    <a href="{% url 'billing:estimate_edit' estimate.id %}" class="btn btn-secondary">Edit</a>
-    {% endif %}
-    {% if estimate.customer.email and estimate.line_items.exists %}
-    {% if estimate.status == 'sent' %}
-    <form method="post" action="{% url 'billing:estimate_send_followup' estimate.id %}" style="display: inline;">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-secondary">Send follow-up</button>
-    </form>
-    {% elif estimate.status == 'draft' %}
-    <form method="post" action="{% url 'billing:estimate_send' estimate.id %}" style="display: inline;">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-primary" style="background: var(--accent);">Send to {{ estimate.customer.email }}</button>
-    </form>
-    {% endif %}
-    {% endif %}
-    <a href="{% url 'billing:estimate_list' %}" class="btn btn-secondary">← Back</a>
-  </div>
-</div>
-
-{% if not estimate.customer.email %}
-<div class="alert alert-warning">Add an email for {{ estimate.customer.name }} in <a href="{% url 'customer_edit' estimate.customer.id %}">Clients</a> to send this estimate.</div>
-{% endif %}
-
-{% if not estimate.line_items.exists %}
-<div class="alert alert-warning">Add at least one line item before sending. <a href="{% url 'billing:estimate_edit' estimate.id %}">Edit estimate</a></div>
-{% endif %}
-
-<div class="estimate-preview card">
-  <div class="estimate-header">
-    {% if estimate.business.logo %}
-    <img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}" class="estimate-logo">
-    {% endif %}
-    <h2>{{ estimate.title }}</h2>
-    <p class="meta">Estimate #{{ estimate.id }} · {{ estimate.customer.name }}{% if estimate.valid_until %} · Valid until {{ estimate.valid_until }}{% endif %}</p>
-  </div>
-
-  {% if estimate.images.exists %}
-  <div class="estimate-images">
-    {% for img in estimate.images.all %}
-    <div class="est-img">
-      <img src="{{ img.image.url }}" alt="{{ img.caption }}">
-      {% if img.caption %}<p class="caption">{{ img.caption }}</p>{% endif %}
+<div class="estimate-detail-page">
+  <header class="estimate-detail-header">
+    <div class="estimate-detail-heading">
+      <h1>{{ estimate.title }}</h1>
+      <p class="estimate-detail-meta">
+        Estimate #{{ estimate.id }} · {{ estimate.customer.name }}
+        <span class="badge badge-{{ estimate.status }}">{{ estimate.status|title }}</span>
+      </p>
     </div>
-    {% endfor %}
+    <div class="estimate-detail-actions">
+      <a href="{% url 'billing:estimate_pdf' estimate.id %}" class="btn btn-secondary">Download PDF</a>
+      {% if estimate.status == 'draft' %}
+      <a href="{% url 'billing:estimate_edit' estimate.id %}" class="btn btn-secondary">Edit</a>
+      {% endif %}
+      {% if estimate.customer.email and estimate.line_items.exists %}
+        {% if estimate.status == 'sent' %}
+        <form method="post" action="{% url 'billing:estimate_send_followup' estimate.id %}" class="action-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-secondary">Send follow-up</button>
+        </form>
+        {% elif estimate.status == 'draft' %}
+        <form method="post" action="{% url 'billing:estimate_send' estimate.id %}" class="action-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary btn-send">Send to client</button>
+        </form>
+        {% endif %}
+      {% endif %}
+      <a href="{% url 'billing:estimate_list' %}" class="btn btn-secondary">Back to list</a>
+    </div>
+  </header>
+
+  {% if not estimate.customer.email %}
+  <div class="alert alert-warning estimate-detail-alert">
+    Add an email for <strong>{{ estimate.customer.name }}</strong> in <a href="{% url 'customer_edit' estimate.customer.id %}">Clients</a> to send this estimate.
   </div>
   {% endif %}
 
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Description</th>
-        <th class="num">Qty</th>
-        <th>Unit</th>
-        <th class="num">Materials</th>
-        <th class="num">Labor</th>
-        <th class="num">Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in estimate.line_items.all %}
-      {% if not item.is_addon %}
-      <tr>
-        <td>{{ item.description }}</td>
-        <td class="num">{{ item.quantity }}</td>
-        <td>{{ item.unit }}</td>
-        <td class="num">{{ item.material_cost|currency }}</td>
-        <td class="num">{{ item.labor_cost|currency }}</td>
-        <td class="num">{{ item.line_total|currency }}</td>
-      </tr>
-      {% endif %}
-      {% endfor %}
-      {% for item in estimate.line_items.all %}
-      {% if item.is_addon %}
-      <tr class="addon-row">
-        <td>{{ item.description }} <span class="badge-addon">Optional</span></td>
-        <td class="num">{{ item.quantity }}</td>
-        <td>{{ item.unit }}</td>
-        <td class="num">{{ item.material_cost|currency }}</td>
-        <td class="num">{{ item.labor_cost|currency }}</td>
-        <td class="num">{{ item.line_total|currency }}</td>
-      </tr>
-      {% endif %}
-      {% endfor %}
-    </tbody>
-  </table>
+  {% if not estimate.line_items.exists %}
+  <div class="alert alert-warning estimate-detail-alert">
+    Add at least one line item before sending. <a href="{% url 'billing:estimate_edit' estimate.id %}">Edit estimate</a>
+  </div>
+  {% endif %}
 
-  <div class="estimate-total">
-    <strong>Total: {{ estimate.total|currency }}</strong>
-    {% if estimate.status == 'accepted' and estimate.accepted_total %}
-    <br><span class="accepted-note">Client accepted at {{ estimate.accepted_total|currency }}</span>
+  <div class="card estimate-preview-card">
+    <div class="estimate-preview-header">
+      {% if estimate.business.logo %}
+      <img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}" class="estimate-preview-logo">
+      {% endif %}
+      <div class="estimate-preview-title-block">
+        <h2>{{ estimate.title }}</h2>
+        <p class="estimate-preview-meta">
+          Estimate #{{ estimate.id }} · {{ estimate.customer.name }}{% if estimate.valid_until %} · Valid until {{ estimate.valid_until }}{% endif %}
+        </p>
+      </div>
+    </div>
+
+    {% if estimate.images.exists %}
+    <div class="estimate-preview-images">
+      {% for img in estimate.images.all %}
+      <div class="estimate-preview-img">
+        <img src="{{ img.image.url }}" alt="{{ img.caption }}">
+        {% if img.caption %}<p class="estimate-preview-img-caption">{{ img.caption }}</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="estimate-preview-table-wrap">
+      <table class="data-table estimate-preview-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th class="num">Qty</th>
+            <th class="num">Materials</th>
+            <th class="num">Labor</th>
+            <th class="num">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in estimate.line_items.all %}
+          {% if not item.is_addon %}
+          <tr>
+            <td>{{ item.description }}</td>
+            <td class="num">{{ item.quantity }}</td>
+            <td class="num">{{ item.material_cost|currency }}</td>
+            <td class="num">{{ item.labor_cost|currency }}</td>
+            <td class="num">{{ item.line_total|currency }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+          {% for item in estimate.line_items.all %}
+          {% if item.is_addon %}
+          <tr class="row-addon">
+            <td>{{ item.description }} <span class="badge-addon">Optional</span></td>
+            <td class="num">{{ item.quantity }}</td>
+            <td class="num">{{ item.material_cost|currency }}</td>
+            <td class="num">{{ item.labor_cost|currency }}</td>
+            <td class="num">{{ item.line_total|currency }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="estimate-preview-total">
+      <strong>Total: {{ estimate.total|currency }}</strong>
+      {% if estimate.status == 'accepted' and estimate.accepted_total %}
+      <span class="estimate-accepted-note">Client accepted at {{ estimate.accepted_total|currency }}</span>
+      {% endif %}
+    </div>
+
+    {% if estimate.notes %}
+    <div class="estimate-preview-notes">
+      <h3>Notes</h3>
+      <div class="estimate-preview-notes-body">{{ estimate.notes|linebreaks }}</div>
+    </div>
     {% endif %}
   </div>
-
-  {% if estimate.notes %}
-  <div class="estimate-notes">
-    <h3>Notes</h3>
-    <p>{{ estimate.notes|linebreaks }}</p>
-  </div>
-  {% endif %}
 </div>
 
 <style>
-  .estimate-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-  .estimate-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--primary); }
-  .estimate-logo { max-height: 48px; max-width: 160px; object-fit: contain; margin-bottom: 12px; }
-  .estimate-header h2 { margin: 0 0 8px 0; font-size: 24px; }
-  .estimate-header .meta { margin: 0; color: var(--text-muted); }
-  .estimate-images { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
-  .est-img img { max-width: 280px; max-height: 200px; border-radius: 10px; border: 1px solid var(--border); }
-  .est-img .caption { margin: 4px 0 0 0; font-size: 13px; color: var(--text-muted); }
-  .addon-row { background: var(--surface-alt); }
-  .badge-addon { font-size: 11px; padding: 2px 6px; background: rgba(59, 130, 246, 0.25); color: #93c5fd; border-radius: 4px; margin-left: 6px; }
-  .estimate-total { margin-top: 20px; padding-top: 16px; border-top: 2px solid var(--border); font-size: 20px; text-align: right; }
-  .accepted-note { font-size: 14px; color: var(--text-muted); font-weight: normal; }
-  .estimate-notes { margin-top: 24px; padding: 16px; background: var(--surface-alt); border-radius: 10px; }
-  .estimate-notes h3 { margin: 0 0 8px 0; font-size: 14px; }
-  .badge-draft { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
-  .badge-sent { background: rgba(234, 179, 8, 0.25); color: #fde047; }
-  .badge-accepted { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .badge-declined { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+  .estimate-detail-page { max-width: 900px; }
+  .estimate-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .estimate-detail-heading h1 { margin: 0 0 6px 0; font-size: 28px; font-weight: 700; }
+  .estimate-detail-meta { margin: 0; color: var(--text-muted); font-size: 16px; }
+  .estimate-detail-meta .badge { margin-left: 10px; }
+  .estimate-detail-actions .btn { font-size: 15px; }
+  .estimate-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .estimate-detail-actions .action-inline { display: inline; margin: 0; }
+  .estimate-detail-actions .btn-send { background: var(--accent); color: #0a0a0a; }
+  .estimate-detail-actions .btn-send:hover { background: var(--primary); }
+  .estimate-detail-alert { margin-bottom: 20px; padding: 14px 18px; border-radius: 10px; font-size: 16px; }
+
+  .estimate-preview-card { padding: 28px; font-size: 16px; }
+  .estimate-preview-header {
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--primary);
+  }
+  .estimate-preview-logo { max-height: 48px; max-width: 160px; object-fit: contain; margin-bottom: 12px; display: block; }
+  .estimate-preview-title-block h2 { margin: 0 0 6px 0; font-size: 23px; }
+  .estimate-preview-meta { margin: 0; color: var(--text-muted); font-size: 15px; }
+  .estimate-preview-images { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+  .estimate-preview-img img { max-width: 280px; max-height: 200px; border-radius: 10px; border: 1px solid var(--border); display: block; }
+  .estimate-preview-img-caption { margin: 6px 0 0 0; font-size: 14px; color: var(--text-muted); }
+  .estimate-preview-table-wrap { overflow-x: auto; margin-bottom: 20px; }
+  .estimate-preview-table th { padding: 14px 16px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+  .estimate-preview-table td { padding: 14px 16px; border-top: 1px solid var(--border); font-size: 16px; }
+  .estimate-preview-table .row-addon { background: var(--surface-alt); }
+  .badge-addon { font-size: 11px; padding: 2px 8px; background: rgba(59, 130, 246, 0.2); color: #93c5fd; border-radius: 6px; margin-left: 8px; font-weight: 500; }
+  .estimate-preview-total {
+    padding-top: 20px;
+    border-top: 2px solid var(--border);
+    font-size: 22px;
+    text-align: right;
+  }
+  .estimate-accepted-note { display: block; font-size: 15px; font-weight: normal; color: var(--text-muted); margin-top: 4px; }
+  .estimate-preview-notes {
+    margin-top: 24px;
+    padding: 18px;
+    background: var(--surface-alt);
+    border-radius: 10px;
+  }
+  .estimate-preview-notes h3 { margin: 0 0 8px 0; font-size: 15px; font-weight: 600; }
+  .estimate-preview-notes-body { margin: 0; font-size: 16px; line-height: 1.6; }
+
+  .badge-draft { background: rgba(163, 163, 163, 0.2); color: #a3a3a3; }
+  .badge-sent { background: rgba(234, 179, 8, 0.2); color: #fde047; }
+  .badge-accepted { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+  .badge-declined { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
 </style>
 {% endblock %}

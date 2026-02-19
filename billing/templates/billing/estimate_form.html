@@ -1,41 +1,102 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Create Estimate</h1>
-  <p>Select a customer to create an estimate for{% if not form.customer.field.queryset %} — <a href="{% url 'customer_create' %}?next=estimate_and_select" class="link-primary">add your first client</a>{% endif %}</p>
-</div>
+<div class="estimate-form-page">
+  <header class="estimate-form-header">
+    <h1>New estimate</h1>
+    <p class="estimate-form-subtitle">Choose a customer and add basic details. You’ll add line items on the next step.</p>
+  </header>
 
-{% if not form.customer.field.queryset %}
-<div class="alert alert-info" style="margin-bottom: 20px;">
-  No clients yet. <a href="{% url 'customer_create' %}?next=estimate_and_select" class="link-primary">Add a client</a> to create an estimate for them.
-</div>
-{% endif %}
+  {% if not form.customer.field.queryset %}
+  <div class="alert alert-info estimate-form-alert">
+    You don’t have any clients yet. <a href="{% url 'customer_create' %}?next=estimate_and_select" class="link-primary">Add a client</a> first, then come back to create an estimate.
+  </div>
+  {% endif %}
 
-<div class="card" style="max-width: 500px;">
-  <form method="post">
-    {% csrf_token %}
-    <div class="field customer-field">
-      {{ form.customer.label_tag }}{{ form.customer }}{{ form.customer.errors }}
-      <a href="{% url 'customer_create' %}?next=estimate_and_select" class="link-add-client">+ Add new client</a>
-    </div>
-    <div class="field">{{ form.title.label_tag }}{{ form.title }}{{ form.title.errors }}</div>
-    <div class="field">{{ form.valid_until.label_tag }}{{ form.valid_until }}{{ form.valid_until.errors }}</div>
-    <div class="field">{{ form.notes.label_tag }}{{ form.notes }}{{ form.notes.errors }}</div>
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">Create & Add Line Items</button>
-      <a href="{% url 'billing:estimate_list' %}" class="btn btn-secondary">Cancel</a>
-    </div>
-  </form>
+  <div class="card estimate-form-card">
+    <form method="post" class="estimate-form-fields">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="id_customer">Customer</label>
+        {{ form.customer }}
+        {{ form.customer.errors }}
+        <a href="{% url 'customer_create' %}?next=estimate_and_select" class="form-add-link">+ Add new client</a>
+      </div>
+      <div class="form-group">
+        <label for="id_title">Title</label>
+        {{ form.title }}
+        {{ form.title.errors }}
+        <span class="form-hint">e.g. Spring lawn care, Backyard mulch</span>
+      </div>
+      <div class="form-group">
+        <label for="id_valid_until">Valid until</label>
+        {{ form.valid_until }}
+        {{ form.valid_until.errors }}
+      </div>
+      <div class="form-group">
+        <label for="id_notes">Notes (optional)</label>
+        {{ form.notes }}
+        {{ form.notes.errors }}
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Create and add line items</button>
+        <a href="{% url 'billing:estimate_list' %}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
 </div>
 
 <style>
-  .field { margin-bottom: 14px; }
-  .field label { display: block; font-weight: 500; margin-bottom: 4px; }
-  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); }
-  .customer-field { position: relative; }
-  .link-add-client { display: inline-block; margin-top: 8px; font-size: 14px; color: var(--primary); font-weight: 500; }
-  .link-add-client:hover { text-decoration: underline; }
-  .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .estimate-form-page { max-width: 520px; }
+  .estimate-form-header { margin-bottom: 24px; }
+  .estimate-form-header h1 { margin: 0 0 6px 0; font-size: 28px; font-weight: 700; }
+  .estimate-form-subtitle { margin: 0; color: var(--text-muted); font-size: 16px; line-height: 1.55; }
+  .estimate-form-alert { margin-bottom: 24px; padding: 16px 20px; border-radius: 10px; font-size: 16px; }
+  .estimate-form-card { padding: 28px; }
+  .estimate-form-fields .form-group { margin-bottom: 20px; }
+  .estimate-form-fields .form-group:last-of-type { margin-bottom: 28px; }
+  .estimate-form-fields label {
+    display: block;
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .estimate-form-fields input,
+  .estimate-form-fields select,
+  .estimate-form-fields textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: inherit;
+  }
+  .estimate-form-fields input:focus,
+  .estimate-form-fields select:focus,
+  .estimate-form-fields textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-light);
+  }
+  .estimate-form-fields textarea { min-height: 100px; resize: vertical; }
+  .form-add-link {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--primary);
+  }
+  .form-add-link:hover { text-decoration: underline; }
+  .form-hint { display: block; margin-top: 6px; font-size: 14px; color: var(--text-muted); }
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+  }
+  .form-actions .btn-primary { flex-shrink: 0; }
 </style>
 {% endblock %}

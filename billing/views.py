@@ -5,7 +5,6 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib import messages
 from django.core.mail import EmailMultiAlternatives
-from django.forms import modelformset_factory, inlineformset_factory
 from django.http import FileResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
@@ -16,8 +15,16 @@ from django.views.decorators.http import require_http_methods, require_POST
 from accounts.decorators import role_required
 from accounts.utils import get_business as _get_business
 from customers.models import Customer, ClientMessage
-from .models import Invoice, Estimate, EstimateLineItem, EstimateImage
-from .forms import EstimateForm, EstimateLineItemForm, EstimateImageForm, _compute_fertilizing, _compute_mulch
+from .models import Invoice, InvoiceAuditLog, InvoiceLineItem, Estimate, EstimateLineItem, EstimateImage
+from .forms import (
+    EstimateForm,
+    EstimateLineItemForm,
+    EstimateLineItemFormSet,
+    EstimateImageForm,
+    InvoiceLineItemFormSet,
+    _compute_fertilizing,
+    _compute_mulch,
+)
 
 def invoice_list_view(request):
     invoices = Invoice.objects.all().order_by('-issue_date')
@@ -78,6 +85,55 @@ def monthly_invoice_list(request):
 
 
 @role_required("owner")
+def outstanding_invoices(request):
+    """Outstanding invoice dashboard: sent/unpaid with aging (0-30, 31-60, 61+ days overdue)."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    today = timezone.localdate()
+    from datetime import timedelta
+    day_30 = today - timedelta(days=30)
+    day_60 = today - timedelta(days=60)
+
+    # Sent, unpaid — annotate days_overdue for display
+    base_qs = Invoice.objects.filter(business=business, status="sent").select_related("customer")
+    outstanding_list = list(base_qs.order_by("due_date", "id"))
+    for inv in outstanding_list:
+        if inv.due_date and inv.due_date < today:
+            inv.days_overdue = (today - inv.due_date).days
+        else:
+            inv.days_overdue = None
+    total_outstanding = sum(inv.total for inv in outstanding_list)
+
+    # Aging: overdue only (due_date < today)
+    overdue_0_30 = [i for i in outstanding_list if i.due_date and day_30 <= i.due_date < today]
+    overdue_31_60 = [i for i in outstanding_list if i.due_date and day_60 <= i.due_date < day_30]
+    overdue_61_plus = [i for i in outstanding_list if i.due_date and i.due_date < day_60]
+    total_0_30 = sum(i.total for i in overdue_0_30)
+    total_30_60 = sum(i.total for i in overdue_31_60)
+    total_60_plus = sum(i.total for i in overdue_61_plus)
+
+    # Not yet due (due_date >= today or null)
+    not_due = [i for i in outstanding_list if not i.due_date or i.due_date >= today]
+    total_not_due = sum(i.total for i in not_due)
+
+    return render(request, "billing/outstanding_invoices.html", {
+        "outstanding_list": outstanding_list,
+        "total_outstanding": total_outstanding,
+        "overdue_0_30": overdue_0_30,
+        "overdue_31_60": overdue_31_60,
+        "overdue_61_plus": overdue_61_plus,
+        "total_0_30": total_0_30,
+        "total_30_60": total_30_60,
+        "total_60_plus": total_60_plus,
+        "not_due": not_due,
+        "total_not_due": total_not_due,
+        "today": today,
+    })
+
+
+@role_required("owner")
 def invoice_detail(request, invoice_id):
     business = getattr(request.user, "business", None)
     qs = Invoice.objects.select_related("business", "customer").filter(id=invoice_id)
@@ -88,11 +144,13 @@ def invoice_detail(request, invoice_id):
     items = invoice.line_items.all()
     quickbooks_connected = bool(business and getattr(business, "quickbooks_connection", None))
     is_monthly = bool(invoice.job_id is None and invoice.period_start)
+    audit_logs = invoice.audit_logs.select_related("user")[:10]
     return render(request, "billing/invoice_detail.html", {
         "invoice": invoice,
         "items": items,
         "quickbooks_connected": quickbooks_connected,
         "is_monthly_invoice": is_monthly,
+        "audit_logs": audit_logs,
     })
 
 
@@ -128,22 +186,88 @@ def invoice_update_dates(request, invoice_id):
         except ValueError:
             pass
     invoice.save(update_fields=update_fields)
+    _log_invoice_audit(invoice, "dates_updated", request=request, details={"due_date": due_date_str})
     messages.success(request, f"Due date set to {due_date}.")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+
+def _log_invoice_audit(invoice, action, request=None, details=None):
+    """Record an invoice audit log entry."""
+    user = request.user if request and getattr(request, "user", None) else None
+    InvoiceAuditLog.objects.create(
+        invoice=invoice,
+        action=action,
+        user=user,
+        details=details or {},
+    )
+
+
+@role_required("owner")
+def invoice_edit_line_items(request, invoice_id):
+    """Owner can add/edit/delete line items on a draft invoice."""
+    business = _get_business(request)
+    qs = Invoice.objects.filter(id=invoice_id).prefetch_related("line_items")
+    if business:
+        qs = qs.filter(business=business)
+    invoice = get_object_or_404(qs)
+
+    if invoice.status != "draft":
+        messages.error(request, "Only draft invoices can be edited.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    formset = InvoiceLineItemFormSet(request.POST or None, instance=invoice)
+    if request.method == "POST" and formset.is_valid():
+        for form in formset:
+            if form in formset.deleted_forms:
+                if form.instance.pk:
+                    form.instance.delete()
+                continue
+            obj = form.save(commit=False)
+            desc = (getattr(obj, "description", None) or "").strip()
+            if not desc:
+                if obj.pk:
+                    obj.delete()
+                continue
+            obj.description = desc
+            obj.quantity = obj.quantity or 1
+            obj.unit_price = getattr(obj, "unit_price", None) or 0
+            obj.save()
+        invoice.recompute_totals()
+        _log_invoice_audit(
+            invoice,
+            "line_items_edited",
+            request=request,
+            details={"line_count": invoice.line_items.count()},
+        )
+        messages.success(request, "Line items updated.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    return render(
+        request,
+        "billing/invoice_line_items_edit.html",
+        {"invoice": invoice, "formset": formset},
+    )
 
 
 @require_POST
 @role_required("owner")
 def send_invoice(request, invoice_id):
-    invoice = get_object_or_404(Invoice, id=invoice_id)
+    business = _get_business(request)
+    qs = Invoice.objects.filter(id=invoice_id)
+    if business:
+        qs = qs.filter(business=business)
+    invoice = get_object_or_404(qs)
 
-    # Only allow draft -> sent; generate payment token for customer pay link
+    # Only allow draft -> sent; owner approval required (never auto-send)
     if invoice.status == "draft":
         invoice.status = "sent"
         if not invoice.payment_token:
             invoice.payment_token = secrets.token_urlsafe(32)
-        invoice.save(update_fields=["status", "payment_token"])
-
+        invoice.approved_at = timezone.now()
+        invoice.approved_by = request.user
+        invoice.save(update_fields=["status", "payment_token", "approved_at", "approved_by"])
+        _log_invoice_audit(invoice, "approved_sent", request=request)
+        messages.success(request, "Invoice approved and sent. Customer can pay via the link below.")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
@@ -195,6 +319,7 @@ def mark_invoice_paid(request, invoice_id):
     if invoice.status == "sent":
         invoice.status = "paid"
         invoice.save(update_fields=["status"])
+        _log_invoice_audit(invoice, "paid", request=request)
         messages.success(request, f"Invoice #{invoice.id} marked as paid.")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
@@ -598,22 +723,23 @@ def estimate_edit(request, estimate_id):
 
     estimate = get_object_or_404(Estimate, id=estimate_id, business=business)
 
-    LineItemFormSet = inlineformset_factory(
-        Estimate, EstimateLineItem, form=EstimateLineItemForm,
-        extra=2, can_delete=True
-    )
-
     if request.method == "POST":
         form = EstimateForm(request.POST, instance=estimate, business=business)
-        formset = LineItemFormSet(request.POST, instance=estimate)
+        formset = EstimateLineItemFormSet(request.POST, instance=estimate)
         if form.is_valid() and formset.is_valid():
             form.save()
-            formset.save()
-            messages.success(request, "Estimate updated.")
-            return redirect("billing:estimate_detail", estimate_id=estimate.id)
+            saved = formset.save()
+            if saved:
+                messages.success(request, "Line item added. Add another below or go to View & send when done.")
+            return redirect("billing:estimate_edit", estimate_id=estimate.id)
+        else:
+            if not form.is_valid():
+                messages.error(request, "Please fix the errors in the details section.")
+            if not formset.is_valid():
+                messages.error(request, "Please fix the errors in the line items.")
     else:
         form = EstimateForm(instance=estimate, business=business)
-        formset = LineItemFormSet(instance=estimate)
+        formset = EstimateLineItemFormSet(instance=estimate)
 
     return render(request, "billing/estimate_edit.html", {
         "form": form, "formset": formset, "estimate": estimate,

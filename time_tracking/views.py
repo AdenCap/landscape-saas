@@ -3,11 +3,12 @@ from decimal import Decimal
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
+from django.urls import reverse
 from django.views.decorators.http import require_POST, require_GET
 
 from accounts.decorators import role_required
 from accounts.models import User
-from .models import TimeEntry, TimeOffRequest, EmployeeSchedule
+from .models import TimeEntry, TimeOffRequest, EmployeeSchedule, ScheduleChangeLog
 from .forms import TimeOffRequestForm, EmployeeScheduleFormSet
 
 
@@ -93,9 +94,10 @@ def timesheets_view(request):
     for user in crew_users:
         rate = user.hourly_rate or Decimal("0")
 
-        # Week: entries where clock_in date falls in the week (attribute shift to clock-in day)
+        # Week: only approved entries count for payroll
         week_entries = TimeEntry.objects.filter(
             user=user,
+            status="approved",
             clock_out__isnull=False,
             clock_in__date__gte=week_start,
             clock_in__date__lt=week_end,
@@ -107,6 +109,7 @@ def timesheets_view(request):
         # Year: same logic
         year_entries = TimeEntry.objects.filter(
             user=user,
+            status="approved",
             clock_out__isnull=False,
             clock_in__date__gte=year_start,
             clock_in__date__lt=year_end,
@@ -134,6 +137,15 @@ def timesheets_view(request):
     total_week_cost = sum(s['week_cost'] for s in employee_stats)
     total_year_cost = sum(s['year_cost'] for s in employee_stats)
 
+    # Count pending time entries (complete entries awaiting approval)
+    pending_count = 0
+    if request.user.business_id:
+        pending_count = TimeEntry.objects.filter(
+            user__business_id=request.user.business_id,
+            status="pending_approval",
+            clock_out__isnull=False,
+        ).count()
+
     return render(request, 'time_tracking/timesheets.html', {
         'employee_stats': employee_stats,
         'week_start': week_start,
@@ -142,7 +154,70 @@ def timesheets_view(request):
         'year_end': year_end,
         'total_week_cost': total_week_cost,
         'total_year_cost': total_year_cost,
+        'pending_count': pending_count,
     })
+
+
+@role_required("owner")
+def time_entries_pending(request):
+    """Owner: list time entries pending approval (complete punch pairs)."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    entries = (
+        TimeEntry.objects.filter(
+            user__business_id=business.id,
+            status="pending_approval",
+            clock_out__isnull=False,
+        )
+        .select_related("user")
+        .order_by("-clock_in")
+    )
+    return render(request, "time_tracking/time_entries_pending.html", {
+        "entries": entries,
+    })
+
+
+@require_POST
+@role_required("owner")
+def time_entry_approve(request, entry_id):
+    """Owner approves a time entry so it counts for payroll."""
+    business = _get_business(request)
+    entry = get_object_or_404(
+        TimeEntry.objects.filter(user__business_id=business.id),
+        id=entry_id,
+        status="pending_approval",
+    )
+    entry.status = "approved"
+    entry.approved_at = timezone.now()
+    entry.approved_by = request.user
+    entry.save()
+    messages.success(request, "Time entry approved.")
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        from django.http import JsonResponse
+        return JsonResponse({"status": "ok"})
+    return redirect("time_entries_pending")
+
+
+@require_POST
+@role_required("owner")
+def time_entry_reject(request, entry_id):
+    """Owner rejects a time entry; it will not count for payroll."""
+    business = _get_business(request)
+    entry = get_object_or_404(
+        TimeEntry.objects.filter(user__business_id=business.id),
+        id=entry_id,
+        status="pending_approval",
+    )
+    entry.status = "rejected"
+    entry.approved_at = timezone.now()
+    entry.approved_by = request.user
+    entry.save()
+    messages.success(request, "Time entry rejected.")
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        from django.http import JsonResponse
+        return JsonResponse({"status": "ok"})
+    return redirect("time_entries_pending")
 
 
 def _get_business(request):
@@ -296,6 +371,12 @@ def schedule_edit(request):
                     obj.user = target_user
                     obj.save()
             formset.save()
+            ScheduleChangeLog.objects.create(
+                business=business,
+                user=request.user,
+                target_user_id=target_user.id if target_user else None,
+                details=f"Weekly schedule updated for {target_user.get_full_name() or target_user.username}",
+            )
             messages.success(request, "Schedule updated.")
             from django.urls import reverse
             edit_url = reverse("employee_management") + "#schedule"

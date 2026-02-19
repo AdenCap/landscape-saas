@@ -21,6 +21,9 @@ class BusinessSettingsForm(forms.ModelForm):
             "from_email",
             "contact_email",
             "contact_phone",
+            "require_completion_photo",
+            "invoice_reminder_enabled",
+            "invoice_reminder_days",
             "estimate_follow_up_days",
             "default_invoice_due_days",
             "growing_season_start_month",
@@ -35,6 +38,9 @@ class BusinessSettingsForm(forms.ModelForm):
             "cashapp_cashtag": "Cash App handle",
         }
         help_texts = {
+            "require_completion_photo": "If enabled, crew must upload at least one completion photo before marking a job complete.",
+            "invoice_reminder_enabled": "Send automatic payment reminder emails for overdue invoices (run the send_invoice_reminders command daily, e.g. via cron).",
+            "invoice_reminder_days": "Days after due date to send reminders, comma-separated (e.g. 7,14,21).",
             "email_smtp_user": "Your Gmail address for sending estimates to clients.",
             "from_email": "Shown as the sender; use the same Gmail address as above.",
             "contact_email": "Shown to clients so they can reach you.",

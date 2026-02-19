@@ -30,7 +30,23 @@
       <span class="meta-label">Total</span>
       <span class="meta-value">{{ invoice.total|currency }}</span>
     </div>
+    {% if invoice.approved_at %}
+    <div class="meta-group">
+      <span class="meta-label">Approved &amp; sent</span>
+      <span class="meta-value">{{ invoice.approved_at|date:"M j, Y g:i A" }}{% if invoice.approved_by %} by {{ invoice.approved_by.get_full_name|default:invoice.approved_by.email }}{% endif %}</span>
+    </div>
+    {% endif %}
   </div>
+  {% if audit_logs %}
+  <div class="invoice-audit">
+    <h3 class="audit-title">Recent activity</h3>
+    <ul class="audit-list">
+      {% for log in audit_logs %}
+      <li><span class="audit-action">{{ log.get_action_display }}</span> {% if log.user %}{{ log.user.get_full_name|default:log.user.email }}{% else %}system{% endif %} · {{ log.created_at|date:"M j, g:i A" }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
   <div class="invoice-dates-edit">
     <form method="post" action="{% url 'billing:invoice_update_dates' invoice.id %}" class="dates-edit-form">
       {% csrf_token %}
@@ -124,9 +140,10 @@
       {% endif %}
       <a href="{% url 'billing:invoice_pdf' invoice.id %}" class="btn btn-primary">Download PDF</a>
       {% if invoice.status == "draft" %}
+      <a href="{% url 'billing:invoice_edit_line_items' invoice.id %}" class="btn btn-secondary">Edit line items</a>
       <form method="post" action="{% url 'billing:send_invoice' invoice.id %}" style="display: inline;">
         {% csrf_token %}
-        <button type="submit" class="btn btn-secondary">{% if is_monthly_invoice %}Send invoice now (early){% else %}Mark as Sent{% endif %}</button>
+        <button type="submit" class="btn btn-primary">Approve &amp; send</button>
       </form>
       {% endif %}
       {% if invoice.status == "sent" or invoice.status == "paid" %}
@@ -168,6 +185,11 @@
   .status-paid { background: rgba(34, 197, 94, 0.25); color: #86efac; }
   .status-void { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
   .invoice-meta-bar { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 16px; padding: 20px 24px; background: var(--surface-alt); border-radius: 12px; }
+  .invoice-audit { margin-bottom: 24px; padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  .audit-title { margin: 0 0 12px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+  .audit-list { margin: 0; padding-left: 20px; font-size: 14px; color: var(--text-muted); }
+  .audit-list li { margin-bottom: 4px; }
+  .audit-action { font-weight: 600; color: var(--text); }
   .meta-group { display: flex; flex-direction: column; gap: 4px; }
   .invoice-dates-edit { margin-bottom: 32px; }
   .dates-edit-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }

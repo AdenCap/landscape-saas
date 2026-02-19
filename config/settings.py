@@ -193,3 +193,11 @@ MAPBOX_ACCESS_TOKEN = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
 # Google Maps for Daily Routes: map view and route optimization by address (enable Maps JavaScript API, Geocoding API, Directions API)
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 DEFAULT_FROM_EMAIL = "Field Ops <noreply@fieldops.local>"
+
+# Cache: used by django-ratelimit (auth, QuickBooks callback). Default in-memory; in production use Redis.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "default",
+    }
+}

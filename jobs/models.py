@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from customers.models import Property
 from accounts.models import User
 from businesses.models import Business
@@ -110,6 +111,9 @@ class Job(models.Model):
 
     route_order = models.PositiveIntegerField(default=0)
 
+    # Completion proof (optional: Business.require_completion_photo)
+    # JobCompletionPhoto records stored separately; use job.completion_photos.exists()
+
     recurring_job = models.ForeignKey(
         "RecurringJob",
         on_delete=models.SET_NULL,
@@ -121,9 +125,140 @@ class Job(models.Model):
 
     def __str__(self):
         return f"{self.property.address} - {self.scheduled_date or 'Unscheduled'}"
-    
+
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
+
+
+class JobIssue(models.Model):
+    """Crew-reported issue on a job (equipment, access, damage, etc.). Owner can resolve."""
+    TYPE_CHOICES = [
+        ("equipment", "Equipment"),
+        ("access", "Access / gate / lock"),
+        ("customer_request", "Customer request"),
+        ("damage", "Damage / concern"),
+        ("other", "Other"),
+    ]
+    STATUS_CHOICES = [
+        ("open", "Open"),
+        ("resolved", "Resolved"),
+    ]
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="issues")
+    reported_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reported_job_issues",
+    )
+    issue_type = models.CharField(max_length=32, choices=TYPE_CHOICES, default="other")
+    description = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="open")
+    resolution_notes = models.TextField(blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resolved_job_issues",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_issue_type_display()} on Job #{self.job_id} ({self.status})"
+
+
+class JobIssuePhoto(models.Model):
+    """Photo attachment for a job issue."""
+    job_issue = models.ForeignKey(JobIssue, on_delete=models.CASCADE, related_name="photos")
+    image = models.ImageField(upload_to="job_issues/%Y/%m/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+
+class JobCompletionPhoto(models.Model):
+    """Proof-of-work photo for a completed job. Optional or required per Business."""
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="completion_photos")
+    image = models.ImageField(upload_to="job_completion/%Y/%m/")
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_completion_photos",
+    )
+    captured_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-captured_at"]
+
+
+class JobAssignmentLog(models.Model):
+    """Audit: who changed job assignment (assigned_to / assigned_crew) and when."""
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="assignment_logs")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="job_assignment_changes",
+    )
+    details = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class Meeting(models.Model):
+    """Owner-scheduled meeting (e.g. with clients). Shown on calendar; owner gets reminder notifications."""
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.CASCADE,
+        related_name="meetings",
+    )
+    title = models.CharField(max_length=255)
+    scheduled_at = models.DateTimeField(help_text="When the meeting is scheduled.")
+    duration_minutes = models.PositiveSmallIntegerField(
+        default=60,
+        blank=True,
+        help_text="Duration in minutes for calendar display.",
+    )
+    customer = models.ForeignKey(
+        "customers.Customer",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="meetings",
+        help_text="Optional: client you're meeting with.",
+    )
+    location = models.CharField(max_length=255, blank=True)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_meetings",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    reminder_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When a reminder notification was sent (so we don't send twice).",
+    )
+    reminder_hours_before = models.PositiveSmallIntegerField(
+        default=24,
+        blank=True,
+        help_text="Send reminder this many hours before scheduled_at.",
+    )
+
+    class Meta:
+        ordering = ["scheduled_at"]
+
+    def __str__(self):
+        return f"{self.title} at {self.scheduled_at}"
 
 
 class JobServiceItem(models.Model):

@@ -71,8 +71,13 @@
 <!-- Timesheets (owner only) -->
 {% if is_owner %}
 <section id="section-timesheets" class="emp-mgmt-section card emp-tab-panel" data-panel="timesheets" hidden>
-  <h2 class="card-title">Timesheets</h2>
-  <p class="section-desc">Weekly and yearly hours and labor costs.</p>
+  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+    Timesheets
+    {% if pending_time_entries_count %}
+    <a href="{% url 'time_entries_pending' %}" class="btn btn-primary btn-sm">Approve time entries ({{ pending_time_entries_count }})</a>
+    {% endif %}
+  </h2>
+  <p class="section-desc">Weekly and yearly hours and labor costs. Only approved time entries count for payroll.</p>
   <div class="kpi-grid" style="margin-bottom: 20px;">
     <div class="kpi-card card" style="margin-bottom: 0;">
       <div class="kpi-label">This Week's Labor Cost</div>

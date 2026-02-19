@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Time entries pending approval</h1>
+    <p>Approve or reject clock-in/out entries. Only approved entries count for payroll.</p>
+  </div>
+  <a href="{% url 'employee_management' %}#timesheets" class="btn btn-secondary">← Back to Employee Management</a>
+</div>
+
+{% if entries %}
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Employee</th>
+        <th>Clock in</th>
+        <th>Clock out</th>
+        <th class="num">Duration</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+      <tr>
+        <td>{{ e.user.get_full_name|default:e.user.username }}</td>
+        <td>{{ e.clock_in|date:"M j, Y g:i A" }}</td>
+        <td>{{ e.clock_out|date:"M j, Y g:i A" }}</td>
+        <td class="num">{{ e.duration_display }}</td>
+        <td style="white-space: nowrap;">
+          <form method="post" action="{% url 'time_entry_approve' e.id %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-sm">Approve</button>
+          </form>
+          <form method="post" action="{% url 'time_entry_reject' e.id %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm">Reject</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <p class="empty-state">No time entries pending approval. When crew clock out, entries appear here for your approval.</p>
+</div>
+{% endif %}
+{% endblock %}

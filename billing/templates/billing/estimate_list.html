@@ -1,59 +1,128 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
-  <div>
-    <h1>Estimates</h1>
-    <p>Create and send professional estimates to customers</p>
+<div class="estimate-page">
+  <header class="estimate-page-header">
+    <div class="estimate-page-heading">
+      <h1>Estimates</h1>
+      <p class="estimate-page-subtitle">Create and send professional quotes to customers</p>
+    </div>
+    <a href="{% url 'billing:estimate_create' %}" class="btn btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New estimate
+    </a>
+  </header>
+
+  <div class="estimate-filters">
+    <a href="?status=pending" class="filter-pill {% if status_filter == 'pending' %}active{% endif %}">Pending</a>
+    <a href="?status=accepted" class="filter-pill {% if status_filter == 'accepted' %}active{% endif %}">Accepted</a>
+    <a href="?status=all" class="filter-pill {% if status_filter == 'all' %}active{% endif %}">All</a>
   </div>
-  <a href="{% url 'billing:estimate_create' %}" class="btn btn-primary">+ Create Estimate</a>
-</div>
 
-<div class="estimate-filters card" style="padding: 16px; margin-bottom: 16px;">
-  <span style="font-size: 13px; font-weight: 500; color: var(--text-muted); margin-right: 12px;">Filter:</span>
-  <a href="?status=pending" class="btn btn-sm {% if status_filter == 'pending' %}btn-primary{% else %}btn-secondary{% endif %}">Pending (not accepted)</a>
-  <a href="?status=accepted" class="btn btn-sm {% if status_filter == 'accepted' %}btn-primary{% else %}btn-secondary{% endif %}">Accepted</a>
-  <a href="?status=all" class="btn btn-sm {% if status_filter == 'all' %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
-</div>
-
-<div class="card">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Customer</th>
-        <th>Title</th>
-        <th class="num">Total</th>
-        <th>Status</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for est in estimates %}
-      <tr>
-        <td>{{ est.id }}</td>
-        <td><a href="{% url 'customer_detail' est.customer.id %}" class="link-primary">{{ est.customer.name }}</a></td>
-        <td>{{ est.title }}</td>
-        <td class="num">${{ est.total }}</td>
-        <td><span class="badge badge-{{ est.status }}">{{ est.status|title }}</span></td>
-        <td>
-          <a href="{% url 'billing:estimate_detail' est.id %}" class="btn btn-secondary btn-sm">View</a>
-          {% if est.status == 'draft' %}
-          <a href="{% url 'billing:estimate_edit' est.id %}" class="btn btn-secondary btn-sm">Edit</a>
-          {% endif %}
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="6">No estimates yet. <a href="{% url 'billing:estimate_create' %}" class="link-primary">Create your first estimate</a></td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="card estimate-list-card">
+    {% if estimates %}
+    <div class="estimate-table-wrap">
+      <table class="data-table estimate-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Customer</th>
+            <th>Title</th>
+            <th class="num">Total</th>
+            <th>Status</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for est in estimates %}
+          <tr>
+            <td class="col-id">{{ est.id }}</td>
+            <td><a href="{% url 'customer_detail' est.customer.id %}" class="link-primary">{{ est.customer.name }}</a></td>
+            <td>{{ est.title }}</td>
+            <td class="num">{{ est.total }}</td>
+            <td><span class="badge badge-{{ est.status }}">{{ est.status|title }}</span></td>
+            <td class="col-actions">
+              <a href="{% url 'billing:estimate_detail' est.id %}" class="btn btn-secondary btn-sm">View</a>
+              {% if est.status == 'draft' %}
+              <a href="{% url 'billing:estimate_edit' est.id %}" class="btn btn-secondary btn-sm">Edit</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="estimate-empty">
+      <p class="estimate-empty-title">No estimates yet</p>
+      <p class="estimate-empty-text">Create your first estimate to send a professional quote to a customer.</p>
+      <a href="{% url 'billing:estimate_create' %}" class="btn btn-primary">Create estimate</a>
+    </div>
+    {% endif %}
+  </div>
 </div>
 
 <style>
-  .badge-draft { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
-  .badge-sent { background: rgba(234, 179, 8, 0.25); color: #fde047; }
-  .badge-accepted { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .badge-declined { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+  .estimate-page { max-width: 960px; }
+  .estimate-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .estimate-page-heading h1 { margin: 0 0 4px 0; font-size: 28px; font-weight: 700; }
+  .estimate-page-subtitle { margin: 0; color: var(--text-muted); font-size: 16px; }
+  .estimate-page-header .btn { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
+  .estimate-page-header .btn svg { flex-shrink: 0; }
+
+  .estimate-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .filter-pill {
+    display: inline-block;
+    padding: 9px 18px;
+    font-size: 15px;
+    font-weight: 500;
+    border-radius: 20px;
+    text-decoration: none;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    transition: all 0.15s ease;
+  }
+  .filter-pill:hover { color: var(--text); border-color: var(--text-muted); }
+  .filter-pill.active {
+    background: var(--primary-light);
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+
+  .estimate-list-card { padding: 0; overflow: hidden; }
+  .estimate-table-wrap { overflow-x: auto; }
+  .estimate-table { margin: 0; }
+  .estimate-table th { padding: 16px 20px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 600; }
+  .estimate-table td { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 16px; }
+  .estimate-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+  .estimate-table .col-id { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .estimate-table .col-actions { white-space: nowrap; }
+  .estimate-table .col-actions .btn-sm { margin-left: 6px; }
+  .estimate-table .col-actions .btn-sm:first-child { margin-left: 0; }
+
+  .estimate-empty {
+    text-align: center;
+    padding: 48px 24px;
+  }
+  .estimate-empty-title { font-size: 20px; font-weight: 600; margin: 0 0 8px 0; }
+  .estimate-empty-text { color: var(--text-muted); margin: 0 0 20px 0; font-size: 16px; }
+  .estimate-empty .btn { margin-top: 4px; }
+
+  .badge-draft { background: rgba(163, 163, 163, 0.2); color: #a3a3a3; }
+  .badge-sent { background: rgba(234, 179, 8, 0.2); color: #fde047; }
+  .badge-accepted { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+  .badge-declined { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
 </style>
 {% endblock %}

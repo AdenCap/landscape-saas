@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Upload completion photo</h1>
+  <p>{{ job.property.address }} · Proof of work</p>
+</div>
+
+<div class="card">
+  <form method="post" action="" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="id_photo">Photo *</label>
+      <input type="file" name="photo" id="id_photo" accept="image/*" capture="environment">
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Upload</button>
+      {% if request.user.role == "owner" %}
+      <a href="{% url 'job_detail' job.id %}" class="btn btn-secondary">Cancel</a>
+      {% else %}
+      <a href="{% url 'crew_today' %}" class="btn btn-secondary">Cancel</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<style>
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+  .form-actions { display: flex; gap: 12px; margin-top: 20px; }
+</style>
+{% endblock %}

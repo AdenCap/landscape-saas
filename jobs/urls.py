@@ -14,6 +14,12 @@ urlpatterns = [
     path('calendar/job/<int:job_id>/update/', views.calendar_job_update, name='calendar_job_update'),
     path('calendar/job/<int:job_id>/reschedule/', views.calendar_job_reschedule, name='calendar_job_reschedule'),
     path('calendar/unscheduled/', views.calendar_unscheduled_jobs, name='calendar_unscheduled_jobs'),
+    path('calendar/meeting/<int:meeting_id>/', views.calendar_meeting_data, name='calendar_meeting_data'),
+
+    path('meetings/', views.meeting_list, name='meeting_list'),
+    path('meetings/create/', views.meeting_create, name='meeting_create'),
+    path('meetings/<int:meeting_id>/edit/', views.meeting_edit, name='meeting_edit'),
+    path('meetings/<int:meeting_id>/delete/', views.meeting_delete, name='meeting_delete'),
 
     path('routes/', views.daily_route_view, name='daily_route'),
     path('routes/update/', views.update_route_order, name='update_route'),
@@ -22,6 +28,9 @@ urlpatterns = [
     path('crew/', views.crew_today_view, name='crew_today'),
     path('<int:job_id>/start/', views.start_job, name='start_job'),
     path('<int:job_id>/complete/', views.complete_job, name='complete_job'),
+    path('<int:job_id>/report-issue/', views.report_issue, name='report_issue'),
+    path('<int:job_id>/upload-completion-photo/', views.upload_completion_photo, name='upload_completion_photo'),
+    path('issues/<int:issue_id>/resolve/', views.resolve_issue, name='resolve_issue'),
 
     path("<int:job_id>/", views.job_detail, name="job_detail"),
     path("<int:job_id>/delete/", views.job_delete, name="job_delete"),

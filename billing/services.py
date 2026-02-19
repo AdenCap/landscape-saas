@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.core.exceptions import ImproperlyConfigured
 from django.utils import timezone
-from .models import Invoice, InvoiceLineItem
+from .models import Invoice, InvoiceLineItem, InvoiceAuditLog
 from jobs.models import JobServiceItem
 
 
@@ -132,6 +132,8 @@ def create_draft_invoice_for_job(job):
     if not created:
         # already exists; don't duplicate
         return invoice
+
+    InvoiceAuditLog.objects.create(invoice=invoice, action="created", user=None, details={"source": "job", "job_id": job.id})
 
     # Copy job service items into invoice line items
     job_items = JobServiceItem.objects.filter(job=job).select_related("service")

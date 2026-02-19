@@ -3,9 +3,11 @@ from . import views
 
 urlpatterns = [
     path("", views.invoice_list, name="invoice_list"),
+    path("outstanding/", views.outstanding_invoices, name="outstanding_invoices"),
     path("monthly/", views.monthly_invoice_list, name="monthly_invoice_list"),
     path("<int:invoice_id>/", views.invoice_detail, name="invoice_detail"),
     path("<int:invoice_id>/update-dates/", views.invoice_update_dates, name="invoice_update_dates"),
+    path("<int:invoice_id>/edit-line-items/", views.invoice_edit_line_items, name="invoice_edit_line_items"),
     path("<int:invoice_id>/send/", views.send_invoice, name="send_invoice"),
     path("<int:invoice_id>/resend/", views.resend_invoice, name="resend_invoice"),
     path("<int:invoice_id>/pdf/", views.invoice_pdf, name="invoice_pdf"),

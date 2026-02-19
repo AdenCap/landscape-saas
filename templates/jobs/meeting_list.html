@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Meetings</h1>
+  <p>Upcoming client and other meetings · <a href="{% url 'calendar' %}" class="link-primary">Calendar</a> · <a href="{% url 'meeting_create' %}" class="link-primary">Add meeting</a></p>
+</div>
+
+<div class="quick-actions" style="margin-bottom: 20px;">
+  <a href="{% url 'calendar' %}" class="btn btn-primary">📅 Calendar</a>
+  <a href="{% url 'meeting_create' %}" class="btn btn-secondary">+ Add meeting</a>
+  <a href="{% url 'job_list' %}" class="btn btn-secondary">Jobs</a>
+</div>
+
+<div class="card" style="margin-bottom: 24px;">
+  <h2 class="card-title">Upcoming</h2>
+  {% if meetings %}
+  <div class="meeting-list">
+    {% for m in meetings %}
+    <div class="meeting-list-item" style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border);">
+      <span class="meeting-datetime" style="min-width: 140px; font-weight: 600; color: var(--primary);">
+        {{ m.scheduled_at|date:"M j, Y" }} · {{ m.scheduled_at|time:"g:i A" }}
+      </span>
+      <span class="meeting-title" style="flex: 1;">{{ m.title }}</span>
+      <span class="meeting-customer" style="color: var(--text-muted); font-size: 14px;">{{ m.customer.name|default:"—" }}</span>
+      <a href="{% url 'meeting_edit' m.id %}" class="btn btn-secondary btn-sm">Edit</a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted" style="padding: 20px; margin: 0;">No upcoming meetings. <a href="{% url 'meeting_create' %}" class="link-primary">Add one</a> or use the <a href="{% url 'calendar' %}" class="link-primary">calendar</a>.</p>
+  {% endif %}
+</div>
+{% endblock %}

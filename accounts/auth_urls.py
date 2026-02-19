@@ -4,6 +4,10 @@ from django.urls import path
 
 from accounts import twofa_views
 from accounts.views import LoginView, signup
+from accounts.ratelimit import ratelimit
+
+# Rate limit sensitive auth endpoints (per IP)
+_password_reset_view = ratelimit(key="ip", rate="5/m", method="POST", block=True)(auth_views.PasswordResetView.as_view())
 
 urlpatterns = [
     path("signup/", signup, name="signup"),
@@ -11,7 +15,7 @@ urlpatterns = [
     path("logout/", auth_views.LogoutView.as_view(next_page="/accounts/login/"), name="logout"),
     path("password_change/", auth_views.PasswordChangeView.as_view(), name="password_change"),
     path("password_change/done/", auth_views.PasswordChangeDoneView.as_view(), name="password_change_done"),
-    path("password_reset/", auth_views.PasswordResetView.as_view(), name="password_reset"),
+    path("password_reset/", _password_reset_view, name="password_reset"),
     path("password_reset/done/", auth_views.PasswordResetDoneView.as_view(), name="password_reset_done"),
     path(
         "reset/<uidb64>/<token>/",
