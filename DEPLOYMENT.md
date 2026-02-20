@@ -2,6 +2,9 @@
 
 This guide covers publishing your Django app so anyone can sign up and use it.
 
+- **Vercel (serverless):** see **[docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md)** for deploy steps, required env vars, PostgreSQL, and limitations (media, cold starts).
+- **Secure deploy on your own server (VPS):** see **[docs/SECURE_DEPLOYMENT.md](docs/SECURE_DEPLOYMENT.md)** for server hardening, HTTPS (Let's Encrypt), Nginx, Gunicorn, PostgreSQL, and a full security checklist.
+
 ---
 
 ## 1. What’s already in place
@@ -38,7 +41,7 @@ Before going live:
 
 2. **Database**  
    - For small/medium use, SQLite is fine; ensure the app has a **persistent volume** so `db.sqlite3` isn’t lost on redeploy (Railway/Render/Fly all support this).  
-   - For growth or multiple workers, use **PostgreSQL** and set `DATABASE_URL` (or `DATABASES` manually) in settings.
+   - For **PostgreSQL** (recommended for Vercel/production): use **Supabase** (set `DATABASE_URL` or `SUPABASE_URL` to the connection URI from Project Settings → Database; use Session pooler port 6543 for serverless), or any hosted Postgres with `DATABASE_URL`.
 
 3. **Static files**  
    - In production, serve static files with WhiteNoise or your platform’s static asset step.  

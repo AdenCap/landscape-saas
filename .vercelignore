@@ -1,0 +1,26 @@
+# Dependencies and local env
+venv/
+venv_windows/
+.env
+.env.*
+!.env.example
+
+# Git and IDE
+.git
+.idea
+.vscode
+*.swp
+.DS_Store
+
+# Database (use Postgres on Vercel)
+*.sqlite3
+db.sqlite3
+
+# Media uploads (ephemeral on Vercel; use external storage in production)
+media/
+
+# Tests and docs (optional: exclude to reduce size)
+# __pycache__
+# *.pyc
+# docs/
+# *.md

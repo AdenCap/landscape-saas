@@ -36,13 +36,34 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-irt9nv(azv+l0u
 DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 
 # In production, set ALLOWED_HOSTS (comma-separated) or leave unset to allow only 127.0.0.1/localhost.
+# On Vercel, add .vercel.app so the deployment URL is allowed (or set ALLOWED_HOSTS in dashboard).
 _allowed = os.environ.get("ALLOWED_HOSTS", "").strip()
-ALLOWED_HOSTS = [h.strip() for h in _allowed.split(",") if h.strip()] if _allowed else (["*"] if DEBUG else ["127.0.0.1", "localhost"])
+if _allowed:
+    ALLOWED_HOSTS = [h.strip() for h in _allowed.split(",") if h.strip()]
+elif os.environ.get("VERCEL"):
+    ALLOWED_HOSTS = [".vercel.app", ".now.sh"]
+elif DEBUG:
+    ALLOWED_HOSTS = ["*"]
+else:
+    ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
 # For HTTPS in production, set CSRF_TRUSTED_ORIGINS (comma-separated), e.g. https://yourapp.com,https://www.yourapp.com
+# On Vercel, set to your deployment URL(s), e.g. https://your-project.vercel.app
 _csrf_origins = os.environ.get("CSRF_TRUSTED_ORIGINS", "").strip()
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()] if _csrf_origins else []
 
+# Production security (only when DEBUG is False)
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 # Application definition
 
@@ -114,13 +135,41 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# PostgreSQL: set DATABASE_URL or SUPABASE_URL (e.g. from Supabase → Project Settings → Database → Connection string).
+# Use the "URI" format; for Supabase prefer the pooler (port 6543) for serverless/Vercel.
+_db_url = (
+    os.environ.get("DATABASE_URL", "").strip()
+    or os.environ.get("SUPABASE_URL", "").strip()
+    or os.environ.get("SUPABASE_DATABASE_URL", "").strip()
+)
+if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgresql://")):
+    from urllib.parse import urlparse
+    _parsed = urlparse(_db_url)
+    _db_user = _parsed.username
+    _db_pass = _parsed.password
+    _db_host = _parsed.hostname or "localhost"
+    _db_port = _parsed.port or 5432
+    _db_name = (_parsed.path or "/").lstrip("/") or "postgres"
+    _is_supabase = _db_host and ("supabase.com" in _db_host or "supabase.co" in _db_host)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": _db_name,
+            "USER": _db_user,
+            "PASSWORD": _db_pass,
+            "HOST": _db_host,
+            "PORT": str(_db_port),
+            "CONN_MAX_AGE": 600,
+            "OPTIONS": {"sslmode": "require"} if _is_supabase else {},
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # Password validation
@@ -160,8 +209,20 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media files (uploads)
-MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# When BLOB_READ_WRITE_TOKEN is set (e.g. Vercel Blob store "fieldops-blob"), use Vercel Blob for uploads
+if os.environ.get("BLOB_READ_WRITE_TOKEN", "").strip():
+    STORAGES = {
+        "default": {"BACKEND": "config.storages.VercelBlobStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+else:
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage", "OPTIONS": {"location": MEDIA_ROOT}},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
