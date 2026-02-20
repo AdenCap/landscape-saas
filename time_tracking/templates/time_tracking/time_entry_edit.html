@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Edit time entry</h1>
+    <p>{{ entry.user.get_full_name|default:entry.user.username }} — adjust clock-in/clock-out if recorded incorrectly.</p>
+  </div>
+  <a href="{% url 'time_entries_list' %}" class="btn btn-secondary">← Back to time entries</a>
+</div>
+
+<div class="card" style="max-width: 480px;">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+      <div class="form-group">
+        <label for="id_clock_in_date">{{ form.clock_in_date.label }}</label>
+        {{ form.clock_in_date }}
+        {% if form.clock_in_date.errors %}<span class="error">{{ form.clock_in_date.errors.0 }}</span>{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="id_clock_in_time">{{ form.clock_in_time.label }}</label>
+        {{ form.clock_in_time }}
+        {% if form.clock_in_time.errors %}<span class="error">{{ form.clock_in_time.errors.0 }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+      <div class="form-group">
+        <label for="id_clock_out_date">{{ form.clock_out_date.label }}</label>
+        {{ form.clock_out_date }}
+        <small style="color: var(--text-muted); font-size: 12px;">Leave empty if still clocked in.</small>
+        {% if form.clock_out_date.errors %}<span class="error">{{ form.clock_out_date.errors.0 }}</span>{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="id_clock_out_time">{{ form.clock_out_time.label }}</label>
+        {{ form.clock_out_time }}
+        {% if form.clock_out_time.errors %}<span class="error">{{ form.clock_out_time.errors.0 }}</span>{% endif %}
+      </div>
+    </div>
+    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Status: <strong>{{ entry.get_status_display }}</strong>. Changing times does not change approval status.</p>
+    <div style="display: flex; gap: 12px;">
+      <button type="submit" class="btn btn-primary">Save changes</button>
+      <a href="{% url 'time_entries_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1>Time entries</h1>
+    <p>View and edit employee clock-in/clock-out. Adjust times here if they were recorded incorrectly.</p>
+  </div>
+  <a href="{% url 'employee_management' %}#timesheets" class="btn btn-secondary">← Employee Management</a>
+</div>
+
+<div class="card" style="margin-bottom: 20px; padding: 16px;">
+  <form method="get" action="{% url 'time_entries_list' %}" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label for="employee_id" style="font-size: 13px;">Employee</label>
+      <select name="employee_id" id="employee_id" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); min-width: 180px;">
+        <option value="">All employees</option>
+        {% for emp in employees %}
+        <option value="{{ emp.id }}" {% if selected_employee and selected_employee.id == emp.id %}selected{% endif %}>{{ emp.get_full_name|default:emp.username }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label for="start" style="font-size: 13px;">From</label>
+      <input type="date" name="start" id="start" value="{{ start_date|date:'Y-m-d' }}" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label for="end" style="font-size: 13px;">To</label>
+      <input type="date" name="end" id="end" value="{{ end_date|date:'Y-m-d' }}" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+    </div>
+    <button type="submit" class="btn btn-primary">Filter</button>
+  </form>
+</div>
+
+{% if entries %}
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Employee</th>
+        <th>Clock in</th>
+        <th>Clock out</th>
+        <th class="num">Duration</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+      <tr>
+        <td>{{ e.user.get_full_name|default:e.user.username }}</td>
+        <td>{{ e.clock_in|date:"M j, Y g:i A" }}</td>
+        <td>{% if e.clock_out %}{{ e.clock_out|date:"M j, Y g:i A" }}{% else %}— (in progress){% endif %}</td>
+        <td class="num">{{ e.duration_display }}</td>
+        <td>
+          <span class="badge badge-{% if e.status == 'approved' %}success{% elif e.status == 'rejected' %}danger{% else %}warning{% endif %}">
+            {{ e.get_status_display }}
+          </span>
+        </td>
+        <td>
+          <a href="{% url 'time_entry_edit' e.id %}" class="btn btn-secondary btn-sm">Edit</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p style="margin: 12px 0 0; font-size: 13px; color: var(--text-muted);">Showing up to 200 entries. Use filters to narrow by employee or date range.</p>
+</div>
+{% else %}
+<div class="card">
+  <p class="empty-state">No time entries in this range. Try a different employee or date range.</p>
+</div>
+{% endif %}
+{% endblock %}

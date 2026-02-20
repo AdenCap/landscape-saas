@@ -6,7 +6,10 @@
     <h1>Time entries pending approval</h1>
     <p>Approve or reject clock-in/out entries. Only approved entries count for payroll.</p>
   </div>
-  <a href="{% url 'employee_management' %}#timesheets" class="btn btn-secondary">← Back to Employee Management</a>
+  <span style="display: flex; gap: 8px;">
+    <a href="{% url 'time_entries_list' %}" class="btn btn-secondary">View all time entries</a>
+    <a href="{% url 'employee_management' %}#timesheets" class="btn btn-secondary">← Employee Management</a>
+  </span>
 </div>
 
 {% if entries %}
@@ -29,6 +32,7 @@
         <td>{{ e.clock_out|date:"M j, Y g:i A" }}</td>
         <td class="num">{{ e.duration_display }}</td>
         <td style="white-space: nowrap;">
+          <a href="{% url 'time_entry_edit' e.id %}" class="btn btn-secondary btn-sm">Edit</a>
           <form method="post" action="{% url 'time_entry_approve' e.id %}" style="display: inline;">
             {% csrf_token %}
             <button type="submit" class="btn btn-primary btn-sm">Approve</button>

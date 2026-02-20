@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST, require_GET
 from accounts.decorators import role_required
 from accounts.models import User
 from .models import TimeEntry, TimeOffRequest, EmployeeSchedule, ScheduleChangeLog
-from .forms import TimeOffRequestForm, EmployeeScheduleFormSet
+from .forms import TimeOffRequestForm, EmployeeScheduleFormSet, TimeEntryEditForm
 
 
 def _hours_from_minutes(minutes):
@@ -218,6 +218,85 @@ def time_entry_reject(request, entry_id):
         from django.http import JsonResponse
         return JsonResponse({"status": "ok"})
     return redirect("time_entries_pending")
+
+
+@role_required("owner")
+def time_entry_edit(request, entry_id):
+    """Owner manually adjusts clock-in/clock-out for a time entry."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    entry = get_object_or_404(
+        TimeEntry.objects.filter(user__business_id=business.id).select_related("user"),
+        id=entry_id,
+    )
+    if request.method == "POST":
+        form = TimeEntryEditForm(request.POST, entry=entry)
+        if form.is_valid():
+            entry.clock_in = form.cleaned_data["_clock_in"]
+            if form.cleaned_data.get("_clock_out") is not None:
+                entry.clock_out = form.cleaned_data["_clock_out"]
+            else:
+                entry.clock_out = None
+            entry.save()
+            messages.success(request, "Time entry updated.")
+            return redirect("time_entries_list")
+    else:
+        form = TimeEntryEditForm(entry=entry)
+    return render(request, "time_tracking/time_entry_edit.html", {
+        "form": form,
+        "entry": entry,
+    })
+
+
+@role_required("owner")
+def time_entries_list(request):
+    """Owner: list time entries (all statuses) with optional employee filter; links to edit."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    from datetime import timedelta
+    employees = User.objects.filter(business=business, role="crew").order_by("first_name", "last_name", "username")
+    employee_id = request.GET.get("employee_id")
+    if employee_id:
+        entries_qs = TimeEntry.objects.filter(
+            user_id=employee_id,
+            user__business_id=business.id,
+        )
+    else:
+        entries_qs = TimeEntry.objects.filter(user__business_id=business.id)
+    entries_qs = entries_qs.select_related("user").order_by("-clock_in")
+    # Default: last 90 days
+    from django.utils import timezone
+    today = timezone.localdate()
+    default_start = today - timedelta(days=90)
+    start_str = request.GET.get("start", default_start.isoformat())
+    end_str = request.GET.get("end", today.isoformat())
+    try:
+        from django.utils.dateparse import parse_date
+        start_date = parse_date(start_str) or default_start
+        end_date = parse_date(end_str) or today
+    except Exception:
+        start_date = default_start
+        end_date = today
+    if start_date:
+        entries_qs = entries_qs.filter(clock_in__date__gte=start_date)
+    if end_date:
+        entries_qs = entries_qs.filter(clock_in__date__lte=end_date)
+    entries = list(entries_qs[:200])
+    selected_employee = None
+    if employee_id:
+        try:
+            selected_employee = User.objects.get(pk=employee_id, business=business, role="crew")
+        except User.DoesNotExist:
+            selected_employee = None
+    return render(request, "time_tracking/time_entries_list.html", {
+        "entries": entries,
+        "employees": employees,
+        "selected_employee": selected_employee,
+        "start_date": start_date,
+        "end_date": end_date,
+    })
 
 
 def _get_business(request):
