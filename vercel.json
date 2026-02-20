@@ -1,23 +1,14 @@
 {
   "version": 2,
-  "builds": [{ "src": "api/wsgi.py", "use": "@vercel/python" }],
-  "routes": [
-    {
-      "src": "/static/(.*)",
-      "dest": "/staticfiles/$1"
-    },
-    {
-      "src": "/media/(.*)",
-      "dest": "/media/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "api/wsgi.py"
-    }
+  "builds": [
+    { "src": "api/wsgi.py", "use": "@vercel/python" }
+  ],
+  "rewrites": [
+    { "source": "/static/:path*", "destination": "/staticfiles/:path*" },
+    { "source": "/media/:path*", "destination": "/media/:path*" },
+    { "source": "/(.*)", "destination": "/api/wsgi" }
   ],
   "functions": {
-    "api/wsgi.py": {
-      "maxDuration": 60
-    }
+    "api/wsgi.py": { "maxDuration": 60 }
   }
 }
