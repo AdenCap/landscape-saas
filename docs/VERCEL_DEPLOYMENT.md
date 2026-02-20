@@ -7,7 +7,7 @@ This project is set up to run on **Vercel** as a serverless Django app. You get 
 ## What’s included in the repo
 
 - **`api/wsgi.py`** — Vercel serverless entry; exposes the Django WSGI app as `app`.
-- **`vercel.json`** — Routes: `/static/` and `/media/` to files, everything else to Django. Optional `buildCommand` and `functions` config.
+- **`vercel.json`** — **routes** (matching the [official Django example](https://github.com/vercel/examples/tree/main/python/django)): `/static/` and `/media/` to static files, everything else to `api/wsgi.py`. No explicit `builds` so Vercel auto-detects the Python function.
 - **`.vercelignore`** — Excludes `venv`, `.env`, `db.sqlite3`, `media/` from uploads.
 - **Settings** — When the `VERCEL` env var is set, `ALLOWED_HOSTS` includes `.vercel.app` so the deployment URL works without extra config (you can still override with `ALLOWED_HOSTS`).
 
@@ -83,13 +83,18 @@ If the deploy or the app still doesn’t use Supabase, confirm the variable name
 
 ---
 
-## 404 on every page
+## 404 on every page / Function not in the Functions tab
 
-If the deployment builds but you get **404** on the homepage or any route:
+If the deployment builds but you get **404: NOT_FOUND**, or you **don’t see `api/wsgi` under Deployments → Functions**, Vercel is not deploying the Python serverless function. Fix in this order:
 
-1. **`vercel.json`** — The catch‑all route must send requests to the Python function with **no leading slash**: `"dest": "api/wsgi.py"` (not `"/api/wsgi.py"`). The repo includes a `builds` entry so Vercel uses the Python runtime for `api/wsgi.py`.
-2. **Redeploy** after any `vercel.json` change (push a commit or trigger a redeploy from the Vercel dashboard).
-3. In Vercel → **Deployments** → open the latest deployment → **Building** / **Functions** and check for build or runtime errors.
+1. **Output Directory (most common cause)** — In Vercel → **Settings → General → Build & Development Settings**:
+   - Find **Output Directory**.
+   - Turn **Override** on and **leave the field completely empty** (delete any value like `staticfiles` or `build`).
+   - Save. If this was set, only that folder was being deployed, so the `api/` function was never built.
+2. **Framework Preset** — In the same section, set **Framework Preset** to **Other**. If it’s e.g. Next.js, the `api/` Python function is not built.
+3. **Build Command** — You can leave it empty (the repo’s `vercel.json` sets `buildCommand` to `sh vercel-build.sh`). If you prefer to set it in the dashboard, use: `pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput`. Do not set an Output Directory.
+4. **Redeploy** — **Deployments** → **⋯** on latest → **Redeploy**. Then open that deployment → **Functions** and confirm **api/wsgi** (or **api/wsgi.py**) appears.
+5. If the function still doesn’t appear, check **Build** logs for errors and ensure **Root Directory** is blank (project root).
 
 ---
 
@@ -99,7 +104,7 @@ If the deployment builds but you get **404** on the homepage or any route:
 2. In [Vercel](https://vercel.com), **Add New Project** → Import your GitHub repo.
 3. **Framework Preset:** leave as “Other” (or “None”).
 4. **Root Directory:** leave default (repository root).
-5. **Build Command:** set as above (migrate + collectstatic).
+5. **Build Command:** set as above (migrate + collectstatic). Ensure Framework Preset is **Other** so the Django API function is deployed.
 6. **Environment Variables:** add at least `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=0`, `CSRF_TRUSTED_ORIGINS`, and `DATABASE_URL`.
 7. Deploy. When it finishes, open **https://&lt;your-project&gt;.vercel.app**.
 8. Create a superuser (one-off): in Vercel dashboard → your project → **Settings** → **Functions** you can run a one-off command, or use **Vercel CLI** and run a local command that uses the same `DATABASE_URL` to run `python manage.py createsuperuser` against the production DB.

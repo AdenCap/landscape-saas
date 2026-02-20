@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "sh vercel-build.sh",
+  "outputDirectory": ".",
   "builds": [
     { "src": "api/wsgi.py", "use": "@vercel/python" }
   ],
