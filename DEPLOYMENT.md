@@ -87,7 +87,22 @@ Before going live:
 
 ---
 
-## 6. After deploy
+## 6. "No application module specified" / Readiness probe failed (port 8080)
+
+If you see **"Error: No application module specified"** or **"Readiness probe failed: dial tcp ...:8080: connection refused"** (e.g. on Kubernetes, Railway, or Render):
+
+1. **Start command must include the WSGI app** — The server must be started with:
+   - `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
+   - or `./run.sh` (which does the same and defaults `PORT` to 8080).
+   - Do **not** use `gunicorn` alone or `python manage.py runserver` in production.
+
+2. **Listen on the port the platform expects** — Many platforms (e.g. k8s) probe **port 8080**. Set **PORT=8080** in the environment, or use the repo’s **Procfile** / **run.sh** / **Dockerfile** so the app binds to `0.0.0.0:$PORT` (default 8080).
+
+3. **If using Docker/Kubernetes** — Use the repo’s **Dockerfile** (it runs `./run.sh`). Ensure the container’s **CMD** is not overridden with a command that omits the app module (e.g. `gunicorn` with no `config.wsgi:application`).
+
+---
+
+## 7. After deploy
 
 - Open `https://your-app-url/accounts/signup/` and create an account to confirm signup works.
 - Use `https://your-app-url/admin/` only with a superuser (create one locally and sync DB, or run `python manage.py createsuperuser` in a one-off shell on the host).
