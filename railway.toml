@@ -1,3 +1,4 @@
-# Railway deploy config: start command must include the WSGI app module.
+# Railway: WSGI module is config.wsgi (file config/wsgi.py), callable is "application".
+# Bind to 8080 so health check passes. PYTHONPATH=. so config is importable from repo root.
 [deploy]
-startCommand = "gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8080} --workers 1 --timeout 120"
+startCommand = "PYTHONPATH=. gunicorn config.wsgi:application --bind 0.0.0.0:8080 --workers 1 --timeout 120"

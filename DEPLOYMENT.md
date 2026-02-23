@@ -92,11 +92,10 @@ Before going live:
 If you see **"Error: No application module specified"** or **"Readiness probe failed: dial tcp ...:8080: connection refused"** (e.g. on Kubernetes, Railway, or Render):
 
 1. **Start command must include the WSGI app** — The server must be started with:
-   - `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
-   - or `./run.sh` (which does the same and defaults `PORT` to 8080).
-   - Do **not** use `gunicorn` alone or `python manage.py runserver` in production.
+   - `gunicorn config.wsgi:application --bind 0.0.0.0:8080` (or `./run.sh` / **Procfile** / **railway.toml**).
+   - The WSGI module is **config.wsgi** (file `config/wsgi.py`); the callable is **application**. Do **not** use `gunicorn` alone or `python manage.py runserver` in production.
 
-2. **Listen on the port the platform expects** — Many platforms (e.g. k8s) probe **port 8080**. Set **PORT=8080** in the environment, or use the repo’s **Procfile** / **run.sh** / **Dockerfile** so the app binds to `0.0.0.0:$PORT` (default 8080).
+2. **Port and module path** — The repo’s **Procfile**, **run.sh**, and **railway.toml** bind to **port 8080** so health checks pass. They set **PYTHONPATH=.** so `config.wsgi` is found when the app runs from the repo root. If your platform runs from another directory, set **PYTHONPATH** to the directory that contains the `config` folder.
 
 3. **If using Docker/Kubernetes** — Use the repo’s **Dockerfile** (it runs `./run.sh`). Ensure the container’s **CMD** is not overridden with a command that omits the app module (e.g. `gunicorn` with no `config.wsgi:application`).
 
