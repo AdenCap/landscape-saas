@@ -81,7 +81,7 @@ INSTALLED_APPS = [
     'jobs',
     'billing',
     'pricing',
-    'dashboard',
+    'dashboard.apps.DashboardConfig',
     'time_tracking',
     'property_estimator',
     'quickbooks',

@@ -1,0 +1,5 @@
+# Use this as your BUILD command only. Do NOT start the server (Gunicorn) during build.
+# Starting the server during build causes "port 8080 already in use".
+# The START command (separate field) should run Gunicorn; the BUILD command should only prepare the app.
+
+pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput

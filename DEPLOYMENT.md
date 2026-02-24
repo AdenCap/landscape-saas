@@ -101,6 +101,8 @@ If you see **"Error: No application module specified"** or **"Readiness probe fa
 
 4. **If using Docker/Kubernetes** — Use the repo’s **Dockerfile** (it runs `./run.sh`). Ensure the container’s **CMD** is not overridden with a command that omits the app module (e.g. `gunicorn` with no `config.wsgi:application`).
 
+5. **Port conflict during build ("port 8080 already in use")** — The **build** step must only install dependencies, run migrations, and collect static files. It must **not** start the web server (Gunicorn or `run.sh`). Use **BUILD_COMMAND.txt** for the build command and **START_COMMAND.txt** for the start command. In the dashboard, set **Build Command** and **Start Command** in their separate fields; do not put the Gunicorn command in the build step.
+
 ---
 
 ## 7. After deploy
