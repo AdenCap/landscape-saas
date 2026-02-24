@@ -1,17 +1,16 @@
 """
 WSGI config for config project.
 
-It exposes the WSGI callable as a module-level variable named ``application``.
-For Gunicorn, use: config.wsgi:application (module config.wsgi, callable application).
+This module must define a callable named ``application`` so Gunicorn can run:
+  gunicorn config.wsgi:application
 
-For more information on this file, see
-https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
+See: https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
 """
-
 import os
-
-from django.core.wsgi import get_wsgi_application
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
+from django.core.wsgi import get_wsgi_application
+
+# This is the WSGI application object Gunicorn looks for (config.wsgi:application).
 application = get_wsgi_application()

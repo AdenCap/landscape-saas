@@ -97,7 +97,9 @@ If you see **"Error: No application module specified"** or **"Readiness probe fa
 
 2. **Port and module path** — The repo’s **Procfile**, **run.sh**, and **railway.toml** bind to **port 8080** so health checks pass. They set **PYTHONPATH=.** so `config.wsgi` is found when the app runs from the repo root. If your platform runs from another directory, set **PYTHONPATH** to the directory that contains the `config` folder.
 
-3. **If using Docker/Kubernetes** — Use the repo’s **Dockerfile** (it runs `./run.sh`). Ensure the container’s **CMD** is not overridden with a command that omits the app module (e.g. `gunicorn` with no `config.wsgi:application`).
+3. **If the platform says "Incorrect wsgi configuration"** — Ensure the repo root (the directory that contains the `config` folder) is the app root and that **config/wsgi.py** is deployed. That file must define a callable named **application** (it does). To verify in the build, run: `python check_wsgi.py` (exit 0 = config.wsgi:application is loadable).
+
+4. **If using Docker/Kubernetes** — Use the repo’s **Dockerfile** (it runs `./run.sh`). Ensure the container’s **CMD** is not overridden with a command that omits the app module (e.g. `gunicorn` with no `config.wsgi:application`).
 
 ---
 

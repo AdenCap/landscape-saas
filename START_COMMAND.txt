@@ -1,0 +1,4 @@
+# Paste this as your service "Start Command" / "Run Command" in the dashboard if the app fails with "No application module specified".
+# The run command MUST include the module and callable: config.wsgi:application
+
+PYTHONPATH=. gunicorn config.wsgi:application --bind 0.0.0.0:8080 --workers 1 --timeout 120

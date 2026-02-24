@@ -1,0 +1,11 @@
+# Render.com Blueprint: run command must include the WSGI app module (config.wsgi:application).
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: landscape-saas
+    env: python
+    buildCommand: pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput
+    startCommand: PYTHONPATH=. gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
