@@ -1,4 +1,5 @@
 import secrets
+import stripe
 from io import BytesIO
 from decimal import Decimal
 
@@ -298,12 +299,14 @@ def invoice_pay_page(request, invoice_id, token):
     if (business.cashapp_cashtag or "").strip():
         tag = (business.cashapp_cashtag or "").strip().lstrip("$")
         cashapp_link = f"https://cash.app/${tag}/{invoice.total}"
+    can_accept_stripe = getattr(business, "can_accept_stripe_payments", lambda: False)()
     return render(request, "billing/invoice_pay_page.html", {
         "invoice": invoice,
         "business": business,
         "has_payment_methods": has_payment_methods,
         "venmo_link": venmo_link,
         "cashapp_link": cashapp_link,
+        "can_accept_stripe": can_accept_stripe,
     })
 
 
@@ -322,6 +325,148 @@ def mark_invoice_paid(request, invoice_id):
         _log_invoice_audit(invoice, "paid", request=request)
         messages.success(request, f"Invoice #{invoice.id} marked as paid.")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+
+# ----- Stripe Connect: business accepts card payments for invoices -----
+
+def _stripe_connect_enabled():
+    return bool(getattr(settings, "STRIPE_SECRET_KEY", None))
+
+
+@role_required("owner")
+@require_http_methods(["GET"])
+def connect_onboarding(request):
+    """Start or resume Stripe Connect Express onboarding; redirect to Stripe."""
+    if not _stripe_connect_enabled():
+        messages.error(request, "Stripe is not configured. Contact support.")
+        return redirect("business_settings")
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    account_id = (business.stripe_connect_account_id or "").strip()
+    if not account_id:
+        try:
+            acc = stripe.Account.create(
+                type="express",
+                country="US",
+                email=getattr(request.user, "email", None) or "",
+            )
+            account_id = acc.id
+            business.stripe_connect_account_id = account_id
+            business.stripe_connect_charges_enabled = False
+            business.save(update_fields=["stripe_connect_account_id", "stripe_connect_charges_enabled"])
+        except stripe.StripeError as e:
+            messages.error(request, f"Could not create Stripe account: {e.user_message or str(e)}")
+            return redirect("business_settings")
+    return_url = request.build_absolute_uri(reverse("billing:connect_return"))
+    refresh_url = request.build_absolute_uri(reverse("billing:connect_onboarding"))
+    try:
+        link = stripe.AccountLink.create(
+            account=account_id,
+            refresh_url=refresh_url,
+            return_url=return_url,
+            type="account_onboarding",
+        )
+        return redirect(link.url)
+    except stripe.StripeError as e:
+        messages.error(request, f"Could not start onboarding: {e.user_message or str(e)}")
+        return redirect("business_settings")
+
+
+@role_required("owner")
+@require_http_methods(["GET"])
+def connect_return(request):
+    """Stripe redirects here after Connect onboarding. Webhook account.updated will set charges_enabled."""
+    messages.success(request, "Stripe setup complete. You can now accept card payments on invoices.")
+    return redirect("business_settings")
+
+
+@role_required("owner")
+@require_http_methods(["GET"])
+def connect_dashboard(request):
+    """Redirect to Stripe Express Dashboard for the connected account."""
+    if not _stripe_connect_enabled():
+        messages.error(request, "Stripe is not configured.")
+        return redirect("business_settings")
+    business = _get_business(request)
+    if not business or not business.stripe_connect_account_id:
+        messages.error(request, "Connect your Stripe account first in Settings.")
+        return redirect("business_settings")
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    try:
+        session = stripe.Account.create_login_link(business.stripe_connect_account_id)
+        return redirect(session.url)
+    except stripe.StripeError as e:
+        messages.error(request, f"Could not open dashboard: {e.user_message or str(e)}")
+        return redirect("business_settings")
+
+
+@require_POST
+@require_http_methods(["POST"])
+def create_invoice_checkout_session(request, invoice_id, token):
+    """Public: create Stripe Checkout Session for paying an invoice (Connect). Redirects to Stripe."""
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("business", "customer"),
+        id=invoice_id,
+        payment_token=token,
+    )
+    if invoice.status != "sent":
+        messages.error(request, "This invoice is not available for payment.")
+        return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
+    business = invoice.business
+    if not getattr(business, "can_accept_stripe_payments", lambda: False)():
+        messages.error(request, "Card payment is not available for this invoice.")
+        return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
+    if not _stripe_connect_enabled():
+        messages.error(request, "Payment is not configured.")
+        return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    invoice.recompute_totals()
+    amount_cents = int(invoice.total * 100)
+    if amount_cents < 50:
+        messages.error(request, "Minimum payment is $0.50.")
+        return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
+    success_url = request.build_absolute_uri(
+        reverse("billing:invoice_pay_page", args=[invoice.id, token]) + "?paid=1"
+    )
+    cancel_url = request.build_absolute_uri(
+        reverse("billing:invoice_pay_page", args=[invoice.id, token])
+    )
+    # Per-business fee if set, else global default
+    fee_percent = getattr(business, "stripe_connect_application_fee_percent", None)
+    if fee_percent is not None:
+        fee_percent = float(fee_percent)
+    if fee_percent is None:
+        fee_percent = getattr(settings, "STRIPE_CONNECT_APPLICATION_FEE_PERCENT", 0) or 0
+    application_fee_amount = int(amount_cents * fee_percent / 100) if fee_percent else None
+    payment_intent_data = {"transfer_data": {"destination": business.stripe_connect_account_id}}
+    if application_fee_amount:
+        payment_intent_data["application_fee_amount"] = application_fee_amount
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": amount_cents,
+                    "product_data": {
+                        "name": f"Invoice #{invoice.id}",
+                        "description": f"Payment for invoice from {business.name}",
+                    },
+                },
+                "quantity": 1,
+            }],
+            mode="payment",
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={"invoice_id": str(invoice.id), "business_id": str(business.id)},
+            payment_intent_data=payment_intent_data,
+        )
+        return redirect(session.url)
+    except stripe.StripeError as e:
+        messages.error(request, f"Could not start payment: {e.user_message or str(e)}")
+        return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
 
 
 def _fmt_currency(val):

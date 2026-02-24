@@ -20,6 +20,7 @@
     .pay-method:hover { border-color: var(--primary); background: rgba(34, 197, 94, 0.08); }
     .pay-method.zelle { pointer-events: none; cursor: text; }
     .pay-method.zelle span { font-weight: 500; font-size: 14px; }
+    .pay-method-card { cursor: pointer; }
     .pay-note { font-size: 14px; color: var(--text-muted); margin: 16px 0 0 0; padding-top: 16px; border-top: 1px solid var(--border); }
     .already-paid { padding: 16px; background: rgba(34, 197, 94, 0.15); border-radius: 10px; color: var(--primary); font-weight: 600; text-align: center; margin-top: 16px; }
   </style>
@@ -30,12 +31,21 @@
     <p class="business-name">{{ business.name }}</p>
     <div class="pay-total">${{ invoice.total|floatformat:2 }}</div>
 
-    {% if invoice.status == "paid" %}
+    {% if invoice.status == "paid" or request.GET.paid %}
     <div class="already-paid">This invoice has been paid. Thank you!</div>
     {% else %}
+      {% if can_accept_stripe %}
+      <div class="pay-methods">
+        <h3>Pay with card</h3>
+        <form method="post" action="{% url 'billing:create_invoice_checkout' invoice.id invoice.payment_token %}">
+          {% csrf_token %}
+          <button type="submit" class="pay-method pay-method-card">Pay ${{ invoice.total|floatformat:2 }} with card</button>
+        </form>
+      </div>
+      {% endif %}
       {% if has_payment_methods %}
       <div class="pay-methods">
-        <h3>How to pay</h3>
+        <h3>Other ways to pay</h3>
         {% if venmo_link %}
         <a href="{{ venmo_link }}" class="pay-method" target="_blank" rel="noopener">Pay with Venmo ({{ business.venmo_username|default:"" }})</a>
         {% endif %}

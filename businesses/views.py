@@ -37,11 +37,19 @@ def business_settings(request):
             trusted_devices = list(TrustedDevice.objects.filter(user=request.user))
     except Exception:
         pass
+    # Effective platform fee % on card payments (per-business or global default)
+    fee_percent = getattr(business, "stripe_connect_application_fee_percent", None)
+    if fee_percent is None:
+        from django.conf import settings
+        fee_percent = getattr(settings, "STRIPE_CONNECT_APPLICATION_FEE_PERCENT", 0) or 0
+    else:
+        fee_percent = float(fee_percent)
     return render(request, "businesses/business_settings.html", {
         "form": form,
         "business": business,
         "has_2fa": has_2fa,
         "trusted_devices": trusted_devices,
+        "stripe_connect_fee_percent": fee_percent,
     })
 
 

@@ -53,17 +53,20 @@ class BusinessAdmin(admin.ModelAdmin):
         ('Payroll (dashboard balance)', {
             'fields': ('pay_frequency', 'pay_period_days', 'pay_specific_days', 'next_pay_date'),
         }),
+        ('Stripe – subscription & Connect', {
+            'fields': (
+                'stripe_customer_id', 'stripe_subscription_id', 'subscription_status',
+                'subscription_current_period_end', 'stripe_connect_account_id',
+                'stripe_connect_charges_enabled', 'stripe_connect_application_fee_percent',
+            ),
+            'description': 'Subscription: business pays platform. Connect: business accepts card payments. Application fee %: platform fee on their invoice payments (blank = use global default).',
+        }),
         ('System', {
             'fields': ('created_at', 'updated_at'),
             'classes': ('collapse',),
         }),
     )
     readonly_fields = ('created_at', 'updated_at')
-
-    @admin.display(description='Employees')
-    def employee_count(self, obj):
-        count = obj.users.count()
-        return format_html('<b>{}</b>', count) if count else '0'
 
     @admin.display(description='Employees')
     def employee_count(self, obj):

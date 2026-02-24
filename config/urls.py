@@ -45,6 +45,8 @@ urlpatterns = [
     path("jobs/", include("jobs.urls")),
     path("time/", include("time_tracking.urls")),
     path("settings/", include("businesses.urls")),
+    path("subscription/", include("subscription.urls")),
+    path("webhooks/stripe/", include("subscription.webhook_urls")),
     path("quickbooks/", include(("quickbooks.urls", "quickbooks"), namespace="quickbooks")),
     path("financials/", include(("financials.urls", "financials"), namespace="financials")),
     path("estimator/", include("property_estimator.urls")),

@@ -25,12 +25,15 @@
           placeholder="Enter your username">
       </div>
 
-      <div style="margin-bottom: 24px;">
+      <div style="margin-bottom: 8px;">
         <label for="id_password" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px;">Password</label>
         <input type="password" name="password" id="id_password" required
           style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px;"
           placeholder="Enter your password">
       </div>
+      <p style="margin-bottom: 24px; font-size: 14px;">
+        <a href="{% url 'password_reset' %}" style="color: var(--primary); font-weight: 500;">Forgot password?</a>
+      </p>
 
       <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">
         Sign in

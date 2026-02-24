@@ -89,7 +89,15 @@ INSTALLED_APPS = [
     'property_estimator',
     'quickbooks',
     'financials',
+    'subscription',
 ]
+
+# Stripe: platform subscription (business pays you) + Connect (businesses accept invoice payments)
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_SUBSCRIPTION_PRICE_ID = os.environ.get("STRIPE_SUBSCRIPTION_PRICE_ID", "")
+STRIPE_CONNECT_APPLICATION_FEE_PERCENT = float(os.environ.get("STRIPE_CONNECT_APPLICATION_FEE_PERCENT", "0") or "0")
 
 # QuickBooks Online integration – set via environment variables (never commit secrets)
 QUICKBOOKS_CLIENT_ID = os.environ.get("QUICKBOOKS_CLIENT_ID", "")
@@ -108,6 +116,7 @@ _middleware += [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django_otp.middleware.OTPMiddleware',
+    'subscription.middleware.SubscriptionRequiredMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

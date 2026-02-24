@@ -170,4 +170,61 @@ class Business(models.Model):
         help_text="Next date you will run payroll. Used with pay frequency to compute payroll balance.",
     )
 
+    # --- Platform subscription (Business pays you for software access) ---
+    stripe_customer_id = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Stripe Customer ID for this business (platform subscription).",
+    )
+    stripe_subscription_id = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Stripe Subscription ID (recurring payment to platform).",
+    )
+    subscription_status = models.CharField(
+        max_length=32,
+        blank=True,
+        choices=[
+            ("", "No subscription"),
+            ("active", "Active"),
+            ("trialing", "Trialing"),
+            ("past_due", "Past due"),
+            ("canceled", "Canceled"),
+            ("unpaid", "Unpaid"),
+        ],
+        default="",
+        help_text="Current subscription status; active or trialing = can use the app.",
+    )
+    subscription_current_period_end = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the current billing period ends (from Stripe).",
+    )
+
+    # --- Stripe Connect (Business accepts payments from their clients) ---
+    stripe_connect_account_id = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Stripe Connect account ID so this business can accept invoice payments.",
+    )
+    stripe_connect_charges_enabled = models.BooleanField(
+        default=False,
+        help_text="Whether the connected account can accept charges (set by webhook).",
+    )
+    stripe_connect_application_fee_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Platform fee % on invoice card payments for this business. Leave blank to use the global default (STRIPE_CONNECT_APPLICATION_FEE_PERCENT).",
+    )
+
+    def has_active_subscription(self):
+        """True if this business can use the app (active or trialing subscription)."""
+        return self.subscription_status in ("active", "trialing")
+
+    def can_accept_stripe_payments(self):
+        """True if this business has connected Stripe and can accept card payments for invoices."""
+        return bool(self.stripe_connect_account_id and self.stripe_connect_charges_enabled)
+
 

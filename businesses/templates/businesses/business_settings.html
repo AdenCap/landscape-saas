@@ -109,6 +109,29 @@
       </div>
     </div>
     <div class="form-section">
+      <h3>Platform subscription</h3>
+      <p class="muted">Your business pays a subscription for access to Field Ops. Manage or start your subscription here.</p>
+      <a href="{% url 'subscription:status' %}" class="btn btn-secondary">Subscription</a>
+    </div>
+    <div class="form-section">
+      <h3>Accept client payments (Stripe)</h3>
+      <p class="muted">Let customers pay invoices by card. Connect your Stripe account once; then "Pay with card" appears on invoice pay links.</p>
+      {% if stripe_connect_fee_percent %}
+      <p class="help">Platform fee on card payments: {{ stripe_connect_fee_percent }}% (set by platform).</p>
+      {% endif %}
+      {% if business.stripe_connect_account_id %}
+        {% if business.stripe_connect_charges_enabled %}
+        <p class="help status-connected">Stripe connected. Customers can pay invoices by card.</p>
+        <a href="{% url 'billing:connect_dashboard' %}" class="btn btn-secondary">Stripe Express dashboard</a>
+        {% else %}
+        <p class="help status-disconnected">Stripe account created but not yet enabled for charges. Complete onboarding below.</p>
+        <a href="{% url 'billing:connect_onboarding' %}" class="btn btn-secondary">Complete Stripe setup</a>
+        {% endif %}
+      {% else %}
+        <a href="{% url 'billing:connect_onboarding' %}" class="btn btn-secondary">Connect Stripe to accept card payments</a>
+      {% endif %}
+    </div>
+    <div class="form-section">
       <h3>QuickBooks Online</h3>
       <p class="muted">Push invoices to QuickBooks. Connect once, then use "Push to QuickBooks" on any invoice.</p>
       <a href="{% url 'quickbooks:settings' %}" class="btn btn-secondary">Open QuickBooks settings</a>
