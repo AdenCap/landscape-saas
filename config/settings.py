@@ -75,6 +75,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'django_otp',
+    'django_otp.plugins.otp_totp',
+
     'accounts',
     'businesses',
     'customers',
@@ -104,12 +107,12 @@ _middleware += [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django_otp.middleware.OTPMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 MIDDLEWARE = _middleware
-# Optional 2FA: pip install django-otp qrcode, then add to INSTALLED_APPS: 'django_otp', 'django_otp.plugins.otp_totp'
-# and insert after AuthenticationMiddleware: 'django_otp.middleware.OTPMiddleware',
+# 2FA uses django_otp and django_otp.plugins.otp_totp (see INSTALLED_APPS above).
 
 ROOT_URLCONF = 'config.urls'
 
