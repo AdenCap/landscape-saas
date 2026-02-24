@@ -18,8 +18,12 @@ class InvoiceAuditLogInline(admin.TabularInline):
 
 @admin.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):
-    list_display = ("id", "customer", "status", "total", "approved_at", "approved_by")
+    list_display = ("id", "business", "customer", "status", "total", "issue_date", "due_date", "approved_at", "approved_by")
+    list_filter = ("business", "status")
+    search_fields = ("customer__name", "customer__business__name")
+    ordering = ("business__name", "-issue_date")
     inlines = [InvoiceLineItemInline, InvoiceAuditLogInline]
+    raw_id_fields = ("customer", "approved_by")
 
 
 class EstimateLineItemInline(admin.TabularInline):
@@ -35,6 +39,9 @@ class EstimateImageInline(admin.TabularInline):
 
 @admin.register(Estimate)
 class EstimateAdmin(admin.ModelAdmin):
-    list_display = ('id', 'customer', 'title', 'status', 'valid_until')
-    list_filter = ('status',)
+    list_display = ('id', 'business', 'customer', 'title', 'status', 'valid_until')
+    list_filter = ('business', 'status')
+    search_fields = ('customer__name', 'title', 'customer__business__name')
+    ordering = ('business__name', '-id')
     inlines = [EstimateLineItemInline, EstimateImageInline]
+    raw_id_fields = ('customer',)

@@ -21,7 +21,7 @@ from django.urls import path, include
 
 admin.site.site_header = "Field Ops Admin"
 admin.site.site_title = "Field Ops"
-admin.site.index_title = "Manage your business, employees, and customers"
+admin.site.index_title = "Companies, users, and data — full control"
 
 from config.platform_views import platform_home, platform_enter, platform_exit
 

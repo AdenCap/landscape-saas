@@ -9,9 +9,9 @@ class UserAdmin(BaseUserAdmin):
     """Custom admin for Users with easy employee (crew) login creation."""
 
     list_display = ('username', 'email', 'get_full_name', 'business', 'role', 'is_active', 'is_staff', 'date_joined')
-    list_filter = ('role', 'is_active', 'is_staff', 'business')
+    list_filter = ('business', 'role', 'is_active', 'is_staff')
     search_fields = ('username', 'email', 'first_name', 'last_name')
-    ordering = ('-date_joined',)
+    ordering = ('business__name', 'username')
     filter_horizontal = ('groups', 'user_permissions')
 
     fieldsets = (
@@ -54,11 +54,12 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
-    list_display = ("created_at", "from_user", "to_user", "message_preview", "read_at")
+    list_display = ("created_at", "business", "from_user", "to_user", "message_preview", "read_at")
     list_filter = ("business", "read_at")
-    search_fields = ("message", "from_user__username", "to_user__username")
+    search_fields = ("message", "from_user__username", "to_user__username", "business__name")
     readonly_fields = ("business", "from_user", "to_user", "message", "created_at", "read_at")
     date_hierarchy = "created_at"
+    ordering = ("business__name", "-created_at")
 
     def message_preview(self, obj):
         return (obj.message[:60] + "…") if len(obj.message) > 60 else obj.message

@@ -24,7 +24,8 @@ class ClientMessageInline(admin.TabularInline):
 class CustomerAdmin(admin.ModelAdmin):
     list_display = ('name', 'business', 'phone', 'email', 'communication_preference', 'city')
     list_filter = ('business', 'communication_preference')
-    search_fields = ('name', 'email', 'phone', 'city', 'address_line1')
+    search_fields = ('name', 'email', 'phone', 'city', 'address_line1', 'business__name')
+    ordering = ('business__name', 'name')
     inlines = [PropertyInline, ContractInline, ClientMessageInline]
     fieldsets = (
         (None, {'fields': ('business', 'name')}),
@@ -36,19 +37,36 @@ class CustomerAdmin(admin.ModelAdmin):
 
 @admin.register(Property)
 class PropertyAdmin(admin.ModelAdmin):
-    list_display = ('address', 'customer', 'gate_code', 'has_dog')
-    search_fields = ('address', 'customer__name')
+    list_display = ('address', 'customer', 'get_business', 'gate_code', 'has_dog')
+    list_filter = ('customer__business', 'has_dog')
+    search_fields = ('address', 'customer__name', 'customer__business__name')
+    ordering = ('customer__business__name', 'customer__name', 'address')
+
+    @admin.display(description='Company')
+    def get_business(self, obj):
+        return obj.customer.business if obj.customer_id else '—'
 
 
 @admin.register(Contract)
 class ContractAdmin(admin.ModelAdmin):
-    list_display = ('customer', 'contract_type', 'status', 'start_date', 'end_date', 'amount')
-    list_filter = ('status', 'contract_type')
+    list_display = ('customer', 'get_business', 'contract_type', 'status', 'start_date', 'end_date', 'amount')
+    list_filter = ('customer__business', 'status', 'contract_type')
+    search_fields = ('customer__name', 'customer__business__name')
+    ordering = ('customer__business__name', 'customer__name', '-created_at')
+
+    @admin.display(description='Company')
+    def get_business(self, obj):
+        return obj.customer.business if obj.customer_id else '—'
 
 
 @admin.register(ClientMessage)
 class ClientMessageAdmin(admin.ModelAdmin):
-    list_display = ('customer', 'channel', 'direction', 'subject', 'to_address', 'created_at', 'created_by')
-    list_filter = ('channel', 'direction')
-    search_fields = ('customer__name', 'body', 'subject', 'to_address')
+    list_display = ('customer', 'get_business', 'channel', 'direction', 'subject', 'to_address', 'created_at', 'created_by')
+    list_filter = ('customer__business', 'channel', 'direction')
+    search_fields = ('customer__name', 'body', 'subject', 'to_address', 'customer__business__name')
     readonly_fields = ('created_at',)
+    ordering = ('customer__business__name', '-created_at')
+
+    @admin.display(description='Company')
+    def get_business(self, obj):
+        return obj.customer.business if obj.customer_id else '—'
