@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Add Note to Job</h1>
+  <a href="{% url 'crew_job_detail' job.id %}" class="btn btn-secondary">← Back to Job</a>
+</div>
+
+<div class="card">
+  <div style="margin-bottom: 20px;">
+    <strong>Job:</strong> {{ job.property.address }}<br>
+    <strong>Customer:</strong> {{ job.property.customer.name }}
+  </div>
+  
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="note">Note</label>
+      <textarea name="note" id="note" rows="6" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text);"></textarea>
+      <small style="color: var(--text-muted);">This note will be added to the job with your name and timestamp.</small>
+    </div>
+    <button type="submit" class="btn btn-primary">Add Note</button>
+    <a href="{% url 'crew_job_detail' job.id %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

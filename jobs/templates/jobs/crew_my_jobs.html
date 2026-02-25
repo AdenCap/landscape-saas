@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>My Jobs</h1>
+  <a href="{% url 'crew_today' %}" class="btn btn-secondary">Today's Jobs</a>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+  <form method="get" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: end;">
+    <div class="form-group" style="margin: 0;">
+      <label>Status</label>
+      <select name="status" onchange="this.form.submit()">
+        <option value="">All Statuses</option>
+        <option value="scheduled" {% if status_filter == 'scheduled' %}selected{% endif %}>Scheduled</option>
+        <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>In Progress</option>
+        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+        <option value="skipped" {% if status_filter == 'skipped' %}selected{% endif %}>Skipped</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin: 0;">
+      <label>Date</label>
+      <select name="date" onchange="this.form.submit()">
+        <option value="">All Dates</option>
+        <option value="today" {% if date_filter == 'today' %}selected{% endif %}>Today</option>
+        <option value="upcoming" {% if date_filter == 'upcoming' %}selected{% endif %}>Upcoming</option>
+        <option value="past" {% if date_filter == 'past' %}selected{% endif %}>Past</option>
+      </select>
+    </div>
+  </form>
+</div>
+
+{% for job in jobs %}
+<div class="job-card card" style="margin-bottom: 16px;">
+  <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+    <div>
+      <strong><a href="{% url 'crew_job_detail' job.id %}">{{ job.property.address }}</a></strong><br>
+      <small style="color: var(--text-muted);">{{ job.property.customer.name }}</small>
+    </div>
+    <span class="badge badge-{{ job.status|cut:'_' }}">{{ job.get_status_display }}</span>
+  </div>
+  
+  {% if job.scheduled_date %}
+    <p style="margin: 5px 0; color: var(--text-muted);">
+      <strong>Date:</strong> {{ job.scheduled_date|date:"M d, Y" }}
+      {% if job.scheduled_time %} at {{ job.scheduled_time|time:"g:i A" }}{% endif %}
+    </p>
+  {% endif %}
+  
+  {% if job.notes %}
+    <p style="margin: 10px 0; color: var(--text-muted); font-size: 14px; white-space: pre-wrap;">{{ job.notes|truncatewords:20 }}</p>
+  {% endif %}
+  
+  <div style="display: flex; gap: 10px; margin-top: 10px;">
+    <a href="{% url 'crew_job_detail' job.id %}" class="btn btn-sm">View Details</a>
+    {% if job.status == "scheduled" %}
+      <form method="post" action="{% url 'start_job' job.id %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-primary">Start</button>
+      </form>
+    {% elif job.status == "in_progress" %}
+      <form method="post" action="{% url 'complete_job' job.id %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-primary">Complete</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% empty %}
+<div class="card">
+  <p style="margin: 0; color: var(--text-muted); text-align: center; padding: 40px;">No jobs found.</p>
+</div>
+{% endfor %}
+
+<style>
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+  .badge-scheduled { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
+  .badge-inprogress { background: rgba(234, 179, 8, 0.25); color: #fde047; }
+  .badge-completed { background: rgba(34, 197, 94, 0.25); color: #86efac; }
+  .badge-skipped { background: rgba(107, 114, 128, 0.25); color: #d1d5db; }
+</style>
+{% endblock %}

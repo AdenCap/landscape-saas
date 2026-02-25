@@ -26,6 +26,9 @@ urlpatterns = [
     path('routes/optimize/', views.optimize_route, name='optimize_route'),
 
     path('crew/', views.crew_today_view, name='crew_today'),
+    path('crew/my-jobs/', views.crew_my_jobs, name='crew_my_jobs'),
+    path('crew/<int:job_id>/', views.crew_job_detail, name='crew_job_detail'),
+    path('crew/<int:job_id>/add-note/', views.crew_add_job_note, name='crew_add_job_note'),
     path('<int:job_id>/start/', views.start_job, name='start_job'),
     path('<int:job_id>/complete/', views.complete_job, name='complete_job'),
     path('<int:job_id>/report-issue/', views.report_issue, name='report_issue'),

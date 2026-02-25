@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
-from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.http import require_POST, require_GET, require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from accounts.decorators import role_required
@@ -652,14 +652,16 @@ def crew_today_view(request):
     job_ids_with_photos = set(
         JobCompletionPhoto.objects.filter(job__in=jobs).values_list("job_id", flat=True)
     ) if jobs else set()
-    business = get_business(request)
-    require_completion_photo = bool(business and getattr(business, "require_completion_photo", False))
 
     # For clock in/out widget
     time_clock_current_entry = TimeEntry.objects.filter(
         user=request.user, clock_out__isnull=True
     ).order_by('-clock_in').first() if request.user.is_authenticated else None
 
+    # Get business for require_completion_photo check
+    business = get_business(request)
+    require_completion_photo = bool(business and getattr(business, "require_completion_photo", False))
+    
     return render(request, "jobs/crew_today.html", {
         "jobs": jobs,
         "time_clock_current_entry": time_clock_current_entry,
@@ -822,8 +824,107 @@ def upload_completion_photo(request, job_id):
         messages.success(request, "Completion photo uploaded.")
         if request.user.role == "owner":
             return redirect("job_detail", job_id=job_id)
-        return redirect("crew_today")
+        return redirect("crew_job_detail", job_id=job_id)
     return render(request, "jobs/upload_completion_photo.html", {"job": job})
+
+
+@role_required("owner", "crew")
+def crew_job_detail(request, job_id):
+    """Crew view of job details with notes, photos, and issues."""
+    job = get_object_or_404(
+        Job.objects.select_related("property", "property__customer", "assigned_to", "assigned_crew"),
+        id=job_id
+    )
+    
+    if request.user.role == "crew" and not _user_can_access_job(request.user, job):
+        messages.error(request, "You don't have access to this job.")
+        return redirect("crew_today")
+    
+    # Get job data
+    completion_photos = job.completion_photos.all().order_by("-captured_at")
+    issues = job.issues.all().order_by("-reported_at")
+    service_items = job.service_items.all()
+    
+    return render(request, "jobs/crew_job_detail.html", {
+        "job": job,
+        "completion_photos": completion_photos,
+        "issues": issues,
+        "service_items": service_items,
+    })
+
+
+@role_required("owner", "crew")
+@require_http_methods(["GET", "POST"])
+def crew_add_job_note(request, job_id):
+    """Crew can add notes to a job."""
+    job = get_object_or_404(Job, id=job_id)
+    
+    if request.user.role == "crew" and not _user_can_access_job(request.user, job):
+        messages.error(request, "You don't have access to this job.")
+        return redirect("crew_today")
+    
+    if request.method == "POST":
+        note_text = request.POST.get("note", "").strip()
+        if note_text:
+            # Append to existing notes or create new
+            if job.notes:
+                job.notes = f"{job.notes}\n\n[{timezone.now().strftime('%Y-%m-%d %H:%M')} - {request.user.get_full_name() or request.user.username}]: {note_text}"
+            else:
+                job.notes = f"[{timezone.now().strftime('%Y-%m-%d %H:%M')} - {request.user.get_full_name() or request.user.username}]: {note_text}"
+            job.save(update_fields=["notes"])
+            messages.success(request, "Note added to job.")
+            if request.user.role == "owner":
+                return redirect("job_detail", job_id=job.id)
+            return redirect("crew_job_detail", job_id=job.id)
+        else:
+            messages.error(request, "Note cannot be empty.")
+    
+    return render(request, "jobs/crew_add_note.html", {"job": job})
+
+
+@role_required("owner", "crew")
+def crew_my_jobs(request):
+    """Crew view of all their assigned jobs (past and future)."""
+    today = timezone.now().date()
+    
+    if request.user.role == "crew":
+        from django.db.models import Q
+        jobs = Job.objects.filter(
+            Q(assigned_to=request.user) |
+            Q(assigned_crew__members=request.user) |
+            Q(assigned_crew__crew_leader=request.user)
+        ).select_related("property", "property__customer", "assigned_to", "assigned_crew").distinct()
+    else:
+        # Owner sees all jobs
+        business = get_business(request)
+        if not business:
+            return redirect("/")
+        jobs = Job.objects.filter(property__customer__business=business).select_related("property", "property__customer")
+    
+    # Filter by status or date
+    status_filter = request.GET.get("status", "")
+    date_filter = request.GET.get("date", "")
+    
+    if status_filter:
+        jobs = jobs.filter(status=status_filter)
+    
+    if date_filter == "today":
+        jobs = jobs.filter(scheduled_date=today)
+    elif date_filter == "upcoming":
+        jobs = jobs.filter(scheduled_date__gt=today)
+    elif date_filter == "past":
+        jobs = jobs.filter(scheduled_date__lt=today)
+    
+    jobs = jobs.order_by("-scheduled_date", "-id")
+    
+    return render(request, "jobs/crew_my_jobs.html", {
+        "jobs": jobs,
+        "status_filter": status_filter,
+        "date_filter": date_filter,
+        "today": today,
+    })
+
+
 
 
 @role_required("owner")

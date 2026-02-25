@@ -11,8 +11,10 @@
   <div class="clock-status clocked-in">
     <span class="clock-badge">Clocked In</span>
     <p class="clock-time">Since {{ current_entry.clock_in|date:"g:i A" }}</p>
-    <form method="post" action="{% url 'time_clock_out' %}">
+    <form method="post" action="{% url 'time_clock_out' %}" id="clock-out-form">
       {% csrf_token %}
+      <input type="hidden" name="latitude" id="clock-out-lat">
+      <input type="hidden" name="longitude" id="clock-out-lon">
       <button type="submit" class="btn btn-primary btn-clock">
         Clock Out
       </button>
@@ -21,8 +23,10 @@
   {% else %}
   <div class="clock-status clocked-out">
     <span class="clock-badge">Clocked Out</span>
-    <form method="post" action="{% url 'time_clock_in' %}">
+    <form method="post" action="{% url 'time_clock_in' %}" id="clock-in-form">
       {% csrf_token %}
+      <input type="hidden" name="latitude" id="clock-in-lat">
+      <input type="hidden" name="longitude" id="clock-in-lon">
       <button type="submit" class="btn btn-primary btn-clock">
         Clock In
       </button>
@@ -68,4 +72,24 @@
   .today-total { font-size: 24px; font-weight: 700; margin: 0 0 4px 0; }
   .today-label { margin: 0; color: var(--text-muted); font-size: 14px; }
 </style>
+<script>
+  // Get GPS location when clocking in/out (optional, user permission required)
+  function getLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(position) {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        document.getElementById('clock-in-lat').value = lat;
+        document.getElementById('clock-in-lon').value = lon;
+        document.getElementById('clock-out-lat').value = lat;
+        document.getElementById('clock-out-lon').value = lon;
+      }, function(error) {
+        // GPS not available or denied - that's okay, we'll proceed without it
+        console.log('GPS not available:', error.message);
+      });
+    }
+  }
+  // Try to get location when page loads
+  getLocation();
+</script>
 {% endblock %}
