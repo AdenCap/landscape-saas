@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Communication History: {{ customer.name }}</h1>
+  <a href="{% url 'customer_detail' customer.id %}" class="btn btn-secondary">← Back to Customer</a>
+</div>
+
+<div class="card">
+  <p style="color: var(--text-muted); margin-bottom: 20px;">
+    Complete communication timeline for {{ customer.name }}
+  </p>
+  
+  <div class="timeline">
+    {% for item in timeline %}
+      <div class="timeline-item">
+        <div class="timeline-date">{{ item.date|date:"M d, Y g:i A" }}</div>
+        <div class="timeline-content">
+          {% if item.type == 'message' %}
+            <strong>Message ({{ item.object.get_channel_display }})</strong>
+            <p>{{ item.object.body|truncatewords:30 }}</p>
+          {% elif item.type == 'invoice' %}
+            <strong>Invoice #{{ item.object.id }}</strong>
+            <p>Status: {{ item.object.get_status_display }} | Amount: ${{ item.object.total|floatformat:2 }}</p>
+            <a href="{% url 'billing:invoice_detail' item.object.id %}" class="btn btn-sm">View</a>
+          {% elif item.type == 'estimate' %}
+            <strong>Estimate #{{ item.object.id }}</strong>
+            <p>Status: {{ item.object.get_status_display }} | Total: ${{ item.object.total|floatformat:2 }}</p>
+            <a href="{% url 'billing:estimate_detail' item.object.id %}" class="btn btn-sm">View</a>
+          {% elif item.type == 'job' %}
+            <strong>Job at {{ item.object.property.address }}</strong>
+            <p>Status: {{ item.object.get_status_display }}</p>
+            <a href="{% url 'jobs:job_detail' item.object.id %}" class="btn btn-sm">View</a>
+          {% elif item.type == 'review' %}
+            <strong>Review</strong>
+            <p>{{ item.object.stars_display }} - {{ item.object.comment|truncatewords:20|default:"No comment" }}</p>
+          {% elif item.type == 'survey' %}
+            <strong>Survey Response</strong>
+            <p>Satisfaction: {{ item.object.overall_satisfaction }}/5</p>
+          {% endif %}
+        </div>
+      </div>
+    {% empty %}
+      <p style="text-align: center; padding: 40px; color: var(--text-muted);">No communication history yet.</p>
+    {% endfor %}
+  </div>
+</div>
+
+<style>
+  .timeline { position: relative; padding-left: 30px; }
+  .timeline-item { position: relative; padding-bottom: 20px; }
+  .timeline-item:before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--primary);
+  }
+  .timeline-item:not(:last-child):after {
+    content: '';
+    position: absolute;
+    left: -16px;
+    top: 15px;
+    width: 2px;
+    height: calc(100% - 5px);
+    background: var(--border);
+  }
+  .timeline-date { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+  .timeline-content { background: var(--surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
+</style>
+{% endblock %}

@@ -11,6 +11,7 @@ from accounts.utils import get_business as _get_business
 from billing.models import Invoice
 from jobs.models import Job
 from .models import Customer, Property, Contract, ClientMessage
+from django.utils import timezone
 from .forms import (
     CustomerForm,
     CustomerImportForm,
@@ -255,6 +256,84 @@ def customer_edit(request, customer_id):
         "form": form,
         "customer": customer,
         "title": "Edit Client",
+    })
+
+
+@role_required("owner")
+def customer_communication_history(request, customer_id):
+    """View all communication history for a customer in one place."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+    
+    # Get all communications
+    messages = customer.messages.all().order_by('-created_at')
+    invoices = customer.invoices.all().order_by('-issue_date')
+    estimates = customer.estimates.all().order_by('-created_at')
+    jobs = Job.objects.filter(property__customer=customer).order_by('-scheduled_date')
+    reviews = []
+    surveys = []
+    
+    # Try to get reviews and surveys if apps are installed
+    try:
+        from reviews.models import Review
+        reviews = Review.objects.filter(customer=customer).order_by('-created_at')
+    except ImportError:
+        pass
+    
+    try:
+        from surveys.models import Survey
+        surveys = Survey.objects.filter(customer=customer).order_by('-completed_at')
+    except ImportError:
+        pass
+    
+    # Combine and sort by date
+    timeline = []
+    for msg in messages:
+        timeline.append({
+            'type': 'message',
+            'date': msg.created_at,
+            'object': msg,
+        })
+    for inv in invoices:
+        timeline.append({
+            'type': 'invoice',
+            'date': inv.issue_date,
+            'object': inv,
+        })
+    for est in estimates:
+        timeline.append({
+            'type': 'estimate',
+            'date': est.created_at,
+            'object': est,
+        })
+    for job in jobs:
+        if job.scheduled_date:
+            timeline.append({
+                'type': 'job',
+                'date': job.scheduled_date,
+                'object': job,
+            })
+    for review in reviews:
+        timeline.append({
+            'type': 'review',
+            'date': review.created_at,
+            'object': review,
+        })
+    for survey in surveys:
+        timeline.append({
+            'type': 'survey',
+            'date': survey.completed_at,
+            'object': survey,
+        })
+    
+    timeline.sort(key=lambda x: x['date'], reverse=True)
+    
+    return render(request, "customers/customer_communication_history.html", {
+        "customer": customer,
+        "timeline": timeline[:50],  # Last 50 items
     })
 
 

@@ -1488,3 +1488,54 @@ def fertilization_schedule(request):
         "start_month": start_m,
         "end_month": end_m,
     })
+
+
+@role_required("owner")
+def job_template_list(request):
+    """List job templates."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    
+    templates = JobTemplate.objects.filter(business=business, is_active=True).order_by('name')
+    
+    return render(request, "jobs/job_template_list.html", {
+        "templates": templates,
+    })
+
+
+@role_required("owner")
+@require_http_methods(["GET", "POST"])
+def job_template_create(request):
+    """Create a job template."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    
+    if request.method == "POST":
+        template = JobTemplate.objects.create(
+            business=business,
+            name=request.POST.get('name', ''),
+            description=request.POST.get('description', ''),
+            default_duration_minutes=request.POST.get('default_duration_minutes') or None,
+            notes_template=request.POST.get('notes_template', ''),
+        )
+        messages.success(request, f"Template '{template.name}' created.")
+        return redirect('job_template_list')
+    
+    return render(request, "jobs/job_template_form.html", {"action": "Create"})
+
+
+@role_required("owner")
+def create_job_from_template(request, template_id):
+    """Create a job from a template."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    
+    template = get_object_or_404(JobTemplate, id=template_id, business=business)
+    
+    # This would redirect to create_job with template data pre-filled
+    # For now, just show a message
+    messages.info(request, f"Creating job from template '{template.name}' - feature in development")
+    return redirect('create_job')

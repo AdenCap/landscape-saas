@@ -40,5 +40,8 @@ urlpatterns = [
     path("<int:job_id>/items/add/", views.add_job_service_item, name="add_job_service_item"),
     path("<int:job_id>/items/<int:item_id>/remove/", views.remove_job_service_item, name="remove_job_service_item"),
     path("<int:job_id>/costs/", views.job_update_costs, name="job_update_costs"),
+    path("templates/", views.job_template_list, name="job_template_list"),
+    path("templates/create/", views.job_template_create, name="job_template_create"),
+    path("templates/<int:template_id>/use/", views.create_job_from_template, name="create_job_from_template"),
 
 ]

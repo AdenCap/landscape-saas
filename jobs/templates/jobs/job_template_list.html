@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Job Templates</h1>
+  <a href="{% url 'job_template_create' %}" class="btn btn-primary">+ Create Template</a>
+</div>
+
+<div class="card">
+  <p style="color: var(--text-muted); margin-bottom: 20px;">
+    Create reusable job templates for common services to speed up job creation.
+  </p>
+  
+  <table style="width: 100%;">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Duration</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for template in templates %}
+        <tr>
+          <td><strong>{{ template.name }}</strong></td>
+          <td>{{ template.description|truncatewords:15|default:"—" }}</td>
+          <td>{% if template.default_duration_minutes %}{{ template.default_duration_minutes }} min{% else %}—{% endif %}</td>
+          <td>
+            <a href="{% url 'create_job_from_template' template.id %}" class="btn btn-sm btn-primary">Use Template</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" style="text-align: center; padding: 40px;">No templates yet. Create one to get started!</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
