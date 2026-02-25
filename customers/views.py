@@ -272,7 +272,7 @@ def customer_communication_history(request, customer_id):
     messages = customer.messages.all().order_by('-created_at')
     invoices = customer.invoices.all().order_by('-issue_date')
     estimates = customer.estimates.all().order_by('-created_at')
-    jobs = Job.objects.filter(property__customer=customer).order_by('-scheduled_date')
+    jobs = Job.objects.filter(property__customer=customer).order_by('-created_at')
     reviews = []
     surveys = []
     
@@ -310,12 +310,13 @@ def customer_communication_history(request, customer_id):
             'object': est,
         })
     for job in jobs:
-        if job.scheduled_date:
-            timeline.append({
-                'type': 'job',
-                'date': job.scheduled_date,
-                'object': job,
-            })
+        # Use scheduled_date if available, otherwise created_at
+        job_date = job.scheduled_date if job.scheduled_date else job.created_at.date()
+        timeline.append({
+            'type': 'job',
+            'date': job_date,
+            'object': job,
+        })
     for review in reviews:
         timeline.append({
             'type': 'review',

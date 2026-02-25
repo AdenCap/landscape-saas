@@ -15,7 +15,7 @@ from accounts.utils import get_business
 from accounts.models import Notification
 from billing.services import create_draft_invoice_for_job
 from billing.monthly import generate_monthly_invoice_for_customer
-from .models import Job, JobServiceItem, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobAssignmentLog, Meeting
+from .models import Job, JobServiceItem, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobAssignmentLog, Meeting, JobTemplate
 from customers.models import Property
 from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset, ReportIssueForm, MeetingForm
 from pricing.utils import get_effective_rate
@@ -842,7 +842,7 @@ def crew_job_detail(request, job_id):
     
     # Get job data
     completion_photos = job.completion_photos.all().order_by("-captured_at")
-    issues = job.issues.all().order_by("-reported_at")
+    issues = job.issues.all().order_by("-created_at")
     service_items = job.service_items.all()
     
     return render(request, "jobs/crew_job_detail.html", {

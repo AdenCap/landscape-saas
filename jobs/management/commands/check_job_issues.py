@@ -16,7 +16,7 @@ class Command(BaseCommand):
         
         unresolved_issues = JobIssue.objects.filter(
             status='open',
-            reported_at__lt=cutoff_time
+            created_at__lt=cutoff_time
         ).select_related('job__property__customer__business', 'reported_by')
         
         if not unresolved_issues.exists():
@@ -42,7 +42,7 @@ class Command(BaseCommand):
             
             issue_list = '\n'.join([
                 f"- Job #{issue.job.id} at {issue.job.property.address}: {issue.get_issue_type_display()} "
-                f"(reported {issue.reported_at.strftime('%Y-%m-%d %H:%M')} by {issue.reported_by.get_full_name() or issue.reported_by.username})"
+                f"(reported {issue.created_at.strftime('%Y-%m-%d %H:%M')} by {issue.reported_by.get_full_name() or issue.reported_by.username})"
                 for issue in issues
             ])
             
