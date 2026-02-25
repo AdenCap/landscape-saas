@@ -48,6 +48,24 @@
       {% if not customer.phone and not customer.email and customer.full_address == "—" %}
       <dd>No contact info. <a href="{% url 'customer_edit' customer.id %}" class="link-primary">Add</a></dd>
       {% endif %}
+      {% if stripe_connect_enabled %}
+      <dt>Payment method</dt>
+      <dd>
+        {% if has_saved_payment_method %}
+          {% for pm in payment_methods %}
+            <div style="margin-bottom: 8px;">
+              <strong>Card on file:</strong> 
+              {{ pm.card.brand|title }} •••• {{ pm.card.last4 }} 
+              (expires {{ pm.card.exp_month }}/{{ pm.card.exp_year }})
+            </div>
+          {% endfor %}
+        {% elif customer.stripe_customer_id %}
+          <span style="color: #a3a3a3;">No payment method saved yet</span>
+        {% else %}
+          <span style="color: #a3a3a3;">Customer will save payment method when they pay an invoice</span>
+        {% endif %}
+      </dd>
+      {% endif %}
     </dl>
     {% if customer.notes %}
     <div class="notes-box">

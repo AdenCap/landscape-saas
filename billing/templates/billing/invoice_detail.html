@@ -153,9 +153,15 @@
       </form>
       {% endif %}
       {% if invoice.status == "sent" %}
+      {% if invoice.customer.stripe_customer_id and invoice.business.stripe_connect_account_id and invoice.business.stripe_connect_charges_enabled %}
+      <form method="post" action="{% url 'billing:charge_saved_payment_method' invoice.id %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary" onclick="return confirm('Charge {{ invoice.customer.name }}\'s saved payment method for ${{ invoice.total|floatformat:2 }}?');">Charge saved card</button>
+      </form>
+      {% endif %}
       <form method="post" action="{% url 'billing:mark_invoice_paid' invoice.id %}" style="display: inline;">
         {% csrf_token %}
-        <button type="submit" class="btn btn-primary">Mark as paid</button>
+        <button type="submit" class="btn btn-secondary">Mark as paid</button>
       </form>
       {% endif %}
       {% if quickbooks_connected %}

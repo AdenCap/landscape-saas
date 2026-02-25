@@ -127,6 +127,25 @@ def customer_detail(request, customer_id):
     client_messages = customer.messages.all()[:50]
     send_message_form = SendMessageForm()
 
+    # Get payment methods if customer has Stripe customer ID and business has Connect
+    payment_methods = []
+    has_saved_payment_method = False
+    if customer.stripe_customer_id and business.stripe_connect_account_id and business.stripe_connect_charges_enabled:
+        try:
+            import stripe
+            from django.conf import settings
+            if getattr(settings, "STRIPE_SECRET_KEY", None):
+                stripe.api_key = settings.STRIPE_SECRET_KEY
+                payment_methods_list = stripe.PaymentMethod.list(
+                    customer=customer.stripe_customer_id,
+                    type="card",
+                    stripe_account=business.stripe_connect_account_id,
+                )
+                payment_methods = payment_methods_list.data
+                has_saved_payment_method = len(payment_methods) > 0
+        except Exception:
+            pass  # If Stripe call fails, just don't show payment methods
+
     return render(request, "customers/customer_detail.html", {
         "customer": customer,
         "properties": properties,
@@ -136,6 +155,9 @@ def customer_detail(request, customer_id):
         "total_revenue": total_revenue,
         "client_messages": client_messages,
         "send_message_form": send_message_form,
+        "payment_methods": payment_methods,
+        "has_saved_payment_method": has_saved_payment_method,
+        "stripe_connect_enabled": bool(business.stripe_connect_account_id and business.stripe_connect_charges_enabled),
     })
 
 
