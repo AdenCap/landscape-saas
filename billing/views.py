@@ -440,29 +440,31 @@ def create_invoice_checkout_session(request, invoice_id, token):
     if fee_percent is None:
         fee_percent = getattr(settings, "STRIPE_CONNECT_APPLICATION_FEE_PERCENT", 0) or 0
     application_fee_amount = int(amount_cents * fee_percent / 100) if fee_percent else None
-    payment_intent_data = {"transfer_data": {"destination": business.stripe_connect_account_id}}
-    if application_fee_amount:
-        payment_intent_data["application_fee_amount"] = application_fee_amount
-    try:
-        session = stripe.checkout.Session.create(
-            payment_method_types=["card"],
-            line_items=[{
-                "price_data": {
-                    "currency": "usd",
-                    "unit_amount": amount_cents,
-                    "product_data": {
-                        "name": f"Invoice #{invoice.id}",
-                        "description": f"Payment for invoice from {business.name}",
-                    },
+    # For Stripe Connect with Checkout Sessions, use stripe_account parameter and application_fee_amount
+    session_params = {
+        "payment_method_types": ["card"],
+        "line_items": [{
+            "price_data": {
+                "currency": "usd",
+                "unit_amount": amount_cents,
+                "product_data": {
+                    "name": f"Invoice #{invoice.id}",
+                    "description": f"Payment for invoice from {business.name}",
                 },
-                "quantity": 1,
-            }],
-            mode="payment",
-            success_url=success_url,
-            cancel_url=cancel_url,
-            metadata={"invoice_id": str(invoice.id), "business_id": str(business.id)},
-            payment_intent_data=payment_intent_data,
-        )
+            },
+            "quantity": 1,
+        }],
+        "mode": "payment",
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "metadata": {"invoice_id": str(invoice.id), "business_id": str(business.id)},
+        "stripe_account": business.stripe_connect_account_id,
+    }
+    # Only add application_fee_amount if there's a platform fee
+    if application_fee_amount:
+        session_params["payment_intent_data"] = {"application_fee_amount": application_fee_amount}
+    try:
+        session = stripe.checkout.Session.create(**session_params)
         return redirect(session.url)
     except stripe.StripeError as e:
         messages.error(request, f"Could not start payment: {e.user_message or str(e)}")
