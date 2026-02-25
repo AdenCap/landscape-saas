@@ -94,7 +94,7 @@ def portal_dashboard(request):
     total_paid = Invoice.objects.filter(
         customer=customer,
         status='paid'
-    ).aggregate(total=models.Sum('total'))['total'] or 0
+    ).aggregate(total=Sum('total'))['total'] or 0
     
     outstanding_invoices = Invoice.objects.filter(
         customer=customer,
