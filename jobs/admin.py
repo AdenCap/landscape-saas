@@ -33,8 +33,8 @@ class RecurringJobAdmin(admin.ModelAdmin):
 
 @admin.register(JobIssue)
 class JobIssueAdmin(admin.ModelAdmin):
-    list_display = ['job', 'issue_type', 'status', 'reported_by', 'reported_at']
-    list_filter = ['issue_type', 'status', 'reported_at']
+    list_display = ['job', 'issue_type', 'status', 'reported_by', 'created_at']
+    list_filter = ['issue_type', 'status', 'created_at']
     search_fields = ['description', 'job__property__address']
 
 
