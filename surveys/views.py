@@ -19,7 +19,7 @@ def survey_list(request):
     surveys = Survey.objects.filter(business=business).order_by('-completed_at')
     
     # Calculate average satisfaction
-    avg_satisfaction = surveys.aggregate(models.Avg('overall_satisfaction'))['overall_satisfaction__avg'] or 0
+    avg_satisfaction = surveys.aggregate(Avg('overall_satisfaction'))['overall_satisfaction__avg'] or 0
     
     return render(request, 'surveys/survey_list.html', {
         'surveys': surveys,

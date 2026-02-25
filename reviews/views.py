@@ -16,7 +16,7 @@ def review_list(request):
     reviews = Review.objects.filter(business=business).order_by('-created_at')
     
     # Calculate average rating
-    avg_rating = reviews.aggregate(models.Avg('rating'))['rating__avg'] or 0
+    avg_rating = reviews.aggregate(Avg('rating'))['rating__avg'] or 0
     
     return render(request, 'reviews/review_list.html', {
         'reviews': reviews,
