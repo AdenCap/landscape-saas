@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Referral: {{ referral.referrer.name }} → {{ referral.referred_name|default:referral.referred_customer.name|default:"Unknown" }}</h1>
+</div>
+
+<div class="card">
+  <h2>Referral Information</h2>
+  <dl>
+    <dt>Referrer</dt><dd><a href="{% url 'customer_detail' referral.referrer.id %}">{{ referral.referrer.name }}</a></dd>
+    <dt>Referred</dt><dd>{{ referral.referred_name|default:referral.referred_customer.name|default:"—" }}</dd>
+    <dt>Referred Email</dt><dd>{{ referral.referred_email|default:"—" }}</dd>
+    <dt>Referred Phone</dt><dd>{{ referral.referred_phone|default:"—" }}</dd>
+    <dt>Referral Code</dt><dd><strong>{{ referral.referral_code }}</strong></dd>
+    <dt>Status</dt><dd><span class="badge">{{ referral.get_status_display }}</span></dd>
+    {% if referral.reward_amount %}
+      <dt>Reward Amount</dt><dd>${{ referral.reward_amount|floatformat:2 }}</dd>
+      <dt>Reward Paid</dt><dd>{% if referral.reward_paid %}Yes ({{ referral.reward_paid_date|date:"M d, Y" }}){% else %}No{% endif %}</dd>
+    {% endif %}
+    {% if referral.notes %}
+      <dt>Notes</dt><dd>{{ referral.notes }}</dd>
+    {% endif %}
+  </dl>
+  
+  {% if referral.converted_customer %}
+    <div style="margin-top: 20px; padding: 15px; background: var(--primary-light); border-radius: 8px;">
+      <strong>Converted to Customer:</strong> 
+      <a href="{% url 'customer_detail' referral.converted_customer.id %}">{{ referral.converted_customer.name }}</a>
+      on {{ referral.converted_at|date:"M d, Y" }}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

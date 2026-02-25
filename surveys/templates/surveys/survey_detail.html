@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Survey from {{ survey.customer.name }}</h1>
+</div>
+
+<div class="card">
+  <h2>Ratings</h2>
+  <dl>
+    <dt>Overall Satisfaction</dt><dd>{{ survey.overall_satisfaction }}/5</dd>
+    {% if survey.quality_rating %}
+      <dt>Quality</dt><dd>{{ survey.quality_rating }}/5</dd>
+    {% endif %}
+    {% if survey.timeliness_rating %}
+      <dt>Timeliness</dt><dd>{{ survey.timeliness_rating }}/5</dd>
+    {% endif %}
+    {% if survey.communication_rating %}
+      <dt>Communication</dt><dd>{{ survey.communication_rating }}/5</dd>
+    {% endif %}
+    {% if survey.nps_score %}
+      <dt>Net Promoter Score</dt><dd>{{ survey.nps_score }}/10</dd>
+    {% endif %}
+    {% if survey.would_recommend is not None %}
+      <dt>Would Recommend</dt><dd>{% if survey.would_recommend %}Yes{% else %}No{% endif %}</dd>
+    {% endif %}
+  </dl>
+  
+  {% if survey.what_went_well %}
+    <h2>What Went Well</h2>
+    <p>{{ survey.what_went_well }}</p>
+  {% endif %}
+  
+  {% if survey.what_could_improve %}
+    <h2>What Could Improve</h2>
+    <p>{{ survey.what_could_improve }}</p>
+  {% endif %}
+  
+  {% if survey.additional_comments %}
+    <h2>Additional Comments</h2>
+    <p>{{ survey.additional_comments }}</p>
+  {% endif %}
+  
+  <div style="margin-top: 20px;">
+    <a href="{% url 'surveys:survey_list' %}" class="btn btn-secondary">Back to Surveys</a>
+  </div>
+</div>
+{% endblock %}

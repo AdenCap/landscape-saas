@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Review from {{ review.customer.name }}</h1>
+</div>
+
+<div class="card">
+  <div style="margin-bottom: 20px;">
+    <div style="font-size: 32px;">{{ review.stars_display }}</div>
+    <p><strong>Rating:</strong> {{ review.rating }}/5</p>
+    <p><strong>Date:</strong> {{ review.created_at|date:"M d, Y" }}</p>
+    {% if review.job %}
+      <p><strong>Job:</strong> <a href="{% url 'jobs:job_detail' review.job.id %}">Job #{{ review.job.id }}</a></p>
+    {% endif %}
+  </div>
+  
+  {% if review.comment %}
+    <h2>Comment</h2>
+    <p>{{ review.comment }}</p>
+  {% endif %}
+  
+  <div style="margin-top: 20px;">
+    <a href="{% url 'reviews:review_list' %}" class="btn btn-secondary">Back to Reviews</a>
+  </div>
+</div>
+{% endblock %}

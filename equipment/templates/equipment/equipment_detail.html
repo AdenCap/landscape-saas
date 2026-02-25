@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ equipment.name }}</h1>
+  <a href="{% url 'equipment:equipment_edit' equipment.id %}" class="btn btn-secondary">Edit</a>
+</div>
+
+<div class="card">
+  <h2>Equipment Information</h2>
+  <dl>
+    <dt>Type</dt><dd>{{ equipment.get_equipment_type_display }}</dd>
+    <dt>Make/Model</dt><dd>{{ equipment.make|default:"—" }} {{ equipment.model|default:"" }}</dd>
+    <dt>Serial Number</dt><dd>{{ equipment.serial_number|default:"—" }}</dd>
+    <dt>Last Maintenance</dt><dd>{{ equipment.last_maintenance_date|date:"M d, Y"|default:"—" }}</dd>
+    <dt>Next Maintenance</dt><dd>{{ equipment.next_maintenance_date|date:"M d, Y"|default:"—" }}</dd>
+    {% if equipment.notes %}
+      <dt>Notes</dt><dd>{{ equipment.notes }}</dd>
+    {% endif %}
+  </dl>
+</div>
+
+<div class="card">
+  <h2>Recent Maintenance</h2>
+  <table style="width: 100%;">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Type</th>
+        <th>Cost</th>
+        <th>Performed By</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for maint in maintenance_records %}
+        <tr>
+          <td>{{ maint.maintenance_date|date:"M d, Y" }}</td>
+          <td>{{ maint.maintenance_type }}</td>
+          <td>${{ maint.cost|floatformat:2 }}</td>
+          <td>{{ maint.performed_by|default:"—" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" style="text-align: center; padding: 40px;">No maintenance records</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <a href="{% url 'equipment:maintenance_add' equipment.id %}" class="btn btn-primary" style="margin-top: 15px;">+ Add Maintenance</a>
+</div>
+{% endblock %}

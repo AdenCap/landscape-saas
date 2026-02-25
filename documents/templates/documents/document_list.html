@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Documents</h1>
+  <a href="{% url 'documents:document_upload' %}" class="btn btn-primary">+ Upload Document</a>
+</div>
+
+<div class="card">
+  <table style="width: 100%;">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Type</th>
+        <th>Customer</th>
+        <th>Visible to Customer</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for doc in documents %}
+        <tr>
+          <td><a href="{% url 'documents:document_detail' doc.id %}">{{ doc.title }}</a></td>
+          <td>{{ doc.get_document_type_display }}</td>
+          <td>{% if doc.customer %}<a href="{% url 'customer_detail' doc.customer.id %}">{{ doc.customer.name }}</a>{% else %}—{% endif %}</td>
+          <td>{% if doc.is_visible_to_customer %}✓{% else %}—{% endif %}</td>
+          <td>{{ doc.created_at|date:"M d, Y" }}</td>
+          <td>
+            <a href="{% url 'documents:document_detail' doc.id %}" class="btn btn-sm">View</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" style="text-align: center; padding: 40px;">No documents found</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

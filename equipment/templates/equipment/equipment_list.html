@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Equipment & Vehicles</h1>
+  <a href="{% url 'equipment:equipment_create' %}" class="btn btn-primary">+ Add Equipment</a>
+</div>
+
+{% if low_stock_items %}
+<div class="card" style="background: #fef3c7; margin-bottom: 20px;">
+  <h2>⚠️ Low Stock Alerts</h2>
+  <ul>
+    {% for item in low_stock_items %}
+      <li>{{ item.name }}: {{ item.current_quantity }} {{ item.unit }} (threshold: {{ item.low_stock_threshold }})</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card">
+  <table style="width: 100%;">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Last Maintenance</th>
+        <th>Next Maintenance</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for eq in equipment %}
+        <tr>
+          <td><a href="{% url 'equipment:equipment_detail' eq.id %}">{{ eq.name }}</a></td>
+          <td>{{ eq.get_equipment_type_display }}</td>
+          <td>{{ eq.last_maintenance_date|date:"M d, Y"|default:"—" }}</td>
+          <td>{{ eq.next_maintenance_date|date:"M d, Y"|default:"—" }}</td>
+          <td><span class="badge {% if eq.is_active %}badge-success{% else %}badge-secondary{% endif %}">
+            {% if eq.is_active %}Active{% else %}Inactive{% endif %}
+          </span></td>
+          <td>
+            <a href="{% url 'equipment:equipment_detail' eq.id %}" class="btn btn-sm">View</a>
+            <a href="{% url 'equipment:equipment_edit' eq.id %}" class="btn btn-sm btn-secondary">Edit</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" style="text-align: center; padding: 40px;">No equipment found</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Inventory</h1>
+  <a href="{% url 'inventory:inventory_item_create' %}" class="btn btn-primary">+ Add Item</a>
+</div>
+
+{% if low_stock_items %}
+<div class="card" style="background: #fef3c7; margin-bottom: 20px;">
+  <h2>⚠️ Low Stock Alerts</h2>
+  <ul>
+    {% for item in low_stock_items %}
+      <li>{{ item.name }}: {{ item.current_quantity }} {{ item.unit }} (threshold: {{ item.low_stock_threshold }})</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card">
+  <table style="width: 100%;">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>SKU</th>
+        <th>Quantity</th>
+        <th>Unit</th>
+        <th>Cost/Unit</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr>
+          <td><a href="{% url 'inventory:inventory_item_detail' item.id %}">{{ item.name }}</a></td>
+          <td>{{ item.sku|default:"—" }}</td>
+          <td>{{ item.current_quantity }}</td>
+          <td>{{ item.unit }}</td>
+          <td>${{ item.cost_per_unit|floatformat:2 }}</td>
+          <td>
+            {% if item.is_low_stock %}
+              <span class="badge" style="background: #fef3c7; color: #92400e;">Low Stock</span>
+            {% else %}
+              <span class="badge badge-success">In Stock</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'inventory:inventory_item_detail' item.id %}" class="btn btn-sm">View</a>
+            <a href="{% url 'inventory:inventory_item_edit' item.id %}" class="btn btn-sm btn-secondary">Edit</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" style="text-align: center; padding: 40px;">No inventory items found</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

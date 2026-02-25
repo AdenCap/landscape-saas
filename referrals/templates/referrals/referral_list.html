@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Referrals</h1>
+  <a href="{% url 'referrals:referral_create' %}" class="btn btn-primary">+ Add Referral</a>
+</div>
+
+<div class="card">
+  <div style="margin-bottom: 20px; padding: 15px; background: var(--primary-light); border-radius: 8px;">
+    <h2 style="margin: 0 0 10px 0;">Referral Stats</h2>
+    <p><strong>Total Referrals:</strong> {{ total_referrals }}</p>
+    <p><strong>Converted:</strong> {{ converted }}</p>
+    <p><strong>Total Rewards Paid:</strong> ${{ total_rewards|floatformat:2 }}</p>
+  </div>
+  
+  <table style="width: 100%;">
+    <thead>
+      <tr>
+        <th>Referrer</th>
+        <th>Referred</th>
+        <th>Status</th>
+        <th>Reward</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for referral in referrals %}
+        <tr>
+          <td><a href="{% url 'customer_detail' referral.referrer.id %}">{{ referral.referrer.name }}</a></td>
+          <td>{{ referral.referred_name|default:referral.referred_customer.name|default:"—" }}</td>
+          <td><span class="badge">{{ referral.get_status_display }}</span></td>
+          <td>{% if referral.reward_amount %}${{ referral.reward_amount|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td>{{ referral.created_at|date:"M d, Y" }}</td>
+          <td>
+            <a href="{% url 'referrals:referral_detail' referral.id %}" class="btn btn-sm">View</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" style="text-align: center; padding: 40px;">No referrals found</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
