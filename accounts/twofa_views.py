@@ -60,9 +60,10 @@ def post_login_check(request):
     # Check if user has a business - if not, they need to sign up or be assigned one
     business = get_business(request)
     if not business and not request.user.is_superuser:
-        # User doesn't have a business - redirect to signup or show error
-        from django.contrib import messages
-        messages.error(request, "Your account is not associated with a business. Please contact support.")
+        # User doesn't have a business - log them out and redirect to login with error
+        from django.contrib import messages, auth
+        messages.error(request, "Your account is not associated with a business. Please contact support or sign up.")
+        auth.logout(request)
         return redirect("/accounts/login/")
     
     if not _user_has_2fa(request.user):

@@ -1,7 +1,7 @@
 from urllib.parse import urlencode
 
 from django.conf import settings
-from django.contrib import messages
+from django.contrib import messages, auth
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.views import LoginView as AuthLoginView
@@ -32,6 +32,21 @@ User = get_user_model()
 @method_decorator(ratelimit(key="ip", rate="10/m", method="POST", block=True), name="dispatch")
 class LoginView(AuthLoginView):
     """After password login, always send to post-login check (2FA on new device); preserve next."""
+
+    def dispatch(self, request, *args, **kwargs):
+        """Handle authenticated users who don't have a business to prevent redirect loops."""
+        if request.user.is_authenticated:
+            from accounts.utils import get_business
+            business = get_business(request)
+            if not business and not request.user.is_superuser:
+                # User is logged in but has no business - show error and log them out
+                messages.error(request, "Your account is not associated with a business. Please contact support or sign up.")
+                auth.logout(request)
+                # Continue to show login page
+            else:
+                # User is authenticated and has business - redirect to dashboard
+                return redirect("/")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
         # Always go through post-login check; pass through intended destination
