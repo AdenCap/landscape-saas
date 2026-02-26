@@ -49,11 +49,22 @@ def post_login_check(request):
     If user has 2FA and this is a new device, send them to verify; otherwise go to dashboard.
     """
     from django.utils.http import url_has_allowed_host_and_scheme
+    from accounts.utils import get_business
+    
     next_url = request.GET.get("next") or "/"
     if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
         next_url = "/"
     if not request.user.is_authenticated:
         return redirect("/accounts/login/")
+    
+    # Check if user has a business - if not, they need to sign up or be assigned one
+    business = get_business(request)
+    if not business and not request.user.is_superuser:
+        # User doesn't have a business - redirect to signup or show error
+        from django.contrib import messages
+        messages.error(request, "Your account is not associated with a business. Please contact support.")
+        return redirect("/accounts/login/")
+    
     if not _user_has_2fa(request.user):
         return redirect(next_url)
     cookie_token = request.COOKIES.get(TRUSTED_DEVICE_COOKIE)

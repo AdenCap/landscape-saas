@@ -59,8 +59,11 @@ def owner_dashboard(request):
     business = get_business(request)
     if not business:
         from django.shortcuts import redirect
+        from django.contrib import messages
         if request.user.is_superuser:
             return redirect("platform_home")
+        # User doesn't have a business - show helpful message instead of redirect loop
+        messages.error(request, "Your account is not associated with a business. Please contact support or sign up for a new business.")
         return redirect("/accounts/login/")
 
     month_start, month_end = _month_range(today)
