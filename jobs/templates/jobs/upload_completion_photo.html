@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Upload Completion Photo</h1>
+  <a href="{% if request.user.role == 'owner' %}{% url 'job_detail' job.id %}{% else %}{% url 'crew_job_detail' job.id %}{% endif %}" class="btn btn-secondary">← Back</a>
+</div>
+
+<div class="card">
+  <div style="margin-bottom: 20px;">
+    <strong>Job:</strong> {{ job.property.address }}<br>
+    <strong>Customer:</strong> {{ job.property.customer.name }}
+  </div>
+  
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="photo">Photo *</label>
+      <input type="file" name="photo" id="photo" accept="image/*" capture="environment" required>
+      <small style="color: var(--text-muted);">Take a photo or select from gallery. This photo serves as proof of work completion.</small>
+    </div>
+    <button type="submit" class="btn btn-primary">Upload Photo</button>
+    <a href="{% if request.user.role == 'owner' %}{% url 'job_detail' job.id %}{% else %}{% url 'crew_job_detail' job.id %}{% endif %}" class="btn btn-secondary">Cancel</a>
+  </form>
+  
+  {% if job.completion_photos.exists %}
+    <div style="margin-top: 30px;">
+      <h3>Existing Photos</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;">
+        {% for photo in job.completion_photos.all %}
+          <img src="{{ photo.image.url }}" alt="Completion photo" style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px;">
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

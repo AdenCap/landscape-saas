@@ -26,6 +26,9 @@ urlpatterns = [
     path('routes/optimize/', views.optimize_route, name='optimize_route'),
 
     path('crew/', views.crew_today_view, name='crew_today'),
+    path('crew/my-jobs/', views.crew_my_jobs, name='crew_my_jobs'),
+    path('crew/<int:job_id>/', views.crew_job_detail, name='crew_job_detail'),
+    path('crew/<int:job_id>/add-note/', views.crew_add_job_note, name='crew_add_job_note'),
     path('<int:job_id>/start/', views.start_job, name='start_job'),
     path('<int:job_id>/complete/', views.complete_job, name='complete_job'),
     path('<int:job_id>/report-issue/', views.report_issue, name='report_issue'),
@@ -37,5 +40,8 @@ urlpatterns = [
     path("<int:job_id>/items/add/", views.add_job_service_item, name="add_job_service_item"),
     path("<int:job_id>/items/<int:item_id>/remove/", views.remove_job_service_item, name="remove_job_service_item"),
     path("<int:job_id>/costs/", views.job_update_costs, name="job_update_costs"),
+    path("templates/", views.job_template_list, name="job_template_list"),
+    path("templates/create/", views.job_template_create, name="job_template_create"),
+    path("templates/<int:template_id>/use/", views.create_job_from_template, name="create_job_from_template"),
 
 ]

@@ -64,6 +64,13 @@ class Customer(models.Model):
         help_text="Override due date for this client: days from issue date (e.g. 15 = Net 15). Leave blank to use business default.",
     )
 
+    # Stripe Connect: Customer ID in the business's connected Stripe account (for storing payment methods on file)
+    stripe_customer_id = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Stripe Customer ID in the business's connected account. Used to store payment methods on file for recurring charges.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

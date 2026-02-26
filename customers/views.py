@@ -11,6 +11,7 @@ from accounts.utils import get_business as _get_business
 from billing.models import Invoice
 from jobs.models import Job
 from .models import Customer, Property, Contract, ClientMessage
+from django.utils import timezone
 from .forms import (
     CustomerForm,
     CustomerImportForm,
@@ -127,6 +128,25 @@ def customer_detail(request, customer_id):
     client_messages = customer.messages.all()[:50]
     send_message_form = SendMessageForm()
 
+    # Get payment methods if customer has Stripe customer ID and business has Connect
+    payment_methods = []
+    has_saved_payment_method = False
+    if customer.stripe_customer_id and business.stripe_connect_account_id and business.stripe_connect_charges_enabled:
+        try:
+            import stripe
+            from django.conf import settings
+            if getattr(settings, "STRIPE_SECRET_KEY", None):
+                stripe.api_key = settings.STRIPE_SECRET_KEY
+                payment_methods_list = stripe.PaymentMethod.list(
+                    customer=customer.stripe_customer_id,
+                    type="card",
+                    stripe_account=business.stripe_connect_account_id,
+                )
+                payment_methods = payment_methods_list.data
+                has_saved_payment_method = len(payment_methods) > 0
+        except Exception:
+            pass  # If Stripe call fails, just don't show payment methods
+
     return render(request, "customers/customer_detail.html", {
         "customer": customer,
         "properties": properties,
@@ -136,6 +156,9 @@ def customer_detail(request, customer_id):
         "total_revenue": total_revenue,
         "client_messages": client_messages,
         "send_message_form": send_message_form,
+        "payment_methods": payment_methods,
+        "has_saved_payment_method": has_saved_payment_method,
+        "stripe_connect_enabled": bool(business.stripe_connect_account_id and business.stripe_connect_charges_enabled),
     })
 
 
@@ -233,6 +256,85 @@ def customer_edit(request, customer_id):
         "form": form,
         "customer": customer,
         "title": "Edit Client",
+    })
+
+
+@role_required("owner")
+def customer_communication_history(request, customer_id):
+    """View all communication history for a customer in one place."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+    
+    # Get all communications
+    messages = customer.messages.all().order_by('-created_at')
+    invoices = customer.invoices.all().order_by('-issue_date')
+    estimates = customer.estimates.all().order_by('-created_at')
+    jobs = Job.objects.filter(property__customer=customer).order_by('-created_at')
+    reviews = []
+    surveys = []
+    
+    # Try to get reviews and surveys if apps are installed
+    try:
+        from reviews.models import Review
+        reviews = Review.objects.filter(customer=customer).order_by('-created_at')
+    except ImportError:
+        pass
+    
+    try:
+        from surveys.models import Survey
+        surveys = Survey.objects.filter(customer=customer).order_by('-completed_at')
+    except ImportError:
+        pass
+    
+    # Combine and sort by date
+    timeline = []
+    for msg in messages:
+        timeline.append({
+            'type': 'message',
+            'date': msg.created_at,
+            'object': msg,
+        })
+    for inv in invoices:
+        timeline.append({
+            'type': 'invoice',
+            'date': inv.issue_date,
+            'object': inv,
+        })
+    for est in estimates:
+        timeline.append({
+            'type': 'estimate',
+            'date': est.created_at,
+            'object': est,
+        })
+    for job in jobs:
+        # Use scheduled_date if available, otherwise created_at
+        job_date = job.scheduled_date if job.scheduled_date else job.created_at.date()
+        timeline.append({
+            'type': 'job',
+            'date': job_date,
+            'object': job,
+        })
+    for review in reviews:
+        timeline.append({
+            'type': 'review',
+            'date': review.created_at,
+            'object': review,
+        })
+    for survey in surveys:
+        timeline.append({
+            'type': 'survey',
+            'date': survey.completed_at,
+            'object': survey,
+        })
+    
+    timeline.sort(key=lambda x: x['date'], reverse=True)
+    
+    return render(request, "customers/customer_communication_history.html", {
+        "customer": customer,
+        "timeline": timeline[:50],  # Last 50 items
     })
 
 

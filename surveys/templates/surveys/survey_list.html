@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Customer Satisfaction Surveys</h1>
+</div>
+
+<div class="card">
+  <div style="margin-bottom: 20px; padding: 15px; background: var(--primary-light); border-radius: 8px;">
+    <h2 style="margin: 0 0 10px 0;">Average Satisfaction: {{ avg_satisfaction }}/5</h2>
+  </div>
+  
+  <table style="width: 100%;">
+    <thead>
+      <tr>
+        <th>Customer</th>
+        <th>Job</th>
+        <th>Overall</th>
+        <th>Quality</th>
+        <th>Timeliness</th>
+        <th>Communication</th>
+        <th>NPS</th>
+        <th>Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for survey in surveys %}
+        <tr>
+          <td><a href="{% url 'surveys:survey_detail' survey.id %}">{{ survey.customer.name }}</a></td>
+          <td>{% if survey.job %}Job #{{ survey.job.id }}{% else %}—{% endif %}</td>
+          <td>{{ survey.overall_satisfaction }}/5</td>
+          <td>{{ survey.quality_rating|default:"—" }}/5</td>
+          <td>{{ survey.timeliness_rating|default:"—" }}/5</td>
+          <td>{{ survey.communication_rating|default:"—" }}/5</td>
+          <td>{% if survey.nps_score %}{{ survey.nps_score }}/10{% else %}—{% endif %}</td>
+          <td>{{ survey.completed_at|date:"M d, Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" style="text-align: center; padding: 40px;">No surveys yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

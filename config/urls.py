@@ -50,6 +50,15 @@ urlpatterns = [
     path("quickbooks/", include(("quickbooks.urls", "quickbooks"), namespace="quickbooks")),
     path("financials/", include(("financials.urls", "financials"), namespace="financials")),
     path("estimator/", include("property_estimator.urls")),
+    path("portal/", include(("customer_portal.urls", "customer_portal"), namespace="customer_portal")),
+    path("leads/", include("leads.urls")),
+    path("reviews/", include("reviews.urls")),
+    path("equipment/", include("equipment.urls")),
+    path("requests/", include("customer_requests.urls")),
+    path("surveys/", include("surveys.urls")),
+    path("referrals/", include("referrals.urls")),
+    path("inventory/", include("inventory.urls")),
+    path("documents/", include("documents.urls")),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

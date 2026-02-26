@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ document.title }}</h1>
+  <div>
+    <a href="{{ document.file.url }}" class="btn btn-primary" target="_blank">Download</a>
+    <form method="post" action="{% url 'documents:document_delete' document.id %}" style="display: inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-secondary" onclick="return confirm('Delete this document?')">Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Document Information</h2>
+  <dl>
+    <dt>Type</dt><dd>{{ document.get_document_type_display }}</dd>
+    <dt>Customer</dt><dd>{% if document.customer %}<a href="{% url 'customer_detail' document.customer.id %}">{{ document.customer.name }}</a>{% else %}—{% endif %}</dd>
+    <dt>Visible to Customer</dt><dd>{% if document.is_visible_to_customer %}Yes{% else %}No{% endif %}</dd>
+    <dt>Created</dt><dd>{{ document.created_at|date:"M d, Y" }}</dd>
+    {% if document.description %}
+      <dt>Description</dt><dd>{{ document.description }}</dd>
+    {% endif %}
+  </dl>
+  
+  <div style="margin-top: 20px;">
+    <a href="{{ document.file.url }}" target="_blank" class="btn btn-primary">View/Download Document</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Service Request from {{ request.name }}</h1>
+</div>
+
+<div class="card">
+  <h2>Contact Information</h2>
+  <dl>
+    <dt>Name</dt><dd>{{ request.name }}</dd>
+    <dt>Email</dt><dd>{{ request.email }}</dd>
+    <dt>Phone</dt><dd>{{ request.phone|default:"—" }}</dd>
+    <dt>Address</dt><dd>{{ request.address }}</dd>
+    <dt>Request Type</dt><dd>{{ request.get_request_type_display }}</dd>
+    <dt>Status</dt><dd><span class="badge">{{ request.get_status_display }}</span></dd>
+  </dl>
+  
+  <h2>Request Details</h2>
+  <p>{{ request.service_description }}</p>
+  
+  {% if request.preferred_date %}
+    <p><strong>Preferred Date:</strong> {{ request.preferred_date|date:"M d, Y" }}</p>
+  {% endif %}
+  
+  {% if request.notes %}
+    <h2>Notes</h2>
+    <p>{{ request.notes }}</p>
+  {% endif %}
+  
+  {% if request.estimate %}
+    <div style="margin-top: 20px; padding: 15px; background: var(--primary-light); border-radius: 8px;">
+      <strong>Linked Estimate:</strong> 
+      <a href="{% url 'billing:estimate_detail' request.estimate.id %}">Estimate #{{ request.estimate.id }}</a>
+    </div>
+  {% endif %}
+  
+  <div style="margin-top: 20px;">
+    <form method="post" action="{% url 'customer_requests:request_review' request.id %}">
+      {% csrf_token %}
+      <label>Update Status</label>
+      <select name="status">
+        <option value="reviewed" {% if request.status == 'reviewed' %}selected{% endif %}>Reviewed</option>
+        <option value="estimate_created" {% if request.status == 'estimate_created' %}selected{% endif %}>Estimate Created</option>
+        <option value="scheduled" {% if request.status == 'scheduled' %}selected{% endif %}>Scheduled</option>
+        <option value="completed" {% if request.status == 'completed' %}selected{% endif %}>Completed</option>
+        <option value="declined" {% if request.status == 'declined' %}selected{% endif %}>Declined</option>
+      </select>
+      <button type="submit" class="btn btn-primary">Update Status</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

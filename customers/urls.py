@@ -13,4 +13,5 @@ urlpatterns = [
     path("<int:customer_id>/properties/<int:property_id>/edit/", views.property_edit, name="property_edit"),
     path("<int:customer_id>/contracts/add/", views.contract_add, name="contract_add"),
     path("<int:customer_id>/contracts/<int:contract_id>/edit/", views.contract_edit, name="contract_edit"),
+    path("<int:customer_id>/communication-history/", views.customer_communication_history, name="customer_communication_history"),
 ]

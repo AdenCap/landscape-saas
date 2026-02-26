@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ action }} Lead</h1>
+</div>
+
+<div class="card">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label>Name *</label>
+      <input type="text" name="name" value="{{ lead.name|default:'' }}" required>
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" name="email" value="{{ lead.email|default:'' }}">
+    </div>
+    <div class="form-group">
+      <label>Phone</label>
+      <input type="text" name="phone" value="{{ lead.phone|default:'' }}">
+    </div>
+    <div class="form-group">
+      <label>Address</label>
+      <input type="text" name="address" value="{{ lead.address|default:'' }}">
+    </div>
+    <div class="form-group">
+      <label>Source</label>
+      <select name="source">
+        <option value="website" {% if lead.source == 'website' or not lead %}selected{% endif %}>Website</option>
+        <option value="referral" {% if lead.source == 'referral' %}selected{% endif %}>Referral</option>
+        <option value="google" {% if lead.source == 'google' %}selected{% endif %}>Google Search</option>
+        <option value="facebook" {% if lead.source == 'facebook' %}selected{% endif %}>Facebook</option>
+        <option value="instagram" {% if lead.source == 'instagram' %}selected{% endif %}>Instagram</option>
+        <option value="yelp" {% if lead.source == 'yelp' %}selected{% endif %}>Yelp</option>
+        <option value="nextdoor" {% if lead.source == 'nextdoor' %}selected{% endif %}>Nextdoor</option>
+        <option value="phone" {% if lead.source == 'phone' %}selected{% endif %}>Phone Call</option>
+        <option value="walk_in" {% if lead.source == 'walk_in' %}selected{% endif %}>Walk-in</option>
+        <option value="other" {% if lead.source == 'other' %}selected{% endif %}>Other</option>
+      </select>
+    </div>
+    {% if lead %}
+    <div class="form-group">
+      <label>Status</label>
+      <select name="status">
+        <option value="new" {% if lead.status == 'new' %}selected{% endif %}>New</option>
+        <option value="contacted" {% if lead.status == 'contacted' %}selected{% endif %}>Contacted</option>
+        <option value="qualified" {% if lead.status == 'qualified' %}selected{% endif %}>Qualified</option>
+        <option value="estimate_sent" {% if lead.status == 'estimate_sent' %}selected{% endif %}>Estimate Sent</option>
+        <option value="negotiating" {% if lead.status == 'negotiating' %}selected{% endif %}>Negotiating</option>
+        <option value="converted" {% if lead.status == 'converted' %}selected{% endif %}>Converted</option>
+        <option value="lost" {% if lead.status == 'lost' %}selected{% endif %}>Lost</option>
+      </select>
+    </div>
+    {% endif %}
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea name="notes" rows="4">{{ lead.notes|default:'' }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% if lead %}{% url 'leads:lead_detail' lead.id %}{% else %}{% url 'leads:lead_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

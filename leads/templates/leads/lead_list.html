@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Leads</h1>
+  <a href="{% url 'leads:lead_create' %}" class="btn btn-primary">+ Add Lead</a>
+</div>
+
+<div class="card">
+  <div style="margin-bottom: 20px;">
+    <form method="get" style="display: inline-block;">
+      <select name="status" onchange="this.form.submit()">
+        <option value="">All Statuses</option>
+        <option value="new" {% if status_filter == 'new' %}selected{% endif %}>New</option>
+        <option value="contacted" {% if status_filter == 'contacted' %}selected{% endif %}>Contacted</option>
+        <option value="qualified" {% if status_filter == 'qualified' %}selected{% endif %}>Qualified</option>
+        <option value="estimate_sent" {% if status_filter == 'estimate_sent' %}selected{% endif %}>Estimate Sent</option>
+        <option value="converted" {% if status_filter == 'converted' %}selected{% endif %}>Converted</option>
+      </select>
+    </form>
+  </div>
+  
+  <table style="width: 100%;">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Contact</th>
+        <th>Source</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for lead in leads %}
+        <tr>
+          <td><a href="{% url 'leads:lead_detail' lead.id %}">{{ lead.name }}</a></td>
+          <td>
+            {% if lead.email %}{{ lead.email }}<br>{% endif %}
+            {% if lead.phone %}{{ lead.phone }}{% endif %}
+          </td>
+          <td>{{ lead.get_source_display }}</td>
+          <td><span class="badge">{{ lead.get_status_display }}</span></td>
+          <td>{{ lead.created_at|date:"M d, Y" }}</td>
+          <td>
+            <a href="{% url 'leads:lead_detail' lead.id %}" class="btn btn-sm">View</a>
+            <a href="{% url 'leads:lead_edit' lead.id %}" class="btn btn-sm btn-secondary">Edit</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" style="text-align: center; padding: 40px;">No leads found</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -93,20 +93,52 @@ def _account_updated(event):
 
 
 def _checkout_session_completed(event):
-    """When a Connect invoice payment completes, mark the invoice as paid."""
+    """When a Connect invoice payment completes, mark the invoice as paid and save customer payment method."""
     session = event["data"]["object"]
     if session.get("mode") != "payment":
         return
     metadata = session.get("metadata") or {}
     invoice_id = metadata.get("invoice_id")
+    customer_id = metadata.get("customer_id")
     if not invoice_id:
         return
     from billing.models import Invoice
+    from customers.models import Customer
     try:
-        invoice = Invoice.objects.get(pk=int(invoice_id))
+        invoice = Invoice.objects.select_related("customer").get(pk=int(invoice_id))
     except (Invoice.DoesNotExist, ValueError, TypeError):
         return
     if invoice.status != "sent":
         return
+    
+    # Save Stripe customer ID and payment method to Customer model for card on file
+    customer = invoice.customer
+    stripe_customer_id = session.get("customer")
+    payment_intent_id = session.get("payment_intent")
+    
+    # If we have a Stripe customer ID from the session, save it to the Customer model
+    if stripe_customer_id and not customer.stripe_customer_id:
+        customer.stripe_customer_id = stripe_customer_id
+        customer.save(update_fields=["stripe_customer_id"])
+    elif payment_intent_id:
+        # If no customer ID but we have payment intent, retrieve customer from payment intent
+        import stripe
+        from django.conf import settings
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        business = invoice.business
+        if business.stripe_connect_account_id:
+            try:
+                # Retrieve payment intent from connected account
+                pi = stripe.PaymentIntent.retrieve(
+                    payment_intent_id,
+                    stripe_account=business.stripe_connect_account_id,
+                )
+                stripe_customer_id = pi.get("customer")
+                if stripe_customer_id and not customer.stripe_customer_id:
+                    customer.stripe_customer_id = stripe_customer_id
+                    customer.save(update_fields=["stripe_customer_id"])
+            except stripe.StripeError:
+                pass  # If we can't retrieve, continue anyway
+    
     invoice.status = "paid"
     invoice.save(update_fields=["status"])

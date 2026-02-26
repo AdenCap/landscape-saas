@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ lead.name }}</h1>
+  <div>
+    <a href="{% url 'leads:lead_edit' lead.id %}" class="btn btn-secondary">Edit</a>
+    {% if not lead.converted_customer %}
+      <form method="post" action="{% url 'leads:lead_convert' lead.id %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">Convert to Customer</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Contact Information</h2>
+  <dl>
+    <dt>Email</dt><dd>{{ lead.email|default:"—" }}</dd>
+    <dt>Phone</dt><dd>{{ lead.phone|default:"—" }}</dd>
+    <dt>Address</dt><dd>{{ lead.address|default:"—" }}</dd>
+    <dt>Source</dt><dd>{{ lead.get_source_display }}</dd>
+    <dt>Status</dt><dd><span class="badge">{{ lead.get_status_display }}</span></dd>
+  </dl>
+  
+  {% if lead.notes %}
+    <h2>Notes</h2>
+    <p>{{ lead.notes }}</p>
+  {% endif %}
+  
+  {% if lead.converted_customer %}
+    <div style="margin-top: 20px; padding: 15px; background: var(--primary-light); border-radius: 8px;">
+      <strong>Converted to Customer:</strong> 
+      <a href="{% url 'customer_detail' lead.converted_customer.id %}">{{ lead.converted_customer.name }}</a>
+      on {{ lead.converted_at|date:"M d, Y" }}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -6,20 +6,27 @@
     <h1>Today's Jobs</h1>
     <p>Your assigned jobs for today</p>
   </div>
-  <div class="clock-widget card">
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <a href="{% url 'crew_my_jobs' %}" class="btn btn-secondary">All My Jobs</a>
+    <div class="clock-widget card">
     {% if time_clock_current_entry %}
-    <form method="post" action="{% url 'time_clock_out' %}" style="margin: 0;">
+    <form method="post" action="{% url 'time_clock_out' %}" style="margin: 0;" id="clock-out-form">
       {% csrf_token %}
+      <input type="hidden" name="latitude" id="clock-out-lat">
+      <input type="hidden" name="longitude" id="clock-out-lon">
       <span class="clock-badge in">Clocked in</span>
       <button type="submit" class="btn btn-secondary btn-sm">Clock Out</button>
     </form>
     {% else %}
-    <form method="post" action="{% url 'time_clock_in' %}" style="margin: 0;">
+    <form method="post" action="{% url 'time_clock_in' %}" style="margin: 0;" id="clock-in-form">
       {% csrf_token %}
+      <input type="hidden" name="latitude" id="clock-in-lat">
+      <input type="hidden" name="longitude" id="clock-in-lon">
       <span class="clock-badge out">Clocked out</span>
       <button type="submit" class="btn btn-primary btn-sm">Clock In</button>
     </form>
     {% endif %}
+    </div>
   </div>
 </div>
 
@@ -31,13 +38,28 @@
   </div>
 
   {% if job.notes %}
-  <p class="job-notes"><em>{{ job.notes }}</em></p>
+  <p class="job-notes"><em>{{ job.notes|truncatewords:30 }}</em></p>
   {% endif %}
 
   <div class="job-links" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+    <a href="{% url 'crew_job_detail' job.id %}" class="btn btn-secondary btn-sm">View Details</a>
     <a href="{% url 'report_issue' job.id %}" class="btn btn-secondary btn-sm">Report issue</a>
-    <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-secondary btn-sm">Upload completion photo</a>
+    <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-secondary btn-sm">Upload photo</a>
+    {% if job.property.customer.phone %}
+      <a href="tel:{{ job.property.customer.phone }}" class="btn btn-secondary btn-sm">Call</a>
+    {% endif %}
+    {% if job.property.latitude and job.property.longitude %}
+      <a href="https://maps.apple.com/?daddr={{ job.property.latitude }},{{ job.property.longitude }}" class="btn btn-secondary btn-sm" target="_blank">Navigate</a>
+    {% elif job.property.address %}
+      <a href="https://maps.apple.com/?q={{ job.property.address|urlencode }}" class="btn btn-secondary btn-sm" target="_blank">Navigate</a>
+    {% endif %}
   </div>
+  
+  {% if job.property.gate_code %}
+    <div style="padding: 8px; background: var(--primary-light); border-radius: 6px; margin-bottom: 12px; font-size: 14px;">
+      <strong>Gate Code:</strong> {{ job.property.gate_code }}
+    </div>
+  {% endif %}
 
   {% if require_completion_photo and job.id not in job_ids_with_photos and job.status != "completed" %}
   <p class="photo-required-msg">Photo required before you can complete this job.</p>
@@ -93,4 +115,23 @@
   .badge-completed { background: rgba(34, 197, 94, 0.25); color: #86efac; }
   .photo-required-msg { font-size: 13px; color: var(--primary); margin: 0 0 8px 0; }
 </style>
+<script>
+  // Get GPS location when clocking in/out (optional)
+  function getLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(position) {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        document.getElementById('clock-in-lat').value = lat;
+        document.getElementById('clock-in-lon').value = lon;
+        document.getElementById('clock-out-lat').value = lat;
+        document.getElementById('clock-out-lon').value = lon;
+      }, function(error) {
+        // GPS not available - that's okay
+        console.log('GPS not available:', error.message);
+      });
+    }
+  }
+  getLocation();
+</script>
 {% endblock %}

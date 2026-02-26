@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ item.name }}</h1>
+  <a href="{% url 'inventory:inventory_item_edit' item.id %}" class="btn btn-secondary">Edit</a>
+</div>
+
+<div class="card">
+  <h2>Item Information</h2>
+  <dl>
+    <dt>SKU</dt><dd>{{ item.sku|default:"—" }}</dd>
+    <dt>Current Quantity</dt><dd>{{ item.current_quantity }} {{ item.unit }}</dd>
+    <dt>Low Stock Threshold</dt><dd>{{ item.low_stock_threshold|default:"Not set" }} {{ item.unit }}</dd>
+    <dt>Cost per Unit</dt><dd>${{ item.cost_per_unit|floatformat:2 }}</dd>
+    <dt>Supplier</dt><dd>{{ item.supplier|default:"—" }}</dd>
+    {% if item.is_low_stock %}
+      <dt style="color: #f59e0b;">Status</dt><dd style="color: #f59e0b;">⚠️ Low Stock</dd>
+    {% endif %}
+  </dl>
+</div>
+
+<div class="card">
+  <h2>Recent Transactions</h2>
+  <table style="width: 100%;">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Type</th>
+        <th>Quantity</th>
+        <th>Cost</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for trans in transactions %}
+        <tr>
+          <td>{{ trans.created_at|date:"M d, Y" }}</td>
+          <td>{{ trans.get_transaction_type_display }}</td>
+          <td>{{ trans.quantity }} {{ item.unit }}</td>
+          <td>{% if trans.cost %}${{ trans.cost|floatformat:2 }}{% else %}—{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" style="text-align: center; padding: 40px;">No transactions</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

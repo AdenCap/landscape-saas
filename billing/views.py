@@ -440,33 +440,155 @@ def create_invoice_checkout_session(request, invoice_id, token):
     if fee_percent is None:
         fee_percent = getattr(settings, "STRIPE_CONNECT_APPLICATION_FEE_PERCENT", 0) or 0
     application_fee_amount = int(amount_cents * fee_percent / 100) if fee_percent else None
-    payment_intent_data = {"transfer_data": {"destination": business.stripe_connect_account_id}}
-    if application_fee_amount:
-        payment_intent_data["application_fee_amount"] = application_fee_amount
-    try:
-        session = stripe.checkout.Session.create(
-            payment_method_types=["card"],
-            line_items=[{
-                "price_data": {
-                    "currency": "usd",
-                    "unit_amount": amount_cents,
-                    "product_data": {
-                        "name": f"Invoice #{invoice.id}",
-                        "description": f"Payment for invoice from {business.name}",
-                    },
+    # For Stripe Connect with Checkout Sessions, use stripe_account parameter and application_fee_amount
+    # Save payment method to customer for future charges (card on file)
+    customer = invoice.customer
+    session_params = {
+        "payment_method_types": ["card"],
+        "line_items": [{
+            "price_data": {
+                "currency": "usd",
+                "unit_amount": amount_cents,
+                "product_data": {
+                    "name": f"Invoice #{invoice.id}",
+                    "description": f"Payment for invoice from {business.name}",
                 },
-                "quantity": 1,
-            }],
-            mode="payment",
-            success_url=success_url,
-            cancel_url=cancel_url,
-            metadata={"invoice_id": str(invoice.id), "business_id": str(business.id)},
-            payment_intent_data=payment_intent_data,
-        )
+            },
+            "quantity": 1,
+        }],
+        "mode": "payment",
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "metadata": {
+            "invoice_id": str(invoice.id),
+            "business_id": str(business.id),
+            "customer_id": str(customer.id),
+        },
+        "stripe_account": business.stripe_connect_account_id,
+        "payment_intent_data": {
+            "setup_future_usage": "off_session",  # Save payment method for future use
+        },
+    }
+    # If customer already has a Stripe customer ID, use it to save payment method
+    if customer.stripe_customer_id:
+        session_params["customer"] = customer.stripe_customer_id
+    else:
+        # Create or use customer email for new customer
+        if customer.email:
+            session_params["customer_email"] = customer.email
+    
+    # Add application_fee_amount if there's a platform fee
+    if application_fee_amount:
+        session_params["payment_intent_data"]["application_fee_amount"] = application_fee_amount
+    try:
+        session = stripe.checkout.Session.create(**session_params)
         return redirect(session.url)
     except stripe.StripeError as e:
         messages.error(request, f"Could not start payment: {e.user_message or str(e)}")
         return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
+
+
+@role_required("owner")
+@require_POST
+def charge_saved_payment_method(request, invoice_id):
+    """Charge a customer's saved payment method for an invoice (card on file)."""
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("business", "customer"),
+        id=invoice_id,
+        business=_get_business(request),
+    )
+    if invoice.status != "sent":
+        messages.error(request, "This invoice is not available for payment.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+    
+    business = invoice.business
+    customer = invoice.customer
+    
+    if not getattr(business, "can_accept_stripe_payments", lambda: False)():
+        messages.error(request, "Stripe is not connected for this business.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+    
+    if not customer.stripe_customer_id:
+        messages.error(request, "This customer does not have a saved payment method on file.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+    
+    if not _stripe_connect_enabled():
+        messages.error(request, "Payment is not configured.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+    
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    invoice.recompute_totals()
+    amount_cents = int(invoice.total * 100)
+    
+    if amount_cents < 50:
+        messages.error(request, "Minimum payment is $0.50.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+    
+    # Calculate platform fee
+    fee_percent = getattr(business, "stripe_connect_application_fee_percent", None)
+    if fee_percent is not None:
+        fee_percent = float(fee_percent)
+    if fee_percent is None:
+        fee_percent = getattr(settings, "STRIPE_CONNECT_APPLICATION_FEE_PERCENT", 0) or 0
+    application_fee_amount = int(amount_cents * fee_percent / 100) if fee_percent else None
+    
+    try:
+        # Get the customer's default payment method
+        customer_obj = stripe.Customer.retrieve(
+            customer.stripe_customer_id,
+            stripe_account=business.stripe_connect_account_id,
+        )
+        payment_methods = stripe.PaymentMethod.list(
+            customer=customer.stripe_customer_id,
+            type="card",
+            stripe_account=business.stripe_connect_account_id,
+        )
+        
+        if not payment_methods.data:
+            messages.error(request, "No saved payment method found for this customer.")
+            return redirect("billing:invoice_detail", invoice_id=invoice.id)
+        
+        # Use the first payment method (or default if set)
+        payment_method_id = payment_methods.data[0].id
+        
+        # Create payment intent with saved payment method
+        payment_intent_params = {
+            "amount": amount_cents,
+            "currency": "usd",
+            "customer": customer.stripe_customer_id,
+            "payment_method": payment_method_id,
+            "off_session": True,
+            "confirm": True,
+            "description": f"Invoice #{invoice.id}",
+            "metadata": {
+                "invoice_id": str(invoice.id),
+                "business_id": str(business.id),
+                "customer_id": str(customer.id),
+            },
+        }
+        
+        if application_fee_amount:
+            payment_intent_params["application_fee_amount"] = application_fee_amount
+        
+        payment_intent = stripe.PaymentIntent.create(
+            **payment_intent_params,
+            stripe_account=business.stripe_connect_account_id,
+        )
+        
+        if payment_intent.status == "succeeded":
+            invoice.status = "paid"
+            invoice.save(update_fields=["status"])
+            messages.success(request, f"Invoice #{invoice.id} has been paid using saved payment method.")
+        else:
+            messages.error(request, f"Payment failed: {payment_intent.status}")
+        
+    except stripe.error.CardError as e:
+        # Card was declined
+        messages.error(request, f"Card was declined: {e.user_message or str(e)}")
+    except stripe.StripeError as e:
+        messages.error(request, f"Payment error: {e.user_message or str(e)}")
+    
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
 def _fmt_currency(val):

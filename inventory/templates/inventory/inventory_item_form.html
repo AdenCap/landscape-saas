@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ action }} Inventory Item</h1>
+</div>
+
+<div class="card">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label>Name *</label>
+      <input type="text" name="name" value="{{ item.name|default:'' }}" required>
+    </div>
+    <div class="form-group">
+      <label>SKU</label>
+      <input type="text" name="sku" value="{{ item.sku|default:'' }}">
+    </div>
+    <div class="form-group">
+      <label>Unit</label>
+      <select name="unit">
+        <option value="lb" {% if item.unit == 'lb' %}selected{% endif %}>Pounds</option>
+        <option value="bag" {% if item.unit == 'bag' %}selected{% endif %}>Bags</option>
+        <option value="gallon" {% if item.unit == 'gallon' %}selected{% endif %}>Gallons</option>
+        <option value="bottle" {% if item.unit == 'bottle' %}selected{% endif %}>Bottles</option>
+        <option value="box" {% if item.unit == 'box' %}selected{% endif %}>Boxes</option>
+        <option value="each" {% if item.unit == 'each' or not item %}selected{% endif %}>Each</option>
+        <option value="sqft" {% if item.unit == 'sqft' %}selected{% endif %}>Square Feet</option>
+        <option value="cubic_yd" {% if item.unit == 'cubic_yd' %}selected{% endif %}>Cubic Yards</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Current Quantity</label>
+      <input type="number" step="0.01" name="current_quantity" value="{{ item.current_quantity|default:0 }}">
+    </div>
+    <div class="form-group">
+      <label>Low Stock Threshold</label>
+      <input type="number" step="0.01" name="low_stock_threshold" value="{{ item.low_stock_threshold|default:'' }}">
+    </div>
+    <div class="form-group">
+      <label>Cost per Unit</label>
+      <input type="number" step="0.01" name="cost_per_unit" value="{{ item.cost_per_unit|default:0 }}">
+    </div>
+    <div class="form-group">
+      <label>Supplier</label>
+      <input type="text" name="supplier" value="{{ item.supplier|default:'' }}">
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea name="notes" rows="4">{{ item.notes|default:'' }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% if item %}{% url 'inventory:inventory_item_detail' item.id %}{% else %}{% url 'inventory:inventory_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

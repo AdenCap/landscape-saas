@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Service Requests</h1>
+</div>
+
+<div class="card">
+  <div style="margin-bottom: 20px;">
+    <form method="get" style="display: inline-block;">
+      <select name="status" onchange="this.form.submit()">
+        <option value="">All Statuses</option>
+        <option value="new" {% if status_filter == 'new' %}selected{% endif %}>New</option>
+        <option value="reviewed" {% if status_filter == 'reviewed' %}selected{% endif %}>Reviewed</option>
+        <option value="estimate_created" {% if status_filter == 'estimate_created' %}selected{% endif %}>Estimate Created</option>
+        <option value="scheduled" {% if status_filter == 'scheduled' %}selected{% endif %}>Scheduled</option>
+        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+      </select>
+    </form>
+  </div>
+  
+  <table style="width: 100%;">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Contact</th>
+        <th>Request Type</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for req in requests %}
+        <tr>
+          <td><a href="{% url 'customer_requests:request_detail' req.id %}">{{ req.name }}</a></td>
+          <td>
+            {{ req.email }}<br>
+            {% if req.phone %}{{ req.phone }}{% endif %}
+          </td>
+          <td>{{ req.get_request_type_display }}</td>
+          <td><span class="badge">{{ req.get_status_display }}</span></td>
+          <td>{{ req.created_at|date:"M d, Y" }}</td>
+          <td>
+            <a href="{% url 'customer_requests:request_detail' req.id %}" class="btn btn-sm">View</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" style="text-align: center; padding: 40px;">No requests found</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

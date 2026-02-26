@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ action }} Job Template</h1>
+</div>
+
+<div class="card">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label>Template Name *</label>
+      <input type="text" name="name" required>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea name="description" rows="3"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Default Duration (minutes)</label>
+      <input type="number" name="default_duration_minutes" min="1">
+    </div>
+    <div class="form-group">
+      <label>Notes Template</label>
+      <textarea name="notes_template" rows="4" placeholder="Default notes to add when creating jobs from this template"></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Save Template</button>
+    <a href="{% url 'job_template_list' %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

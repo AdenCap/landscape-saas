@@ -54,25 +54,63 @@ def clock_view(request):
 @require_POST
 @role_required("owner", "crew")
 def clock_in(request):
-    TimeEntry.objects.create(user=request.user, clock_in=timezone.now())
+    """Clock in with optional GPS location."""
+    latitude = request.POST.get("latitude")
+    longitude = request.POST.get("longitude")
+    
+    entry_data = {
+        "user": request.user,
+        "clock_in": timezone.now(),
+    }
+    
+    # Add GPS if provided
+    if latitude and longitude:
+        try:
+            entry_data["clock_in_latitude"] = float(latitude)
+            entry_data["clock_in_longitude"] = float(longitude)
+        except (ValueError, TypeError):
+            pass  # Ignore invalid GPS data
+    
+    TimeEntry.objects.create(**entry_data)
     messages.success(request, 'Clocked in successfully.')
+    
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        from django.http import JsonResponse
+        return JsonResponse({"status": "ok"})
+    
     return redirect('time_clock')
 
 
 @require_POST
 @role_required("owner", "crew")
 def clock_out(request):
+    """Clock out with optional GPS location."""
     entry = TimeEntry.objects.filter(
         user=request.user, clock_out__isnull=True
     ).order_by('-clock_in').first()
 
     if entry:
         entry.clock_out = timezone.now()
+        
+        # Add GPS if provided
+        latitude = request.POST.get("latitude")
+        longitude = request.POST.get("longitude")
+        if latitude and longitude:
+            try:
+                entry.clock_out_latitude = float(latitude)
+                entry.clock_out_longitude = float(longitude)
+            except (ValueError, TypeError):
+                pass  # Ignore invalid GPS data
+        
         entry.save()
         messages.success(request, 'Clocked out successfully.')
     else:
         messages.warning(request, 'No active clock-in found.')
 
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        from django.http import JsonResponse
+        return JsonResponse({"status": "ok" if entry else "error"})
+    
     return redirect('time_clock')
 
 

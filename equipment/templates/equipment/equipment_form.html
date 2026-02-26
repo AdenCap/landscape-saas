@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ action }} Equipment</h1>
+</div>
+
+<div class="card">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label>Name *</label>
+      <input type="text" name="name" value="{{ equipment.name|default:'' }}" required>
+    </div>
+    <div class="form-group">
+      <label>Type</label>
+      <select name="equipment_type">
+        <option value="mower" {% if equipment.equipment_type == 'mower' %}selected{% endif %}>Lawn Mower</option>
+        <option value="truck" {% if equipment.equipment_type == 'truck' %}selected{% endif %}>Truck</option>
+        <option value="trailer" {% if equipment.equipment_type == 'trailer' %}selected{% endif %}>Trailer</option>
+        <option value="blower" {% if equipment.equipment_type == 'blower' %}selected{% endif %}>Blower</option>
+        <option value="trimmer" {% if equipment.equipment_type == 'trimmer' %}selected{% endif %}>Trimmer</option>
+        <option value="edger" {% if equipment.equipment_type == 'edger' %}selected{% endif %}>Edger</option>
+        <option value="fertilizer_spreader" {% if equipment.equipment_type == 'fertilizer_spreader' %}selected{% endif %}>Fertilizer Spreader</option>
+        <option value="vehicle" {% if equipment.equipment_type == 'vehicle' %}selected{% endif %}>Vehicle</option>
+        <option value="other" {% if equipment.equipment_type == 'other' or not equipment %}selected{% endif %}>Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Make</label>
+      <input type="text" name="make" value="{{ equipment.make|default:'' }}">
+    </div>
+    <div class="form-group">
+      <label>Model</label>
+      <input type="text" name="model" value="{{ equipment.model|default:'' }}">
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea name="notes" rows="4">{{ equipment.notes|default:'' }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% if equipment %}{% url 'equipment:equipment_detail' equipment.id %}{% else %}{% url 'equipment:equipment_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

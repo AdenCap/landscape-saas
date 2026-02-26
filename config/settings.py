@@ -90,6 +90,15 @@ INSTALLED_APPS = [
     'quickbooks',
     'financials',
     'subscription',
+    'customer_portal',
+    'leads',
+    'reviews',
+    'equipment',
+    'customer_requests',
+    'surveys',
+    'referrals',
+    'inventory',
+    'documents',
 ]
 
 # Stripe: platform subscription (business pays you) + Connect (businesses accept invoice payments)
@@ -98,6 +107,11 @@ STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_SUBSCRIPTION_PRICE_ID = os.environ.get("STRIPE_SUBSCRIPTION_PRICE_ID", "")
 STRIPE_CONNECT_APPLICATION_FEE_PERCENT = float(os.environ.get("STRIPE_CONNECT_APPLICATION_FEE_PERCENT", "0") or "0")
+
+# Twilio SMS Integration
+TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
+TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER", "")
 
 # QuickBooks Online integration – set via environment variables (never commit secrets)
 QUICKBOOKS_CLIENT_ID = os.environ.get("QUICKBOOKS_CLIENT_ID", "")

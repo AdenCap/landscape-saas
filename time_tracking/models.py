@@ -119,6 +119,35 @@ class TimeEntry(models.Model):
         blank=True,
         related_name="time_entries_approved",
     )
+    # GPS location tracking (optional)
+    clock_in_latitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True,
+        help_text="GPS latitude at clock-in (optional)"
+    )
+    clock_in_longitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True,
+        help_text="GPS longitude at clock-in (optional)"
+    )
+    clock_out_latitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True,
+        help_text="GPS latitude at clock-out (optional)"
+    )
+    clock_out_longitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True,
+        help_text="GPS longitude at clock-out (optional)"
+    )
 
     class Meta:
         ordering = ['-clock_in']
