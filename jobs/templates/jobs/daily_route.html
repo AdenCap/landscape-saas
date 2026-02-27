@@ -301,6 +301,14 @@
   .route-map-toggle { display: none; }
   .route-map-inner { height: 400px; border-radius: 10px; }
   .route-map-note { font-size: 12px; color: var(--text-muted); margin: 8px 0 0 0; }
+  @media (min-width: 901px) {
+    .route-item { align-items: center; padding: 12px 16px; }
+    .route-item-body { display: flex; align-items: center; gap: 10px; flex: 1; flex-direction: row; margin-bottom: 0; min-width: 0; }
+    .route-address { display: inline; margin-bottom: 0; flex: 1; min-width: 0; }
+    .route-assignee { display: inline; margin-bottom: 0; font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+    .route-nav-links { margin-bottom: 0; flex-shrink: 0; }
+    .route-nav-link { min-height: 36px; padding: 6px 10px; font-size: 13px; }
+  }
   @media (max-width: 900px) { .route-layout { grid-template-columns: 1fr; } }
   @media (max-width: 768px) {
     .route-page-header {

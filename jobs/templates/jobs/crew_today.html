@@ -97,6 +97,13 @@
   .photo-required-msg { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; }
   .crew-empty { padding: 24px; text-align: center; }
   .crew-empty p { margin: 0; color: var(--text-muted); }
+  @media (min-width: 769px) {
+    .crew-today-header { align-items: center; margin-bottom: 24px; }
+    .crew-today-header h1 { font-size: 28px; }
+    .clock-widget { padding: 16px 20px; }
+    .job-action-btn { width: auto; min-width: 140px; min-height: 40px; padding: 10px 18px; font-size: 14px; }
+    .job-link-btn { min-height: 36px; padding: 8px 14px; font-size: 13px; }
+  }
   @media (max-width: 768px) {
     .crew-today-header { flex-direction: column; gap: 14px; }
     .crew-today-header h1 { font-size: 22px; }

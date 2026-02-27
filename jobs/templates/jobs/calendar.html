@@ -18,39 +18,45 @@
 
 <div class="calendar-tools card">
   <div class="calendar-tools-row">
-    <div class="tool-group">
-      <label for="calendar-goto-date">Go to date</label>
-      <div class="tool-input-row">
-        <input type="date" id="calendar-goto-date" class="calendar-date-input" aria-label="Jump to date">
-        <button type="button" id="calendar-goto-btn" class="btn btn-secondary btn-sm">Go</button>
+    <div class="calendar-tools-nav">
+      <div class="tool-group">
+        <label for="calendar-goto-date">Go to date</label>
+        <div class="tool-input-row">
+          <input type="date" id="calendar-goto-date" class="calendar-date-input" aria-label="Jump to date">
+          <button type="button" id="calendar-goto-btn" class="btn btn-secondary btn-sm">Go</button>
+          <button type="button" id="calendar-today-btn" class="btn btn-secondary btn-sm">Today</button>
+        </div>
+      </div>
+      <div class="tool-group">
+        <label for="calendar-search">Search jobs</label>
+        <div class="tool-input-row">
+          <input type="text" id="calendar-search" class="calendar-search-input" placeholder="Address, client, or service" aria-label="Search jobs">
+          <button type="button" id="calendar-search-btn" class="btn btn-secondary btn-sm">Search</button>
+        </div>
       </div>
     </div>
-    <div class="tool-group">
-      <label for="calendar-search">Search jobs</label>
-      <div class="tool-input-row">
-        <input type="text" id="calendar-search" class="calendar-search-input" placeholder="Address, client, or service" aria-label="Search jobs">
-        <button type="button" id="calendar-search-btn" class="btn btn-secondary btn-sm">Search</button>
+    <div class="calendar-tools-divider" aria-hidden="true"></div>
+    <div class="calendar-tools-filters">
+      <div class="tool-group">
+        <label for="filter-services">Service</label>
+        <select id="filter-services">
+          <option value="">All</option>
+          {% for s in filter_services %}
+          <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
       </div>
+      <div class="tool-group">
+        <label for="filter-crews">Crew</label>
+        <select id="filter-crews">
+          <option value="">All</option>
+          {% for c in filter_crews %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="button" id="filter-apply" class="btn btn-primary btn-sm align-self-end">Apply</button>
     </div>
-    <div class="tool-group">
-      <label for="filter-services">Service</label>
-      <select id="filter-services">
-        <option value="">All</option>
-        {% for s in filter_services %}
-        <option value="{{ s.id }}">{{ s.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="tool-group">
-      <label for="filter-crews">Crew</label>
-      <select id="filter-crews">
-        <option value="">All</option>
-        {% for c in filter_crews %}
-        <option value="{{ c.id }}">{{ c.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button type="button" id="filter-apply" class="btn btn-primary btn-sm align-self-end">Apply</button>
   </div>
 </div>
 
@@ -380,6 +386,11 @@ document.addEventListener('DOMContentLoaded', function () {
       calendar.today();
       if (inp) inp.value = formatDateForInput(calendar.getDate());
     }
+  });
+  document.getElementById('calendar-today-btn').addEventListener('click', function() {
+    calendar.today();
+    var inp = document.getElementById('calendar-goto-date');
+    if (inp) inp.value = formatDateForInput(calendar.getDate());
   });
   function formatDateForInput(d) {
     if (!d || !d.getFullYear) return '';
@@ -888,30 +899,127 @@ document.addEventListener('DOMContentLoaded', function () {
     padding: 20px;
     border-top: 1px solid var(--border);
   }
-  .calendar-page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
+  /* Desktop: balanced single-row layout */
+  .calendar-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
   .calendar-header-main { min-width: 0; }
-  .calendar-page-header h1 { margin: 0 0 4px 0; font-size: 26px; font-weight: 700; }
+  .calendar-page-header h1 {
+    margin: 0 0 6px 0;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
   .calendar-subtitle { margin: 0; color: var(--text-muted); font-size: 15px; }
-  .calendar-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-  .calendar-tools { padding: 16px; margin-bottom: 12px; }
-  .calendar-tools-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+  .calendar-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+  .calendar-tools { padding: 18px 20px; margin-bottom: 16px; }
+  .calendar-tools-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 20px;
+  }
+  .calendar-tools-nav {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+  }
+  .calendar-tools-divider {
+    width: 1px;
+    min-height: 36px;
+    background: var(--border);
+    align-self: center;
+  }
+  .calendar-tools-filters {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+  }
   .tool-group { display: flex; flex-direction: column; gap: 6px; }
-  .tool-group label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+  .tool-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: none;
+  }
   .tool-input-row { display: flex; gap: 8px; align-items: center; }
-  .calendar-date-input, .calendar-search-input { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px; }
-  .calendar-search-input { min-width: 200px; }
-  .tool-group select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px; min-width: 140px; }
+  .calendar-date-input {
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-alt);
+    color: var(--text);
+    font-size: 14px;
+    width: 152px;
+  }
+  .calendar-search-input {
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-alt);
+    color: var(--text);
+    font-size: 14px;
+    width: 220px;
+    max-width: 220px;
+  }
+  .tool-group select {
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-alt);
+    color: var(--text);
+    font-size: 14px;
+    min-width: 140px;
+    width: 160px;
+  }
   .align-self-end { align-self: flex-end; }
-  .crew-legend-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; font-size: 13px; color: var(--text-muted); }
+
+  .crew-legend-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
   .legend-item { display: inline-flex; align-items: center; gap: 6px; }
   .legend-dot { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
   .legend-note { font-size: 12px; }
+
+  @media (min-width: 769px) {
+    .calendar-page-header h1 { font-size: 30px; }
+    .tool-input-row .btn { flex-shrink: 0; }
+  }
   @media (max-width: 768px) {
-    .calendar-page-header { flex-direction: column; }
+    .calendar-page-header { flex-direction: column; gap: 16px; margin-bottom: 16px; }
     .calendar-page-header h1 { font-size: 22px; }
-    .calendar-tools-row { flex-direction: column; align-items: stretch; }
-    .tool-group select, .calendar-search-input { min-width: 0; width: 100%; }
-    .calendar-date-input { flex: 1; min-height: 44px; font-size: 16px; }
+    .calendar-tools { padding: 16px; }
+    .calendar-tools-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 16px;
+    }
+    .calendar-tools-nav,
+    .calendar-tools-filters { flex-direction: column; align-items: stretch; }
+    .calendar-tools-divider { display: none; }
+    .tool-group select, .calendar-search-input {
+      min-width: 0;
+      width: 100%;
+      max-width: none;
+    }
+    .calendar-date-input { width: 100%; min-height: 44px; font-size: 16px; }
+    .crew-legend-bar { padding: 10px 12px; gap: 12px; }
   }
   #calendar {
     min-height: 600px;
