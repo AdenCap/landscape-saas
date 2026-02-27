@@ -23,17 +23,23 @@ admin.site.site_header = "Field Ops Admin"
 admin.site.site_title = "Field Ops"
 admin.site.index_title = "Companies, users, and data — full control"
 
-from config.platform_views import platform_home, platform_enter, platform_exit
+from config.platform_views import (
+    platform_home, platform_enter, platform_exit,
+    admin_users, admin_grant, admin_revoke
+)
 from config.marketing_views import marketing_home
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.auth_urls")),
 
-    # Platform admin (superuser only): list businesses and enter any dashboard
+    # Platform admin: list businesses and enter any dashboard
     path("platform/", platform_home, name="platform_home"),
     path("platform/enter/<int:business_id>/", platform_enter, name="platform_enter"),
     path("platform/exit/", platform_exit, name="platform_exit"),
+    path("platform/admins/", admin_users, name="platform_admin_users"),
+    path("platform/admins/<int:user_id>/grant/", admin_grant, name="platform_admin_grant"),
+    path("platform/admins/<int:user_id>/revoke/", admin_revoke, name="platform_admin_revoke"),
 
     # Public marketing homepage. Authenticated users are redirected into the app.
     path("", marketing_home, name="marketing_home"),

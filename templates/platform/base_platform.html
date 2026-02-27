@@ -167,6 +167,7 @@
       <div class="brand">Platform <span>Admin</span></div>
       <nav class="platform-nav">
         <a href="{% url 'platform_home' %}" class="{% if request.path == '/platform/' or request.path == '/platform' %}active{% endif %}">Dashboard</a>
+        <a href="{% url 'platform_admin_users' %}" class="{% if '/platform/admins' in request.path %}active{% endif %}">Admin Users</a>
         <a href="{% url 'admin:index' %}" target="_blank" rel="noopener">Django Admin</a>
         <div class="divider"></div>
         <a href="/">Open app (company view)</a>

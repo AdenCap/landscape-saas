@@ -47,8 +47,8 @@ class SubscriptionRequiredMiddleware(MiddlewareMixin):
         path = request.path
         if _path_exempt(path) or _invoice_pay_path(path):
             return None
-        # Superusers (platform admins) always have full access without subscription
-        if request.user.is_superuser:
+        # Platform admins and superusers always have full access without subscription
+        if getattr(request.user, "is_platform_admin", False) or request.user.is_superuser:
             return None
         business = getattr(request.user, "business", None)
         if not business:

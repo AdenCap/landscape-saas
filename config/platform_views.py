@@ -7,7 +7,8 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib import messages
-from django.db.models import Sum
+from django.db.models import Sum, Q
+from django.db import models
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
 from django.contrib.auth.decorators import login_required
@@ -28,13 +29,14 @@ def _get_client_ip(request):
     return request.META.get("REMOTE_ADDR")
 
 
-def _superuser_required(view_func):
-    """Decorator: require login and superuser."""
+def _platform_admin_required(view_func):
+    """Decorator: require login and platform admin access."""
     def _wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("/accounts/login/?next=" + request.get_full_path())
-        if not request.user.is_superuser:
-            return HttpResponseForbidden("Platform admin only.")
+        # Allow both is_platform_admin and is_superuser (for backward compatibility)
+        if not (getattr(request.user, "is_platform_admin", False) or request.user.is_superuser):
+            return HttpResponseForbidden("Platform admin access required.")
         return view_func(request, *args, **kwargs)
     return _wrapped
 
@@ -54,7 +56,7 @@ def _last_12_months():
     return out
 
 
-@_superuser_required
+@_platform_admin_required
 @require_http_methods(["GET"])
 def platform_home(request):
     """Platform dashboard: metrics, charts (area + horizontal bar), business list, audit log."""
@@ -134,7 +136,7 @@ def platform_home(request):
     })
 
 
-@_superuser_required
+@_platform_admin_required
 @require_POST
 def platform_enter(request, business_id):
     """Set session to view the app as this business; redirect to dashboard."""
@@ -151,7 +153,7 @@ def platform_enter(request, business_id):
     return redirect("/")
 
 
-@_superuser_required
+@_platform_admin_required
 @require_http_methods(["GET", "POST"])
 def platform_exit(request):
     """Clear platform session and return to platform admin home."""
@@ -166,3 +168,71 @@ def platform_exit(request):
     )
     messages.success(request, "Exited business view.")
     return redirect("platform_home")
+
+
+@_platform_admin_required
+@require_http_methods(["GET"])
+def admin_users(request):
+    """List all platform admins and allow adding/removing admin access."""
+    # Get all users with platform admin access
+    admin_users = User.objects.filter(
+        models.Q(is_platform_admin=True) | models.Q(is_superuser=True)
+    ).order_by("username")
+    
+    # Get all users (for adding new admins)
+    all_users = User.objects.all().order_by("username")
+    
+    return render(request, "platform/admin_users.html", {
+        "admin_users": admin_users,
+        "all_users": all_users,
+    })
+
+
+@_platform_admin_required
+@require_POST
+def admin_grant(request, user_id):
+    """Grant platform admin access to a user."""
+    target_user = get_object_or_404(User, pk=user_id)
+    if target_user.id == request.user.id:
+        messages.error(request, "You cannot modify your own admin access.")
+        return redirect("platform_admin_users")
+    
+    target_user.is_platform_admin = True
+    target_user.save()
+    
+    AuditLog.objects.create(
+        user=request.user,
+        action="admin_grant",
+        details=f"Granted admin access to {target_user.username} (id={target_user.id})",
+        ip_address=_get_client_ip(request),
+    )
+    
+    messages.success(request, f"Platform admin access granted to {target_user.username}.")
+    return redirect("platform_admin_users")
+
+
+@_platform_admin_required
+@require_POST
+def admin_revoke(request, user_id):
+    """Revoke platform admin access from a user."""
+    target_user = get_object_or_404(User, pk=user_id)
+    if target_user.id == request.user.id:
+        messages.error(request, "You cannot revoke your own admin access.")
+        return redirect("platform_admin_users")
+    
+    if target_user.is_superuser:
+        messages.error(request, "Cannot revoke admin access from superuser. Use Django admin to modify superuser status.")
+        return redirect("platform_admin_users")
+    
+    target_user.is_platform_admin = False
+    target_user.save()
+    
+    AuditLog.objects.create(
+        user=request.user,
+        action="admin_revoke",
+        details=f"Revoked admin access from {target_user.username} (id={target_user.id})",
+        ip_address=_get_client_ip(request),
+    )
+    
+    messages.success(request, f"Platform admin access revoked from {target_user.username}.")
+    return redirect("platform_admin_users")

@@ -1,0 +1,119 @@
+{% extends "platform/base_platform.html" %}
+{% block title %}Admin Users{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 24px;">
+  <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 8px 0;">Platform Admin Users</h1>
+  <p style="margin: 0; color: var(--platform-muted); font-size: 15px;">Manage who has access to the platform admin dashboard and analytics.</p>
+</div>
+
+<div class="card" style="margin-bottom: 24px;">
+  <h2 class="card-title">Current Platform Admins</h2>
+  <p class="card-sub">Users with access to platform analytics, business management, and admin features.</p>
+  
+  {% if admin_users %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Type</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in admin_users %}
+        <tr>
+          <td><strong>{{ user.username }}</strong></td>
+          <td>{{ user.email|default:"—" }}</td>
+          <td>
+            {% if user.is_superuser %}
+            <span style="color: #f59e0b; font-weight: 600;">Superuser</span>
+            {% else %}
+            <span style="color: var(--platform-primary);">Platform Admin</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if not user.is_superuser and user.id != request.user.id %}
+            <form method="post" action="{% url 'platform_admin_revoke' user.id %}" style="display: inline;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-secondary btn-sm">Revoke access</button>
+            </form>
+            {% elif user.is_superuser %}
+            <span style="color: var(--platform-muted); font-size: 13px;">Use Django admin to modify</span>
+            {% else %}
+            <span style="color: var(--platform-muted); font-size: 13px;">You</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No platform admins found.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2 class="card-title">Grant Admin Access</h2>
+  <p class="card-sub">Select a user to grant platform admin access. They will be able to view platform analytics and manage businesses.</p>
+  
+  {% if all_users %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Business</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in all_users %}
+        <tr>
+          <td><strong>{{ user.username }}</strong></td>
+          <td>{{ user.email|default:"—" }}</td>
+          <td>{{ user.get_role_display|default:"—" }}</td>
+          <td>{{ user.business.name|default:"—" }}</td>
+          <td>
+            {% if user.is_platform_admin or user.is_superuser %}
+            <span style="color: var(--platform-primary); font-weight: 600;">Already admin</span>
+            {% else %}
+            <span style="color: var(--platform-muted);">Regular user</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if not user.is_platform_admin and not user.is_superuser %}
+            <form method="post" action="{% url 'platform_admin_grant' user.id %}" style="display: inline;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-primary btn-sm">Grant admin access</button>
+            </form>
+            {% else %}
+            <span style="color: var(--platform-muted); font-size: 13px;">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No users found.</p>
+  {% endif %}
+</div>
+
+<p class="footer-links" style="margin-top: 24px;">
+  <a href="{% url 'platform_home' %}" class="link-primary">← Back to Platform Dashboard</a>
+</p>
+
+<style>
+  .table-wrap { overflow-x: auto; margin-top: 16px; }
+  .empty { color: var(--platform-muted); font-style: italic; margin: 16px 0; }
+  .card-sub { font-size: 13px; color: var(--platform-muted); margin: 0 0 16px 0; }
+</style>
+{% endblock %}

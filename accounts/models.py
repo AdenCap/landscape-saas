@@ -40,6 +40,11 @@ class User(AbstractUser):
         default='',
         help_text='Hex color for calendar/route (e.g. #3b82f6). Owner can customize.'
     )
+    
+    is_platform_admin = models.BooleanField(
+        default=False,
+        help_text='Platform admin access: can view platform analytics, manage businesses, and access admin features.'
+    )
 
     def __str__(self):
         return f"{self.username} ({self.role})"
@@ -133,6 +138,8 @@ class AuditLog(models.Model):
     ACTION_CHOICES = [
         ("platform_enter", "Platform admin entered business"),
         ("platform_exit", "Platform admin exited business"),
+        ("admin_grant", "Granted platform admin access"),
+        ("admin_revoke", "Revoked platform admin access"),
         ("login", "User login"),
         ("login_failed", "Failed login attempt"),
     ]
