@@ -1,131 +1,484 @@
 {% extends "base.html" %}
 
-{% block title %}Field Ops – Landscaping operations software{% endblock %}
+{% block title %}Field Ops – Professional Landscaping Operations Software{% endblock %}
 
-{% block content %}
-<section style="max-width: 1120px; margin: 24px auto 40px auto;">
-  <header style="display: flex; flex-direction: column; gap: 18px; align-items: flex-start; text-align: left;">
-    <p style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted); margin: 0;">
-      Built for landscaping & field service teams
-    </p>
-    <h1 style="font-size: 40px; line-height: 1.1; letter-spacing: -0.04em; margin: 0;">
-      Run your entire landscaping business<br>from one modern workspace.
-    </h1>
-    <p style="max-width: 620px; color: var(--text-muted); font-size: 16px; margin: 0;">
-      Field Ops combines scheduling, crew management, job routing, billing, and profit tracking
-      into one simple, dark-mode workspace designed for crews in the field and owners in the office.
-    </p>
-    <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px;">
-      <a href="{% url 'signup' %}" class="btn btn-primary">
-        Get started
-      </a>
-      <a href="{% url 'login' %}" class="btn btn-secondary">
-        Sign in
-      </a>
-    </div>
-    <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--text-muted);">
-      No long-term contracts. Upgrade or cancel anytime from your billing portal.
-    </p>
-  </header>
-</section>
-
-<section style="max-width: 1120px; margin: 0 auto 40px auto; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px;">
-  <div class="card" style="background: radial-gradient(circle at top left, rgba(34,197,94,0.2), transparent 55%), var(--surface);">
-    <h2 class="card-title">Everything you need to run the day</h2>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-top: 8px;">
-      <div>
-        <h3 style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 6px 0;">Schedule & routes</h3>
-        <p style="margin: 0 0 8px 0; font-size: 14px; color: var(--text);">Drag-and-drop job scheduling, daily route views, and crew assignments so everyone knows where to be.</p>
-      </div>
-      <div>
-        <h3 style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 6px 0;">Crew time tracking</h3>
-        <p style="margin: 0 0 8px 0; font-size: 14px; color: var(--text);">Simple time clock for the field, with approvals and payroll-ready reporting.</p>
-      </div>
-      <div>
-        <h3 style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 6px 0;">Clients & estimates</h3>
-        <p style="margin: 0 0 8px 0; font-size: 14px; color: var(--text);">Organize clients and properties, send estimates, and win work with professional, on-brand quotes.</p>
-      </div>
-      <div>
-        <h3 style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 6px 0;">Invoices & payments</h3>
-        <p style="margin: 0 0 8px 0; font-size: 14px; color: var(--text);">Turn completed jobs into invoices in a few clicks and track what’s outstanding at a glance.</p>
-      </div>
-      <div>
-        <h3 style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 6px 0;">Financials & profit</h3>
-        <p style="margin: 0 0 8px 0; font-size: 14px; color: var(--text);">See revenue, costs, and profit for your company with dashboards purpose-built for owners.</p>
-      </div>
-      <div>
-        <h3 style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 6px 0;">Admin analytics</h3>
-        <p style="margin: 0 0 8px 0; font-size: 14px; color: var(--text);">Platform-level analytics show total users, businesses, activity, and revenue across all accounts.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2 class="card-title">How access & billing works</h2>
-    <ol style="margin: 0; padding-left: 20px; font-size: 14px; color: var(--text); display: flex; flex-direction: column; gap: 10px;">
-      <li>
-        <strong>Create your account</strong><br>
-        Sign up as an owner and create your company profile in a few minutes.
-      </li>
-      <li>
-        <strong>Invite your team</strong><br>
-        Add crew members and staff so they can clock time, see routes, and work jobs assigned to them.
-      </li>
-      <li>
-        <strong>Subscribe when you’re ready</strong><br>
-        From inside the app, go to <span style="font-family: monospace;">Subscription</span> to start your paid plan and unlock full access.
-      </li>
-    </ol>
-    <div style="margin-top: 18px;">
-      <p style="margin: 0 0 8px 0; font-size: 13px; color: var(--text-muted);">
-        Already using Field Ops?
-      </p>
-      <a href="{% url 'login' %}" class="btn btn-secondary btn-sm">Sign in to your account</a>
-    </div>
-  </div>
-</section>
-
-<section style="max-width: 1120px; margin: 0 auto 40px auto;">
-  <div class="card" style="display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between;">
-    <div>
-      <h2 class="card-title" style="margin-bottom: 4px;">Three layers, one platform</h2>
-      <p style="margin: 0; font-size: 14px; color: var(--text-muted); max-width: 520px;">
-        A public marketing site to explain the product, a company space where your team does the work,
-        and an admin view where you can see high-level usage, revenue, and performance.
-      </p>
-    </div>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; flex: 1;">
-      <div style="padding: 10px 12px; border-radius: 10px; background: rgba(34,197,94,0.08);">
-        <strong style="font-size: 13px;">Marketing layer</strong>
-        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-muted);">Landing page, feature breakdown, and pricing overview for new companies.</p>
-      </div>
-      <div style="padding: 10px 12px; border-radius: 10px; background: rgba(250,250,250,0.02);">
-        <strong style="font-size: 13px;">Company app</strong>
-        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-muted);">Where owners, office staff, and crews schedule work and manage the day.</p>
-      </div>
-      <div style="padding: 10px 12px; border-radius: 10px; background: rgba(59,130,246,0.14);">
-        <strong style="font-size: 13px;">Admin analytics</strong>
-        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-muted);">Superuser-only dashboard to monitor tenants, usage, revenue, and audits.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<footer style="max-width: 1120px; margin: 60px auto 40px auto; padding-top: 40px; border-top: 1px solid var(--border); text-align: center;">
-  <div style="display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; margin-bottom: 16px;">
-    <a href="/terms/" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">Terms of Service</a>
-    <a href="/privacy/" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">Privacy Policy</a>
-    <a href="mailto:support@yourdomain.com" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">Support</a>
-  </div>
-  <p style="color: var(--text-muted); font-size: 13px; margin: 0;">© 2026 Field Ops. All rights reserved.</p>
-</footer>
-
+{% block extra_css %}
 <style>
-  @media (max-width: 900px) {
-    section[style*="grid-template-columns"] {
-      grid-template-columns: 1fr !important;
-    }
+  /* Landing page specific styles */
+  .landing-hero {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+    padding: 80px 24px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .landing-hero h1 {
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+    margin: 0 0 24px 0;
+    background: linear-gradient(135deg, var(--primary) 0%, #16a34a 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .landing-hero .subtitle {
+    font-size: 22px;
+    color: var(--text-muted);
+    max-width: 720px;
+    margin: 0 auto 40px;
+    line-height: 1.6;
+  }
+  .landing-cta {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .btn-hero {
+    padding: 16px 32px;
+    font-size: 18px;
+    font-weight: 700;
+    border-radius: 12px;
+  }
+  .trust-badges {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    flex-wrap: wrap;
+    margin-top: 48px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+  }
+  .trust-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 32px;
+    margin: 60px 0;
+  }
+  .feature-card {
+    text-align: center;
+    padding: 32px 24px;
+  }
+  .feature-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 20px;
+    background: rgba(34, 197, 94, 0.15);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+  }
+  .feature-card h3 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+  }
+  .feature-card p {
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0;
+  }
+  .section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 80px 24px;
+  }
+  .section-title {
+    font-size: 42px;
+    font-weight: 800;
+    text-align: center;
+    margin: 0 0 16px 0;
+    letter-spacing: -0.02em;
+  }
+  .section-subtitle {
+    font-size: 18px;
+    color: var(--text-muted);
+    text-align: center;
+    max-width: 640px;
+    margin: 0 auto 60px;
+    line-height: 1.6;
+  }
+  .pricing-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 40px 32px;
+    text-align: center;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+  .pricing-price {
+    font-size: 48px;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 16px 0 8px;
+  }
+  .pricing-period {
+    color: var(--text-muted);
+    font-size: 16px;
+  }
+  .testimonial {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 32px;
+    border: 1px solid var(--border);
+  }
+  .testimonial-text {
+    font-size: 18px;
+    line-height: 1.7;
+    margin: 0 0 24px 0;
+    font-style: italic;
+    color: var(--text);
+  }
+  .testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .testimonial-author strong {
+    font-size: 16px;
+  }
+  .testimonial-author span {
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .how-it-works {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 40px;
+    margin: 60px 0;
+  }
+  .step {
+    text-align: center;
+  }
+  .step-number {
+    width: 56px;
+    height: 56px;
+    background: var(--primary);
+    color: #0a0a0a;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 800;
+    margin: 0 auto 20px;
+  }
+  .step h3 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+  }
+  .step p {
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0;
+  }
+  .cta-section {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%);
+    border-radius: 24px;
+    padding: 60px 40px;
+    text-align: center;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+  }
+  .cta-section h2 {
+    font-size: 36px;
+    font-weight: 800;
+    margin: 0 0 16px 0;
+  }
+  .cta-section p {
+    font-size: 18px;
+    color: var(--text-muted);
+    margin: 0 0 32px 0;
+  }
+  @media (max-width: 768px) {
+    .landing-hero h1 { font-size: 36px; }
+    .landing-hero .subtitle { font-size: 18px; }
+    .section-title { font-size: 32px; }
+    .section { padding: 60px 20px; }
+    .feature-grid { grid-template-columns: 1fr; gap: 24px; }
   }
 </style>
 {% endblock %}
 
+{% block content %}
+<!-- Hero Section -->
+<section class="landing-hero">
+  <div style="max-width: 1200px; margin: 0 auto;">
+    <p style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--primary); font-weight: 600; margin: 0 0 16px 0;">
+      Built for Landscaping Professionals
+    </p>
+    <h1>Run Your Entire Landscaping Business<br>From One Powerful Platform</h1>
+    <p class="subtitle">
+      Schedule jobs, manage crews, send invoices, and track profit—all in one modern workspace 
+      designed for field service teams who want to grow.
+    </p>
+    <div class="landing-cta">
+      <a href="{% url 'signup' %}" class="btn btn-primary btn-hero">
+        Start Free Trial
+      </a>
+      <a href="{% url 'login' %}" class="btn btn-secondary btn-hero">
+        Sign In
+      </a>
+    </div>
+    <p style="font-size: 14px; color: var(--text-muted); margin: 0;">
+      No credit card required • Cancel anytime • 14-day money-back guarantee
+    </p>
+    <div class="trust-badges">
+      <div class="trust-badge">
+        <span style="font-size: 20px;">✓</span>
+        <span>Trusted by landscaping businesses</span>
+      </div>
+      <div class="trust-badge">
+        <span style="font-size: 20px;">🔒</span>
+        <span>Secure & encrypted</span>
+      </div>
+      <div class="trust-badge">
+        <span style="font-size: 20px;">📱</span>
+        <span>Works on all devices</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features Section -->
+<section class="section">
+  <h2 class="section-title">Everything You Need to Run Your Business</h2>
+  <p class="section-subtitle">
+    Field Ops combines all the tools you need into one streamlined platform. 
+    No more switching between apps or juggling spreadsheets.
+  </p>
+  
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📅</div>
+      <h3>Smart Scheduling</h3>
+      <p>Drag-and-drop calendar, daily route optimization, and automatic crew assignments. Your team always knows where to be and when.</p>
+    </div>
+    
+    <div class="feature-card">
+      <div class="feature-icon">👥</div>
+      <h3>Crew Management</h3>
+      <p>Track time, manage schedules, assign jobs, and handle payroll—all from one place. Keep your team organized and productive.</p>
+    </div>
+    
+    <div class="feature-card">
+      <div class="feature-icon">💰</div>
+      <h3>Estimates & Invoicing</h3>
+      <p>Create professional estimates, convert to invoices, and get paid faster with integrated credit card processing. Track what's outstanding at a glance.</p>
+    </div>
+    
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>Profit Tracking</h3>
+      <p>See revenue, costs, and profit in real-time. Know exactly how much money you're making on every job and customer.</p>
+    </div>
+    
+    <div class="feature-card">
+      <div class="feature-icon">📱</div>
+      <h3>Mobile-Ready</h3>
+      <p>Crews can clock in, view routes, complete jobs, and upload photos from their phones. Works perfectly on any device.</p>
+    </div>
+    
+    <div class="feature-card">
+      <div class="feature-icon">🔗</div>
+      <h3>QuickBooks Integration</h3>
+      <p>Push invoices and payroll directly to QuickBooks Online. Keep your books in sync without manual data entry.</p>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section class="section" style="background: var(--surface-alt);">
+  <h2 class="section-title">Get Started in Minutes</h2>
+  <p class="section-subtitle">
+    Setting up Field Ops is simple. Get your team onboarded and start managing jobs today.
+  </p>
+  
+  <div class="how-it-works">
+    <div class="step">
+      <div class="step-number">1</div>
+      <h3>Sign Up Free</h3>
+      <p>Create your account and set up your business profile. No credit card required to get started.</p>
+    </div>
+    
+    <div class="step">
+      <div class="step-number">2</div>
+      <h3>Add Your Team</h3>
+      <p>Invite crew members and office staff. They'll get instant access to their schedules and tools.</p>
+    </div>
+    
+    <div class="step">
+      <div class="step-number">3</div>
+      <h3>Start Managing</h3>
+      <p>Create jobs, schedule crews, send invoices, and track everything. Subscribe when you're ready for full access.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing Section -->
+<section class="section">
+  <h2 class="section-title">Simple, Transparent Pricing</h2>
+  <p class="section-subtitle">
+    One plan. All features. No hidden fees. Cancel anytime.
+  </p>
+  
+  <div class="pricing-card">
+    <h3 style="font-size: 24px; font-weight: 700; margin: 0 0 8px 0;">Professional</h3>
+    <div class="pricing-price">$99</div>
+    <div class="pricing-period">per month</div>
+    <p style="color: var(--text-muted); margin: 24px 0; line-height: 1.6;">
+      Everything you need to run your landscaping business. Unlimited users, unlimited jobs, all features included.
+    </p>
+    <ul style="text-align: left; list-style: none; padding: 0; margin: 24px 0;">
+      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--primary); font-size: 20px;">✓</span>
+        <span>Unlimited jobs & clients</span>
+      </li>
+      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--primary); font-size: 20px;">✓</span>
+        <span>Unlimited team members</span>
+      </li>
+      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--primary); font-size: 20px;">✓</span>
+        <span>Credit card payments</span>
+      </li>
+      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--primary); font-size: 20px;">✓</span>
+        <span>QuickBooks integration</span>
+      </li>
+      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--primary); font-size: 20px;">✓</span>
+        <span>Mobile app access</span>
+      </li>
+      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--primary); font-size: 20px;">✓</span>
+        <span>Priority support</span>
+      </li>
+    </ul>
+    <a href="{% url 'signup' %}" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 16px; font-weight: 700; margin-top: 24px;">
+      Start Free Trial
+    </a>
+    <p style="font-size: 13px; color: var(--text-muted); margin: 12px 0 0 0;">
+      No credit card required • Cancel anytime
+    </p>
+  </div>
+</section>
+
+<!-- Testimonials Section -->
+<section class="section" style="background: var(--surface-alt);">
+  <h2 class="section-title">Trusted by Landscaping Professionals</h2>
+  <p class="section-subtitle">
+    See what business owners are saying about Field Ops
+  </p>
+  
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; max-width: 1000px; margin: 0 auto;">
+    <div class="testimonial">
+      <p class="testimonial-text">
+        "Field Ops has completely transformed how we run our business. We can schedule jobs, track time, and send invoices all from one place. Our crew loves the mobile app."
+      </p>
+      <div class="testimonial-author">
+        <div>
+          <strong>Mike Johnson</strong><br>
+          <span>GreenScape Landscaping</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="testimonial">
+      <p class="testimonial-text">
+        "The profit tracking feature alone is worth it. We finally know exactly how much we're making on each job. It's helped us price our services better and grow our revenue."
+      </p>
+      <div class="testimonial-author">
+        <div>
+          <strong>Sarah Martinez</strong><br>
+          <span>Premier Lawn Care</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="testimonial">
+      <p class="testimonial-text">
+        "Getting paid faster with credit card payments has been a game-changer. Our clients love the convenience, and we get paid immediately instead of waiting weeks for checks."
+      </p>
+      <div class="testimonial-author">
+        <div>
+          <strong>David Chen</strong><br>
+          <span>Elite Landscaping Services</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Final CTA Section -->
+<section class="section">
+  <div class="cta-section">
+    <h2>Ready to Grow Your Business?</h2>
+    <p>
+      Join landscaping companies who are using Field Ops to streamline operations, 
+      increase revenue, and scale their business.
+    </p>
+    <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+      <a href="{% url 'signup' %}" class="btn btn-primary btn-hero">
+        Start Your Free Trial
+      </a>
+      <a href="{% url 'login' %}" class="btn btn-secondary btn-hero">
+        Sign In
+      </a>
+    </div>
+    <p style="font-size: 14px; color: var(--text-muted); margin: 24px 0 0 0;">
+      No credit card required • Set up in minutes • Cancel anytime
+    </p>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer style="max-width: 1200px; margin: 0 auto; padding: 60px 24px 40px; border-top: 1px solid var(--border);">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 40px; margin-bottom: 40px;">
+    <div>
+      <h4 style="font-size: 16px; font-weight: 700; margin: 0 0 16px 0;">Product</h4>
+      <ul style="list-style: none; padding: 0; margin: 0;">
+        <li style="margin-bottom: 8px;"><a href="#features" style="color: var(--text-muted); text-decoration: none;">Features</a></li>
+        <li style="margin-bottom: 8px;"><a href="#pricing" style="color: var(--text-muted); text-decoration: none;">Pricing</a></li>
+        <li style="margin-bottom: 8px;"><a href="{% url 'signup' %}" style="color: var(--text-muted); text-decoration: none;">Sign Up</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="font-size: 16px; font-weight: 700; margin: 0 0 16px 0;">Company</h4>
+      <ul style="list-style: none; padding: 0; margin: 0;">
+        <li style="margin-bottom: 8px;"><a href="/about/" style="color: var(--text-muted); text-decoration: none;">About</a></li>
+        <li style="margin-bottom: 8px;"><a href="mailto:support@yourdomain.com" style="color: var(--text-muted); text-decoration: none;">Contact</a></li>
+        <li style="margin-bottom: 8px;"><a href="/terms/" style="color: var(--text-muted); text-decoration: none;">Terms</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="font-size: 16px; font-weight: 700; margin: 0 0 16px 0;">Support</h4>
+      <ul style="list-style: none; padding: 0; margin: 0;">
+        <li style="margin-bottom: 8px;"><a href="mailto:support@yourdomain.com" style="color: var(--text-muted); text-decoration: none;">Help Center</a></li>
+        <li style="margin-bottom: 8px;"><a href="/privacy/" style="color: var(--text-muted); text-decoration: none;">Privacy Policy</a></li>
+        <li style="margin-bottom: 8px;"><a href="{% url 'login' %}" style="color: var(--text-muted); text-decoration: none;">Sign In</a></li>
+      </ul>
+    </div>
+  </div>
+  <div style="text-align: center; padding-top: 40px; border-top: 1px solid var(--border);">
+    <p style="color: var(--text-muted); font-size: 14px; margin: 0;">
+      © 2026 Field Ops. All rights reserved.
+    </p>
+  </div>
+</footer>
+{% endblock %}
