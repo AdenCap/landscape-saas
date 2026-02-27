@@ -110,6 +110,20 @@ class Job(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     route_order = models.PositiveIntegerField(default=0)
+    
+    completed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='completed_jobs',
+        help_text='User who marked this job as completed'
+    )
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When this job was marked as completed'
+    )
 
     # Completion proof (optional: Business.require_completion_photo)
     # JobCompletionPhoto records stored separately; use job.completion_photos.exists()

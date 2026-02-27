@@ -42,6 +42,40 @@ def _get_crew_legend(business):
     return legend
 
 
+def _get_job_details(job):
+    """Get job title, amount, and payment status for display."""
+    from decimal import Decimal
+    
+    # Job title: use services if available, otherwise property address
+    services = list(job.service_items.select_related('service').all())
+    if services:
+        service_names = [si.service.name if si.service else "Service" for si in services[:3]]
+        title = ", ".join(service_names)
+        if len(services) > 3:
+            title += f" +{len(services) - 3} more"
+    else:
+        title = job.property.address
+    
+    # Calculate job amount from service items
+    job_amount = Decimal("0")
+    for si in services:
+        job_amount += si.line_total()
+    
+    # Check payment status from invoice
+    is_paid = False
+    invoice_status = None
+    if hasattr(job, 'invoice') and job.invoice:
+        invoice_status = job.invoice.status
+        is_paid = job.invoice.status == 'paid'
+    
+    return {
+        'title': title,
+        'amount': job_amount,
+        'is_paid': is_paid,
+        'invoice_status': invoice_status,
+    }
+
+
 @role_required("owner", "crew")
 def job_list(request):
     """
@@ -57,7 +91,7 @@ def job_list(request):
     # Base queryset
     qs = Job.objects.filter(
         property__customer__business=business,
-    ).select_related('property', 'property__customer', 'assigned_to', 'assigned_crew').prefetch_related('service_items__service')
+    ).select_related('property', 'property__customer', 'assigned_to', 'assigned_crew', 'completed_by', 'invoice').prefetch_related('service_items__service')
     
     # Crew filter: only see jobs assigned to them
     if getattr(request.user, 'role', None) == 'crew':
@@ -117,9 +151,20 @@ def job_list(request):
             pass
     
     # Default: show upcoming and unscheduled
+    unscheduled_with_details = []
     if not filter_type:
-        upcoming = list(qs.filter(scheduled_date__gte=today).order_by('scheduled_date', 'scheduled_time', 'id'))
-        unscheduled = list(qs.filter(scheduled_date__isnull=True).order_by('-created_at')[:30])
+        upcoming_qs = qs.filter(scheduled_date__gte=today).order_by('scheduled_date', 'scheduled_time', 'id')
+        upcoming = list(upcoming_qs)
+        unscheduled_qs = qs.filter(scheduled_date__isnull=True).order_by('-created_at')[:30]
+        for job in unscheduled_qs:
+            details = _get_job_details(job)
+            unscheduled_with_details.append({
+                'job': job,
+                'title': details['title'],
+                'amount': details['amount'],
+                'is_paid': details['is_paid'],
+                'invoice_status': details['invoice_status'],
+            })
     
     # Get counts for filter badges
     completed_count = qs.filter(status='completed').count()
@@ -128,10 +173,33 @@ def job_list(request):
     month_start = today.replace(day=1)
     this_month_past_count = qs.filter(scheduled_date__gte=month_start, scheduled_date__lt=today).count()
     
+    # Add job details to all job lists
+    upcoming_with_details = []
+    for job in upcoming:
+        details = _get_job_details(job)
+        upcoming_with_details.append({
+            'job': job,
+            'title': details['title'],
+            'amount': details['amount'],
+            'is_paid': details['is_paid'],
+            'invoice_status': details['invoice_status'],
+        })
+    
+    past_jobs_with_details = []
+    for job in past_jobs:
+        details = _get_job_details(job)
+        past_jobs_with_details.append({
+            'job': job,
+            'title': details['title'],
+            'amount': details['amount'],
+            'is_paid': details['is_paid'],
+            'invoice_status': details['invoice_status'],
+        })
+    
     return render(request, 'jobs/job_list.html', {
-        'upcoming_jobs': upcoming,
-        'past_jobs': past_jobs,
-        'unscheduled_jobs': unscheduled,
+        'upcoming_jobs': upcoming_with_details,
+        'past_jobs': past_jobs_with_details,
+        'unscheduled_jobs': unscheduled_with_details,
         'today': today,
         'filter_type': filter_type,
         'filter_date': filter_date,
@@ -789,7 +857,9 @@ def complete_job(request, job_id):
             return redirect("crew_today")
 
     job.status = "completed"
-    job.save()
+    job.completed_by = request.user
+    job.completed_at = timezone.now()
+    job.save(update_fields=["status", "completed_by", "completed_at"])
 
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return JsonResponse({"status": "ok", "redirect": None})
