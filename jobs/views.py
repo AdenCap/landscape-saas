@@ -681,12 +681,37 @@ def daily_route_view(request):
 @role_required("owner")
 def update_route_order(request):
     business = get_business(request) if request.user.is_authenticated else None
-    data = json.loads(request.body)
+    data = json.loads(request.body or "[]")
+
+    if not isinstance(data, list):
+        return JsonResponse({"status": "error", "message": "Invalid payload"}, status=400)
+
+    # Build mapping of job id -> route order
+    id_order_map = {}
     for item in data:
-        qs = Job.objects.filter(id=item["id"])
-        if business:
-            qs = qs.filter(property__customer__business=business)
-        qs.update(route_order=item["order"])
+        try:
+            job_id = int(item.get("id"))
+            order_val = int(item.get("order"))
+        except (TypeError, ValueError):
+            continue
+        id_order_map[job_id] = order_val
+
+    if not id_order_map:
+        return JsonResponse({"status": "ok"})
+
+    qs = Job.objects.filter(id__in=id_order_map.keys())
+    if business:
+        qs = qs.filter(property__customer__business=business)
+
+    jobs = list(qs)
+    for job in jobs:
+        if job.id in id_order_map:
+            job.route_order = id_order_map[job.id]
+
+    # Atomic bulk update to avoid partial order updates
+    with transaction.atomic():
+        Job.objects.bulk_update(jobs, ["route_order"])
+
     return JsonResponse({"status": "ok"})
 
 
@@ -1053,6 +1078,9 @@ def create_job(request):
                 )
                 assignee = assigned_crew.name if assigned_crew else (assigned_to.get_full_name() or assigned_to.username if assigned_to else "Unassigned")
                 JobAssignmentLog.objects.create(job=job, user=request.user, details=f"Job created; assigned to {assignee}")
+
+                # Prepare JobServiceItem instances and bulk create for performance and atomicity
+                service_items = []
                 for form_data in formset:
                     if form_data.cleaned_data.get("service"):
                         service = form_data.cleaned_data["service"]
@@ -1062,13 +1090,18 @@ def create_job(request):
                         if override_price is not None:
                             rate = override_price
                         unit = getattr(service, "default_unit", None) or unit
-                        JobServiceItem.objects.create(
-                            job=job,
-                            service=service,
-                            quantity=qty,
-                            unit=unit,
-                            unit_price=rate,
+                        service_items.append(
+                            JobServiceItem(
+                                job=job,
+                                service=service,
+                                quantity=qty,
+                                unit=unit,
+                                unit_price=rate,
+                            )
                         )
+
+                if service_items:
+                    JobServiceItem.objects.bulk_create(service_items)
             if recurring_job:
                 msg = f"Recurring job created for {prop.address} ({recurring_job.get_frequency_display()}); first date {sched_date}. Future dates will be generated automatically."
             else:
@@ -1254,6 +1287,8 @@ def meeting_delete(request, meeting_id):
         return redirect("/")
     meeting = get_object_or_404(Meeting, id=meeting_id, business=business)
     title = meeting.title
+    # Soft delete: mark as deleted instead of removing the record
+    meeting._deleting_user = request.user
     meeting.delete()
     messages.success(request, f"Meeting “{title}” deleted.")
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":

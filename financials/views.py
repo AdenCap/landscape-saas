@@ -284,6 +284,8 @@ def revenue_category_delete(request, category_id):
         return redirect("/")
     cat = get_object_or_404(RevenueCategory, id=category_id, business=business)
     name = cat.name
+    # Soft delete: mark as deleted instead of removing the record
+    cat._deleting_user = request.user
     cat.delete()
     messages.success(request, f"Category '{name}' removed.")
     return redirect("financials:revenue_categories")
@@ -440,6 +442,8 @@ def receipt_delete(request, receipt_id):
     receipt = get_object_or_404(Receipt, id=receipt_id, business=business)
     if receipt.file:
         receipt.file.delete(save=False)
+    # Soft delete: mark as deleted instead of removing the record
+    receipt._deleting_user = request.user
     receipt.delete()
     messages.success(request, "Receipt deleted.")
     return redirect("financials:receipt_list")

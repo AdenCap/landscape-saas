@@ -1,7 +1,23 @@
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+from django.utils import timezone
 from businesses.models import Business
+
+
+class CustomerManager(models.Manager):
+    """Custom manager that excludes soft-deleted customers by default."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+    def with_deleted(self):
+        """Return queryset including soft-deleted customers."""
+        return super().get_queryset()
+
+    def deleted_only(self):
+        """Return only soft-deleted customers."""
+        return super().get_queryset().filter(deleted_at__isnull=False)
 
 
 class Customer(models.Model):
@@ -67,8 +83,44 @@ class Customer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Soft delete support
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this customer was soft-deleted. Null means active.",
+    )
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deleted_customers",
+        help_text="User who soft-deleted this customer.",
+    )
+
+    # Managers: default excludes deleted customers, all_objects includes them
+    objects = CustomerManager()
+    all_objects = models.Manager()
+
     def __str__(self):
         return self.name
+
+    def delete(self, using=None, keep_parents=False):
+        """Soft delete: mark as deleted instead of removing the record."""
+        self.deleted_at = timezone.now()
+        deleting_user = getattr(self, "_deleting_user", None)
+        if deleting_user and not self.deleted_by_id:
+            self.deleted_by = deleting_user
+        self.save(update_fields=["deleted_at", "deleted_by"])
+
+    def hard_delete(self, using=None, keep_parents=False):
+        """Permanently delete this customer (use with caution)."""
+        super().delete(using=using, keep_parents=keep_parents)
+
+    @property
+    def is_deleted(self):
+        """Return True if this customer has been soft-deleted."""
+        return self.deleted_at is not None
 
     @property
     def full_address(self):

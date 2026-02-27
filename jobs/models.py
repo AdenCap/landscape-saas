@@ -176,9 +176,9 @@ class Job(models.Model):
         self.deleted_by = getattr(self, '_deleting_user', None)
         self.save(update_fields=['deleted_at', 'deleted_by'])
 
-    def hard_delete(self):
+    def hard_delete(self, using=None, keep_parents=False):
         """Permanently delete this job (use with caution)."""
-        super().delete()
+        super().delete(using=using, keep_parents=keep_parents)
 
     def is_deleted(self):
         """Check if this job is soft-deleted."""
@@ -321,6 +321,38 @@ class Meeting(models.Model):
 
     def __str__(self):
         return f"{self.title} at {self.scheduled_at}"
+
+    # Soft delete support for meetings
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this meeting was soft-deleted. Null means active.",
+    )
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deleted_meetings",
+        help_text="User who soft-deleted this meeting.",
+    )
+
+    def delete(self, using=None, keep_parents=False):
+        """Soft delete: mark as deleted instead of removing the record."""
+        self.deleted_at = timezone.now()
+        deleting_user = getattr(self, "_deleting_user", None)
+        if deleting_user and not self.deleted_by_id:
+            self.deleted_by = deleting_user
+        self.save(update_fields=["deleted_at", "deleted_by"])
+
+    def hard_delete(self, using=None, keep_parents=False):
+        """Permanently delete this meeting (use with caution)."""
+        super().delete(using=using, keep_parents=keep_parents)
+
+    @property
+    def is_deleted(self):
+        """Return True if this meeting has been soft-deleted."""
+        return self.deleted_at is not None
 
 
 class JobServiceItem(models.Model):

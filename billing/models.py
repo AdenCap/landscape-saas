@@ -1,9 +1,25 @@
 from decimal import Decimal
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from businesses.models import Business
 from customers.models import Customer
 from jobs.models import Job
+
+
+class InvoiceManager(models.Manager):
+    """Custom manager that excludes soft-deleted invoices by default."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+    def with_deleted(self):
+        """Return queryset including soft-deleted invoices."""
+        return super().get_queryset()
+
+    def deleted_only(self):
+        """Return only soft-deleted invoices."""
+        return super().get_queryset().filter(deleted_at__isnull=False)
 
 
 class Invoice(models.Model):
@@ -125,8 +141,45 @@ class Invoice(models.Model):
         help_text="When a payment reminder email was last sent (for automated reminders).",
     )
 
+    # Soft delete support
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this invoice was soft-deleted. Null means active.",
+    )
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deleted_invoices",
+        help_text="User who soft-deleted this invoice.",
+    )
+
+    # Managers: default excludes deleted invoices, all_objects includes them
+    objects = InvoiceManager()
+    all_objects = models.Manager()
+
     def __str__(self):
         return f"Invoice #{self.id} - {self.customer.name}"
+
+    def delete(self, using=None, keep_parents=False):
+        """Soft delete: mark as deleted instead of removing the record."""
+        self.deleted_at = timezone.now()
+        # deleted_by can be set by caller via _deleting_user attribute
+        deleting_user = getattr(self, "_deleting_user", None)
+        if deleting_user and not self.deleted_by_id:
+            self.deleted_by = deleting_user
+        self.save(update_fields=["deleted_at", "deleted_by"])
+
+    def hard_delete(self, using=None, keep_parents=False):
+        """Permanently delete this invoice (use with caution)."""
+        super().delete(using=using, keep_parents=keep_parents)
+
+    @property
+    def is_deleted(self):
+        """Return True if this invoice has been soft-deleted."""
+        return self.deleted_at is not None
 
     def recompute_totals(self):
         """Recalculate subtotal and total from line items and save. Call after adding/editing line items."""
