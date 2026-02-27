@@ -49,9 +49,15 @@ def post_login_check(request):
     If user has 2FA and this is a new device, send them to verify; otherwise go to dashboard.
     """
     from django.utils.http import url_has_allowed_host_and_scheme
-    next_url = request.GET.get("next") or "/"
+    # Default redirect: owners go to dashboard, crew to their jobs, others to dashboard
+    default_redirect = "/dashboard/"
+    if request.user.is_authenticated:
+        role = getattr(request.user, "role", None)
+        if role == "crew":
+            default_redirect = "/jobs/crew/"
+    next_url = request.GET.get("next") or default_redirect
     if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
-        next_url = "/"
+        next_url = default_redirect
     if not request.user.is_authenticated:
         return redirect("/accounts/login/")
     if not _user_has_2fa(request.user):
@@ -144,7 +150,13 @@ def twofa_verify(request):
         token = request.POST.get("token", "").strip().replace(" ", "")
         if token and device.verify_token(token):
             _otp_login(request, device)
-            next_url = request.GET.get("next") or request.session.get("next_after_verify") or "/"
+            # Default redirect: owners go to dashboard, crew to their jobs
+            default_redirect = "/dashboard/"
+            if user.is_authenticated:
+                role = getattr(user, "role", None)
+                if role == "crew":
+                    default_redirect = "/jobs/crew/"
+            next_url = request.GET.get("next") or request.session.get("next_after_verify") or default_redirect
             request.session.pop("next_after_verify", None)
             # Mark this device as trusted so we don't ask for 2FA again on this device
             device_token = secrets.token_urlsafe(32)

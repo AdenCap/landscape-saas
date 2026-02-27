@@ -15,7 +15,8 @@ def marketing_home(request):
         if role == "crew":
             return redirect("/jobs/crew/")
         # Owners and any other staff-style roles go to the main dashboard
-        return redirect("owner_dashboard")
+        # Use absolute path to avoid redirect loops
+        return redirect("/dashboard/")
 
     return render(request, "marketing/landing.html")
 
