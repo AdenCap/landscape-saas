@@ -82,6 +82,29 @@ class Invoice(models.Model):
         help_text="Secret token for the customer 'mark as paid' link. Set when invoice is sent.",
     )
 
+    # Stripe payment tracking (for Connect invoice payments)
+    stripe_checkout_session_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Stripe Checkout Session ID for this invoice payment",
+    )
+    stripe_payment_intent_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Stripe Payment Intent ID (from checkout session)",
+    )
+    stripe_charge_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Stripe Charge ID (from payment intent)",
+    )
+
     approved_at = models.DateTimeField(
         null=True,
         blank=True,

@@ -1,3 +1,4 @@
+import hashlib
 import secrets
 import stripe
 from io import BytesIO
@@ -441,17 +442,20 @@ def create_invoice_checkout_session(request, invoice_id, token):
     cancel_url = request.build_absolute_uri(
         reverse("billing:invoice_pay_page", args=[invoice.id, token])
     )
-    # Per-business fee if set, else global default
+    # Per-business fee if set, else global default (for future use)
     fee_percent = getattr(business, "stripe_connect_application_fee_percent", None)
     if fee_percent is not None:
         fee_percent = float(fee_percent)
     if fee_percent is None:
         fee_percent = getattr(settings, "STRIPE_CONNECT_APPLICATION_FEE_PERCENT", 0) or 0
-    application_fee_amount = int(amount_cents * fee_percent / 100) if fee_percent else None
-    payment_intent_data = {"transfer_data": {"destination": business.stripe_connect_account_id}}
-    if application_fee_amount:
-        payment_intent_data["application_fee_amount"] = application_fee_amount
+    
+    # Use idempotency key to prevent duplicate sessions
+    idempotency_key = f"invoice:{invoice.id}:checkout:{hashlib.md5(str(invoice.id).encode()).hexdigest()[:8]}"
+    
+    # Create checkout session in the CONNECTED ACCOUNT context (merchant-of-record)
+    # Funds go directly to the connected account, not the platform
     try:
+        # Use stripeAccount parameter to make the connected account the merchant
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             line_items=[{
@@ -468,9 +472,23 @@ def create_invoice_checkout_session(request, invoice_id, token):
             mode="payment",
             success_url=success_url,
             cancel_url=cancel_url,
-            metadata={"invoice_id": str(invoice.id), "business_id": str(business.id)},
-            payment_intent_data=payment_intent_data,
+            metadata={
+                "invoice_id": str(invoice.id),
+                "business_id": str(business.id),
+                "platform_user_id": str(business.id),
+            },
+            # Optional: Add application fee if we enable platform fees later
+            # For now, fee_percent is 0, so no fee is applied
+            payment_intent_data={
+                "application_fee_amount": int(amount_cents * fee_percent / 100) if fee_percent > 0 else None,
+            } if fee_percent > 0 else {},
+            # CRITICAL: Use stripeAccount to make connected account the merchant-of-record
+            stripe_account=business.stripe_connect_account_id,
+            idempotency_key=idempotency_key,
         )
+        # Store checkout session ID on invoice
+        invoice.stripe_checkout_session_id = session.id
+        invoice.save(update_fields=["stripe_checkout_session_id"])
         return redirect(session.url)
     except stripe.StripeError as e:
         messages.error(request, f"Could not start payment: {e.user_message or str(e)}")

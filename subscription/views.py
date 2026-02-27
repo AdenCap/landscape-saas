@@ -2,6 +2,7 @@
 Platform subscription: businesses pay the platform (you) for software access.
 Uses Stripe Checkout for subscription and Customer Portal for managing the subscription.
 """
+import hashlib
 import stripe
 from django.conf import settings
 from django.contrib import messages
@@ -63,27 +64,31 @@ def create_checkout_session(request):
     customer_email = None
     if request.user.email:
         customer_email = request.user.email
+    # Generate idempotency key to prevent duplicate sessions
+    idempotency_key = f"subscription:{business.id}:{hashlib.md5(f'{business.id}:{price_id}'.encode()).hexdigest()[:16]}"
+    
     try:
-        if business.stripe_customer_id:
-            session = stripe.checkout.Session.create(
-                customer=business.stripe_customer_id,
-                mode="subscription",
-                line_items=[{"price": price_id, "quantity": 1}],
-                success_url=success_url,
-                cancel_url=cancel_url,
+        # Ensure we have a Stripe customer ID
+        if not business.stripe_customer_id:
+            # Create Stripe customer if we don't have one
+            customer = stripe.Customer.create(
+                email=customer_email or "",
                 metadata={"business_id": str(business.id)},
-                subscription_data={"metadata": {"business_id": str(business.id)}},
             )
-        else:
-            session = stripe.checkout.Session.create(
-                customer_email=customer_email or "",
-                mode="subscription",
-                line_items=[{"price": price_id, "quantity": 1}],
-                success_url=success_url,
-                cancel_url=cancel_url,
-                metadata={"business_id": str(business.id)},
-                subscription_data={"metadata": {"business_id": str(business.id)}},
-            )
+            business.stripe_customer_id = customer.id
+            business.save(update_fields=["stripe_customer_id"])
+        
+        # Create checkout session with existing customer
+        session = stripe.checkout.Session.create(
+            customer=business.stripe_customer_id,
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": 1}],
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={"business_id": str(business.id)},
+            subscription_data={"metadata": {"business_id": str(business.id)}},
+            idempotency_key=idempotency_key,
+        )
         return redirect(session.url)
     except stripe.StripeError as e:
         messages.warning(request, f"Unable to start checkout at this time. Please try again or contact support if the issue persists.")
@@ -134,18 +139,76 @@ def create_portal_session(request):
 @csrf_exempt
 @require_POST
 def stripe_webhook(request):
-    """Handle Stripe webhooks: subscription and invoice events for platform; account.updated for Connect."""
+    """
+    Handle Stripe webhooks: subscription and invoice events for platform; account.updated for Connect.
+    Implements idempotency by tracking processed events.
+    """
     payload = request.body
     sig_header = request.META.get("HTTP_STRIPE_SIGNATURE", "")
+    
+    # Check for Connect-specific webhook secret, otherwise use platform secret
+    # If STRIPE_CONNECT_WEBHOOK_SECRET is set, we can distinguish Connect events
+    # For now, we use a single endpoint with platform secret
     webhook_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", None)
     if not webhook_secret:
         return HttpResponse("Webhook secret not set", status=500)
+    
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
     except ValueError:
         return HttpResponse("Invalid payload", status=400)
     except stripe.SignatureVerificationError:
         return HttpResponse("Invalid signature", status=400)
-    from .handlers import handle_stripe_webhook
-    handle_stripe_webhook(event)
-    return HttpResponse(status=200)
+    
+    # Check for idempotency: have we processed this event before?
+    from .models import StripeWebhookEvent
+    from django.utils import timezone
+    
+    event_id = event.get("id")
+    event_type = event.get("type")
+    
+    if event_id:
+        # Check if we've already processed this event
+        webhook_event, created = StripeWebhookEvent.objects.get_or_create(
+            event_id=event_id,
+            defaults={
+                "event_type": event_type,
+                "raw_data": event,
+            }
+        )
+        
+        if not created and webhook_event.processed:
+            # Already processed, return success
+            return HttpResponse(status=200)
+        
+        # Mark as processing
+        webhook_event.event_type = event_type
+        webhook_event.raw_data = event
+        webhook_event.save()
+    
+    # Process the event
+    try:
+        from .handlers import handle_stripe_webhook
+        handle_stripe_webhook(event)
+        
+        # Mark as successfully processed
+        if event_id:
+            webhook_event.processed = True
+            webhook_event.processed_at = timezone.now()
+            webhook_event.error_message = ""
+            webhook_event.save()
+        
+        return HttpResponse(status=200)
+    except Exception as e:
+        # Log error but return 200 to Stripe (we don't want retries for bad data)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error processing webhook {event_id}: {str(e)}", exc_info=True)
+        
+        if event_id:
+            webhook_event.processed = False
+            webhook_event.error_message = str(e)[:1000]  # Truncate long errors
+            webhook_event.save()
+        
+        # Return 200 to prevent Stripe from retrying (idempotency handled)
+        return HttpResponse(status=200)

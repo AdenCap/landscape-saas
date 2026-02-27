@@ -93,20 +93,68 @@ def _account_updated(event):
 
 
 def _checkout_session_completed(event):
-    """When a Connect invoice payment completes, mark the invoice as paid."""
+    """
+    When a Connect invoice payment completes, mark the invoice as paid.
+    Extracts and stores payment intent and charge IDs for tracking.
+    """
     session = event["data"]["object"]
     if session.get("mode") != "payment":
-        return
+        return  # Only handle payment mode, not subscription mode
+    
     metadata = session.get("metadata") or {}
     invoice_id = metadata.get("invoice_id")
     if not invoice_id:
         return
+    
     from billing.models import Invoice
     try:
         invoice = Invoice.objects.get(pk=int(invoice_id))
     except (Invoice.DoesNotExist, ValueError, TypeError):
         return
+    
     if invoice.status != "sent":
-        return
+        return  # Only update if invoice is in "sent" status
+    
+    # Extract payment intent ID from session
+    payment_intent_id = session.get("payment_intent")
+    if payment_intent_id:
+        invoice.stripe_payment_intent_id = payment_intent_id
+        
+        # Try to get charge ID from payment intent (if available)
+        # Note: For Connect accounts, we may need to fetch this separately
+        # For now, we'll store what we have from the session
+        try:
+            import stripe
+            from django.conf import settings
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            
+            # Check if this is a connected account payment
+            account_id = event.get("account")  # Connected account ID if present
+            if account_id:
+                # Fetch payment intent from connected account
+                pi = stripe.PaymentIntent.retrieve(
+                    payment_intent_id,
+                    stripe_account=account_id
+                )
+            else:
+                # Platform payment intent
+                pi = stripe.PaymentIntent.retrieve(payment_intent_id)
+            
+            # Get the charge ID from the payment intent
+            charges = pi.get("charges", {}).get("data", [])
+            if charges and len(charges) > 0:
+                invoice.stripe_charge_id = charges[0].get("id", "")
+        except Exception:
+            # If we can't fetch payment intent details, continue anyway
+            # The payment intent ID is already stored
+            pass
+    
+    # Update invoice status and store Stripe IDs
     invoice.status = "paid"
-    invoice.save(update_fields=["status"])
+    invoice.stripe_checkout_session_id = session.get("id", "")
+    invoice.save(update_fields=[
+        "status",
+        "stripe_checkout_session_id",
+        "stripe_payment_intent_id",
+        "stripe_charge_id",
+    ])
