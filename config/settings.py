@@ -247,9 +247,11 @@ LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/accounts/post-login/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 
-# Session security: auto-logout after inactivity (12 hours); refresh session on each request
-SESSION_COOKIE_AGE = 60 * 60 * 12  # 12 hours
-SESSION_SAVE_EVERY_REQUEST = True
+# Session: stay logged in until inactive for this long. Each request extends the expiry.
+# Default 2 weeks; set SESSION_COOKIE_AGE_SECONDS in .env to override (e.g. 2592000 for 30 days).
+SESSION_COOKIE_AGE = int(os.environ.get("SESSION_COOKIE_AGE_SECONDS", 60 * 60 * 24 * 14))  # 14 days
+SESSION_SAVE_EVERY_REQUEST = True  # extend session on every request (inactivity = no requests for SESSION_COOKIE_AGE)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # keep logged in after closing browser
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 
