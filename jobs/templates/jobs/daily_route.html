@@ -1,51 +1,59 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
-  <div>
+<div class="route-page-header">
+  <div class="route-header-main">
     <h1>Daily Routes</h1>
-    <p>Drag to reorder jobs. Optimize uses Google Maps to order stops by driving time.</p>
+    <p class="route-subtitle">Drag to reorder. Optimize orders stops by driving time.</p>
   </div>
-  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-    <form method="get" action="{% url 'daily_route' %}" style="display: flex; gap: 8px; align-items: center;">
-      <input type="date" name="date" value="{{ date_param }}" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+  <div class="route-actions">
+    <form method="get" action="{% url 'daily_route' %}" class="route-date-form">
+      <input type="date" name="date" value="{{ date_param }}" class="route-date-input" aria-label="Route date">
       <button type="submit" class="btn btn-secondary">Go</button>
     </form>
-    <form method="post" action="{% url 'optimize_route' %}" style="display: inline;">
-      {% csrf_token %}
-      <input type="hidden" name="date" value="{{ date_param }}">
-      <button type="submit" class="btn btn-primary">Optimize Route</button>
-    </form>
-    <a href="{% url 'calendar' %}" class="btn btn-secondary">View Calendar</a>
-    <a href="/" class="btn btn-secondary">Back to Dashboard</a>
+    <div class="route-buttons">
+      <form method="post" action="{% url 'optimize_route' %}" style="display: inline;">
+        {% csrf_token %}
+        <input type="hidden" name="date" value="{{ date_param }}">
+        <button type="submit" class="btn btn-primary">Optimize</button>
+      </form>
+      <a href="{% url 'calendar' %}" class="btn btn-secondary">Calendar</a>
+    </div>
   </div>
 </div>
 
 <div class="route-layout">
-  <div class="card">
-    <h3 style="margin: 0 0 12px 0;">Route List</h3>
+  <div class="card route-list-card">
+    <h3 class="route-list-title">Stops</h3>
     <ul id="route-list" class="route-list">
       {% for item in jobs_with_colors %}
       <li class="route-item" data-id="{{ item.job.id }}" data-address="{{ item.job.property.address }}" data-lat="{{ item.job.property.latitude|default:'' }}" data-lng="{{ item.job.property.longitude|default:'' }}">
-        <span class="route-handle">⋮⋮</span>
+        <span class="route-handle" aria-hidden="true">⋮⋮</span>
         <span class="route-num">{{ forloop.counter }}</span>
         <span class="route-color-swatch" style="background: {{ item.color }};" title="Crew/employee"></span>
-        <span class="route-address">{{ item.job.property.address }}</span>
-        <span class="route-assignee" style="font-size: 12px; color: var(--text-muted);">{% if item.job.assigned_crew %}{{ item.job.assigned_crew.name }}{% elif item.job.assigned_to %}{{ item.job.assigned_to.get_full_name|default:item.job.assigned_to.username %}{% else %}—{% endif %}</span>
-        <span class="route-nav-links">
-          <a href="https://maps.apple.com/?daddr={{ item.job.property.address|urlencode }}" target="_blank" rel="noopener" class="route-nav-link" title="Open in Apple Maps">Apple Maps</a>
-          <a href="https://www.google.com/maps/dir/?api=1&destination={{ item.job.property.address|urlencode }}" target="_blank" rel="noopener" class="route-nav-link" title="Open in Google Maps">Google Maps</a>
-        </span>
+        <div class="route-item-body">
+          <span class="route-address">{{ item.job.property.address }}</span>
+          <span class="route-assignee">{% if item.job.assigned_crew %}{{ item.job.assigned_crew.name }}{% elif item.job.assigned_to %}{{ item.job.assigned_to.get_full_name|default:item.job.assigned_to.username }}{% else %}—{% endif %}</span>
+          <div class="route-nav-links">
+            <a href="https://maps.apple.com/?daddr={{ item.job.property.address|urlencode }}" target="_blank" rel="noopener" class="route-nav-link">Apple Maps</a>
+            <a href="https://www.google.com/maps/dir/?api=1&destination={{ item.job.property.address|urlencode }}" target="_blank" rel="noopener" class="route-nav-link">Google Maps</a>
+          </div>
+        </div>
       </li>
       {% empty %}
       <li class="route-item route-item-empty">No jobs for this day.</li>
       {% endfor %}
     </ul>
   </div>
-  <div class="card" style="min-height: 400px;">
-    <h3 style="margin: 0 0 12px 0;">Map View</h3>
-    <div id="route-map" style="height: 400px; border-radius: 8px;"></div>
-    <p class="muted" style="font-size: 12px; margin-top: 8px;">Powered by Google Maps. Addresses are used for map and route optimization.</p>
+  <div class="card route-map-card" id="route-map-card">
+    <div class="route-map-header">
+      <h3 class="route-map-title">Map</h3>
+      <button type="button" class="route-map-toggle btn btn-secondary btn-sm" id="route-map-toggle" aria-expanded="false" aria-controls="route-map-wrap">Show map</button>
+    </div>
+    <div class="route-map-wrap" id="route-map-wrap">
+      <div id="route-map" class="route-map-inner"></div>
+      <p class="route-map-note">Addresses used for map and optimization.</p>
+    </div>
   </div>
 </div>
 
@@ -198,6 +206,7 @@
       drawRouteAndMarkers();
     else
       addMarkersByGeocode();
+    window.__routeMap = map;
   }
 
   window.initMap = initMap;
@@ -210,6 +219,20 @@
     script.defer = true;
     document.head.appendChild(script);
   }
+
+  (function() {
+    var wrap = document.getElementById('route-map-wrap');
+    var btn = document.getElementById('route-map-toggle');
+    if (!wrap || !btn) return;
+    btn.addEventListener('click', function() {
+      var open = wrap.classList.toggle('is-open');
+      btn.setAttribute('aria-expanded', open);
+      btn.textContent = open ? 'Hide map' : 'Show map';
+      if (open && window.google && window.google.maps && window.__routeMap) {
+        setTimeout(function() { google.maps.event.trigger(window.__routeMap, 'resize'); }, 100);
+      }
+    });
+  })();
 })();
 </script>
 {% else %}
@@ -233,23 +256,80 @@
     });
   }
   document.getElementById('route-map').innerHTML = '<p style="padding: 40px; text-align: center; color: var(--text-muted);">Set GOOGLE_MAPS_API_KEY in your environment to show the map and use address-based route optimization. Enable Maps JavaScript API, Geocoding API, and Directions API.</p>';
+  (function() {
+    var wrap = document.getElementById('route-map-wrap');
+    var btn = document.getElementById('route-map-toggle');
+    if (!wrap || !btn) return;
+    btn.addEventListener('click', function() {
+      var open = wrap.classList.toggle('is-open');
+      btn.setAttribute('aria-expanded', open);
+      btn.textContent = open ? 'Hide map' : 'Show map';
+    });
+  })();
 })();
 </script>
 {% endif %}
 
 <style>
+  .route-page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+  .route-header-main { min-width: 0; }
+  .route-page-header h1 { margin: 0 0 4px 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .route-subtitle { margin: 0; color: var(--text-muted); font-size: 15px; }
+  .route-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .route-date-form { display: flex; gap: 8px; align-items: center; }
+  .route-date-input { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 15px; }
+  .route-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
   .route-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
-  @media (max-width: 900px) { .route-layout { grid-template-columns: 1fr; } }
+  .route-list-card { padding: 16px; }
+  .route-list-title { margin: 0 0 12px 0; font-size: 17px; font-weight: 600; }
   .route-list { list-style: none; padding: 0; margin: 0; }
-  .route-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: grab; background: var(--surface); }
+  .route-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: grab; background: var(--surface); }
   .route-item:last-child { border-bottom: none; }
-  .route-handle { color: var(--text-muted); font-size: 14px; cursor: grab; }
-  .route-num { min-width: 24px; font-weight: 600; color: var(--primary); }
-  .route-color-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.1); flex-shrink: 0; }
-  .route-address { flex: 1; font-weight: 500; min-width: 0; }
-  .route-nav-links { display: flex; gap: 8px; flex-shrink: 0; }
-  .route-nav-link { font-size: 12px; color: var(--primary); text-decoration: none; white-space: nowrap; }
-  .route-nav-link:hover { text-decoration: underline; }
+  .route-handle { color: var(--text-muted); font-size: 14px; cursor: grab; flex-shrink: 0; padding-top: 2px; }
+  .route-num { min-width: 26px; font-weight: 600; color: var(--primary); font-size: 15px; flex-shrink: 0; }
+  .route-color-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.1); flex-shrink: 0; margin-top: 4px; }
+  .route-item-body { flex: 1; min-width: 0; }
+  .route-address { display: block; font-weight: 500; font-size: 15px; margin-bottom: 2px; }
+  .route-assignee { font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 8px; }
+  .route-nav-links { display: flex; gap: 10px; flex-wrap: wrap; }
+  .route-nav-link { font-size: 14px; color: var(--primary); text-decoration: none; padding: 8px 12px; border-radius: 8px; background: rgba(34, 197, 94, 0.12); min-height: 44px; display: inline-flex; align-items: center; -webkit-tap-highlight-color: transparent; }
+  .route-nav-link:hover { background: rgba(34, 197, 94, 0.2); text-decoration: none; }
   .route-item-empty { cursor: default; color: var(--text-muted); }
+  .route-map-card { min-height: 400px; }
+  .route-map-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .route-map-title { margin: 0; font-size: 17px; font-weight: 600; }
+  .route-map-toggle { display: none; }
+  .route-map-inner { height: 400px; border-radius: 10px; }
+  .route-map-note { font-size: 12px; color: var(--text-muted); margin: 8px 0 0 0; }
+  @media (max-width: 900px) { .route-layout { grid-template-columns: 1fr; } }
+  @media (max-width: 768px) {
+    .route-page-header {
+      flex-direction: column;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      padding: 12px 0;
+      margin-bottom: 16px;
+      background: var(--surface-alt);
+      border-radius: 12px;
+    }
+    .route-page-header h1 { font-size: 22px; }
+    .route-actions { width: 100%; flex-direction: column; align-items: stretch; }
+    .route-date-form { width: 100%; }
+    .route-date-input { flex: 1; min-height: 44px; }
+    .route-buttons { width: 100%; }
+    .route-buttons .btn { flex: 1; min-height: 44px; }
+    .route-list-card { padding: 12px; }
+    .route-item { padding: 16px 12px; align-items: center; }
+    .route-item-body { margin-top: 0; }
+    .route-assignee { margin-bottom: 10px; }
+    .route-map-card { min-height: 0; }
+    .route-map-header { margin-bottom: 0; }
+    .route-map-toggle { display: inline-flex; min-height: 44px; padding: 10px 16px; }
+    .route-map-wrap { display: none; margin-top: 12px; }
+    .route-map-wrap.is-open { display: block; }
+    .route-map-inner { height: 280px; }
+  }
 </style>
 {% endblock %}

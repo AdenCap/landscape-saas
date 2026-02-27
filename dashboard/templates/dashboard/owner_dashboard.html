@@ -139,5 +139,14 @@
   .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; }
   .unread-badge { display: inline-block; margin-left: 10px; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; background: #3b82f6; color: #fff; }
   .message-row.message-unread { background: rgba(59, 130, 246, 0.12); border-left-color: #3b82f6; }
+  @media (max-width: 768px) {
+    .page-header h1 { font-size: 22px; }
+    .kpi-grid { gap: 14px; }
+    .kpi-card { padding: 18px; min-height: auto; }
+    .kpi-card .kpi-value { font-size: 26px; }
+    .kpi-actions .btn { min-height: 44px; padding: 10px 16px; }
+    .message-row { padding: 14px; }
+    .dashboard-section .btn { min-height: 44px; }
+  }
 </style>
 {% endblock %}

@@ -1,96 +1,110 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
-  <div>
-    <h1>Today's Jobs</h1>
-    <p>Your assigned jobs for today</p>
+<div class="crew-today-header">
+  <div class="crew-today-title-wrap">
+    <h1>Today</h1>
+    <p class="crew-today-subtitle">Your jobs for today</p>
   </div>
   <div class="clock-widget card">
     {% if time_clock_current_entry %}
-    <form method="post" action="{% url 'time_clock_out' %}" style="margin: 0;">
+    <form method="post" action="{% url 'time_clock_out' %}" class="clock-form">
       {% csrf_token %}
       <span class="clock-badge in">Clocked in</span>
-      <button type="submit" class="btn btn-secondary btn-sm">Clock Out</button>
+      <button type="submit" class="btn btn-secondary clock-btn">Clock out</button>
     </form>
     {% else %}
-    <form method="post" action="{% url 'time_clock_in' %}" style="margin: 0;">
+    <form method="post" action="{% url 'time_clock_in' %}" class="clock-form">
       {% csrf_token %}
       <span class="clock-badge out">Clocked out</span>
-      <button type="submit" class="btn btn-primary btn-sm">Clock In</button>
+      <button type="submit" class="btn btn-primary clock-btn">Clock in</button>
     </form>
     {% endif %}
   </div>
 </div>
 
+<div class="crew-job-list">
 {% for job in jobs %}
-<div class="job-card card">
+<article class="job-card card">
   <div class="job-card-header">
-    <strong>{{ job.property.address }}</strong>
+    <strong class="job-card-address">{{ job.property.address }}</strong>
     <span class="badge badge-{{ job.status|cut:'_' }}">{{ job.status }}</span>
   </div>
-
   {% if job.notes %}
   <p class="job-notes"><em>{{ job.notes }}</em></p>
   {% endif %}
-
-  <div class="job-links" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
-    <a href="{% url 'report_issue' job.id %}" class="btn btn-secondary btn-sm">Report issue</a>
-    <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-secondary btn-sm">Upload completion photo</a>
+  <div class="job-links">
+    <a href="{% url 'report_issue' job.id %}" class="btn btn-secondary btn-sm job-link-btn">Report issue</a>
+    <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-secondary btn-sm job-link-btn">Photo</a>
   </div>
-
   {% if require_completion_photo and job.id not in job_ids_with_photos and job.status != "completed" %}
-  <p class="photo-required-msg">Photo required before you can complete this job.</p>
+  <p class="photo-required-msg">Photo required before you can complete.</p>
   {% endif %}
-
   <div class="job-actions">
     {% if job.status == "scheduled" %}
     <form method="post" action="{% url 'start_job' job.id %}">
       {% csrf_token %}
-      <button type="submit" class="btn btn-primary" style="width: 100%;">
-        Start Job
-      </button>
+      <button type="submit" class="btn btn-primary job-action-btn">Start job</button>
     </form>
     {% elif job.status == "in_progress" %}
-    {% if require_completion_photo and job.id not in job_ids_with_photos %}
-    <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-primary" style="width: 100%; display: block; text-align: center; box-sizing: border-box;">
-      Upload photo to complete
-    </a>
-    {% else %}
-    <form method="post" action="{% url 'complete_job' job.id %}">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-primary" style="width: 100%; background: var(--accent);">
-        Complete Job
-      </button>
-    </form>
-    {% endif %}
+      {% if require_completion_photo and job.id not in job_ids_with_photos %}
+      <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-primary job-action-btn">Upload photo to complete</a>
+      {% else %}
+      <form method="post" action="{% url 'complete_job' job.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary job-action-btn job-action-complete">Complete job</button>
+      </form>
+      {% endif %}
     {% elif job.status == "completed" %}
-    <button disabled class="btn btn-secondary" style="width: 100%; opacity: 0.7; cursor: not-allowed;">
-      ✓ Completed
-    </button>
+    <button disabled class="btn btn-secondary job-action-btn job-action-done">Done</button>
     {% endif %}
   </div>
-</div>
+</article>
 {% empty %}
-<div class="card">
-  <p style="margin: 0; color: var(--text-muted);">No jobs assigned to you today.</p>
+<div class="card crew-empty">
+  <p>No jobs assigned for today.</p>
 </div>
 {% endfor %}
+</div>
 
 <style>
-  .clock-widget { padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
-  .clock-widget form { display: flex; align-items: center; gap: 12px; }
-  .clock-badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; }
+  .crew-today-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+  .crew-today-title-wrap { min-width: 0; }
+  .crew-today-header h1 { margin: 0 0 4px 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .crew-today-subtitle { margin: 0; color: var(--text-muted); font-size: 15px; }
+  .clock-widget { padding: 14px 18px; display: flex; align-items: center; gap: 14px; }
+  .clock-form { display: flex; align-items: center; gap: 14px; margin: 0; }
+  .clock-badge { font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 8px; }
   .clock-badge.in { background: rgba(34, 197, 94, 0.25); color: #86efac; }
   .clock-badge.out { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
-  .job-card { margin-bottom: 16px; }
-  .job-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .job-notes { margin: 10px 0 0 0; color: var(--text-muted); font-size: 14px; }
+  .clock-btn { min-height: 44px; padding: 10px 18px; }
+  .crew-job-list { display: flex; flex-direction: column; gap: 16px; }
+  .job-card { padding: 18px; }
+  .job-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+  .job-card-address { font-size: 16px; line-height: 1.35; }
+  .job-notes { margin: 0 0 12px 0; color: var(--text-muted); font-size: 14px; line-height: 1.4; }
+  .job-links { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .job-link-btn { min-height: 44px; padding: 10px 16px; }
   .job-actions { margin-top: 14px; }
-  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+  .job-action-btn { width: 100%; min-height: 44px; padding: 12px 16px; font-size: 15px; font-weight: 600; }
+  .job-action-complete { background: var(--accent); color: #0a0a0a; }
+  .job-action-complete:hover { background: #22c55e; color: #0a0a0a; }
+  .job-action-done { opacity: 0.7; cursor: not-allowed; }
+  .badge { display: inline-block; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; flex-shrink: 0; }
   .badge-scheduled { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
   .badge-inprogress { background: rgba(234, 179, 8, 0.25); color: #fde047; }
   .badge-completed { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .photo-required-msg { font-size: 13px; color: var(--primary); margin: 0 0 8px 0; }
+  .photo-required-msg { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; }
+  .crew-empty { padding: 24px; text-align: center; }
+  .crew-empty p { margin: 0; color: var(--text-muted); }
+  @media (max-width: 768px) {
+    .crew-today-header { flex-direction: column; gap: 14px; }
+    .crew-today-header h1 { font-size: 22px; }
+    .clock-widget { width: 100%; }
+    .clock-form { flex: 1; justify-content: space-between; }
+    .clock-btn { min-height: 48px; padding: 12px 20px; font-size: 15px; }
+    .job-card { padding: 16px; }
+    .job-card-address { font-size: 15px; }
+  }
 </style>
 {% endblock %}
