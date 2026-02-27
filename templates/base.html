@@ -436,8 +436,6 @@
       {% endfor %}
     </div>
     {% endif %}
-    {% block content %}{% endblock %}
-  </main>
   {% else %}
   <!-- App layout (with sidebar) -->
   <main class="main-wrap">
@@ -457,8 +455,12 @@
         {% endfor %}
       </div>
       {% endif %}
-      {% block content %}{% endblock %}
+  {% endif %}
+    {% block content %}{% endblock %}
+  {% if user.is_authenticated and request.path != '/' %}
     </div>
+  </main>
+  {% else %}
   </main>
   {% endif %}
 
