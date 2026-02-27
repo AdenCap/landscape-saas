@@ -44,26 +44,102 @@ def _get_crew_legend(business):
 
 @role_required("owner", "crew")
 def job_list(request):
-    """List current and upcoming jobs (scheduled today or in the future), plus unscheduled."""
+    """
+    List jobs with filtering options:
+    - Default: upcoming jobs (today and future) + unscheduled
+    - Filter by: past 7 days, past 30 days, this month, specific date, or all completed jobs
+    """
     business = get_business(request)
     if not business:
         return redirect("/")
     today = timezone.now().date()
+    
+    # Base queryset
     qs = Job.objects.filter(
         property__customer__business=business,
-    ).select_related('property', 'property__customer', 'assigned_to', 'assigned_crew').prefetch_related('service_items__service').order_by('scheduled_date', 'scheduled_time', 'id')
+    ).select_related('property', 'property__customer', 'assigned_to', 'assigned_crew').prefetch_related('service_items__service')
+    
+    # Crew filter: only see jobs assigned to them
     if getattr(request.user, 'role', None) == 'crew':
         qs = qs.filter(
             Q(assigned_to=request.user) |
             Q(assigned_crew__members=request.user) |
             Q(assigned_crew__crew_leader=request.user)
         ).distinct()
-    upcoming = list(qs.filter(scheduled_date__gte=today))
-    unscheduled = list(qs.filter(scheduled_date__isnull=True))[:30]
+    
+    # Get filter parameter
+    filter_type = request.GET.get('filter', '').strip()
+    filter_date = request.GET.get('date', '').strip()
+    
+    upcoming = []
+    past_jobs = []
+    unscheduled = []
+    filter_label = "Upcoming"
+    
+    if filter_type == 'past_7_days':
+        start_date = today - timedelta(days=7)
+        past_jobs = list(qs.filter(
+            scheduled_date__gte=start_date,
+            scheduled_date__lt=today
+        ).order_by('-scheduled_date', 'scheduled_time', 'id'))
+        filter_label = "Past 7 Days"
+    elif filter_type == 'past_30_days':
+        start_date = today - timedelta(days=30)
+        past_jobs = list(qs.filter(
+            scheduled_date__gte=start_date,
+            scheduled_date__lt=today
+        ).order_by('-scheduled_date', 'scheduled_time', 'id'))
+        filter_label = "Past 30 Days"
+    elif filter_type == 'this_month':
+        month_start = today.replace(day=1)
+        past_jobs = list(qs.filter(
+            scheduled_date__gte=month_start,
+            scheduled_date__lt=today
+        ).order_by('-scheduled_date', 'scheduled_time', 'id'))
+        filter_label = "This Month (Past)"
+    elif filter_type == 'completed':
+        # All completed jobs, regardless of date
+        past_jobs = list(qs.filter(
+            status='completed'
+        ).order_by('-scheduled_date', 'scheduled_time', 'id'))
+        filter_label = "All Completed Jobs"
+    elif filter_type == 'date' and filter_date:
+        # Specific date filter
+        try:
+            from datetime import datetime as dt
+            target_date = dt.strptime(filter_date, '%Y-%m-%d').date()
+            past_jobs = list(qs.filter(
+                scheduled_date=target_date
+            ).order_by('scheduled_time', 'id'))
+            filter_label = f"Jobs on {target_date.strftime('%B %d, %Y')}"
+        except (ValueError, TypeError):
+            # Invalid date, fall back to default
+            pass
+    
+    # Default: show upcoming and unscheduled
+    if not filter_type:
+        upcoming = list(qs.filter(scheduled_date__gte=today).order_by('scheduled_date', 'scheduled_time', 'id'))
+        unscheduled = list(qs.filter(scheduled_date__isnull=True).order_by('-created_at')[:30])
+    
+    # Get counts for filter badges
+    completed_count = qs.filter(status='completed').count()
+    past_7_days_count = qs.filter(scheduled_date__gte=today - timedelta(days=7), scheduled_date__lt=today).count()
+    past_30_days_count = qs.filter(scheduled_date__gte=today - timedelta(days=30), scheduled_date__lt=today).count()
+    month_start = today.replace(day=1)
+    this_month_past_count = qs.filter(scheduled_date__gte=month_start, scheduled_date__lt=today).count()
+    
     return render(request, 'jobs/job_list.html', {
         'upcoming_jobs': upcoming,
+        'past_jobs': past_jobs,
         'unscheduled_jobs': unscheduled,
         'today': today,
+        'filter_type': filter_type,
+        'filter_date': filter_date,
+        'filter_label': filter_label,
+        'completed_count': completed_count,
+        'past_7_days_count': past_7_days_count,
+        'past_30_days_count': past_30_days_count,
+        'this_month_past_count': this_month_past_count,
     })
 
 
