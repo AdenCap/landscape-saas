@@ -47,14 +47,15 @@ def subscription_status(request):
 def create_checkout_session(request):
     """Create Stripe Checkout Session for subscription; redirect to Stripe."""
     if not _stripe_enabled():
-        messages.error(request, "Subscription is not configured. Please contact support.")
+        messages.info(request, "Subscription setup is in progress. Please contact support to activate your account.")
         return redirect("subscription:status")
     price_id = _get_price_id()
     if not price_id:
-        messages.error(request, "Subscription price is not configured. Please contact support.")
+        messages.info(request, "Subscription setup is in progress. Please contact support to activate your account.")
         return redirect("subscription:status")
     business = get_business(request)
     if not business:
+        messages.error(request, "No business associated with your account.")
         return redirect("/")
     stripe.api_key = settings.STRIPE_SECRET_KEY
     success_url = request.build_absolute_uri(reverse("subscription:success") + "?session_id={CHECKOUT_SESSION_ID}")
@@ -85,7 +86,10 @@ def create_checkout_session(request):
             )
         return redirect(session.url)
     except stripe.StripeError as e:
-        messages.error(request, f"Could not start checkout: {e.user_message or str(e)}")
+        messages.warning(request, f"Unable to start checkout at this time. Please try again or contact support if the issue persists.")
+        return redirect("subscription:status")
+    except Exception as e:
+        messages.warning(request, "An error occurred while setting up checkout. Please contact support.")
         return redirect("subscription:status")
 
 
@@ -105,11 +109,11 @@ def checkout_success(request):
 def create_portal_session(request):
     """Create Stripe Customer Portal session so the owner can manage subscription (cancel, update payment)."""
     if not _stripe_enabled():
-        messages.error(request, "Subscription is not configured.")
+        messages.info(request, "Subscription management is not available at this time.")
         return redirect("subscription:status")
     business = get_business(request)
     if not business or not business.stripe_customer_id:
-        messages.error(request, "No subscription to manage.")
+        messages.info(request, "No active subscription found to manage.")
         return redirect("subscription:status")
     stripe.api_key = settings.STRIPE_SECRET_KEY
     return_url = request.build_absolute_uri(reverse("subscription:status"))
@@ -120,7 +124,10 @@ def create_portal_session(request):
         )
         return redirect(session.url)
     except stripe.StripeError as e:
-        messages.error(request, f"Could not open billing portal: {e.user_message or str(e)}")
+        messages.warning(request, "Unable to open billing portal at this time. Please try again later.")
+        return redirect("subscription:status")
+    except Exception as e:
+        messages.warning(request, "An error occurred. Please contact support if the issue persists.")
         return redirect("subscription:status")
 
 

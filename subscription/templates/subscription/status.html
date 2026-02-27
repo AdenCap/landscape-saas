@@ -5,7 +5,11 @@
 {% block content %}
 <div class="page-header">
   <h1>Platform subscription</h1>
+  {% if has_active_subscription %}
   <p>Your subscription for {{ business.name }} – manage billing and payment method.</p>
+  {% else %}
+  <p>Subscribe to unlock full access to Field Ops for {{ business.name }}.</p>
+  {% endif %}
 </div>
 
 <div class="card" style="max-width: 520px;">
@@ -20,17 +24,25 @@
   </form>
   <p class="help" style="margin-top: 12px;">Update payment method, view invoices, or cancel in the Stripe Customer Portal.</p>
   {% else %}
+  <div style="padding: 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; margin-bottom: 20px;">
+    <p style="margin: 0 0 8px 0; font-weight: 600; color: #fca5a5;">You do not have an active subscription</p>
+    <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Subscribe to access all features of Field Ops.</p>
+  </div>
   {% if stripe_enabled %}
-  <p style="margin: 0 0 20px 0;">Subscribe to access Field Ops. You’ll be charged by the platform according to the selected plan.</p>
   <form method="post" action="{% url 'subscription:create_checkout' %}">
     {% csrf_token %}
-    <button type="submit" class="btn btn-primary">Subscribe now</button>
+    <button type="submit" class="btn btn-primary" style="width: 100%;">Subscribe now</button>
   </form>
+  <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">You'll be redirected to our secure checkout page to complete your subscription.</p>
   {% else %}
-  <p class="muted">Subscription is not configured. Please contact support to get access.</p>
+  <div style="padding: 16px; background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 10px;">
+    <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Subscription setup is in progress. Please contact support to activate your account.</p>
+  </div>
   {% endif %}
   {% endif %}
 </div>
 
-<p style="margin-top: 24px;"><a href="/" class="btn btn-secondary">Back to dashboard</a></p>
+{% if has_active_subscription %}
+<p style="margin-top: 24px;"><a href="/dashboard/" class="btn btn-secondary">Back to dashboard</a></p>
+{% endif %}
 {% endblock %}
