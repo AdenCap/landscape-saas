@@ -1,55 +1,67 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Job Calendar</h1>
-  <p>Drag jobs to reschedule · Click to edit crew, client, and notes</p>
-</div>
-
-<div class="quick-actions" style="margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
-  <a href="{% url 'daily_route' %}" class="btn btn-primary">View Daily Routes</a>
-  <a href="{% url 'crew_today' %}" class="btn btn-secondary">Crew Today</a>
-  {% if user.role == "owner" %}
-  <a href="{% url 'meeting_create' %}" class="btn btn-secondary">+ Add meeting</a>
-  {% endif %}
-  <a href="/" class="btn btn-secondary">Back to Dashboard</a>
-  <div class="crew-legend" style="display: flex; flex-wrap: wrap; gap: 12px; margin-left: auto; align-items: center;">
-    {% for item in crew_legend %}
-    <span class="legend-item" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px;">
-      <span class="legend-dot" style="width: 12px; height: 12px; border-radius: 4px; background: {{ item.color }};"></span>
-      {{ item.name }}
-    </span>
-    {% endfor %}
-    <span class="legend-note" style="font-size: 12px; color: var(--text-muted);">✓ = completed</span>
+<div class="calendar-page-header">
+  <div class="calendar-header-main">
+    <h1>Calendar</h1>
+    <p class="calendar-subtitle">Drag to reschedule · Click to edit crew, client, notes</p>
+  </div>
+  <div class="calendar-actions">
+    <a href="{% url 'daily_route' %}" class="btn btn-primary">Daily Routes</a>
+    <a href="{% url 'crew_today' %}" class="btn btn-secondary">Crew Today</a>
     {% if user.role == "owner" %}
-    <span class="legend-item" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px;">
-      <span class="legend-dot" style="width: 12px; height: 12px; border-radius: 4px; background: #7c3aed;"></span>
-      Meetings
-    </span>
+    <a href="{% url 'meeting_create' %}" class="btn btn-secondary">+ Meeting</a>
     {% endif %}
+    <a href="/" class="btn btn-secondary">Dashboard</a>
   </div>
 </div>
 
-<div class="calendar-filters card" style="padding: 16px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center;">
-  <div class="filter-group" style="display: flex; align-items: center; gap: 8px;">
-    <label for="filter-services" style="font-size: 13px; font-weight: 500; color: var(--text-muted);">Service:</label>
-    <select id="filter-services" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; min-width: 140px;">
-      <option value="">All services</option>
-      {% for s in filter_services %}
-      <option value="{{ s.id }}">{{ s.name }}</option>
-      {% endfor %}
-    </select>
+<div class="calendar-tools card">
+  <div class="calendar-tools-row">
+    <div class="tool-group">
+      <label for="calendar-goto-date">Go to date</label>
+      <div class="tool-input-row">
+        <input type="date" id="calendar-goto-date" class="calendar-date-input" aria-label="Jump to date">
+        <button type="button" id="calendar-goto-btn" class="btn btn-secondary btn-sm">Go</button>
+      </div>
+    </div>
+    <div class="tool-group">
+      <label for="calendar-search">Search jobs</label>
+      <div class="tool-input-row">
+        <input type="text" id="calendar-search" class="calendar-search-input" placeholder="Address, client, or service" aria-label="Search jobs">
+        <button type="button" id="calendar-search-btn" class="btn btn-secondary btn-sm">Search</button>
+      </div>
+    </div>
+    <div class="tool-group">
+      <label for="filter-services">Service</label>
+      <select id="filter-services">
+        <option value="">All</option>
+        {% for s in filter_services %}
+        <option value="{{ s.id }}">{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="tool-group">
+      <label for="filter-crews">Crew</label>
+      <select id="filter-crews">
+        <option value="">All</option>
+        {% for c in filter_crews %}
+        <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="button" id="filter-apply" class="btn btn-primary btn-sm align-self-end">Apply</button>
   </div>
-  <div class="filter-group" style="display: flex; align-items: center; gap: 8px;">
-    <label for="filter-crews" style="font-size: 13px; font-weight: 500; color: var(--text-muted);">Crew:</label>
-    <select id="filter-crews" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; min-width: 140px;">
-      <option value="">All crews</option>
-      {% for c in filter_crews %}
-      <option value="{{ c.id }}">{{ c.name }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <button type="button" id="filter-apply" class="btn btn-secondary btn-sm">Apply filters</button>
+</div>
+
+<div class="crew-legend-bar">
+  {% for item in crew_legend %}
+  <span class="legend-item"><span class="legend-dot" style="background: {{ item.color }};"></span>{{ item.name }}</span>
+  {% endfor %}
+  <span class="legend-note">✓ completed</span>
+  {% if user.role == "owner" %}
+  <span class="legend-item"><span class="legend-dot" style="background: #7c3aed;"></span>Meetings</span>
+  {% endif %}
 </div>
 
 <div class="card calendar-drop-zone" style="padding: 20px;" id="calendar-wrapper">
@@ -197,6 +209,9 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  var STORAGE_VIEW = 'fieldops_calendar_view';
+  var STORAGE_DATE = 'fieldops_calendar_date';
+
   function getCsrfToken() {
     var el = document.querySelector('[name=csrfmiddlewaretoken]');
     if (el && el.value) return el.value;
@@ -207,13 +222,21 @@ document.addEventListener('DOMContentLoaded', function () {
   var csrf = getCsrfToken();
   var isOwner = {% if user.role == "owner" %}true{% else %}false{% endif %};
 
+  var savedView = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_VIEW)) || 'dayGridMonth';
+  var savedDate = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_DATE) : null;
+  var initialDate = null;
+  if (savedDate && /^\d{4}-\d{2}-\d{2}$/.test(savedDate)) {
+    initialDate = savedDate;
+  }
+
   var calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
     headerToolbar: {
       left: 'prev,next today',
       center: 'title',
       right: 'dayGridMonth,timeGridWeek,timeGridDay'
     },
-    initialView: 'dayGridMonth',
+    initialView: savedView,
+    initialDate: initialDate || undefined,
     views: {
       dayGridMonth: { buttonText: 'Month' },
       timeGridWeek: { buttonText: 'Week' },
@@ -230,19 +253,30 @@ document.addEventListener('DOMContentLoaded', function () {
     events: function(info, successCallback, failureCallback) {
       var svc = document.getElementById('filter-services');
       var crew = document.getElementById('filter-crews');
-      var params = '';
-      if (svc && svc.value) params += '&services=' + svc.value;
-      if (crew && crew.value) params += '&crews=' + crew.value;
-      fetch('/jobs/calendar/events/' + (params ? '?' + params.slice(1) : ''))
+      var searchEl = document.getElementById('calendar-search');
+      var params = [];
+      if (svc && svc.value) params.push('services=' + encodeURIComponent(svc.value));
+      if (crew && crew.value) params.push('crews=' + encodeURIComponent(crew.value));
+      if (searchEl && searchEl.value.trim()) params.push('search=' + encodeURIComponent(searchEl.value.trim()));
+      var qs = params.length ? '?' + params.join('&') : '';
+      fetch('/jobs/calendar/events/' + qs)
         .then(function(r) { return r.json(); })
         .then(successCallback)
         .catch(failureCallback);
     },
-    eventDidMount: function(arg) {
-      var bg = arg.event.backgroundColor;
-      var border = arg.event.borderColor;
-      if (bg) arg.el.style.backgroundColor = bg;
-      if (border) arg.el.style.borderColor = border;
+    datesSet: function(info) {
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem(STORAGE_VIEW, info.view.type);
+          var start = info.view.currentStart;
+          if (start && start.getFullYear) {
+            var y = start.getFullYear();
+            var m = String(start.getMonth() + 1).padStart(2, '0');
+            var d = String(start.getDate()).padStart(2, '0');
+            localStorage.setItem(STORAGE_DATE, y + '-' + m + '-' + d);
+          }
+        } catch (e) {}
+      }
     },
     eventContent: function(arg) {
       var html = document.createElement('div');
@@ -323,6 +357,10 @@ document.addEventListener('DOMContentLoaded', function () {
       openJobModal(jobId);
     },
     eventDidMount: function (info) {
+      var bg = info.event.backgroundColor;
+      var border = info.event.borderColor;
+      if (bg) info.el.style.backgroundColor = bg;
+      if (border) info.el.style.borderColor = border;
       var p = info.event.extendedProps || {};
       if (p.type === 'meeting') {
         info.el.title = (p.customer ? p.customer + ' — ' : '') + (info.event.title || 'Meeting');
@@ -332,6 +370,40 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
   calendar.render();
+
+  document.getElementById('calendar-goto-btn').addEventListener('click', function() {
+    var inp = document.getElementById('calendar-goto-date');
+    var val = inp && inp.value ? inp.value.trim() : '';
+    if (val) {
+      calendar.gotoDate(val);
+    } else {
+      calendar.today();
+      if (inp) inp.value = formatDateForInput(calendar.getDate());
+    }
+  });
+  function formatDateForInput(d) {
+    if (!d || !d.getFullYear) return '';
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+  calendar.on('datesSet', function() {
+    var inp = document.getElementById('calendar-goto-date');
+    if (inp) inp.value = formatDateForInput(calendar.getDate());
+  });
+  var gotoInp = document.getElementById('calendar-goto-date');
+  if (gotoInp) gotoInp.value = initialDate || formatDateForInput(calendar.getDate());
+
+  document.getElementById('calendar-search-btn').addEventListener('click', function() {
+    calendar.refetchEvents();
+  });
+  document.getElementById('calendar-search').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      calendar.refetchEvents();
+    }
+  });
 
   function openJobModal(jobId) {
     fetch('/jobs/calendar/job/' + jobId + '/')
@@ -815,6 +887,31 @@ document.addEventListener('DOMContentLoaded', function () {
     gap: 10px;
     padding: 20px;
     border-top: 1px solid var(--border);
+  }
+  .calendar-page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
+  .calendar-header-main { min-width: 0; }
+  .calendar-page-header h1 { margin: 0 0 4px 0; font-size: 26px; font-weight: 700; }
+  .calendar-subtitle { margin: 0; color: var(--text-muted); font-size: 15px; }
+  .calendar-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .calendar-tools { padding: 16px; margin-bottom: 12px; }
+  .calendar-tools-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+  .tool-group { display: flex; flex-direction: column; gap: 6px; }
+  .tool-group label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+  .tool-input-row { display: flex; gap: 8px; align-items: center; }
+  .calendar-date-input, .calendar-search-input { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px; }
+  .calendar-search-input { min-width: 200px; }
+  .tool-group select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px; min-width: 140px; }
+  .align-self-end { align-self: flex-end; }
+  .crew-legend-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; font-size: 13px; color: var(--text-muted); }
+  .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
+  .legend-note { font-size: 12px; }
+  @media (max-width: 768px) {
+    .calendar-page-header { flex-direction: column; }
+    .calendar-page-header h1 { font-size: 22px; }
+    .calendar-tools-row { flex-direction: column; align-items: stretch; }
+    .tool-group select, .calendar-search-input { min-width: 0; width: 100%; }
+    .calendar-date-input { flex: 1; min-height: 44px; font-size: 16px; }
   }
   #calendar {
     min-height: 600px;

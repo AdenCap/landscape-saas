@@ -273,6 +273,14 @@ def calendar_events(request):
         if cids:
             jobs = jobs.filter(assigned_crew_id__in=cids)
 
+    search = (request.GET.get("search") or "").strip()
+    if search:
+        jobs = jobs.filter(
+            Q(property__address__icontains=search)
+            | Q(property__customer__name__icontains=search)
+            | Q(service_items__service__name__icontains=search)
+        ).distinct()
+
     crew_colors = {c.id: (c.color or CREW_COLORS[i % len(CREW_COLORS)]) for i, c in enumerate(Crew.objects.filter(business=business).order_by("name"))} if business else {}
     user_colors = {}
     if business:
@@ -345,6 +353,10 @@ def calendar_events(request):
     # Owner-only: add meetings to calendar
     if business and getattr(request.user, "role", None) == "owner":
         meetings = Meeting.objects.filter(business=business).select_related("customer").order_by("scheduled_at")
+        if search:
+            meetings = meetings.filter(
+                Q(title__icontains=search) | Q(customer__name__icontains=search)
+            )
         meeting_color = "#7c3aed"
         for m in meetings:
             start_dt = m.scheduled_at
