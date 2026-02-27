@@ -10,11 +10,16 @@ User = get_user_model()
 
 
 class SignUpForm(UserCreationForm):
-    """Public signup: create a business and an owner user."""
+    """Public signup: create a business and an owner user. Email required for password reset."""
     business_name = forms.CharField(
         max_length=255,
         label="Business name",
         help_text="Your company or business name.",
+    )
+    email = forms.EmailField(
+        required=True,
+        label="Email",
+        help_text="Required. We use this to send you a link if you forget your password.",
     )
 
     class Meta:
