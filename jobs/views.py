@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 from urllib.parse import quote
 
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -1022,49 +1023,52 @@ def create_job(request):
                         "unit_price": str(rate),
                     })
 
-            recurring_job = None
-            if repeat_freq and sched_date:
-                recurring_job = RecurringJob.objects.create(
+            # Wrap job creation in transaction to ensure atomicity
+            # If any part fails (recurring job, job, service items), everything rolls back
+            with transaction.atomic():
+                recurring_job = None
+                if repeat_freq and sched_date:
+                    recurring_job = RecurringJob.objects.create(
+                        property=prop,
+                        frequency=repeat_freq,
+                        custom_interval_days=custom_days,
+                        start_date=sched_date,
+                        active=True,
+                        assigned_to=assigned_to,
+                        assigned_crew=assigned_crew,
+                        notes=form.cleaned_data.get("notes") or "",
+                        service_snapshot=service_snapshot,
+                    )
+
+                job = Job.objects.create(
                     property=prop,
-                    frequency=repeat_freq,
-                    custom_interval_days=custom_days,
-                    start_date=sched_date,
-                    active=True,
+                    scheduled_date=sched_date,
+                    scheduled_time=sched_time,
                     assigned_to=assigned_to,
                     assigned_crew=assigned_crew,
                     notes=form.cleaned_data.get("notes") or "",
-                    service_snapshot=service_snapshot,
+                    status="scheduled",
+                    color=color_val if color_val else None,
+                    recurring_job=recurring_job,
                 )
-
-            job = Job.objects.create(
-                property=prop,
-                scheduled_date=sched_date,
-                scheduled_time=sched_time,
-                assigned_to=assigned_to,
-                assigned_crew=assigned_crew,
-                notes=form.cleaned_data.get("notes") or "",
-                status="scheduled",
-                color=color_val if color_val else None,
-                recurring_job=recurring_job,
-            )
-            assignee = assigned_crew.name if assigned_crew else (assigned_to.get_full_name() or assigned_to.username if assigned_to else "Unassigned")
-            JobAssignmentLog.objects.create(job=job, user=request.user, details=f"Job created; assigned to {assignee}")
-            for form_data in formset:
-                if form_data.cleaned_data.get("service"):
-                    service = form_data.cleaned_data["service"]
-                    qty = form_data.cleaned_data["quantity"]
-                    unit, rate = get_effective_rate(prop, service)
-                    override_price = form_data.cleaned_data.get("unit_price")
-                    if override_price is not None:
-                        rate = override_price
-                    unit = getattr(service, "default_unit", None) or unit
-                    JobServiceItem.objects.create(
-                        job=job,
-                        service=service,
-                        quantity=qty,
-                        unit=unit,
-                        unit_price=rate,
-                    )
+                assignee = assigned_crew.name if assigned_crew else (assigned_to.get_full_name() or assigned_to.username if assigned_to else "Unassigned")
+                JobAssignmentLog.objects.create(job=job, user=request.user, details=f"Job created; assigned to {assignee}")
+                for form_data in formset:
+                    if form_data.cleaned_data.get("service"):
+                        service = form_data.cleaned_data["service"]
+                        qty = form_data.cleaned_data["quantity"]
+                        unit, rate = get_effective_rate(prop, service)
+                        override_price = form_data.cleaned_data.get("unit_price")
+                        if override_price is not None:
+                            rate = override_price
+                        unit = getattr(service, "default_unit", None) or unit
+                        JobServiceItem.objects.create(
+                            job=job,
+                            service=service,
+                            quantity=qty,
+                            unit=unit,
+                            unit_price=rate,
+                        )
             if recurring_job:
                 msg = f"Recurring job created for {prop.address} ({recurring_job.get_frequency_display()}); first date {sched_date}. Future dates will be generated automatically."
             else:
@@ -1162,8 +1166,17 @@ def job_delete(request, job_id):
         Job,
         id=job_id,
         property__customer__business=business,
+        # deleted_at__isnull=True is automatically handled by JobManager
     )
-    job.delete()
+    # Soft delete: mark as deleted and log the action
+    job._deleting_user = request.user  # Pass user to delete() method
+    with transaction.atomic():
+        job.delete()  # This now does soft delete
+        JobAssignmentLog.objects.create(
+            job=job,
+            user=request.user,
+            details=f"Job deleted (soft delete) at {job.deleted_at}"
+        )
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return JsonResponse({"status": "ok"})
     messages.success(request, "Job deleted.")

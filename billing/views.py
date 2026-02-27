@@ -7,6 +7,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib import messages
 from django.core.mail import EmailMultiAlternatives
+from django.db import transaction
 from django.http import FileResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
@@ -219,28 +220,30 @@ def invoice_edit_line_items(request, invoice_id):
 
     formset = InvoiceLineItemFormSet(request.POST or None, instance=invoice)
     if request.method == "POST" and formset.is_valid():
-        for form in formset:
-            if form in formset.deleted_forms:
-                if form.instance.pk:
-                    form.instance.delete()
-                continue
-            obj = form.save(commit=False)
-            desc = (getattr(obj, "description", None) or "").strip()
-            if not desc:
-                if obj.pk:
-                    obj.delete()
-                continue
-            obj.description = desc
-            obj.quantity = obj.quantity or 1
-            obj.unit_price = getattr(obj, "unit_price", None) or 0
-            obj.save()
-        invoice.recompute_totals()
-        _log_invoice_audit(
-            invoice,
-            "line_items_edited",
-            request=request,
-            details={"line_count": invoice.line_items.count()},
-        )
+        # Wrap in transaction to ensure all line items save atomically
+        with transaction.atomic():
+            for form in formset:
+                if form in formset.deleted_forms:
+                    if form.instance.pk:
+                        form.instance.delete()
+                    continue
+                obj = form.save(commit=False)
+                desc = (getattr(obj, "description", None) or "").strip()
+                if not desc:
+                    if obj.pk:
+                        obj.delete()
+                    continue
+                obj.description = desc
+                obj.quantity = obj.quantity or 1
+                obj.unit_price = getattr(obj, "unit_price", None) or 0
+                obj.save()
+            invoice.recompute_totals()
+            _log_invoice_audit(
+                invoice,
+                "line_items_edited",
+                request=request,
+                details={"line_count": invoice.line_items.count()},
+            )
         messages.success(request, "Line items updated.")
         return redirect("billing:invoice_detail", invoice_id=invoice.id)
 

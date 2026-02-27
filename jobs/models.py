@@ -10,6 +10,20 @@ from datetime import timedelta
 from decimal import Decimal
 from pricing.models import ServiceTemplate
 
+
+class JobManager(models.Manager):
+    """Custom manager that excludes soft-deleted jobs by default."""
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+    def with_deleted(self):
+        """Return queryset including deleted jobs."""
+        return super().get_queryset()
+
+    def deleted_only(self):
+        """Return only deleted jobs."""
+        return super().get_queryset().filter(deleted_at__isnull=False)
+
 DEFAULT_COLORS = [
     '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
     '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
@@ -137,11 +151,45 @@ class Job(models.Model):
         help_text="Set when this job was auto-generated from a recurring schedule.",
     )
 
+    # Soft delete: mark as deleted instead of permanently removing
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this job was soft-deleted. Null means not deleted."
+    )
+    deleted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='deleted_jobs',
+        help_text='User who deleted this job'
+    )
+
     def __str__(self):
         return f"{self.property.address} - {self.scheduled_date or 'Unscheduled'}"
 
+    def delete(self, using=None, keep_parents=False):
+        """Soft delete: mark as deleted instead of permanently removing."""
+        from django.utils import timezone
+        self.deleted_at = timezone.now()
+        self.deleted_by = getattr(self, '_deleting_user', None)
+        self.save(update_fields=['deleted_at', 'deleted_by'])
+
+    def hard_delete(self):
+        """Permanently delete this job (use with caution)."""
+        super().delete()
+
+    def is_deleted(self):
+        """Check if this job is soft-deleted."""
+        return self.deleted_at is not None
+
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
+
+    # Custom manager: automatically excludes deleted jobs (defined after methods)
+    objects = JobManager()
+    all_objects = models.Manager()  # Access to all jobs including deleted
 
 
 class JobIssue(models.Model):
