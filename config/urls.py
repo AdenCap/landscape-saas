@@ -27,7 +27,7 @@ from config.platform_views import (
     platform_home, platform_enter, platform_exit,
     admin_users, admin_grant, admin_revoke
 )
-from config.marketing_views import marketing_home
+from config.marketing_views import marketing_home, terms_of_service, privacy_policy
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -41,8 +41,10 @@ urlpatterns = [
     path("platform/admins/<int:user_id>/grant/", admin_grant, name="platform_admin_grant"),
     path("platform/admins/<int:user_id>/revoke/", admin_revoke, name="platform_admin_revoke"),
 
-    # Public marketing homepage. Authenticated users are redirected into the app.
+    # Public marketing pages
     path("", marketing_home, name="marketing_home"),
+    path("terms/", terms_of_service, name="terms_of_service"),
+    path("privacy/", privacy_policy, name="privacy_policy"),
 
     # Main app (company dashboards)
     path("dashboard/", include("dashboard.urls")),

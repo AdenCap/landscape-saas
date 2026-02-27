@@ -20,3 +20,12 @@ def marketing_home(request):
 
     return render(request, "marketing/landing.html")
 
+
+def terms_of_service(request):
+    """Terms of Service page."""
+    return render(request, "marketing/terms.html")
+
+
+def privacy_policy(request):
+    """Privacy Policy page."""
+    return render(request, "marketing/privacy.html")
