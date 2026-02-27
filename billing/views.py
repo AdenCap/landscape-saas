@@ -338,7 +338,11 @@ def _stripe_connect_enabled():
 def connect_onboarding(request):
     """Start or resume Stripe Connect Express onboarding; redirect to Stripe."""
     if not _stripe_connect_enabled():
-        messages.error(request, "Stripe is not configured. Contact support.")
+        messages.info(
+            request,
+            "Stripe payment processing is not yet enabled on the platform. "
+            "Please contact your administrator to enable credit card payments."
+        )
         return redirect("business_settings")
     business = _get_business(request)
     if not business:
@@ -387,7 +391,11 @@ def connect_return(request):
 def connect_dashboard(request):
     """Redirect to Stripe Express Dashboard for the connected account."""
     if not _stripe_connect_enabled():
-        messages.error(request, "Stripe is not configured.")
+        messages.info(
+            request,
+            "Stripe payment processing is not yet enabled on the platform. "
+            "Please contact your administrator to enable credit card payments."
+        )
         return redirect("business_settings")
     business = _get_business(request)
     if not business or not business.stripe_connect_account_id:
@@ -419,7 +427,7 @@ def create_invoice_checkout_session(request, invoice_id, token):
         messages.error(request, "Card payment is not available for this invoice.")
         return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
     if not _stripe_connect_enabled():
-        messages.error(request, "Payment is not configured.")
+        messages.info(request, "Credit card payment is not available. Please use another payment method.")
         return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
     stripe.api_key = settings.STRIPE_SECRET_KEY
     invoice.recompute_totals()

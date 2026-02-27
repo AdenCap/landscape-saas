@@ -119,7 +119,11 @@
       {% if stripe_connect_fee_percent %}
       <p class="help">Platform fee on card payments: {{ stripe_connect_fee_percent }}% (set by platform).</p>
       {% endif %}
-      {% if business.stripe_connect_account_id %}
+      {% if not stripe_connect_enabled %}
+      <div class="alert alert-warning" style="margin-top: 12px;">
+        <p style="margin: 0; font-size: 14px;">Credit card payments are not yet enabled on the platform. Contact your administrator to enable Stripe payment processing.</p>
+      </div>
+      {% elif business.stripe_connect_account_id %}
         {% if business.stripe_connect_charges_enabled %}
         <p class="help status-connected">Stripe connected. Customers can pay invoices by card.</p>
         <a href="{% url 'billing:connect_dashboard' %}" class="btn btn-secondary">Stripe Express dashboard</a>

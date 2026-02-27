@@ -44,12 +44,16 @@ def business_settings(request):
         fee_percent = getattr(settings, "STRIPE_CONNECT_APPLICATION_FEE_PERCENT", 0) or 0
     else:
         fee_percent = float(fee_percent)
+    # Check if Stripe Connect is enabled at platform level
+    from django.conf import settings
+    stripe_connect_enabled = bool(getattr(settings, "STRIPE_SECRET_KEY", None))
     return render(request, "businesses/business_settings.html", {
         "form": form,
         "business": business,
         "has_2fa": has_2fa,
         "trusted_devices": trusted_devices,
         "stripe_connect_fee_percent": fee_percent,
+        "stripe_connect_enabled": stripe_connect_enabled,
     })
 
 
