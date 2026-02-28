@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="doc-templates-page">
+  <header class="doc-templates-header">
+    <h1>Document templates</h1>
+    <p class="doc-templates-subtitle">Customize how your estimates and invoices look. Choose a style, set your branding, and add any custom fields your business needs.</p>
+  </header>
+
+  <div class="doc-templates-grid">
+    <div class="card doc-template-card">
+      <div class="doc-template-card-body">
+        <h2 class="doc-template-title">Estimate template</h2>
+        <p class="doc-template-desc">Layout, colors, header, footer, terms, and custom fields for estimates you send to clients.</p>
+        {% if estimate_template %}
+        <p class="doc-template-meta">Current: {{ estimate_template.name }}</p>
+        {% endif %}
+        <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="btn btn-primary">Customize estimate template</a>
+      </div>
+    </div>
+    <div class="card doc-template-card">
+      <div class="doc-template-card-body">
+        <h2 class="doc-template-title">Invoice template</h2>
+        <p class="doc-template-desc">Layout, colors, header, footer, terms, and custom fields for invoices.</p>
+        {% if invoice_template %}
+        <p class="doc-template-meta">Current: {{ invoice_template.name }}</p>
+        {% endif %}
+        <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="btn btn-primary">Customize invoice template</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-templates-back">
+    <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">← Back to Billing</a>
+  </div>
+</div>
+
+<style>
+  .doc-templates-page { max-width: 720px; }
+  .doc-templates-header { margin-bottom: 28px; }
+  .doc-templates-header h1 { margin: 0 0 8px 0; font-size: 28px; font-weight: 700; }
+  .doc-templates-subtitle { margin: 0; color: var(--text-muted); font-size: 16px; line-height: 1.5; }
+  .doc-templates-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+  @media (max-width: 600px) { .doc-templates-grid { grid-template-columns: 1fr; } }
+  .doc-template-card { padding: 24px; }
+  .doc-template-title { margin: 0 0 10px 0; font-size: 18px; font-weight: 600; }
+  .doc-template-desc { margin: 0 0 14px 0; font-size: 15px; color: var(--text-muted); line-height: 1.5; }
+  .doc-template-meta { margin: 0 0 16px 0; font-size: 13px; color: var(--text-muted); }
+  .doc-templates-back { padding-top: 16px; border-top: 1px solid var(--border); }
+</style>
+{% endblock %}

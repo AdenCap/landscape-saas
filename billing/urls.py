@@ -7,6 +7,7 @@ urlpatterns = [
     path("monthly/", views.monthly_invoice_list, name="monthly_invoice_list"),
     path("<int:invoice_id>/", views.invoice_detail, name="invoice_detail"),
     path("<int:invoice_id>/update-dates/", views.invoice_update_dates, name="invoice_update_dates"),
+    path("<int:invoice_id>/edit-custom-fields/", views.invoice_edit_custom_fields, name="invoice_edit_custom_fields"),
     path("<int:invoice_id>/edit-line-items/", views.invoice_edit_line_items, name="invoice_edit_line_items"),
     path("<int:invoice_id>/send/", views.send_invoice, name="send_invoice"),
     path("<int:invoice_id>/resend/", views.resend_invoice, name="resend_invoice"),
@@ -29,4 +30,6 @@ urlpatterns = [
     path("estimates/<int:estimate_id>/images/add/", views.estimate_add_image, name="estimate_add_image"),
     path("estimates/<int:estimate_id>/view/<str:token>/", views.estimate_client_view, name="estimate_client_view"),
     path("estimates/<int:estimate_id>/accept/<str:token>/", views.estimate_client_accept, name="estimate_client_accept"),
+    path("templates/", views.document_templates_list, name="document_templates_list"),
+    path("templates/<str:doc_type>/", views.document_template_edit, name="document_template_edit"),
 ]

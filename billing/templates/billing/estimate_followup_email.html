@@ -16,11 +16,8 @@
               {% if logo_url %}
               <img src="{{ logo_url }}" alt="{{ business.name }}" style="max-height:48px; max-width:160px; display:block; margin-bottom:16px;">
               {% endif %}
-              <h1 style="margin:0; font-size:22px; font-weight:700; color:#fafafa; letter-spacing:-0.02em;">Friendly reminder: {{ estimate.title }}</h1>
-              <p style="margin:10px 0 0 0; font-size:14px; color:#a3a3a3;">
-                Hi {{ customer.name }},<br>
-                We wanted to follow up on the estimate we sent you from {{ business.name }}.
-              </p>
+              <h1 style="margin:0; font-size:22px; font-weight:700; color:#fafafa; letter-spacing:-0.02em;">Reminder: {{ estimate.title }}</h1>
+              <p style="margin:10px 0 0 0; font-size:15px; color:#e5e5e5; line-height:1.6;">{% if email_intro %}{{ email_intro|linebreaksbr }}{% else %}Hi {{ customer.name }}, we wanted to follow up on the estimate we sent you from {{ business.name }}.{% endif %}</p>
             </td>
           </tr>
           <tr>
@@ -37,7 +34,7 @@
                 <tr>
                   <td style="padding:20px; text-align:center;">
                     <p style="margin:0 0 12px 0; font-weight:600; color:#fafafa;">View your estimate and respond</p>
-                    <a href="{{ view_url }}" style="display:inline-block; padding:12px 24px; background-color:#22c55e; color:#0a0a0a !important; text-decoration:none; font-weight:600; border-radius:10px; font-size:14px;">View Estimate</a>
+                    <a href="{{ view_url }}" style="display:inline-block; padding:14px 28px; background-color:{{ accent_color|default:'#22c55e' }}; color:#0a0a0a !important; text-decoration:none; font-weight:600; border-radius:10px; font-size:15px;">View Estimate</a>
                   </td>
                 </tr>
               </table>

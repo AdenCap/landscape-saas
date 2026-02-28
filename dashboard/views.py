@@ -70,8 +70,8 @@ def owner_dashboard(request):
     revenue_this_month = Invoice.objects.filter(
         business=business,
         status="paid",
-        period_start__gte=month_start,
-        period_start__lt=month_end,
+        issue_date__gte=month_start,
+        issue_date__lt=month_end,
     ).aggregate(
         total=Coalesce(
             Sum("total"),
@@ -84,8 +84,8 @@ def owner_dashboard(request):
     revenue_this_year = Invoice.objects.filter(
         business=business,
         status="paid",
-        period_start__gte=year_start,
-        period_start__lt=year_end,
+        issue_date__gte=year_start,
+        issue_date__lt=year_end,
     ).aggregate(
         total=Coalesce(
             Sum("total"),
@@ -142,21 +142,6 @@ def owner_dashboard(request):
     # --- Jobs today ---
     jobs_today = Job.objects.filter(property__customer__business=business, scheduled_date=today).count()
 
-    # --- Work completed this month (total $ of completed jobs, not payments received) ---
-    work_completed_this_month = (
-        JobServiceItem.objects.filter(
-            job__property__customer__business=business,
-            job__status="completed",
-            job__scheduled_date__gte=month_start,
-            job__scheduled_date__lt=month_end,
-        ).aggregate(
-            total=Coalesce(
-                Sum(F("quantity") * F("unit_price")),
-                Decimal("0.00"),
-                output_field=DecimalField(max_digits=12, decimal_places=2),
-            ),
-        )["total"]
-    )
 
     # --- Profit this month (revenue − costs) ---
     from financials.models import Receipt
@@ -276,7 +261,6 @@ def owner_dashboard(request):
         "today": today,
         "revenue_this_month": revenue_this_month,
         "revenue_this_year": revenue_this_year,
-        "work_completed_this_month": work_completed_this_month,
         "year_start": year_start,
         "year_end": year_end,
         "profit_this_month": profit_this_month,

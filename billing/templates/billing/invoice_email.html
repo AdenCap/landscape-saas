@@ -18,10 +18,12 @@
               {% endif %}
               <h1 style="margin:0; font-size:22px; font-weight:700; color:#fafafa; letter-spacing:-0.02em;">Invoice #{{ invoice.id }}</h1>
               <p style="margin:10px 0 0 0; font-size:14px; color:#a3a3a3;">
-                From {{ business.name }}<br>
-                Bill to: {{ invoice.customer.name }}<br>
+                From {{ business.name }} · Bill to: {{ invoice.customer.name }}<br>
                 Issue date: {{ invoice.issue_date }} · Due: {{ invoice.due_date|default:"—" }}
               </p>
+              {% if email_intro %}
+              <p style="margin:16px 0 0 0; font-size:15px; color:#e5e5e5; line-height:1.6;">{{ email_intro|linebreaksbr }}</p>
+              {% endif %}
             </td>
           </tr>
           <tr>
@@ -42,7 +44,7 @@
                   {% endfor %}
                 </tbody>
               </table>
-              <p style="margin:16px 0 0 0; font-size:18px; font-weight:700; text-align:right; color:#22c55e; border-top:2px solid #22c55e; padding-top:12px;">
+              <p style="margin:16px 0 0 0; font-size:18px; font-weight:700; text-align:right; border-top:2px solid {{ accent_color|default:'#22c55e' }}; padding-top:12px; color:{{ accent_color|default:'#22c55e' }};">
                 Total: {{ invoice.total|currency }}
               </p>
             </td>
@@ -80,9 +82,24 @@
             </td>
           </tr>
           {% endif %}
+          {% if pay_url %}
+          <tr>
+            <td style="padding:16px 24px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.4); border-radius:10px;">
+                <tr>
+                  <td style="padding:20px; text-align:center;">
+                    <p style="margin:0 0 12px 0; font-weight:600; color:#fafafa;">Pay your invoice online</p>
+                    <a href="{{ pay_url }}" style="display:inline-block; padding:14px 28px; background-color:{{ accent_color|default:'#22c55e' }}; color:#0a0a0a !important; text-decoration:none; font-weight:600; border-radius:10px; font-size:15px;">View invoice &amp; pay</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          {% endif %}
           <tr>
             <td style="padding:20px 24px; border-top:1px solid #262626; font-size:13px; color:#a3a3a3;">
-              Your invoice is attached as a PDF. This email was sent by {{ business.name }}.
+              {% if email_closing %}<p style="margin:0 0 12px 0; color:#e5e5e5;">{{ email_closing|linebreaksbr }}</p>{% endif %}
+              Your invoice is attached as a PDF. Sent by {{ business.name }}.
               {% if business.contact_email or business.contact_phone %}
               Contact: {% if business.contact_email %}{{ business.contact_email }}{% endif %}{% if business.contact_email and business.contact_phone %} · {% endif %}{% if business.contact_phone %}{{ business.contact_phone }}{% endif %}
               {% endif %}

@@ -41,6 +41,29 @@
       </div>
     </section>
 
+    {% if doc_template and doc_template.custom_fields %}
+    <section class="card estimate-edit-section">
+      <h2 class="section-title">Additional information</h2>
+      <p class="section-hint">These fields appear on your estimate document. Add any info you need (e.g. PO number, job reference).</p>
+      <div class="estimate-custom-fields">
+        {% for field in doc_template.custom_fields %}
+        <div class="form-group">
+          <label for="custom_value_{{ field.key }}">{{ field.label }}{% if field.required %} *{% endif %}</label>
+          {% if field.type == "textarea" %}
+          <textarea name="custom_value_{{ field.key }}" id="custom_value_{{ field.key }}" rows="2" class="form-control" placeholder="{{ field.label }}">{% for k, v in estimate.custom_field_values.items %}{% if k == field.key %}{{ v }}{% endif %}{% endfor %}</textarea>
+          {% elif field.type == "date" %}
+          <input type="date" name="custom_value_{{ field.key }}" id="custom_value_{{ field.key }}" value="{% for k, v in estimate.custom_field_values.items %}{% if k == field.key %}{{ v }}{% endif %}{% endfor %}" class="form-control">
+          {% elif field.type == "number" %}
+          <input type="number" name="custom_value_{{ field.key }}" id="custom_value_{{ field.key }}" value="{% for k, v in estimate.custom_field_values.items %}{% if k == field.key %}{{ v }}{% endif %}{% endfor %}" class="form-control" step="any">
+          {% else %}
+          <input type="text" name="custom_value_{{ field.key }}" id="custom_value_{{ field.key }}" value="{% for k, v in estimate.custom_field_values.items %}{% if k == field.key %}{{ v }}{% endif %}{% endfor %}" class="form-control" placeholder="{{ field.label }}">
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
     <section class="card estimate-edit-section">
       <h2 class="section-title">Line items</h2>
       <p class="section-hint">Add one item at a time. Pick a type (Standard, Fertilizing, Mulch, or Mowing). Check “Optional” if the client can skip this add-on.</p>
