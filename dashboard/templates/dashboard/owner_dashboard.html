@@ -53,14 +53,6 @@
       <a href="{% url 'job_list' %}" class="btn btn-secondary btn-sm">Jobs</a>
     </div>
   </div>
-  <div class="kpi-card card kpi-card-work-completed">
-    <div class="kpi-label">Work completed this month</div>
-    <div class="kpi-value">${{ work_completed_this_month }}</div>
-    <div class="kpi-sub">Value of completed jobs (not payments received)</div>
-    <div class="kpi-actions">
-      <a href="{% url 'job_list' %}" class="btn btn-secondary btn-sm">Jobs</a>
-    </div>
-  </div>
   <div class="kpi-card card kpi-card-payroll">
     <div class="kpi-label">Payroll balance</div>
     {% if next_pay_date %}
