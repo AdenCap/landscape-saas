@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Invoice, InvoiceLineItem, InvoiceAuditLog, Estimate, EstimateLineItem, EstimateImage
+from .models import Invoice, InvoiceLineItem, InvoiceAuditLog, Estimate, EstimateLineItem, EstimateImage, DocumentTemplate
 
 
 class InvoiceLineItemInline(admin.TabularInline):
@@ -45,3 +45,11 @@ class EstimateAdmin(admin.ModelAdmin):
     ordering = ('business__name', '-id')
     inlines = [EstimateLineItemInline, EstimateImageInline]
     raw_id_fields = ('customer',)
+
+
+@admin.register(DocumentTemplate)
+class DocumentTemplateAdmin(admin.ModelAdmin):
+    list_display = ("name", "business", "doc_type", "template_key", "is_default")
+    list_filter = ("doc_type", "business")
+    search_fields = ("name", "business__name")
+    raw_id_fields = ("business",)

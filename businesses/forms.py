@@ -31,6 +31,14 @@ class BusinessSettingsForm(forms.ModelForm):
             "venmo_username",
             "zelle_email_or_phone",
             "cashapp_cashtag",
+            "invoice_email_subject",
+            "invoice_email_intro",
+            "invoice_email_closing",
+            "estimate_email_subject",
+            "estimate_email_intro",
+            "estimate_email_closing",
+            "estimate_followup_email_subject",
+            "estimate_followup_email_intro",
         ]
         labels = {
             "venmo_username": "Venmo handle",
@@ -52,6 +60,14 @@ class BusinessSettingsForm(forms.ModelForm):
             "venmo_username": "e.g. @YourBusiness — shown at the bottom of every sent invoice.",
             "zelle_email_or_phone": "Email or phone — shown at the bottom of every sent invoice.",
             "cashapp_cashtag": "e.g. $YourBusiness — shown at the bottom of every sent invoice.",
+            "invoice_email_subject": "Leave blank for: Invoice #{{invoice_id}} from {{business_name}}",
+            "invoice_email_intro": "e.g. Hi {{customer_name}}, please find your invoice below.",
+            "invoice_email_closing": "e.g. Thank you for your business.",
+            "estimate_email_subject": "Leave blank for: {{title}} – {{business_name}}",
+            "estimate_email_intro": "Optional greeting before the estimate summary.",
+            "estimate_email_closing": "Optional sign-off.",
+            "estimate_followup_email_subject": "Leave blank for: Reminder: {{title}} – {{business_name}}",
+            "estimate_followup_email_intro": "Optional intro for follow-up emails.",
         }
         widgets = {
             "email_smtp_password": forms.PasswordInput(
@@ -61,6 +77,11 @@ class BusinessSettingsForm(forms.ModelForm):
             "default_invoice_due_days": forms.NumberInput(attrs={"min": 0, "max": 365, "placeholder": "e.g. 30"}),
             "growing_season_start_month": forms.NumberInput(attrs={"min": 1, "max": 12, "placeholder": "3"}),
             "growing_season_end_month": forms.NumberInput(attrs={"min": 1, "max": 12, "placeholder": "10"}),
+            "invoice_email_intro": forms.Textarea(attrs={"rows": 2, "placeholder": "Hi {{customer_name}}, please find your invoice below."}),
+            "invoice_email_closing": forms.Textarea(attrs={"rows": 2, "placeholder": "Thank you for your business."}),
+            "estimate_email_intro": forms.Textarea(attrs={"rows": 2}),
+            "estimate_email_closing": forms.Textarea(attrs={"rows": 2}),
+            "estimate_followup_email_intro": forms.Textarea(attrs={"rows": 2}),
         }
 
     def __init__(self, *args, **kwargs):

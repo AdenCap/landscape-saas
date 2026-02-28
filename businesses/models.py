@@ -117,6 +117,43 @@ class Business(models.Model):
         help_text="Cash App $cashtag (e.g. $YourBusiness). Shown on invoices.",
     )
 
+    # Customizable email content (leave blank to use defaults)
+    invoice_email_subject = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Subject line when sending invoices by email. Use {{invoice_id}}, {{customer_name}}, {{business_name}}. Leave blank for default.",
+    )
+    invoice_email_intro = models.TextField(
+        blank=True,
+        help_text="Opening line in the invoice email (e.g. “Hi {{customer_name}}, please find your invoice below.”). Leave blank for default.",
+    )
+    invoice_email_closing = models.TextField(
+        blank=True,
+        help_text="Closing line before your contact info (e.g. “Thank you for your business.”). Leave blank for default.",
+    )
+    estimate_email_subject = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Subject line when sending estimates. Use {{title}}, {{customer_name}}, {{business_name}}. Leave blank for default.",
+    )
+    estimate_email_intro = models.TextField(
+        blank=True,
+        help_text="Opening line in the estimate email. Leave blank for default.",
+    )
+    estimate_email_closing = models.TextField(
+        blank=True,
+        help_text="Closing line in the estimate email. Leave blank for default.",
+    )
+    estimate_followup_email_subject = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Subject line for estimate follow-up emails. Leave blank for default.",
+    )
+    estimate_followup_email_intro = models.TextField(
+        blank=True,
+        help_text="Opening line in the estimate follow-up email. Leave blank for default.",
+    )
+
     # Default due date for new invoices: X days from issue date (e.g. 30 = Net 30)
     default_invoice_due_days = models.PositiveSmallIntegerField(
         null=True,
