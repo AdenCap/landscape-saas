@@ -2,7 +2,7 @@ from django import forms
 from django.forms import BaseInlineFormSet, inlineformset_factory
 from decimal import Decimal, ROUND_CEILING
 
-from .models import Estimate, EstimateLineItem, EstimateImage, Invoice, InvoiceLineItem
+from .models import Estimate, EstimateLineItem, EstimateImage, Invoice, InvoiceLineItem, DocumentTemplate
 from customers.models import Customer
 
 
@@ -352,3 +352,32 @@ class EstimateImageForm(forms.ModelForm):
     class Meta:
         model = EstimateImage
         fields = ['image', 'caption', 'order']
+
+
+class DocumentTemplateForm(forms.ModelForm):
+    """Form for customizing estimate or invoice template: style, colors, header, footer, terms."""
+    template_key = forms.ChoiceField(
+        choices=[
+            ("professional", "Professional"),
+            ("minimal", "Minimal"),
+            ("modern", "Modern"),
+        ],
+        required=False,
+        help_text="Base style for the document. You can still customize colors and text below.",
+    )
+
+    class Meta:
+        model = DocumentTemplate
+        fields = ["template_key", "name", "primary_color", "header_text", "footer_text", "terms_and_conditions"]
+        widgets = {
+            "name": forms.TextInput(attrs={"placeholder": "e.g. My Estimate Template"}),
+            "primary_color": forms.TextInput(attrs={"type": "color", "style": "height: 40px; width: 80px; padding: 2px; cursor: pointer;"}),
+            "header_text": forms.Textarea(attrs={"rows": 3, "placeholder": "Optional header (e.g. tagline, license number)"}),
+            "footer_text": forms.Textarea(attrs={"rows": 3, "placeholder": "Optional footer (e.g. thank you, payment terms)"}),
+            "terms_and_conditions": forms.Textarea(attrs={"rows": 5, "placeholder": "Terms and conditions shown on the document"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["template_key"].required = False
+        self.fields["name"].required = False
