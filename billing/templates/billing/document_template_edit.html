@@ -25,13 +25,20 @@
     <div class="card doc-template-section">
       <h2 class="section-title">Template style</h2>
       <div class="form-group">
-        <label for="id_template_key">Base style</label>
+        <label for="id_template_key">Template style</label>
         <select name="template_key" id="id_template_key" class="form-control">
-          <option value="professional" {% if form.template_key.value == "professional" or template_obj.template_key == "professional" %}selected{% endif %}>Professional</option>
-          <option value="minimal" {% if form.template_key.value == "minimal" or template_obj.template_key == "minimal" %}selected{% endif %}>Minimal</option>
-          <option value="modern" {% if form.template_key.value == "modern" or template_obj.template_key == "modern" %}selected{% endif %}>Modern</option>
+          <option value="professional" {% if form.template_key.value == "professional" or template_obj.template_key == "professional" %}selected{% endif %}>Professional - Clean and business-ready</option>
+          <option value="minimal" {% if form.template_key.value == "minimal" or template_obj.template_key == "minimal" %}selected{% endif %}>Minimal - Simple and uncluttered</option>
+          <option value="modern" {% if form.template_key.value == "modern" or template_obj.template_key == "modern" %}selected{% endif %}>Modern - Contemporary with bold accents</option>
+          <option value="classic" {% if form.template_key.value == "classic" or template_obj.template_key == "classic" %}selected{% endif %}>Classic - Traditional and formal</option>
+          <option value="elegant" {% if form.template_key.value == "elegant" or template_obj.template_key == "elegant" %}selected{% endif %}>Elegant - Sophisticated and refined</option>
+          <option value="bold" {% if form.template_key.value == "bold" or template_obj.template_key == "bold" %}selected{% endif %}>Bold - High-impact with strong colors</option>
         </select>
-        <span class="form-hint">You can still customize colors and text below.</span>
+        <span class="form-hint">Each template has distinct typography, spacing, and layout. You can customize colors and text below.</span>
+        <div id="template-presets" style="margin-top: 12px; padding: 12px; background: var(--surface-alt); border-radius: 8px; display: none;">
+          <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600;">Recommended color for this style:</p>
+          <button type="button" id="apply-preset-color" class="btn btn-secondary btn-sm">Apply recommended color</button>
+        </div>
       </div>
       <div class="form-group">
         <label for="id_name">Template name (optional)</label>
@@ -142,6 +149,49 @@
   var addBtn = document.getElementById('add-custom-field');
   var primaryColor = document.getElementById('id_primary_color');
   var primaryHex = document.getElementById('id_primary_color_hex');
+  var templateKey = document.getElementById('id_template_key');
+  var presetsDiv = document.getElementById('template-presets');
+  var applyPresetBtn = document.getElementById('apply-preset-color');
+  
+  // Template color presets
+  var templatePresets = {
+    'professional': '#22c55e',
+    'minimal': '#64748b',
+    'modern': '#3b82f6',
+    'classic': '#1e40af',
+    'elegant': '#7c3aed',
+    'bold': '#dc2626'
+  };
+  
+  // Show/hide presets and update recommended color
+  function updatePreset() {
+    var selected = templateKey.value;
+    if (selected && templatePresets[selected]) {
+      presetsDiv.style.display = 'block';
+      var presetColor = templatePresets[selected];
+      presetsDiv.querySelector('p').innerHTML = '<strong>Recommended color for this style:</strong> <span style="color: ' + presetColor + '; font-weight: 600;">' + presetColor + '</span>';
+    } else {
+      presetsDiv.style.display = 'none';
+    }
+  }
+  
+  // Apply preset color
+  if (applyPresetBtn) {
+    applyPresetBtn.addEventListener('click', function() {
+      var selected = templateKey.value;
+      if (selected && templatePresets[selected]) {
+        var presetColor = templatePresets[selected];
+        if (primaryColor) primaryColor.value = presetColor;
+        if (primaryHex) primaryHex.value = presetColor;
+      }
+    });
+  }
+  
+  if (templateKey) {
+    templateKey.addEventListener('change', updatePreset);
+    updatePreset(); // Initial load
+  }
+  
   if (primaryColor && primaryHex) {
     primaryColor.addEventListener('input', function() { primaryHex.value = primaryColor.value; });
     primaryHex.addEventListener('input', function() {

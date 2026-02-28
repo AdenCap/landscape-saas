@@ -388,7 +388,7 @@ class DocumentTemplate(models.Model):
         ("estimate", "Estimate"),
         ("invoice", "Invoice"),
     ]
-    BUILTIN_KEYS = ["professional", "minimal", "modern"]
+    BUILTIN_KEYS = ["professional", "minimal", "modern", "classic", "elegant", "bold"]
 
     business = models.ForeignKey(
         Business,

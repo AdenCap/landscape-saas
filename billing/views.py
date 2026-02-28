@@ -593,6 +593,49 @@ def _hex_to_rgb(hex_str):
         return _PDF_GREEN
 
 
+def _get_template_preset(template_key):
+    """Return recommended color and styling presets for each template style."""
+    presets = {
+        "professional": {
+            "color": "#22c55e",  # Green - professional and trustworthy
+            "accent_bar_height": 12,
+            "title_size": 20,
+            "spacing": "standard",
+        },
+        "minimal": {
+            "color": "#64748b",  # Slate gray - clean and minimal
+            "accent_bar_height": 6,
+            "title_size": 18,
+            "spacing": "tight",
+        },
+        "modern": {
+            "color": "#3b82f6",  # Blue - modern and tech-forward
+            "accent_bar_height": 16,
+            "title_size": 22,
+            "spacing": "generous",
+        },
+        "classic": {
+            "color": "#1e40af",  # Deep blue - traditional and formal
+            "accent_bar_height": 10,
+            "title_size": 20,
+            "spacing": "standard",
+        },
+        "elegant": {
+            "color": "#7c3aed",  # Purple - sophisticated and refined
+            "accent_bar_height": 14,
+            "title_size": 21,
+            "spacing": "generous",
+        },
+        "bold": {
+            "color": "#dc2626",  # Red - high-impact and attention-grabbing
+            "accent_bar_height": 18,
+            "title_size": 24,
+            "spacing": "generous",
+        },
+    }
+    return presets.get(template_key, presets["professional"])
+
+
 def _build_invoice_pdf(invoice, request):
     """Build invoice PDF bytes (for download or email). Uses document template if set."""
     canvas, LETTER = _get_reportlab()
@@ -602,11 +645,28 @@ def _build_invoice_pdf(invoice, request):
     width, height = LETTER
     business = invoice.business
     doc_template = DocumentTemplate.get_default_for_business(business, "invoice") if business else None
-    accent_rgb = _hex_to_rgb(doc_template.primary_color) if doc_template and getattr(doc_template, "primary_color", None) else _PDF_GREEN
-
-    # Accent bar at top
+    template_key = doc_template.template_key if doc_template else "professional"
+    preset = _get_template_preset(template_key)
+    
+    # Use template's color or preset color
+    color_hex = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else preset["color"]
+    accent_rgb = _hex_to_rgb(color_hex)
+    
+    # Accent bar at top (height varies by template)
+    bar_height = preset["accent_bar_height"]
     p.setFillColorRGB(*accent_rgb)
-    p.rect(0, height - 12, width, 12, fill=True, stroke=False)
+    p.rect(0, height - bar_height, width, bar_height, fill=True, stroke=False)
+    
+    # Additional styling for certain templates
+    if template_key == "elegant":
+        # Add subtle gradient effect with lighter shade
+        light_accent = tuple(min(1.0, c + 0.15) for c in accent_rgb)
+        p.setFillColorRGB(*light_accent)
+        p.rect(0, height - bar_height, width, bar_height * 0.3, fill=True, stroke=False)
+        p.setFillColorRGB(*accent_rgb)
+    elif template_key == "bold":
+        # Add double accent bar
+        p.rect(0, height - bar_height - 4, width, 3, fill=True, stroke=False)
 
     y = height - 44
     p.setFillColorRGB(*_PDF_DARK)
@@ -619,19 +679,28 @@ def _build_invoice_pdf(invoice, request):
                 y -= 12
         y -= 8
         p.setFillColorRGB(*_PDF_DARK)
+    # Title styling varies by template
+    title_size = preset["title_size"]
     if business and business.logo:
         _draw_pdf_logo(p, business, x=None, y_top=y + 10, max_height=44, max_width=140, page_width=width)
-        p.setFont("Helvetica-Bold", 20)
+        p.setFont("Helvetica-Bold", title_size)
         p.setFillColorRGB(*accent_rgb)
         p.drawString(50, y - 28, f"Invoice #{invoice.id}")
         p.setFillColorRGB(*_PDF_DARK)
         y -= 50
     else:
-        p.setFont("Helvetica-Bold", 20)
+        p.setFont("Helvetica-Bold", title_size)
         p.setFillColorRGB(*accent_rgb)
         p.drawString(50, y, f"Invoice #{invoice.id}")
         p.setFillColorRGB(*_PDF_DARK)
         y -= 28
+    
+    # Template-specific spacing adjustments
+    spacing = preset["spacing"]
+    if spacing == "tight":
+        y -= 4
+    elif spacing == "generous":
+        y -= 8
 
     p.setFont("Helvetica", 10)
     p.setFillColorRGB(*_PDF_MUTED)
@@ -1094,11 +1163,28 @@ def _build_estimate_pdf(estimate, business):
     p = canvas.Canvas(buffer, pagesize=LETTER)
     width, height = LETTER
     doc_template = DocumentTemplate.get_default_for_business(business, "estimate") if business else None
-    accent_rgb = _hex_to_rgb(doc_template.primary_color) if doc_template and getattr(doc_template, "primary_color", None) else _PDF_GREEN
-
-    # Accent bar at top
+    template_key = doc_template.template_key if doc_template else "professional"
+    preset = _get_template_preset(template_key)
+    
+    # Use template's color or preset color
+    color_hex = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else preset["color"]
+    accent_rgb = _hex_to_rgb(color_hex)
+    
+    # Accent bar at top (height varies by template)
+    bar_height = preset["accent_bar_height"]
     p.setFillColorRGB(*accent_rgb)
-    p.rect(0, height - 12, width, 12, fill=True, stroke=False)
+    p.rect(0, height - bar_height, width, bar_height, fill=True, stroke=False)
+    
+    # Additional styling for certain templates
+    if template_key == "elegant":
+        # Add subtle gradient effect with lighter shade
+        light_accent = tuple(min(1.0, c + 0.15) for c in accent_rgb)
+        p.setFillColorRGB(*light_accent)
+        p.rect(0, height - bar_height, width, bar_height * 0.3, fill=True, stroke=False)
+        p.setFillColorRGB(*accent_rgb)
+    elif template_key == "bold":
+        # Add double accent bar
+        p.rect(0, height - bar_height - 4, width, 3, fill=True, stroke=False)
 
     y = height - 44
     p.setFillColorRGB(*_PDF_DARK)
@@ -1111,19 +1197,28 @@ def _build_estimate_pdf(estimate, business):
                 y -= 12
         y -= 8
         p.setFillColorRGB(*_PDF_DARK)
+    # Title styling varies by template
+    title_size = preset["title_size"] - 2  # Slightly smaller for estimates
     if business and business.logo:
         _draw_pdf_logo(p, business, x=None, y_top=y + 10, max_height=44, max_width=140, page_width=width)
-        p.setFont("Helvetica-Bold", 18)
+        p.setFont("Helvetica-Bold", title_size)
         p.setFillColorRGB(*accent_rgb)
         p.drawString(50, y - 28, estimate.title)
         p.setFillColorRGB(*_PDF_DARK)
         y -= 50
     else:
-        p.setFont("Helvetica-Bold", 18)
+        p.setFont("Helvetica-Bold", title_size)
         p.setFillColorRGB(*accent_rgb)
         p.drawString(50, y, estimate.title)
         p.setFillColorRGB(*_PDF_DARK)
         y -= 28
+    
+    # Template-specific spacing adjustments
+    spacing = preset["spacing"]
+    if spacing == "tight":
+        y -= 4
+    elif spacing == "generous":
+        y -= 8
 
     p.setFont("Helvetica", 10)
     p.setFillColorRGB(*_PDF_MUTED)

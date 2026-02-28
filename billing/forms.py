@@ -358,12 +358,15 @@ class DocumentTemplateForm(forms.ModelForm):
     """Form for customizing estimate or invoice template: style, colors, header, footer, terms."""
     template_key = forms.ChoiceField(
         choices=[
-            ("professional", "Professional"),
-            ("minimal", "Minimal"),
-            ("modern", "Modern"),
+            ("professional", "Professional - Clean and business-ready"),
+            ("minimal", "Minimal - Simple and uncluttered"),
+            ("modern", "Modern - Contemporary with bold accents"),
+            ("classic", "Classic - Traditional and formal"),
+            ("elegant", "Elegant - Sophisticated and refined"),
+            ("bold", "Bold - High-impact with strong colors"),
         ],
         required=False,
-        help_text="Base style for the document. You can still customize colors and text below.",
+        help_text="Choose a professional template style. Each has distinct typography, spacing, and layout. You can customize colors and text below.",
     )
 
     class Meta:
