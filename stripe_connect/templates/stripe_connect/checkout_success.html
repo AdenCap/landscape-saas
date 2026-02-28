@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Payment Successful!</h1>
+</div>
+
+<div class="card" style="max-width: 600px; padding: 40px; text-align: center; margin: 0 auto;">
+  <div style="font-size: 48px; margin-bottom: 20px;">✓</div>
+  <h2 style="margin: 0 0 16px 0; color: var(--primary);">Thank you for your purchase!</h2>
+  <p style="color: var(--text-muted); margin-bottom: 24px;">
+    Your payment has been processed successfully.
+  </p>
+  {% if session %}
+  <p style="font-size: 14px; color: var(--text-muted);">
+    Session ID: {{ session.id }}
+  </p>
+  {% endif %}
+  <a href="/" class="btn btn-primary">Return Home</a>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Stripe Connect Dashboard</h1>
+  <p>Manage your Stripe Connect account and accept payments</p>
+</div>
+
+{% if error %}
+<div class="card" style="padding: 20px; margin-bottom: 24px; background: #fee; border: 1px solid #fcc;">
+  <p style="margin: 0; color: #c00;"><strong>Error:</strong> {{ error }}</p>
+</div>
+{% endif %}
+
+{% if not stripe_configured %}
+<div class="card" style="padding: 20px; margin-bottom: 24px;">
+  <h3>Stripe Not Configured</h3>
+  <p>Please configure STRIPE_SECRET_KEY in your settings to use Stripe Connect.</p>
+</div>
+{% else %}
+  {% if not connected_account %}
+  <div class="card" style="padding: 24px; margin-bottom: 24px;">
+    <h3>Get Started with Stripe Connect</h3>
+    <p>Connect your Stripe account to start accepting payments from customers.</p>
+    <a href="{% url 'stripe_connect:onboard' %}" class="btn btn-primary">Onboard to Collect Payments</a>
+  </div>
+  {% else %}
+  <div class="card" style="padding: 24px; margin-bottom: 24px;">
+    <h3>Account Status</h3>
+    
+    {% if account_status %}
+    <div style="margin-top: 16px;">
+      <p><strong>Account ID:</strong> {{ connected_account.account_id }}</p>
+      <p><strong>Display Name:</strong> {{ connected_account.display_name|default:"—" }}</p>
+      <p><strong>Contact Email:</strong> {{ connected_account.contact_email|default:"—" }}</p>
+      
+      <div style="margin-top: 20px; padding: 16px; background: var(--surface-alt); border-radius: 8px;">
+        <h4 style="margin: 0 0 12px 0; font-size: 16px;">Onboarding Status</h4>
+        <p style="margin: 4px 0;">
+          <strong>Card Payments:</strong> 
+          <span style="color: {% if account_status.ready_to_process_payments %}#22c55e{% else %}#f59e0b{% endif %};">
+            {{ account_status.card_payments_status|default:"—" }}
+          </span>
+        </p>
+        <p style="margin: 4px 0;">
+          <strong>Requirements:</strong> 
+          <span style="color: {% if account_status.onboarding_complete %}#22c55e{% else %}#f59e0b{% endif %};">
+            {{ account_status.requirements_status|default:"—" }}
+          </span>
+        </p>
+        <p style="margin: 4px 0;">
+          <strong>Ready to Process Payments:</strong> 
+          <span style="color: {% if account_status.ready_to_process_payments %}#22c55e{% else %}#f59e0b{% endif %};">
+            {% if account_status.ready_to_process_payments %}Yes{% else %}No{% endif %}
+          </span>
+        </p>
+        <p style="margin: 4px 0;">
+          <strong>Onboarding Complete:</strong> 
+          <span style="color: {% if account_status.onboarding_complete %}#22c55e{% else %}#f59e0b{% endif %};">
+            {% if account_status.onboarding_complete %}Yes{% else %}No{% endif %}
+          </span>
+        </p>
+      </div>
+      
+      {% if not account_status.ready_to_process_payments or not account_status.onboarding_complete %}
+      <div style="margin-top: 20px;">
+        <a href="{% url 'stripe_connect:onboard' %}" class="btn btn-secondary">Complete Onboarding</a>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  
+  <div class="card" style="padding: 24px; margin-bottom: 24px;">
+    <h3>Quick Actions</h3>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px;">
+      <a href="{% url 'stripe_connect:product_list' %}" class="btn btn-primary">Manage Products</a>
+      <a href="{% url 'stripe_connect:storefront' connected_account.account_id %}" class="btn btn-secondary">View Storefront</a>
+      <a href="{% url 'stripe_connect:subscription_create' %}" class="btn btn-secondary">Create Subscription</a>
+      <a href="{% url 'stripe_connect:billing_portal' %}" class="btn btn-secondary">Billing Portal</a>
+    </div>
+  </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

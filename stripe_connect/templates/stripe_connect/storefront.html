@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load stripe_filters %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{% if connected_account %}{{ connected_account.display_name|default:connected_account.business.name }}{% else %}Store{% endif %}</h1>
+  <p>Browse and purchase products</p>
+</div>
+
+{% if error %}
+<div class="card" style="padding: 20px; margin-bottom: 24px; background: #fee; border: 1px solid #fcc;">
+  <p style="margin: 0; color: #c00;"><strong>Error:</strong> {{ error }}</p>
+</div>
+{% endif %}
+
+{% if products %}
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px;">
+  {% for product in products %}
+  <div class="card" style="padding: 24px;">
+    <h3 style="margin: 0 0 12px 0; font-size: 20px;">{{ product.name }}</h3>
+    {% if product.description %}
+    <p style="margin: 0 0 16px 0; color: var(--text-muted); font-size: 14px;">{{ product.description|truncatewords:30 }}</p>
+    {% endif %}
+    
+    {% if product.default_price %}
+    <div style="margin-bottom: 20px;">
+      <p style="margin: 0; font-size: 24px; font-weight: 700; color: var(--primary);">
+        {% if product.default_price.unit_amount %}
+          ${{ product.default_price.unit_amount|cents_to_dollars }}
+        {% elif product.default_price.unit_amount_decimal %}
+          ${{ product.default_price.unit_amount_decimal|floatformat:2 }}
+        {% else %}
+          Price not available
+        {% endif %}
+        {% if product.default_price.currency %}{{ product.default_price.currency|upper }}{% endif %}
+      </p>
+    </div>
+    
+    <form method="post" action="{% url 'stripe_connect:create_checkout' account_id %}" class="checkout-form">
+      {% csrf_token %}
+      <input type="hidden" name="product_id" value="{{ product.id }}">
+      <input type="hidden" name="price_id" value="{{ product.default_price.id }}">
+      <input type="hidden" name="quantity" value="1">
+      <button type="submit" class="btn btn-primary" style="width: 100%;">Buy Now</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="padding: 40px; text-align: center;">
+  <p style="color: var(--text-muted);">No products available at this time.</p>
+</div>
+{% endif %}
+
+<script>
+// Handle checkout form submission
+document.querySelectorAll('.checkout-form').forEach(function(form) {
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    var formData = new FormData(form);
+    var button = form.querySelector('button[type="submit"]');
+    var originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Processing...';
+    
+    fetch(form.action, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+      }
+    })
+    .then(function(response) {
+      return response.json();
+    })
+    .then(function(data) {
+      if (data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else if (data.error) {
+        alert('Error: ' + data.error);
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    })
+    .catch(function(error) {
+      alert('Error: ' + error.message);
+      button.disabled = false;
+      button.textContent = originalText;
+    });
+  });
+});
+</script>
+{% endblock %}
