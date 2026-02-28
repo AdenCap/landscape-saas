@@ -6,6 +6,10 @@
   <div>
     <h1>Invoices</h1>
     <p>Manage and view all invoices</p>
+    <p style="margin-top: 8px; font-size: 14px; color: var(--text-muted);">
+      💡 <strong>Tip:</strong> Click on any invoice to view details. Draft invoices can be edited (line items, dates, custom fields). 
+      <a href="{% url 'billing:document_templates_list' %}" class="link-primary">Customize invoice templates</a> to add your branding and custom fields.
+    </p>
   </div>
   <div class="page-header-actions">
     <a href="{% url 'billing:outstanding_invoices' %}" class="btn btn-secondary">Outstanding</a>

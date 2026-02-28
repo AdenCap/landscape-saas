@@ -1,4 +1,5 @@
 import hashlib
+import json
 import secrets
 import stripe
 from io import BytesIO
@@ -1596,3 +1597,107 @@ def document_template_edit(request, doc_type):
         "doc_type": doc_type,
         "template_obj": template_obj,
     })
+
+
+@role_required("owner")
+def document_template_export(request, doc_type):
+    """Export document template as JSON."""
+    if doc_type not in ("estimate", "invoice"):
+        return redirect("billing:document_templates_list")
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    
+    template_obj = DocumentTemplate.get_or_create_default(business, doc_type)
+    
+    from django.http import HttpResponse
+    
+    export_data = {
+        "doc_type": template_obj.doc_type,
+        "name": template_obj.name,
+        "template_key": template_obj.template_key,
+        "primary_color": template_obj.primary_color,
+        "header_text": template_obj.header_text,
+        "footer_text": template_obj.footer_text,
+        "terms_and_conditions": template_obj.terms_and_conditions,
+        "custom_fields": template_obj.custom_fields,
+    }
+    
+    response = HttpResponse(
+        json.dumps(export_data, indent=2),
+        content_type="application/json",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{doc_type}_template_{business.name.replace(" ", "_")}.json"'
+    return response
+
+
+@role_required("owner")
+def document_template_import(request, doc_type):
+    """Import document template from JSON file."""
+    if doc_type not in ("estimate", "invoice"):
+        return redirect("billing:document_templates_list")
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    
+    if request.method == "POST":
+        if "template_file" not in request.FILES:
+            messages.error(request, "Please select a JSON file to import.")
+            return redirect("billing:document_template_edit", doc_type=doc_type)
+        
+        try:
+            file = request.FILES["template_file"]
+            if not file.name.endswith(".json"):
+                messages.error(request, "Please upload a JSON file.")
+                return redirect("billing:document_template_edit", doc_type=doc_type)
+            
+            content = file.read().decode("utf-8")
+            import_data = json.loads(content)
+            
+            # Validate doc_type matches
+            if import_data.get("doc_type") != doc_type:
+                messages.error(request, f"Template file is for {import_data.get('doc_type')}, but you're importing to {doc_type}.")
+                return redirect("billing:document_template_edit", doc_type=doc_type)
+            
+            template_obj = DocumentTemplate.get_or_create_default(business, doc_type)
+            
+            # Update template with imported data
+            if "name" in import_data:
+                template_obj.name = import_data["name"]
+            if "template_key" in import_data:
+                template_obj.template_key = import_data["template_key"]
+            if "primary_color" in import_data:
+                template_obj.primary_color = import_data["primary_color"]
+            if "header_text" in import_data:
+                template_obj.header_text = import_data["header_text"]
+            if "footer_text" in import_data:
+                template_obj.footer_text = import_data["footer_text"]
+            if "terms_and_conditions" in import_data:
+                template_obj.terms_and_conditions = import_data["terms_and_conditions"]
+            if "custom_fields" in import_data:
+                # Validate custom fields structure
+                custom_fields = []
+                for field in import_data["custom_fields"]:
+                    if isinstance(field, dict) and "key" in field:
+                        custom_fields.append({
+                            "key": str(field["key"]).strip().lower().replace(" ", "_"),
+                            "label": str(field.get("label", field["key"])).strip(),
+                            "type": field.get("type", "text") if field.get("type") in ("text", "number", "date", "textarea") else "text",
+                            "required": bool(field.get("required", False)),
+                        })
+                template_obj.custom_fields = custom_fields
+            
+            template_obj.save()
+            messages.success(request, f"{doc_type.title()} template imported successfully.")
+            return redirect("billing:document_template_edit", doc_type=doc_type)
+            
+        except json.JSONDecodeError:
+            messages.error(request, "Invalid JSON file. Please check the file format.")
+            return redirect("billing:document_template_edit", doc_type=doc_type)
+        except Exception as e:
+            messages.error(request, f"Error importing template: {str(e)}")
+            return redirect("billing:document_template_edit", doc_type=doc_type)
+    
+    return redirect("billing:document_template_edit", doc_type=doc_type)

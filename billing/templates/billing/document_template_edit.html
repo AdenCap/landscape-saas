@@ -7,6 +7,18 @@
     <p class="doc-template-edit-subtitle">Choose a style, set your branding, and add custom fields that will appear on every {{ doc_type }}.</p>
   </header>
 
+  <div class="doc-template-actions" style="margin-bottom: 24px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+    <a href="{% url 'billing:document_template_export' doc_type %}" class="btn btn-secondary">📥 Export template</a>
+    <form method="post" action="{% url 'billing:document_template_import' doc_type %}" enctype="multipart/form-data" style="display: inline;">
+      {% csrf_token %}
+      <label for="template_file" class="btn btn-secondary" style="cursor: pointer; margin: 0;">
+        📤 Import template
+        <input type="file" name="template_file" id="template_file" accept=".json" style="display: none;" onchange="this.form.submit();">
+      </label>
+    </form>
+    <span style="font-size: 13px; color: var(--text-muted);">Export to save a backup or share with other businesses. Import to restore or use a template from another business.</span>
+  </div>
+
   <form method="post" class="doc-template-edit-form">
     {% csrf_token %}
 

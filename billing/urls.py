@@ -32,4 +32,6 @@ urlpatterns = [
     path("estimates/<int:estimate_id>/accept/<str:token>/", views.estimate_client_accept, name="estimate_client_accept"),
     path("templates/", views.document_templates_list, name="document_templates_list"),
     path("templates/<str:doc_type>/", views.document_template_edit, name="document_template_edit"),
+    path("templates/<str:doc_type>/export/", views.document_template_export, name="document_template_export"),
+    path("templates/<str:doc_type>/import/", views.document_template_import, name="document_template_import"),
 ]
