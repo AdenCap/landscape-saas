@@ -204,8 +204,10 @@ if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgre
     except Exception as e:
         # If parsing fails, log error but continue (will fall back to SQLite with warning)
         import logging
+        import traceback
         logger = logging.getLogger(__name__)
-        logger.error(f"Error parsing DATABASE_URL: {e}. Falling back to SQLite.")
+        logger.error(f"Error parsing DATABASE_URL: {e}")
+        logger.error(traceback.format_exc())
         # Will fall through to SQLite configuration below
         _db_url = None  # Force SQLite fallback
 else:

@@ -64,6 +64,12 @@ urlpatterns = [
     path("estimator/", include("property_estimator.urls")),
 ]
 
+# Health check endpoint (always available for debugging)
+from config.health_check import health_check
+urlpatterns += [
+    path("health/", health_check, name="health_check"),
+]
+
 # Diagnostic endpoints (only in DEBUG mode)
 if settings.DEBUG:
     from config import diagnostic_views
