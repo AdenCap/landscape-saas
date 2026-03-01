@@ -177,6 +177,30 @@ if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgre
         }
     }
 else:
+    # SQLite fallback - ONLY for local development
+    # WARNING: SQLite is NOT persistent on cloud platforms (Vercel, Railway, Render, etc.)
+    # Data will be LOST on each deployment if using SQLite in production!
+    # You MUST set DATABASE_URL to a PostgreSQL connection string in production.
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Check if we're in a production-like environment
+    is_production_like = (
+        os.environ.get("VERCEL", "").lower() == "true" or
+        os.environ.get("RAILWAY_ENVIRONMENT", "") or
+        os.environ.get("RENDER", "").lower() == "true" or
+        os.environ.get("DYNO", "") or  # Heroku
+        not DEBUG
+    )
+    
+    if is_production_like:
+        logger.error(
+            "⚠️ CRITICAL: Using SQLite in production-like environment! "
+            "Data will be LOST on each deployment. "
+            "Set DATABASE_URL environment variable to a PostgreSQL connection string. "
+            "See docs/DATABASE_PERSISTENCE.md for setup instructions."
+        )
+    
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
