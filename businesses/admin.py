@@ -21,7 +21,7 @@ class UserInline(admin.TabularInline):
 
 @admin.register(Business)
 class BusinessAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'from_email', 'contact_email', 'contact_phone', 'employee_count', 'created_at')
+    list_display = ('id', 'name', 'from_email', 'contact_email', 'contact_phone', 'subscription_status_display', 'employee_count', 'created_at')
     list_filter = ()
     search_fields = ('name', 'contact_email', 'from_email', 'email_smtp_user')
     ordering = ('name',)
@@ -55,11 +55,11 @@ class BusinessAdmin(admin.ModelAdmin):
         }),
         ('Stripe – subscription & Connect', {
             'fields': (
-                'stripe_customer_id', 'stripe_subscription_id', 'subscription_status',
+                'subscription_is_free', 'stripe_customer_id', 'stripe_subscription_id', 'subscription_status',
                 'subscription_current_period_end', 'stripe_connect_account_id',
                 'stripe_connect_charges_enabled', 'stripe_connect_application_fee_percent',
             ),
-            'description': 'Subscription: business pays platform. Connect: business accepts card payments. Application fee %: platform fee on their invoice payments (blank = use global default).',
+            'description': 'Subscription: business pays platform (or set subscription_is_free=True for free access). Connect: business accepts card payments. Application fee %: platform fee on their invoice payments (blank = use global default, 0 = no fee for this business).',
         }),
         ('System', {
             'fields': ('created_at', 'updated_at'),
@@ -68,6 +68,19 @@ class BusinessAdmin(admin.ModelAdmin):
     )
     readonly_fields = ('created_at', 'updated_at')
 
+    @admin.display(description='Subscription')
+    def subscription_status_display(self, obj):
+        if obj.subscription_is_free:
+            return format_html('<span style="color: #22c55e; font-weight: 600;">FREE</span>')
+        status = obj.subscription_status or 'None'
+        if status in ('active', 'trialing'):
+            color = '#22c55e'
+        elif status in ('past_due', 'unpaid'):
+            color = '#ef4444'
+        else:
+            color = '#a3a3a3'
+        return format_html('<span style="color: {};">{}</span>', color, status.title())
+    
     @admin.display(description='Employees')
     def employee_count(self, obj):
         count = obj.users.count()

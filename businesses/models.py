@@ -253,11 +253,21 @@ class Business(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
-        help_text="Platform fee % on invoice card payments for this business. Leave blank to use the global default (STRIPE_CONNECT_APPLICATION_FEE_PERCENT).",
+        help_text="Platform fee % on invoice card payments for this business. Leave blank to use the global default (STRIPE_CONNECT_APPLICATION_FEE_PERCENT). Set to 0 to give this business no application fee.",
+    )
+    subscription_is_free = models.BooleanField(
+        default=False,
+        help_text="If True, this business has free access to the platform (no subscription required). Use this for partners, beta testers, or special cases.",
     )
 
     def has_active_subscription(self):
-        """True if this business can use the app (active or trialing subscription)."""
+        """
+        True if this business can use the app (active or trialing subscription).
+        
+        Also returns True if subscription_is_free is True (manually granted free access).
+        """
+        if getattr(self, "subscription_is_free", False):
+            return True
         return self.subscription_status in ("active", "trialing")
 
     def can_accept_stripe_payments(self):
