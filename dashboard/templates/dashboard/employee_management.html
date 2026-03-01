@@ -57,7 +57,12 @@
         </td>
         <td class="num">{% if emp.hourly_rate %}${% endif %}{{ emp.hourly_rate|default:"—" }}</td>
         <td>
-          <a href="{% url 'employee_edit' emp.id %}" class="btn btn-secondary btn-sm">Edit</a>
+          <div style="display: flex; gap: 8px;">
+            <a href="{% url 'employee_edit' emp.id %}" class="btn btn-secondary btn-sm">Edit</a>
+            {% if emp.role != 'owner' and emp.id != user.id %}
+            <a href="{% url 'employee_delete' emp.id %}" class="btn btn-secondary btn-sm" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4);">Delete</a>
+            {% endif %}
+          </div>
         </td>
       </tr>
       {% empty %}

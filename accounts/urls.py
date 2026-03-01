@@ -8,5 +8,6 @@ urlpatterns = [
     path("notifications/send/", views.notification_send, name="notification_send"),
     path("<int:user_id>/payments/", views.employee_record_payment, name="employee_record_payment"),
     path("<int:user_id>/password/", views.employee_password, name="employee_password"),
+    path("<int:user_id>/delete/", views.employee_delete, name="employee_delete"),
     path("<int:user_id>/", views.employee_edit, name="employee_edit"),
 ]

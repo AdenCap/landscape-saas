@@ -138,6 +138,81 @@ def employee_edit(request, user_id):
 
 
 @role_required("owner")
+@require_http_methods(["GET", "POST"])
+def employee_delete(request, user_id):
+    """
+    Delete an employee.
+    
+    Prevents deleting the owner. Related data (jobs, time entries, etc.) will be
+    handled according to their on_delete settings (SET_NULL or CASCADE).
+    """
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    employee = get_object_or_404(User, id=user_id, business=business)
+
+    # Prevent deleting the owner
+    if employee.role == "owner":
+        messages.error(request, "Cannot delete the business owner. Transfer ownership first or contact support.")
+        return redirect("employee_edit", user_id=employee.id)
+
+    # Prevent deleting yourself
+    if employee.id == request.user.id:
+        messages.error(request, "You cannot delete your own account.")
+        return redirect("employee_edit", user_id=employee.id)
+
+    if request.method == "POST":
+        # Confirm deletion
+        employee_name = employee.get_full_name() or employee.username
+        
+        # Count related records for warning
+        from jobs.models import Job
+        from time_tracking.models import TimeEntry
+        
+        job_count = Job.objects.filter(assigned_to=employee).count()
+        time_entry_count = TimeEntry.objects.filter(user=employee).count()
+        
+        # Delete the employee
+        # Related data will be handled by on_delete settings:
+        # - Jobs: SET_NULL (assigned_to becomes NULL)
+        # - Time entries: CASCADE (deleted)
+        # - Payments: CASCADE (deleted)
+        # - Notifications: CASCADE (deleted)
+        employee.delete()
+        
+        messages.success(request, f"Employee '{employee_name}' has been deleted.")
+        
+        # Show warning if there was related data
+        if job_count > 0 or time_entry_count > 0:
+            warnings = []
+            if job_count > 0:
+                warnings.append(f"{job_count} job assignment(s)")
+            if time_entry_count > 0:
+                warnings.append(f"{time_entry_count} time entry/entries")
+            if warnings:
+                messages.info(request, f"Note: {', '.join(warnings)} associated with this employee have been removed or unassigned.")
+        
+        return redirect("employee_list")
+    
+    # GET: Show confirmation page
+    from jobs.models import Job
+    from time_tracking.models import TimeEntry
+    
+    job_count = Job.objects.filter(assigned_to=employee).count()
+    time_entry_count = TimeEntry.objects.filter(user=employee).count()
+    payment_count = EmployeePayment.objects.filter(employee=employee).count()
+    
+    return render(request, "accounts/employee_delete_confirm.html", {
+        "employee": employee,
+        "job_count": job_count,
+        "time_entry_count": time_entry_count,
+        "payment_count": payment_count,
+    })
+
+
+@role_required("owner")
 @require_POST
 def employee_record_payment(request, user_id):
     """Record a payment made to an employee. Redirects back to employee edit."""

@@ -84,6 +84,14 @@
     <a href="{% url 'employee_password' employee.id %}" class="btn btn-secondary">Change password</a>
   </div>
 
+  {% if employee.role != 'owner' and employee.id != user.id %}
+  <div class="card" style="border-color: rgba(239, 68, 68, 0.4);">
+    <h2 class="card-title" style="color: #fca5a5;">Danger Zone</h2>
+    <p class="muted">Permanently delete this employee. This action cannot be undone.</p>
+    <a href="{% url 'employee_delete' employee.id %}" class="btn" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4);">Delete Employee</a>
+  </div>
+  {% endif %}
+
   <div class="card payment-card">
     <h2 class="card-title">Payment history</h2>
     <p class="section-desc">Record payments when you pay this employee. Total paid: <strong>${{ total_paid|floatformat:2 }}</strong></p>
