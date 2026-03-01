@@ -23,8 +23,10 @@ This guide covers deploying Field Ops to DigitalOcean App Platform and configuri
 
 **Build Command:**
 ```bash
-pip install -r requirements.txt && python manage.py collectstatic --noinput
+pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput
 ```
+
+**Important:** Make sure migrations run during build so the database schema is created!
 
 **Run Command:**
 ```bash
