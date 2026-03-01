@@ -28,9 +28,11 @@ from config.platform_views import (
     admin_users, admin_grant, admin_revoke
 )
 from config.marketing_views import marketing_home, terms_of_service, privacy_policy
+from config.db_check import db_check
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/db-check/", db_check),
     path("accounts/", include("accounts.auth_urls")),
 
     # Platform admin: list businesses and enter any dashboard

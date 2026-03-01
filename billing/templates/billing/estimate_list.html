@@ -7,10 +7,14 @@
       <h1>Estimates</h1>
       <p class="estimate-page-subtitle">Create and send professional quotes to customers</p>
     </div>
-    <a href="{% url 'billing:estimate_create' %}" class="btn btn-primary">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      New estimate
-    </a>
+    <div class="estimate-header-actions">
+      <a href="{% url 'billing:document_templates_list' %}" class="btn btn-secondary">Document templates</a>
+      <a href="/settings/" class="btn btn-secondary">Settings</a>
+      <a href="{% url 'billing:estimate_create' %}" class="btn btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New estimate
+      </a>
+    </div>
   </header>
 
   <div class="estimate-filters">
@@ -74,6 +78,7 @@
   }
   .estimate-page-heading h1 { margin: 0 0 4px 0; font-size: 28px; font-weight: 700; }
   .estimate-page-subtitle { margin: 0; color: var(--text-muted); font-size: 16px; }
+  .estimate-header-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .estimate-page-header .btn { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
   .estimate-page-header .btn svg { flex-shrink: 0; }
 

@@ -9,6 +9,13 @@
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5; color: #1e293b; max-width: 640px; margin: 0 auto; padding: 28px; background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 100%); min-height: 100vh; }
     .card { background: white; border-radius: 16px; padding: 32px; box-shadow: 0 4px 24px rgba(0,0,0,0.06); margin-bottom: 24px; border: 1px solid rgba(0,0,0,0.04); }
+    .doc-header-custom { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #475569; }
+    .doc-footer-custom { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 14px; color: #475569; }
+    .doc-terms { background: #f8fafc; padding: 16px; border-radius: 12px; margin-top: 20px; font-size: 13px; color: #475569; border: 1px solid #e2e8f0; }
+    .doc-custom-fields { margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .doc-custom-fields dt { font-weight: 600; font-size: 12px; color: #64748b; margin-top: 10px; }
+    .doc-custom-fields dt:first-child { margin-top: 0; }
+    .doc-custom-fields dd { margin: 4px 0 0 0; font-size: 14px; }
     h1 { font-size: 26px; margin: 0 0 12px 0; font-weight: 700; color: #0f172a; }
     .meta { color: #64748b; font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
     table { width: 100%; border-collapse: collapse; }
@@ -17,11 +24,11 @@
     .num { text-align: right; }
     .optional-row { background: #f8fafc; }
     .optional-row td:first-child { padding-left: 40px; }
-    .total-row { font-size: 20px; font-weight: 700; padding-top: 24px; border-top: 2px solid #0d9488; margin-top: 8px; background: #f0fdfa; }
+    .total-row { font-size: 20px; font-weight: 700; padding-top: 24px; margin-top: 8px; }
     .total-row td { border-bottom: none; padding-top: 20px; padding-bottom: 20px; }
     .btn { display: inline-block; padding: 16px 32px; font-size: 16px; font-weight: 600; border-radius: 12px; border: none; cursor: pointer; text-decoration: none; font-family: inherit; transition: background 0.2s; margin-top: 24px; }
-    .btn-primary { background: #0d9488; color: white; }
-    .btn-primary:hover { background: #0f766e; }
+    .btn-primary { color: white; }
+    .btn-primary:hover { opacity: 0.9; }
     .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
     .notes { background: #f8fafc; padding: 20px; border-radius: 12px; margin-top: 24px; font-size: 14px; border: 1px solid #e2e8f0; }
     .optional-label { font-size: 11px; padding: 2px 8px; background: #e0f2fe; color: #0369a1; border-radius: 6px; margin-left: 8px; font-weight: 600; }
@@ -32,6 +39,10 @@
 </head>
 <body>
   <div class="card">
+    {% if doc_template %}<style>.total-row { border-top: 2px solid {{ doc_template.primary_color|default:'#0d9488' }}; background: {{ doc_template.primary_color|default:'#0d9488' }}11; } .btn-primary { background: {{ doc_template.primary_color|default:'#0d9488' }}; }</style>{% endif %}
+    {% if doc_template and doc_template.header_text %}
+    <div class="doc-header-custom">{{ doc_template.header_text|safe }}</div>
+    {% endif %}
     {% if estimate.business.logo %}
     <div class="doc-logo">
       <img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}">
@@ -80,6 +91,30 @@
       <strong>Notes:</strong><br>
       {{ estimate.notes|linebreaks }}
     </div>
+    {% endif %}
+
+    {% if doc_template and doc_template.custom_fields and estimate.custom_field_values %}
+    <div class="doc-custom-fields">
+      <strong>Additional information</strong>
+      <dl>
+        {% for field in doc_template.custom_fields %}
+          {% for key, val in estimate.custom_field_values.items %}
+            {% if key == field.key and val %}
+            <dt>{{ field.label }}</dt>
+            <dd>{{ val }}</dd>
+            {% endif %}
+          {% endfor %}
+        {% endfor %}
+      </dl>
+    </div>
+    {% endif %}
+
+    {% if doc_template and doc_template.terms_and_conditions %}
+    <div class="doc-terms"><strong>Terms &amp; conditions</strong><br>{{ doc_template.terms_and_conditions|linebreaks }}</div>
+    {% endif %}
+
+    {% if doc_template and doc_template.footer_text %}
+    <div class="doc-footer-custom">{{ doc_template.footer_text|safe }}</div>
     {% endif %}
 
     <form method="post" action="{% url 'billing:estimate_client_accept' estimate.id token %}">

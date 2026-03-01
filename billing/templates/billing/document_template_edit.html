@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="doc-template-edit-page">
+  <header class="doc-template-edit-header">
+    <h1>Customize {{ doc_type|title }} template</h1>
+    <p class="doc-template-edit-subtitle">Choose a style, set your branding, and add custom fields that will appear on every {{ doc_type }}.</p>
+  </header>
+
+  <form method="post" class="doc-template-edit-form">
+    {% csrf_token %}
+
+    <div class="card doc-template-section">
+      <h2 class="section-title">Template style</h2>
+      <div class="form-group">
+        <label for="id_template_key">Base style</label>
+        <select name="template_key" id="id_template_key" class="form-control">
+          <option value="professional" {% if form.template_key.value == "professional" or template_obj.template_key == "professional" %}selected{% endif %}>Professional</option>
+          <option value="minimal" {% if form.template_key.value == "minimal" or template_obj.template_key == "minimal" %}selected{% endif %}>Minimal</option>
+          <option value="modern" {% if form.template_key.value == "modern" or template_obj.template_key == "modern" %}selected{% endif %}>Modern</option>
+        </select>
+        <span class="form-hint">You can still customize colors and text below.</span>
+      </div>
+      <div class="form-group">
+        <label for="id_name">Template name (optional)</label>
+        {{ form.name }}
+        {{ form.name.errors }}
+      </div>
+    </div>
+
+    <div class="card doc-template-section">
+      <h2 class="section-title">Branding & content</h2>
+      <div class="form-group">
+        <label for="id_primary_color">Accent color</label>
+        <div class="color-input-wrap">
+          <input type="color" name="primary_color" id="id_primary_color" value="{{ template_obj.primary_color|default:'#22c55e' }}" class="color-picker">
+          <input type="text" id="id_primary_color_hex" value="{{ template_obj.primary_color|default:'#22c55e' }}" class="color-hex-input" maxlength="7" placeholder="#22c55e">
+        </div>
+        {{ form.primary_color.errors }}
+      </div>
+      <div class="form-group">
+        <label for="id_header_text">Header text (optional)</label>
+        {{ form.header_text }}
+        <span class="form-hint">Shown at the top of the document (e.g. tagline, license number).</span>
+        {{ form.header_text.errors }}
+      </div>
+      <div class="form-group">
+        <label for="id_footer_text">Footer text (optional)</label>
+        {{ form.footer_text }}
+        <span class="form-hint">Shown at the bottom (e.g. thank you, payment instructions).</span>
+        {{ form.footer_text.errors }}
+      </div>
+      <div class="form-group">
+        <label for="id_terms_and_conditions">Terms and conditions</label>
+        {{ form.terms_and_conditions }}
+        {{ form.terms_and_conditions.errors }}
+      </div>
+    </div>
+
+    <div class="card doc-template-section">
+      <h2 class="section-title">Custom fields</h2>
+      <p class="section-desc">Add fields that appear on every {{ doc_type }}. You can fill in the values when creating or editing each {{ doc_type }} (e.g. PO Number, Job #, License #).</p>
+      <div class="custom-fields-list" id="custom-fields-list">
+        {% for field in template_obj.custom_fields %}
+        <div class="custom-field-row" data-index="{{ forloop.counter0 }}">
+          <input type="text" name="custom_field_key" value="{{ field.key }}" placeholder="Key (e.g. po_number)" class="field-key">
+          <input type="text" name="custom_field_label" value="{{ field.label }}" placeholder="Label (e.g. PO Number)" class="field-label">
+          <select name="custom_field_type" class="field-type">
+            <option value="text" {% if field.type == "text" %}selected{% endif %}>Text</option>
+            <option value="number" {% if field.type == "number" %}selected{% endif %}>Number</option>
+            <option value="date" {% if field.type == "date" %}selected{% endif %}>Date</option>
+            <option value="textarea" {% if field.type == "textarea" %}selected{% endif %}>Long text</option>
+          </select>
+          <label class="field-required-label">
+            <input type="checkbox" name="custom_field_required" {% if field.required %}checked{% endif %} class="field-required"> Required
+          </label>
+          <button type="button" class="btn btn-secondary btn-sm remove-field" aria-label="Remove field">Remove</button>
+        </div>
+        {% endfor %}
+      </div>
+      <button type="button" id="add-custom-field" class="btn btn-secondary">+ Add custom field</button>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save template</button>
+      <a href="{% url 'billing:document_templates_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<style>
+  .doc-template-edit-page { max-width: 640px; }
+  .doc-template-edit-header { margin-bottom: 24px; }
+  .doc-template-edit-header h1 { margin: 0 0 6px 0; font-size: 26px; font-weight: 700; }
+  .doc-template-edit-subtitle { margin: 0; color: var(--text-muted); font-size: 15px; line-height: 1.5; }
+  .doc-template-section { padding: 24px; margin-bottom: 20px; }
+  .section-title { margin: 0 0 16px 0; font-size: 16px; font-weight: 600; }
+  .section-desc { margin: 0 0 16px 0; font-size: 14px; color: var(--text-muted); line-height: 1.5; }
+  .form-group { margin-bottom: 18px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-group label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; color: var(--text); }
+  .form-control, .form-group input[type="text"], .form-group select, .form-group textarea {
+    width: 100%; padding: 10px 12px; font-size: 15px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-family: inherit;
+  }
+  .form-group textarea { min-height: 80px; resize: vertical; }
+  .form-hint { display: block; margin-top: 4px; font-size: 13px; color: var(--text-muted); }
+  .color-input-wrap { display: flex; gap: 12px; align-items: center; }
+  .color-picker { height: 44px; width: 80px; padding: 4px; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
+  .color-hex-input { flex: 1; max-width: 120px; }
+  .custom-fields-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+  .custom-field-row {
+    display: grid; grid-template-columns: 1fr 1fr auto auto auto; gap: 10px; align-items: center;
+    padding: 12px; background: var(--surface-alt); border-radius: 8px; border: 1px solid var(--border);
+  }
+  @media (max-width: 640px) {
+    .custom-field-row { grid-template-columns: 1fr 1fr; }
+    .custom-field-row .field-type, .custom-field-row .field-required-label { grid-column: 1; }
+    .custom-field-row .remove-field { grid-column: 2; }
+  }
+  .custom-field-row .field-key, .custom-field-row .field-label { min-width: 0; }
+  .custom-field-row .field-type { min-width: 100px; }
+  .field-required-label { margin: 0; font-size: 14px; font-weight: normal; display: flex; align-items: center; gap: 6px; }
+  .form-actions { display: flex; gap: 12px; flex-wrap: wrap; padding-top: 8px; }
+</style>
+
+<script>
+(function() {
+  var list = document.getElementById('custom-fields-list');
+  var addBtn = document.getElementById('add-custom-field');
+  var primaryColor = document.getElementById('id_primary_color');
+  var primaryHex = document.getElementById('id_primary_color_hex');
+  if (primaryColor && primaryHex) {
+    primaryColor.addEventListener('input', function() { primaryHex.value = primaryColor.value; });
+    primaryHex.addEventListener('input', function() {
+      if (/^#[0-9A-Fa-f]{6}$/.test(primaryHex.value)) primaryColor.value = primaryHex.value;
+    });
+  }
+
+  function addRow(index) {
+    var row = document.createElement('div');
+    row.className = 'custom-field-row';
+    row.setAttribute('data-index', index);
+    row.innerHTML =
+      '<input type="text" name="custom_field_key" placeholder="Key (e.g. po_number)" class="field-key">' +
+      '<input type="text" name="custom_field_label" placeholder="Label (e.g. PO Number)" class="field-label">' +
+      '<select name="custom_field_type" class="field-type">' +
+        '<option value="text">Text</option><option value="number">Number</option><option value="date">Date</option><option value="textarea">Long text</option>' +
+      '</select>' +
+      '<label class="field-required-label"><input type="checkbox" name="custom_field_required" class="field-required"> Required</label>' +
+      '<button type="button" class="btn btn-secondary btn-sm remove-field" aria-label="Remove field">Remove</button>';
+    list.appendChild(row);
+    row.querySelector('.remove-field').addEventListener('click', function() { row.remove(); });
+  }
+
+  addBtn.addEventListener('click', function() {
+    var count = list.querySelectorAll('.custom-field-row').length;
+    addRow(count);
+  });
+
+  list.querySelectorAll('.remove-field').forEach(function(btn) {
+    btn.addEventListener('click', function() { btn.closest('.custom-field-row').remove(); });
+  });
+})();
+</script>
+{% endblock %}

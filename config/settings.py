@@ -35,13 +35,16 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-irt9nv(azv+l0u
 # Default to True so you see full error pages in development; set DJANGO_DEBUG=0 to disable.
 DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 
-# In production, set ALLOWED_HOSTS (comma-separated) or leave unset to allow only 127.0.0.1/localhost.
-# On Vercel, add .vercel.app so the deployment URL is allowed (or set ALLOWED_HOSTS in dashboard).
+# In production, set ALLOWED_HOSTS (comma-separated) or leave unset.
+# When PORT is set (e.g. App Platform, Render), allow .ondigitalocean.app so the app accepts requests.
 _allowed = os.environ.get("ALLOWED_HOSTS", "").strip()
 if _allowed:
     ALLOWED_HOSTS = [h.strip() for h in _allowed.split(",") if h.strip()]
 elif os.environ.get("VERCEL"):
     ALLOWED_HOSTS = [".vercel.app", ".now.sh"]
+elif os.environ.get("PORT"):
+    # App Platform, Render, etc. set PORT; allow default platform hostnames
+    ALLOWED_HOSTS = [".ondigitalocean.app", ".render.com", "127.0.0.1", "localhost"]
 elif DEBUG:
     ALLOWED_HOSTS = ["*"]
 else:
@@ -147,41 +150,104 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-# PostgreSQL: set DATABASE_URL or SUPABASE_URL (e.g. from Supabase → Project Settings → Database → Connection string).
-# Use the "URI" format; for Supabase prefer the pooler (port 6543) for serverless/Vercel.
-_db_url = (
-    os.environ.get("DATABASE_URL", "").strip()
-    or os.environ.get("SUPABASE_URL", "").strip()
-    or os.environ.get("SUPABASE_DATABASE_URL", "").strip()
-)
+# PostgreSQL / Supabase: set PG_URL or POSTGRES_URL (Supabase connection URI).
+# On App Platform use Run Time scope and set the var on the web service component.
+def _get_db_url():
+    for name in ("PG_URL", "POSTGRES_URL", "DATABASE_URL", "SUPABASE_URL", "SUPABASE_DATABASE_URL"):
+        raw = os.environ.get(name, "") or ""
+        raw = raw.strip().strip('"').strip("'").replace("\n", "").replace("\r", "").strip()
+        if raw and (raw.startswith("postgres://") or raw.startswith("postgresql://")):
+            return raw
+    return ""
+
+_db_url = _get_db_url()
+_platform_runtime = bool(os.environ.get("PORT"))  # App Platform, Render, etc. set PORT
+
+# Only require DB URL when actually running the web server (gunicorn). Build (collectstatic) and migrate skip.
+import sys
+_argv = getattr(sys, "argv", [])
+_argv_str = " ".join(str(x) for x in _argv)
+_is_gunicorn = "gunicorn" in _argv_str
+
+if _platform_runtime and not _db_url and _is_gunicorn:
+    print(
+        "[DATABASE] FATAL: PG_URL or POSTGRES_URL must be set when running on this platform (PORT is set). "
+        "Add it as a Run Time environment variable on the *web service* component in the dashboard. "
+        "Data cannot persist without it.",
+        file=sys.stderr,
+    )
+    raise RuntimeError(
+        "Database URL not set. Set PG_URL (or POSTGRES_URL) to your Supabase connection URI "
+        "as a Run Time env var on the web service component."
+    )
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+
 if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgresql://")):
-    from urllib.parse import urlparse
-    _parsed = urlparse(_db_url)
-    _db_user = _parsed.username
-    _db_pass = _parsed.password
-    _db_host = _parsed.hostname or "localhost"
-    _db_port = _parsed.port or 5432
-    _db_name = (_parsed.path or "/").lstrip("/") or "postgres"
-    _is_supabase = _db_host and ("supabase.com" in _db_host or "supabase.co" in _db_host)
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": _db_name,
-            "USER": _db_user,
-            "PASSWORD": _db_pass,
-            "HOST": _db_host,
-            "PORT": str(_db_port),
-            "CONN_MAX_AGE": 600,
-            "OPTIONS": {"sslmode": "require"} if _is_supabase else {},
-        }
-    }
+    _parse_error = None
+    try:
+        import dj_database_url
+        _db_config = dj_database_url.parse(_db_url, conn_max_age=600)
+        _db_host = (_db_config.get("HOST") or "").lower()
+        _is_supabase = "supabase.com" in _db_host or "supabase.co" in _db_host
+        if _is_supabase:
+            _db_config.setdefault("OPTIONS", {})["sslmode"] = "require"
+        DATABASES = {"default": _db_config}
+    except Exception as e:
+        _parse_error = e
+        try:
+            from urllib.parse import urlparse
+            _parsed = urlparse(_db_url)
+            _db_user = _parsed.username
+            _db_pass = _parsed.password
+            _db_host = _parsed.hostname or "localhost"
+            _db_port = _parsed.port or 5432
+            _db_name = (_parsed.path or "/").lstrip("/") or "postgres"
+            _is_supabase = _db_host and ("supabase.com" in _db_host or "supabase.co" in _db_host)
+            DATABASES = {
+                "default": {
+                    "ENGINE": "django.db.backends.postgresql",
+                    "NAME": _db_name,
+                    "USER": _db_user,
+                    "PASSWORD": _db_pass,
+                    "HOST": _db_host,
+                    "PORT": str(_db_port),
+                    "CONN_MAX_AGE": 600,
+                    "OPTIONS": {"sslmode": "require"} if _is_supabase else {},
+                }
+            }
+            _parse_error = None
+        except Exception as e2:
+            _parse_error = _parse_error or e2
+        if _parse_error and _platform_runtime:
+            import sys
+            print(
+                f"[DATABASE ERROR] POSTGRES_URL is set but parsing failed: {_parse_error!r}. "
+                "Fix the URL or check special characters in the password (URL-encode them).",
+                file=sys.stderr,
+            )
+            raise _parse_error
+        elif _parse_error:
+            pass  # dev: keep SQLite on parse error
+
+# Startup log: which database is in use (visible in App Platform runtime logs)
+import sys
+if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
+    _host = DATABASES["default"].get("HOST", "?")
+    print(f"[DATABASE] Using PostgreSQL at {_host}", file=sys.stderr)
 else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+    print("[DATABASE] Using SQLite (db.sqlite3)", file=sys.stderr)
+    if _platform_runtime:
+        print(
+            "[DATABASE] WARNING: On this platform (PORT set), data will be LOST on every redeploy. "
+            "Set POSTGRES_URL (Supabase URI) as a Run Time environment variable for the web component.",
+            file=sys.stderr,
+        )
 
 
 # Password validation
