@@ -156,16 +156,18 @@ _db_url = (
     or os.environ.get("SUPABASE_DATABASE_URL", "").strip()
 )
 if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgresql://")):
-    from urllib.parse import urlparse
-    _parsed = urlparse(_db_url)
-    _db_user = _parsed.username
-    _db_pass = _parsed.password
-    _db_host = _parsed.hostname or "localhost"
-    _db_port = _parsed.port or 5432
-    _db_name = (_parsed.path or "/").lstrip("/") or "postgres"
-    _is_supabase = _db_host and ("supabase.com" in _db_host or "supabase.co" in _db_host)
-    DATABASES = {
-        "default": {
+    from urllib.parse import urlparse, unquote
+    try:
+        _parsed = urlparse(_db_url)
+        _db_user = _parsed.username
+        _db_pass = unquote(_parsed.password) if _parsed.password else None  # URL decode password
+        _db_host = _parsed.hostname or "localhost"
+        _db_port = _parsed.port or 5432
+        _db_name = (_parsed.path or "/").lstrip("/") or "postgres"
+        _is_supabase = _db_host and ("supabase.com" in _db_host or "supabase.co" in _db_host)
+        
+        # Build database config
+        db_config = {
             "ENGINE": "django.db.backends.postgresql",
             "NAME": _db_name,
             "USER": _db_user,
@@ -173,9 +175,32 @@ if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgre
             "HOST": _db_host,
             "PORT": str(_db_port),
             "CONN_MAX_AGE": 600,
-            "OPTIONS": {"sslmode": "require"} if _is_supabase else {},
         }
-    }
+        
+        # Add SSL for Supabase or if specified in connection string
+        if _is_supabase:
+            db_config["OPTIONS"] = {"sslmode": "require"}
+        elif "sslmode" in _parsed.query:
+            # Parse sslmode from query string if present
+            from urllib.parse import parse_qs
+            query_params = parse_qs(_parsed.query)
+            if "sslmode" in query_params:
+                db_config["OPTIONS"] = {"sslmode": query_params["sslmode"][0]}
+        
+        DATABASES = {"default": db_config}
+        
+        # Log successful database config (without sensitive info)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Configured PostgreSQL database: {_db_host}:{_db_port}/{_db_name}")
+        
+    except Exception as e:
+        # If parsing fails, log error but continue (will fall back to SQLite with warning)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error parsing DATABASE_URL: {e}. Falling back to SQLite.")
+        # Will fall through to SQLite configuration below
+        _db_url = None  # Force SQLite fallback
 else:
     # SQLite fallback - ONLY for local development
     # WARNING: SQLite is NOT persistent on cloud platforms (Vercel, Railway, Render, etc.)
