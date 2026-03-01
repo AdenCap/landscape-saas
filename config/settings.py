@@ -151,6 +151,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # PostgreSQL: set DATABASE_URL or SUPABASE_URL (e.g. from Supabase → Project Settings → Database → Connection string).
 # Use the "URI" format; for Supabase prefer the pooler (port 6543) for serverless/Vercel.
 # DigitalOcean automatically sets DATABASE_URL when you add a database component to your app.
+# DigitalOcean uses bindable variables like ${db.DATABASE_URL} which get resolved to DATABASE_URL at runtime.
 _db_url = (
     os.environ.get("DATABASE_URL", "").strip()
     or os.environ.get("SUPABASE_URL", "").strip()
@@ -158,6 +159,9 @@ _db_url = (
     or os.environ.get("POSTGRES_URL", "").strip()  # Some platforms use this
     or os.environ.get("POSTGRESQL_URL", "").strip()  # Alternative name
 )
+
+# Note: DigitalOcean bindable variables like ${db.DATABASE_URL} are automatically resolved
+# to DATABASE_URL by DigitalOcean at runtime, so we just need to check DATABASE_URL
 if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgresql://")):
     from urllib.parse import urlparse, unquote
     try:
