@@ -53,13 +53,28 @@ def health_check(request):
     try:
         from django.db import connection
         with connection.cursor() as cursor:
-            cursor.execute("SELECT 1;")
+            cursor.execute("SELECT version();")
+            version = cursor.fetchone()[0]
             status["database"]["connection"] = "success"
+            status["database"]["version"] = version[:100]  # Truncate for safety
+            cursor.execute("SELECT 1;")
+            status["database"]["test_query"] = "success"
     except Exception as e:
         status["database"]["connection"] = "failed"
         status["database"]["error"] = str(e)
         status["errors"].append(f"Database connection failed: {str(e)}")
         status["status"] = "error"
+        
+        # Add helpful diagnostic info
+        error_str = str(e).lower()
+        if "timeout" in error_str or "could not connect" in error_str:
+            status["database"]["diagnostic"] = "Connection timeout - check Trusted Sources in DigitalOcean database settings. Your app component must be added to Trusted Sources."
+        elif "password" in error_str or "authentication" in error_str:
+            status["database"]["diagnostic"] = "Authentication failed - check DATABASE_URL password is correct. Get fresh connection string from Database → Connection Details."
+        elif "ssl" in error_str:
+            status["database"]["diagnostic"] = "SSL required - DigitalOcean requires SSL. The code should auto-add this, but verify DATABASE_URL includes sslmode=require"
+        elif "does not exist" in error_str or ("database" in error_str and "exist" in error_str):
+            status["database"]["diagnostic"] = "Database name might be wrong - check DATABASE_URL database name matches your DigitalOcean database"
     
     # Check if using SQLite in production
     if 'sqlite' in status["database"]["engine"].lower():
