@@ -174,7 +174,13 @@ if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgre
         _db_port = _parsed.port or 5432
         _db_name = (_parsed.path or "/").lstrip("/") or "postgres"
         _is_supabase = _db_host and ("supabase.com" in _db_host or "supabase.co" in _db_host)
-        _is_digitalocean = _db_host and ("digitalocean.com" in _db_host or "db.ondigitalocean.com" in _db_host or "ondigitalocean.com" in _db_host)
+        # Detect DigitalOcean databases - check for common DigitalOcean host patterns
+        _is_digitalocean = _db_host and (
+            "digitalocean.com" in _db_host or 
+            "db.ondigitalocean.com" in _db_host or 
+            "ondigitalocean.com" in _db_host or
+            _db_port == 25060  # DigitalOcean's standard port
+        )
         
         # Build database config
         db_config = {
