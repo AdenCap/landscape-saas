@@ -177,8 +177,11 @@ if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgre
             "CONN_MAX_AGE": 600,
         }
         
-        # Add SSL for Supabase or if specified in connection string
+        # Add SSL for Supabase, DigitalOcean, or if specified in connection string
         if _is_supabase:
+            db_config["OPTIONS"] = {"sslmode": "require"}
+        elif "digitalocean.com" in _db_host or "db.ondigitalocean.com" in _db_host:
+            # DigitalOcean managed databases require SSL
             db_config["OPTIONS"] = {"sslmode": "require"}
         elif "sslmode" in _parsed.query:
             # Parse sslmode from query string if present
@@ -186,6 +189,10 @@ if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgre
             query_params = parse_qs(_parsed.query)
             if "sslmode" in query_params:
                 db_config["OPTIONS"] = {"sslmode": query_params["sslmode"][0]}
+        else:
+            # For other cloud providers, try requiring SSL (most need it)
+            # User can override with ?sslmode=disable if needed
+            db_config["OPTIONS"] = {"sslmode": "require"}
         
         DATABASES = {"default": db_config}
         
