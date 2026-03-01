@@ -29,9 +29,25 @@ def health_check(request):
     status["database"]["name"] = db_config.get('NAME', 'unknown')
     status["database"]["host"] = db_config.get('HOST', 'unknown')
     
-    # Check if DATABASE_URL is set
-    has_db_url = bool(os.environ.get('DATABASE_URL'))
+    # Check if DATABASE_URL is set (check all possible names)
+    has_db_url = bool(
+        os.environ.get('DATABASE_URL') or
+        os.environ.get('SUPABASE_URL') or
+        os.environ.get('SUPABASE_DATABASE_URL') or
+        os.environ.get('POSTGRES_URL') or
+        os.environ.get('POSTGRESQL_URL')
+    )
     status["environment"]["has_database_url"] = has_db_url
+    
+    # Check which variable is set
+    if os.environ.get('DATABASE_URL'):
+        status["environment"]["database_url_source"] = "DATABASE_URL"
+    elif os.environ.get('SUPABASE_URL'):
+        status["environment"]["database_url_source"] = "SUPABASE_URL"
+    elif os.environ.get('POSTGRES_URL'):
+        status["environment"]["database_url_source"] = "POSTGRES_URL"
+    else:
+        status["environment"]["database_url_source"] = "none"
     
     # Try to connect to database
     try:

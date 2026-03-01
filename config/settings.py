@@ -150,14 +150,23 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 # PostgreSQL: set DATABASE_URL or SUPABASE_URL (e.g. from Supabase → Project Settings → Database → Connection string).
 # Use the "URI" format; for Supabase prefer the pooler (port 6543) for serverless/Vercel.
+# DigitalOcean automatically sets DATABASE_URL when you add a database component to your app.
 _db_url = (
     os.environ.get("DATABASE_URL", "").strip()
     or os.environ.get("SUPABASE_URL", "").strip()
     or os.environ.get("SUPABASE_DATABASE_URL", "").strip()
+    or os.environ.get("POSTGRES_URL", "").strip()  # Some platforms use this
+    or os.environ.get("POSTGRESQL_URL", "").strip()  # Alternative name
 )
 if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgresql://")):
     from urllib.parse import urlparse, unquote
     try:
+        # Ensure SSL is included for DigitalOcean (they require it)
+        # DigitalOcean auto-set DATABASE_URL might not include sslmode
+        if "sslmode=" not in _db_url:
+            separator = "?" if "?" not in _db_url else "&"
+            _db_url = f"{_db_url}{separator}sslmode=require"
+        
         _parsed = urlparse(_db_url)
         _db_user = _parsed.username
         _db_pass = unquote(_parsed.password) if _parsed.password else None  # URL decode password
@@ -165,6 +174,7 @@ if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgre
         _db_port = _parsed.port or 5432
         _db_name = (_parsed.path or "/").lstrip("/") or "postgres"
         _is_supabase = _db_host and ("supabase.com" in _db_host or "supabase.co" in _db_host)
+        _is_digitalocean = _db_host and ("digitalocean.com" in _db_host or "db.ondigitalocean.com" in _db_host or "ondigitalocean.com" in _db_host)
         
         # Build database config
         db_config = {
@@ -180,7 +190,7 @@ if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgre
         # Add SSL for Supabase, DigitalOcean, or if specified in connection string
         if _is_supabase:
             db_config["OPTIONS"] = {"sslmode": "require"}
-        elif "digitalocean.com" in _db_host or "db.ondigitalocean.com" in _db_host:
+        elif _is_digitalocean:
             # DigitalOcean managed databases require SSL
             db_config["OPTIONS"] = {"sslmode": "require"}
         elif "sslmode" in _parsed.query:
@@ -200,6 +210,8 @@ if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgre
         import logging
         logger = logging.getLogger(__name__)
         logger.info(f"Configured PostgreSQL database: {_db_host}:{_db_port}/{_db_name}")
+        if _is_digitalocean:
+            logger.info("DigitalOcean database detected - SSL enabled automatically")
         
     except Exception as e:
         # If parsing fails, log error but continue (will fall back to SQLite with warning)
