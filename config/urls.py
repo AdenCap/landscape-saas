@@ -63,5 +63,12 @@ urlpatterns = [
     path("financials/", include(("financials.urls", "financials"), namespace="financials")),
     path("estimator/", include("property_estimator.urls")),
 ]
+
+# Diagnostic endpoints (only in DEBUG mode)
+if settings.DEBUG:
+    from config import diagnostic_views
+    urlpatterns += [
+        path("_diagnostic/database/", diagnostic_views.database_status, name="diagnostic_database"),
+    ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
