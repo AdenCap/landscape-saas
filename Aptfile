@@ -1,0 +1,16 @@
+# System dependencies required for Python packages
+# Required for opencv-python-headless
+libglib2.0-0
+libsm6
+libxrender-dev
+libxext6
+# Required for Pillow
+libjpeg-dev
+libpng-dev
+libtiff-dev
+# Required for psycopg2-binary (PostgreSQL client)
+libpq-dev
+# Required for building Python packages
+gcc
+g++
+make
