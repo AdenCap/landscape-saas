@@ -152,16 +152,31 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Use the "URI" format; for Supabase prefer the pooler (port 6543) for serverless/Vercel.
 # DigitalOcean automatically sets DATABASE_URL when you add a database component to your app.
 # DigitalOcean uses bindable variables like ${db.DATABASE_URL} which get resolved to DATABASE_URL at runtime.
-_db_url = (
-    os.environ.get("DATABASE_URL", "").strip()
-    or os.environ.get("SUPABASE_URL", "").strip()
-    or os.environ.get("SUPABASE_DATABASE_URL", "").strip()
-    or os.environ.get("POSTGRES_URL", "").strip()  # Some platforms use this
-    or os.environ.get("POSTGRESQL_URL", "").strip()  # Alternative name
-)
+# However, if the bindable variable isn't resolved, we need to get the actual connection string.
+_db_url = os.environ.get("DATABASE_URL", "").strip()
 
-# Note: DigitalOcean bindable variables like ${db.DATABASE_URL} are automatically resolved
-# to DATABASE_URL by DigitalOcean at runtime, so we just need to check DATABASE_URL
+# If DATABASE_URL is still in bindable variable format (not resolved by DigitalOcean),
+# we need to get the actual connection string from the database component
+if _db_url and _db_url.startswith("${") and _db_url.endswith("}"):
+    # This is a bindable variable that wasn't resolved - DigitalOcean should resolve it
+    # but if it didn't, we need to get the actual connection string
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"DATABASE_URL appears to be a bindable variable ({_db_url}) that wasn't resolved. "
+                   f"DigitalOcean should resolve this automatically. If you see this warning, "
+                   f"get the actual connection string from Database → Connection Details and set it as DATABASE_URL.")
+    # Try to get the actual value - DigitalOcean might have it under a different name
+    # But typically, if it's not resolved, we need to set it manually
+    _db_url = None  # Will fall through to check other sources
+
+# Check other possible environment variable names
+if not _db_url:
+    _db_url = (
+        os.environ.get("SUPABASE_URL", "").strip()
+        or os.environ.get("SUPABASE_DATABASE_URL", "").strip()
+        or os.environ.get("POSTGRES_URL", "").strip()  # Some platforms use this
+        or os.environ.get("POSTGRESQL_URL", "").strip()  # Alternative name
+    )
 if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgresql://")):
     from urllib.parse import urlparse, unquote
     try:
