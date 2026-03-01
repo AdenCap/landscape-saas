@@ -11,6 +11,8 @@ ENV PORT=8080
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev \
+    libglib2.0-0 libsm6 libxrender-dev libxext6 \
+    libjpeg-dev libpng-dev libtiff-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -23,5 +25,5 @@ EXPOSE 8080
 
 RUN chmod +x run.sh
 # Must specify the WSGI app module (config.wsgi:application); otherwise Gunicorn errors: "No application module specified."
-# run.sh uses PORT from env (default 8080) so readiness probes on 8080 succeed.
-CMD ["./run.sh"]
+# Note: Digital Ocean App Platform will use run_command from app.yaml, but this CMD works as fallback
+CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8080} --workers 1 --timeout 120"]

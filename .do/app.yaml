@@ -6,11 +6,7 @@ name: landscape-saas
 
 services:
   - name: web
-    environment_slug: python
-    # Do not run migrate in build – build runners may not have DATABASE_URL or network to Supabase
-    # Split install and build: install deps first, then collectstatic (non-blocking)
-    install_command: pip install --no-cache-dir -r requirements.txt
-    build_command: python manage.py collectstatic --noinput || true
+    dockerfile_path: Dockerfile
     run_command: python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120
     http_port: 8080
     # In DO dashboard: on the *web* component set PG_URL = your Supabase URI, scope = Run Time. Set DJANGO_SECRET_KEY, DB_CHECK_SECRET (optional, for /api/db-check/).
