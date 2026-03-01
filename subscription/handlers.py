@@ -1,22 +1,121 @@
-"""Stripe webhook event handlers: subscription (platform), Connect account.updated, invoice payment."""
+"""
+Stripe webhook event handlers: subscription (platform), Connect account.updated, invoice payment.
+
+This module handles both regular webhook events and V2 thin events for Stripe Connect accounts.
+"""
+import logging
 from django.utils import timezone
+from django.conf import settings
 
 from businesses.models import Business
+from stripe_connect.models import ConnectedAccountSubscription
+
+logger = logging.getLogger(__name__)
 
 
 def handle_stripe_webhook(event):
-    """Dispatch to the right handler by event type."""
+    """
+    Dispatch to the right handler by event type.
+    
+    Supports both regular events and V2 thin events.
+    For thin events, we need to fetch the full event data first.
+    
+    Note: When using thin events, you need to configure your webhook endpoint
+    in Stripe Dashboard to send "Thin" payloads and listen for V2 events.
+    """
+    event_type = event.get("type", "")
+    event_id = event.get("id")
+    
+    # Check if this is a thin event (V2 events)
+    # Thin events have a different structure and need to be expanded
+    # Thin events typically have minimal data and need to be fetched
+    if event_type.startswith("v2.") or (event_id and event.get("object") == "event" and not event.get("data")):
+        # This is a V2 thin event - fetch the full event data
+        try:
+            import stripe
+            from stripe import StripeClient
+            
+            stripe_secret_key = getattr(settings, "STRIPE_SECRET_KEY", None)
+            if not stripe_secret_key:
+                logger.error("STRIPE_SECRET_KEY not set, cannot process V2 thin event")
+                return
+            
+            stripe_client = StripeClient(stripe_secret_key)
+            
+            # Fetch the full event data using the event ID
+            if event_id:
+                full_event = stripe_client.v2.core.events.retrieve(event_id)
+                event_type = full_event.get("type", event_type)
+                event = full_event
+            else:
+                logger.warning("V2 thin event missing event ID, cannot fetch full event")
+                return
+        except Exception as e:
+            logger.error(f"Error fetching full V2 event: {e}", exc_info=True)
+            return
+    
+    # Handle subscription events first - need to check if it's platform or connected account
+    if event_type in ["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"]:
+        # Check if this is for a connected account (customer_account field exists in V2)
+        sub_data = event.get("data", {}).get("object", {})
+        customer_account = sub_data.get("customer_account")
+        if customer_account:
+            # This is a connected account subscription event
+            if event_type == "customer.subscription.created":
+                _connect_subscription_created(event)
+            elif event_type == "customer.subscription.updated":
+                _connect_subscription_updated(event)
+            elif event_type == "customer.subscription.deleted":
+                _connect_subscription_deleted(event)
+        else:
+            # This is a platform subscription event - use existing handler
+            if event_type == "customer.subscription.created":
+                _subscription_updated(event)
+            elif event_type == "customer.subscription.updated":
+                _subscription_updated(event)
+            elif event_type == "customer.subscription.deleted":
+                _subscription_deleted(event)
+        return
+    
+    # Map other event types to handlers
     handlers = {
-        "customer.subscription.created": _subscription_updated,
-        "customer.subscription.updated": _subscription_updated,
-        "customer.subscription.deleted": _subscription_deleted,
         "invoice.paid": _invoice_paid,
+        
+        # Connect account events (V1)
         "account.updated": _account_updated,
+        
+        # Connect account events (V2 thin events)
+        "v2.core.account[requirements].updated": _v2_account_requirements_updated,
+        "v2.core.account[configuration.merchant].capability_status_updated": _v2_merchant_capability_updated,
+        "v2.core.account[configuration.customer].capability_status_updated": _v2_customer_capability_updated,
+        "v2.core.account[.recipient].capability_status_updated": _v2_recipient_capability_updated,
+        
+        # Checkout events
         "checkout.session.completed": _checkout_session_completed,
+        
+        # Payment method events
+        "payment_method.attached": _payment_method_attached,
+        "payment_method.detached": _payment_method_detached,
+        
+        # Customer events
+        "customer.updated": _customer_updated,
+        
+        # Tax ID events
+        "customer.tax_id.created": _customer_tax_id_created,
+        "customer.tax_id.deleted": _customer_tax_id_deleted,
+        "customer.tax_id.updated": _customer_tax_id_updated,
+        
+        # Billing portal events
+        "billing_portal.configuration.created": _billing_portal_config_created,
+        "billing_portal.configuration.updated": _billing_portal_config_updated,
+        "billing_portal.session.created": _billing_portal_session_created,
     }
-    handler = handlers.get(event["type"])
+    
+    handler = handlers.get(event_type)
     if handler:
         handler(event)
+    else:
+        logger.debug(f"No handler for event type: {event_type}")
 
 
 def _subscription_updated(event):
@@ -78,7 +177,7 @@ def _invoice_paid(event):
 
 
 def _account_updated(event):
-    """Stripe Connect: when connected account is updated, set charges_enabled on Business."""
+    """Stripe Connect V1: when connected account is updated, set charges_enabled on Business."""
     acc = event["data"]["object"]
     if acc.get("object") != "account":
         return
@@ -90,6 +189,241 @@ def _account_updated(event):
         return
     business.stripe_connect_charges_enabled = bool(acc.get("charges_enabled"))
     business.save(update_fields=["stripe_connect_charges_enabled"])
+
+
+def _v2_account_requirements_updated(event):
+    """
+    V2 thin event: Account requirements updated.
+    
+    This event is sent when account requirements change (e.g., new information needed).
+    You should check the requirements and prompt the user to complete them if needed.
+    """
+    # For thin events, the account ID is in the event object
+    account_id = event.get("account")
+    if not account_id:
+        return
+    
+    # TODO: In production, you might want to:
+    # 1. Fetch the account to get current requirements status
+    # 2. Notify the business owner if action is needed
+    # 3. Update the business record with requirements status
+    logger.info(f"V2 account requirements updated for account: {account_id}")
+
+
+def _v2_merchant_capability_updated(event):
+    """
+    V2 thin event: Merchant capability status updated.
+    
+    This event is sent when the merchant capability (card_payments, etc.) status changes.
+    """
+    account_id = event.get("account")
+    if not account_id:
+        return
+    
+    business = Business.objects.filter(stripe_connect_account_id=account_id).first()
+    if not business:
+        return
+    
+    # Check if card payments are now active
+    # The event data structure may vary, so we'll fetch the account to be sure
+    try:
+        import stripe
+        from stripe import StripeClient
+        
+        stripe_secret_key = getattr(settings, "STRIPE_SECRET_KEY", None)
+        if stripe_secret_key:
+            stripe_client = StripeClient(stripe_secret_key)
+            account = stripe_client.v2.core.accounts.retrieve(
+                account_id,
+                include=["configuration.merchant"]
+            )
+            
+            merchant_config = account.get("configuration", {}).get("merchant", {})
+            capabilities = merchant_config.get("capabilities", {})
+            card_payments = capabilities.get("card_payments", {})
+            status = card_payments.get("status")
+            
+            # Update business if card payments are active
+            if status == "active":
+                business.stripe_connect_charges_enabled = True
+                business.save(update_fields=["stripe_connect_charges_enabled"])
+    except Exception as e:
+        logger.error(f"Error processing merchant capability update: {e}", exc_info=True)
+
+
+def _v2_customer_capability_updated(event):
+    """V2 thin event: Customer capability status updated."""
+    account_id = event.get("account")
+    if not account_id:
+        return
+    logger.info(f"V2 customer capability updated for account: {account_id}")
+
+
+def _v2_recipient_capability_updated(event):
+    """V2 thin event: Recipient capability status updated."""
+    account_id = event.get("account")
+    if not account_id:
+        return
+    logger.info(f"V2 recipient capability updated for account: {account_id}")
+
+
+def _connect_subscription_created(event):
+    """
+    Connected account subscription created.
+    
+    When a connected account subscribes to your platform, store the subscription.
+    """
+    sub = event["data"]["object"]
+    subscription_id = sub.get("id")
+    customer_account = sub.get("customer_account")  # V2: use customer_account, not customer
+    
+    if not subscription_id or not customer_account:
+        return
+    
+    # Find business by connected account ID
+    business = Business.objects.filter(stripe_connect_account_id=customer_account).first()
+    if not business:
+        return
+    
+    # Create or update subscription record
+    subscription, created = ConnectedAccountSubscription.objects.update_or_create(
+        stripe_subscription_id=subscription_id,
+        defaults={
+            "business": business,
+            "status": sub.get("status", "active"),
+            "current_period_end": timezone.datetime.fromtimestamp(
+                sub.get("current_period_end", 0), tz=timezone.utc
+            ) if sub.get("current_period_end") else None,
+        }
+    )
+    
+    logger.info(f"Connected account subscription {'created' if created else 'updated'}: {subscription_id}")
+
+
+def _connect_subscription_updated(event):
+    """
+    Connected account subscription updated.
+    
+    Handle subscription upgrades, downgrades, quantity changes, pauses, etc.
+    """
+    sub = event["data"]["object"]
+    subscription_id = sub.get("id")
+    customer_account = sub.get("customer_account")
+    
+    if not subscription_id:
+        return
+    
+    subscription = ConnectedAccountSubscription.objects.filter(
+        stripe_subscription_id=subscription_id
+    ).first()
+    
+    if not subscription:
+        # If subscription doesn't exist, try to create it
+        if customer_account:
+            business = Business.objects.filter(stripe_connect_account_id=customer_account).first()
+            if business:
+                subscription = ConnectedAccountSubscription.objects.create(
+                    business=business,
+                    stripe_subscription_id=subscription_id,
+                    status=sub.get("status", "active"),
+                    current_period_end=timezone.datetime.fromtimestamp(
+                        sub.get("current_period_end", 0), tz=timezone.utc
+                    ) if sub.get("current_period_end") else None,
+                )
+        return
+    
+    # Update subscription status
+    subscription.status = sub.get("status", subscription.status)
+    if sub.get("current_period_end"):
+        subscription.current_period_end = timezone.datetime.fromtimestamp(
+            sub.get("current_period_end"), tz=timezone.utc
+        )
+    subscription.save()
+    
+    # TODO: In production, you should:
+    # 1. Check subscription.items.data[0].price for upgrades/downgrades
+    # 2. Check subscription.items.data[0].quantity for quantity changes
+    # 3. Check subscription.pause_collection for paused subscriptions
+    # 4. Grant or revoke access based on subscription status
+    
+    logger.info(f"Connected account subscription updated: {subscription_id}")
+
+
+def _connect_subscription_deleted(event):
+    """Connected account subscription deleted (canceled)."""
+    sub = event["data"]["object"]
+    subscription_id = sub.get("id")
+    
+    if not subscription_id:
+        return
+    
+    subscription = ConnectedAccountSubscription.objects.filter(
+        stripe_subscription_id=subscription_id
+    ).first()
+    
+    if subscription:
+        subscription.status = "canceled"
+        subscription.save()
+        # TODO: Revoke access to platform features
+    
+    logger.info(f"Connected account subscription deleted: {subscription_id}")
+
+
+def _payment_method_attached(event):
+    """Payment method attached to customer."""
+    # TODO: Update customer payment method information if needed
+    logger.debug("Payment method attached")
+
+
+def _payment_method_detached(event):
+    """Payment method detached from customer."""
+    # TODO: Update customer payment method information if needed
+    logger.debug("Payment method detached")
+
+
+def _customer_updated(event):
+    """
+    Customer updated.
+    
+    Check invoice_settings.default_payment_method for new default payment method.
+    All updates must be treated as billing information changes only.
+    """
+    # TODO: Update customer billing information
+    # NOTE: Do not use customer billing email as a login credential
+    logger.debug("Customer updated")
+
+
+def _customer_tax_id_created(event):
+    """Customer tax ID created."""
+    # TODO: Handle tax ID creation if needed
+    logger.debug("Customer tax ID created")
+
+
+def _customer_tax_id_deleted(event):
+    """Customer tax ID deleted."""
+    # TODO: Handle tax ID deletion if needed
+    logger.debug("Customer tax ID deleted")
+
+
+def _customer_tax_id_updated(event):
+    """Customer tax ID updated (validation status)."""
+    # TODO: Handle tax ID validation updates if needed
+    logger.debug("Customer tax ID updated")
+
+
+def _billing_portal_config_created(event):
+    """Billing portal configuration created."""
+    logger.debug("Billing portal configuration created")
+
+
+def _billing_portal_config_updated(event):
+    """Billing portal configuration updated."""
+    logger.debug("Billing portal configuration updated")
+
+
+def _billing_portal_session_created(event):
+    """Billing portal session created."""
+    logger.debug("Billing portal session created")
 
 
 def _checkout_session_completed(event):

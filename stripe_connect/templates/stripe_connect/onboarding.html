@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Stripe Connect Onboarding{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Accept Payments with Stripe</h1>
+  <p>Connect your Stripe account to accept credit card payments from your customers</p>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<div class="card" style="max-width: 600px;">
+  {% if business.stripe_connect_account_id %}
+    <!-- Account exists - show status -->
+    <h2 class="card-title">Account Status</h2>
+    
+    <div style="margin-bottom: 20px;">
+      <p><strong>Account ID:</strong> <code>{{ account_id }}</code></p>
+      {% if display_name %}
+      <p><strong>Display Name:</strong> {{ display_name }}</p>
+      {% endif %}
+      {% if contact_email %}
+      <p><strong>Contact Email:</strong> {{ contact_email }}</p>
+      {% endif %}
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+      {% if ready_to_process_payments %}
+      <div class="alert alert-success">
+        ✓ Your account is ready to process payments
+      </div>
+      {% elif onboarding_complete %}
+      <div class="alert alert-info">
+        Onboarding complete, but payments are not yet enabled. Please check your Stripe dashboard.
+      </div>
+      {% else %}
+      <div class="alert alert-warning">
+        Onboarding in progress. Please complete the required information.
+      </div>
+      {% endif %}
+      
+      {% if requirements_status %}
+      <p style="margin-top: 10px; color: var(--text-muted);">
+        <strong>Requirements Status:</strong> {{ requirements_status }}
+      </p>
+      {% endif %}
+    </div>
+    
+    {% if not ready_to_process_payments %}
+    <form method="get" action="{% url 'stripe_connect:create_account_link' %}">
+      <button type="submit" class="btn btn-primary">
+        Continue Onboarding
+      </button>
+    </form>
+    {% else %}
+    <div class="alert alert-success">
+      <p>Your Stripe account is fully set up and ready to accept payments!</p>
+      <p style="margin-top: 10px;">
+        <a href="{% url 'stripe_connect:product_list' %}" class="btn btn-primary">Manage Products</a>
+      </p>
+    </div>
+    {% endif %}
+    
+  {% else %}
+    <!-- No account - show create button -->
+    <h2 class="card-title">Get Started</h2>
+    <p>Connect your Stripe account to start accepting payments. You'll be redirected to Stripe to complete the onboarding process.</p>
+    
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary">
+        Onboard to Collect Payments
+      </button>
+    </form>
+    
+    <p style="margin-top: 20px; color: var(--text-muted); font-size: 14px;">
+      By connecting your Stripe account, you agree to Stripe's terms of service. 
+      Funds from payments will go directly to your connected Stripe account.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

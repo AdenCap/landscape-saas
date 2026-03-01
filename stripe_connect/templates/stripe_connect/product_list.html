@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Products{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Products</h1>
+  <p>Manage products that customers can purchase</p>
+</div>
+
+<div class="card">
+  <h2 class="card-title">Create New Product</h2>
+  <form method="post" style="margin-bottom: 30px;">
+    {% csrf_token %}
+    <div style="display: grid; gap: 16px; max-width: 500px;">
+      <div>
+        <label for="name" style="display: block; margin-bottom: 6px; font-weight: 500;">Product Name *</label>
+        <input type="text" id="name" name="name" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); color: var(--text);">
+      </div>
+      <div>
+        <label for="description" style="display: block; margin-bottom: 6px; font-weight: 500;">Description</label>
+        <textarea id="description" name="description" rows="3" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); color: var(--text); font-family: inherit;"></textarea>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px;">
+        <div>
+          <label for="price" style="display: block; margin-bottom: 6px; font-weight: 500;">Price *</label>
+          <input type="number" id="price" name="price" step="0.01" min="0.01" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); color: var(--text);">
+        </div>
+        <div>
+          <label for="currency" style="display: block; margin-bottom: 6px; font-weight: 500;">Currency</label>
+          <select id="currency" name="currency" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); color: var(--text);">
+            <option value="usd">USD</option>
+            <option value="eur">EUR</option>
+            <option value="gbp">GBP</option>
+            <option value="cad">CAD</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="justify-self: start;">Create Product</button>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="margin-top: 24px;">
+  <h2 class="card-title">Your Products</h2>
+  {% if products %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th class="num">Price</th>
+        <th>Status</th>
+        <th>Store Link</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for product in products %}
+      <tr>
+        <td><strong>{{ product.name }}</strong></td>
+        <td>{{ product.description|truncatewords:10 }}</td>
+        <td class="num">${{ product.price_amount|floatformat:2 }} {{ product.currency|upper }}</td>
+        <td>
+          {% if product.active %}
+          <span style="color: var(--primary);">Active</span>
+          {% else %}
+          <span style="color: var(--text-muted);">Inactive</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{% url 'stripe_connect:storefront' business.stripe_connect_account_id %}" class="link-primary" target="_blank">View Store</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color: var(--text-muted);">No products yet. Create your first product above.</p>
+  {% endif %}
+</div>
+{% endblock %}
