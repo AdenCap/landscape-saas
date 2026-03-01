@@ -196,7 +196,10 @@ if _db_url and (_db_url.startswith("postgres://") or _db_url.startswith("postgre
         _db_host = (_db_config.get("HOST") or "").lower()
         _is_supabase = "supabase.com" in _db_host or "supabase.co" in _db_host
         if _is_supabase:
-            _db_config.setdefault("OPTIONS", {})["sslmode"] = "require"
+            # Ensure SSL is required for Supabase connections
+            if "OPTIONS" not in _db_config:
+                _db_config["OPTIONS"] = {}
+            _db_config["OPTIONS"]["sslmode"] = "require"
         DATABASES = {"default": _db_config}
     except Exception as e:
         _parse_error = e
