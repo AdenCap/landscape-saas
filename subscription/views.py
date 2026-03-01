@@ -154,6 +154,9 @@ def stripe_webhook(request):
         return HttpResponse("Webhook secret not set", status=500)
     
     try:
+        # Parse webhook event
+        # For thin events (V2), we'll detect them in the handler
+        # The handler will check if event type starts with "v2." and fetch full event data
         event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
     except ValueError:
         return HttpResponse("Invalid payload", status=400)

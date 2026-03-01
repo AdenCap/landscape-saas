@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Subscription{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Platform Subscription</h1>
+  <p>Subscribe to access platform features</p>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<div class="card" style="max-width: 600px;">
+  {% if subscription %}
+    <!-- Active subscription -->
+    <h2 class="card-title">Current Subscription</h2>
+    
+    <div style="margin-bottom: 20px;">
+      <p><strong>Status:</strong> 
+        <span style="color: {% if subscription.status == 'active' or subscription.status == 'trialing' %}var(--primary){% else %}var(--text-muted){% endif %};">
+          {{ subscription.get_status_display }}
+        </span>
+      </p>
+      {% if subscription.current_period_end %}
+      <p><strong>Current Period Ends:</strong> {{ subscription.current_period_end|date:"F d, Y" }}</p>
+      {% endif %}
+      <p><strong>Subscription ID:</strong> <code style="font-size: 12px;">{{ subscription.stripe_subscription_id }}</code></p>
+    </div>
+    
+    <form method="post" action="{% url 'stripe_connect:create_billing_portal_session' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary">
+        Manage Subscription
+      </button>
+    </form>
+    
+  {% else %}
+    <!-- No subscription -->
+    <h2 class="card-title">Subscribe Now</h2>
+    <p>Subscribe to access all platform features.</p>
+    
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary">
+        Start Subscription
+      </button>
+    </form>
+    
+    <p style="margin-top: 20px; color: var(--text-muted); font-size: 14px;">
+      You'll be redirected to Stripe Checkout to complete your subscription.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

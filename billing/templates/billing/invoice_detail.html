@@ -58,6 +58,9 @@
     </form>
   </div>
 
+  {% if doc_template and doc_template.header_text %}
+  <div class="doc-header-custom invoice-doc-header">{{ doc_template.header_text|safe }}</div>
+  {% endif %}
   <div class="invoice-layout">
     <div class="invoice-parties">
       <div class="party-block">
@@ -123,6 +126,40 @@
     </div>
     {% endif %}
 
+    {% if doc_template and doc_template.custom_fields %}
+    <div class="invoice-custom-fields card">
+      <h3 class="payment-methods-title">Additional information</h3>
+      <form method="post" action="{% url 'billing:invoice_edit_custom_fields' invoice.id %}" class="invoice-custom-fields-form">
+        {% csrf_token %}
+        <div class="invoice-custom-fields-grid">
+          {% for field in doc_template.custom_fields %}
+          <div class="form-group">
+            <label for="inv_custom_value_{{ field.key }}">{{ field.label }}{% if field.required %} *{% endif %}</label>
+            {% if field.type == "textarea" %}
+            <textarea name="custom_value_{{ field.key }}" id="inv_custom_value_{{ field.key }}" rows="2" class="form-control">{% for k, v in invoice.custom_field_values.items %}{% if k == field.key %}{{ v }}{% endif %}{% endfor %}</textarea>
+            {% elif field.type == "date" %}
+            <input type="date" name="custom_value_{{ field.key }}" id="inv_custom_value_{{ field.key }}" value="{% for k, v in invoice.custom_field_values.items %}{% if k == field.key %}{{ v }}{% endif %}{% endfor %}" class="form-control">
+            {% elif field.type == "number" %}
+            <input type="number" name="custom_value_{{ field.key }}" id="inv_custom_value_{{ field.key }}" value="{% for k, v in invoice.custom_field_values.items %}{% if k == field.key %}{{ v }}{% endif %}{% endfor %}" class="form-control" step="any">
+            {% else %}
+            <input type="text" name="custom_value_{{ field.key }}" id="inv_custom_value_{{ field.key }}" value="{% for k, v in invoice.custom_field_values.items %}{% if k == field.key %}{{ v }}{% endif %}{% endfor %}" class="form-control" placeholder="{{ field.label }}">
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-secondary btn-sm">Save additional information</button>
+      </form>
+    </div>
+    {% endif %}
+
+    {% if doc_template and doc_template.terms_and_conditions %}
+    <div class="invoice-terms card"><h3 class="payment-methods-title">Terms &amp; conditions</h3><div class="invoice-terms-body">{{ doc_template.terms_and_conditions|linebreaks }}</div></div>
+    {% endif %}
+
+    {% if doc_template and doc_template.footer_text %}
+    <div class="invoice-footer-custom card">{{ doc_template.footer_text|safe }}</div>
+    {% endif %}
+
     {% if invoice.status == "sent" and invoice.payment_token %}
     <div class="invoice-pay-link card">
       <h3 class="payment-methods-title">Customer pay link</h3>
@@ -145,11 +182,12 @@
         {% csrf_token %}
         <button type="submit" class="btn btn-primary">Approve &amp; send</button>
       </form>
+      <span class="invoice-action-hint">After approving, use “Email invoice to customer” to send the email to the customer.</span>
       {% endif %}
       {% if invoice.status == "sent" or invoice.status == "paid" %}
       <form method="post" action="{% url 'billing:resend_invoice' invoice.id %}" style="display: inline;">
         {% csrf_token %}
-        <button type="submit" class="btn btn-secondary">Resend invoice</button>
+        <button type="submit" class="btn btn-secondary">Email invoice to customer</button>
       </form>
       {% endif %}
       {% if invoice.status == "sent" %}
@@ -224,7 +262,18 @@
   .pay-link-wrap { display: flex; gap: 10px; align-items: center; }
   .pay-link-input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); color: var(--text); font-size: 13px; }
   .invoice-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 24px; padding-top: 24px; border-top: 2px solid var(--border); }
+  .invoice-action-hint { width: 100%; font-size: 13px; color: var(--text-muted); margin-top: 4px; }
   .invoice-send-early-note { width: 100%; margin: 0 0 12px 0; padding: 12px 16px; background: var(--primary-light); border-radius: 10px; font-size: 14px; color: var(--text); }
+  .invoice-doc-header, .invoice-footer-custom { font-size: 14px; color: var(--text-muted); }
+  .doc-custom-fields-dl { margin: 0; }
+  .doc-custom-fields-dl dt { font-weight: 600; font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+  .doc-custom-fields-dl dt:first-of-type { margin-top: 0; }
+  .doc-custom-fields-dl dd { margin: 4px 0 0 0; font-size: 15px; }
+  .invoice-terms-body { font-size: 14px; color: var(--text-muted); line-height: 1.5; margin-top: 8px; }
+  .invoice-custom-fields-form .form-group { margin-bottom: 14px; }
+  .invoice-custom-fields-form label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
+  .invoice-custom-fields-form .form-control { width: 100%; padding: 8px 12px; font-size: 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .invoice-custom-fields-form button { margin-top: 8px; }
 </style>
 <script>
 (function() {

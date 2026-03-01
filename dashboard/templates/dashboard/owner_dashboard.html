@@ -77,6 +77,13 @@
   </div>
 </div>
 
+<div class="dashboard-quick-links">
+  <a href="/settings/" class="btn btn-secondary">Customize emails &amp; settings</a>
+  <a href="{% url 'billing:document_templates_list' %}" class="btn btn-secondary">Document templates</a>
+  <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">Invoices</a>
+  <a href="{% url 'billing:estimate_list' %}" class="btn btn-secondary">Estimates</a>
+</div>
+
 <div class="dashboard-section card">
   <h2 class="card-title">
     Client messages
@@ -122,6 +129,9 @@
   .kpi-aging-row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
   .kpi-aging-row span:last-child { font-weight: 500; color: var(--text); }
   .kpi-actions { margin-top: 16px; }
+
+  .dashboard-quick-links { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
+  .dashboard-quick-links .btn { font-size: 14px; }
 
   .dashboard-section { margin-top: 24px; }
   .card-subtitle { color: var(--text-muted); font-size: 14px; margin: -4px 0 16px 0; }

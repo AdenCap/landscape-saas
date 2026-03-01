@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if display_name %}{{ display_name }} Store{% else %}Store{% endif %}</title>
+  <style>
+    :root {
+      --primary: #22c55e;
+      --primary-hover: #16a34a;
+      --surface: #171717;
+      --surface-alt: #0a0a0a;
+      --border: #262626;
+      --text: #fafafa;
+      --text-muted: #a3a3a3;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--surface-alt);
+      color: var(--text);
+      padding: 40px 20px;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 32px;
+      margin-bottom: 8px;
+      color: var(--primary);
+    }
+    .subtitle {
+      color: var(--text-muted);
+      margin-bottom: 40px;
+    }
+    .products-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 24px;
+      margin-top: 32px;
+    }
+    .product-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .product-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--primary);
+    }
+    .product-name {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .product-description {
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    .product-price {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 16px;
+    }
+    .btn-buy {
+      width: 100%;
+      padding: 12px 24px;
+      background: var(--primary);
+      color: #0a0a0a;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-buy:hover {
+      background: var(--primary-hover);
+    }
+    .btn-buy:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .error {
+      background: rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>{% if display_name %}{{ display_name }}{% else %}Store{% endif %}</h1>
+    <p class="subtitle">Browse and purchase products</p>
+    
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    
+    {% if products %}
+    <div class="products-grid">
+      {% for product in products %}
+      <div class="product-card">
+        <div class="product-name">{{ product.name }}</div>
+        {% if product.description %}
+        <div class="product-description">{{ product.description }}</div>
+        {% endif %}
+        {% if product.price_amount %}
+        <div class="product-price">${{ product.price_amount|floatformat:2 }} {{ product.currency|upper }}</div>
+        {% endif %}
+        <form method="post" action="{% url 'stripe_connect:create_checkout_session' account_id %}" class="product-form">
+          {% csrf_token %}
+          <input type="hidden" name="price_id" value="{{ product.price_id }}">
+          <input type="hidden" name="quantity" value="1">
+          <button type="submit" class="btn-buy" data-price-id="{{ product.price_id }}">
+            Buy Now
+          </button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <p>No products available at this time.</p>
+    </div>
+    {% endif %}
+  </div>
+  
+  <script>
+    // Handle form submission with loading state
+    document.querySelectorAll('.product-form').forEach(form => {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const button = this.querySelector('.btn-buy');
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Loading...';
+        
+        const formData = new FormData(this);
+        
+        fetch(this.action, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.url) {
+            window.location.href = data.url;
+          } else {
+            alert(data.error || 'An error occurred');
+            button.disabled = false;
+            button.textContent = originalText;
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('An error occurred. Please try again.');
+          button.disabled = false;
+          button.textContent = originalText;
+        });
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Successful</title>
+  <style>
+    :root {
+      --primary: #22c55e;
+      --surface: #171717;
+      --surface-alt: #0a0a0a;
+      --border: #262626;
+      --text: #fafafa;
+      --text-muted: #a3a3a3;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--surface-alt);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      max-width: 500px;
+      text-align: center;
+    }
+    .success-icon {
+      width: 64px;
+      height: 64px;
+      background: var(--primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 32px;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 12px;
+    }
+    p {
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background: var(--primary);
+      color: #0a0a0a;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #16a34a;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="success-icon">✓</div>
+    <h1>Payment Successful!</h1>
+    <p>Thank you for your purchase. Your payment has been processed successfully.</p>
+    {% if session_id %}
+    <p style="font-size: 12px; color: var(--text-muted);">Session ID: {{ session_id }}</p>
+    {% endif %}
+    <a href="/" class="btn">Return Home</a>
+  </div>
+</body>
+</html>

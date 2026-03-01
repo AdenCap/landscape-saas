@@ -125,6 +125,12 @@ class Invoice(models.Model):
         help_text="When a payment reminder email was last sent (for automated reminders).",
     )
 
+    custom_field_values = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Values for company-defined custom fields. Keys match DocumentTemplate custom_fields.",
+    )
+
     def __str__(self):
         return f"Invoice #{self.id} - {self.customer.name}"
 
@@ -271,6 +277,12 @@ class Estimate(models.Model):
     accepted_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     last_follow_up_at = models.DateTimeField(null=True, blank=True, help_text="When a follow-up email was last sent")
 
+    custom_field_values = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Values for company-defined custom fields (e.g. PO number, license #). Keys match DocumentTemplate custom_fields.",
+    )
+
     def __str__(self):
         return f"Estimate #{self.id} - {self.customer.name}"
 
@@ -368,4 +380,84 @@ class EstimateImage(models.Model):
 
     class Meta:
         ordering = ['order', 'id']
+
+
+class DocumentTemplate(models.Model):
+    """Per-business customizable templates for estimates and invoices. Companies choose a base style and customize colors, header, footer, terms; they can also define custom fields that appear on every document."""
+    DOC_TYPE_CHOICES = [
+        ("estimate", "Estimate"),
+        ("invoice", "Invoice"),
+    ]
+    BUILTIN_KEYS = ["professional", "minimal", "modern"]
+
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.CASCADE,
+        related_name="document_templates",
+    )
+    doc_type = models.CharField(max_length=20, choices=DOC_TYPE_CHOICES)
+    name = models.CharField(max_length=100, help_text="e.g. Professional, Minimal")
+    template_key = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Built-in template key (professional, minimal, modern) or leave blank for custom.",
+    )
+    is_default = models.BooleanField(
+        default=True,
+        help_text="Use this template when generating documents of this type.",
+    )
+
+    # Customization (applied when rendering)
+    primary_color = models.CharField(max_length=7, default="#22c55e", help_text="Hex color for headers and accents")
+    header_text = models.TextField(
+        blank=True,
+        help_text="Optional text or HTML shown at the top of the document (e.g. tagline, license number).",
+    )
+    footer_text = models.TextField(
+        blank=True,
+        help_text="Optional text or HTML shown at the bottom (e.g. thank you, payment terms).",
+    )
+    terms_and_conditions = models.TextField(
+        blank=True,
+        help_text="Terms and conditions shown on the document.",
+    )
+
+    # Custom fields: list of {"key": "po_number", "label": "PO Number", "type": "text"|"number"|"date"|"textarea", "required": false}
+    custom_fields = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of custom fields to show on every document. Each: {key, label, type, required}.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_default", "name"]
+
+    def __str__(self):
+        return f"{self.get_doc_type_display()}: {self.name} ({self.business.name})"
+
+    @classmethod
+    def get_default_for_business(cls, business, doc_type):
+        """Return the default template for this business and doc_type, or None."""
+        return (
+            cls.objects.filter(business=business, doc_type=doc_type, is_default=True)
+            .order_by("-updated_at")
+            .first()
+        )
+
+    @classmethod
+    def get_or_create_default(cls, business, doc_type, template_key="professional"):
+        """Return the default template, creating one from the built-in if none exists."""
+        default = cls.get_default_for_business(business, doc_type)
+        if default:
+            return default
+        return cls.objects.create(
+            business=business,
+            doc_type=doc_type,
+            name=template_key.replace("_", " ").title(),
+            template_key=template_key,
+            is_default=True,
+        )
 

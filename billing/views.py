@@ -17,13 +17,32 @@ from django.views.decorators.http import require_http_methods, require_POST
 from accounts.decorators import role_required
 from accounts.utils import get_business as _get_business
 from customers.models import Customer, ClientMessage
-from .models import Invoice, InvoiceAuditLog, InvoiceLineItem, Estimate, EstimateLineItem, EstimateImage
+
+
+def _email_template_vars(s, **kwargs):
+    """Replace {{key}} placeholders in string s with values from kwargs."""
+    if not s:
+        return s
+    out = s
+    for key, val in kwargs.items():
+        out = out.replace("{{" + key + "}}", str(val or ""))
+    return out
+from .models import (
+    Invoice,
+    InvoiceAuditLog,
+    InvoiceLineItem,
+    Estimate,
+    EstimateLineItem,
+    EstimateImage,
+    DocumentTemplate,
+)
 from .forms import (
     EstimateForm,
     EstimateLineItemForm,
     EstimateLineItemFormSet,
     EstimateImageForm,
     InvoiceLineItemFormSet,
+    DocumentTemplateForm,
     _compute_fertilizing,
     _compute_mulch,
 )
@@ -147,12 +166,14 @@ def invoice_detail(request, invoice_id):
     quickbooks_connected = bool(business and getattr(business, "quickbooks_connection", None))
     is_monthly = bool(invoice.job_id is None and invoice.period_start)
     audit_logs = invoice.audit_logs.select_related("user")[:10]
+    doc_template = DocumentTemplate.get_default_for_business(invoice.business, "invoice") if invoice.business_id else None
     return render(request, "billing/invoice_detail.html", {
         "invoice": invoice,
         "items": items,
         "quickbooks_connected": quickbooks_connected,
         "is_monthly_invoice": is_monthly,
         "audit_logs": audit_logs,
+        "doc_template": doc_template,
     })
 
 
@@ -190,6 +211,32 @@ def invoice_update_dates(request, invoice_id):
     invoice.save(update_fields=update_fields)
     _log_invoice_audit(invoice, "dates_updated", request=request, details={"due_date": due_date_str})
     messages.success(request, f"Due date set to {due_date}.")
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+
+@require_POST
+@role_required("owner")
+def invoice_edit_custom_fields(request, invoice_id):
+    """Save custom field values for an invoice (from document template)."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    invoice = get_object_or_404(Invoice, id=invoice_id, business=business)
+    doc_template = DocumentTemplate.get_default_for_business(invoice.business, "invoice")
+    if doc_template and doc_template.custom_fields:
+        custom_values = dict(invoice.custom_field_values or {})
+        for field_def in doc_template.custom_fields:
+            key = field_def.get("key")
+            if key:
+                val = (request.POST.get(f"custom_value_{key}") or "").strip()
+                if val:
+                    custom_values[key] = val
+                elif key in custom_values:
+                    del custom_values[key]
+        invoice.custom_field_values = custom_values
+        invoice.save()
+        messages.success(request, "Additional information saved.")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
@@ -532,31 +579,55 @@ _PDF_MUTED = (0.64, 0.64, 0.64)
 _PDF_BORDER = (0.15, 0.15, 0.15)
 
 
+def _hex_to_rgb(hex_str):
+    """Convert #RRGGBB to (r, g, b) floats 0-1. Returns _PDF_GREEN if invalid."""
+    if not hex_str or not hex_str.startswith("#") or len(hex_str) != 7:
+        return _PDF_GREEN
+    try:
+        r = int(hex_str[1:3], 16) / 255
+        g = int(hex_str[3:5], 16) / 255
+        b = int(hex_str[5:7], 16) / 255
+        return (r, g, b)
+    except ValueError:
+        return _PDF_GREEN
+
+
 def _build_invoice_pdf(invoice, request):
-    """Build invoice PDF bytes (for download or email). Caller must have run invoice.recompute_totals() if needed."""
+    """Build invoice PDF bytes (for download or email). Uses document template if set."""
     canvas, LETTER = _get_reportlab()
     items = invoice.line_items.all()
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=LETTER)
     width, height = LETTER
     business = invoice.business
+    doc_template = DocumentTemplate.get_default_for_business(business, "invoice") if business else None
+    accent_rgb = _hex_to_rgb(doc_template.primary_color) if doc_template and getattr(doc_template, "primary_color", None) else _PDF_GREEN
 
-    # Theme: green accent bar at top
-    p.setFillColorRGB(*_PDF_GREEN)
+    # Accent bar at top
+    p.setFillColorRGB(*accent_rgb)
     p.rect(0, height - 12, width, 12, fill=True, stroke=False)
 
     y = height - 44
     p.setFillColorRGB(*_PDF_DARK)
+    if doc_template and doc_template.header_text:
+        p.setFont("Helvetica", 9)
+        p.setFillColorRGB(*_PDF_MUTED)
+        for line in (doc_template.header_text or "").replace("\r", "").split("\n")[:4]:
+            if line.strip():
+                p.drawString(50, y, line.strip()[:90])
+                y -= 12
+        y -= 8
+        p.setFillColorRGB(*_PDF_DARK)
     if business and business.logo:
         _draw_pdf_logo(p, business, x=None, y_top=y + 10, max_height=44, max_width=140, page_width=width)
         p.setFont("Helvetica-Bold", 20)
-        p.setFillColorRGB(*_PDF_GREEN)
+        p.setFillColorRGB(*accent_rgb)
         p.drawString(50, y - 28, f"Invoice #{invoice.id}")
         p.setFillColorRGB(*_PDF_DARK)
         y -= 50
     else:
         p.setFont("Helvetica-Bold", 20)
-        p.setFillColorRGB(*_PDF_GREEN)
+        p.setFillColorRGB(*accent_rgb)
         p.drawString(50, y, f"Invoice #{invoice.id}")
         p.setFillColorRGB(*_PDF_DARK)
         y -= 28
@@ -578,13 +649,13 @@ def _build_invoice_pdf(invoice, request):
     p.setFont("Helvetica", 10)
     y -= 12
 
-    # Table header with green underline
+    # Table header
     p.setFillColorRGB(*_PDF_DARK)
     p.setFont("Helvetica-Bold", 10)
     p.drawString(50, y, "Description")
     p.drawString(450, y, "Total")
     y -= 4
-    p.setFillColorRGB(*_PDF_GREEN)
+    p.setFillColorRGB(*accent_rgb)
     p.setLineWidth(1.5)
     p.line(50, y, 560, y)
     y -= 16
@@ -605,12 +676,54 @@ def _build_invoice_pdf(invoice, request):
             p.setFillColorRGB(*_PDF_DARK)
 
     y -= 6
-    p.setFillColorRGB(*_PDF_GREEN)
+    p.setFillColorRGB(*accent_rgb)
     p.line(450, y + 4, 560, y + 4)
     y -= 4
     p.setFont("Helvetica-Bold", 12)
     total_to_show = getattr(invoice, "total", None) or computed_total
     p.drawRightString(560, y, f"Total: {_fmt_currency(total_to_show)}")
+
+    if doc_template and doc_template.custom_fields and invoice.custom_field_values:
+        y -= 20
+        p.setFont("Helvetica-Bold", 9)
+        p.setFillColorRGB(*_PDF_MUTED)
+        p.drawString(50, y, "Additional information")
+        y -= 12
+        p.setFont("Helvetica", 9)
+        for field_def in doc_template.custom_fields:
+            key = field_def.get("key")
+            val = (invoice.custom_field_values or {}).get(key)
+            if key and val:
+                p.drawString(50, y, f"{field_def.get('label', key)}: {str(val)[:70]}")
+                y -= 12
+                if y < 100:
+                    break
+        y -= 8
+    if doc_template and doc_template.terms_and_conditions:
+        y -= 16
+        p.setFont("Helvetica-Bold", 9)
+        p.setFillColorRGB(*_PDF_DARK)
+        p.drawString(50, y, "Terms & conditions")
+        y -= 10
+        p.setFont("Helvetica", 8)
+        p.setFillColorRGB(*_PDF_MUTED)
+        for line in (doc_template.terms_and_conditions or "").replace("\r", "").split("\n")[:12]:
+            if line.strip():
+                p.drawString(50, y, line.strip()[:90])
+                y -= 10
+                if y < 60:
+                    break
+    if doc_template and doc_template.footer_text:
+        y -= 12
+        p.setFont("Helvetica", 8)
+        p.setFillColorRGB(*_PDF_MUTED)
+        for line in (doc_template.footer_text or "").replace("\r", "").split("\n")[:3]:
+            if line.strip():
+                p.drawString(50, y, line.strip()[:90])
+                y -= 10
+                if y < 50:
+                    break
+    y -= 12
 
     _has_payment = business and (
         (business.venmo_username or "").strip()
@@ -697,18 +810,44 @@ def resend_invoice(request, invoice_id):
 
     from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldops.local")
     reply_to = [business.contact_email] if business.contact_email else None
-    subject = f"Invoice #{invoice.id} from {business.name}"
-    body_text = f"Hi {invoice.customer.name},\n\nPlease find your invoice #{invoice.id} attached.\n\nTotal: ${invoice.total}\n\n"
+    subject = (
+        _email_template_vars(
+            (business.invoice_email_subject or "").strip(),
+            invoice_id=invoice.id,
+            customer_name=invoice.customer.name,
+            business_name=business.name,
+        )
+        or f"Invoice #{invoice.id} from {business.name}"
+    )
+    intro = _email_template_vars(
+        (business.invoice_email_intro or "").strip()
+        or f"Hi {invoice.customer.name}, please find your invoice below.",
+        customer_name=invoice.customer.name,
+        business_name=business.name,
+        invoice_id=invoice.id,
+    )
+    closing = _email_template_vars(
+        (business.invoice_email_closing or "").strip() or "Thank you for your business.",
+        customer_name=invoice.customer.name,
+        business_name=business.name,
+    )
+    body_text = intro + "\n\n"
+    body_text += f"Invoice #{invoice.id} · Total: ${invoice.total}\n\n"
     if pay_url:
-        body_text += f"You can pay online here: {pay_url}\n\n"
-    body_text += f"Thank you,\n{business.name}"
+        body_text += f"Pay online: {pay_url}\n\n"
+    body_text += closing + "\n\n" + business.name
 
     logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
+    doc_template = DocumentTemplate.get_default_for_business(business, "invoice")
+    accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
     html_content = render_to_string("billing/invoice_email.html", {
         "invoice": invoice,
         "business": business,
         "pay_url": pay_url,
         "logo_url": logo_url,
+        "email_intro": intro,
+        "email_closing": closing,
+        "accent_color": accent_color,
     })
 
     msg = EmailMultiAlternatives(
@@ -893,6 +1032,7 @@ def estimate_edit(request, estimate_id):
         return redirect("/")
 
     estimate = get_object_or_404(Estimate, id=estimate_id, business=business)
+    doc_template = DocumentTemplate.get_default_for_business(business, "estimate")
 
     if request.method == "POST":
         form = EstimateForm(request.POST, instance=estimate, business=business)
@@ -900,6 +1040,19 @@ def estimate_edit(request, estimate_id):
         if form.is_valid() and formset.is_valid():
             form.save()
             saved = formset.save()
+            # Save custom field values from template
+            if doc_template and doc_template.custom_fields:
+                custom_values = dict(estimate.custom_field_values or {})
+                for field_def in doc_template.custom_fields:
+                    key = field_def.get("key")
+                    if key:
+                        val = (request.POST.get(f"custom_value_{key}") or "").strip()
+                        if val:
+                            custom_values[key] = val
+                        elif key in custom_values:
+                            del custom_values[key]
+                estimate.custom_field_values = custom_values
+                estimate.save()
             if saved:
                 messages.success(request, "Line item added. Add another below or go to View & send when done.")
             return redirect("billing:estimate_edit", estimate_id=estimate.id)
@@ -913,7 +1066,7 @@ def estimate_edit(request, estimate_id):
         formset = EstimateLineItemFormSet(instance=estimate)
 
     return render(request, "billing/estimate_edit.html", {
-        "form": form, "formset": formset, "estimate": estimate,
+        "form": form, "formset": formset, "estimate": estimate, "doc_template": doc_template,
     })
 
 
@@ -929,32 +1082,44 @@ def estimate_detail(request, estimate_id):
         id=estimate_id,
         business=business,
     )
-    return render(request, "billing/estimate_detail.html", {"estimate": estimate})
+    doc_template = DocumentTemplate.get_default_for_business(business, "estimate")
+    return render(request, "billing/estimate_detail.html", {"estimate": estimate, "doc_template": doc_template})
 
 
 def _build_estimate_pdf(estimate, business):
-    """Build estimate PDF bytes (with logo if business has one). Theme matches system (green/dark)."""
+    """Build estimate PDF bytes (with logo if business has one). Uses document template if set."""
     canvas, LETTER = _get_reportlab()
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=LETTER)
     width, height = LETTER
+    doc_template = DocumentTemplate.get_default_for_business(business, "estimate") if business else None
+    accent_rgb = _hex_to_rgb(doc_template.primary_color) if doc_template and getattr(doc_template, "primary_color", None) else _PDF_GREEN
 
-    # Theme: green accent bar at top
-    p.setFillColorRGB(*_PDF_GREEN)
+    # Accent bar at top
+    p.setFillColorRGB(*accent_rgb)
     p.rect(0, height - 12, width, 12, fill=True, stroke=False)
 
     y = height - 44
     p.setFillColorRGB(*_PDF_DARK)
+    if doc_template and doc_template.header_text:
+        p.setFont("Helvetica", 9)
+        p.setFillColorRGB(*_PDF_MUTED)
+        for line in (doc_template.header_text or "").replace("\r", "").split("\n")[:4]:
+            if line.strip():
+                p.drawString(50, y, line.strip()[:90])
+                y -= 12
+        y -= 8
+        p.setFillColorRGB(*_PDF_DARK)
     if business and business.logo:
         _draw_pdf_logo(p, business, x=None, y_top=y + 10, max_height=44, max_width=140, page_width=width)
         p.setFont("Helvetica-Bold", 18)
-        p.setFillColorRGB(*_PDF_GREEN)
+        p.setFillColorRGB(*accent_rgb)
         p.drawString(50, y - 28, estimate.title)
         p.setFillColorRGB(*_PDF_DARK)
         y -= 50
     else:
         p.setFont("Helvetica-Bold", 18)
-        p.setFillColorRGB(*_PDF_GREEN)
+        p.setFillColorRGB(*accent_rgb)
         p.drawString(50, y, estimate.title)
         p.setFillColorRGB(*_PDF_DARK)
         y -= 28
@@ -978,7 +1143,7 @@ def _build_estimate_pdf(estimate, business):
     p.drawString(50, y, "Description")
     p.drawString(450, y, "Total")
     y -= 4
-    p.setFillColorRGB(*_PDF_GREEN)
+    p.setFillColorRGB(*accent_rgb)
     p.setLineWidth(1.5)
     p.line(50, y, 560, y)
     y -= 16
@@ -1017,14 +1182,30 @@ def _build_estimate_pdf(estimate, business):
                 p.setFillColorRGB(*_PDF_DARK)
 
     y -= 6
-    p.setFillColorRGB(*_PDF_GREEN)
+    p.setFillColorRGB(*accent_rgb)
     p.line(450, y + 4, 560, y + 4)
     y -= 4
     p.setFont("Helvetica-Bold", 12)
     p.drawRightString(560, y, f"Total: {_fmt_currency(estimate.total())}")
 
+    if doc_template and doc_template.custom_fields and estimate.custom_field_values:
+        y -= 20
+        p.setFont("Helvetica-Bold", 9)
+        p.setFillColorRGB(*_PDF_MUTED)
+        p.drawString(50, y, "Additional information")
+        y -= 12
+        p.setFont("Helvetica", 9)
+        for field_def in doc_template.custom_fields:
+            key = field_def.get("key")
+            val = (estimate.custom_field_values or {}).get(key)
+            if key and val:
+                p.drawString(50, y, f"{field_def.get('label', key)}: {str(val)[:70]}")
+                y -= 12
+                if y < 100:
+                    break
+        y -= 8
     if estimate.notes:
-        y -= 24
+        y -= 16
         p.setFont("Helvetica", 9)
         p.setFillColorRGB(*_PDF_MUTED)
         for line in estimate.notes.split("\n")[:8]:
@@ -1032,6 +1213,30 @@ def _build_estimate_pdf(estimate, business):
             y -= 12
             if y < 80:
                 break
+    if doc_template and doc_template.terms_and_conditions:
+        y -= 16
+        p.setFont("Helvetica-Bold", 9)
+        p.setFillColorRGB(*_PDF_DARK)
+        p.drawString(50, y, "Terms & conditions")
+        y -= 10
+        p.setFont("Helvetica", 8)
+        p.setFillColorRGB(*_PDF_MUTED)
+        for line in (doc_template.terms_and_conditions or "").replace("\r", "").split("\n")[:12]:
+            if line.strip():
+                p.drawString(50, y, line.strip()[:90])
+                y -= 10
+                if y < 60:
+                    break
+    if doc_template and doc_template.footer_text:
+        y -= 12
+        p.setFont("Helvetica", 8)
+        p.setFillColorRGB(*_PDF_MUTED)
+        for line in (doc_template.footer_text or "").replace("\r", "").split("\n")[:3]:
+            if line.strip():
+                p.drawString(50, y, line.strip()[:90])
+                y -= 10
+                if y < 50:
+                    break
 
     p.showPage()
     p.save()
@@ -1087,6 +1292,30 @@ def estimate_send(request, estimate_id):
         return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
     logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
+    subject = (
+        _email_template_vars(
+            (business.estimate_email_subject or "").strip(),
+            title=estimate.title,
+            customer_name=customer.name,
+            business_name=business.name,
+        )
+        or f"{estimate.title} – {business.name}"
+    )
+    intro = _email_template_vars(
+        (business.estimate_email_intro or "").strip()
+        or f"Hi {customer.name}, please find your estimate from {business.name} below.",
+        customer_name=customer.name,
+        business_name=business.name,
+        title=estimate.title,
+    )
+    closing = _email_template_vars(
+        (business.estimate_email_closing or "").strip()
+        or "We look forward to working with you.",
+        customer_name=customer.name,
+        business_name=business.name,
+    )
+    doc_template = DocumentTemplate.get_default_for_business(business, "estimate")
+    accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
     html_content = render_to_string("billing/estimate_email.html", {
         "estimate": estimate,
         "customer": customer,
@@ -1094,14 +1323,17 @@ def estimate_send(request, estimate_id):
         "request": request,
         "view_url": view_url,
         "logo_url": logo_url,
+        "email_intro": intro,
+        "email_closing": closing,
+        "accent_color": accent_color,
     })
 
-    subject = f"{estimate.title} - {business.name}"
     from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldops.local")
     reply_to = [business.contact_email] if business.contact_email else None
+    plain_body = intro + "\n\nView and accept your estimate: " + (view_url or "") + "\n\n" + closing + "\n\n" + business.name
     msg = EmailMultiAlternatives(
         subject,
-        "Please see the attached estimate.",
+        plain_body,
         from_email,
         [customer.email],
         reply_to=reply_to,
@@ -1167,20 +1399,40 @@ def estimate_send_followup(request, estimate_id):
         return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
     logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
+    subject = (
+        _email_template_vars(
+            (business.estimate_followup_email_subject or "").strip(),
+            title=estimate.title,
+            customer_name=customer.name,
+            business_name=business.name,
+        )
+        or f"Reminder: {estimate.title} – {business.name}"
+    )
+    intro = _email_template_vars(
+        (business.estimate_followup_email_intro or "").strip()
+        or f"Hi {customer.name}, we wanted to follow up on the estimate we sent you from {business.name}.",
+        customer_name=customer.name,
+        business_name=business.name,
+        title=estimate.title,
+    )
+    doc_template = DocumentTemplate.get_default_for_business(business, "estimate")
+    accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
     html_content = render_to_string("billing/estimate_followup_email.html", {
         "estimate": estimate,
         "customer": customer,
         "business": business,
         "view_url": view_url,
         "logo_url": logo_url,
+        "email_intro": intro,
+        "accent_color": accent_color,
     })
 
-    subject = f"Reminder: {estimate.title} - {business.name}"
     from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldops.local")
     reply_to = [business.contact_email] if business.contact_email else None
+    plain_body = intro + "\n\nView your estimate: " + view_url
     msg = EmailMultiAlternatives(
         subject,
-        f"Friendly reminder about your estimate from {business.name}. View it here: {view_url}",
+        plain_body,
         from_email,
         [customer.email],
         reply_to=reply_to,
@@ -1222,12 +1474,14 @@ def estimate_client_view(request, estimate_id, token):
     base_items = list(estimate.line_items.filter(is_addon=False))
     optional_items = list(estimate.line_items.filter(is_addon=True))
     base_total = sum(item.line_total for item in base_items)
+    doc_template = DocumentTemplate.get_default_for_business(estimate.business, "estimate")
     return render(request, "billing/estimate_client_view.html", {
         "estimate": estimate,
         "base_items": base_items,
         "optional_items": optional_items,
         "base_total": base_total,
         "token": token,
+        "doc_template": doc_template,
     })
 
 
@@ -1274,3 +1528,71 @@ def estimate_add_image(request, estimate_id):
     else:
         messages.error(request, "Invalid image upload.")
     return redirect("billing:estimate_edit", estimate_id=estimate.id)
+
+
+# --- Document templates (customizable forms for estimates & invoices) ---
+
+@role_required("owner")
+def document_templates_list(request):
+    """List document template types (estimate, invoice) with links to customize."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    estimate_template = DocumentTemplate.get_default_for_business(business, "estimate")
+    invoice_template = DocumentTemplate.get_default_for_business(business, "invoice")
+    return render(request, "billing/document_template_list.html", {
+        "estimate_template": estimate_template,
+        "invoice_template": invoice_template,
+    })
+
+
+@role_required("owner")
+def document_template_edit(request, doc_type):
+    """Edit the default template for estimates or invoices: style, colors, header/footer/terms, custom fields."""
+    if doc_type not in ("estimate", "invoice"):
+        return redirect("billing:document_templates_list")
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    template_obj = DocumentTemplate.get_or_create_default(business, doc_type)
+
+    if request.method == "POST":
+        form = DocumentTemplateForm(request.POST, instance=template_obj)
+        if form.is_valid():
+            template_obj = form.save(commit=False)
+            if form.cleaned_data.get("template_key"):
+                template_obj.template_key = form.cleaned_data["template_key"]
+            template_obj.save()
+
+            # Parse custom fields from POST
+            keys = request.POST.getlist("custom_field_key")
+            labels = request.POST.getlist("custom_field_label")
+            types = request.POST.getlist("custom_field_type")
+            required_list = request.POST.getlist("custom_field_required")
+            custom_fields = []
+            seen_keys = set()
+            for i in range(len(keys)):
+                key = (keys[i] or "").strip().lower().replace(" ", "_") or None
+                label = (labels[i] or "").strip() if i < len(labels) else ""
+                field_type = (types[i] or "text") if i < len(types) else "text"
+                if field_type not in ("text", "number", "date", "textarea"):
+                    field_type = "text"
+                required = (required_list[i] == "on" or required_list[i] == "true") if i < len(required_list) else False
+                if key and key not in seen_keys:
+                    seen_keys.add(key)
+                    custom_fields.append({"key": key, "label": label or key.replace("_", " ").title(), "type": field_type, "required": bool(required)})
+            template_obj.custom_fields = custom_fields
+            template_obj.save()
+            messages.success(request, f"{doc_type.title()} template saved.")
+            return redirect("billing:document_templates_list")
+    else:
+        form = DocumentTemplateForm(instance=template_obj, initial={"template_key": template_obj.template_key or "professional"})
+
+    return render(request, "billing/document_template_edit.html", {
+        "form": form,
+        "doc_type": doc_type,
+        "template_obj": template_obj,
+    })
