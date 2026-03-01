@@ -456,32 +456,35 @@ def _checkout_session_completed(event):
         
         # Try to get charge ID from payment intent (if available)
         # Note: For Connect accounts, we may need to fetch this separately
-        # For now, we'll store what we have from the session
         try:
-            import stripe
-            from django.conf import settings
-            stripe.api_key = settings.STRIPE_SECRET_KEY
+            from stripe import StripeClient
             
-            # Check if this is a connected account payment
-            account_id = event.get("account")  # Connected account ID if present
-            if account_id:
-                # Fetch payment intent from connected account
-                pi = stripe.PaymentIntent.retrieve(
-                    payment_intent_id,
-                    stripe_account=account_id
-                )
+            stripe_secret_key = getattr(settings, "STRIPE_SECRET_KEY", None)
+            if not stripe_secret_key:
+                logger.warning("STRIPE_SECRET_KEY not set, cannot fetch payment intent details")
             else:
-                # Platform payment intent
-                pi = stripe.PaymentIntent.retrieve(payment_intent_id)
-            
-            # Get the charge ID from the payment intent
-            charges = pi.get("charges", {}).get("data", [])
-            if charges and len(charges) > 0:
-                invoice.stripe_charge_id = charges[0].get("id", "")
-        except Exception:
+                stripe_client = StripeClient(stripe_secret_key)
+                
+                # Check if this is a connected account payment
+                account_id = event.get("account")  # Connected account ID if present
+                if account_id:
+                    # Fetch payment intent from connected account
+                    pi = stripe_client.payment_intents.retrieve(
+                        payment_intent_id,
+                        stripe_account=account_id
+                    )
+                else:
+                    # Platform payment intent
+                    pi = stripe_client.payment_intents.retrieve(payment_intent_id)
+                
+                # Get the charge ID from the payment intent
+                charges = pi.get("charges", {}).get("data", [])
+                if charges and len(charges) > 0:
+                    invoice.stripe_charge_id = charges[0].get("id", "")
+        except Exception as e:
             # If we can't fetch payment intent details, continue anyway
             # The payment intent ID is already stored
-            pass
+            logger.debug(f"Could not fetch payment intent details: {e}")
     
     # Update invoice status and store Stripe IDs
     invoice.status = "paid"

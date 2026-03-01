@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+import logging
 import stripe
 from io import BytesIO
 from decimal import Decimal
@@ -461,7 +462,13 @@ def connect_dashboard(request):
 @require_POST
 @require_http_methods(["POST"])
 def create_invoice_checkout_session(request, invoice_id, token):
-    """Public: create Stripe Checkout Session for paying an invoice (Connect). Redirects to Stripe."""
+    """
+    Public: create Stripe Checkout Session for paying an invoice (Connect). Redirects to Stripe.
+    
+    This uses Direct Charge - the payment goes directly to the connected account (business owner),
+    and the platform can optionally take an application fee.
+    """
+    # Get invoice and validate
     invoice = get_object_or_404(
         Invoice.objects.select_related("business", "customer"),
         id=invoice_id,
@@ -470,40 +477,63 @@ def create_invoice_checkout_session(request, invoice_id, token):
     if invoice.status != "sent":
         messages.error(request, "This invoice is not available for payment.")
         return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
+    
     business = invoice.business
-    if not getattr(business, "can_accept_stripe_payments", lambda: False)():
-        messages.error(request, "Card payment is not available for this invoice.")
+    
+    # Check if business has connected Stripe and can accept payments
+    if not business.can_accept_stripe_payments():
+        messages.error(request, "Card payment is not available for this invoice. Please use another payment method.")
         return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
-    if not _stripe_connect_enabled():
-        messages.info(request, "Credit card payment is not available. Please use another payment method.")
+    
+    # Check if Stripe is configured
+    stripe_secret_key = getattr(settings, "STRIPE_SECRET_KEY", None)
+    if not stripe_secret_key:
+        messages.error(request, "Payment processing is not configured. Please contact support.")
         return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
-    stripe.api_key = settings.STRIPE_SECRET_KEY
+    
+    # Initialize Stripe client
+    # Use StripeClient for all requests (as required)
+    try:
+        from stripe import StripeClient
+        stripe_client = StripeClient(stripe_secret_key)
+    except ImportError:
+        messages.error(request, "Stripe SDK is not available. Please contact support.")
+        return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
+    
+    # Calculate amount in cents
     invoice.recompute_totals()
     amount_cents = int(invoice.total * 100)
     if amount_cents < 50:
         messages.error(request, "Minimum payment is $0.50.")
         return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
+    
+    # Build URLs
     success_url = request.build_absolute_uri(
         reverse("billing:invoice_pay_page", args=[invoice.id, token]) + "?paid=1"
     )
     cancel_url = request.build_absolute_uri(
         reverse("billing:invoice_pay_page", args=[invoice.id, token])
     )
-    # Per-business fee if set, else global default (for future use)
-    fee_percent = getattr(business, "stripe_connect_application_fee_percent", None)
-    if fee_percent is not None:
-        fee_percent = float(fee_percent)
+    
+    # Calculate application fee
+    # Check business-level fee first, then global default
+    fee_percent = business.stripe_connect_application_fee_percent
     if fee_percent is None:
         fee_percent = getattr(settings, "STRIPE_CONNECT_APPLICATION_FEE_PERCENT", 0) or 0
+    else:
+        fee_percent = float(fee_percent)
+    
+    application_fee_amount = int(amount_cents * fee_percent / 100) if fee_percent > 0 else 0
     
     # Use idempotency key to prevent duplicate sessions
     idempotency_key = f"invoice:{invoice.id}:checkout:{hashlib.md5(str(invoice.id).encode()).hexdigest()[:8]}"
     
-    # Create checkout session in the CONNECTED ACCOUNT context (merchant-of-record)
-    # Funds go directly to the connected account, not the platform
+    # Create checkout session using Direct Charge
+    # Funds go directly to the connected account, platform takes application fee (if any)
     try:
-        # Use stripeAccount parameter to make the connected account the merchant
-        session = stripe.checkout.Session.create(
+        # Use StripeClient for all requests
+        # Use stripe_account parameter to specify the connected account
+        session = stripe_client.checkout.sessions.create(
             payment_method_types=["card"],
             line_items=[{
                 "price_data": {
@@ -522,23 +552,31 @@ def create_invoice_checkout_session(request, invoice_id, token):
             metadata={
                 "invoice_id": str(invoice.id),
                 "business_id": str(business.id),
-                "platform_user_id": str(business.id),
             },
-            # Optional: Add application fee if we enable platform fees later
-            # For now, fee_percent is 0, so no fee is applied
             payment_intent_data={
-                "application_fee_amount": int(amount_cents * fee_percent / 100) if fee_percent > 0 else None,
-            } if fee_percent > 0 else {},
-            # CRITICAL: Use stripeAccount to make connected account the merchant-of-record
+                "application_fee_amount": application_fee_amount,
+            } if application_fee_amount > 0 else {},
+            # CRITICAL: Use stripe_account to make connected account the merchant-of-record
+            # This ensures funds go directly to the business owner's Stripe account
             stripe_account=business.stripe_connect_account_id,
-            idempotency_key=idempotency_key,
         )
-        # Store checkout session ID on invoice
+        
+        # Store checkout session ID on invoice for tracking
         invoice.stripe_checkout_session_id = session.id
         invoice.save(update_fields=["stripe_checkout_session_id"])
+        
+        # Redirect to Stripe Checkout
         return redirect(session.url)
+        
     except stripe.StripeError as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error creating invoice checkout session: {e}")
         messages.error(request, f"Could not start payment: {e.user_message or str(e)}")
+        return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Unexpected error creating invoice checkout session: {e}", exc_info=True)
+        messages.error(request, "An unexpected error occurred. Please try again or contact support.")
         return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
 
 
