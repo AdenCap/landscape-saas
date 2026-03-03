@@ -4,6 +4,37 @@
 
 {% block extra_css %}
 <style>
+  /* Landing page header */
+  .landing-header {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .landing-header .brand {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--primary);
+    text-decoration: none;
+    letter-spacing: -0.02em;
+  }
+  .landing-header .sign-in-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: all 0.15s ease;
+  }
+  .landing-header .sign-in-link:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
   /* Landing page specific styles */
   .landing-hero {
     background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
@@ -206,6 +237,8 @@
     margin: 0 0 32px 0;
   }
   @media (max-width: 768px) {
+    .landing-header { padding: 16px 20px; }
+    .landing-hero { padding: 60px 20px; }
     .landing-hero h1 { font-size: 36px; }
     .landing-hero .subtitle { font-size: 18px; }
     .section-title { font-size: 32px; }
@@ -216,27 +249,30 @@
 {% endblock %}
 
 {% block content %}
+<!-- Landing Page Header -->
+<header class="landing-header">
+  <a href="/" class="brand">Field Ops</a>
+  <a href="{% url 'login' %}" class="sign-in-link">Sign In</a>
+</header>
+
 <!-- Hero Section -->
 <section class="landing-hero">
   <div style="max-width: 1200px; margin: 0 auto;">
     <p style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--primary); font-weight: 600; margin: 0 0 16px 0;">
       Built for Landscaping Professionals
     </p>
-    <h1>Run Your Entire Landscaping Business<br>From One Powerful Platform</h1>
+    <h1>Start Your Subscription Today<br>And Transform Your Business</h1>
     <p class="subtitle">
-      Schedule jobs, manage crews, send invoices, and track profit—all in one modern workspace 
-      designed for field service teams who want to grow.
+      Get full access to job scheduling, crew management, invoicing, and profit tracking—all in one powerful platform. 
+      Start your subscription now and see why landscaping businesses choose Field Ops.
     </p>
     <div class="landing-cta">
       <a href="{% url 'signup' %}" class="btn btn-primary btn-hero">
-        Start Free Trial
-      </a>
-      <a href="{% url 'login' %}" class="btn btn-secondary btn-hero">
-        Sign In
+        Start Your Subscription
       </a>
     </div>
     <p style="font-size: 14px; color: var(--text-muted); margin: 0;">
-      No credit card required • Cancel anytime • 14-day money-back guarantee
+      No credit card required to sign up • Subscribe when ready • Cancel anytime
     </p>
     <div class="trust-badges">
       <div class="trust-badge">
@@ -324,57 +360,62 @@
     
     <div class="step">
       <div class="step-number">3</div>
-      <h3>Start Managing</h3>
-      <p>Create jobs, schedule crews, send invoices, and track everything. Subscribe when you're ready for full access.</p>
+      <h3>Subscribe & Go Live</h3>
+      <p>Activate your subscription to unlock all features. Start managing jobs, sending invoices, and growing your business today.</p>
     </div>
   </div>
 </section>
 
 <!-- Pricing Section -->
-<section class="section">
-  <h2 class="section-title">Simple, Transparent Pricing</h2>
+<section class="section" id="pricing" style="background: var(--surface-alt);">
+  <h2 class="section-title">Start Your Subscription Today</h2>
   <p class="section-subtitle">
-    One plan. All features. No hidden fees. Cancel anytime.
+    One simple plan. All features included. Subscribe now and get started immediately.
   </p>
   
-  <div class="pricing-card">
-    <h3 style="font-size: 24px; font-weight: 700; margin: 0 0 8px 0;">Professional</h3>
-    <div class="pricing-price">$99</div>
-    <div class="pricing-period">per month</div>
-    <p style="color: var(--text-muted); margin: 24px 0; line-height: 1.6;">
+  <div class="pricing-card" style="border: 2px solid var(--primary); box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px;">
+      <span style="background: var(--primary); color: #0a0a0a; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase;">Most Popular</span>
+    </div>
+    <h3 style="font-size: 28px; font-weight: 700; margin: 0 0 8px 0;">Professional Plan</h3>
+    <div style="display: flex; align-items: baseline; justify-content: center; gap: 8px; margin: 16px 0;">
+      <div class="pricing-price">$99</div>
+      <div class="pricing-period">/month</div>
+    </div>
+    <p style="color: var(--text-muted); margin: 24px 0; line-height: 1.6; text-align: center;">
       Everything you need to run your landscaping business. Unlimited users, unlimited jobs, all features included.
     </p>
-    <ul style="text-align: left; list-style: none; padding: 0; margin: 24px 0;">
-      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--primary); font-size: 20px;">✓</span>
-        <span>Unlimited jobs & clients</span>
+    <ul style="text-align: left; list-style: none; padding: 0; margin: 32px 0;">
+      <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
+        <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+        <span style="font-size: 16px;">Unlimited jobs & clients</span>
       </li>
-      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--primary); font-size: 20px;">✓</span>
-        <span>Unlimited team members</span>
+      <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
+        <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+        <span style="font-size: 16px;">Unlimited team members</span>
       </li>
-      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--primary); font-size: 20px;">✓</span>
-        <span>Credit card payments</span>
+      <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
+        <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+        <span style="font-size: 16px;">Credit card payments</span>
       </li>
-      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--primary); font-size: 20px;">✓</span>
-        <span>QuickBooks integration</span>
+      <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
+        <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+        <span style="font-size: 16px;">QuickBooks integration</span>
       </li>
-      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--primary); font-size: 20px;">✓</span>
-        <span>Mobile app access</span>
+      <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
+        <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+        <span style="font-size: 16px;">Mobile app access</span>
       </li>
-      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--primary); font-size: 20px;">✓</span>
-        <span>Priority support</span>
+      <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px;">
+        <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+        <span style="font-size: 16px;">Priority support</span>
       </li>
     </ul>
-    <a href="{% url 'signup' %}" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 16px; font-weight: 700; margin-top: 24px;">
-      Start Free Trial
+    <a href="{% url 'signup' %}" class="btn btn-primary" style="width: 100%; padding: 18px; font-size: 18px; font-weight: 700; margin-top: 32px;">
+      Subscribe Now
     </a>
-    <p style="font-size: 13px; color: var(--text-muted); margin: 12px 0 0 0;">
-      No credit card required • Cancel anytime
+    <p style="font-size: 14px; color: var(--text-muted); margin: 16px 0 0 0; text-align: center;">
+      Sign up free • Subscribe when ready • Cancel anytime
     </p>
   </div>
 </section>
@@ -428,21 +469,18 @@
 <!-- Final CTA Section -->
 <section class="section">
   <div class="cta-section">
-    <h2>Ready to Grow Your Business?</h2>
+    <h2>Ready to Transform Your Business?</h2>
     <p>
       Join landscaping companies who are using Field Ops to streamline operations, 
-      increase revenue, and scale their business.
+      increase revenue, and scale their business. Start your subscription today.
     </p>
     <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
       <a href="{% url 'signup' %}" class="btn btn-primary btn-hero">
-        Start Your Free Trial
-      </a>
-      <a href="{% url 'login' %}" class="btn btn-secondary btn-hero">
-        Sign In
+        Start Your Subscription
       </a>
     </div>
     <p style="font-size: 14px; color: var(--text-muted); margin: 24px 0 0 0;">
-      No credit card required • Set up in minutes • Cancel anytime
+      Sign up free • Subscribe when ready • Cancel anytime
     </p>
   </div>
 </section>
@@ -455,7 +493,7 @@
       <ul style="list-style: none; padding: 0; margin: 0;">
         <li style="margin-bottom: 8px;"><a href="#features" style="color: var(--text-muted); text-decoration: none;">Features</a></li>
         <li style="margin-bottom: 8px;"><a href="#pricing" style="color: var(--text-muted); text-decoration: none;">Pricing</a></li>
-        <li style="margin-bottom: 8px;"><a href="{% url 'signup' %}" style="color: var(--text-muted); text-decoration: none;">Sign Up</a></li>
+        <li style="margin-bottom: 8px;"><a href="{% url 'signup' %}" style="color: var(--text-muted); text-decoration: none;">Subscribe</a></li>
       </ul>
     </div>
     <div>
@@ -470,7 +508,6 @@
       <ul style="list-style: none; padding: 0; margin: 0;">
         <li style="margin-bottom: 8px;"><a href="mailto:support@yourdomain.com" style="color: var(--text-muted); text-decoration: none;">Help Center</a></li>
         <li style="margin-bottom: 8px;"><a href="{% url 'privacy_policy' %}" style="color: var(--text-muted); text-decoration: none;">Privacy Policy</a></li>
-        <li style="margin-bottom: 8px;"><a href="{% url 'login' %}" style="color: var(--text-muted); text-decoration: none;">Sign In</a></li>
       </ul>
     </div>
   </div>
