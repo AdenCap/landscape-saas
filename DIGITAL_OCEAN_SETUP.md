@@ -8,7 +8,7 @@ Use this as your checklist. Configure everything on the **web service** componen
 
 | Field | Value |
 |-------|--------|
-| **Build Command** | `pip install -r requirements.txt && python manage.py collectstatic --noinput` |
+| **Build Command** | `pip install --no-cache-dir -r requirements.txt && python manage.py collectstatic --noinput` |
 | **Run Command** | `python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120` |
 | **HTTP Port** | `8080` |
 
@@ -84,3 +84,53 @@ Add these on the **web service** component. Use **Encrypted** for secrets. Set *
 - [ ] Saved and redeployed  
 
 If the app starts and you see `[DATABASE] Using PostgreSQL` in the logs, data will persist across redeploys.
+
+---
+
+## Build failing?
+
+1. **Copy the exact error** from the build log (Digital Ocean → your app → Deployments → click the failed build → build logs). The last 20–30 lines usually show the real failure (e.g. `pip install` error, `ModuleNotFoundError`, or `collectstatic` error).
+
+2. **Use this build command** (saves disk and can avoid timeouts):
+   ```bash
+   pip install --no-cache-dir -r requirements.txt && python manage.py collectstatic --noinput
+   ```
+
+3. **If `pip install` fails** on a specific package (e.g. `opencv-python-headless`, `Pillow`):
+   - Check that the **Install Command** (if set) is just `pip install --no-cache-dir -r requirements.txt` and that the **Build Command** is `python manage.py collectstatic --noinput`, or keep a single Build Command as above.
+   - Digital Ocean uses Python 3.13 by default; if the error is about an old Python, in the dashboard set **Environment** or **Python version** to 3.11 or 3.12 if available.
+
+4. **If `collectstatic` fails**: the log will show a Django traceback. Paste that into your next message so we can fix the exact line.
+
+---
+
+## "No route to host" or database connection failure
+
+This usually means the app cannot reach Supabase’s database host. Try these in order:
+
+### 1. Restore a paused Supabase project (very common)
+
+Free-tier Supabase projects **pause after inactivity**. When paused, the DB is off and you get "No route to host".
+
+- Open [Supabase Dashboard](https://supabase.com/dashboard) → your project.
+- If you see **"Project is paused"** or **"Restore project"**, click **Restore** and wait until the project is running again.
+- Redeploy your app on Digital Ocean after the project is active.
+
+### 2. Use the connection pooler (Session mode) instead of direct
+
+Sometimes the **pooler** host is reachable when the direct host is not.
+
+- In Supabase: **Project Settings** → **Database** → **Connection string**.
+- Choose **URI**, then select **Session mode** (connection pooler).
+- Copy the URI. It will look like:
+  ```text
+  postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-XX.pooler.supabase.com:6543/postgres
+  ```
+  (Different host: `pooler.supabase.com` and port **6543**.)
+- Replace the password and set this as **PG_URL** in Digital Ocean (Run Time). Redeploy.
+
+### 3. Double-check PG_URL
+
+- No quotes or spaces; one continuous string.
+- Password in the URI must be **URL-encoded** if it contains `@`, `#`, `%`, `/`, or `?` (e.g. use `%40` for `@`).
+- In Supabase, you can reset the database password (Project Settings → Database) and use the new password in the URI.
