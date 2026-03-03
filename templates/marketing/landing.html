@@ -261,18 +261,18 @@
     <p style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--primary); font-weight: 600; margin: 0 0 16px 0;">
       Built for Landscaping Professionals
     </p>
-    <h1>Start Your Subscription Today<br>And Transform Your Business</h1>
+    <h1>Start Your Free Trial Today<br>And Transform Your Business</h1>
     <p class="subtitle">
       Get full access to job scheduling, crew management, invoicing, and profit tracking—all in one powerful platform. 
-      Start your subscription now and see why landscaping businesses choose Field Ops.
+      Choose Solo (7-day trial) or Professional (14-day trial). No credit card required to sign up.
     </p>
     <div class="landing-cta">
       <a href="{% url 'signup' %}" class="btn btn-primary btn-hero">
-        Start Your Subscription
+        Start Free Trial
       </a>
     </div>
     <p style="font-size: 14px; color: var(--text-muted); margin: 0;">
-      No credit card required to sign up • Subscribe when ready • Cancel anytime
+      No credit card required to sign up • 7-day or 14-day free trial • Cancel anytime
     </p>
     <div class="trust-badges">
       <div class="trust-badge">
@@ -360,63 +360,116 @@
     
     <div class="step">
       <div class="step-number">3</div>
-      <h3>Subscribe & Go Live</h3>
-      <p>Activate your subscription to unlock all features. Start managing jobs, sending invoices, and growing your business today.</p>
+      <h3>Start Your Free Trial</h3>
+      <p>Choose Solo (7-day trial) or Professional (14-day trial). No credit card required to sign up. Subscribe when you're ready.</p>
     </div>
   </div>
 </section>
 
 <!-- Pricing Section -->
 <section class="section" id="pricing" style="background: var(--surface-alt);">
-  <h2 class="section-title">Start Your Subscription Today</h2>
+  <h2 class="section-title">Choose Your Plan</h2>
   <p class="section-subtitle">
-    One simple plan. All features included. Subscribe now and get started immediately.
+    Start with a free trial. No credit card required to sign up. Cancel anytime.
   </p>
   
-  <div class="pricing-card" style="border: 2px solid var(--primary); box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);">
-    <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px;">
-      <span style="background: var(--primary); color: #0a0a0a; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase;">Most Popular</span>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 32px; max-width: 1000px; margin: 0 auto;">
+    <!-- Solo Plan -->
+    <div class="pricing-card" style="position: relative;">
+      <h3 style="font-size: 24px; font-weight: 700; margin: 0 0 8px 0;">Solo</h3>
+      <p style="color: var(--text-muted); font-size: 14px; margin: 0 0 20px 0;">Perfect for solo operators</p>
+      <div style="display: flex; align-items: baseline; justify-content: center; gap: 8px; margin: 20px 0;">
+        <div class="pricing-price" style="font-size: 42px;">$29.99</div>
+        <div class="pricing-period">/month</div>
+      </div>
+      <div style="background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px; padding: 12px; margin: 20px 0; text-align: center;">
+        <p style="margin: 0; font-size: 14px; font-weight: 600; color: var(--primary);">7-Day Free Trial</p>
+      </div>
+      <ul style="text-align: left; list-style: none; padding: 0; margin: 24px 0;">
+        <li style="padding: 10px 0; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border);">
+          <span style="color: var(--primary); font-size: 20px; font-weight: 700;">✓</span>
+          <span style="font-size: 15px;">Unlimited jobs & clients</span>
+        </li>
+        <li style="padding: 10px 0; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border);">
+          <span style="color: var(--primary); font-size: 20px; font-weight: 700;">✓</span>
+          <span style="font-size: 15px;">Job scheduling & calendar</span>
+        </li>
+        <li style="padding: 10px 0; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border);">
+          <span style="color: var(--primary); font-size: 20px; font-weight: 700;">✓</span>
+          <span style="font-size: 15px;">Estimates & invoicing</span>
+        </li>
+        <li style="padding: 10px 0; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border);">
+          <span style="color: var(--primary); font-size: 20px; font-weight: 700;">✓</span>
+          <span style="font-size: 15px;">Client management</span>
+        </li>
+        <li style="padding: 10px 0; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border);">
+          <span style="color: var(--primary); font-size: 20px; font-weight: 700;">✓</span>
+          <span style="font-size: 15px;">Mobile app access</span>
+        </li>
+        <li style="padding: 10px 0; display: flex; align-items: center; gap: 10px;">
+          <span style="color: var(--primary); font-size: 20px; font-weight: 700;">✓</span>
+          <span style="font-size: 15px;">Email support</span>
+        </li>
+      </ul>
+      <a href="{% url 'signup' %}" class="btn btn-secondary" style="width: 100%; padding: 16px; font-size: 16px; font-weight: 700; margin-top: 24px;">
+        Start Free Trial
+      </a>
+      <p style="font-size: 13px; color: var(--text-muted); margin: 12px 0 0 0; text-align: center;">
+        7-day free trial • Cancel anytime
+      </p>
     </div>
-    <h3 style="font-size: 28px; font-weight: 700; margin: 0 0 8px 0;">Professional Plan</h3>
-    <div style="display: flex; align-items: baseline; justify-content: center; gap: 8px; margin: 16px 0;">
-      <div class="pricing-price">$99</div>
-      <div class="pricing-period">/month</div>
+    
+    <!-- Pro Plan -->
+    <div class="pricing-card" style="border: 2px solid var(--primary); box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1); position: relative;">
+      <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%);">
+        <span style="background: var(--primary); color: #0a0a0a; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase;">Most Popular</span>
+      </div>
+      <h3 style="font-size: 28px; font-weight: 700; margin: 16px 0 8px 0;">Professional</h3>
+      <p style="color: var(--text-muted); font-size: 14px; margin: 0 0 20px 0;">For growing teams</p>
+      <div style="display: flex; align-items: baseline; justify-content: center; gap: 8px; margin: 20px 0;">
+        <div class="pricing-price" style="font-size: 48px;">$99.99</div>
+        <div class="pricing-period">/month</div>
+      </div>
+      <div style="background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 8px; padding: 12px; margin: 20px 0; text-align: center;">
+        <p style="margin: 0; font-size: 14px; font-weight: 600; color: var(--primary);">14-Day Free Trial</p>
+      </div>
+      <ul style="text-align: left; list-style: none; padding: 0; margin: 24px 0;">
+        <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
+          <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+          <span style="font-size: 16px;"><strong>Everything in Solo, plus:</strong></span>
+        </li>
+        <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
+          <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+          <span style="font-size: 16px;">Unlimited team members</span>
+        </li>
+        <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
+          <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+          <span style="font-size: 16px;">Crew management & time tracking</span>
+        </li>
+        <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
+          <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+          <span style="font-size: 16px;">Credit card payments</span>
+        </li>
+        <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
+          <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+          <span style="font-size: 16px;">QuickBooks integration</span>
+        </li>
+        <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
+          <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+          <span style="font-size: 16px;">Profit tracking & financials</span>
+        </li>
+        <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px;">
+          <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
+          <span style="font-size: 16px;">Priority support</span>
+        </li>
+      </ul>
+      <a href="{% url 'signup' %}" class="btn btn-primary" style="width: 100%; padding: 18px; font-size: 18px; font-weight: 700; margin-top: 32px;">
+        Start Free Trial
+      </a>
+      <p style="font-size: 14px; color: var(--text-muted); margin: 16px 0 0 0; text-align: center;">
+        14-day free trial • Cancel anytime
+      </p>
     </div>
-    <p style="color: var(--text-muted); margin: 24px 0; line-height: 1.6; text-align: center;">
-      Everything you need to run your landscaping business. Unlimited users, unlimited jobs, all features included.
-    </p>
-    <ul style="text-align: left; list-style: none; padding: 0; margin: 32px 0;">
-      <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
-        <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
-        <span style="font-size: 16px;">Unlimited jobs & clients</span>
-      </li>
-      <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
-        <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
-        <span style="font-size: 16px;">Unlimited team members</span>
-      </li>
-      <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
-        <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
-        <span style="font-size: 16px;">Credit card payments</span>
-      </li>
-      <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
-        <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
-        <span style="font-size: 16px;">QuickBooks integration</span>
-      </li>
-      <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);">
-        <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
-        <span style="font-size: 16px;">Mobile app access</span>
-      </li>
-      <li style="padding: 12px 0; display: flex; align-items: center; gap: 12px;">
-        <span style="color: var(--primary); font-size: 24px; font-weight: 700;">✓</span>
-        <span style="font-size: 16px;">Priority support</span>
-      </li>
-    </ul>
-    <a href="{% url 'signup' %}" class="btn btn-primary" style="width: 100%; padding: 18px; font-size: 18px; font-weight: 700; margin-top: 32px;">
-      Subscribe Now
-    </a>
-    <p style="font-size: 14px; color: var(--text-muted); margin: 16px 0 0 0; text-align: center;">
-      Sign up free • Subscribe when ready • Cancel anytime
-    </p>
   </div>
 </section>
 
@@ -472,15 +525,15 @@
     <h2>Ready to Transform Your Business?</h2>
     <p>
       Join landscaping companies who are using Field Ops to streamline operations, 
-      increase revenue, and scale their business. Start your subscription today.
+      increase revenue, and scale their business. Start your free trial today.
     </p>
     <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
       <a href="{% url 'signup' %}" class="btn btn-primary btn-hero">
-        Start Your Subscription
+        Start Free Trial
       </a>
     </div>
     <p style="font-size: 14px; color: var(--text-muted); margin: 24px 0 0 0;">
-      Sign up free • Subscribe when ready • Cancel anytime
+      No credit card required • 7-day or 14-day free trial • Cancel anytime
     </p>
   </div>
 </section>

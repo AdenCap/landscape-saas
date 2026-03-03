@@ -24,16 +24,104 @@
   </form>
   <p class="help" style="margin-top: 12px;">Update payment method, view invoices, or cancel in the Stripe Customer Portal.</p>
   {% else %}
-  <div style="padding: 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; margin-bottom: 20px;">
+  <div style="padding: 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; margin-bottom: 24px;">
     <p style="margin: 0 0 8px 0; font-weight: 600; color: #fca5a5;">You do not have an active subscription</p>
-    <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Subscribe to access all features of Field Ops.</p>
+    <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Choose a plan below to start your free trial and unlock all features of Field Ops.</p>
   </div>
   {% if stripe_enabled %}
-  <form method="post" action="{% url 'subscription:create_checkout' %}">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-primary" style="width: 100%;">Subscribe now</button>
-  </form>
-  <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">You'll be redirected to our secure checkout page to complete your subscription.</p>
+    {% if solo_available or pro_available %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 24px;">
+      {% if solo_available %}
+      <div class="card" style="border: 1px solid var(--border);">
+        <h3 style="font-size: 20px; font-weight: 700; margin: 0 0 8px 0;">Solo</h3>
+        <p style="color: var(--text-muted); font-size: 14px; margin: 0 0 16px 0;">Perfect for solo operators</p>
+        <div style="margin: 16px 0;">
+          <div style="font-size: 36px; font-weight: 800; color: var(--primary);">$29.99</div>
+          <div style="color: var(--text-muted); font-size: 14px;">per month</div>
+        </div>
+        <div style="background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px; padding: 10px; margin: 16px 0; text-align: center;">
+          <p style="margin: 0; font-size: 13px; font-weight: 600; color: var(--primary);">7-Day Free Trial</p>
+        </div>
+        <ul style="list-style: none; padding: 0; margin: 16px 0; font-size: 14px;">
+          <li style="padding: 6px 0; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--primary);">✓</span>
+            <span>Unlimited jobs & clients</span>
+          </li>
+          <li style="padding: 6px 0; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--primary);">✓</span>
+            <span>Job scheduling & calendar</span>
+          </li>
+          <li style="padding: 6px 0; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--primary);">✓</span>
+            <span>Estimates & invoicing</span>
+          </li>
+          <li style="padding: 6px 0; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--primary);">✓</span>
+            <span>Mobile app access</span>
+          </li>
+        </ul>
+        <form method="post" action="{% url 'subscription:create_checkout' %}" style="margin-top: 20px;">
+          {% csrf_token %}
+          <input type="hidden" name="tier" value="solo">
+          <button type="submit" class="btn btn-secondary" style="width: 100%;">Start 7-Day Trial</button>
+        </form>
+      </div>
+      {% endif %}
+      
+      {% if pro_available %}
+      <div class="card" style="border: 2px solid var(--primary); box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1); position: relative;">
+        <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%);">
+          <span style="background: var(--primary); color: #0a0a0a; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Most Popular</span>
+        </div>
+        <h3 style="font-size: 24px; font-weight: 700; margin: 16px 0 8px 0;">Professional</h3>
+        <p style="color: var(--text-muted); font-size: 14px; margin: 0 0 16px 0;">For growing teams</p>
+        <div style="margin: 16px 0;">
+          <div style="font-size: 42px; font-weight: 800; color: var(--primary);">$99.99</div>
+          <div style="color: var(--text-muted); font-size: 14px;">per month</div>
+        </div>
+        <div style="background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 8px; padding: 10px; margin: 16px 0; text-align: center;">
+          <p style="margin: 0; font-size: 13px; font-weight: 600; color: var(--primary);">14-Day Free Trial</p>
+        </div>
+        <ul style="list-style: none; padding: 0; margin: 16px 0; font-size: 14px;">
+          <li style="padding: 6px 0; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--primary);">✓</span>
+            <span><strong>Everything in Solo, plus:</strong></span>
+          </li>
+          <li style="padding: 6px 0; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--primary);">✓</span>
+            <span>Unlimited team members</span>
+          </li>
+          <li style="padding: 6px 0; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--primary);">✓</span>
+            <span>Crew management & time tracking</span>
+          </li>
+          <li style="padding: 6px 0; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--primary);">✓</span>
+            <span>Credit card payments</span>
+          </li>
+          <li style="padding: 6px 0; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--primary);">✓</span>
+            <span>QuickBooks integration</span>
+          </li>
+          <li style="padding: 6px 0; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--primary);">✓</span>
+            <span>Priority support</span>
+          </li>
+        </ul>
+        <form method="post" action="{% url 'subscription:create_checkout' %}" style="margin-top: 20px;">
+          {% csrf_token %}
+          <input type="hidden" name="tier" value="pro">
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Start 14-Day Trial</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    <p style="margin-top: 16px; font-size: 13px; color: var(--text-muted); text-align: center;">You'll be redirected to our secure checkout page. No charge during your free trial period.</p>
+    {% else %}
+    <div style="padding: 16px; background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 10px;">
+      <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Subscription setup is in progress. Please contact support to activate your account.</p>
+    </div>
+    {% endif %}
   {% else %}
   <div style="padding: 16px; background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 10px;">
     <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Subscription setup is in progress. Please contact support to activate your account.</p>

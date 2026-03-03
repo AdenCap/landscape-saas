@@ -99,7 +99,9 @@ INSTALLED_APPS = [
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
-STRIPE_SUBSCRIPTION_PRICE_ID = os.environ.get("STRIPE_SUBSCRIPTION_PRICE_ID", "")
+STRIPE_SUBSCRIPTION_PRICE_ID = os.environ.get("STRIPE_SUBSCRIPTION_PRICE_ID", "")  # Legacy/fallback
+STRIPE_SOLO_PRICE_ID = os.environ.get("STRIPE_SOLO_PRICE_ID", "")  # Solo tier: $29.99/month, 7-day trial
+STRIPE_PRO_PRICE_ID = os.environ.get("STRIPE_PRO_PRICE_ID", "")  # Pro tier: $99.99/month, 14-day trial
 STRIPE_CONNECT_APPLICATION_FEE_PERCENT = float(os.environ.get("STRIPE_CONNECT_APPLICATION_FEE_PERCENT", "0") or "0")
 
 # QuickBooks Online integration – set via environment variables (never commit secrets)

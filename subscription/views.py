@@ -20,8 +20,23 @@ def _stripe_enabled():
     return bool(getattr(settings, "STRIPE_SECRET_KEY", None))
 
 
-def _get_price_id():
+def _get_price_id(tier=None):
+    """Get Stripe price ID for the specified tier. Falls back to legacy setting if tier not specified."""
+    if tier == "solo":
+        return getattr(settings, "STRIPE_SOLO_PRICE_ID", None) or ""
+    elif tier == "pro":
+        return getattr(settings, "STRIPE_PRO_PRICE_ID", None) or ""
+    # Fallback to legacy setting
     return getattr(settings, "STRIPE_SUBSCRIPTION_PRICE_ID", None) or ""
+
+
+def _get_trial_days(tier):
+    """Get trial period in days for the specified tier."""
+    if tier == "solo":
+        return 7
+    elif tier == "pro":
+        return 14
+    return 0
 
 
 @role_required("owner")
@@ -32,6 +47,11 @@ def subscription_status(request):
     if not business:
         messages.error(request, "No business associated with your account.")
         return redirect("/")
+    
+    # Get available tiers
+    solo_price_id = _get_price_id("solo")
+    pro_price_id = _get_price_id("pro")
+    
     return render(
         request,
         "subscription/status.html",
@@ -39,6 +59,10 @@ def subscription_status(request):
             "business": business,
             "stripe_enabled": _stripe_enabled(),
             "has_active_subscription": business.has_active_subscription(),
+            "solo_price_id": solo_price_id,
+            "pro_price_id": pro_price_id,
+            "solo_available": bool(solo_price_id),
+            "pro_available": bool(pro_price_id),
         },
     )
 
@@ -50,22 +74,35 @@ def create_checkout_session(request):
     if not _stripe_enabled():
         messages.info(request, "Subscription setup is in progress. Please contact support to activate your account.")
         return redirect("subscription:status")
-    price_id = _get_price_id()
-    if not price_id:
-        messages.info(request, "Subscription setup is in progress. Please contact support to activate your account.")
+    
+    # Get tier from POST data (solo or pro)
+    tier = request.POST.get("tier", "").lower()
+    if tier not in ["solo", "pro"]:
+        messages.error(request, "Please select a subscription tier.")
         return redirect("subscription:status")
+    
+    price_id = _get_price_id(tier)
+    if not price_id:
+        messages.info(request, f"Subscription setup is in progress for the {tier} tier. Please contact support to activate your account.")
+        return redirect("subscription:status")
+    
     business = get_business(request)
     if not business:
         messages.error(request, "No business associated with your account.")
         return redirect("/")
+    
     stripe.api_key = settings.STRIPE_SECRET_KEY
     success_url = request.build_absolute_uri(reverse("subscription:success") + "?session_id={CHECKOUT_SESSION_ID}")
     cancel_url = request.build_absolute_uri(reverse("subscription:status"))
     customer_email = None
     if request.user.email:
         customer_email = request.user.email
+    
+    # Get trial days for this tier
+    trial_days = _get_trial_days(tier)
+    
     # Generate idempotency key to prevent duplicate sessions
-    idempotency_key = f"subscription:{business.id}:{hashlib.md5(f'{business.id}:{price_id}'.encode()).hexdigest()[:16]}"
+    idempotency_key = f"subscription:{business.id}:{tier}:{hashlib.md5(f'{business.id}:{price_id}:{tier}'.encode()).hexdigest()[:16]}"
     
     try:
         # Ensure we have a Stripe customer ID
@@ -78,6 +115,16 @@ def create_checkout_session(request):
             business.stripe_customer_id = customer.id
             business.save(update_fields=["stripe_customer_id"])
         
+        # Build subscription data with trial period if applicable
+        subscription_data = {
+            "metadata": {
+                "business_id": str(business.id),
+                "tier": tier,
+            }
+        }
+        if trial_days > 0:
+            subscription_data["trial_period_days"] = trial_days
+        
         # Create checkout session with existing customer
         session = stripe.checkout.Session.create(
             customer=business.stripe_customer_id,
@@ -85,8 +132,8 @@ def create_checkout_session(request):
             line_items=[{"price": price_id, "quantity": 1}],
             success_url=success_url,
             cancel_url=cancel_url,
-            metadata={"business_id": str(business.id)},
-            subscription_data={"metadata": {"business_id": str(business.id)}},
+            metadata={"business_id": str(business.id), "tier": tier},
+            subscription_data=subscription_data,
             idempotency_key=idempotency_key,
         )
         return redirect(session.url)
