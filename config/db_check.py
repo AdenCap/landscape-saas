@@ -19,6 +19,10 @@ def _env_set(name):
 @csrf_exempt
 @never_cache
 def db_check(request):
+    # Disable this diagnostic endpoint in production by default.
+    if not settings.DEBUG and os.environ.get("DB_CHECK_ENABLED", "0").lower() not in ("1", "true", "yes"):
+        return HttpResponse("Not Found", status=404)
+
     secret = os.environ.get("DB_CHECK_SECRET", "").strip()
     key = (request.GET.get("key") or "").strip()
     if not secret or key != secret:

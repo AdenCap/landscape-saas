@@ -5,14 +5,53 @@
 {% block content %}
 <div class="page-header">
   <h1>Platform subscription</h1>
+  <p class="muted" style="margin-top:6px;">Current plan: <strong>{{ business.get_subscription_plan_tier_display }}</strong></p>
   {% if has_active_subscription %}
   <p>Your subscription for {{ business.name }} – manage billing and payment method.</p>
+  {% if business.complimentary_access_enabled %}
+  <p class="muted" style="color:#86efac;">Complimentary access is currently enabled by platform admin.</p>
+  {% endif %}
   {% else %}
   <p>Subscribe to unlock full access to Field Ops for {{ business.name }}.</p>
   {% endif %}
 </div>
 
-<div class="card" style="max-width: 520px;">
+<div class="card" style="max-width: 860px;">
+  <h3 style="margin-top:0; margin-bottom:12px;">Simple pricing for small businesses and scaling teams</h3>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; margin-bottom:18px;">
+    <div style="border:1px solid var(--border); border-radius:12px; padding:14px; background:rgba(255,255,255,.01);">
+      <div style="font-size:13px; color:var(--text-muted);">Solo Starter</div>
+      <div style="font-size:30px; font-weight:800;">${{ pricing.solo_price }}</div>
+      <div style="font-size:13px; color:var(--text-muted); margin-bottom:8px;">/month</div>
+      <ul style="margin:0; padding-left:18px; color:var(--text-muted); font-size:14px;">
+        <li>Calendar scheduling</li>
+        <li>Client management (CRM basics)</li>
+        <li>Great for one-person operations</li>
+      </ul>
+      {% if not has_active_subscription and stripe_enabled %}
+      <form method="post" action="{% url 'subscription:create_checkout' %}" style="margin-top:10px;">{% csrf_token %}<input type="hidden" name="plan_tier" value="solo"><button type="submit" class="btn btn-secondary" style="width:100%;">Choose Solo Starter</button></form>
+      {% endif %}
+    </div>
+    <div style="border:1px solid rgba(34,197,94,.45); border-radius:12px; padding:14px; background:rgba(34,197,94,.08);">
+      <div style="font-size:13px; color:#bbf7d0;">Pro All-Access (main)</div>
+      <div style="font-size:30px; font-weight:800;">${{ pricing.pro_price }}</div>
+      <div style="font-size:13px; color:var(--text-muted); margin-bottom:8px;">/month</div>
+      <ul style="margin:0; padding-left:18px; color:var(--text-muted); font-size:14px;">
+        <li>All platform features included</li>
+        <li>Business management, invoicing, automations, command center, reliability tooling</li>
+        <li>Best fit for growing teams</li>
+      </ul>
+      {% if not has_active_subscription and stripe_enabled %}
+      <form method="post" action="{% url 'subscription:create_checkout' %}" style="margin-top:10px;">{% csrf_token %}<input type="hidden" name="plan_tier" value="core"><button type="submit" class="btn btn-primary" style="width:100%;">Choose Pro All-Access</button></form>
+      {% endif %}
+    </div>
+  </div>
+  <p class="muted" style="margin:-2px 0 14px 0;">Current active crew users: <strong>{{ pricing_signal.crew_user_count }}</strong>. Soft guidance threshold: {{ pricing_signal.effective_soft_cap }} before recommending Pro for smoother scaling.</p>
+  {% if pricing_signal.recommend_pro %}
+  <div style="padding:10px 12px; border-radius:10px; background:rgba(251,191,36,.12); border:1px solid rgba(251,191,36,.35); color:#fde68a; margin-bottom:12px;">
+    Your team has grown beyond solo usage. Pro All-Access is recommended for multi-employee operations.
+  </div>
+  {% endif %}
   {% if has_active_subscription %}
   <p class="status-connected" style="margin: 0 0 16px 0;">You have an active subscription. You have full access to Field Ops.</p>
   {% if business.subscription_current_period_end %}
@@ -29,11 +68,7 @@
     <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Subscribe to access all features of Field Ops.</p>
   </div>
   {% if stripe_enabled %}
-  <form method="post" action="{% url 'subscription:create_checkout' %}">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-primary" style="width: 100%;">Subscribe now</button>
-  </form>
-  <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">You'll be redirected to our secure checkout page to complete your subscription.</p>
+  <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">Choose a plan above to continue to secure checkout.</p>
   {% else %}
   <div style="padding: 16px; background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 10px;">
     <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Subscription setup is in progress. Please contact support to activate your account.</p>

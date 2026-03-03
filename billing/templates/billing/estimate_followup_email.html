@@ -38,6 +38,14 @@
                   </td>
                 </tr>
               </table>
+              {% if upsells %}
+              <div style="margin:14px 0 0 0; padding:12px; border-radius:10px; border:1px solid rgba(148,163,184,.35); background:rgba(148,163,184,.08);">
+                <p style="margin:0 0 6px 0; font-size:13px; color:#e5e7eb; font-weight:600;">Popular add-ons you can bundle:</p>
+                <ul style="margin:0; padding-left:18px; color:#cbd5e1; font-size:13px;">
+                  {% for item in upsells %}<li style="margin-bottom:4px;">{{ item }}</li>{% endfor %}
+                </ul>
+              </div>
+              {% endif %}
               <p style="margin:16px 0 0 0; font-size:14px; color:#a3a3a3;">
                 If you have any questions, just reply to this email or contact us.
                 {% if business.contact_email or business.contact_phone %}

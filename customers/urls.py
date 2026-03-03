@@ -6,6 +6,8 @@ urlpatterns = [
     path("messages/", views.client_messages_list, name="client_messages_list"),
     path("add/", views.customer_create, name="customer_create"),
     path("import/", views.customer_import, name="customer_import"),
+    path("import/template/", views.customer_import_template, name="customer_import_template"),
+    path("export/", views.customer_export, name="customer_export"),
     path("<int:customer_id>/", views.customer_detail, name="customer_detail"),
     path("<int:customer_id>/edit/", views.customer_edit, name="customer_edit"),
     path("<int:customer_id>/message/", views.customer_send_message, name="customer_send_message"),
@@ -13,4 +15,6 @@ urlpatterns = [
     path("<int:customer_id>/properties/<int:property_id>/edit/", views.property_edit, name="property_edit"),
     path("<int:customer_id>/contracts/add/", views.contract_add, name="contract_add"),
     path("<int:customer_id>/contracts/<int:contract_id>/edit/", views.contract_edit, name="contract_edit"),
+    path("reviews/confirm/<str:token>/", views.review_mark_done, name="review_mark_done"),
+    path("reviews/opt-out/<str:token>/", views.review_opt_out, name="review_opt_out"),
 ]

@@ -9,6 +9,7 @@
 <div class="card" style="max-width: 540px;">
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
+    {% if next_value %}<input type="hidden" name="next" value="{{ next_value }}">{% endif %}
     {% if form.non_field_errors %}
     <div class="alert alert-error">{{ form.non_field_errors }}</div>
     {% endif %}
@@ -101,6 +102,82 @@
         {% if form.estimate_follow_up_days.help_text %}<p class="help">{{ form.estimate_follow_up_days.help_text }}</p>{% endif %}
       </div>
     </div>
+    <div class="form-section">
+      <h3>Google review requests</h3>
+      <p class="muted">Ask clients for reviews after they pay, and automatically stop once they review or opt out.</p>
+      <div class="field">
+        {{ form.google_review_requests_enabled.label_tag }} {{ form.google_review_requests_enabled }} {{ form.google_review_requests_enabled.errors }}
+      </div>
+      <div class="field">
+        {{ form.google_review_link.label_tag }}{{ form.google_review_link }}{{ form.google_review_link.errors }}
+        {% if form.google_review_link.help_text %}<p class="help">{{ form.google_review_link.help_text }}</p>{% endif %}
+      </div>
+      <div class="field" style="display:flex; gap:16px; align-items:flex-end;">
+        <div style="flex:1;">
+          {{ form.google_review_request_delay_hours.label_tag }}{{ form.google_review_request_delay_hours }}{{ form.google_review_request_delay_hours.errors }}
+        </div>
+        <div style="flex:1;">
+          {{ form.google_review_followup_days.label_tag }}{{ form.google_review_followup_days }}{{ form.google_review_followup_days.errors }}
+        </div>
+        <div style="flex:1;">
+          {{ form.google_review_max_attempts.label_tag }}{{ form.google_review_max_attempts }}{{ form.google_review_max_attempts.errors }}
+        </div>
+      </div>
+      <div class="field">
+        {{ form.google_review_sms_enabled.label_tag }} {{ form.google_review_sms_enabled }} {{ form.google_review_sms_enabled.errors }}
+      </div>
+      <div class="field">
+        {{ form.google_review_sms_template.label_tag }}{{ form.google_review_sms_template }}{{ form.google_review_sms_template.errors }}
+      </div>
+      <p class="help">Run <code>python manage.py send_google_review_requests</code> daily (cron) to send queued review requests. Recommended: <code>python manage.py send_google_review_requests --start-hour 9 --end-hour 20 --max-per-run 200</code>.</p>
+      <p class="help">Tip: use your direct Google review URL (often includes <code>/writeareview</code> or PlaceID format) so clients land on the review form immediately.</p>
+    </div>
+    <div class="form-section">
+      <h3>Invoicing automation</h3>
+      <p class="muted">Choose your default automation for customers that don't have a custom billing frequency set.</p>
+      <div class="field">
+        {{ form.default_invoice_automation_mode.label_tag }}{{ form.default_invoice_automation_mode }}{{ form.default_invoice_automation_mode.errors }}
+        {% if form.default_invoice_automation_mode.help_text %}<p class="help">{{ form.default_invoice_automation_mode.help_text }}</p>{% endif %}
+      </div>
+      <div class="field">
+        {{ form.auto_invoice_send_behavior.label_tag }}{{ form.auto_invoice_send_behavior }}{{ form.auto_invoice_send_behavior.errors }}
+        {% if form.auto_invoice_send_behavior.help_text %}<p class="help">{{ form.auto_invoice_send_behavior.help_text }}</p>{% endif %}
+      </div>
+      <div class="field">
+        {{ form.default_monthly_invoice_send_day.label_tag }}{{ form.default_monthly_invoice_send_day }}{{ form.default_monthly_invoice_send_day.errors }}
+        {% if form.default_monthly_invoice_send_day.help_text %}<p class="help">{{ form.default_monthly_invoice_send_day.help_text }}</p>{% endif %}
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Cash Flow Autopilot</h3>
+      <p class="muted">Automate reminder cadence and estimate follow-ups with owner safety gates.</p>
+      <div class="field">
+        {{ form.invoice_reminder_enabled.label_tag }} {{ form.invoice_reminder_enabled }} {{ form.invoice_reminder_enabled.errors }}
+        {% if form.invoice_reminder_enabled.help_text %}<p class="help">{{ form.invoice_reminder_enabled.help_text }}</p>{% endif %}
+      </div>
+      <div class="field">
+        {{ form.invoice_reminder_days.label_tag }}{{ form.invoice_reminder_days }}{{ form.invoice_reminder_days.errors }}
+        {% if form.invoice_reminder_days.help_text %}<p class="help">{{ form.invoice_reminder_days.help_text }}</p>{% endif %}
+      </div>
+      <div class="field">
+        {{ form.invoice_reminder_require_owner_approval.label_tag }} {{ form.invoice_reminder_require_owner_approval }} {{ form.invoice_reminder_require_owner_approval.errors }}
+        {% if form.invoice_reminder_require_owner_approval.help_text %}<p class="help">{{ form.invoice_reminder_require_owner_approval.help_text }}</p>{% endif %}
+      </div>
+      <div class="field">
+        {{ form.estimate_follow_up_days.label_tag }}{{ form.estimate_follow_up_days }}{{ form.estimate_follow_up_days.errors }}
+        {% if form.estimate_follow_up_days.help_text %}<p class="help">{{ form.estimate_follow_up_days.help_text }}</p>{% endif %}
+      </div>
+      <div class="field">
+        {{ form.estimate_follow_up_cadence_days.label_tag }}{{ form.estimate_follow_up_cadence_days }}{{ form.estimate_follow_up_cadence_days.errors }}
+        {% if form.estimate_follow_up_cadence_days.help_text %}<p class="help">{{ form.estimate_follow_up_cadence_days.help_text }}</p>{% endif %}
+      </div>
+      <div class="field">
+        {{ form.quote_upsell_suggestions.label_tag }}{{ form.quote_upsell_suggestions }}{{ form.quote_upsell_suggestions.errors }}
+        {% if form.quote_upsell_suggestions.help_text %}<p class="help">{{ form.quote_upsell_suggestions.help_text }}</p>{% endif %}
+      </div>
+    </div>
+
     <div class="form-section">
       <h3>Invoices – default due date</h3>
       <p class="muted">New invoices will be due this many days after the issue date. You can override this per client in Clients, or change the due date on any invoice.</p>
@@ -199,7 +276,11 @@
     </div>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">Save</button>
+      {% if next_value %}
+      <a href="{{ next_value }}" class="btn btn-secondary">Back to onboarding</a>
+      {% else %}
       <a href="/" class="btn btn-secondary">Cancel</a>
+      {% endif %}
     </div>
   </form>
 </div>

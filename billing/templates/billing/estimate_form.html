@@ -16,6 +16,7 @@
   <div class="card estimate-form-card">
     <form method="post" class="estimate-form-fields">
       {% csrf_token %}
+      {% if next_value %}<input type="hidden" name="next" value="{{ next_value }}">{% endif %}
       <div class="form-group">
         <label for="id_customer">Customer</label>
         {{ form.customer }}

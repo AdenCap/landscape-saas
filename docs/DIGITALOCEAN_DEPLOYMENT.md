@@ -226,6 +226,31 @@ After deployment:
 4. Monitor for errors
 5. Set up backups (DigitalOcean offers automated backups)
 
+## Scheduled Monthly Invoice Automation (Worker + Beat)
+
+To run automatic monthly invoice sends in production, add two background components:
+
+1. **Celery worker**
+   ```bash
+   celery -A config worker -l info
+   ```
+2. **Celery beat scheduler**
+   ```bash
+   celery -A config beat -l info
+   ```
+
+The app includes a daily beat schedule (`09:05`) that runs:
+- task: `billing.tasks.send_scheduled_monthly_invoices_task`
+- command: `python manage.py send_scheduled_monthly_invoices`
+
+Required env var for distributed queueing:
+- `REDIS_URL` (or `CELERY_BROKER_URL`) on all web/worker/beat components.
+
+For smoke-testing before enabling in production:
+```bash
+python manage.py send_scheduled_monthly_invoices --dry-run
+```
+
 ---
 
 **Need Help?**

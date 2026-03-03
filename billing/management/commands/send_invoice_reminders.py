@@ -46,12 +46,17 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true", help="Show what would be sent without sending")
+        parser.add_argument("--force", action="store_true", help="Bypass owner-approval gate for reminders")
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
+        force = options["force"]
         today = timezone.localdate()
 
         for business in Business.objects.filter(invoice_reminder_enabled=True):
+            if getattr(business, "invoice_reminder_require_owner_approval", True) and not force:
+                self.stdout.write(self.style.WARNING(f"Business {business.name}: owner approval gate enabled, skipping (use --force)"))
+                continue
             reminder_days = _parse_reminder_days(getattr(business, "invoice_reminder_days", "") or "7,14,21")
             connection = business.get_smtp_connection()
             if not connection:

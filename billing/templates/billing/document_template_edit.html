@@ -4,95 +4,157 @@
 <div class="doc-template-edit-page">
   <header class="doc-template-edit-header">
     <h1>Customize {{ doc_type|title }} template</h1>
-    <p class="doc-template-edit-subtitle">Choose a style, set your branding, and add custom fields that will appear on every {{ doc_type }}.</p>
+    <p class="doc-template-edit-subtitle">Live preview updates as you type so you can see exactly what changes.</p>
   </header>
 
-  <form method="post" class="doc-template-edit-form">
-    {% csrf_token %}
+  <div class="billing-tabs" style="margin-bottom: 18px;">
+    <a href="{% url 'billing:invoice_list' %}" class="billing-tab {% if doc_type == 'invoice' %}active{% endif %}">Invoices</a>
+    <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="billing-tab {% if doc_type == 'invoice' %}active{% endif %}">Invoice template editor</a>
+    <a href="{% url 'billing:estimate_list' %}" class="billing-tab {% if doc_type == 'estimate' %}active{% endif %}">Estimates</a>
+    <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="billing-tab {% if doc_type == 'estimate' %}active{% endif %}">Estimate template editor</a>
+  </div>
 
-    <div class="card doc-template-section">
-      <h2 class="section-title">Template style</h2>
-      <div class="form-group">
-        <label for="id_template_key">Base style</label>
-        <select name="template_key" id="id_template_key" class="form-control">
-          <option value="professional" {% if form.template_key.value == "professional" or template_obj.template_key == "professional" %}selected{% endif %}>Professional</option>
-          <option value="minimal" {% if form.template_key.value == "minimal" or template_obj.template_key == "minimal" %}selected{% endif %}>Minimal</option>
-          <option value="modern" {% if form.template_key.value == "modern" or template_obj.template_key == "modern" %}selected{% endif %}>Modern</option>
-        </select>
-        <span class="form-hint">You can still customize colors and text below.</span>
-      </div>
-      <div class="form-group">
-        <label for="id_name">Template name (optional)</label>
-        {{ form.name }}
-        {{ form.name.errors }}
-      </div>
-    </div>
+  <div class="editor-layout">
+    <form method="post" class="doc-template-edit-form">
+      {% csrf_token %}
 
-    <div class="card doc-template-section">
-      <h2 class="section-title">Branding & content</h2>
-      <div class="form-group">
-        <label for="id_primary_color">Accent color</label>
-        <div class="color-input-wrap">
-          <input type="color" name="primary_color" id="id_primary_color" value="{{ template_obj.primary_color|default:'#22c55e' }}" class="color-picker">
-          <input type="text" id="id_primary_color_hex" value="{{ template_obj.primary_color|default:'#22c55e' }}" class="color-hex-input" maxlength="7" placeholder="#22c55e">
-        </div>
-        {{ form.primary_color.errors }}
-      </div>
-      <div class="form-group">
-        <label for="id_header_text">Header text (optional)</label>
-        {{ form.header_text }}
-        <span class="form-hint">Shown at the top of the document (e.g. tagline, license number).</span>
-        {{ form.header_text.errors }}
-      </div>
-      <div class="form-group">
-        <label for="id_footer_text">Footer text (optional)</label>
-        {{ form.footer_text }}
-        <span class="form-hint">Shown at the bottom (e.g. thank you, payment instructions).</span>
-        {{ form.footer_text.errors }}
-      </div>
-      <div class="form-group">
-        <label for="id_terms_and_conditions">Terms and conditions</label>
-        {{ form.terms_and_conditions }}
-        {{ form.terms_and_conditions.errors }}
-      </div>
-    </div>
-
-    <div class="card doc-template-section">
-      <h2 class="section-title">Custom fields</h2>
-      <p class="section-desc">Add fields that appear on every {{ doc_type }}. You can fill in the values when creating or editing each {{ doc_type }} (e.g. PO Number, Job #, License #).</p>
-      <div class="custom-fields-list" id="custom-fields-list">
-        {% for field in template_obj.custom_fields %}
-        <div class="custom-field-row" data-index="{{ forloop.counter0 }}">
-          <input type="text" name="custom_field_key" value="{{ field.key }}" placeholder="Key (e.g. po_number)" class="field-key">
-          <input type="text" name="custom_field_label" value="{{ field.label }}" placeholder="Label (e.g. PO Number)" class="field-label">
-          <select name="custom_field_type" class="field-type">
-            <option value="text" {% if field.type == "text" %}selected{% endif %}>Text</option>
-            <option value="number" {% if field.type == "number" %}selected{% endif %}>Number</option>
-            <option value="date" {% if field.type == "date" %}selected{% endif %}>Date</option>
-            <option value="textarea" {% if field.type == "textarea" %}selected{% endif %}>Long text</option>
+      <div class="card doc-template-section">
+        <h2 class="section-title">Template style</h2>
+        <div class="form-group">
+          <label for="id_template_key">Base style</label>
+          <select name="template_key" id="id_template_key" class="form-control">
+            <option value="professional" {% if form.template_key.value == "professional" or template_obj.template_key == "professional" %}selected{% endif %}>Professional</option>
+            <option value="minimal" {% if form.template_key.value == "minimal" or template_obj.template_key == "minimal" %}selected{% endif %}>Minimal</option>
+            <option value="modern" {% if form.template_key.value == "modern" or template_obj.template_key == "modern" %}selected{% endif %}>Modern</option>
           </select>
-          <label class="field-required-label">
-            <input type="checkbox" name="custom_field_required" {% if field.required %}checked{% endif %} class="field-required"> Required
-          </label>
-          <button type="button" class="btn btn-secondary btn-sm remove-field" aria-label="Remove field">Remove</button>
+          <span class="form-hint">You can still customize colors and text below.</span>
         </div>
-        {% endfor %}
+        <div class="form-group">
+          <label for="id_name">Template name (optional)</label>
+          {{ form.name }}
+          {{ form.name.errors }}
+        </div>
       </div>
-      <button type="button" id="add-custom-field" class="btn btn-secondary">+ Add custom field</button>
-    </div>
 
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">Save template</button>
-      <a href="{% url 'billing:document_templates_list' %}" class="btn btn-secondary">Cancel</a>
-    </div>
-  </form>
+      <div class="card doc-template-section">
+        <h2 class="section-title">Branding & content</h2>
+        <div class="form-group">
+          <label for="id_primary_color">Accent color</label>
+          <div class="color-input-wrap">
+            <input type="color" name="primary_color" id="id_primary_color" value="{{ template_obj.primary_color|default:'#22c55e' }}" class="color-picker">
+            <input type="text" id="id_primary_color_hex" value="{{ template_obj.primary_color|default:'#22c55e' }}" class="color-hex-input" maxlength="7" placeholder="#22c55e">
+          </div>
+          {{ form.primary_color.errors }}
+        </div>
+        <div class="form-group">
+          <label for="id_header_text">Header text (optional)</label>
+          {{ form.header_text }}
+          <span class="form-hint">Shown at the top of the document (e.g. tagline, license number).</span>
+          {{ form.header_text.errors }}
+        </div>
+        <div class="form-group">
+          <label for="id_footer_text">Footer text (optional)</label>
+          {{ form.footer_text }}
+          <span class="form-hint">Shown at the bottom (e.g. thank you, payment instructions).</span>
+          {{ form.footer_text.errors }}
+        </div>
+        <div class="form-group">
+          <label for="id_terms_and_conditions">Terms and conditions</label>
+          {{ form.terms_and_conditions }}
+          {{ form.terms_and_conditions.errors }}
+        </div>
+      </div>
+
+      <div class="card doc-template-section">
+        <h2 class="section-title">Custom fields</h2>
+        <p class="section-desc">Add fields that appear on every {{ doc_type }}.</p>
+        <div class="custom-fields-list" id="custom-fields-list">
+          {% for field in template_obj.custom_fields %}
+          <div class="custom-field-row" data-index="{{ forloop.counter0 }}">
+            <input type="text" name="custom_field_key" value="{{ field.key }}" placeholder="Key (e.g. po_number)" class="field-key">
+            <input type="text" name="custom_field_label" value="{{ field.label }}" placeholder="Label (e.g. PO Number)" class="field-label">
+            <select name="custom_field_type" class="field-type">
+              <option value="text" {% if field.type == "text" %}selected{% endif %}>Text</option>
+              <option value="number" {% if field.type == "number" %}selected{% endif %}>Number</option>
+              <option value="date" {% if field.type == "date" %}selected{% endif %}>Date</option>
+              <option value="textarea" {% if field.type == "textarea" %}selected{% endif %}>Long text</option>
+            </select>
+            <label class="field-required-label">
+              <input type="checkbox" name="custom_field_required" {% if field.required %}checked{% endif %} class="field-required"> Required
+            </label>
+            <button type="button" class="btn btn-secondary btn-sm remove-field" aria-label="Remove field">Remove</button>
+          </div>
+          {% endfor %}
+        </div>
+        <button type="button" id="add-custom-field" class="btn btn-secondary">+ Add custom field</button>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save template</button>
+        <a href="{% if doc_type == 'invoice' %}{% url 'billing:invoice_list' %}{% else %}{% url 'billing:estimate_list' %}{% endif %}" class="btn btn-secondary">Back</a>
+      </div>
+    </form>
+
+    <aside class="card live-preview-card">
+      <h2 class="section-title" style="margin-bottom: 10px;">Live preview</h2>
+      <div id="preview-doc" class="preview-doc" style="--preview-accent: {{ template_obj.primary_color|default:'#22c55e' }};">
+        <div class="preview-head">
+          <div>
+            <div class="preview-title" id="preview-doc-type">{{ doc_type|title }}</div>
+            <div class="preview-meta">#1001 · March 3, 2026</div>
+          </div>
+          <div class="preview-status">Draft</div>
+        </div>
+        <div class="preview-header-text" id="preview-header-text">{{ template_obj.header_text|default:'Your branding/header text appears here.' }}</div>
+        <div class="preview-line"></div>
+        <div class="preview-section-title">Client</div>
+        <div class="preview-client">Sample Client, 123 Main St</div>
+        <div class="preview-section-title" style="margin-top: 14px;">Items</div>
+        <table class="preview-table">
+          <tr><th>Description</th><th class="num">Qty</th><th class="num">Price</th></tr>
+          <tr><td>Lawn service</td><td class="num">1</td><td class="num">$95.00</td></tr>
+        </table>
+        <div class="preview-custom" id="preview-custom-fields"></div>
+        <div class="preview-section-title" style="margin-top: 14px;">Terms</div>
+        <div class="preview-terms" id="preview-terms">{{ template_obj.terms_and_conditions|default:'Payment due within 30 days.' }}</div>
+        <div class="preview-footer" id="preview-footer-text">{{ template_obj.footer_text|default:'Thank you for your business.' }}</div>
+      </div>
+    </aside>
+  </div>
 </div>
 
 <style>
-  .doc-template-edit-page { max-width: 640px; }
-  .doc-template-edit-header { margin-bottom: 24px; }
+  .doc-template-edit-page { max-width: 1200px; }
+  .doc-template-edit-header { margin-bottom: 16px; }
   .doc-template-edit-header h1 { margin: 0 0 6px 0; font-size: 26px; font-weight: 700; }
   .doc-template-edit-subtitle { margin: 0; color: var(--text-muted); font-size: 15px; line-height: 1.5; }
+  .billing-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 16px;
+    padding-bottom: 2px;
+  }
+  .billing-tabs::-webkit-scrollbar { height: 6px; }
+  .billing-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+  .billing-tab {
+    display: inline-block;
+    padding: 9px 18px;
+    font-size: 15px;
+    font-weight: 500;
+    border-radius: 20px;
+    text-decoration: none;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    transition: all 0.15s ease;
+  }
+  .billing-tab:hover { color: var(--text); border-color: var(--text-muted); }
+  .billing-tab.active { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+
+  .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 20px; align-items: start; }
   .doc-template-section { padding: 24px; margin-bottom: 20px; }
   .section-title { margin: 0 0 16px 0; font-size: 16px; font-weight: 600; }
   .section-desc { margin: 0 0 16px 0; font-size: 14px; color: var(--text-muted); line-height: 1.5; }
@@ -113,15 +175,48 @@
     display: grid; grid-template-columns: 1fr 1fr auto auto auto; gap: 10px; align-items: center;
     padding: 12px; background: var(--surface-alt); border-radius: 8px; border: 1px solid var(--border);
   }
+  .custom-field-row .field-key, .custom-field-row .field-label { min-width: 0; }
+  .custom-field-row .field-type { min-width: 100px; }
+  .field-required-label { margin: 0; font-size: 14px; font-weight: normal; display: flex; align-items: center; gap: 6px; }
+  .form-actions { display: flex; gap: 12px; flex-wrap: wrap; padding-top: 8px; }
+
+  .live-preview-card { position: sticky; top: 16px; padding: 16px; }
+  .preview-doc { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fff; color: #111827; font-size: 13px; line-height: 1.4; }
+  .preview-head { display: flex; justify-content: space-between; align-items: start; }
+  .preview-title { font-size: 18px; font-weight: 700; color: var(--preview-accent); }
+  .preview-meta { color: #6b7280; font-size: 12px; }
+  .preview-status { border: 1px solid #d1d5db; padding: 2px 8px; border-radius: 999px; font-size: 11px; color: #4b5563; }
+  .preview-header-text, .preview-footer, .preview-terms { white-space: pre-wrap; }
+  .preview-line { height: 2px; background: var(--preview-accent); margin: 10px 0; opacity: .5; }
+  .preview-section-title { font-weight: 700; margin-bottom: 4px; color: #374151; }
+  .preview-client { color: #111827; }
+  .preview-table { width: 100%; border-collapse: collapse; }
+  .preview-table th, .preview-table td { padding: 6px 4px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+  .preview-table .num { text-align: right; }
+  .preview-custom { margin-top: 10px; display: grid; gap: 4px; }
+  .preview-custom-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .preview-custom-label { color: #374151; font-weight: 600; }
+  .preview-custom-value { color: #6b7280; }
+  .preview-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid #e5e7eb; color: #374151; }
+
+  @media (max-width: 1024px) {
+    .editor-layout { grid-template-columns: 1fr; gap: 14px; }
+    .live-preview-card { position: static; order: 2; }
+    .doc-template-edit-form { order: 1; }
+  }
+  @media (max-width: 768px) {
+    .doc-template-edit-header h1 { font-size: 24px; }
+    .doc-template-edit-subtitle { font-size: 14px; }
+    .billing-tab { white-space: nowrap; }
+    .doc-template-section { padding: 16px; margin-bottom: 14px; }
+    .form-actions .btn { flex: 1 1 calc(50% - 8px); justify-content: center; min-height: 42px; }
+    .preview-doc { font-size: 12px; padding: 12px; }
+  }
   @media (max-width: 640px) {
     .custom-field-row { grid-template-columns: 1fr 1fr; }
     .custom-field-row .field-type, .custom-field-row .field-required-label { grid-column: 1; }
     .custom-field-row .remove-field { grid-column: 2; }
   }
-  .custom-field-row .field-key, .custom-field-row .field-label { min-width: 0; }
-  .custom-field-row .field-type { min-width: 100px; }
-  .field-required-label { margin: 0; font-size: 14px; font-weight: normal; display: flex; align-items: center; gap: 6px; }
-  .form-actions { display: flex; gap: 12px; flex-wrap: wrap; padding-top: 8px; }
 </style>
 
 <script>
@@ -130,11 +225,50 @@
   var addBtn = document.getElementById('add-custom-field');
   var primaryColor = document.getElementById('id_primary_color');
   var primaryHex = document.getElementById('id_primary_color_hex');
-  if (primaryColor && primaryHex) {
-    primaryColor.addEventListener('input', function() { primaryHex.value = primaryColor.value; });
-    primaryHex.addEventListener('input', function() {
-      if (/^#[0-9A-Fa-f]{6}$/.test(primaryHex.value)) primaryColor.value = primaryHex.value;
+
+  var previewDoc = document.getElementById('preview-doc');
+  var previewType = document.getElementById('preview-doc-type');
+  var previewHeader = document.getElementById('preview-header-text');
+  var previewTerms = document.getElementById('preview-terms');
+  var previewFooter = document.getElementById('preview-footer-text');
+  var previewCustomFields = document.getElementById('preview-custom-fields');
+  var inputHeader = document.getElementById('id_header_text');
+  var inputTerms = document.getElementById('id_terms_and_conditions');
+  var inputFooter = document.getElementById('id_footer_text');
+
+  function readDocTypeFromPath() {
+    return window.location.pathname.indexOf('/templates/invoice') !== -1 ? 'Invoice' : 'Estimate';
+  }
+
+  function sanitize(value) { return (value || '').trim(); }
+
+  function updatePreview() {
+    if (previewType) previewType.textContent = readDocTypeFromPath();
+    if (previewHeader) previewHeader.textContent = sanitize(inputHeader && inputHeader.value) || 'Your branding/header text appears here.';
+    if (previewTerms) previewTerms.textContent = sanitize(inputTerms && inputTerms.value) || 'Payment due within 30 days.';
+    if (previewFooter) previewFooter.textContent = sanitize(inputFooter && inputFooter.value) || 'Thank you for your business.';
+
+    if (previewCustomFields) {
+      var rows = list ? Array.from(list.querySelectorAll('.custom-field-row')) : [];
+      var html = '';
+      rows.forEach(function(row) {
+        var labelInput = row.querySelector('.field-label');
+        var keyInput = row.querySelector('.field-key');
+        var label = sanitize(labelInput && labelInput.value) || sanitize(keyInput && keyInput.value);
+        if (!label) return;
+        html += '<div class="preview-custom-row"><span class="preview-custom-label">' + label.replace(/</g, '&lt;') + '</span><span class="preview-custom-value">Sample value</span></div>';
+      });
+      previewCustomFields.innerHTML = html;
+    }
+  }
+
+  function wireRow(row) {
+    row.querySelectorAll('input, select, textarea').forEach(function(el) {
+      el.addEventListener('input', updatePreview);
+      el.addEventListener('change', updatePreview);
     });
+    var removeBtn = row.querySelector('.remove-field');
+    if (removeBtn) removeBtn.addEventListener('click', function() { row.remove(); updatePreview(); });
   }
 
   function addRow(index) {
@@ -150,17 +284,39 @@
       '<label class="field-required-label"><input type="checkbox" name="custom_field_required" class="field-required"> Required</label>' +
       '<button type="button" class="btn btn-secondary btn-sm remove-field" aria-label="Remove field">Remove</button>';
     list.appendChild(row);
-    row.querySelector('.remove-field').addEventListener('click', function() { row.remove(); });
+    wireRow(row);
+    updatePreview();
   }
 
-  addBtn.addEventListener('click', function() {
-    var count = list.querySelectorAll('.custom-field-row').length;
-    addRow(count);
-  });
+  if (primaryColor && primaryHex && previewDoc) {
+    function syncColorFromPicker() {
+      primaryHex.value = primaryColor.value;
+      previewDoc.style.setProperty('--preview-accent', primaryColor.value);
+    }
+    function syncColorFromHex() {
+      if (/^#[0-9A-Fa-f]{6}$/.test(primaryHex.value)) {
+        primaryColor.value = primaryHex.value;
+        previewDoc.style.setProperty('--preview-accent', primaryHex.value);
+      }
+    }
+    primaryColor.addEventListener('input', syncColorFromPicker);
+    primaryHex.addEventListener('input', syncColorFromHex);
+  }
 
-  list.querySelectorAll('.remove-field').forEach(function(btn) {
-    btn.addEventListener('click', function() { btn.closest('.custom-field-row').remove(); });
+  if (addBtn) {
+    addBtn.addEventListener('click', function() {
+      var count = list.querySelectorAll('.custom-field-row').length;
+      addRow(count);
+    });
+  }
+
+  document.querySelectorAll('.custom-field-row').forEach(wireRow);
+  [inputHeader, inputTerms, inputFooter].forEach(function(el) {
+    if (!el) return;
+    el.addEventListener('input', updatePreview);
+    el.addEventListener('change', updatePreview);
   });
+  updatePreview();
 })();
 </script>
 {% endblock %}

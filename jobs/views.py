@@ -6,6 +6,7 @@ from django.conf import settings
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.decorators import login_required
@@ -789,6 +790,24 @@ def optimize_route(request):
 
 
 @role_required("owner", "crew")
+def crew_quick_view(request):
+    """Three-tap optimized crew workflow screen."""
+    today = timezone.now().date()
+    jobs = Job.objects.filter(scheduled_date=today).select_related("property", "assigned_to", "assigned_crew")
+
+    if request.user.role == "crew":
+        from django.db.models import Q
+        jobs = jobs.filter(
+            Q(assigned_to=request.user) |
+            Q(assigned_crew__members=request.user) |
+            Q(assigned_crew__crew_leader=request.user)
+        ).distinct()
+
+    jobs = jobs.order_by("route_order", "scheduled_time")[:40]
+    return render(request, "jobs/crew_quick.html", {"jobs": jobs})
+
+
+@role_required("owner", "crew")
 def crew_today_view(request):
     from time_tracking.models import TimeEntry
 
@@ -878,16 +897,38 @@ def complete_job(request, job_id):
 
     if request.user.role == "owner":
         customer = job.property.customer
-        freq = getattr(customer, "invoice_frequency", None) or ""
+        business = getattr(customer, "business", None)
+        freq = (getattr(customer, "invoice_frequency", None) or "").strip()
+        if not freq and business:
+            freq = (getattr(business, "default_invoice_automation_mode", None) or "").strip()
         has_items = job.service_items.exists()
 
         if has_items and freq == "per_service":
             invoice = create_draft_invoice_for_job(job)
-            messages.success(
-                request,
-                f"Job completed. Draft invoice #{invoice.id} created. Review and approve & send from Billing.",
-            )
+            send_behavior = (getattr(business, "auto_invoice_send_behavior", "draft") if business else "draft")
+            if send_behavior == "send":
+                import secrets
+                from billing.models import InvoiceAuditLog
+                invoice.status = "sent"
+                if not invoice.payment_token:
+                    invoice.payment_token = secrets.token_urlsafe(32)
+                invoice.approved_at = timezone.now()
+                invoice.approved_by = request.user
+                invoice.save(update_fields=["status", "payment_token", "approved_at", "approved_by"])
+                InvoiceAuditLog.objects.create(
+                    invoice=invoice,
+                    action="approved_sent",
+                    user=request.user,
+                    details={"source": "automation", "trigger": "job_completed"},
+                )
+                messages.success(request, f"Job completed. Invoice #{invoice.id} was automatically approved and sent.")
+            else:
+                messages.success(
+                    request,
+                    f"Job completed. Draft invoice #{invoice.id} created. Review and approve & send from Billing.",
+                )
             return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
         if has_items and freq == "monthly":
             d = job.scheduled_date or timezone.now().date()
             invoice = generate_monthly_invoice_for_customer(customer, d.year, d.month, include_job=job)
@@ -1082,6 +1123,9 @@ def create_job(request):
             else:
                 msg = f"Job created for {prop.address}" + (f" on {job.scheduled_date}" if job.scheduled_date else " (unscheduled)")
             messages.success(request, msg + ".")
+            next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
+            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+                return redirect(next_url)
             if job.scheduled_date:
                 return redirect("job_detail", job_id=job.id)
             return redirect("calendar")
@@ -1154,6 +1198,7 @@ def create_job(request):
     return render(request, "jobs/job_create.html", {
         "form": form,
         "formset": formset,
+        "next_value": request.GET.get("next", ""),
         "service_templates": service_templates,
         "customers_with_properties": customers_with_properties,
         "accepted_estimates": accepted_estimates,

@@ -24,7 +24,7 @@ admin.site.site_title = "Field Ops"
 admin.site.index_title = "Companies, users, and data — full control"
 
 from config.platform_views import (
-    platform_home, platform_enter, platform_exit,
+    platform_home, platform_enter, platform_enter_demo, platform_set_plan, platform_apply_plan_recommendations, platform_toggle_free_access, platform_exit,
     admin_users, admin_grant, admin_revoke
 )
 from config.marketing_views import marketing_home, terms_of_service, privacy_policy
@@ -38,6 +38,10 @@ urlpatterns = [
     # Platform admin: list businesses and enter any dashboard
     path("platform/", platform_home, name="platform_home"),
     path("platform/enter/<int:business_id>/", platform_enter, name="platform_enter"),
+    path("platform/enter-demo/", platform_enter_demo, name="platform_enter_demo"),
+    path("platform/set-plan/<int:business_id>/", platform_set_plan, name="platform_set_plan"),
+    path("platform/apply-plan-recommendations/", platform_apply_plan_recommendations, name="platform_apply_plan_recommendations"),
+    path("platform/toggle-free-access/<int:business_id>/", platform_toggle_free_access, name="platform_toggle_free_access"),
     path("platform/exit/", platform_exit, name="platform_exit"),
     path("platform/admins/", admin_users, name="platform_admin_users"),
     path("platform/admins/<int:user_id>/grant/", admin_grant, name="platform_admin_grant"),

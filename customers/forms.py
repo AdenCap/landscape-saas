@@ -7,27 +7,56 @@ from .models import Customer, Property, Contract, ClientMessage
 # CSV column header -> Customer model field (flexible names)
 CSV_FIELD_MAP = {
     "name": "name",
+    "client": "name",
+    "client_name": "name",
+    "customer": "name",
+    "customer_name": "name",
+    "full_name": "name",
+    "contact_name": "name",
     "phone": "phone",
+    "phone_number": "phone",
+    "mobile": "phone",
+    "cell": "phone",
     "alt_phone": "alt_phone",
     "alternate_phone": "alt_phone",
+    "secondary_phone": "alt_phone",
     "email": "email",
+    "email_address": "email",
     "address": "address_line1",
+    "street": "address_line1",
+    "street_address": "address_line1",
     "address_line1": "address_line1",
     "address1": "address_line1",
     "address_line2": "address_line2",
     "address2": "address_line2",
+    "suite": "address_line2",
     "city": "city",
     "state": "state",
+    "province": "state",
     "zip": "postal_code",
+    "postal": "postal_code",
     "postal_code": "postal_code",
     "zipcode": "postal_code",
     "notes": "notes",
+    "note": "notes",
 }
 
 
 def normalize_header(h):
     """Lowercase, strip, replace spaces with underscore."""
     return (h or "").strip().lower().replace(" ", "_")
+
+
+def _clean_text(value):
+    return (value or "").strip()
+
+
+def _coalesce(*values):
+    for v in values:
+        v = _clean_text(v)
+        if v:
+            return v
+    return ""
 
 
 def parse_csv_customers(stream, business):
@@ -40,13 +69,32 @@ def parse_csv_customers(stream, business):
         row_num = i + 2  # 1-based, +1 for header
         # Map headers to model fields
         data = {}
+        normalized_row = {}
         for raw_key, value in row.items():
             key = normalize_header(raw_key)
+            normalized_row[key] = _clean_text(value)
             if key in CSV_FIELD_MAP:
                 field = CSV_FIELD_MAP[key]
-                data[field] = (value or "").strip() if value is not None else ""
+                data[field] = _clean_text(value)
 
-        name = (data.get("name") or "").strip()
+        raw_first = _clean_text(normalized_row.get("first_name"))
+        raw_last = _clean_text(normalized_row.get("last_name"))
+        if raw_first or raw_last:
+            composed_name = (raw_first + " " + raw_last).strip()
+            if composed_name and not data.get("name"):
+                data["name"] = composed_name
+
+        # Smart fallback for address if split fields are missing
+        if not data.get("address_line1"):
+            data["address_line1"] = _coalesce(normalized_row.get("address"), normalized_row.get("street"), normalized_row.get("street_address"))
+        if not data.get("city"):
+            data["city"] = _coalesce(normalized_row.get("town"), normalized_row.get("locality"))
+        if not data.get("state"):
+            data["state"] = _coalesce(normalized_row.get("province"), normalized_row.get("region"))
+        if not data.get("postal_code"):
+            data["postal_code"] = _coalesce(normalized_row.get("zip"), normalized_row.get("zipcode"), normalized_row.get("postal"), normalized_row.get("postal_code"))
+
+        name = _clean_text(data.get("name"))
         if not name:
             yield None, f"Row {row_num}: missing name (skipped)"
             continue
@@ -54,15 +102,15 @@ def parse_csv_customers(stream, business):
         customer = Customer(
             business=business,
             name=name[:255],
-            phone=(data.get("phone") or "")[:20],
-            alt_phone=(data.get("alt_phone") or "")[:20],
-            email=(data.get("email") or "")[:254],
-            address_line1=(data.get("address_line1") or "")[:255],
-            address_line2=(data.get("address_line2") or "")[:255],
-            city=(data.get("city") or "")[:100],
-            state=(data.get("state") or "")[:50],
-            postal_code=(data.get("postal_code") or "")[:20],
-            notes=(data.get("notes") or "")[:],
+            phone=_coalesce(data.get("phone"), normalized_row.get("mobile"), normalized_row.get("cell"))[:20],
+            alt_phone=_coalesce(data.get("alt_phone"), normalized_row.get("secondary_phone"))[:20],
+            email=_clean_text(data.get("email"))[:254],
+            address_line1=_clean_text(data.get("address_line1"))[:255],
+            address_line2=_clean_text(data.get("address_line2"))[:255],
+            city=_clean_text(data.get("city"))[:100],
+            state=_clean_text(data.get("state"))[:50],
+            postal_code=_clean_text(data.get("postal_code"))[:20],
+            notes=_clean_text(data.get("notes")),
         )
         # EmailField doesn't allow arbitrary strings; leave blank if invalid
         if customer.email and "@" not in customer.email:
@@ -74,6 +122,12 @@ class CustomerImportForm(forms.Form):
     csv_file = forms.FileField(
         label="CSV file",
         help_text="Upload a CSV with columns: name, phone, email, address, city, state, zip, notes (first row = headers)",
+    )
+    update_existing = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Update existing clients if duplicates are found",
+        help_text="If checked, duplicate matches by email/phone/name+address will be updated instead of skipped.",
     )
 
     def clean_csv_file(self):

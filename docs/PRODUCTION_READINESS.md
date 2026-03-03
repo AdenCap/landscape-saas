@@ -89,15 +89,13 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 
 ### 3. Database Setup
 
-**Option A: SQLite (Simple, for small scale)**
-- Works out of the box
-- Ensure persistent storage (volume) so data isn't lost
-- Good for < 1000 users
+**Production requirement: PostgreSQL only (no SQLite fallback on platform runtime).**
 
-**Option B: PostgreSQL (Recommended for production)**
-- Use Supabase (free tier available) or hosted Postgres
-- Set `DATABASE_URL` environment variable
-- Better performance and scalability
+**Recommended: Supabase Postgres + DigitalOcean App Platform**
+- Create a Supabase project and copy the **pooler** connection string (port `6543`)
+- Set `PG_URL` (or `POSTGRES_URL` / `DATABASE_URL`) on the **web service runtime**
+- Keep SSL enabled (`sslmode=require`, auto-set for Supabase hosts)
+- If `PORT` is set and no Postgres URL exists, app startup now fails by design
 
 **Migration:**
 ```bash
@@ -153,9 +151,12 @@ DEFAULT_FROM_EMAIL = 'Field Ops <noreply@yourdomain.com>'
 - [ ] `ALLOWED_HOSTS` set correctly
 - [ ] `CSRF_TRUSTED_ORIGINS` set for HTTPS
 - [ ] HTTPS enabled (SSL certificate)
+- [ ] `PG_URL`/`POSTGRES_URL`/`DATABASE_URL` set (Postgres required in platform runtime)
 - [ ] Database credentials secure (env vars, not in code)
+- [ ] Redis configured (`REDIS_URL`) for shared cache/background tasks
 - [ ] Stripe keys are LIVE keys (not test keys)
 - [ ] Webhook secret is set and verified
+- [ ] `DB_CHECK_ENABLED=0` unless actively debugging, and `DB_CHECK_SECRET` is set if enabled
 - [ ] Platform admin account secured (strong password, 2FA)
 
 ---
@@ -233,6 +234,10 @@ DEFAULT_FROM_EMAIL = 'Field Ops <noreply@yourdomain.com>'
 ### 9. Monitoring & Error Tracking
 
 **Set up error tracking:**
+
+- Configure `SENTRY_DSN` (optional but strongly recommended)
+- Set `SENTRY_TRACES_SAMPLE_RATE` conservatively (e.g. `0.0` to start)
+- Logs now emit structured key/value lines suitable for aggregation
 
 1. **Sentry** (Recommended)
    - Free tier: 5,000 events/month

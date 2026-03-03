@@ -9,6 +9,7 @@
 <div class="card" style="max-width: 600px;">
   <form method="post">
     {% csrf_token %}
+    {% if next_value %}<input type="hidden" name="next" value="{{ next_value }}">{% endif %}
     {% if form.non_field_errors %}
     <div class="alert alert-error">{{ form.non_field_errors }}</div>
     {% endif %}

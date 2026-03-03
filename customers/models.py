@@ -39,6 +39,23 @@ class Customer(models.Model):
 
     notes = models.TextField(blank=True)
 
+    GOOGLE_REVIEW_STATUS_CHOICES = [
+        ("never_asked", "Never asked"),
+        ("asked", "Asked"),
+        ("reviewed", "Reviewed"),
+        ("opted_out", "Opted out"),
+    ]
+    google_review_status = models.CharField(
+        max_length=20,
+        choices=GOOGLE_REVIEW_STATUS_CHOICES,
+        default="never_asked",
+        help_text="Tracks Google review outreach so clients are not repeatedly prompted.",
+    )
+    google_review_requested_at = models.DateTimeField(null=True, blank=True)
+    google_review_completed_at = models.DateTimeField(null=True, blank=True)
+    google_review_attempts = models.PositiveSmallIntegerField(default=0)
+    google_review_last_prompt_at = models.DateTimeField(null=True, blank=True)
+
     INVOICE_FREQUENCY_CHOICES = [
         ("", "Ask each time (choose when job is completed)"),
         ("per_service", "Per service — invoice when each job is completed"),
@@ -78,6 +95,11 @@ class Customer(models.Model):
             f"{self.city}, {self.state} {self.postal_code}".strip(", ") if (self.city or self.state or self.postal_code) else None,
         ]
         return ", ".join(p for p in parts if p) or "—"
+
+    def can_receive_review_prompt(self, max_attempts=2):
+        if self.google_review_status in {"reviewed", "opted_out"}:
+            return False
+        return self.google_review_attempts < max_attempts
 
 
 class Contract(models.Model):

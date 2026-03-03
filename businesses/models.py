@@ -40,6 +40,16 @@ class Business(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    onboarding_completed = models.BooleanField(
+        default=False,
+        help_text="Whether initial onboarding flow has been completed for this business.",
+    )
+    onboarding_completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When onboarding was marked complete.",
+    )
+
     def __str__(self):
         return self.name
 
@@ -77,6 +87,36 @@ class Business(models.Model):
         default='manual'
     )
 
+    DEFAULT_INVOICE_AUTOMATION_CHOICES = [
+        ("", "Ask each time (owner chooses per completed job)"),
+        ("per_service", "Per service (create invoice when each job is completed)"),
+        ("monthly", "Monthly batching (group completed jobs into monthly invoice)"),
+    ]
+    default_invoice_automation_mode = models.CharField(
+        max_length=20,
+        choices=DEFAULT_INVOICE_AUTOMATION_CHOICES,
+        blank=True,
+        default="",
+        help_text="Default behavior when a customer does not have invoice frequency set.",
+    )
+
+    AUTO_SEND_BEHAVIOR_CHOICES = [
+        ("draft", "Create draft invoice (owner reviews before send)"),
+        ("send", "Automatically approve & send immediately"),
+    ]
+    auto_invoice_send_behavior = models.CharField(
+        max_length=10,
+        choices=AUTO_SEND_BEHAVIOR_CHOICES,
+        default="draft",
+        help_text="For automated per-service invoices: draft-only (recommended) or auto-send.",
+    )
+
+    default_monthly_invoice_send_day = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Default day (1-28) to send monthly invoices when customer-level day is not set.",
+    )
+
     require_completion_photo = models.BooleanField(
         default=False,
         help_text="If set, crew must upload at least one completion photo before marking the job complete.",
@@ -93,11 +133,55 @@ class Business(models.Model):
         default="7,14,21",
         help_text="Comma-separated days after due date to send reminders (e.g. 7,14,21).",
     )
+    invoice_reminder_require_owner_approval = models.BooleanField(
+        default=True,
+        help_text="If enabled, automatic reminder jobs require owner-triggered run (safer mode).",
+    )
 
     estimate_follow_up_days = models.PositiveIntegerField(
         default=0,
         blank=True,
         help_text="Send automatic follow-up X days after estimate sent (0 = manual only)",
+    )
+    estimate_follow_up_cadence_days = models.CharField(
+        max_length=64,
+        blank=True,
+        default="3,7,14",
+        help_text="Follow-up cadence days after estimate sent (comma-separated).",
+    )
+    quote_upsell_suggestions = models.TextField(
+        blank=True,
+        default="Seasonal fertilizer program\nMulch refresh\nIrrigation tune-up",
+        help_text="Optional upsells to include in follow-up nudges (one per line).",
+    )
+
+    google_review_requests_enabled = models.BooleanField(
+        default=False,
+        help_text="Automatically email clients a Google review request after payment.",
+    )
+    google_review_link = models.URLField(
+        blank=True,
+        help_text="Your direct Google review link (Place review URL).",
+    )
+    google_review_request_delay_hours = models.PositiveSmallIntegerField(
+        default=24,
+        help_text="Hours after payment before first review request is sent.",
+    )
+    google_review_followup_days = models.PositiveSmallIntegerField(
+        default=7,
+        help_text="Days between follow-up review requests when client has not responded.",
+    )
+    google_review_max_attempts = models.PositiveSmallIntegerField(
+        default=2,
+        help_text="Maximum total review emails per client.",
+    )
+    google_review_sms_enabled = models.BooleanField(
+        default=False,
+        help_text="Also send review requests via SMS when client phone is available.",
+    )
+    google_review_sms_template = models.TextField(
+        blank=True,
+        help_text="Optional SMS template. Use {{customer_name}}, {{business_name}}, {{review_link}}.",
     )
 
     # Payment methods — shown on invoices so customers can pay via Venmo, Zelle, or Cash App
@@ -237,6 +321,21 @@ class Business(models.Model):
         blank=True,
         help_text="When the current billing period ends (from Stripe).",
     )
+    subscription_plan_tier = models.CharField(
+        max_length=20,
+        choices=[("solo", "Solo Starter"), ("core", "Pro All-Access")],
+        default="core",
+        help_text="Current plan tier for packaging and billing display.",
+    )
+    complimentary_access_enabled = models.BooleanField(
+        default=False,
+        help_text="If enabled by platform admin, this business can access the app without an active paid subscription.",
+    )
+    plan_crew_soft_cap_override = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Optional per-business soft cap override for crew users before growth recommendation.",
+    )
 
     # --- Stripe Connect (Business accepts payments from their clients) ---
     stripe_connect_account_id = models.CharField(
@@ -257,11 +356,17 @@ class Business(models.Model):
     )
 
     def has_active_subscription(self):
-        """True if this business can use the app (active or trialing subscription)."""
-        return self.subscription_status in ("active", "trialing")
+        """True if this business can use the app (active/trialing or complimentary override)."""
+        return self.subscription_status in ("active", "trialing") or self.complimentary_access_enabled
 
     def can_accept_stripe_payments(self):
         """True if this business has connected Stripe and can accept card payments for invoices."""
         return bool(self.stripe_connect_account_id and self.stripe_connect_charges_enabled)
+
+    def crew_soft_cap(self, default_cap=12):
+        return self.plan_crew_soft_cap_override or default_cap
+
+    def is_growth_tier(self):
+        return self.subscription_plan_tier == "growth"
 
 

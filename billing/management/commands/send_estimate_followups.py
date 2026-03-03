@@ -17,6 +17,16 @@ from billing.models import Estimate
 from businesses.models import Business
 
 
+def _parse_days_csv(s, fallback="3,7,14"):
+    raw = (s or fallback or "").replace(" ", "")
+    out = []
+    for part in raw.split(","):
+        if part.isdigit():
+            out.append(int(part))
+    out = sorted(set(x for x in out if x > 0))
+    return out or [3, 7, 14]
+
+
 def _build_view_url(estimate):
     """Build absolute URL for estimate client view."""
     host = getattr(settings, "SITE_DOMAIN", None) or (settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else "localhost")
@@ -39,14 +49,13 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         now = timezone.now()
 
-        for business in Business.objects.filter(estimate_follow_up_days__gt=0):
-            days = business.estimate_follow_up_days
-            cutoff = now - timezone.timedelta(days=days)
+        for business in Business.objects.filter(estimate_follow_up_days__gte=0):
+            cadence_days = _parse_days_csv(getattr(business, "estimate_follow_up_cadence_days", "") or "")
 
             estimates = Estimate.objects.filter(
                 business=business,
                 status="sent",
-                sent_at__lte=cutoff,
+                sent_at__isnull=False,
                 customer__email__isnull=False,
             ).exclude(customer__email="").select_related("customer")
 
@@ -55,7 +64,10 @@ class Command(BaseCommand):
                 continue
 
             for estimate in estimates:
-                if estimate.last_follow_up_at and estimate.last_follow_up_at >= cutoff:
+                days_since_sent = (timezone.localdate() - estimate.sent_at.date()).days if estimate.sent_at else 0
+                if days_since_sent not in cadence_days:
+                    continue
+                if estimate.last_follow_up_at and (timezone.now() - estimate.last_follow_up_at).days < 2:
                     continue
 
                 self.stdout.write(
@@ -79,6 +91,7 @@ class Command(BaseCommand):
                     except Exception:
                         pass
 
+                upsells = [x.strip() for x in (getattr(business, "quote_upsell_suggestions", "") or "").splitlines() if x.strip()]
                 html_content = render_to_string(
                     "billing/estimate_followup_email.html",
                     {
@@ -87,6 +100,7 @@ class Command(BaseCommand):
                         "business": business,
                         "view_url": view_url,
                         "logo_url": logo_url,
+                        "upsells": upsells,
                     },
                 )
 

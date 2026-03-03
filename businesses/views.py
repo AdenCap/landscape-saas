@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.core.mail import EmailMessage
 from django.shortcuts import render, redirect, get_object_or_404
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.decorators import role_required
@@ -24,6 +25,9 @@ def business_settings(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Business settings updated.")
+            next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
+            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+                return redirect(next_url)
             return redirect("business_settings")
     else:
         form = BusinessSettingsForm(instance=business)
@@ -50,6 +54,7 @@ def business_settings(request):
     return render(request, "businesses/business_settings.html", {
         "form": form,
         "business": business,
+        "next_value": request.GET.get("next", ""),
         "has_2fa": has_2fa,
         "trusted_devices": trusted_devices,
         "stripe_connect_fee_percent": fee_percent,

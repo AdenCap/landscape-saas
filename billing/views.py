@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.core.mail import EmailMultiAlternatives
 from django.http import FileResponse
 from django.shortcuts import render, get_object_or_404, redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import reverse
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -90,8 +91,11 @@ def monthly_invoice_list(request):
     rows = []
     for inv in monthly[:100]:
         send_on = None
-        if inv.status == "draft" and inv.period_start and getattr(inv.customer, "monthly_invoice_send_day", None):
-            day = min(inv.customer.monthly_invoice_send_day, 28)
+        customer_day = getattr(inv.customer, "monthly_invoice_send_day", None)
+        business_day = getattr(inv.business, "default_monthly_invoice_send_day", None)
+        send_day = customer_day or business_day
+        if inv.status == "draft" and inv.period_start and send_day:
+            day = min(send_day, 28)
             try:
                 send_on = date_type(inv.period_start.year, inv.period_start.month, day)
             except (ValueError, TypeError):
@@ -890,9 +894,17 @@ def estimate_list(request):
     else:
         status_filter = "all"
 
+    stale_cutoff = timezone.now() - timedelta(days=5)
+    stuck_quotes = Estimate.objects.filter(
+        business=business,
+        status__in=["draft", "sent"],
+        created_at__lt=stale_cutoff,
+    ).select_related("customer").order_by("created_at")[:6]
+
     return render(request, "billing/estimate_list.html", {
         "estimates": estimates,
         "status_filter": status_filter,
+        "stuck_quotes": stuck_quotes,
     })
 
 
@@ -911,6 +923,9 @@ def estimate_create(request):
             estimate.business = business
             estimate.save()
             messages.success(request, f"Estimate created for {estimate.customer.name}.")
+            next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
+            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+                return redirect(next_url)
             return redirect("billing:estimate_edit", estimate_id=estimate.id)
     else:
         form = EstimateForm(business=business)
@@ -922,7 +937,7 @@ def estimate_create(request):
             except (Customer.DoesNotExist, ValueError):
                 pass
 
-    return render(request, "billing/estimate_form.html", {"form": form, "title": "Create Estimate"})
+    return render(request, "billing/estimate_form.html", {"form": form, "title": "Create Estimate", "next_value": request.GET.get("next", "")})
 
 
 @role_required("owner")

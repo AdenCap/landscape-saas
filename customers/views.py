@@ -1,5 +1,10 @@
+import csv
+
 from django.conf import settings
+from django.http import HttpResponse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib import messages
+from django.core import signing
 from django.core.mail import EmailMultiAlternatives
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
@@ -139,6 +144,12 @@ def customer_detail(request, customer_id):
     })
 
 
+def _safe_next(request, value):
+    if value and url_has_allowed_host_and_scheme(value, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return value
+    return None
+
+
 @role_required("owner")
 @require_http_methods(["GET", "POST"])
 def customer_create(request):
@@ -154,9 +165,12 @@ def customer_create(request):
             customer.business = business
             customer.save()
             messages.success(request, f"Client '{customer.name}' added successfully.")
-            next_url = request.GET.get("next")
+            next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
             if next_url == "estimate_and_select":
                 return redirect("billing:estimate_create" + "?customer=" + str(customer.id))
+            safe_next = _safe_next(request, next_url)
+            if safe_next:
+                return redirect(safe_next)
             return redirect("customer_detail", customer_id=customer.id)
     else:
         form = CustomerForm()
@@ -166,6 +180,7 @@ def customer_create(request):
         "form": form,
         "title": "Add New Client",
         "return_to_estimate": next_param in ("estimate", "estimate_and_select"),
+        "next_value": next_param,
     })
 
 
@@ -182,20 +197,69 @@ def customer_import(request):
         form = CustomerImportForm(request.POST, request.FILES)
         if form.is_valid():
             created = 0
+            updated = 0
             errors = []
+            update_existing = bool(form.cleaned_data.get("update_existing"))
             try:
+                duplicate_skipped = 0
                 for customer, err in parse_csv_customers(request.FILES["csv_file"], business):
                     if err:
                         errors.append(err)
                         continue
+
+                    existing_qs = Customer.objects.filter(business=business)
+                    hit = None
+                    duplicate_reason = ""
+
+                    if customer.email:
+                        hit = existing_qs.filter(email__iexact=customer.email).first()
+                        if hit:
+                            duplicate_reason = f"email matches existing client '{hit.name}'"
+
+                    if not hit and customer.phone:
+                        hit = existing_qs.filter(phone__iexact=customer.phone).first()
+                        if hit:
+                            duplicate_reason = f"phone matches existing client '{hit.name}'"
+
+                    if not hit:
+                        name = (customer.name or "").strip()
+                        addr = (customer.address_line1 or "").strip()
+                        if name and addr:
+                            hit = existing_qs.filter(name__iexact=name, address_line1__iexact=addr).first()
+                            if hit:
+                                duplicate_reason = f"name+address matches existing client '{hit.name}'"
+
+                    if hit:
+                        if update_existing:
+                            # Only overwrite with non-empty incoming values to avoid accidental data loss.
+                            for field in [
+                                "name", "phone", "alt_phone", "email", "address_line1", "address_line2",
+                                "city", "state", "postal_code", "notes",
+                            ]:
+                                incoming = getattr(customer, field, None)
+                                if isinstance(incoming, str):
+                                    incoming = incoming.strip()
+                                if incoming not in (None, ""):
+                                    setattr(hit, field, incoming)
+                            hit.save()
+                            updated += 1
+                            continue
+                        duplicate_skipped += 1
+                        errors.append(f"Skipped duplicate: {customer.name} ({duplicate_reason})")
+                        continue
+
                     customer.save()
                     created += 1
             except Exception as e:
                 messages.error(request, f"Error reading CSV: {e}")
-                return render(request, "customers/customer_import.html", {"form": form})
+                return render(request, "customers/customer_import.html", {"form": form, "next_value": request.GET.get("next", "")})
 
             if created:
                 messages.success(request, f"Imported {created} client(s) successfully.")
+            if updated:
+                messages.success(request, f"Updated {updated} existing client(s).")
+            if duplicate_skipped:
+                messages.info(request, f"Skipped {duplicate_skipped} duplicate row(s).")
             if errors:
                 for err in errors[:10]:
                     messages.warning(request, err)
@@ -203,11 +267,65 @@ def customer_import(request):
                     messages.warning(request, f"... and {len(errors) - 10} more row(s) skipped.")
             if not created and not errors:
                 messages.warning(request, "No valid rows found. Ensure the first row has headers (e.g. name, email, phone).")
+            safe_next = _safe_next(request, (request.POST.get("next") or request.GET.get("next") or "").strip())
+            if safe_next:
+                return redirect(safe_next)
             return redirect("customer_list")
     else:
         form = CustomerImportForm()
 
-    return render(request, "customers/customer_import.html", {"form": form})
+    return render(request, "customers/customer_import.html", {"form": form, "next_value": request.GET.get("next", "")})
+
+
+@role_required("owner")
+def customer_import_template(request):
+    """Download a starter CSV template for client imports."""
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="clients_import_template.csv"'
+    writer = csv.writer(response)
+    writer.writerow([
+        "name", "email", "phone", "alt_phone", "address", "address_line2", "city", "state", "zip", "notes"
+    ])
+    writer.writerow([
+        "Jane Doe", "jane@example.com", "555-123-0001", "", "123 Maple St", "", "Austin", "TX", "78701", "Weekly mowing"
+    ])
+    writer.writerow([
+        "John Smith", "john@example.com", "555-123-0002", "", "44 Oak Ave", "Unit B", "Dallas", "TX", "75201", "Prefers SMS reminders"
+    ])
+    return response
+
+
+@role_required("owner")
+def customer_export(request):
+    """Export all business customers as CSV."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business to export clients.")
+        return redirect("/")
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="clients_export.csv"'
+    writer = csv.writer(response)
+    writer.writerow([
+        "name", "email", "phone", "alt_phone", "address_line1", "address_line2",
+        "city", "state", "postal_code", "communication_preference", "notes", "created_at"
+    ])
+    for c in Customer.objects.filter(business=business).order_by("name"):
+        writer.writerow([
+            c.name,
+            c.email,
+            c.phone,
+            c.alt_phone,
+            c.address_line1,
+            c.address_line2,
+            c.city,
+            c.state,
+            c.postal_code,
+            c.communication_preference,
+            c.notes,
+            c.created_at.isoformat() if c.created_at else "",
+        ])
+    return response
 
 
 @role_required("owner")
@@ -429,3 +547,41 @@ def customer_send_message(request, customer_id):
         created_by=request.user,
     )
     return _send_message_redirect(request, customer.id)
+
+
+def make_review_action_token(customer_id, action):
+    return signing.dumps({"customer_id": customer_id, "action": action}, salt="customers.review")
+
+
+def _decode_review_action_token(token, expected_action):
+    data = signing.loads(token, salt="customers.review", max_age=60 * 60 * 24 * 90)
+    if data.get("action") != expected_action:
+        raise signing.BadSignature("Invalid review action")
+    return data["customer_id"]
+
+
+@require_http_methods(["GET"])
+def review_mark_done(request, token):
+    try:
+        customer_id = _decode_review_action_token(token, expected_action="done")
+    except signing.BadSignature:
+        return render(request, "customers/review_action_result.html", {"title": "Invalid link", "message": "This review confirmation link is invalid or expired."}, status=400)
+
+    customer = get_object_or_404(Customer, id=customer_id)
+    customer.google_review_status = "reviewed"
+    customer.google_review_completed_at = timezone.now()
+    customer.save(update_fields=["google_review_status", "google_review_completed_at", "updated_at"])
+    return render(request, "customers/review_action_result.html", {"title": "Thanks for your review", "message": "Awesome — we’ve marked this as completed and won’t send more review reminders."})
+
+
+@require_http_methods(["GET"])
+def review_opt_out(request, token):
+    try:
+        customer_id = _decode_review_action_token(token, expected_action="optout")
+    except signing.BadSignature:
+        return render(request, "customers/review_action_result.html", {"title": "Invalid link", "message": "This opt-out link is invalid or expired."}, status=400)
+
+    customer = get_object_or_404(Customer, id=customer_id)
+    customer.google_review_status = "opted_out"
+    customer.save(update_fields=["google_review_status", "updated_at"])
+    return render(request, "customers/review_action_result.html", {"title": "You’re unsubscribed", "message": "Got it — you won’t receive any more Google review reminders."})

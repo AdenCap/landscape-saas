@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -55,16 +56,21 @@ else:
 _csrf_origins = os.environ.get("CSRF_TRUSTED_ORIGINS", "").strip()
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()] if _csrf_origins else []
 
-# Production security (only when DEBUG is False)
+# Production security hardening (only when DEBUG is False)
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "1").lower() in ("1", "true", "yes")
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_BROWSER_XSS_FILTER = True
+    SESSION_COOKIE_HTTPONLY = True
+    CSRF_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_SAMESITE = "Lax"
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = "DENY"
-    SECURE_HSTS_SECONDS = 31536000
+    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+    SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
+    SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
@@ -163,22 +169,16 @@ def _get_db_url():
 _db_url = _get_db_url()
 _platform_runtime = bool(os.environ.get("PORT"))  # App Platform, Render, etc. set PORT
 
-# Only require DB URL when actually running the web server (gunicorn). Build (collectstatic) and migrate skip.
 import sys
-_argv = getattr(sys, "argv", [])
-_argv_str = " ".join(str(x) for x in _argv)
-_is_gunicorn = "gunicorn" in _argv_str
 
-if _platform_runtime and not _db_url and _is_gunicorn:
+if _platform_runtime and not _db_url:
     print(
-        "[DATABASE] FATAL: PG_URL or POSTGRES_URL must be set when running on this platform (PORT is set). "
-        "Add it as a Run Time environment variable on the *web service* component in the dashboard. "
-        "Data cannot persist without it.",
+        "[DATABASE] FATAL: A PostgreSQL URL is required when PORT is set (platform runtime). "
+        "Set PG_URL, POSTGRES_URL, or DATABASE_URL on the web service runtime environment.",
         file=sys.stderr,
     )
     raise RuntimeError(
-        "Database URL not set. Set PG_URL (or POSTGRES_URL) to your Supabase connection URI "
-        "as a Run Time env var on the web service component."
+        "PostgreSQL URL not set for platform runtime. Refusing SQLite fallback in production."
     )
 
 DATABASES = {
@@ -246,10 +246,8 @@ if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
 else:
     print("[DATABASE] Using SQLite (db.sqlite3)", file=sys.stderr)
     if _platform_runtime:
-        print(
-            "[DATABASE] WARNING: On this platform (PORT set), data will be LOST on every redeploy. "
-            "Set POSTGRES_URL (Supabase URI) as a Run Time environment variable for the web component.",
-            file=sys.stderr,
+        raise RuntimeError(
+            "SQLite is disabled on platform runtime. Configure PG_URL/POSTGRES_URL/DATABASE_URL (Supabase recommended)."
         )
 
 
@@ -338,10 +336,88 @@ MAPBOX_ACCESS_TOKEN = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 DEFAULT_FROM_EMAIL = "Field Ops <noreply@fieldops.local>"
 
-# Cache: used by django-ratelimit (auth, QuickBooks callback). Default in-memory; in production use Redis.
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "default",
+# Cache: used by django-ratelimit and general app caching.
+# In production set REDIS_URL (or CACHE_URL) to use Redis.
+_CACHE_REDIS_URL = (os.environ.get("CACHE_URL") or os.environ.get("REDIS_URL") or "").strip()
+if _CACHE_REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _CACHE_REDIS_URL,
+            "TIMEOUT": int(os.environ.get("CACHE_TIMEOUT_SECONDS", "300")),
+        }
     }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "default",
+        }
+    }
+
+# Celery (minimal scaffolding): defaults to Redis when available.
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL") or os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND") or CELERY_BROKER_URL
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "0").lower() in ("1", "true", "yes")
+CELERY_TASK_DEFAULT_QUEUE = os.environ.get("CELERY_TASK_DEFAULT_QUEUE", "default")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "send-scheduled-monthly-invoices-daily": {
+        "task": "billing.tasks.send_scheduled_monthly_invoices_task",
+        "schedule": crontab(minute=5, hour=9),
+    },
+    "send-invoice-reminders-daily": {
+        "task": "billing.tasks.send_invoice_reminders_task",
+        "schedule": crontab(minute=20, hour=9),
+    },
+    "send-estimate-followups-daily": {
+        "task": "billing.tasks.send_estimate_followups_task",
+        "schedule": crontab(minute=35, hour=9),
+    },
 }
+
+# Structured logging (JSON-friendly key/value output)
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "structured": {
+            "format": "%(asctime)s level=%(levelname)s logger=%(name)s module=%(module)s message=%(message)s"
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "structured",
+        }
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        "django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "subscription": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+    },
+}
+
+# Optional Sentry hooks: install sentry-sdk and set SENTRY_DSN to enable.
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[DjangoIntegration()],
+            traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.0") or "0.0"),
+            send_default_pii=False,
+            environment=os.environ.get("SENTRY_ENVIRONMENT", "production" if not DEBUG else "development"),
+        )
+    except Exception as sentry_error:
+        print(f"[SENTRY] Disabled: {sentry_error}", file=sys.stderr)
