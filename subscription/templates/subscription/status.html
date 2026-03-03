@@ -1,83 +1,60 @@
 {% extends "base.html" %}
-
-{% block title %}Subscription – Field Ops{% endblock %}
-
 {% block content %}
-<div class="page-header">
-  <h1>Platform subscription</h1>
-  <p class="muted" style="margin-top:6px;">Current plan: <strong>{{ business.get_subscription_plan_tier_display }}</strong></p>
-  {% if has_active_subscription %}
-  <p>Your subscription for {{ business.name }} – manage billing and payment method.</p>
-  {% if business.complimentary_access_enabled %}
-  <p class="muted" style="color:#86efac;">Complimentary access is currently enabled by platform admin.</p>
-  {% endif %}
-  {% else %}
-  <p>Subscribe to unlock full access to Field Ops for {{ business.name }}.</p>
-  {% endif %}
+<div class="page-header" style="margin-bottom:16px;">
+  <h1 style="margin:0 0 6px;">Subscription & Billing</h1>
+  <p style="margin:0; color:var(--text-muted);">Current plan: <strong>{{ business.get_subscription_plan_tier_display }}</strong>{% if business.complimentary_access_enabled %} · <span style="color:#86efac;">Complimentary access active</span>{% endif %}</p>
 </div>
 
-<div class="card" style="max-width: 860px;">
-  <h3 style="margin-top:0; margin-bottom:12px;">Simple pricing for small businesses and scaling teams</h3>
-  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; margin-bottom:18px;">
-    <div style="border:1px solid var(--border); border-radius:12px; padding:14px; background:rgba(255,255,255,.01);">
-      <div style="font-size:13px; color:var(--text-muted);">Solo Starter</div>
-      <div style="font-size:30px; font-weight:800;">${{ pricing.solo_price }}</div>
-      <div style="font-size:13px; color:var(--text-muted); margin-bottom:8px;">/month</div>
-      <ul style="margin:0; padding-left:18px; color:var(--text-muted); font-size:14px;">
+<div class="card" style="max-width:960px; padding:18px;">
+  <h3 style="margin:0 0 10px;">Choose your plan</h3>
+  <p class="muted" style="margin:0 0 14px;">New accounts start with a free trial. You can switch plans later.</p>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px;">
+    <article style="border:1px solid var(--border); border-radius:12px; padding:14px; background:rgba(255,255,255,.01);">
+      <h4 style="margin:0 0 8px;">Solo Starter</h4>
+      <div style="font-size:34px; font-weight:800; margin:2px 0 8px;">${{ pricing.solo_price }}<span style="font-size:13px; color:var(--text-muted); font-weight:500;">/mo</span></div>
+      <p style="margin:0 0 10px; color:var(--text-muted);">Best for one-person operators.</p>
+      <ul style="margin:0 0 12px; color:var(--text-muted); padding-left:18px; line-height:1.7;">
         <li>Calendar scheduling</li>
-        <li>Client management (CRM basics)</li>
-        <li>Great for one-person operations</li>
+        <li>Client management basics</li>
+        <li>Lean starter workflow</li>
       </ul>
-      {% if not has_active_subscription and stripe_enabled %}
-      <form method="post" action="{% url 'subscription:create_checkout' %}" style="margin-top:10px;">{% csrf_token %}<input type="hidden" name="plan_tier" value="solo"><button type="submit" class="btn btn-secondary" style="width:100%;">Choose Solo Starter</button></form>
+      {% if stripe_enabled and not has_active_subscription %}
+      <form method="post" action="{% url 'subscription:create_checkout' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="solo"><button class="btn btn-secondary" style="width:100%;">Start Solo free trial</button></form>
       {% endif %}
-    </div>
-    <div style="border:1px solid rgba(34,197,94,.45); border-radius:12px; padding:14px; background:rgba(34,197,94,.08);">
-      <div style="font-size:13px; color:#bbf7d0;">Pro All-Access (main)</div>
-      <div style="font-size:30px; font-weight:800;">${{ pricing.pro_price }}</div>
-      <div style="font-size:13px; color:var(--text-muted); margin-bottom:8px;">/month</div>
-      <ul style="margin:0; padding-left:18px; color:var(--text-muted); font-size:14px;">
-        <li>All platform features included</li>
-        <li>Business management, invoicing, automations, command center, reliability tooling</li>
-        <li>Best fit for growing teams</li>
+    </article>
+
+    <article style="border:1px solid rgba(34,197,94,.5); border-radius:12px; padding:14px; background:rgba(34,197,94,.08);">
+      <h4 style="margin:0 0 8px;">Pro All-Access</h4>
+      <div style="font-size:34px; font-weight:800; margin:2px 0 8px;">${{ pricing.pro_price }}<span style="font-size:13px; color:var(--text-muted); font-weight:500;">/mo</span></div>
+      <p style="margin:0 0 10px; color:var(--text-muted);">All features included for full operations control.</p>
+      <ul style="margin:0 0 12px; color:var(--text-muted); padding-left:18px; line-height:1.7;">
+        <li>Dispatch Command Center</li>
+        <li>Invoicing + automations</li>
+        <li>Reliability and KPI layers</li>
       </ul>
-      {% if not has_active_subscription and stripe_enabled %}
-      <form method="post" action="{% url 'subscription:create_checkout' %}" style="margin-top:10px;">{% csrf_token %}<input type="hidden" name="plan_tier" value="core"><button type="submit" class="btn btn-primary" style="width:100%;">Choose Pro All-Access</button></form>
+      {% if stripe_enabled and not has_active_subscription %}
+      <form method="post" action="{% url 'subscription:create_checkout' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="core"><button class="btn btn-primary" style="width:100%;">Start Pro free trial</button></form>
       {% endif %}
-    </div>
+    </article>
   </div>
-  <p class="muted" style="margin:-2px 0 14px 0;">Current active crew users: <strong>{{ pricing_signal.crew_user_count }}</strong>. Soft guidance threshold: {{ pricing_signal.effective_soft_cap }} before recommending Pro for smoother scaling.</p>
-  {% if pricing_signal.recommend_pro %}
-  <div style="padding:10px 12px; border-radius:10px; background:rgba(251,191,36,.12); border:1px solid rgba(251,191,36,.35); color:#fde68a; margin-bottom:12px;">
-    Your team has grown beyond solo usage. Pro All-Access is recommended for multi-employee operations.
+
+  <div style="margin-top:14px; color:var(--text-muted); font-size:13px;">
+    Active crew users: <strong>{{ pricing_signal.crew_user_count }}</strong>. Solo is intended for one-person operations.
+    {% if pricing_signal.recommend_pro %}<div style="margin-top:8px; color:#fcd34d;">Your team has outgrown Solo. Pro is recommended.</div>{% endif %}
   </div>
-  {% endif %}
+
+  <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+
   {% if has_active_subscription %}
-  <p class="status-connected" style="margin: 0 0 16px 0;">You have an active subscription. You have full access to Field Ops.</p>
-  {% if business.subscription_current_period_end %}
-  <p class="muted" style="margin-bottom: 20px;">Current period ends {{ business.subscription_current_period_end|date:"F j, Y" }}.</p>
-  {% endif %}
-  <form method="post" action="{% url 'subscription:portal' %}">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-primary">Manage subscription</button>
-  </form>
-  <p class="help" style="margin-top: 12px;">Update payment method, view invoices, or cancel in the Stripe Customer Portal.</p>
-  {% else %}
-  <div style="padding: 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; margin-bottom: 20px;">
-    <p style="margin: 0 0 8px 0; font-weight: 600; color: #fca5a5;">You do not have an active subscription</p>
-    <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Subscribe to access all features of Field Ops.</p>
-  </div>
-  {% if stripe_enabled %}
-  <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">Choose a plan above to continue to secure checkout.</p>
-  {% else %}
-  <div style="padding: 16px; background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 10px;">
-    <p style="margin: 0; font-size: 14px; color: var(--text-muted);">Subscription setup is in progress. Please contact support to activate your account.</p>
-  </div>
-  {% endif %}
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <span style="color:var(--text-muted);">Need to update payment method, cancel, or switch billing details?</span>
+      {% if stripe_enabled and business.stripe_customer_id %}
+      <form method="post" action="{% url 'subscription:create_portal' %}">{% csrf_token %}<button class="btn btn-secondary">Open billing portal</button></form>
+      {% endif %}
+    </div>
+  {% elif not stripe_enabled %}
+    <p style="color:var(--text-muted);">Billing setup is not enabled yet. Contact support to activate subscriptions.</p>
   {% endif %}
 </div>
-
-{% if has_active_subscription %}
-<p style="margin-top: 24px;"><a href="/dashboard/" class="btn btn-secondary">Back to dashboard</a></p>
-{% endif %}
 {% endblock %}

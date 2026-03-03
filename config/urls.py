@@ -27,7 +27,10 @@ from config.platform_views import (
     platform_home, platform_enter, platform_enter_demo, platform_set_plan, platform_apply_plan_recommendations, platform_toggle_free_access, platform_exit,
     admin_users, admin_grant, admin_revoke
 )
-from config.marketing_views import marketing_home, terms_of_service, privacy_policy
+from config.marketing_views import (
+    marketing_home, marketing_features, marketing_automation, marketing_pricing,
+    terms_of_service, privacy_policy,
+)
 from config.db_check import db_check
 
 urlpatterns = [
@@ -49,6 +52,9 @@ urlpatterns = [
 
     # Public marketing pages
     path("", marketing_home, name="marketing_home"),
+    path("features/", marketing_features, name="marketing_features"),
+    path("automation/", marketing_automation, name="marketing_automation"),
+    path("pricing/", marketing_pricing, name="marketing_pricing"),
     path("terms/", terms_of_service, name="terms_of_service"),
     path("privacy/", privacy_policy, name="privacy_policy"),
 

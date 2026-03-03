@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Field Ops{% endblock %}</title>
+  <style>
+    :root{--bg:#070707;--bg2:#101010;--surface:#171717;--surface2:#1d1d1d;--text:#f5f5f5;--muted:#a3a3a3;--border:#2f2f2f;--green:#22c55e}
+    *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui;scroll-behavior:smooth}
+    .progress{position:fixed;top:0;left:0;height:2px;background:#f0f0f0;width:var(--sp,0%);z-index:60}
+    .shell{max-width:1160px;margin:0 auto;padding:0 22px}
+    .nav{position:sticky;top:10px;z-index:50;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;margin:10px auto 0;max-width:1120px;border:1px solid var(--border);border-radius:999px;background:rgba(10,10,10,.8);backdrop-filter:blur(8px)}
+    .brand{font-weight:800;letter-spacing:.03em;text-decoration:none;color:var(--text)}
+    .links{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+    .links a{color:var(--muted);text-decoration:none;font-size:14px}
+    .links a:hover{color:var(--text)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;border-radius:11px;border:1px solid var(--border);text-decoration:none;color:var(--text);font-weight:700}
+    .btn-primary{background:var(--green);border-color:var(--green);color:#08130b}
+    .btn-primary:hover{background:#16a34a;border-color:#16a34a}
+    .hero{padding:84px 0 44px;border-bottom:1px solid var(--border);background:radial-gradient(900px 420px at 10% -20%,rgba(255,255,255,.08),transparent 60%),linear-gradient(180deg,var(--bg2),var(--bg))}
+    h1{font-size:clamp(38px,6vw,72px);line-height:.96;letter-spacing:-.04em;margin:0 0 14px}
+    .sub{font-size:clamp(16px,2vw,22px);line-height:1.55;color:var(--muted);max-width:760px;margin:0 0 20px}
+    .section{padding:70px 0}
+    .title{font-size:clamp(28px,4.4vw,54px);line-height:1.02;letter-spacing:-.035em;margin:0 0 10px}
+    .lead{color:var(--muted);line-height:1.6;max-width:780px;margin:0 0 22px}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .card{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:16px}
+    .card h3{margin:0 0 8px}
+    .card p{margin:0;color:var(--muted);line-height:1.55}
+    .footer{padding:26px 0;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+    [data-r]{opacity:0;transform:translateY(16px);transition:opacity .55s ease,transform .55s ease}
+    [data-r].on{opacity:1;transform:none}
+    @media (max-width:900px){.grid{grid-template-columns:1fr 1fr}}
+    @media (max-width:700px){.shell{padding:0 16px}.grid{grid-template-columns:1fr}.links a.hide-sm{display:none}.btn{padding:10px 14px}}
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  <div class="progress"></div>
+  <header class="nav">
+    <a class="brand" href="/">FIELD OPS</a>
+    <nav class="links">
+      <a class="hide-sm" href="/features/">Features</a>
+      <a class="hide-sm" href="/automation/">Automation</a>
+      <a class="hide-sm" href="/pricing/">Pricing</a>
+      <a href="/accounts/login/">Sign in</a>
+      <a class="btn btn-primary" href="/accounts/signup/">Start free trial</a>
+    </nav>
+  </header>
+
+  {% block content %}{% endblock %}
+
+  <footer class="footer">
+    <div class="shell">© {% now "Y" %} Field Ops · Built for landscaping operators · <a href="/terms/" style="color:inherit">Terms</a> · <a href="/privacy/" style="color:inherit">Privacy</a></div>
+  </footer>
+
+  <script>
+  (()=>{
+    const els=document.querySelectorAll('[data-r]');
+    const root=document.documentElement;
+    function sp(){const h=document.documentElement.scrollHeight-window.innerHeight;root.style.setProperty('--sp',((h>0?window.scrollY/h:0)*100)+'%')}
+    const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(reduce||!('IntersectionObserver' in window)){els.forEach(e=>e.classList.add('on'));sp();window.addEventListener('scroll',sp,{passive:true});return;}
+    const io=new IntersectionObserver(entries=>entries.forEach(en=>{if(en.isIntersecting){en.target.classList.add('on');io.unobserve(en.target)}}),{threshold:.14,rootMargin:'0px 0px -8% 0px'});
+    els.forEach(e=>io.observe(e));
+    sp();window.addEventListener('scroll',sp,{passive:true});
+  })();
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

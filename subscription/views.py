@@ -88,6 +88,8 @@ def create_checkout_session(request):
     # Generate idempotency key to prevent duplicate sessions
     idempotency_key = f"subscription:{business.id}:{plan_tier}:{hashlib.md5(f'{business.id}:{price_id}'.encode()).hexdigest()[:16]}"
     
+    trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_SOLO", 7) if plan_tier == "solo" else getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
+
     try:
         # Ensure we have a Stripe customer ID
         if not business.stripe_customer_id:
@@ -100,6 +102,10 @@ def create_checkout_session(request):
             business.save(update_fields=["stripe_customer_id"])
         
         # Create checkout session with existing customer
+        sub_data = {"metadata": {"business_id": str(business.id), "plan_tier": plan_tier}}
+        if trial_days > 0:
+            sub_data["trial_period_days"] = trial_days
+
         session = stripe.checkout.Session.create(
             customer=business.stripe_customer_id,
             mode="subscription",
@@ -107,7 +113,7 @@ def create_checkout_session(request):
             success_url=success_url,
             cancel_url=cancel_url,
             metadata={"business_id": str(business.id), "plan_tier": plan_tier},
-            subscription_data={"metadata": {"business_id": str(business.id), "plan_tier": plan_tier}},
+            subscription_data=sub_data,
             idempotency_key=idempotency_key,
         )
         return redirect(session.url)

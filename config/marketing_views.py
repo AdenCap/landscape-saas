@@ -1,6 +1,16 @@
 from django.shortcuts import render, redirect
 
 
+def _marketing_redirect_for_auth(request):
+    user = request.user
+    if not user.is_authenticated:
+        return None
+    role = getattr(user, "role", None)
+    if role == "crew":
+        return redirect("/jobs/crew/")
+    return redirect("/dashboard/")
+
+
 def marketing_home(request):
     """
     Public landing page for the Field Ops platform.
@@ -9,16 +19,31 @@ def marketing_home(request):
     - Authenticated users are redirected into the app so `/` still behaves like
       "Dashboard" from their perspective.
     """
-    user = request.user
-    if user.is_authenticated:
-        role = getattr(user, "role", None)
-        if role == "crew":
-            return redirect("/jobs/crew/")
-        # Owners and any other staff-style roles go to the main dashboard
-        # Use absolute path to avoid redirect loops
-        return redirect("/dashboard/")
-
+    r = _marketing_redirect_for_auth(request)
+    if r:
+        return r
     return render(request, "marketing/landing.html")
+
+
+def marketing_features(request):
+    r = _marketing_redirect_for_auth(request)
+    if r:
+        return r
+    return render(request, "marketing/features.html")
+
+
+def marketing_automation(request):
+    r = _marketing_redirect_for_auth(request)
+    if r:
+        return r
+    return render(request, "marketing/automation.html")
+
+
+def marketing_pricing(request):
+    r = _marketing_redirect_for_auth(request)
+    if r:
+        return r
+    return render(request, "marketing/pricing.html")
 
 
 def terms_of_service(request):
