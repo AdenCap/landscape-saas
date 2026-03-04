@@ -40,6 +40,11 @@ FEATURE_PAGES = {
         "subtitle": "Run the day from one operational control surface.",
         "seo_description": "ProFieldOps Dashboard centralizes schedule, revenue, invoices, and team activity for field service operators.",
         "bullets": ["Today's schedule and blockers", "Revenue and collections at a glance", "Live team activity stream"],
+        "roles": {
+            "Owner": "See today's performance and decide fast with KPI-level visibility.",
+            "Dispatcher": "Prioritize issues and keep schedule pressure under control.",
+            "Crew Lead": "Get clear execution context without hunting for information."
+        }
     },
     "jobs": {
         "title": "Job Management",
@@ -108,6 +113,12 @@ def marketing_feature_detail(request, slug):
     feature = FEATURE_PAGES.get(slug)
     if not feature:
         raise Http404("Feature page not found")
+    if "roles" not in feature:
+        feature["roles"] = {
+            "Owner": "Get strategic visibility and control over daily operations.",
+            "Dispatcher": "Keep assignments, timing, and customer communication aligned.",
+            "Crew Lead": "Execute work with clear context and fewer blockers."
+        }
     return render(request, "marketing/feature_detail.html", {"feature": feature, "slug": slug, "pricing": _pricing_context()})
 
 

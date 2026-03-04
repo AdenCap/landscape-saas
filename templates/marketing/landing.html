@@ -97,12 +97,13 @@
   <div class="shell hero-grid">
     <div data-r>
       <span class="eyebrow">Built for modern field service companies</span>
-      <h1 class="hero-h1">Run Your Entire Field Service Business From One Platform</h1>
-      <p class="hero-sub">Built around the actual ProFieldOps stack: Dashboard, Jobs, Calendar, Daily Routes, Clients, Messaging, Estimator, Invoices, Estimates, Employee Management, and Financials—connected in one operating system.</p>
+      <h1 class="hero-h1" id="hero-headline">Run Your Entire Field Service Business From One Platform</h1>
+      <p class="hero-sub" id="hero-subhead">Built around the actual ProFieldOps stack: Dashboard, Jobs, Calendar, Daily Routes, Clients, Messaging, Estimator, Invoices, Estimates, Employee Management, and Financials—connected in one operating system.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial">Start Free Trial</a>
         <a class="btn" href="/features/" data-cta="watch-demo">Watch Demo</a>
       </div>
+      <p style="margin:10px 0 0;color:var(--muted);font-size:14px;">Free trial available. Choose Solo Starter or Pro All-Access when you’re ready.</p>
     </div>
 
     <div class="dash-shell floaty" data-r data-parallax="16">
@@ -285,6 +286,25 @@
 {% block extra_js %}
 <script>
 (() => {
+  const variants = {
+    A: {
+      h: 'Run Your Entire Field Service Business From One Platform',
+      s: 'Built around the actual ProFieldOps stack: Dashboard, Jobs, Calendar, Daily Routes, Clients, Messaging, Estimator, Invoices, Estimates, Employee Management, and Financials—connected in one operating system.'
+    },
+    B: {
+      h: 'From Schedule to Paid Invoice in One Workflow',
+      s: 'Plan in Calendar, execute through Jobs and Daily Routes, and close the loop with Invoices, Estimates, Messaging, and Financials.'
+    }
+  };
+  const key='pfo_hero_variant';
+  let v=localStorage.getItem(key);
+  if(!v) { v=Math.random()<0.5?'A':'B'; localStorage.setItem(key,v); }
+  const hh=document.getElementById('hero-headline');
+  const hs=document.getElementById('hero-subhead');
+  if(hh&&hs&&variants[v]){ hh.textContent=variants[v].h; hs.textContent=variants[v].s; }
+  window.dataLayer=window.dataLayer||[];
+  window.dataLayer.push({event:'pfo_hero_variant',variant:v});
+
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduce) return;
 

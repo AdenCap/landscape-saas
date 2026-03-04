@@ -26,6 +26,7 @@
       <a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial">Start Free Trial</a>
       <a class="btn btn-secondary" href="/features/">Back to all features</a>
     </div>
+    <p style="margin:10px 0 0;color:var(--muted);font-size:14px;">Start with a free trial and upgrade when you’re ready.</p>
     <div class="feature-demo" data-r>
       <div class="demo-grid">
         <div class="demo-panel">
@@ -50,6 +51,17 @@
         <h3>{{ b }}</h3>
         <p>Built with the same unified ProFieldOps design system for speed, clarity, and reliable execution.</p>
       </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:8px;">
+  <div class="shell" data-r>
+    <h2 class="title">Who this is built for</h2>
+    <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+      {% for role, blurb in feature.roles.items %}
+      <article class="card"><h3>{{ role }}</h3><p>{{ blurb }}</p></article>
       {% endfor %}
     </div>
   </div>
