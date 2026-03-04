@@ -1,60 +1,292 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}Field Ops — Tech-Forward Landscaping Operations Software{% endblock %}
+{% block title %}ProFieldOps — Run Your Entire Field Service Business From One Platform{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root{
+    --accent:#3b82f6;
+    --accent-2:#60a5fa;
+    --glass:rgba(255,255,255,.04);
+    --glass-strong:rgba(255,255,255,.08);
+  }
+  .hero-premium{padding:78px 0 40px;border-bottom:1px solid var(--border);background:
+    radial-gradient(700px 300px at 70% -10%,rgba(59,130,246,.22),transparent 65%),
+    radial-gradient(500px 260px at 8% 5%,rgba(255,255,255,.07),transparent 72%),
+    linear-gradient(180deg,#0b0b0c 0%,#070707 100%)}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:26px;align-items:center}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:var(--glass);border:1px solid var(--border);font-size:12px;color:#d4d4d4;margin-bottom:14px}
+  .eyebrow:before{content:"";width:6px;height:6px;border-radius:999px;background:var(--accent);box-shadow:0 0 16px var(--accent)}
+  .hero-h1{font-size:clamp(34px,6vw,70px);line-height:.95;letter-spacing:-.045em;margin:0 0 14px;max-width:820px}
+  .hero-sub{font-size:clamp(16px,2.1vw,21px);line-height:1.6;color:#b3b3b3;max-width:700px;margin:0 0 22px}
+  .cta-row{display:flex;gap:10px;flex-wrap:wrap}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));border:0;color:#f8fbff}
+  .btn:hover{transform:translateY(-1px);transition:transform .16s ease,border-color .16s ease,background .16s ease}
+
+  .dash-shell{position:relative;border:1px solid #2c3542;border-radius:20px;padding:14px;background:linear-gradient(170deg,#11151a,#0b0f14);box-shadow:0 24px 90px rgba(20,25,38,.45)}
+  .dash-shell:before{content:"";position:absolute;inset:0;border-radius:20px;pointer-events:none;background:linear-gradient(135deg,rgba(255,255,255,.12),transparent 28%,transparent 72%,rgba(255,255,255,.06));mix-blend-mode:screen}
+  .dash-top{display:flex;justify-content:space-between;align-items:center;padding:4px 2px 12px}
+  .dot-row{display:flex;gap:6px}.dot{width:8px;height:8px;border-radius:999px;background:#3b3f46}.dot:nth-child(1){background:#ef4444}.dot:nth-child(2){background:#f59e0b}.dot:nth-child(3){background:#22c55e}
+  .dash-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:8px}
+  .k{padding:10px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid #26303b}.k b{font-size:18px}.k span{display:block;color:#9ca3af;font-size:12px;margin-top:4px}
+  .dash-main{display:grid;grid-template-columns:1.1fr .9fr;gap:8px}
+  .panel{border:1px solid #27303b;background:rgba(255,255,255,.02);border-radius:12px;padding:10px;min-height:114px}
+  .line{height:8px;background:#293240;border-radius:999px;margin:8px 0;overflow:hidden}
+  .line > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#7dd3fc);border-radius:999px;animation:flow 2.7s ease-in-out infinite}
+  @keyframes flow{0%,100%{width:42%}50%{width:74%}}
+
+  .trust-strip{padding:20px 0;border-bottom:1px solid var(--border);border-top:1px solid var(--border);background:#0c0c0c}
+  .trust-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .trust{padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--glass)}
+  .trust b{display:block;margin-bottom:6px}
+  .trust p{margin:0;color:var(--muted);line-height:1.55}
+
+  .story{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+  .story + .story{margin-top:12px}
+  .story-copy,.story-visual{border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:18px}
+  .story-copy h3{margin:0 0 8px;font-size:26px;letter-spacing:-.02em}
+  .story-copy ul{padding-left:18px;color:#b8b8b8;line-height:1.7;margin:10px 0 0}
+  .story-visual{background:linear-gradient(150deg,#12161c,#0d1118);position:relative;overflow:hidden}
+  .story-visual:after{content:"";position:absolute;inset:-10% -40% auto auto;width:50%;height:120%;background:linear-gradient(180deg,rgba(96,165,250,.2),transparent 45%);transform:rotate(18deg)}
+
+  .showcase{margin-top:18px;border:1px solid #2b313a;border-radius:22px;padding:18px;background:linear-gradient(180deg,#0e1116,#090c11)}
+  .show-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}
+  .show-left,.show-right{border:1px solid #2a3441;border-radius:14px;padding:12px;background:rgba(255,255,255,.02)}
+
+  .how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
+  .step{border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--surface)}
+  .step .n{display:inline-flex;width:28px;height:28px;border-radius:999px;align-items:center;justify-content:center;background:var(--glass-strong);border:1px solid #31435c;font-weight:700;margin-bottom:8px}
+
+  .industry-grid,.pricing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .industry{border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--surface);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+  .industry:hover{transform:translateY(-3px);border-color:#3a4759;box-shadow:0 12px 26px rgba(0,0,0,.24)}
+  .industry p{margin:6px 0 0;color:var(--muted)}
+
+  .plan{border:1px solid var(--border);border-radius:16px;padding:16px;background:var(--surface)}
+  .plan h3{margin:0}.price{font-size:34px;font-weight:800;letter-spacing:-.03em;margin:8px 0}
+  .plan ul{margin:10px 0 0;padding-left:18px;color:#b8b8b8;line-height:1.7}
+  .plan.featured{border-color:#3b82f6;background:linear-gradient(160deg,rgba(59,130,246,.16),rgba(16,21,29,.9));box-shadow:0 18px 42px rgba(22,47,88,.35)}
+
+  .final{padding:90px 0 94px;background:radial-gradient(700px 320px at 50% 0%,rgba(59,130,246,.23),transparent 72%)}
+  .final-box{border:1px solid #304056;border-radius:24px;padding:36px 24px;text-align:center;background:linear-gradient(180deg,#101722,#0b1118)}
+  .final h2{font-size:clamp(30px,4.6vw,58px);line-height:1;letter-spacing:-.04em;margin:0 0 10px}
+
+  .floaty{transform:translateY(var(--py,0px));will-change:transform}
+  @media (max-width:980px){
+    .hero-grid,.story,.show-grid{grid-template-columns:1fr}
+    .industry-grid,.pricing-grid,.trust-grid,.how{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:700px){
+    .industry-grid,.pricing-grid,.trust-grid,.how,.dash-kpis,.dash-main{grid-template-columns:1fr}
+    .hero-premium{padding-top:56px}
+    .final-box{padding:24px 16px}
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<section class="hero">
-  <div class="shell" data-r>
-    <h1>Tech-company execution for landscaping operators.</h1>
-    <p class="sub">Field Ops gives owners and crews a modern operating system for dispatch, clients, invoicing, and cash flow—designed for real field pressure, not software demos.</p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <a class="btn btn-primary" href="/accounts/signup/">Start free trial</a>
-      <a class="btn" href="/features/">Explore features</a>
-      <a class="btn" href="/accounts/login/">Sign in</a>
+<section class="hero-premium">
+  <div class="shell hero-grid">
+    <div data-r>
+      <span class="eyebrow">Built for modern field service companies</span>
+      <h1 class="hero-h1">Run Your Entire Field Service Business From One Platform</h1>
+      <p class="hero-sub">Scheduling, invoicing, customer management, automation, and payments — all in one place for contractors, landscapers, and service teams that want serious operating control.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="/accounts/signup/">Start Free Trial</a>
+        <a class="btn" href="/features/">Watch Demo</a>
+      </div>
+    </div>
+
+    <div class="dash-shell floaty" data-r data-parallax="16">
+      <div class="dash-top"><div class="dot-row"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><small style="color:#9ca3af">ProFieldOps Dashboard</small></div>
+      <div class="dash-kpis">
+        <div class="k"><b>$42.1k</b><span>Revenue (MTD)</span></div>
+        <div class="k"><b>89%</b><span>On-time jobs</span></div>
+        <div class="k"><b>14</b><span>Open invoices</span></div>
+      </div>
+      <div class="dash-main">
+        <div class="panel"><small style="color:#9ca3af">Smart Scheduling</small><div class="line"><i style="width:65%"></i></div><div class="line"><i style="width:48%"></i></div><div class="line"><i style="width:72%"></i></div></div>
+        <div class="panel"><small style="color:#9ca3af">Crew Status</small><div class="line"><i style="width:54%"></i></div><div class="line"><i style="width:62%"></i></div><div class="line"><i style="width:44%"></i></div></div>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="section" style="padding-top:34px;">
+<section class="trust-strip">
+  <div class="shell trust-grid" data-r>
+    <article class="trust"><b>Built for modern field service companies</b><p>Designed for real operational pressure, not generic project-management demos.</p></article>
+    <article class="trust"><b>Trusted by contractors and service operators</b><p>From scheduling and dispatch to payments and retention in one command layer.</p></article>
+    <article class="trust"><b>Conversion-focused product experience</b><p>Every screen is built to reduce friction and move teams faster from quote to cash.</p></article>
+  </div>
+</section>
+
+<section class="section" style="padding-top:34px;padding-bottom:30px">
   <div class="shell" data-r>
-    <div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr));">
-      <div class="card"><h3 style="margin:0;font-size:30px;">21%</h3><p style="margin-top:6px;">Avg faster dispatch response</p></div>
-      <div class="card"><h3 style="margin:0;font-size:30px;">32%</h3><p style="margin-top:6px;">Lower overdue invoice carry</p></div>
-      <div class="card"><h3 style="margin:0;font-size:30px;">3 taps</h3><p style="margin-top:6px;">Crew Quick completion flow</p></div>
-      <div class="card"><h3 style="margin:0;font-size:30px;">1 screen</h3><p style="margin-top:6px;">Command-center decision view</p></div>
+    <h2 class="title">Running a field service company shouldn't require five different tools.</h2>
+    <div class="industry-grid" style="margin-top:14px;">
+      <article class="industry"><h3 style="margin:0">Scheduling chaos</h3><p>Jobs slip when dispatch and calendars are disconnected.</p></article>
+      <article class="industry"><h3 style="margin:0">Missed invoices</h3><p>Cash flow suffers when billing happens late or manually.</p></article>
+      <article class="industry"><h3 style="margin:0">Crew coordination gaps</h3><p>Teams lose time without real-time assignment clarity.</p></article>
     </div>
   </div>
 </section>
 
 <section class="section">
   <div class="shell" data-r>
-    <h2 class="title">Feature stack built for real operations</h2>
-    <p class="lead">Modern design trends are nice; operating leverage is better. Every module ties to speed, control, and margin protection.</p>
-    <div class="grid">
-      <article class="card"><h3>Dispatch Command Center</h3><p>Delayed jobs, unassigned work, route pressure, and same-day fix actions from one control plane.</p></article>
-      <article class="card"><h3>Cash Flow Autopilot</h3><p>Reminder cadence, owner approval gates, and likely-late risk signals before cash gaps widen.</p></article>
-      <article class="card"><h3>Crew Quick Mode</h3><p>High-adoption field UX: Start → Photo → Complete, with offline queue and replay.</p></article>
-      <article class="card"><h3>Quote-to-Job Accelerator</h3><p>Stuck quote nudges, follow-up prompts, and upsell suggestions to improve close rates.</p></article>
-      <article class="card"><h3>Owner KPI Cockpit</h3><p>Revenue, overdue, utilization, churn-risk, and what-changed-today in one place.</p></article>
-      <article class="card"><h3>Reliability Layer</h3><p>Integration health, webhook retries, and operational guardrails that prevent silent failure.</p></article>
+    <h2 class="title">Product Story, Section by Section</h2>
+    <p class="lead">A guided, scroll-based walkthrough of the core workflows that grow revenue and protect margin.</p>
+
+    <article class="story">
+      <div class="story-copy"><h3>Smart Scheduling</h3><ul><li>Drag-and-drop scheduling</li><li>Dispatch crews instantly</li><li>Manage jobs from anywhere</li></ul></div>
+      <div class="story-visual floaty" data-parallax="10"><div class="line"><i></i></div><div class="line"><i style="width:70%"></i></div><div class="line"><i style="width:52%"></i></div></div>
+    </article>
+
+    <article class="story">
+      <div class="story-copy"><h3>Automated Invoicing</h3><ul><li>Create invoices in seconds</li><li>Accept credit cards instantly</li><li>Track payments in real time</li></ul></div>
+      <div class="story-visual floaty" data-parallax="12"><div class="line"><i style="width:58%"></i></div><div class="line"><i style="width:77%"></i></div><div class="line"><i style="width:48%"></i></div></div>
+    </article>
+
+    <article class="story">
+      <div class="story-copy"><h3>Customer Management</h3><ul><li>Track every customer</li><li>Store complete job history</li><li>Centralize communication</li></ul></div>
+      <div class="story-visual floaty" data-parallax="14"><div class="line"><i style="width:63%"></i></div><div class="line"><i style="width:51%"></i></div><div class="line"><i style="width:74%"></i></div></div>
+    </article>
+
+    <article class="story">
+      <div class="story-copy"><h3>Field Team Coordination</h3><ul><li>Crew assignments</li><li>Real-time updates</li><li>Job progress tracking</li></ul></div>
+      <div class="story-visual floaty" data-parallax="11"><div class="line"><i style="width:68%"></i></div><div class="line"><i style="width:57%"></i></div><div class="line"><i style="width:71%"></i></div></div>
+    </article>
+  </div>
+</section>
+
+<section class="section" style="padding-top:12px">
+  <div class="shell" data-r>
+    <h2 class="title">Professional Platform Showcase</h2>
+    <p class="lead">One full-width view that makes product power obvious at a glance.</p>
+    <div class="showcase">
+      <div class="show-grid">
+        <div class="show-left">
+          <small style="color:#9ca3af">Operations Timeline</small>
+          <div class="line"><i style="width:72%"></i></div><div class="line"><i style="width:55%"></i></div><div class="line"><i style="width:66%"></i></div>
+        </div>
+        <div class="show-right">
+          <small style="color:#9ca3af">Live KPI Feed</small>
+          <div class="line"><i style="width:61%"></i></div><div class="line"><i style="width:47%"></i></div><div class="line"><i style="width:80%"></i></div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="section" style="padding-top:0;">
+<section class="section" style="padding-top:8px;padding-bottom:18px">
   <div class="shell" data-r>
-    <h2 class="title">Seamless path from landing to paid account</h2>
-    <p class="lead">Assume every visitor is new. Guide them cleanly: learn value → start trial → choose plan → onboard fast.</p>
-    <div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr));">
-      <div class="card"><h3>1</h3><p>Landing communicates clear business outcomes.</p></div>
-      <div class="card"><h3>2</h3><p>Signup creates workspace with minimal friction.</p></div>
-      <div class="card"><h3>3</h3><p>Subscription screen separates Solo vs Pro clearly.</p></div>
-      <div class="card"><h3>4</h3><p>Onboarding wizard drives first-value fast.</p></div>
-    </div>
-    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
-      <a class="btn btn-primary" href="/accounts/signup/">Create account</a>
-      <a class="btn" href="/pricing/">See plans</a>
-      <a class="btn" href="/automation/">See automation</a>
+    <h2 class="title">Explore Product Modules</h2>
+    <p class="lead">Each workflow has a dedicated page so buyers can evaluate exactly what they need.</p>
+    <div class="industry-grid">
+      <a class="industry" href="/features/#scheduling" style="text-decoration:none;color:inherit"><h3 style="margin:0">Scheduling</h3><p>Drag, dispatch, and rebalance workload fast.</p></a>
+      <a class="industry" href="/features/#invoicing" style="text-decoration:none;color:inherit"><h3 style="margin:0">Invoicing</h3><p>From job completion to paid invoice in one flow.</p></a>
+      <a class="industry" href="/features/#customer-management" style="text-decoration:none;color:inherit"><h3 style="margin:0">Customer Management</h3><p>A complete client record with history and context.</p></a>
+      <a class="industry" href="/features/#analytics" style="text-decoration:none;color:inherit"><h3 style="margin:0">Analytics</h3><p>Revenue, utilization, and collection insights.</p></a>
+      <a class="industry" href="/features/#team" style="text-decoration:none;color:inherit"><h3 style="margin:0">Team Operations</h3><p>Assignment and progress visibility for every crew.</p></a>
     </div>
   </div>
 </section>
+
+<section class="section" style="padding-top:20px">
+  <div class="shell" data-r>
+    <h2 class="title">How It Works</h2>
+    <div class="how">
+      <article class="step"><span class="n">1</span><h3 style="margin:0 0 6px">Sign up</h3><p class="lead" style="margin:0">Create your account and workspace in minutes.</p></article>
+      <article class="step"><span class="n">2</span><h3 style="margin:0 0 6px">Add jobs and customers</h3><p class="lead" style="margin:0">Import your pipeline and configure your team flow.</p></article>
+      <article class="step"><span class="n">3</span><h3 style="margin:0 0 6px">Run the business</h3><p class="lead" style="margin:0">Dispatch, invoice, collect, and scale from one dashboard.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:10px">
+  <div class="shell" data-r>
+    <h2 class="title">Built for Multi-Industry Field Operations</h2>
+    <div class="industry-grid">
+      <article class="industry"><h3 style="margin:0">Landscaping</h3><p>Route-heavy job operations with seasonal demand swings.</p></article>
+      <article class="industry"><h3 style="margin:0">Lawn Care</h3><p>Recurring service schedules and payment consistency.</p></article>
+      <article class="industry"><h3 style="margin:0">Home Services</h3><p>Fast dispatch and customer communication at scale.</p></article>
+      <article class="industry"><h3 style="margin:0">Property Maintenance</h3><p>Multi-site visibility and SLA-oriented workflows.</p></article>
+      <article class="industry"><h3 style="margin:0">Contractors</h3><p>Quote-to-job lifecycle with clear margin tracking.</p></article>
+      <article class="industry"><h3 style="margin:0">Specialty Crews</h3><p>Mobile-first execution for teams in the field all day.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:6px">
+  <div class="shell" data-r>
+    <h2 class="title">Pricing Preview</h2>
+    <p class="lead">Simple subscription tiers with a clear path to growth.</p>
+    <div class="pricing-grid">
+      <article class="plan"><h3>Starter</h3><div class="price">$29</div><ul><li>Core scheduling + clients</li><li>Single owner setup</li><li>Email support</li></ul></article>
+      <article class="plan featured"><h3>Professional</h3><div class="price">$79</div><ul><li>Dispatch + invoicing automation</li><li>Crew coordination tools</li><li>Priority support</li></ul></article>
+      <article class="plan"><h3>Business</h3><div class="price">$149</div><ul><li>Advanced analytics + controls</li><li>Multi-role access</li><li>Growth workflow modules</li></ul></article>
+    </div>
+    <div class="cta-row" style="margin-top:14px"><a class="btn btn-primary" href="/accounts/signup/">Start Free Trial</a></div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:10px;padding-bottom:18px">
+  <div class="shell" data-r>
+    <h2 class="title">Outcomes You Feel Immediately</h2>
+    <div class="industry-grid">
+      <article class="industry"><h3 style="margin:0">Save hours every week</h3><p>Eliminate repetitive dispatch and billing tasks.</p></article>
+      <article class="industry"><h3 style="margin:0">Get paid faster</h3><p>Automated reminders and cleaner invoice flow.</p></article>
+      <article class="industry"><h3 style="margin:0">Never miss a job</h3><p>Live schedule visibility with crew accountability.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:8px">
+  <div class="shell" data-r>
+    <h2 class="title">What Customers Say</h2>
+    <div class="trust-grid" style="margin-top:12px;">
+      <article class="trust"><b>"ProFieldOps changed how we run the week."</b><p>We dispatch faster, and our invoicing backlog is finally under control.</p></article>
+      <article class="trust"><b>"Our team actually uses it daily."</b><p>The crew workflow is simple enough to adopt, powerful enough to scale.</p></article>
+      <article class="trust"><b>"It feels like serious software."</b><p>Clients see faster response times and we see cleaner operations.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <div class="shell" data-r>
+    <div class="final-box">
+      <h2>Run Your Field Service Business Like a Modern Company.</h2>
+      <p class="lead" style="margin:0 auto 14px;max-width:760px">Make your first impression count, onboard fast, and turn visitors into paying subscribers with a product-first experience.</p>
+      <a class="btn btn-primary" href="/accounts/signup/">Start Your Free Trial Today</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) return;
+
+  const parallaxEls = [...document.querySelectorAll('[data-parallax]')];
+  if (!parallaxEls.length) return;
+
+  let raf = null;
+  const update = () => {
+    const vh = window.innerHeight || 1;
+    parallaxEls.forEach((el) => {
+      const amount = Number(el.getAttribute('data-parallax') || 10);
+      const rect = el.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      const delta = (mid - vh / 2) / vh;
+      el.style.setProperty('--py', `${(-delta * amount).toFixed(2)}px`);
+    });
+    raf = null;
+  };
+
+  const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+  update();
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+})();
+</script>
 {% endblock %}

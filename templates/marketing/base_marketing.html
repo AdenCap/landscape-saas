@@ -4,9 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}Field Ops{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#070707;--bg2:#101010;--surface:#171717;--surface2:#1d1d1d;--text:#f5f5f5;--muted:#a3a3a3;--border:#2f2f2f;--green:#22c55e}
-    *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui;scroll-behavior:smooth}
+    :root{--bg:#0B0B0C;--bg2:#111215;--surface:#1C1C1F;--surface2:#212126;--text:#fff;--muted:#a1a1aa;--border:#2A2A2F;--primary:#3B82F6;--primary-hover:#2563EB;--space-1:4px;--space-2:8px;--space-3:16px;--space-4:24px;--space-5:32px;--space-6:48px;--space-7:64px;--space-8:96px;--space-9:128px;--h1:clamp(42px,6vw,64px);--h2:clamp(34px,5vw,48px);--h3:clamp(28px,4vw,36px);--h4:clamp(22px,3vw,28px);--body:18px;--small:14px;--motion-fast:150ms;--motion-base:220ms;--motion-ease:ease-out}
+    *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui;font-size:var(--body);scroll-behavior:smooth}
     .progress{position:fixed;top:0;left:0;height:2px;background:#f0f0f0;width:var(--sp,0%);z-index:60}
     .shell{max-width:1160px;margin:0 auto;padding:0 22px}
     .nav{position:sticky;top:10px;z-index:50;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;margin:10px auto 0;max-width:1120px;border:1px solid var(--border);border-radius:999px;background:rgba(10,10,10,.8);backdrop-filter:blur(8px)}
@@ -14,15 +17,18 @@
     .links{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
     .links a{color:var(--muted);text-decoration:none;font-size:14px}
     .links a:hover{color:var(--text)}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;border-radius:11px;border:1px solid var(--border);text-decoration:none;color:var(--text);font-weight:700}
-    .btn-primary{background:var(--green);border-color:var(--green);color:#08130b}
-    .btn-primary:hover{background:#16a34a;border-color:#16a34a}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;border-radius:11px;border:1px solid var(--border);text-decoration:none;color:var(--text);font-weight:700;transition:all var(--motion-base) var(--motion-ease)}
+    .btn-primary{background:var(--primary);border-color:var(--primary);color:#f8fbff}
+    .btn-primary:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
+    .btn-secondary{background:var(--surface);border-color:var(--border);color:var(--text)}
+    .btn-ghost{background:transparent;border-color:transparent;color:var(--muted)}
     .hero{padding:84px 0 44px;border-bottom:1px solid var(--border);background:radial-gradient(900px 420px at 10% -20%,rgba(255,255,255,.08),transparent 60%),linear-gradient(180deg,var(--bg2),var(--bg))}
-    h1{font-size:clamp(38px,6vw,72px);line-height:.96;letter-spacing:-.04em;margin:0 0 14px}
-    .sub{font-size:clamp(16px,2vw,22px);line-height:1.55;color:var(--muted);max-width:760px;margin:0 0 20px}
+    h1{font-size:var(--h1);line-height:.96;letter-spacing:-.04em;margin:0 0 14px}
+    h2{font-size:var(--h2)} h3{font-size:var(--h3)} h4{font-size:var(--h4)}
+    .sub{font-size:var(--body);line-height:1.55;color:var(--muted);max-width:760px;margin:0 0 20px}
     .section{padding:70px 0}
-    .title{font-size:clamp(28px,4.4vw,54px);line-height:1.02;letter-spacing:-.035em;margin:0 0 10px}
-    .lead{color:var(--muted);line-height:1.6;max-width:780px;margin:0 0 22px}
+    .title{font-size:var(--h2);line-height:1.02;letter-spacing:-.035em;margin:0 0 10px}
+    .lead{color:var(--muted);line-height:1.6;max-width:780px;margin:0 0 22px;font-size:var(--body)}
     .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
     .card{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:16px}
     .card h3{margin:0 0 8px}

@@ -2,34 +2,21 @@
 {% load billing_filters %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+<div class="page-header" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
   <div>
-    <h1>Invoices</h1>
-    <p>Manage and view all invoices</p>
+    <h1>Invoicing</h1>
+    <p>Track payment state, open balances, and invoice operations.</p>
   </div>
-  <div class="page-header-actions">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
     <a href="{% url 'billing:outstanding_invoices' %}" class="btn btn-secondary">Outstanding</a>
-    <a href="{% url 'billing:monthly_invoice_list' %}" class="btn btn-secondary">Monthly invoices</a>
-    <a href="/settings/" class="btn btn-secondary">Settings</a>
+    <a href="{% url 'billing:monthly_invoice_list' %}" class="btn btn-secondary">Monthly</a>
   </div>
-</div>
-
-<div class="billing-tabs">
-  <a href="{% url 'billing:invoice_list' %}" class="billing-tab active">Invoices</a>
-  <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="billing-tab">Invoice template editor</a>
 </div>
 
 <div class="card">
   <table class="data-table">
     <thead>
-      <tr>
-        <th>ID</th>
-        <th>Customer</th>
-        <th>Issue Date</th>
-        <th>Status</th>
-        <th>Total</th>
-        <th></th>
-      </tr>
+      <tr><th>ID</th><th>Customer</th><th>Issue Date</th><th>Status</th><th>Total</th><th></th></tr>
     </thead>
     <tbody>
       {% for inv in invoices %}
@@ -39,61 +26,30 @@
         <td>{{ inv.issue_date }}</td>
         <td><span class="badge badge-{{ inv.status|lower }}">{{ inv.status }}</span></td>
         <td><strong>{{ inv.total|currency }}</strong></td>
-        <td>
-          <a href="{% url 'billing:invoice_detail' inv.id %}" class="btn btn-primary btn-sm">View</a>
-        </td>
+        <td><a href="{% url 'billing:invoice_detail' inv.id %}" class="btn btn-primary btn-sm">Open</a></td>
       </tr>
       {% empty %}
-      <tr>
-        <td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">
-          No invoices yet.
-        </td>
-      </tr>
+      <tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-muted);">No invoices yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
 <style>
-  .page-header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-  .billing-tabs {
-    display: flex;
-    gap: 8px;
-    margin: 6px 0 18px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 2px;
-  }
-  .billing-tabs::-webkit-scrollbar { height: 6px; }
-  .billing-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
-  .billing-tab {
-    display: inline-block;
-    padding: 9px 18px;
-    font-size: 15px;
-    font-weight: 500;
-    border-radius: 20px;
-    text-decoration: none;
-    color: var(--text-muted);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    transition: all 0.15s ease;
-  }
-  .billing-tab:hover { color: var(--text); border-color: var(--text-muted); }
-  .billing-tab.active { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
-  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
-  .badge-sent { background: rgba(234, 179, 8, 0.25); color: #fde047; }
-  .badge-paid { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .badge-draft { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
-
-  @media (max-width: 768px) {
-    .page-header { gap: 12px !important; }
-    .page-header h1 { font-size: 24px; margin-bottom: 2px; }
-    .page-header p { font-size: 14px; }
-    .page-header-actions { width: 100%; gap: 8px; }
-    .page-header-actions .btn { flex: 1 1 calc(50% - 8px); justify-content: center; min-height: 42px; }
-    .billing-tab { white-space: nowrap; }
-    .data-table th, .data-table td { padding: 12px 10px; font-size: 14px; }
-  }
+.badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.badge-sent{background:rgba(59,130,246,.18);color:#93c5fd}
+.badge-paid{background:rgba(34,197,94,.2);color:#86efac}
+.badge-draft{background:rgba(148,163,184,.2);color:#cbd5e1}
 </style>
+{% endblock %}
+
+{% block context_panel %}
+<aside class="context-panel">
+  <h3>Payments</h3>
+  <div class="context-panel-body">
+    <div class="context-chip">Square-connected payments should post and reconcile automatically.</div>
+    <a href="{% url 'billing:outstanding_invoices' %}" class="btn btn-secondary btn-sm">Review Outstanding</a>
+    <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="btn btn-secondary btn-sm">Edit Template</a>
+  </div>
+</aside>
 {% endblock %}

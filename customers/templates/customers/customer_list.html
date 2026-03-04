@@ -1,62 +1,56 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+<div class="page-header" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
   <div>
-    <h1>Clients</h1>
-    <p>Manage your customers, properties, and contracts</p>
+    <h1>Customer CRM</h1>
+    <p>Contact records, service history, and invoice context in one place.</p>
   </div>
-  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-    <a href="{% url 'customer_import' %}" class="btn btn-secondary">Import from CSV</a>
-    <a href="{% url 'customer_export' %}" class="btn btn-secondary">Export CSV</a>
-    <a href="{% url 'customer_create' %}" class="btn btn-primary">+ Add Client</a>
-  </div>
+  <a href="{% url 'customer_create' %}" class="btn btn-primary">+ Add Customer</a>
 </div>
 
-<form method="get" class="search-form card" style="margin-bottom: 20px;">
-  <input type="search" name="q" value="{{ search }}" placeholder="Search by name, email, phone, address..."
-    style="width: 100%; max-width: 400px; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px;">
-  <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+<form method="get" class="card search-row" style="margin-bottom:12px;">
+  <input type="search" name="q" value="{{ search }}" placeholder="Search customers by name, phone, email, address..." class="search-input">
+  <button type="submit" class="btn btn-secondary">Search</button>
 </form>
 
 <div class="card">
   <table class="data-table">
     <thead>
       <tr>
-        <th>Name</th>
-        <th>Contact</th>
-        <th>Address</th>
-        <th class="num">Properties</th>
-        <th class="num">Invoices</th>
-        <th></th>
+        <th>Name</th><th>Contact</th><th>Address</th><th class="num">Properties</th><th class="num">Invoices</th><th></th>
       </tr>
     </thead>
     <tbody>
       {% for c in customers %}
       <tr>
-        <td>
-          <a href="{% url 'customer_detail' c.id %}" class="link-primary">{{ c.name }}</a>
-        </td>
-        <td>
-          {% if c.phone %}{{ c.phone }}{% endif %}
-          {% if c.email %} · {{ c.email }}{% endif %}
-          {% if not c.phone and not c.email %}—{% endif %}
-        </td>
+        <td><a href="{% url 'customer_detail' c.id %}" class="link-primary">{{ c.name }}</a></td>
+        <td>{% if c.phone %}{{ c.phone }}{% endif %}{% if c.email %} · {{ c.email }}{% endif %}{% if not c.phone and not c.email %}—{% endif %}</td>
         <td>{{ c.full_address }}</td>
         <td class="num">{{ c.property_count }}</td>
         <td class="num">{{ c.invoice_count }}</td>
-        <td>
-          <a href="{% url 'customer_detail' c.id %}" class="btn btn-secondary btn-sm">View</a>
-        </td>
+        <td><a href="{% url 'customer_detail' c.id %}" class="btn btn-secondary btn-sm">Open</a></td>
       </tr>
       {% empty %}
-      <tr><td colspan="6">No clients yet. <a href="{% url 'customer_create' %}" class="link-primary">Add your first client</a></td></tr>
+      <tr><td colspan="6">No customers yet. <a href="{% url 'customer_create' %}" class="link-primary">Create your first record</a>.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
 <style>
-  .search-form { display: flex; gap: 10px; align-items: center; }
+.search-row{display:flex;gap:10px;align-items:center}
+.search-input{width:100%;max-width:520px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text)}
 </style>
+{% endblock %}
+
+{% block context_panel %}
+<aside class="context-panel">
+  <h3>CRM Actions</h3>
+  <div class="context-panel-body">
+    <a href="{% url 'customer_import' %}" class="btn btn-secondary btn-sm">Import CSV</a>
+    <a href="{% url 'customer_export' %}" class="btn btn-secondary btn-sm">Export CSV</a>
+    <div class="context-chip">Keep customer records complete to improve follow-up conversion.</div>
+  </div>
+</aside>
 {% endblock %}
