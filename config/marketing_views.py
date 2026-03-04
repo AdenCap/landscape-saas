@@ -41,7 +41,7 @@ FEATURE_PAGES = {
     "dashboard": {
         "title": "Dashboard Command Center",
         "subtitle": "Run the day from one operational control surface.",
-        "seo_description": "ProFieldOps Dashboard centralizes schedule, revenue, invoices, and team activity for field service operators.",
+        "seo_description": "ProFieldOps Dashboard centralizes schedule, revenue, invoices, and team activity for lawn care and landscaping operators.",
         "bullets": ["Today's schedule and blockers", "Revenue and collections at a glance", "Live team activity stream"],
         "roles": {
             "Owner": "See today's performance and decide fast with KPI-level visibility.",
@@ -125,7 +125,7 @@ def marketing_feature_detail(request, slug):
             "Crew Lead": "Execute work with clear context and fewer blockers."
         }
     if "seo_description" not in feature:
-        feature["seo_description"] = f"{feature['title']} for field service teams: {feature['subtitle']}"
+        feature["seo_description"] = f"{feature['title']} for lawn care and landscaping teams: {feature['subtitle']}"
     ctx = _marketing_context()
     ctx.update({"feature": feature, "slug": slug})
     return render(request, "marketing/feature_detail.html", ctx)
