@@ -1,5 +1,8 @@
 {% extends "marketing/base_marketing.html" %}
 {% block title %}{{ feature.title }} — ProFieldOps{% endblock %}
+{% block meta_description %}{{ feature.seo_description|default:feature.subtitle }}{% endblock %}
+{% block og_title %}{{ feature.title }} — ProFieldOps{% endblock %}
+{% block og_description %}{{ feature.seo_description|default:feature.subtitle }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -61,4 +64,17 @@
     </div>
   </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"FAQPage",
+  "mainEntity":[
+    {"@type":"Question","name":"What does {{ feature.title|escapejs }} help with?","acceptedAnswer":{"@type":"Answer","text":"{{ feature.subtitle|escapejs }}"}},
+    {"@type":"Question","name":"Is this connected to other ProFieldOps modules?","acceptedAnswer":{"@type":"Answer","text":"Yes. ProFieldOps modules are designed to work together across scheduling, clients, invoicing, estimates, and financial workflows."}}
+  ]
+}
+</script>
 {% endblock %}

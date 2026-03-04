@@ -289,7 +289,15 @@
   if (reduce) return;
 
   const parallaxEls = [...document.querySelectorAll('[data-parallax]')];
-  if (!parallaxEls.length) return;
+
+  const pushedDepth={25:false,50:false,75:false,100:false};
+  const sections=[...document.querySelectorAll('section')];
+  const seen=new WeakSet();
+  const pushEvent=(payload)=>{window.dataLayer=window.dataLayer||[];window.dataLayer.push(payload)};
+  const io=('IntersectionObserver' in window)?new IntersectionObserver((entries)=>{
+    entries.forEach(en=>{if(en.isIntersecting&&!seen.has(en.target)){seen.add(en.target);pushEvent({event:'pfo_section_view',section:(en.target.querySelector('h2,h1')?.textContent||'section').trim()})}})
+  },{threshold:.35}):null;
+  if(io) sections.forEach(s=>io.observe(s));
 
   let raf = null;
   const update = () => {
@@ -304,8 +312,14 @@
     raf = null;
   };
 
-  const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+  const onScroll = () => {
+    if (!raf) raf = requestAnimationFrame(update);
+    const max=document.documentElement.scrollHeight-window.innerHeight;
+    const pct=max>0?Math.round((window.scrollY/max)*100):100;
+    [25,50,75,100].forEach(d=>{if(pct>=d&&!pushedDepth[d]){pushedDepth[d]=true;pushEvent({event:'pfo_scroll_depth',depth:d})}});
+  };
   update();
+  onScroll();
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll);
 })();

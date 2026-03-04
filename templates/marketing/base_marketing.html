@@ -78,12 +78,28 @@
   </script>
   <script>
   (()=>{
-    const ctas=document.querySelectorAll('[data-cta]');
-    ctas.forEach(el=>el.addEventListener('click',()=>{
-      const payload={event:'pfo_cta_click',cta:el.getAttribute('data-cta'),href:el.getAttribute('href')||null,ts:Date.now()};
-      window.dataLayer=window.dataLayer||[];
-      window.dataLayer.push(payload);
-    }));
+    const url=new URL(window.location.href);
+    const utmKeys=['utm_source','utm_medium','utm_campaign','utm_term','utm_content'];
+    const utm={};
+    utmKeys.forEach(k=>{const v=url.searchParams.get(k);if(v)utm[k]=v;});
+    if(Object.keys(utm).length){try{localStorage.setItem('pfo_utm',JSON.stringify(utm));}catch(e){}}
+    let stored={};
+    try{stored=JSON.parse(localStorage.getItem('pfo_utm')||'{}')||{};}catch(e){}
+
+    const ctas=document.querySelectorAll('[data-cta],a[href^="/accounts/signup/"]');
+    ctas.forEach(el=>{
+      const href=el.getAttribute('href')||'';
+      if(href.startsWith('/accounts/signup/')){
+        const u=new URL(href,window.location.origin);
+        Object.entries(stored).forEach(([k,v])=>{if(!u.searchParams.get(k))u.searchParams.set(k,v)});
+        el.setAttribute('href',u.pathname+u.search);
+      }
+      el.addEventListener('click',()=>{
+        const payload={event:'pfo_cta_click',cta:el.getAttribute('data-cta')||'signup-link',href:el.getAttribute('href')||null,ts:Date.now(),...stored};
+        window.dataLayer=window.dataLayer||[];
+        window.dataLayer.push(payload);
+      });
+    });
   })();
   </script>
   {% block extra_js %}{% endblock %}
