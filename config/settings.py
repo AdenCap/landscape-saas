@@ -12,8 +12,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
-from celery.schedules import crontab
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -30,7 +28,10 @@ except ImportError:
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # Set DJANGO_SECRET_KEY in production (e.g. a 50-char random string).
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-irt9nv(azv+l0u$gw0@v0u8ttl_$+52jw9nh8*l47zr&efj*_a")
+_secret = os.environ.get("DJANGO_SECRET_KEY", "")
+if not _secret and not os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes"):
+    raise RuntimeError("DJANGO_SECRET_KEY must be set in production (DJANGO_DEBUG=0)")
+SECRET_KEY = _secret or "django-insecure-dev-only-do-not-use-in-production"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Default to True so you see full error pages in development; set DJANGO_DEBUG=0 to disable.
@@ -355,29 +356,11 @@ else:
         }
     }
 
-# Celery (minimal scaffolding): defaults to Redis when available.
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL") or os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND") or CELERY_BROKER_URL
-CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "0").lower() in ("1", "true", "yes")
-CELERY_TASK_DEFAULT_QUEUE = os.environ.get("CELERY_TASK_DEFAULT_QUEUE", "default")
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = TIME_ZONE
-CELERY_BEAT_SCHEDULE = {
-    "send-scheduled-monthly-invoices-daily": {
-        "task": "billing.tasks.send_scheduled_monthly_invoices_task",
-        "schedule": crontab(minute=5, hour=9),
-    },
-    "send-invoice-reminders-daily": {
-        "task": "billing.tasks.send_invoice_reminders_task",
-        "schedule": crontab(minute=20, hour=9),
-    },
-    "send-estimate-followups-daily": {
-        "task": "billing.tasks.send_estimate_followups_task",
-        "schedule": crontab(minute=35, hour=9),
-    },
-}
+# Scheduled tasks run via platform cron jobs (DigitalOcean Jobs):
+#   5 14 * * *  python manage.py send_scheduled_monthly_invoices
+#  20 14 * * *  python manage.py send_invoice_reminders
+#  35 14 * * *  python manage.py send_estimate_followups
+#   0 15 * * *  python manage.py send_google_review_requests
 
 # Structured logging (JSON-friendly key/value output)
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")

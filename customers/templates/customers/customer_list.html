@@ -32,7 +32,16 @@
         <td><a href="{% url 'customer_detail' c.id %}" class="btn btn-secondary btn-sm">Open</a></td>
       </tr>
       {% empty %}
-      <tr><td colspan="6">No customers yet. <a href="{% url 'customer_create' %}" class="link-primary">Create your first record</a>.</td></tr>
+      <tr>
+        <td colspan="6">
+          <div class="empty-state">
+            <i data-lucide="users" class="empty-state-icon"></i>
+            <div class="empty-state-title">No clients yet</div>
+            <div class="empty-state-desc">Add your first client to start managing their properties.</div>
+            <a href="{% url 'customer_create' %}" class="btn btn-primary">Add Customer</a>
+          </div>
+        </td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>

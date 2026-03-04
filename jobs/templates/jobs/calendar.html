@@ -214,6 +214,12 @@
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 <script>
+  var WEATHER_DATA = {};
+  {% for day in weather_forecast %}
+  WEATHER_DATA["{{ day.date }}"] = {high: {{ day.high|default:"null" }}, low: {{ day.low|default:"null" }}, precip: {{ day.precip }}, label: "{{ day.label }}", icon: "{{ day.icon }}"};
+  {% endfor %}
+</script>
+<script>
 document.addEventListener('DOMContentLoaded', function () {
   var STORAGE_VIEW = 'fieldops_calendar_view';
   var STORAGE_DATE = 'fieldops_calendar_date';
@@ -372,6 +378,31 @@ document.addEventListener('DOMContentLoaded', function () {
         info.el.title = (p.customer ? p.customer + ' — ' : '') + (info.event.title || 'Meeting');
       } else {
         info.el.title = (p.customer || '') + ' — ' + (p.services || '') + ' — ' + (p.crew || '') + ' — ' + (p.status || '');
+      }
+    },
+    dayCellDidMount: function(info) {
+      if (!info.date || !WEATHER_DATA) return;
+      var y = info.date.getFullYear();
+      var m = String(info.date.getMonth() + 1).padStart(2, '0');
+      var d = String(info.date.getDate()).padStart(2, '0');
+      var key = y + '-' + m + '-' + d;
+      var w = WEATHER_DATA[key];
+      if (!w || w.high == null) return;
+      var existing = info.el.querySelector('.weather-badge');
+      if (existing) return;
+      var badge = document.createElement('div');
+      badge.className = 'weather-badge';
+      badge.title = w.label + ' · Precip: ' + w.precip + '"';
+      badge.innerHTML = '<i data-lucide="' + w.icon + '"></i><span>' + w.high + '°</span>' + (w.precip > 0 ? '<span class="weather-rain"></span>' : '');
+      var dayFrame = info.el.querySelector('.fc-daygrid-day-top');
+      if (dayFrame) {
+        dayFrame.style.display = 'flex';
+        dayFrame.style.justifyContent = 'space-between';
+        dayFrame.style.alignItems = 'center';
+        dayFrame.appendChild(badge);
+      }
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons({nodes: [badge]});
       }
     }
   });
@@ -1062,6 +1093,34 @@ document.addEventListener('DOMContentLoaded', function () {
     object-fit: cover;
     border-radius: 8px;
     border: 1px solid var(--border);
+  }
+  .weather-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 1px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: auto;
+  }
+  .weather-badge i, .weather-badge svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+  }
+  .weather-badge span {
+    font-weight: 500;
+    font-size: 10px;
+  }
+  .weather-rain {
+    width: 5px !important;
+    height: 5px !important;
+    border-radius: 50%;
+    background: #3b82f6;
+    display: inline-block;
+    margin-left: 1px;
   }
 </style>
 {% endblock %}

@@ -217,14 +217,21 @@ def calendar_view(request):
     crew_legend = _get_crew_legend(business)
     services = []
     crews = []
+    weather_forecast = []
     if business:
         from pricing.models import ServiceTemplate
         services = list(ServiceTemplate.objects.filter(business=business, active=True).order_by("name").values("id", "name"))
         crews = list(Crew.objects.filter(business=business).order_by("name").values("id", "name"))
+        # Fetch weather forecast for the business location
+        from jobs.weather import get_forecast, get_business_location
+        location = get_business_location(business)
+        if location:
+            weather_forecast = get_forecast(location[0], location[1])
     return render(request, 'jobs/calendar.html', {
         'crew_legend': crew_legend,
         'filter_services': services,
         'filter_crews': crews,
+        'weather_forecast': weather_forecast,
     })
 
 

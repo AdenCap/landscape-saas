@@ -352,6 +352,7 @@ def invoice_pay_page(request, invoice_id, token):
         tag = (business.cashapp_cashtag or "").strip().lstrip("$")
         cashapp_link = f"https://cash.app/${tag}/{invoice.total}"
     can_accept_stripe = getattr(business, "can_accept_stripe_payments", lambda: False)()
+    line_items = invoice.line_items.all()
     return render(request, "billing/invoice_pay_page.html", {
         "invoice": invoice,
         "business": business,
@@ -359,6 +360,7 @@ def invoice_pay_page(request, invoice_id, token):
         "venmo_link": venmo_link,
         "cashapp_link": cashapp_link,
         "can_accept_stripe": can_accept_stripe,
+        "line_items": line_items,
     })
 
 

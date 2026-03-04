@@ -22,7 +22,14 @@
         <span>{{ job.scheduled_date|date:"M j" }} {% if job.scheduled_time %}· {{ job.scheduled_time|time:"g:i A" }}{% endif %}</span>
       </a>
       {% endwith %}
-    {% empty %}<p class="muted">No scheduled jobs.</p>{% endfor %}
+    {% empty %}
+    <div class="empty-state">
+      <i data-lucide="clipboard-list" class="empty-state-icon"></i>
+      <div class="empty-state-title">No jobs scheduled</div>
+      <div class="empty-state-desc">Create a job to start tracking your work.</div>
+      <a href="{% url 'create_job' %}" class="btn btn-primary">Create Job</a>
+    </div>
+    {% endfor %}
   </section>
 
   <section class="card lane">

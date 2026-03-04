@@ -4,10 +4,13 @@
   <title>{% block title %}Field Ops{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0a0a0a">
+  {% load static %}
+  <link rel="icon" href="{% static 'img/logo-icon.svg' %}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
+  <link rel="manifest" href="{% static 'manifest.json' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  {% load static %}
   <link rel="stylesheet" href="{% static 'css/design-system.css' %}">
 
   <style>
@@ -499,7 +502,10 @@
   {% if user.is_authenticated %}
     <!-- Desktop sidebar -->
     <aside class="sidebar">
-      <div class="sidebar-brand">Field Ops</div>
+      <a href="/" class="sidebar-brand" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+        <img src="{% static 'img/logo-icon.svg' %}" alt="" width="32" height="32">
+        <span>Field Ops</span>
+      </a>
 
       {% if user.role != "crew" %}
       <div class="sidebar-create-wrap">
@@ -604,7 +610,10 @@
 
     <!-- Mobile: top bar + bottom nav + drawer -->
     <header class="topbar-mobile">
-      <a href="/" class="brand" style="text-decoration: none;">Field Ops</a>
+      <a href="/" class="brand" style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
+        <img src="{% static 'img/logo-icon.svg' %}" alt="" width="28" height="28">
+        <span>Field Ops</span>
+      </a>
       <button type="button" class="menu-btn" id="mobile-menu-btn" aria-label="Open menu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
@@ -669,18 +678,12 @@
     </div>
   {% endif %}
 
+  <!-- Toast notification container -->
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
   {% if not user.is_authenticated or request.path == '/' %}
   <!-- Landing page layout (no sidebar) -->
   <main style="width: 100%;">
-    {% if messages %}
-    <div class="messages" style="max-width: 1200px; margin: 0 auto; padding: 20px 24px 0;">
-      {% for message in messages %}
-      <div class="alert alert-{{ message.tags }}">
-        {{ message }}
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
   {% else %}
   <!-- App layout (with sidebar) -->
   <main class="main-wrap">
@@ -689,15 +692,6 @@
       <div class="platform-banner">
         <span>Viewing as: <strong>{{ request.session.platform_business_name }}</strong></span>
         <a href="{% url 'platform_exit' %}" class="btn btn-secondary btn-sm">Exit</a>
-      </div>
-      {% endif %}
-      {% if messages %}
-      <div class="messages">
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}">
-          {{ message }}
-        </div>
-        {% endfor %}
       </div>
       {% endif %}
   {% endif %}
@@ -789,5 +783,34 @@
   {% endif %}
   {% endif %}
 <script>window.lucide&&window.lucide.createIcons();</script>
+<script>
+(function(){
+  var container=document.getElementById('toast-container');
+  if(!container)return;
+  var iconMap={
+    success:'<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    error:'<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    warning:'<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    info:'<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+  };
+  window.showToast=function(msg,type){
+    type=type||'info';
+    var el=document.createElement('div');
+    el.className='toast toast-'+type;
+    el.innerHTML=(iconMap[type]||iconMap.info)+'<span>'+msg+'</span>';
+    el.addEventListener('click',function(){dismiss(el);});
+    container.appendChild(el);
+    var timer=setTimeout(function(){dismiss(el);},4000);
+    function dismiss(t){
+      clearTimeout(timer);
+      t.classList.add('toast-removing');
+      setTimeout(function(){t.remove();},200);
+    }
+  };
+  {% if messages %}{% for message in messages %}
+  showToast("{{ message|escapejs }}","{{ message.tags|default:'info' }}");
+  {% endfor %}{% endif %}
+})();
+</script>
 </body>
 </html>

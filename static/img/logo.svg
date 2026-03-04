@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none">
+  <defs>
+    <linearGradient id="lg1" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="lg2" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <!-- Icon -->
+  <path d="M8 14l16-8 16 8v4L24 26 8 18v-4z" fill="url(#lg1)" opacity="0.5"/>
+  <path d="M8 22l16-8 16 8v4L24 34 8 26v-4z" fill="url(#lg1)" opacity="0.75"/>
+  <path d="M8 30l16-8 16 8v4L24 42 8 34v-4z" fill="url(#lg2)"/>
+  <!-- Wordmark -->
+  <text x="52" y="21" font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="700" fill="#ffffff" letter-spacing="-0.03em">Field</text>
+  <text x="52" y="39" font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="700" fill="#3b82f6" letter-spacing="-0.03em">Ops</text>
+</svg>

@@ -1,17 +1,16 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}Field Ops{% endblock %}</title>
-  <meta name="description" content="{% block meta_description %}ProFieldOps helps lawn care and landscaping teams run scheduling, jobs, routes, clients, invoicing, estimates, and financials from one platform.{% endblock %}">
-  <meta property="og:title" content="{% block og_title %}ProFieldOps — Field Service Operating System{% endblock %}">
+  <meta name="description" content="{% block meta_description %}Field Ops helps lawn care and landscaping teams run scheduling, jobs, routes, clients, invoicing, estimates, and financials from one platform.{% endblock %}">
+  <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}Field Ops — Field Service Operating System{% endblock %}">
   <meta property="og:description" content="{% block og_description %}Run your lawn care and landscaping business with one modern operating system.{% endblock %}">
   <meta property="og:type" content="website">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  {% load static %}
+  <meta property="og:image" content="{% block og_image %}{% static 'img/icon-512.png' %}{% endblock %}">
   <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=2.0">
   <style>
     /* Marketing-specific overrides */

@@ -161,3 +161,18 @@ def _checkout_session_completed(event):
         "stripe_payment_intent_id",
         "stripe_charge_id",
     ])
+
+    # Create audit log entry for the payment
+    try:
+        from billing.models import InvoiceAuditLog
+        InvoiceAuditLog.objects.create(
+            invoice=invoice,
+            action="paid",
+            details={
+                "method": "stripe_card",
+                "payment_intent_id": payment_intent_id or "",
+                "checkout_session_id": session.get("id", ""),
+            },
+        )
+    except Exception:
+        pass  # Don't fail the payment flow over audit logging

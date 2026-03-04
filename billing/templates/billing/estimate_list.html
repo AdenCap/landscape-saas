@@ -82,10 +82,11 @@
       </table>
     </div>
     {% else %}
-    <div class="estimate-empty">
-      <p class="estimate-empty-title">No estimates yet</p>
-      <p class="estimate-empty-text">Create your first estimate to send a professional quote to a customer.</p>
-      <a href="{% url 'billing:estimate_create' %}" class="btn btn-primary">Create estimate</a>
+    <div class="empty-state">
+      <i data-lucide="file-text" class="empty-state-icon"></i>
+      <div class="empty-state-title">No estimates yet</div>
+      <div class="empty-state-desc">Send professional estimates to win more jobs.</div>
+      <a href="{% url 'billing:estimate_create' %}" class="btn btn-primary">Create Estimate</a>
     </div>
     {% endif %}
   </div>

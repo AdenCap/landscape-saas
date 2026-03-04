@@ -41,7 +41,7 @@ FEATURE_PAGES = {
     "dashboard": {
         "title": "Dashboard Command Center",
         "subtitle": "Run the day from one operational control surface.",
-        "seo_description": "ProFieldOps Dashboard centralizes schedule, revenue, invoices, and team activity for lawn care and landscaping operators.",
+        "seo_description": "Field Ops Dashboard centralizes schedule, revenue, invoices, and team activity for lawn care and landscaping operators.",
         "bullets": ["Today's schedule and blockers", "Revenue and collections at a glance", "Live team activity stream"],
         "roles": {
             "Owner": "See today's performance and decide fast with KPI-level visibility.",
