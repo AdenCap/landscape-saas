@@ -556,10 +556,6 @@
             <i data-lucide="messages-square" class="nav-icon"></i>
             Client messaging
           </a>
-          <a href="/estimator/" class="btn btn-nav {% if '/estimator' in request.path %}active{% endif %}">
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21H4.6a.6.6 0 0 1-.6-.6V3"/><path d="M21 7V3h-4"/><path d="M7 3v18"/><path d="M21 12h-4"/></svg>
-            Estimator
-          </a>
           <a href="/billing/" class="btn btn-nav {% if '/billing' in request.path and 'estimates' not in request.path %}active{% endif %}">
             <i data-lucide="file-plus-2" class="nav-icon"></i>
             Invoices
@@ -659,7 +655,6 @@
           {% else %}
             <a href="/jobs/calendar/"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendar</a>
             <a href="{% url 'client_messages_list' %}"><i data-lucide="messages-square" class="nav-icon"></i>Client messaging</a>
-            <a href="/estimator/"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21H4.6a.6.6 0 0 1-.6-.6V3"/><path d="M21 7V3h-4"/><path d="M7 3v18"/><path d="M21 12h-4"/></svg>Estimator</a>
             <a href="/billing/"><i data-lucide="file-plus-2" class="nav-icon"></i>Invoices</a>
             <a href="/billing/estimates/"><i data-lucide="file-text" class="nav-icon"></i>Estimates</a>
             <a href="{% url 'employee_management' %}"><i data-lucide="users" class="nav-icon"></i>Employees</a>

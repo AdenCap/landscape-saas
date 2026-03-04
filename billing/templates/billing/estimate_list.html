@@ -18,9 +18,10 @@
   </header>
 
   <div class="billing-tabs" style="margin-bottom: 16px;">
-    <a href="{% url 'billing:estimate_list' %}" class="billing-tab active">Estimates</a>
-    <a href="{% url 'billing:fertilizer_products_list' %}" class="billing-tab">Fertilizer Products</a>
-    <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="billing-tab">Estimate template editor</a>
+    <a href="{% url 'billing:estimate_list' %}" class="billing-tab {% if '/billing/estimates' in request.path and '/estimator' not in request.path %}active{% endif %}">Estimates</a>
+    <a href="{% url 'estimator_index' %}" class="billing-tab {% if '/estimator' in request.path %}active{% endif %}">Estimator Tools</a>
+    <a href="{% url 'billing:fertilizer_products_list' %}" class="billing-tab {% if '/fertilizer-products' in request.path %}active{% endif %}">Fertilizer Products</a>
+    <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="billing-tab {% if '/templates/estimate' in request.path %}active{% endif %}">Estimate template editor</a>
   </div>
 
   <div class="estimate-filters">

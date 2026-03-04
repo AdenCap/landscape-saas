@@ -17,7 +17,8 @@ from .analysis import analyze_image, HAS_OPENCV
 
 @role_required("owner")
 def estimator_index(request):
-    """Landing page for Estimator tab: property estimates, fertilizer calculator, mulch/rock calculator."""
+    """Landing page for Estimator tools: property estimates, fertilizer calculator, mulch/rock calculator."""
+    # Redirect to estimates page with estimator tools accessible via tabs
     return render(request, "property_estimator/estimator_index.html")
 
 
