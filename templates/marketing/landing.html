@@ -47,6 +47,9 @@
   .story-copy ul{padding-left:18px;color:#b8b8b8;line-height:1.7;margin:10px 0 0}
   .story-visual{background:linear-gradient(150deg,#12161c,#0d1118);position:relative;overflow:hidden}
   .story-visual:after{content:"";position:absolute;inset:-10% -40% auto auto;width:50%;height:120%;background:linear-gradient(180deg,rgba(96,165,250,.2),transparent 45%);transform:rotate(18deg)}
+  .demo-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+  .demo-mini .tile{border:1px solid #2f3844;border-radius:10px;padding:8px;background:rgba(255,255,255,.02);font-size:11px;color:#9ca3af;transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease)}
+  .demo-mini .tile:hover{transform:translateY(-2px);border-color:#3b82f6}
 
   .showcase{margin-top:18px;border:1px solid #2b313a;border-radius:22px;padding:18px;background:linear-gradient(180deg,#0e1116,#090c11)}
   .show-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}
@@ -137,12 +140,12 @@
 
     <article class="story">
       <div class="story-copy"><h3>Calendar + Daily Routes</h3><ul><li>Drag-and-drop rescheduling in Calendar</li><li>Push work into Daily Routes for execution</li><li>Keep unscheduled jobs visible until assigned</li></ul></div>
-      <div class="story-visual floaty" data-parallax="10"><div class="line"><i></i></div><div class="line"><i style="width:70%"></i></div><div class="line"><i style="width:52%"></i></div></div>
+      <div class="story-visual floaty" data-parallax="10"><div class="line"><i></i></div><div class="line"><i style="width:70%"></i></div><div class="line"><i style="width:52%"></i></div><div class="demo-mini"><div class="tile">Calendar Drag</div><div class="tile">Crew Assign</div><div class="tile">Route Push</div></div></div>
     </article>
 
     <article class="story">
       <div class="story-copy"><h3>Invoices + Estimates</h3><ul><li>Create estimates and convert cleanly to billing</li><li>Track paid/sent/draft status at a glance</li><li>Run monthly invoice workflows without spreadsheet cleanup</li></ul></div>
-      <div class="story-visual floaty" data-parallax="12"><div class="line"><i style="width:58%"></i></div><div class="line"><i style="width:77%"></i></div><div class="line"><i style="width:48%"></i></div></div>
+      <div class="story-visual floaty" data-parallax="12"><div class="line"><i style="width:58%"></i></div><div class="line"><i style="width:77%"></i></div><div class="line"><i style="width:48%"></i></div><div class="demo-mini"><div class="tile">Estimate</div><div class="tile">Invoice Send</div><div class="tile">Payment State</div></div></div>
     </article>
 
     <article class="story">
@@ -224,13 +227,12 @@
 <section class="section" style="padding-top:6px">
   <div class="shell" data-r>
     <h2 class="title">Pricing Preview</h2>
-    <p class="lead">Simple subscription tiers with a clear path to growth.</p>
-    <div class="pricing-grid">
-      <article class="plan"><h3>Starter</h3><div class="price">$29</div><ul><li>Core scheduling + clients</li><li>Single owner setup</li><li>Email support</li></ul></article>
-      <article class="plan featured"><h3>Professional</h3><div class="price">$79</div><ul><li>Dispatch + invoicing automation</li><li>Crew coordination tools</li><li>Priority support</li></ul></article>
-      <article class="plan"><h3>Business</h3><div class="price">$149</div><ul><li>Advanced analytics + controls</li><li>Multi-role access</li><li>Growth workflow modules</li></ul></article>
+    <p class="lead">Directly aligned with the live ProFieldOps subscription plans.</p>
+    <div class="pricing-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+      <article class="plan"><h3>Solo Starter</h3><div class="price">${{ pricing.solo_price }}</div><ul><li>Calendar scheduling</li><li>Client management basics</li><li>Perfect for owner-operators</li></ul></article>
+      <article class="plan featured"><h3>Pro All-Access</h3><div class="price">${{ pricing.pro_price }}</div><ul><li>Dashboard, Jobs, Calendar, Routes</li><li>Invoices, Estimates, Messaging</li><li>Employee Management + Financials</li></ul></article>
     </div>
-    <div class="cta-row" style="margin-top:14px"><a class="btn btn-primary" href="/accounts/signup/">Start Free Trial</a></div>
+    <div class="cta-row" style="margin-top:14px"><a class="btn btn-primary" href="/accounts/signup/">Start Free Trial</a><a class="btn" href="/pricing/">See Full Pricing</a></div>
   </div>
 </section>
 

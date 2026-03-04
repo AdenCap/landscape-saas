@@ -1,6 +1,19 @@
 {% extends "marketing/base_marketing.html" %}
 {% block title %}{{ feature.title }} — ProFieldOps{% endblock %}
 
+{% block extra_css %}
+<style>
+.feature-demo{margin-top:16px;border:1px solid var(--border);border-radius:16px;padding:14px;background:linear-gradient(170deg,#13151a,#0f1217)}
+.demo-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:10px}
+.demo-panel{border:1px solid #2f3640;border-radius:12px;padding:10px;background:rgba(255,255,255,.02);transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease)}
+.demo-panel:hover{transform:translateY(-2px);border-color:#3b82f6}
+.demo-line{height:8px;background:#2a313d;border-radius:999px;margin:8px 0;overflow:hidden}
+.demo-line i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#3b82f6,#7dd3fc);animation:demoFlow 2.4s ease-in-out infinite}
+@keyframes demoFlow{0%,100%{width:40%}50%{width:78%}}
+@media (max-width:900px){.demo-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+
 {% block content %}
 <section class="hero">
   <div class="shell" data-r>
@@ -9,6 +22,18 @@
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <a class="btn btn-primary" href="/accounts/signup/">Start Free Trial</a>
       <a class="btn btn-secondary" href="/features/">Back to all features</a>
+    </div>
+    <div class="feature-demo" data-r>
+      <div class="demo-grid">
+        <div class="demo-panel">
+          <small style="color:var(--muted)">{{ feature.title }} · Live Workflow Preview</small>
+          <div class="demo-line"><i></i></div><div class="demo-line"><i style="width:63%"></i></div><div class="demo-line"><i style="width:51%"></i></div>
+        </div>
+        <div class="demo-panel">
+          <small style="color:var(--muted)">Connected Modules</small>
+          <div class="demo-line"><i style="width:74%"></i></div><div class="demo-line"><i style="width:46%"></i></div><div class="demo-line"><i style="width:69%"></i></div>
+        </div>
+      </div>
     </div>
   </div>
 </section>

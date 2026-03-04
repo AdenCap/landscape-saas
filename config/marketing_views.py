@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.http import Http404
+from django.conf import settings
 
 
 def _marketing_redirect_for_auth(request):
@@ -10,6 +11,13 @@ def _marketing_redirect_for_auth(request):
     if role == "crew":
         return redirect("/jobs/crew/")
     return redirect("/dashboard/")
+
+
+def _pricing_context():
+    return {
+        "solo_price": getattr(settings, "PLATFORM_SOLO_PRICE", "29.99"),
+        "pro_price": getattr(settings, "PLATFORM_PRO_PRICE", "99.99"),
+    }
 
 
 def marketing_home(request):
@@ -23,7 +31,7 @@ def marketing_home(request):
     r = _marketing_redirect_for_auth(request)
     if r:
         return r
-    return render(request, "marketing/landing.html")
+    return render(request, "marketing/landing.html", {"pricing": _pricing_context()})
 
 
 FEATURE_PAGES = {
@@ -89,7 +97,7 @@ def marketing_features(request):
     r = _marketing_redirect_for_auth(request)
     if r:
         return r
-    return render(request, "marketing/features.html", {"feature_pages": FEATURE_PAGES})
+    return render(request, "marketing/features.html", {"feature_pages": FEATURE_PAGES, "pricing": _pricing_context()})
 
 
 def marketing_feature_detail(request, slug):
@@ -99,7 +107,7 @@ def marketing_feature_detail(request, slug):
     feature = FEATURE_PAGES.get(slug)
     if not feature:
         raise Http404("Feature page not found")
-    return render(request, "marketing/feature_detail.html", {"feature": feature, "slug": slug})
+    return render(request, "marketing/feature_detail.html", {"feature": feature, "slug": slug, "pricing": _pricing_context()})
 
 
 def marketing_automation(request):
@@ -113,7 +121,7 @@ def marketing_pricing(request):
     r = _marketing_redirect_for_auth(request)
     if r:
         return r
-    return render(request, "marketing/pricing.html")
+    return render(request, "marketing/pricing.html", {"pricing": _pricing_context()})
 
 
 def terms_of_service(request):
