@@ -1537,15 +1537,17 @@ def update_job_location(request, job_id):
 
 
 @require_GET
-def get_job_tracking(request, job_id, token):
-    """Get real-time tracking info for a job (customer portal)."""
-    from customers.models import Customer
+@role_required("owner")
+def get_job_tracking(request, job_id):
+    """Get real-time tracking info for a job (owner only - customers cannot track technicians)."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
     
     job = get_object_or_404(Job, id=job_id)
-    customer = get_object_or_404(Customer, portal_access_token=token, portal_enabled=True)
     
-    # Verify job belongs to customer
-    if job.property.customer != customer:
+    # Verify job belongs to business
+    if job.property.customer.business != business:
         return JsonResponse({"error": "Unauthorized"}, status=403)
     
     data = {

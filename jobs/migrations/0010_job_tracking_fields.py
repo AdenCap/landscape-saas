@@ -5,7 +5,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('jobs', '0015_add_completed_by_and_completed_at'),
+        ('jobs', '0015_add_completed_by_and_completed_at'),  # Update if newer migrations exist
     ]
 
     operations = [

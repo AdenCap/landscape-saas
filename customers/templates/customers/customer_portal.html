@@ -105,18 +105,6 @@
             border: 1px solid var(--border);
             color: var(--text);
         }
-        .tracking-info {
-            background: var(--bg-elevated);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: var(--space-4);
-            margin-top: var(--space-4);
-        }
-        .eta-display {
-            font-size: var(--h4);
-            color: var(--primary);
-            font-weight: 600;
-        }
     </style>
 </head>
 <body>
@@ -166,14 +154,6 @@
                                     <i data-lucide="user" style="width: 16px; height: 16px; display: inline-block;"></i>
                                     {% if job.assigned_to %}{{ job.assigned_to.get_full_name|default:job.assigned_to.username }}{% elif job.assigned_crew %}{{ job.assigned_crew.name }} Crew{% endif %}
                                 </p>
-                                {% endif %}
-                                {% if job.status == 'in_progress' and job.estimated_arrival_time %}
-                                <div class="tracking-info" style="margin-top: var(--space-3);">
-                                    <div class="eta-display">
-                                        <i data-lucide="map-pin" style="width: 20px; height: 20px; display: inline-block;"></i>
-                                        ETA: {{ job.estimated_arrival_time|date:"g:i A" }}
-                                    </div>
-                                </div>
                                 {% endif %}
                             </div>
                             <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
