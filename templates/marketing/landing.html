@@ -12,6 +12,14 @@
     overflow: hidden;
   }
   
+  /* Ensure design system is loaded - fallback colors if CSS vars fail */
+  .hero-section {
+    background: 
+      radial-gradient(900px 400px at 80% -20%, rgba(59, 130, 246, 0.12), transparent 60%),
+      radial-gradient(700px 300px at 0% -10%, rgba(255, 255, 255, 0.04), transparent 65%),
+      #0a0a0a;
+  }
+  
   .hero-content {
     display: grid;
     grid-template-columns: 1.1fr 0.9fr;
