@@ -11,9 +11,4 @@ services:
     http_port: 8080
     # In DO dashboard: on the *web* component set PG_URL = your Supabase URI, scope = Run Time.
     # Required: DJANGO_SECRET_KEY, DJANGO_DEBUG=0, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, Stripe env vars.
-
-workers:
-  - name: celery-worker
-    dockerfile_path: Dockerfile
-    run_command: celery -A config worker -l info --concurrency=2
-    # Required env: CELERY_BROKER_URL (or REDIS_URL), CELERY_RESULT_BACKEND (or REDIS_URL)
+    # Scheduled tasks run via DO cron jobs (Console > Jobs), not Celery.
