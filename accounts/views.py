@@ -58,7 +58,7 @@ def signup(request):
             user.save()
             login(request, user)
             messages.success(request, f"Welcome! Your business '{business.name}' is set up.")
-            return redirect("/")
+            return redirect("/subscription/status/")
     else:
         form = SignUpForm()
     return render(request, "registration/signup.html", {"form": form})

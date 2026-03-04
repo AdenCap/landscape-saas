@@ -1,48 +1,42 @@
-{% extends "base.html" %}
-
-{% block title %}Login - Field Ops{% endblock %}
+{% extends "marketing/base_marketing.html" %}
+{% block title %}Sign in — Field Ops{% endblock %}
 
 {% block content %}
-<div style="max-width: 400px; margin: 48px auto;">
-  <div class="card" style="padding: 32px;">
-    <h1 style="font-size: 24px; font-weight: 700; margin: 0 0 8px 0;">Sign in</h1>
-    <p style="color: var(--text-muted); margin: 0 0 24px 0;">Log in to access the dashboard.</p>
-
-    {% if form.errors %}
-    <p style="color: #fca5a5; margin-bottom: 16px; font-size: 14px;">
-      Invalid username or password. Please try again.
-    </p>
-    {% endif %}
-
-    <form method="post" action="{% url 'login' %}">
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ next }}" />
-
-      <div style="margin-bottom: 16px;">
-        <label for="id_username" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px;">Username</label>
-        <input type="text" name="username" id="id_username" required autofocus
-          style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px;"
-          placeholder="Enter your username">
+<section class="section" style="padding-top:34px;">
+  <div class="shell" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;">
+    <div class="card" data-r style="padding:22px;">
+      <h1 style="font-size:38px;line-height:1.02;letter-spacing:-.03em;margin:0 0 10px;">Welcome back.</h1>
+      <p class="lead" style="margin-bottom:14px;">Sign in to continue running dispatch, crews, clients, and billing from one control center.</p>
+      <div style="display:grid;gap:10px;">
+        <div class="card" style="background:var(--surface2);padding:12px;"><strong>Dispatch Command Center</strong><p style="margin:6px 0 0;color:var(--muted);">See delays, unassigned jobs, and route pressure instantly.</p></div>
+        <div class="card" style="background:var(--surface2);padding:12px;"><strong>Cash Flow Autopilot</strong><p style="margin:6px 0 0;color:var(--muted);">Track reminders, risk flags, and collections momentum.</p></div>
       </div>
+    </div>
 
-      <div style="margin-bottom: 8px;">
-        <label for="id_password" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px;">Password</label>
-        <input type="password" name="password" id="id_password" required
-          style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px;"
-          placeholder="Enter your password">
-      </div>
-      <p style="margin-bottom: 24px; font-size: 14px;">
-        <a href="{% url 'password_reset' %}" style="color: var(--primary); font-weight: 500;">Forgot password?</a>
-      </p>
+    <div class="card" data-r style="padding:22px;">
+      <h2 style="margin:0 0 6px;font-size:28px;letter-spacing:-.02em;">Sign in</h2>
+      <p style="margin:0 0 16px;color:var(--muted);">Don’t have an account? <a href="{% url 'signup' %}" style="color:var(--text)">Start free trial</a></p>
 
-      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">
-        Sign in
-      </button>
-    </form>
+      {% if form.errors %}
+      <div style="margin-bottom:12px;padding:10px;border:1px solid #7f1d1d;background:#450a0a;color:#fecaca;border-radius:10px;font-size:14px;">Invalid username or password. Please try again.</div>
+      {% endif %}
 
-    <p style="margin-top: 24px; text-align: center; color: var(--text-muted); font-size: 14px;">
-      Don’t have an account? <a href="{% url 'signup' %}" style="color: var(--primary); font-weight: 500;">Sign up</a>
-    </p>
+      <form method="post" action="{% url 'login' %}" style="display:grid;gap:12px;">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}" />
+        <div>
+          <label for="id_username" style="display:block;margin-bottom:6px;font-size:14px;">Username</label>
+          <input id="id_username" name="username" required autofocus placeholder="Enter your username" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+        </div>
+        <div>
+          <label for="id_password" style="display:block;margin-bottom:6px;font-size:14px;">Password</label>
+          <input id="id_password" type="password" name="password" required placeholder="Enter your password" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+          <div style="margin-top:6px;font-size:13px;"><a href="{% url 'password_reset' %}" style="color:var(--muted)">Forgot password?</a></div>
+        </div>
+        <button class="btn btn-primary" type="submit" style="width:100%;">Sign in</button>
+      </form>
+    </div>
   </div>
-</div>
+</section>
+<style>@media(max-width:900px){.shell[style*='grid-template-columns:1fr 1fr']{grid-template-columns:1fr!important}}</style>
 {% endblock %}
