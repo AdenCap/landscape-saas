@@ -81,7 +81,8 @@ def owner_onboarding(request):
     checklist = [
         {
             "key": "business_profile",
-            "label": "Complete business profile/settings",
+            "label": "Business profile",
+            "hint": "Add your company name, address, and logo so invoices look professional.",
             "done": bool(business.name),
             "action_url": "/settings/",
             "action_label": "Open Settings",
@@ -90,6 +91,7 @@ def owner_onboarding(request):
         {
             "key": "first_customer",
             "label": "Add your first customer",
+            "hint": "Add a customer manually or import from a CSV file.",
             "done": customers_count > 0,
             "action_url": "/clients/add/",
             "action_label": "Add Customer",
@@ -99,7 +101,8 @@ def owner_onboarding(request):
         },
         {
             "key": "first_job",
-            "label": "Create your first job",
+            "label": "Create a job",
+            "hint": "Schedule your first job to start tracking work and generating invoices.",
             "done": jobs_count > 0,
             "action_url": "/jobs/create/",
             "action_label": "Create Job",
@@ -107,7 +110,8 @@ def owner_onboarding(request):
         },
         {
             "key": "first_estimate",
-            "label": "Create first estimate/invoice",
+            "label": "Create an estimate or invoice",
+            "hint": "Send a professional estimate or invoice to a customer.",
             "done": Invoice.objects.filter(business=business).exists(),
             "action_url": "/billing/estimates/create/",
             "action_label": "Create Estimate",
@@ -115,7 +119,8 @@ def owner_onboarding(request):
         },
         {
             "key": "smtp",
-            "label": "Connect email sending (SMTP)",
+            "label": "Connect email",
+            "hint": "Set up SMTP so Field Ops can send invoices and estimates on your behalf.",
             "done": smtp_connected,
             "action_url": "/settings/",
             "action_label": "Connect Email",
@@ -123,7 +128,8 @@ def owner_onboarding(request):
         },
         {
             "key": "payments",
-            "label": "Connect Stripe payments (optional)",
+            "label": "Connect payments",
+            "hint": "Link Stripe to accept card payments directly from invoices.",
             "done": stripe_connected,
             "action_url": "/billing/connect/onboarding/",
             "action_label": "Connect Stripe",
@@ -174,16 +180,25 @@ def owner_onboarding(request):
             request.session.modified = True
             return redirect(_onboarding_return_url(target_step))
 
+        # Skip entire onboarding — user doesn't want to be bothered
+        if action == "skip_onboarding":
+            business.onboarding_completed = True
+            business.onboarding_completed_at = timezone.now()
+            business.save(update_fields=["onboarding_completed", "onboarding_completed_at"])
+            request.session.pop(_onboarding_skip_key(business.id), None)
+            messages.info(request, "Setup skipped. You can always configure things from Settings.")
+            return redirect("owner_dashboard")
+
         # Allow completion once core operational steps are done.
         core_ready = customers_count > 0 and jobs_count > 0
         if not core_ready:
-            messages.warning(request, "Finish at least: first customer + first job before completing onboarding.")
+            messages.warning(request, "Add at least one customer and one job before finishing, or click \"Skip setup\" to go straight to the dashboard.")
         else:
             business.onboarding_completed = True
             business.onboarding_completed_at = timezone.now()
             business.save(update_fields=["onboarding_completed", "onboarding_completed_at"])
             request.session.pop(_onboarding_skip_key(business.id), None)
-            messages.success(request, "Onboarding completed. Welcome to your live dashboard.")
+            messages.success(request, "Setup complete! Welcome to your dashboard.")
             return redirect("owner_dashboard")
 
     return render(request, "dashboard/onboarding.html", {

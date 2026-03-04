@@ -2,23 +2,30 @@
 
 {% block content %}
 <div class="onboarding-page">
-  <div class="page-header">
-    <h1>Onboarding Mode</h1>
-    <p>Get your company fully live with a guided setup. Complete the core steps, then launch into the dashboard.</p>
+  <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h1>Welcome to Field Ops</h1>
+      <p>Complete a few quick steps to get your business up and running.</p>
+    </div>
+    <form method="post" style="margin:0;">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="skip_onboarding">
+      <button type="submit" class="btn btn-secondary btn-sm" style="white-space:nowrap;">Skip setup &rarr;</button>
+    </form>
   </div>
 
   <div class="card wizard-focus {% if current_item.done %}done{% endif %}">
     <div class="wizard-meta">Step {{ current_step_number }} of {{ total_count }}</div>
     <h2>{{ current_item.label }}</h2>
-    <p>{% if current_item.done %}This step is complete. You can review it or move to the next step.{% else %}Complete this step now to keep momentum and unlock the next setup milestone.{% endif %}</p>
+    <p>{% if current_item.done %}This step is complete. You can review it or move on.{% else %}{{ current_item.hint|default:"Complete this step to continue setup." }}{% endif %}</p>
     <div class="wizard-actions">
-      {% if prev_step %}<a href="?step={{ prev_step }}" class="btn btn-secondary btn-sm">← Previous step</a>{% endif %}
+      {% if prev_step %}<a href="?step={{ prev_step }}" class="btn btn-secondary btn-sm">&larr; Previous</a>{% endif %}
       <a href="{{ current_item.action_url }}" class="btn btn-primary">{{ current_item.action_label }}</a>
       {% if current_item.secondary_action_url %}
       <a href="{{ current_item.secondary_action_url }}" class="btn btn-secondary btn-sm">{{ current_item.secondary_action_label }}</a>
       {% endif %}
       {% if current_item.optional %}
-      <form method="post" style="display:inline; margin:0;">
+      <form method="post" style="display:inline;margin:0;">
         {% csrf_token %}
         <input type="hidden" name="step" value="{{ current_item.key }}">
         {% if current_item.skipped %}
@@ -26,107 +33,133 @@
           <button type="submit" class="btn btn-secondary btn-sm">Unskip</button>
         {% else %}
           <input type="hidden" name="action" value="skip">
-          <button type="submit" class="btn btn-secondary btn-sm">Skip for now</button>
+          <button type="submit" class="btn btn-secondary btn-sm">Skip</button>
         {% endif %}
       </form>
       {% endif %}
-      {% if next_step %}<a href="?step={{ next_step }}" class="btn btn-secondary btn-sm">Next step →</a>{% endif %}
+      {% if next_step %}<a href="?step={{ next_step }}" class="btn btn-secondary btn-sm">Next &rarr;</a>{% endif %}
     </div>
   </div>
 
   <div class="onboarding-top card">
     <div>
-      <div class="progress-label">Progress</div>
-      <div class="progress-value">{{ done_count }}/{{ total_count }} steps complete ({{ completion_pct }}%)</div>
-      <div class="progress-bar"><span style="width: {{ completion_pct }}%;"></span></div>
+      <div class="progress-label">Setup progress</div>
+      <div class="progress-value">{{ done_count }} of {{ total_count }} complete</div>
+      <div class="progress-bar"><span style="width:{{ completion_pct }}%;"></span></div>
     </div>
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="action" value="finish">
-      <button type="submit" class="btn btn-primary">Finish onboarding</button>
+      <button type="submit" class="btn btn-primary">Finish &amp; go to dashboard</button>
     </form>
   </div>
 
   <div class="onboarding-grid">
     {% for item in checklist %}
-    <div class="card step-card {% if item.effective_done %}done{% endif %} {% if item.key == current_step %}active{% endif %}">
+    <a href="?step={{ item.key }}" class="card step-card {% if item.effective_done %}done{% endif %} {% if item.key == current_step %}active{% endif %}">
       <div class="step-head">
-        <h3>{{ item.label }}</h3>
-        {% if item.done %}
-          <span class="status done">Done</span>
-        {% elif item.skipped %}
-          <span class="status skipped">Skipped</span>
-        {% else %}
-          <span class="status pending">Pending</span>
-        {% endif %}
-      </div>
-      <div class="step-actions">
-        <a href="?step={{ item.key }}" class="btn btn-secondary btn-sm">View step</a>
-        <a href="{{ item.action_url }}" class="btn {% if item.effective_done %}btn-secondary{% else %}btn-primary{% endif %} btn-sm">{{ item.action_label }}</a>
-        {% if item.secondary_action_url %}
-        <a href="{{ item.secondary_action_url }}" class="btn btn-secondary btn-sm">{{ item.secondary_action_label }}</a>
-        {% endif %}
-        {% if item.optional %}
-        <form method="post" style="display:inline; margin:0;">
-          {% csrf_token %}
-          <input type="hidden" name="step" value="{{ item.key }}">
-          {% if item.skipped %}
-            <input type="hidden" name="action" value="unskip">
-            <button type="submit" class="btn btn-secondary btn-sm">Unskip</button>
+        <div class="step-icon">
+          {% if item.done %}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          {% elif item.skipped %}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           {% else %}
-            <input type="hidden" name="action" value="skip">
-            <button type="submit" class="btn btn-secondary btn-sm">Skip for now</button>
+          <span class="step-number">{{ forloop.counter }}</span>
           {% endif %}
-        </form>
-        {% endif %}
+        </div>
+        <div class="step-info">
+          <h3>{{ item.label }}</h3>
+          {% if item.done %}
+            <span class="status done">Done</span>
+          {% elif item.skipped %}
+            <span class="status skipped">Skipped</span>
+          {% else %}
+            <span class="status pending">To do</span>
+          {% endif %}
+        </div>
       </div>
-    </div>
+    </a>
     {% endfor %}
   </div>
 
   <div class="card quick-health">
-    <h3>Live readiness snapshot</h3>
-    <ul>
-      <li>Customers: <strong>{{ customers_count }}</strong></li>
-      <li>Jobs: <strong>{{ jobs_count }}</strong></li>
-      <li>SMTP connected: <strong>{% if smtp_connected %}Yes{% else %}No{% endif %}</strong></li>
-      <li>Stripe connected: <strong>{% if stripe_connected %}Yes{% else %}No{% endif %} (optional)</strong></li>
-    </ul>
+    <h3>Readiness</h3>
+    <div class="health-grid">
+      <div class="health-item {% if customers_count > 0 %}ok{% endif %}">
+        <span class="health-label">Customers</span>
+        <strong>{{ customers_count }}</strong>
+      </div>
+      <div class="health-item {% if jobs_count > 0 %}ok{% endif %}">
+        <span class="health-label">Jobs</span>
+        <strong>{{ jobs_count }}</strong>
+      </div>
+      <div class="health-item {% if smtp_connected %}ok{% endif %}">
+        <span class="health-label">Email</span>
+        <strong>{% if smtp_connected %}Connected{% else %}Not set{% endif %}</strong>
+      </div>
+      <div class="health-item {% if stripe_connected %}ok{% endif %}">
+        <span class="health-label">Payments</span>
+        <strong>{% if stripe_connected %}Connected{% else %}Not set{% endif %}</strong>
+      </div>
+    </div>
   </div>
 </div>
 
 <style>
   .onboarding-page { max-width: 980px; }
-  .wizard-focus { padding:20px; margin-bottom:14px; border-color: rgba(34,197,94,.4); }
-  .wizard-focus.done { border-color: rgba(34,197,94,.7); }
-  .wizard-meta { font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+
+  .wizard-focus { padding:24px; margin-bottom:16px; border-color: var(--primary-muted, rgba(59,130,246,.35)); }
+  .wizard-focus.done { border-color: rgba(34,197,94,.5); }
+  .wizard-meta { font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; font-weight:600; }
   .wizard-focus h2 { margin:0 0 8px; font-size:22px; }
-  .wizard-focus p { margin:0 0 14px; color:var(--text-muted); }
-  .wizard-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .wizard-focus p { margin:0 0 16px; color:var(--text-muted); line-height:1.5; }
+  .wizard-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 
-  .onboarding-top { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:20px; margin-bottom:16px; flex-wrap:wrap; }
-  .progress-label { font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; }
+  .onboarding-top { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px 24px; margin-bottom:16px; flex-wrap:wrap; }
+  .progress-label { font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
   .progress-value { font-size:18px; font-weight:700; margin:6px 0 10px; }
-  .progress-bar { width: 360px; max-width: 100%; height: 10px; border-radius: 999px; background: var(--surface-alt); border: 1px solid var(--border); overflow: hidden; }
-  .progress-bar span { display:block; height:100%; background: linear-gradient(90deg, #22c55e, #16a34a); }
+  .progress-bar { width:360px; max-width:100%; height:8px; border-radius:999px; background:var(--surface-alt); overflow:hidden; }
+  .progress-bar span { display:block; height:100%; border-radius:999px; background:var(--primary); transition:width 0.6s cubic-bezier(.4,0,.2,1); }
 
-  .onboarding-grid { display:grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:16px; }
-  .step-card { padding:16px; }
-  .step-card.done { border-color: rgba(34,197,94,.45); }
-  .step-card.active { border-color: rgba(34,197,94,.75); box-shadow: 0 0 0 1px rgba(34,197,94,.35) inset; }
-  .step-head { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:10px; }
-  .step-head h3 { margin:0; font-size:16px; }
-  .status { font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid var(--border); }
-  .status.done { color:#86efac; border-color:rgba(34,197,94,.5); background:rgba(34,197,94,.12); }
+  .onboarding-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:16px; }
+  .step-card { padding:16px 18px; text-decoration:none; color:var(--text); cursor:pointer; transition:all var(--motion-fast) var(--motion-ease); }
+  .step-card:hover { transform:translateY(-1px); border-color:var(--primary-muted, rgba(59,130,246,.35)); }
+  .step-card.done { border-color:rgba(34,197,94,.35); }
+  .step-card.active { border-color:var(--primary); box-shadow:0 0 0 1px var(--primary-muted, rgba(59,130,246,.2)) inset; }
+  .step-head { display:flex; gap:12px; align-items:center; }
+  .step-icon { flex-shrink:0; width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--surface-alt); border:1px solid var(--border); color:var(--text-muted); }
+  .step-card.done .step-icon { background:rgba(34,197,94,.15); border-color:rgba(34,197,94,.4); color:#22c55e; }
+  .step-card.active:not(.done) .step-icon { background:rgba(59,130,246,.12); border-color:rgba(59,130,246,.4); color:var(--primary); }
+  .step-number { font-size:14px; font-weight:700; }
+  .step-info { flex:1; min-width:0; }
+  .step-info h3 { margin:0 0 2px; font-size:15px; font-weight:600; }
+  .status { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  .status.done { color:#22c55e; }
   .status.pending { color:var(--text-muted); }
-  .status.skipped { color:#fcd34d; border-color: rgba(251,191,36,.5); background: rgba(251,191,36,.1); }
-  .quick-health { padding:16px; }
-  .quick-health h3 { margin:0 0 10px; font-size:16px; }
-  .quick-health ul { margin:0; padding-left:20px; color:var(--text-muted); }
-  .quick-health li { margin-bottom:6px; }
+  .status.skipped { color:#f59e0b; }
 
-  @media (max-width: 800px) {
-    .onboarding-grid { grid-template-columns: 1fr; }
+  .quick-health { padding:20px 24px; }
+  .quick-health h3 { margin:0 0 14px; font-size:16px; font-weight:600; }
+  .health-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .health-item { text-align:center; padding:12px 8px; border-radius:var(--radius); background:var(--surface-alt); border:1px solid var(--border); }
+  .health-item.ok { border-color:rgba(34,197,94,.35); }
+  .health-item .health-label { display:block; font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+  .health-item strong { font-size:16px; }
+  .health-item.ok strong { color:#22c55e; }
+
+  .step-card{animation:slideUp var(--motion-slow) var(--motion-ease-out) both}
+  .step-card:nth-child(1){animation-delay:0ms}
+  .step-card:nth-child(2){animation-delay:60ms}
+  .step-card:nth-child(3){animation-delay:120ms}
+  .step-card:nth-child(4){animation-delay:180ms}
+  .step-card:nth-child(5){animation-delay:240ms}
+  .step-card:nth-child(6){animation-delay:300ms}
+  @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  @media (max-width:800px) {
+    .onboarding-grid { grid-template-columns:1fr; }
+    .health-grid { grid-template-columns:repeat(2,1fr); }
+    .onboarding-top { flex-direction:column; align-items:stretch; }
     .onboarding-top .btn { width:100%; justify-content:center; }
   }
 </style>

@@ -68,6 +68,38 @@ def invoice_list(request):
 
 
 @role_required("owner")
+def invoice_create(request):
+    """Create a new blank draft invoice for a selected customer, then redirect to line-item editor."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("billing:invoice_list")
+
+    customers = Customer.objects.filter(business=business).order_by("name")
+
+    if request.method == "POST":
+        customer_id = request.POST.get("customer")
+        if not customer_id:
+            messages.error(request, "Please select a customer.")
+            return render(request, "billing/invoice_create.html", {"customers": customers})
+
+        customer = get_object_or_404(Customer, id=customer_id, business=business)
+        invoice = Invoice.objects.create(
+            business=business,
+            customer=customer,
+            status="draft",
+            subtotal=Decimal("0"),
+            tax=Decimal("0"),
+            total=Decimal("0"),
+        )
+        _log_invoice_audit(invoice, "created", request=request, details={"method": "manual"})
+        messages.success(request, f"Draft invoice #{invoice.id} created. Add your line items below.")
+        return redirect("billing:invoice_edit_line_items", invoice_id=invoice.id)
+
+    return render(request, "billing/invoice_create.html", {"customers": customers})
+
+
+@role_required("owner")
 def monthly_invoice_list(request):
     """List monthly invoices (period-based), including drafts being built during the month."""
     business = getattr(request.user, "business", None)

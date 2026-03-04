@@ -10,6 +10,7 @@
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
     <a href="{% url 'billing:outstanding_invoices' %}" class="btn btn-secondary">Outstanding</a>
     <a href="{% url 'billing:monthly_invoice_list' %}" class="btn btn-secondary">Monthly</a>
+    <a href="{% url 'billing:invoice_create' %}" class="btn btn-primary">+ Create Invoice</a>
   </div>
 </div>
 
@@ -34,8 +35,12 @@
           <div class="empty-state">
             <i data-lucide="file-plus-2" class="empty-state-icon"></i>
             <div class="empty-state-title">No invoices yet</div>
-            <div class="empty-state-desc">Create your first invoice to start getting paid.</div>
-            <a href="{% url 'billing:invoice_create' %}" class="btn btn-primary">Create Invoice</a>
+            <div class="empty-state-desc">Create an invoice manually, or generate one from a completed job or estimate.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+              <a href="{% url 'billing:invoice_create' %}" class="btn btn-primary">Create Invoice</a>
+              <a href="{% url 'create_job' %}" class="btn btn-secondary">Create Job</a>
+              <a href="{% url 'billing:estimate_create' %}" class="btn btn-secondary">Create Estimate</a>
+            </div>
           </div>
         </td>
       </tr>

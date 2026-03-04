@@ -1,9 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="system">
 <head>
+  <script>
+    // Apply saved theme before paint to prevent flash
+    (function(){var t=localStorage.getItem('fo-theme')||'system';document.documentElement.setAttribute('data-theme',t);})();
+  </script>
   <title>{% block title %}Field Ops{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0a0a0a">
+  <meta name="theme-color" content="#0a0a0a" id="theme-color-meta">
   {% load static %}
   <link rel="icon" href="{% static 'img/logo-icon.svg' %}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
@@ -63,7 +67,7 @@
       line-height: 18px;
       text-align: center;
       background: var(--primary);
-      color: #0a0a0a;
+      color: var(--bg);
       border-radius: 9px;
     }
     .sidebar-create-item .nav-icon { margin-right: 10px; }
@@ -96,14 +100,14 @@
       justify-content: center;
       padding: 12px 16px;
       background: var(--primary);
-      color: #0a0a0a;
+      color: var(--bg);
       font-weight: 600;
       font-size: 15px;
       border-radius: 10px;
     }
     .btn-create:hover {
       background: var(--primary-hover);
-      color: #0a0a0a;
+      color: var(--bg);
     }
     .sidebar-create-dropdown {
       position: absolute;
@@ -152,7 +156,7 @@
       margin: 16px 0;
     }
     .sidebar-footer .btn-nav {
-      color: rgba(255,255,255,0.6);
+      color: var(--text-muted);
     }
     .logout-form-inline {
       display: block;
@@ -208,7 +212,7 @@
 
     .topbar {
       display: none;
-      background: #0a0a0a;
+      background: var(--bg);
       padding: 12px 16px;
       gap: 8px;
       flex-wrap: wrap;
@@ -300,6 +304,15 @@
       .context-panel { position: static; }
     }
 
+    /* Theme toggle */
+    .theme-toggle-btn .theme-icon-dark,
+    .theme-toggle-btn .theme-icon-light,
+    .theme-toggle-btn .theme-icon-system { display: none; }
+    [data-theme="dark"] .theme-toggle-btn .theme-icon-dark { display: block; }
+    [data-theme="light"] .theme-toggle-btn .theme-icon-light { display: block; }
+    [data-theme="system"] .theme-toggle-btn .theme-icon-system { display: block; }
+    .theme-label { font-size: 14px; }
+
     .link-primary { color: var(--primary); font-weight: 500; text-decoration: none; }
     .link-primary:hover { text-decoration: underline; }
 
@@ -323,7 +336,7 @@
         padding-left: max(16px, env(safe-area-inset-left));
         padding-right: max(16px, env(safe-area-inset-right));
         padding-top: max(12px, env(safe-area-inset-top));
-        background: #0a0a0a;
+        background: var(--bg);
         border-bottom: 1px solid var(--border);
         min-height: 52px;
       }
@@ -353,7 +366,7 @@
         padding-bottom: env(safe-area-inset-bottom, 0);
         padding-left: env(safe-area-inset-left, 0);
         padding-right: env(safe-area-inset-right, 0);
-        background: #0a0a0a;
+        background: var(--bg);
         border-top: 1px solid var(--border);
         z-index: 90;
         justify-content: space-around;
@@ -378,7 +391,7 @@
       .bottom-nav a:hover { color: var(--text); }
       .bottom-nav a.active { color: var(--primary); }
       .bottom-nav .nav-icon { width: 24px; height: 24px; }
-      .bottom-nav-count { display: inline-block; min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; background: var(--primary); color: #0a0a0a; border-radius: 9px; }
+      .bottom-nav-count { display: inline-block; min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; background: var(--primary); color: var(--bg); border-radius: 9px; }
       .bottom-nav-create-wrap { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; }
       .bottom-nav-plus {
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
@@ -545,7 +558,7 @@
           <a href="{% url 'customer_create' %}" class="sidebar-create-item"><i data-lucide="user-plus" class="nav-icon"></i> New client</a>
           <a href="{% url 'billing:estimate_create' %}" class="sidebar-create-item"><i data-lucide="file-text" class="nav-icon"></i> New quote</a>
           <a href="{% url 'create_job' %}" class="sidebar-create-item"><i data-lucide="clipboard-list" class="nav-icon"></i> New job</a>
-          <a href="{% url 'billing:invoice_list' %}" class="sidebar-create-item"><i data-lucide="file-plus-2" class="nav-icon"></i> New invoice</a>
+          <a href="{% url 'billing:invoice_create' %}" class="sidebar-create-item"><i data-lucide="file-plus-2" class="nav-icon"></i> New invoice</a>
         </div>
       </div>
       {% endif %}
@@ -619,6 +632,12 @@
 
       <div class="sidebar-divider"></div>
       <div class="sidebar-footer">
+        <button type="button" class="btn btn-nav theme-toggle-btn" id="theme-toggle" aria-label="Toggle theme">
+          <svg class="nav-icon theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="nav-icon theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="nav-icon theme-icon-system" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span class="theme-label">System</span>
+        </button>
         {% if user.is_superuser %}
         {% if request.session.platform_business_id %}
         <a href="{% url 'platform_exit' %}" class="btn btn-nav">Exit business view</a>
@@ -664,6 +683,7 @@
             <a href="{% url 'customer_create' %}" role="menuitem">New client</a>
             <a href="{% url 'create_job' %}" role="menuitem">New job</a>
             <a href="{% url 'billing:estimate_create' %}" role="menuitem">Estimate</a>
+            <a href="{% url 'billing:invoice_create' %}" role="menuitem">Invoice</a>
           </div>
         </div>
       {% endif %}
@@ -697,6 +717,12 @@
           {% endif %}
         </nav>
         <div class="mobile-drawer-footer">
+          <button type="button" class="btn btn-nav theme-toggle-btn" id="theme-toggle-mobile" aria-label="Toggle theme" style="margin-bottom:8px;">
+            <svg class="nav-icon theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="nav-icon theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg class="nav-icon theme-icon-system" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <span class="theme-label">System</span>
+          </button>
           <form action="{% url 'logout' %}" method="post">
             {% csrf_token %}
             <button type="submit" class="btn btn-nav">Log out</button>
@@ -811,6 +837,33 @@
   {% endif %}
   {% endif %}
 <script>window.lucide&&window.lucide.createIcons();</script>
+<script>
+(function(){
+  var order=['system','light','dark'];
+  var labels={system:'System',light:'Light',dark:'Dark'};
+  function getTheme(){return localStorage.getItem('fo-theme')||'system';}
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme',t);
+    localStorage.setItem('fo-theme',t);
+    var meta=document.getElementById('theme-color-meta');
+    if(meta){
+      var isDark=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);
+      meta.content=isDark?'#0a0a0a':'#ffffff';
+    }
+    document.querySelectorAll('.theme-label').forEach(function(el){el.textContent=labels[t];});
+  }
+  function cycle(){
+    var cur=getTheme();
+    var next=order[(order.indexOf(cur)+1)%order.length];
+    applyTheme(next);
+  }
+  var btn=document.getElementById('theme-toggle');
+  var btnM=document.getElementById('theme-toggle-mobile');
+  if(btn)btn.addEventListener('click',cycle);
+  if(btnM)btnM.addEventListener('click',cycle);
+  applyTheme(getTheme());
+})();
+</script>
 <script>
 (function(){
   var container=document.getElementById('toast-container');

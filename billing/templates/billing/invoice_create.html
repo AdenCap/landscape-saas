@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <a href="{% url 'billing:invoice_list' %}" class="link-primary" style="font-size: 14px; margin-bottom: 4px; display: inline-block;">&larr; All invoices</a>
+  <h1>Create Invoice</h1>
+  <p>Select a customer to create a new draft invoice.</p>
+</div>
+
+<div class="card" style="max-width: 560px;">
+  <form method="post">
+    {% csrf_token %}
+    <div style="margin-bottom: 20px;">
+      <label for="customer" style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--text);">Customer</label>
+      <select name="customer" id="customer" required
+        style="width: 100%; padding: 10px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 15px; transition: border-color var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease);">
+        <option value="">— Choose a customer —</option>
+        {% for c in customers %}
+        <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+      {% if not customers %}
+      <p style="margin-top: 8px; font-size: 13px; color: var(--text-muted);">
+        No customers yet. <a href="{% url 'customer_create' %}" class="link-primary">Add a customer first</a>.
+      </p>
+      {% endif %}
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button type="submit" class="btn btn-primary"{% if not customers %} disabled{% endif %}>Create Draft Invoice</button>
+      <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
