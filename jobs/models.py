@@ -248,6 +248,32 @@ class Meeting(models.Model):
         help_text="Optional: client you're meeting with.",
     )
     location = models.CharField(max_length=255, blank=True)
+    
+    # Real-time tracking for customer portal
+    technician_latitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True,
+        help_text="Current technician location (for customer tracking)"
+    )
+    technician_longitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True,
+        help_text="Current technician location (for customer tracking)"
+    )
+    technician_location_updated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Last time technician location was updated"
+    )
+    estimated_arrival_time = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Estimated arrival time shown to customer"
+    )
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

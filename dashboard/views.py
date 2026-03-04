@@ -348,9 +348,8 @@ def reliability_center(request):
             next_retry = "manual review recommended"
         retry_candidates.append({"event": w, "age_min": age_min, "next_retry": next_retry})
 
-    quickbooks_connected = bool(
-        Invoice.objects.filter(business=business).exclude(quickbooks_invoice_id__isnull=True).exclude(quickbooks_invoice_id="").exists()
-    )
+    # QuickBooks integration removed
+    quickbooks_connected = False
     stripe_connected = bool(getattr(business, "stripe_connect_account_id", ""))
     smtp_connected = bool(getattr(business, "email_smtp_user", "") and getattr(business, "email_smtp_password", ""))
 
@@ -366,7 +365,6 @@ def reliability_center(request):
 
     return render(request, "dashboard/reliability_center.html", {
         "recent_webhooks": recent_webhooks,
-        "quickbooks_connected": quickbooks_connected,
         "stripe_connected": stripe_connected,
         "smtp_connected": smtp_connected,
         "webhook_failures": webhook_failures,
@@ -767,7 +765,6 @@ def employee_management(request):
         "payroll_payments": payroll_payments,
         "payroll_total": payroll_total,
         "payroll_unsynced_count": len(payroll_unsynced),
-        "quickbooks_connected": quickbooks_connected,
         "is_owner": is_owner,
         "time_off_requests": time_off_requests,
         "schedule_employees": schedule_employees,

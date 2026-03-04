@@ -169,14 +169,12 @@ def invoice_detail(request, invoice_id):
     invoice = get_object_or_404(qs)
     invoice.recompute_totals()
     items = invoice.line_items.all()
-    quickbooks_connected = bool(business and getattr(business, "quickbooks_connection", None))
     is_monthly = bool(invoice.job_id is None and invoice.period_start)
     audit_logs = invoice.audit_logs.select_related("user")[:10]
     doc_template = DocumentTemplate.get_default_for_business(invoice.business, "invoice") if invoice.business_id else None
     return render(request, "billing/invoice_detail.html", {
         "invoice": invoice,
         "items": items,
-        "quickbooks_connected": quickbooks_connected,
         "is_monthly_invoice": is_monthly,
         "audit_logs": audit_logs,
         "doc_template": doc_template,

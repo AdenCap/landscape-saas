@@ -1503,3 +1503,60 @@ def fertilization_schedule(request):
         "start_month": start_m,
         "end_month": end_m,
     })
+
+# Real-time tracking API endpoints
+@require_POST
+@login_required
+def update_job_location(request, job_id):
+    """Update technician location and ETA for a job (for customer tracking)."""
+    job = get_object_or_404(Job, id=job_id)
+    
+    # Verify user has access (assigned to job or is owner)
+    business = get_business(request)
+    if not business or job.property.customer.business != business:
+        return JsonResponse({"error": "Unauthorized"}, status=403)
+    
+    if job.assigned_to != request.user and job.assigned_crew and request.user not in job.assigned_crew.members.all() and request.user.role != 'owner':
+        return JsonResponse({"error": "Not assigned to this job"}, status=403)
+    
+    try:
+        latitude = float(request.POST.get('latitude', 0))
+        longitude = float(request.POST.get('longitude', 0))
+        eta_minutes = int(request.POST.get('eta_minutes', 0))
+        
+        job.technician_latitude = latitude
+        job.technician_longitude = longitude
+        if eta_minutes > 0:
+            job.estimated_arrival_time = timezone.now() + timedelta(minutes=eta_minutes)
+        job.technician_location_updated_at = timezone.now()
+        job.save(update_fields=['technician_latitude', 'technician_longitude', 'estimated_arrival_time', 'technician_location_updated_at'])
+        
+        return JsonResponse({"success": True, "eta": job.estimated_arrival_time.isoformat() if job.estimated_arrival_time else None})
+    except (ValueError, TypeError) as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+@require_GET
+def get_job_tracking(request, job_id, token):
+    """Get real-time tracking info for a job (customer portal)."""
+    from customers.models import Customer
+    
+    job = get_object_or_404(Job, id=job_id)
+    customer = get_object_or_404(Customer, portal_access_token=token, portal_enabled=True)
+    
+    # Verify job belongs to customer
+    if job.property.customer != customer:
+        return JsonResponse({"error": "Unauthorized"}, status=403)
+    
+    data = {
+        "status": job.status,
+        "has_location": bool(job.technician_latitude and job.technician_longitude),
+        "latitude": float(job.technician_latitude) if job.technician_latitude else None,
+        "longitude": float(job.technician_longitude) if job.technician_longitude else None,
+        "location_updated_at": job.technician_location_updated_at.isoformat() if job.technician_location_updated_at else None,
+        "estimated_arrival_time": job.estimated_arrival_time.isoformat() if job.estimated_arrival_time else None,
+        "assigned_to": job.assigned_to.get_full_name() if job.assigned_to else None,
+        "assigned_crew": job.assigned_crew.name if job.assigned_crew else None,
+    }
+    
+    return JsonResponse(data)

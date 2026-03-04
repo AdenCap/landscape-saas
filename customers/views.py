@@ -132,6 +132,12 @@ def customer_detail(request, customer_id):
     client_messages = customer.messages.all()[:50]
     send_message_form = SendMessageForm()
 
+    # Generate portal link if not exists
+    if not customer.portal_access_token:
+        customer.save()  # This will auto-generate the token
+    
+    portal_url = request.build_absolute_uri(f"/clients/portal/{customer.portal_access_token}/") if customer.portal_access_token else None
+
     return render(request, "customers/customer_detail.html", {
         "customer": customer,
         "properties": properties,
@@ -141,6 +147,7 @@ def customer_detail(request, customer_id):
         "total_revenue": total_revenue,
         "client_messages": client_messages,
         "send_message_form": send_message_form,
+        "portal_url": portal_url,
     })
 
 
@@ -585,3 +592,115 @@ def review_opt_out(request, token):
     customer.google_review_status = "opted_out"
     customer.save(update_fields=["google_review_status", "updated_at"])
     return render(request, "customers/review_action_result.html", {"title": "You’re unsubscribed", "message": "Got it — you won’t receive any more Google review reminders."})
+
+
+# Customer Portal Views (public access via token)
+@require_http_methods(["GET", "POST"])
+def customer_portal(request, token):
+    """Customer portal: self-service booking, rescheduling, service history, payments."""
+    customer = get_object_or_404(Customer, portal_access_token=token, portal_enabled=True)
+    business = customer.business
+    
+    # Get customer's jobs, invoices, and service history
+    jobs = Job.objects.filter(
+        property__customer=customer
+    ).select_related('property', 'assigned_to', 'assigned_crew').order_by('-scheduled_date')[:50]
+    
+    invoices = Invoice.objects.filter(
+        customer=customer
+    ).order_by('-issue_date')[:20]
+    
+    # Properties for booking
+    properties = customer.properties.all()
+    
+    return render(request, "customers/customer_portal.html", {
+        "customer": customer,
+        "business": business,
+        "jobs": jobs,
+        "invoices": invoices,
+        "properties": properties,
+    })
+
+
+@require_http_methods(["GET", "POST"])
+def customer_portal_booking(request, token):
+    """Online booking form for customers."""
+    customer = get_object_or_404(Customer, portal_access_token=token, portal_enabled=True)
+    business = customer.business
+    
+    if request.method == "POST":
+        property_id = request.POST.get("property_id")
+        service_date = request.POST.get("service_date")
+        service_time = request.POST.get("service_time")
+        notes = request.POST.get("notes", "").strip()
+        
+        try:
+            property_obj = Property.objects.get(id=property_id, customer=customer)
+            
+            job = Job.objects.create(
+                property=property_obj,
+                scheduled_date=service_date,
+                scheduled_time=service_time if service_time else None,
+                status='scheduled',
+                notes=notes,
+            )
+            messages.success(request, "Service request submitted! We'll confirm your appointment soon.")
+            return redirect("customer_portal", token=token)
+        except Exception as e:
+            messages.error(request, f"Error creating booking: {str(e)}")
+    
+    properties = customer.properties.all()
+    # Get available services
+    from pricing.models import ServiceTemplate
+    services = ServiceTemplate.objects.filter(business=business, active=True).order_by('name')
+    
+    return render(request, "customers/customer_portal_booking.html", {
+        "customer": customer,
+        "business": business,
+        "properties": properties,
+        "services": services,
+    })
+
+
+@require_http_methods(["POST"])
+def customer_portal_reschedule(request, token, job_id):
+    """Customer reschedules a job."""
+    customer = get_object_or_404(Customer, portal_access_token=token, portal_enabled=True)
+    
+    try:
+        job = Job.objects.get(id=job_id, property__customer=customer)
+        
+        new_date = request.POST.get("new_date")
+        new_time = request.POST.get("new_time")
+        
+        if new_date:
+            job.scheduled_date = new_date
+            job.scheduled_time = new_time if new_time else None
+            job.save(update_fields=['scheduled_date', 'scheduled_time'])
+            messages.success(request, "Job rescheduled successfully.")
+        else:
+            messages.error(request, "Please select a new date.")
+    except Job.DoesNotExist:
+        messages.error(request, "Job not found.")
+    except Exception as e:
+        messages.error(request, f"Error: {str(e)}")
+    
+    return redirect("customer_portal", token=token)
+
+
+@require_http_methods(["POST"])
+def customer_portal_cancel(request, token, job_id):
+    """Customer cancels a job."""
+    customer = get_object_or_404(Customer, portal_access_token=token, portal_enabled=True)
+    
+    try:
+        job = Job.objects.get(id=job_id, property__customer=customer, status__in=['scheduled', 'in_progress'])
+        job.status = 'skipped'
+        job.save(update_fields=['status'])
+        messages.success(request, "Job cancelled. We'll contact you to reschedule.")
+    except Job.DoesNotExist:
+        messages.error(request, "Job not found.")
+    except Exception as e:
+        messages.error(request, f"Error: {str(e)}")
+    
+    return redirect("customer_portal", token=token)

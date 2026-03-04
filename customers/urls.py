@@ -17,4 +17,10 @@ urlpatterns = [
     path("<int:customer_id>/contracts/<int:contract_id>/edit/", views.contract_edit, name="contract_edit"),
     path("reviews/confirm/<str:token>/", views.review_mark_done, name="review_mark_done"),
     path("reviews/opt-out/<str:token>/", views.review_opt_out, name="review_opt_out"),
+    
+    # Customer Portal (public access via token)
+    path("portal/<str:token>/", views.customer_portal, name="customer_portal"),
+    path("portal/<str:token>/booking/", views.customer_portal_booking, name="customer_portal_booking"),
+    path("portal/<str:token>/jobs/<int:job_id>/reschedule/", views.customer_portal_reschedule, name="customer_portal_reschedule"),
+    path("portal/<str:token>/jobs/<int:job_id>/cancel/", views.customer_portal_cancel, name="customer_portal_cancel"),
 ]

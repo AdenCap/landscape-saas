@@ -1,0 +1,256 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Portal - {{ business.name }}</title>
+    <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=2.0">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-family);
+            margin: 0;
+            padding: 0;
+        }
+        .portal-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--space-6);
+        }
+        .portal-header {
+            text-align: center;
+            margin-bottom: var(--space-8);
+            padding: var(--space-8) 0;
+        }
+        .portal-header h1 {
+            font-size: var(--h1);
+            margin-bottom: var(--space-2);
+        }
+        .portal-nav {
+            display: flex;
+            gap: var(--space-2);
+            justify-content: center;
+            margin-bottom: var(--space-8);
+            flex-wrap: wrap;
+        }
+        .portal-nav a {
+            padding: var(--space-3) var(--space-4);
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .portal-nav a:hover, .portal-nav a.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        .portal-section {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            margin-bottom: var(--space-6);
+        }
+        .portal-section h2 {
+            font-size: var(--h3);
+            margin-bottom: var(--space-4);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+        .job-card, .invoice-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+            margin-bottom: var(--space-3);
+        }
+        .job-status {
+            display: inline-block;
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--radius-sm);
+            font-size: var(--text-sm);
+            font-weight: 500;
+        }
+        .job-status.scheduled { background: #3b82f6; color: white; }
+        .job-status.in_progress { background: #f59e0b; color: white; }
+        .job-status.completed { background: #22c55e; color: white; }
+        .job-status.skipped { background: #6b7280; color: white; }
+        .btn-portal {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            text-decoration: none;
+            font-size: var(--text-sm);
+            transition: all 0.2s;
+        }
+        .btn-portal:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        .btn-portal-secondary {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .tracking-info {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+            margin-top: var(--space-4);
+        }
+        .eta-display {
+            font-size: var(--h4);
+            color: var(--primary);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="portal-container">
+        <div class="portal-header">
+            <h1>{{ business.name }}</h1>
+            <p>Welcome, {{ customer.name }}</p>
+        </div>
+
+        <nav class="portal-nav">
+            <a href="{% url 'customer_portal' token %}" class="active">Dashboard</a>
+            <a href="{% url 'customer_portal_booking' token %}">Book Service</a>
+        </nav>
+
+        {% if messages %}
+        <div style="margin-bottom: var(--space-4);">
+            {% for message in messages %}
+            <div style="padding: var(--space-3); background: {% if message.tags == 'error' %}#ef4444{% elif message.tags == 'success' %}#22c55e{% else %}#3b82f6{% endif %}; color: white; border-radius: var(--radius-md); margin-bottom: var(--space-2);">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Upcoming Jobs -->
+        <div class="portal-section">
+            <h2><i data-lucide="calendar"></i> Upcoming Services</h2>
+            {% if jobs %}
+                {% for job in jobs %}
+                    {% if job.status != 'completed' %}
+                    <div class="job-card">
+                        <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: var(--space-4);">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
+                                    <span class="job-status {{ job.status }}">{{ job.get_status_display }}</span>
+                                    <strong>{{ job.property.address }}</strong>
+                                </div>
+                                {% if job.scheduled_date %}
+                                <p style="margin: 0; color: var(--text-secondary);">
+                                    <i data-lucide="clock" style="width: 16px; height: 16px; display: inline-block;"></i>
+                                    {{ job.scheduled_date|date:"F j, Y" }}
+                                    {% if job.scheduled_time %}{{ job.scheduled_time|time:"g:i A" }}{% endif %}
+                                </p>
+                                {% endif %}
+                                {% if job.assigned_to or job.assigned_crew %}
+                                <p style="margin: var(--space-2) 0 0 0; color: var(--text-secondary);">
+                                    <i data-lucide="user" style="width: 16px; height: 16px; display: inline-block;"></i>
+                                    {% if job.assigned_to %}{{ job.assigned_to.get_full_name|default:job.assigned_to.username }}{% elif job.assigned_crew %}{{ job.assigned_crew.name }} Crew{% endif %}
+                                </p>
+                                {% endif %}
+                                {% if job.status == 'in_progress' and job.estimated_arrival_time %}
+                                <div class="tracking-info" style="margin-top: var(--space-3);">
+                                    <div class="eta-display">
+                                        <i data-lucide="map-pin" style="width: 20px; height: 20px; display: inline-block;"></i>
+                                        ETA: {{ job.estimated_arrival_time|date:"g:i A" }}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                                {% if job.status == 'scheduled' %}
+                                <form method="post" action="{% url 'customer_portal_reschedule' token job.id %}" style="display: inline;">
+                                    {% csrf_token %}
+                                    <input type="date" name="new_date" value="{{ job.scheduled_date|date:'Y-m-d' }}" required>
+                                    <input type="time" name="new_time" value="{{ job.scheduled_time|time:'H:i' }}">
+                                    <button type="submit" class="btn-portal btn-portal-secondary">Reschedule</button>
+                                </form>
+                                <form method="post" action="{% url 'customer_portal_cancel' token job.id %}" style="display: inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-portal btn-portal-secondary" onclick="return confirm('Cancel this service?')">Cancel</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <p style="color: var(--text-secondary);">No upcoming services scheduled.</p>
+            {% endif %}
+        </div>
+
+        <!-- Service History -->
+        <div class="portal-section">
+            <h2><i data-lucide="history"></i> Service History</h2>
+            {% for job in jobs %}
+                {% if job.status == 'completed' %}
+                <div class="job-card">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <strong>{{ job.property.address }}</strong>
+                            <p style="margin: var(--space-1) 0 0 0; color: var(--text-secondary);">
+                                Completed on {{ job.completed_at|date:"F j, Y"|default:job.scheduled_date|date:"F j, Y" }}
+                            </p>
+                        </div>
+                        <span class="job-status completed">Completed</span>
+                    </div>
+                </div>
+                {% endif %}
+            {% empty %}
+                <p style="color: var(--text-secondary);">No service history yet.</p>
+            {% endfor %}
+        </div>
+
+        <!-- Invoices -->
+        <div class="portal-section">
+            <h2><i data-lucide="file-text"></i> Invoices</h2>
+            {% for invoice in invoices %}
+            <div class="invoice-card">
+                <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: var(--space-4);">
+                    <div>
+                        <strong>Invoice #{{ invoice.invoice_number }}</strong>
+                        <p style="margin: var(--space-1) 0 0 0; color: var(--text-secondary);">
+                            {{ invoice.issue_date|date:"F j, Y" }} • ${{ invoice.total|floatformat:2 }}
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: var(--space-2); align-items: center;">
+                        <span class="job-status {% if invoice.status == 'paid' %}completed{% elif invoice.status == 'overdue' %}{% else %}scheduled{% endif %}">
+                            {{ invoice.get_status_display }}
+                        </span>
+                        {% if invoice.status != 'paid' %}
+                        <a href="{% url 'billing:invoice_pay' invoice.id invoice.payment_token %}" class="btn-portal">Pay Now</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+                <p style="color: var(--text-secondary);">No invoices yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

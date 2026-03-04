@@ -37,5 +37,9 @@ urlpatterns = [
     path("<int:job_id>/items/add/", views.add_job_service_item, name="add_job_service_item"),
     path("<int:job_id>/items/<int:item_id>/remove/", views.remove_job_service_item, name="remove_job_service_item"),
     path("<int:job_id>/costs/", views.job_update_costs, name="job_update_costs"),
+    
+    # Real-time tracking
+    path("<int:job_id>/tracking/update/", views.update_job_location, name="update_job_location"),
+    path("<int:job_id>/tracking/<str:token>/", views.get_job_tracking, name="get_job_tracking"),
 
 ]

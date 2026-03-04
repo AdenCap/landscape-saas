@@ -1,0 +1,163 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Service - {{ business.name }}</title>
+    <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=2.0">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-family);
+            margin: 0;
+            padding: 0;
+        }
+        .portal-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: var(--space-6);
+        }
+        .portal-header {
+            text-align: center;
+            margin-bottom: var(--space-8);
+            padding: var(--space-8) 0;
+        }
+        .portal-header h1 {
+            font-size: var(--h1);
+            margin-bottom: var(--space-2);
+        }
+        .portal-nav {
+            display: flex;
+            gap: var(--space-2);
+            justify-content: center;
+            margin-bottom: var(--space-8);
+            flex-wrap: wrap;
+        }
+        .portal-nav a {
+            padding: var(--space-3) var(--space-4);
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .portal-nav a:hover, .portal-nav a.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        .booking-form {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+        }
+        .form-group {
+            margin-bottom: var(--space-4);
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: var(--space-2);
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: var(--space-3);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text);
+            font-family: var(--font-family);
+            font-size: var(--text-base);
+        }
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: var(--space-4);
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: var(--text-base);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-submit:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <div class="portal-container">
+        <div class="portal-header">
+            <h1>Book a Service</h1>
+            <p>{{ business.name }}</p>
+        </div>
+
+        <nav class="portal-nav">
+            <a href="{% url 'customer_portal' token %}">Dashboard</a>
+            <a href="{% url 'customer_portal_booking' token %}" class="active">Book Service</a>
+        </nav>
+
+        {% if messages %}
+        <div style="margin-bottom: var(--space-4);">
+            {% for message in messages %}
+            <div style="padding: var(--space-3); background: {% if message.tags == 'error' %}#ef4444{% elif message.tags == 'success' %}#22c55e{% else %}#3b82f6{% endif %}; color: white; border-radius: var(--radius-md); margin-bottom: var(--space-2);">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="booking-form">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="property_id">Property *</label>
+                    <select name="property_id" id="property_id" required>
+                        <option value="">Select a property</option>
+                        {% for property in properties %}
+                        <option value="{{ property.id }}">{{ property.address }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="service_date">Preferred Date *</label>
+                    <input type="date" name="service_date" id="service_date" required min="{{ 'now'|date:'Y-m-d' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="service_time">Preferred Time (optional)</label>
+                    <input type="time" name="service_time" id="service_time">
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Additional Notes</label>
+                    <textarea name="notes" id="notes" placeholder="Any special instructions or requests..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-submit">Submit Service Request</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        // Set minimum date to today
+        document.getElementById('service_date').min = new Date().toISOString().split('T')[0];
+    </script>
+</body>
+</html>

@@ -96,7 +96,6 @@ INSTALLED_APPS = [
     'dashboard.apps.DashboardConfig',
     'time_tracking',
     'property_estimator',
-    'quickbooks',
     'financials',
     'subscription',
 ]
@@ -108,10 +107,7 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_SUBSCRIPTION_PRICE_ID = os.environ.get("STRIPE_SUBSCRIPTION_PRICE_ID", "")
 STRIPE_CONNECT_APPLICATION_FEE_PERCENT = float(os.environ.get("STRIPE_CONNECT_APPLICATION_FEE_PERCENT", "0") or "0")
 
-# QuickBooks Online integration – set via environment variables (never commit secrets)
-QUICKBOOKS_CLIENT_ID = os.environ.get("QUICKBOOKS_CLIENT_ID", "")
-QUICKBOOKS_CLIENT_SECRET = os.environ.get("QUICKBOOKS_CLIENT_SECRET", "")
-QUICKBOOKS_REDIRECT_URI = os.environ.get("QUICKBOOKS_REDIRECT_URI", "")  # e.g. https://yourdomain.com/quickbooks/callback/
+# QuickBooks Online integration removed - using built-in features instead
 
 _middleware = ['django.middleware.security.SecurityMiddleware']
 try:

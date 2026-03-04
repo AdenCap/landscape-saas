@@ -81,11 +81,30 @@ class Customer(models.Model):
         help_text="Override due date for this client: days from issue date (e.g. 15 = Net 15). Leave blank to use business default.",
     )
 
+    # Customer Portal access
+    portal_access_token = models.CharField(
+        max_length=64,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Secure token for customer portal access (auto-generated)"
+    )
+    portal_enabled = models.BooleanField(
+        default=True,
+        help_text="Allow customer to access their portal"
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
+    
+    def save(self, *args, **kwargs):
+        if not self.portal_access_token:
+            import secrets
+            self.portal_access_token = secrets.token_urlsafe(48)
+        super().save(*args, **kwargs)
 
     @property
     def full_address(self):

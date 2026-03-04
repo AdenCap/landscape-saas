@@ -6,12 +6,49 @@
     <h1>{{ customer.name }}</h1>
     <p>Client profile</p>
   </div>
-  <a href="{% url 'customer_edit' customer.id %}" class="btn btn-secondary">Edit Client</a>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <a href="{% url 'customer_edit' customer.id %}" class="btn btn-secondary">Edit Client</a>
+    {% if customer.portal_access_token %}
+    <a href="{% url 'customer_portal' customer.portal_access_token %}" target="_blank" class="btn btn-primary">
+      <i data-lucide="external-link" style="width: 16px; height: 16px;"></i> View Customer Portal
+    </a>
+    {% endif %}
+  </div>
 </div>
 
 <div class="crm-grid">
   <div class="card">
-    <h2 class="card-title">Contact</h2>
+    <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+      Contact
+      {% if portal_url %}
+      <div style="display: flex; gap: 8px;">
+        <a href="{{ portal_url }}" target="_blank" class="btn btn-secondary btn-sm">
+          <i data-lucide="external-link" style="width: 14px; height: 14px;"></i> View Portal
+        </a>
+        {% if customer.email %}
+        <form method="post" action="{% url 'customer_send_message' customer.id %}" style="display: inline;">
+          {% csrf_token %}
+          <input type="hidden" name="channel" value="email">
+          <input type="hidden" name="subject" value="Your Customer Portal Access - {{ business.name }}">
+          <input type="hidden" name="body" value="Hi {{ customer.name }},
+
+You can now access your customer portal to:
+• Book and reschedule services
+• View service history
+• Pay invoices online
+• Track technician arrival times
+
+Access your portal here: {{ portal_url }}
+
+Thank you for choosing {{ business.name }}!">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i data-lucide="mail" style="width: 14px; height: 14px;"></i> Email Portal Link
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+    </h2>
     <dl class="contact-dl">
       {% if customer.phone %}
       <dt>Phone</dt>
