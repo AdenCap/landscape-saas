@@ -44,6 +44,15 @@
     @media (max-width:700px){.shell{padding:0 16px}.grid{grid-template-columns:1fr}.links a.hide-sm{display:none}.btn{padding:10px 14px}}
   </style>
   {% block extra_css %}{% endblock %}
+{% if ga_measurement_id %}
+  <script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_measurement_id }}"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', '{{ ga_measurement_id }}');
+  </script>
+{% endif %}
 </head>
 <body>
   <div class="progress"></div>

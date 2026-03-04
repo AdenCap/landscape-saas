@@ -29,7 +29,7 @@ from config.platform_views import (
 )
 from config.marketing_views import (
     marketing_home, marketing_features, marketing_feature_detail, marketing_automation, marketing_pricing,
-    terms_of_service, privacy_policy,
+    terms_of_service, privacy_policy, robots_txt, sitemap_xml,
 )
 from config.db_check import db_check
 
@@ -58,6 +58,8 @@ urlpatterns = [
     path("pricing/", marketing_pricing, name="marketing_pricing"),
     path("terms/", terms_of_service, name="terms_of_service"),
     path("privacy/", privacy_policy, name="privacy_policy"),
+    path("robots.txt", robots_txt, name="robots_txt"),
+    path("sitemap.xml", sitemap_xml, name="sitemap_xml"),
 
     # Main app (company dashboards)
     path("dashboard/", include("dashboard.urls")),

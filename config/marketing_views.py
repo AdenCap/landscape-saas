@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.conf import settings
 
 
@@ -13,10 +13,13 @@ def _marketing_redirect_for_auth(request):
     return redirect("/dashboard/")
 
 
-def _pricing_context():
+def _marketing_context():
     return {
-        "solo_price": getattr(settings, "PLATFORM_SOLO_PRICE", "29.99"),
-        "pro_price": getattr(settings, "PLATFORM_PRO_PRICE", "99.99"),
+        "pricing": {
+            "solo_price": getattr(settings, "PLATFORM_SOLO_PRICE", "29.99"),
+            "pro_price": getattr(settings, "PLATFORM_PRO_PRICE", "99.99"),
+        },
+        "ga_measurement_id": getattr(settings, "GA4_MEASUREMENT_ID", ""),
     }
 
 
@@ -31,7 +34,7 @@ def marketing_home(request):
     r = _marketing_redirect_for_auth(request)
     if r:
         return r
-    return render(request, "marketing/landing.html", {"pricing": _pricing_context()})
+    return render(request, "marketing/landing.html", _marketing_context())
 
 
 FEATURE_PAGES = {
@@ -103,7 +106,9 @@ def marketing_features(request):
     r = _marketing_redirect_for_auth(request)
     if r:
         return r
-    return render(request, "marketing/features.html", {"feature_pages": FEATURE_PAGES, "pricing": _pricing_context()})
+    ctx = _marketing_context()
+    ctx.update({"feature_pages": FEATURE_PAGES})
+    return render(request, "marketing/features.html", ctx)
 
 
 def marketing_feature_detail(request, slug):
@@ -119,7 +124,11 @@ def marketing_feature_detail(request, slug):
             "Dispatcher": "Keep assignments, timing, and customer communication aligned.",
             "Crew Lead": "Execute work with clear context and fewer blockers."
         }
-    return render(request, "marketing/feature_detail.html", {"feature": feature, "slug": slug, "pricing": _pricing_context()})
+    if "seo_description" not in feature:
+        feature["seo_description"] = f"{feature['title']} for field service teams: {feature['subtitle']}"
+    ctx = _marketing_context()
+    ctx.update({"feature": feature, "slug": slug})
+    return render(request, "marketing/feature_detail.html", ctx)
 
 
 def marketing_automation(request):
@@ -133,7 +142,7 @@ def marketing_pricing(request):
     r = _marketing_redirect_for_auth(request)
     if r:
         return r
-    return render(request, "marketing/pricing.html", {"pricing": _pricing_context()})
+    return render(request, "marketing/pricing.html", _marketing_context())
 
 
 def terms_of_service(request):
@@ -144,3 +153,21 @@ def terms_of_service(request):
 def privacy_policy(request):
     """Privacy Policy page."""
     return render(request, "marketing/privacy.html")
+
+
+def robots_txt(request):
+    base = getattr(settings, "CANONICAL_BASE_URL", "https://profieldops.com").rstrip("/")
+    body = f"User-agent: *\nAllow: /\nSitemap: {base}/sitemap.xml\n"
+    return HttpResponse(body, content_type="text/plain")
+
+
+def sitemap_xml(request):
+    base = getattr(settings, "CANONICAL_BASE_URL", "https://profieldops.com").rstrip("/")
+    urls = [
+        "/", "/features/", "/pricing/", "/automation/", "/terms/", "/privacy/",
+    ] + [f"/features/{slug}/" for slug in FEATURE_PAGES.keys()]
+    xml = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for path in urls:
+        xml.append(f"<url><loc>{base}{path}</loc></url>")
+    xml.append("</urlset>")
+    return HttpResponse("".join(xml), content_type="application/xml")
