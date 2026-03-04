@@ -656,6 +656,10 @@ class FertilizerProduct(models.Model):
             return (self.cost_per_bag / self.lbs_per_bag)
 
 
+# Save built-in before the ForeignKey field named 'property' shadows it in the class body
+_python_property = property
+
+
 class FertilizerApplication(models.Model):
     """Tracks fertilizer applications to properties with product, date, and amount."""
     business = models.ForeignKey(
@@ -756,14 +760,14 @@ class FertilizerApplication(models.Model):
         product_name = self.product.name if self.product else "Unknown Product"
         return f"{product_name} - {self.property.address} - {self.application_date}"
     
-    @property
+    @_python_property
     def profit(self):
         """Calculate profit (charge_amount - material_cost)."""
         if self.charge_amount is None:
             return None
         return self.charge_amount - self.material_cost
-    
-    @property
+
+    @_python_property
     def profit_margin(self):
         """Calculate profit margin percentage."""
         if self.charge_amount is None or self.charge_amount == 0:
