@@ -126,8 +126,21 @@ def marketing_feature_detail(request, slug):
         }
     if "seo_description" not in feature:
         feature["seo_description"] = f"{feature['title']} for lawn care and landscaping teams: {feature['subtitle']}"
+    image_map = {
+        "dashboard": "/static/marketing/real/dashboard.png",
+        "jobs": "/static/marketing/real/jobs.png",
+        "calendar": "/static/marketing/real/calendar.png",
+        "daily-routes": "/static/marketing/real/calendar.png",
+        "clients": "/static/marketing/real/clients.png",
+        "messaging": "/static/marketing/real/clients.png",
+        "estimator": "/static/marketing/real/jobs.png",
+        "invoices": "/static/marketing/real/invoices.png",
+        "estimates": "/static/marketing/real/invoices.png",
+        "employee-management": "/static/marketing/real/dashboard.png",
+        "financials": "/static/marketing/real/financials.png",
+    }
     ctx = _marketing_context()
-    ctx.update({"feature": feature, "slug": slug})
+    ctx.update({"feature": feature, "slug": slug, "feature_image": image_map.get(slug, "/static/marketing/real/dashboard.png")})
     return render(request, "marketing/feature_detail.html", ctx)
 
 

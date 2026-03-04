@@ -57,8 +57,7 @@
   .shot-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}
   .shot{border:1px solid #2a3441;border-radius:12px;overflow:hidden;background:#0f141c;transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease)}
   .shot:hover{transform:translateY(-3px);border-color:#3b82f6}
-  .shot .mini{height:120px;padding:10px;background:linear-gradient(150deg,#121824,#0d1118)}
-  .shot .mini i{display:block;height:8px;border-radius:999px;background:linear-gradient(90deg,#3b82f6,#7dd3fc);margin:8px 0;opacity:.9;animation:flow 2.5s ease-in-out infinite}
+  .shot img{display:block;width:100%;height:120px;object-fit:cover}
   .shot span{display:block;padding:8px 10px;font-size:12px;color:#a1a1aa}
 
   .how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
@@ -183,11 +182,11 @@
         </div>
       </div>
       <div class="shot-grid">
-        <a class="shot" href="/features/dashboard/"><div class="mini"><i style="width:65%"></i><i style="width:48%"></i><i style="width:77%"></i></div><span>Dashboard</span></a>
-        <a class="shot" href="/features/calendar/"><div class="mini"><i style="width:57%"></i><i style="width:72%"></i><i style="width:51%"></i></div><span>Calendar</span></a>
-        <a class="shot" href="/features/clients/"><div class="mini"><i style="width:61%"></i><i style="width:44%"></i><i style="width:69%"></i></div><span>Clients</span></a>
-        <a class="shot" href="/features/invoices/"><div class="mini"><i style="width:52%"></i><i style="width:81%"></i><i style="width:58%"></i></div><span>Invoices</span></a>
-        <a class="shot" href="/features/financials/"><div class="mini"><i style="width:74%"></i><i style="width:55%"></i><i style="width:66%"></i></div><span>Financials</span></a>
+        <a class="shot" href="/features/dashboard/"><img loading="lazy" src="/static/marketing/real/dashboard.png" alt="Dashboard screenshot"><span>Dashboard</span></a>
+        <a class="shot" href="/features/calendar/"><img loading="lazy" src="/static/marketing/real/calendar.png" alt="Calendar screenshot"><span>Calendar</span></a>
+        <a class="shot" href="/features/clients/"><img loading="lazy" src="/static/marketing/real/clients.png" alt="Clients screenshot"><span>Clients</span></a>
+        <a class="shot" href="/features/invoices/"><img loading="lazy" src="/static/marketing/real/invoices.png" alt="Invoices screenshot"><span>Invoices</span></a>
+        <a class="shot" href="/features/financials/"><img loading="lazy" src="/static/marketing/real/financials.png" alt="Financials screenshot"><span>Financials</span></a>
       </div>
     </div>
   </div>
