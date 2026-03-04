@@ -23,7 +23,6 @@ urlpatterns = [
 
     path('routes/', views.daily_route_view, name='daily_route'),
     path('routes/update/', views.update_route_order, name='update_route'),
-    path('routes/optimize/', views.optimize_route, name='optimize_route'),
 
     path('crew/', views.crew_today_view, name='crew_today'),
     path('crew/quick/', views.crew_quick_view, name='crew_quick'),

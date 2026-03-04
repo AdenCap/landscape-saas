@@ -909,6 +909,80 @@ def estimate_list(request):
 
 
 @role_required("owner")
+def leads_followups(request):
+    """Leads & Follow-ups: View for tracking quotes that were sent but never converted."""
+    from datetime import timedelta
+    
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    
+    now = timezone.now()
+    
+    # Get all sent estimates that haven't been accepted or declined
+    leads = Estimate.objects.filter(
+        business=business,
+        status__in=["sent", "draft"],  # Include drafts that were created but maybe not sent
+    ).select_related("customer").order_by("-sent_at", "-created_at")
+    
+    # Filter by age (days since sent/created)
+    age_filter = request.GET.get("age", "all")
+    if age_filter == "7":
+        cutoff = now - timedelta(days=7)
+        leads = leads.filter(sent_at__lt=cutoff) if leads.filter(sent_at__isnull=False).exists() else leads.filter(created_at__lt=cutoff)
+    elif age_filter == "14":
+        cutoff = now - timedelta(days=14)
+        leads = leads.filter(sent_at__lt=cutoff) if leads.filter(sent_at__isnull=False).exists() else leads.filter(created_at__lt=cutoff)
+    elif age_filter == "30":
+        cutoff = now - timedelta(days=30)
+        leads = leads.filter(sent_at__lt=cutoff) if leads.filter(sent_at__isnull=False).exists() else leads.filter(created_at__lt=cutoff)
+    elif age_filter == "60":
+        cutoff = now - timedelta(days=60)
+        leads = leads.filter(sent_at__lt=cutoff) if leads.filter(sent_at__isnull=False).exists() else leads.filter(created_at__lt=cutoff)
+    
+    # Calculate days since sent/created and last follow-up for each lead
+    leads_with_metrics = []
+    for lead in leads:
+        # Days since sent (or created if never sent)
+        sent_date = lead.sent_at.date() if lead.sent_at else lead.created_at.date()
+        days_since_sent = (now.date() - sent_date).days
+        
+        # Days since last follow-up (or None if never followed up)
+        days_since_followup = None
+        if lead.last_follow_up_at:
+            days_since_followup = (now.date() - lead.last_follow_up_at.date()).days
+        
+        # Check if this estimate was converted to a job
+        has_job = False
+        if hasattr(lead, 'job') and lead.job:
+            has_job = True
+        else:
+            # Check if customer has any jobs related to this estimate
+            from jobs.models import Job
+            has_job = Job.objects.filter(
+                customer=lead.customer,
+                property__in=lead.customer.properties.all()
+            ).exists()
+        
+        leads_with_metrics.append({
+            'estimate': lead,
+            'days_since_sent': days_since_sent,
+            'days_since_followup': days_since_followup,
+            'has_job': has_job,
+            'sent_date': sent_date,
+        })
+    
+    # Sort by days since sent (oldest first)
+    leads_with_metrics.sort(key=lambda x: x['days_since_sent'], reverse=True)
+    
+    return render(request, "billing/leads_followups.html", {
+        "leads": leads_with_metrics,
+        "age_filter": age_filter,
+    })
+
+
+@role_required("owner")
 @require_http_methods(["GET", "POST"])
 def estimate_create(request):
     business = _get_business(request)

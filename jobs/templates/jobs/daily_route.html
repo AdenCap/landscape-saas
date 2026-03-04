@@ -4,7 +4,7 @@
 <div class="route-page-header">
   <div class="route-header-main">
     <h1>Daily Routes</h1>
-    <p class="route-subtitle">Drag to reorder. Optimize orders stops by driving time.</p>
+    <p class="route-subtitle">Drag to reorder stops manually.</p>
   </div>
   <div class="route-actions">
     <form method="get" action="{% url 'daily_route' %}" class="route-date-form">
@@ -12,11 +12,6 @@
       <button type="submit" class="btn btn-secondary">Go</button>
     </form>
     <div class="route-buttons">
-      <form method="post" action="{% url 'optimize_route' %}" style="display: inline;">
-        {% csrf_token %}
-        <input type="hidden" name="date" value="{{ date_param }}">
-        <button type="submit" class="btn btn-primary">Optimize</button>
-      </form>
       <a href="{% url 'calendar' %}" class="btn btn-secondary">Calendar</a>
     </div>
   </div>
@@ -52,7 +47,7 @@
     </div>
     <div class="route-map-wrap" id="route-map-wrap">
       <div id="route-map" class="route-map-inner"></div>
-      <p class="route-map-note">Addresses used for map and optimization.</p>
+      <p class="route-map-note">Addresses used for map display.</p>
     </div>
   </div>
 </div>
