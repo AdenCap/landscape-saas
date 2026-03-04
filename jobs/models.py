@@ -295,6 +295,7 @@ class JobServiceItem(models.Model):
     )
     billed_at = models.DateTimeField(null=True, blank=True)
 
+    @property
     def line_total(self):
         return self.quantity * self.unit_price
 
