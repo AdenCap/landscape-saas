@@ -69,10 +69,23 @@
 
 <style>
   .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+  .kpi-card{animation:slideUp var(--motion-slow) var(--motion-ease-out) both}
+  .kpi-card:nth-child(1){animation-delay:0ms}
+  .kpi-card:nth-child(2){animation-delay:50ms}
+  .kpi-card:nth-child(3){animation-delay:100ms}
+  .kpi-card:nth-child(4){animation-delay:150ms}
+  .kpi-card:nth-child(5){animation-delay:200ms}
   .kpi-card .kpi-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
   .kpi-card .kpi-value { font-size: 22px; font-weight: 700; }
   .kpi-card .kpi-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
   .card-warning .kpi-value { color: #f59e0b; }
   .card-danger .kpi-value { color: #ef4444; }
+  .data-table tbody tr{animation:slideUp var(--motion-slow) var(--motion-ease-out) both}
+  .data-table tbody tr:nth-child(1){animation-delay:0ms}
+  .data-table tbody tr:nth-child(2){animation-delay:40ms}
+  .data-table tbody tr:nth-child(3){animation-delay:80ms}
+  .data-table tbody tr:nth-child(4){animation-delay:120ms}
+  .data-table tbody tr:nth-child(n+5){animation-delay:160ms}
+  @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 </style>
 {% endblock %}

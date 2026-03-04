@@ -27,42 +27,42 @@
         {% csrf_token %}
         <div>
           <label for="id_business_name" style="display:block;margin-bottom:6px;font-size:14px;">Business name</label>
-          <input id="id_business_name" name="business_name" value="{{ form.business_name.value|default:'' }}" required placeholder="Your company name" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+          <input id="id_business_name" name="business_name" value="{{ form.business_name.value|default:'' }}" required placeholder="Your company name" class="auth-input">
           {% if form.business_name.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.business_name.errors.0 }}</p>{% endif %}
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <div>
             <label for="id_first_name" style="display:block;margin-bottom:6px;font-size:14px;">First name</label>
-            <input id="id_first_name" name="first_name" value="{{ form.first_name.value|default:'' }}" placeholder="First name" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+            <input id="id_first_name" name="first_name" value="{{ form.first_name.value|default:'' }}" placeholder="First name" class="auth-input">
           </div>
           <div>
             <label for="id_last_name" style="display:block;margin-bottom:6px;font-size:14px;">Last name</label>
-            <input id="id_last_name" name="last_name" value="{{ form.last_name.value|default:'' }}" placeholder="Last name" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+            <input id="id_last_name" name="last_name" value="{{ form.last_name.value|default:'' }}" placeholder="Last name" class="auth-input">
           </div>
         </div>
 
         <div>
           <label for="id_username" style="display:block;margin-bottom:6px;font-size:14px;">Username</label>
-          <input id="id_username" name="username" value="{{ form.username.value|default:'' }}" required autocomplete="username" placeholder="Choose a username" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+          <input id="id_username" name="username" value="{{ form.username.value|default:'' }}" required autocomplete="username" placeholder="Choose a username" class="auth-input">
           {% if form.username.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.username.errors.0 }}</p>{% endif %}
         </div>
 
         <div>
           <label for="id_email" style="display:block;margin-bottom:6px;font-size:14px;">Email</label>
-          <input id="id_email" name="email" type="email" value="{{ form.email.value|default:'' }}" required autocomplete="email" placeholder="you@example.com" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+          <input id="id_email" name="email" type="email" value="{{ form.email.value|default:'' }}" required autocomplete="email" placeholder="you@example.com" class="auth-input">
           {% if form.email.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.email.errors.0 }}</p>{% endif %}
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <div>
             <label for="id_password1" style="display:block;margin-bottom:6px;font-size:14px;">Password</label>
-            <input id="id_password1" name="password1" type="password" required autocomplete="new-password" placeholder="Create password" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+            <input id="id_password1" name="password1" type="password" required autocomplete="new-password" placeholder="Create password" class="auth-input">
             {% if form.password1.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.password1.errors.0 }}</p>{% endif %}
           </div>
           <div>
             <label for="id_password2" style="display:block;margin-bottom:6px;font-size:14px;">Confirm</label>
-            <input id="id_password2" name="password2" type="password" required autocomplete="new-password" placeholder="Confirm password" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+            <input id="id_password2" name="password2" type="password" required autocomplete="new-password" placeholder="Confirm password" class="auth-input">
             {% if form.password2.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.password2.errors.0 }}</p>{% endif %}
           </div>
         </div>
@@ -72,5 +72,10 @@
     </div>
   </div>
 </section>
-<style>@media(max-width:900px){.shell[style*='grid-template-columns:.95fr 1.05fr']{grid-template-columns:1fr!important}}</style>
+<style>
+.auth-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text);transition:border-color .2s ease,box-shadow .2s ease;outline:none}
+.auth-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.auth-input:hover:not(:focus){border-color:var(--text-muted)}
+@media(max-width:900px){.shell[style*='grid-template-columns:.95fr 1.05fr']{grid-template-columns:1fr!important}}
+</style>
 {% endblock %}

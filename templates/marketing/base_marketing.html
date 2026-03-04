@@ -18,7 +18,9 @@
     .nav{position:sticky;top:var(--space-4);z-index:var(--z-sticky);display:flex;justify-content:space-between;align-items:center;padding:var(--space-3) var(--space-5);margin:0 auto var(--space-4);max-width:1200px;border:1px solid var(--border);border-radius:var(--radius-full);background:var(--glass);backdrop-filter:blur(12px) saturate(180%);-webkit-backdrop-filter:blur(12px) saturate(180%);box-shadow:var(--shadow-lg)}
     .brand{font-weight:800;letter-spacing:0.02em;text-decoration:none;color:var(--text);font-size:var(--text-lg)}
     .links{display:flex;gap:var(--space-4);align-items:center;flex-wrap:wrap}
-    .links a{color:var(--text-secondary);text-decoration:none;font-size:var(--text-sm);font-weight:500;transition:color var(--motion-base) var(--motion-ease)}
+    .links a{color:var(--text-secondary);text-decoration:none;font-size:var(--text-sm);font-weight:500;transition:color var(--motion-base) var(--motion-ease);position:relative}
+    .links a:not(.btn)::after{content:"";position:absolute;bottom:-2px;left:0;width:0;height:1px;background:var(--text);transition:width var(--motion-base) var(--motion-ease)}
+    .links a:not(.btn):hover::after{width:100%}
     .links a:hover{color:var(--text)}
     .sub{font-size:var(--text-lg);line-height:var(--line-height-relaxed);color:var(--text-secondary);max-width:760px;margin:0 0 var(--space-6)}
     .title{font-size:var(--h2);line-height:var(--line-height-tight);letter-spacing:var(--letter-spacing-tight);margin:0 0 var(--space-4);color:var(--text)}
@@ -26,7 +28,7 @@
     .footer{padding:var(--space-8) 0;border-top:1px solid var(--border);color:var(--text-muted);font-size:var(--text-sm);text-align:center}
     .footer a{color:var(--text-secondary);transition:color var(--motion-base) var(--motion-ease)}
     .footer a:hover{color:var(--text)}
-    [data-r]{opacity:0;transform:translateY(20px);transition:opacity 0.6s var(--motion-ease-out),transform 0.6s var(--motion-ease-out)}
+    [data-r]{opacity:0;transform:translateY(24px);transition:opacity 0.7s cubic-bezier(0, 0, 0.2, 1),transform 0.7s cubic-bezier(0, 0, 0.2, 1)}
     [data-r].on{opacity:1;transform:translateY(0)}
     @media (max-width:768px){
       .nav{padding:var(--space-2) var(--space-4);margin:0 var(--space-4) var(--space-4)}

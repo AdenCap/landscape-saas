@@ -68,7 +68,21 @@
 </div>
 {% else %}
 <div class="card">
-  <p class="empty-state">No time entries in this range. Try a different employee or date range.</p>
+  <div class="empty-state">
+    <i data-lucide="clock" class="empty-state-icon"></i>
+    <div class="empty-state-title">No time entries</div>
+    <div class="empty-state-desc">No time entries in this range. Try a different employee or date range.</div>
+  </div>
 </div>
 {% endif %}
+
+<style>
+.data-table tbody tr{animation:slideUp var(--motion-slow) var(--motion-ease-out) both}
+.data-table tbody tr:nth-child(1){animation-delay:0ms}
+.data-table tbody tr:nth-child(2){animation-delay:40ms}
+.data-table tbody tr:nth-child(3){animation-delay:80ms}
+.data-table tbody tr:nth-child(4){animation-delay:120ms}
+.data-table tbody tr:nth-child(n+5){animation-delay:160ms}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
 {% endblock %}

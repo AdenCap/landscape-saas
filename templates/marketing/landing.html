@@ -7,12 +7,32 @@
   .hero-section {
     padding: var(--space-32) 0 var(--space-24);
     border-bottom: 1px solid var(--border);
-    background: 
+    background:
       radial-gradient(900px 400px at 80% -20%, rgba(59, 130, 246, 0.12), transparent 60%),
       radial-gradient(700px 300px at 0% -10%, rgba(255, 255, 255, 0.04), transparent 65%),
       var(--bg);
     position: relative;
     overflow: hidden;
+  }
+
+  /* Ambient glow behind hero */
+  .hero-section::before {
+    content: "";
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.08), transparent 70%);
+    top: -200px;
+    right: -100px;
+    animation: ambientFloat 8s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes ambientFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(-30px, 20px) scale(1.05); }
+    66% { transform: translate(20px, -15px) scale(0.95); }
   }
   
   .hero-content {
@@ -47,8 +67,14 @@
     width: 6px;
     height: 6px;
     border-radius: var(--radius-full);
-    background: var(--primary);
-    box-shadow: 0 0 12px var(--primary-glow);
+    background: #22c55e;
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+    animation: badgePulse 2s ease-in-out infinite;
+  }
+
+  @keyframes badgePulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(34, 197, 94, 0.4); }
+    50% { box-shadow: 0 0 16px rgba(34, 197, 94, 0.7); }
   }
   
   .hero-title {
@@ -82,6 +108,30 @@
     font-size: var(--text-sm);
     color: var(--text-muted);
     margin: 0;
+  }
+
+  /* CTA shimmer on primary hero button */
+  .hero-cta .btn-primary {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-cta .btn-primary::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+    animation: btnShimmer 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes btnShimmer {
+    0% { left: -100%; }
+    50% { left: 150%; }
+    100% { left: 150%; }
   }
   
   /* App Workflow Visual - More personable and lawn care specific */
@@ -120,6 +170,18 @@
   .workflow-step {
     text-align: center;
     position: relative;
+    opacity: 0;
+    animation: slideUp 0.5s var(--motion-ease-out) both;
+  }
+
+  .workflow-step:nth-child(1) { animation-delay: 0.1s; }
+  .workflow-step:nth-child(2) { animation-delay: 0.2s; }
+  .workflow-step:nth-child(3) { animation-delay: 0.3s; }
+  .workflow-step:nth-child(4) { animation-delay: 0.4s; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
   }
   
   .workflow-step-icon {
@@ -210,6 +272,10 @@
     color: var(--primary);
     margin-bottom: var(--space-1);
     display: block;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
   
   .workflow-metric-label {
@@ -270,16 +336,32 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--gradient-surface);
-    transition: all var(--motion-base) var(--motion-ease);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     text-decoration: none;
     color: inherit;
     display: block;
+    position: relative;
+    overflow: hidden;
   }
-  
+
+  .feature-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.06), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
   .feature-card:hover {
     border-color: var(--primary);
     transform: translateY(-4px);
-    box-shadow: var(--shadow-lg), var(--shadow-glow);
+    box-shadow: var(--shadow-lg), 0 0 30px rgba(59, 130, 246, 0.12);
+  }
+
+  .feature-card:hover::after {
+    opacity: 1;
   }
   
   .feature-card-title {
@@ -313,6 +395,13 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--gradient-surface);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .problem-card:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
   }
   
   .problem-card-title {
@@ -348,7 +437,24 @@
   .pricing-card.featured {
     border-color: var(--primary);
     background: linear-gradient(180deg, var(--primary-light) 0%, var(--gradient-surface) 100%);
-    box-shadow: var(--shadow-lg), var(--shadow-glow);
+    box-shadow: var(--shadow-lg), 0 0 40px rgba(59, 130, 246, 0.15);
+    position: relative;
+  }
+
+  .pricing-card.featured::before {
+    content: "Most Popular";
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 16px;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
   }
   
   .pricing-card-title {
@@ -393,8 +499,9 @@
   .final-cta {
     padding: var(--space-32) 0 var(--space-24);
     background: radial-gradient(800px 400px at 50% 0%, var(--primary-glow), transparent 70%);
+    position: relative;
   }
-  
+
   .final-cta-box {
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
@@ -403,6 +510,24 @@
     background: var(--gradient-surface);
     max-width: 900px;
     margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .final-cta-box::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 200%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    animation: scanLine 4s ease-in-out infinite;
+  }
+
+  @keyframes scanLine {
+    0% { left: -100%; }
+    100% { left: 100%; }
   }
   
   .final-cta-title {

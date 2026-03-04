@@ -130,7 +130,7 @@
     border: 1px solid var(--border);
     transition: all 0.15s ease;
   }
-  .billing-tab:hover { color: var(--text); border-color: var(--text-muted); }
+  .billing-tab:hover { color: var(--text); border-color: var(--text-muted); transform: translateY(-1px); }
   .billing-tab.active { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
 
   .estimate-filters {
@@ -150,7 +150,7 @@
     border: 1px solid var(--border);
     transition: all 0.15s ease;
   }
-  .filter-pill:hover { color: var(--text); border-color: var(--text-muted); }
+  .filter-pill:hover { color: var(--text); border-color: var(--text-muted); transform: translateY(-1px); }
   .filter-pill.active {
     background: var(--primary-light);
     color: var(--primary);
@@ -162,7 +162,14 @@
   .estimate-table { margin: 0; }
   .estimate-table th { padding: 16px 20px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 600; }
   .estimate-table td { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 16px; }
-  .estimate-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+  .estimate-table tbody tr:hover { background: rgba(255,255,255,0.02); transition: background var(--motion-base) var(--motion-ease); }
+  .estimate-table tbody tr{animation:slideUp var(--motion-slow) var(--motion-ease-out) both}
+  .estimate-table tbody tr:nth-child(1){animation-delay:0ms}
+  .estimate-table tbody tr:nth-child(2){animation-delay:40ms}
+  .estimate-table tbody tr:nth-child(3){animation-delay:80ms}
+  .estimate-table tbody tr:nth-child(4){animation-delay:120ms}
+  .estimate-table tbody tr:nth-child(n+5){animation-delay:160ms}
+  @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
   .estimate-table .col-id { color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .estimate-table .col-actions { white-space: nowrap; }
   .estimate-table .col-actions .btn-sm { margin-left: 6px; }

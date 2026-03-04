@@ -26,11 +26,11 @@
         <input type="hidden" name="next" value="{{ next }}" />
         <div>
           <label for="id_username" style="display:block;margin-bottom:6px;font-size:14px;">Username</label>
-          <input id="id_username" name="username" required autofocus placeholder="Enter your username" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+          <input id="id_username" name="username" required autofocus placeholder="Enter your username" class="auth-input">
         </div>
         <div>
           <label for="id_password" style="display:block;margin-bottom:6px;font-size:14px;">Password</label>
-          <input id="id_password" type="password" name="password" required placeholder="Enter your password" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+          <input id="id_password" type="password" name="password" required placeholder="Enter your password" class="auth-input">
           <div style="margin-top:6px;font-size:13px;"><a href="{% url 'password_reset' %}" style="color:var(--muted)">Forgot password?</a></div>
         </div>
         <button class="btn btn-primary" type="submit" style="width:100%;">Sign in</button>
@@ -38,5 +38,10 @@
     </div>
   </div>
 </section>
-<style>@media(max-width:900px){.shell[style*='grid-template-columns:1fr 1fr']{grid-template-columns:1fr!important}}</style>
+<style>
+.auth-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text);transition:border-color .2s ease,box-shadow .2s ease;outline:none}
+.auth-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.auth-input:hover:not(:focus){border-color:var(--text-muted)}
+@media(max-width:900px){.shell[style*='grid-template-columns:1fr 1fr']{grid-template-columns:1fr!important}}
+</style>
 {% endblock %}
