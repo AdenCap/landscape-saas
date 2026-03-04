@@ -680,12 +680,10 @@ def daily_route_view(request):
                 user_colors[u.id] = u.color.strip()
     jobs_with_colors = [{"job": j, "color": _color_for_assignee(j, crew_colors, user_colors)} for j in jobs]
 
-    google_maps_key = getattr(settings, "GOOGLE_MAPS_API_KEY", "") or ""
     return render(request, 'jobs/daily_route.html', {
         "jobs": jobs,
         "jobs_with_colors": jobs_with_colors,
         "date_param": date_param,
-        "google_maps_api_key": google_maps_key,
     })
 
 
