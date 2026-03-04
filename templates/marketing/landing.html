@@ -7,17 +7,12 @@
   .hero-section {
     padding: var(--space-32) 0 var(--space-24);
     border-bottom: 1px solid var(--border);
-    background: var(--gradient-bg);
-    position: relative;
-    overflow: hidden;
-  }
-  
-  /* Ensure design system is loaded - fallback colors if CSS vars fail */
-  .hero-section {
     background: 
       radial-gradient(900px 400px at 80% -20%, rgba(59, 130, 246, 0.12), transparent 60%),
       radial-gradient(700px 300px at 0% -10%, rgba(255, 255, 255, 0.04), transparent 65%),
-      #0a0a0a;
+      var(--bg);
+    position: relative;
+    overflow: hidden;
   }
   
   .hero-content {

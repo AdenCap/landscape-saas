@@ -335,6 +335,9 @@ MAPBOX_ACCESS_TOKEN = os.environ.get("MAPBOX_ACCESS_TOKEN", "")
 
 # Google Maps for Daily Routes: map view and route optimization by address (enable Maps JavaScript API, Geocoding API, Directions API)
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+# Usage limits to prevent overages (10,000 free requests per month, then charged)
+GOOGLE_MAPS_MONTHLY_LIMIT = int(os.environ.get("GOOGLE_MAPS_MONTHLY_LIMIT", "10000"))
+GOOGLE_MAPS_DAILY_LIMIT = int(os.environ.get("GOOGLE_MAPS_DAILY_LIMIT", "0"))  # 0 = no daily limit
 DEFAULT_FROM_EMAIL = "Field Ops <noreply@fieldops.local>"
 
 # Cache: used by django-ratelimit and general app caching.

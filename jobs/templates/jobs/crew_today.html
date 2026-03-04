@@ -36,6 +36,18 @@
   <div class="job-links">
     <a href="{% url 'report_issue' job.id %}" class="btn btn-secondary btn-sm job-link-btn">Report issue</a>
     <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-secondary btn-sm job-link-btn">Photo</a>
+    {% if job.property.address %}
+    <a href="https://www.google.com/maps/search/?api=1&query={{ job.property.address|urlencode }}" 
+       target="_blank" 
+       class="btn btn-secondary btn-sm job-link-btn"
+       style="display: inline-flex; align-items: center; gap: 6px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      Maps
+    </a>
+    {% endif %}
   </div>
   {% if require_completion_photo and job.id not in job_ids_with_photos and job.status != "completed" %}
   <p class="photo-required-msg">Photo required before you can complete.</p>

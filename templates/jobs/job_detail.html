@@ -9,6 +9,30 @@
 <div class="quick-actions" style="margin-bottom: 24px;">
   <a href="/jobs/calendar/" class="btn btn-secondary">← Back to Calendar</a>
   <a href="/" class="btn btn-secondary">Dashboard</a>
+  {% if job.property.address %}
+  <div style="display: inline-flex; gap: 8px; margin-left: auto;">
+    <a href="https://www.google.com/maps/search/?api=1&query={{ job.property.address|urlencode }}" 
+       target="_blank" 
+       class="btn btn-secondary btn-sm"
+       style="display: inline-flex; align-items: center; gap: 6px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      Google Maps
+    </a>
+    <a href="https://maps.apple.com/?q={{ job.property.address|urlencode }}" 
+       target="_blank" 
+       class="btn btn-secondary btn-sm"
+       style="display: inline-flex; align-items: center; gap: 6px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      Apple Maps
+    </a>
+  </div>
+  {% endif %}
 </div>
 
 <!-- Add material cost (inline, optional receipt + parse) -->

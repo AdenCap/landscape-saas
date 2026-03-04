@@ -461,3 +461,100 @@ class DocumentTemplate(models.Model):
             is_default=True,
         )
 
+
+class GoogleMapsApiUsage(models.Model):
+    """Track Google Maps API usage to enforce limits and prevent overages."""
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.CASCADE,
+        related_name='google_maps_api_usage',
+        null=True,
+        blank=True,
+        help_text="If set, tracks usage per business. If null, tracks global usage."
+    )
+    
+    date = models.DateField(
+        db_index=True,
+        help_text="Date of API usage"
+    )
+    
+    request_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of API requests made on this date"
+    )
+    
+    request_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('directions', 'Directions API'),
+            ('geocoding', 'Geocoding API'),
+            ('javascript', 'Maps JavaScript API'),
+        ],
+        default='directions',
+        help_text="Type of API request"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = [['business', 'date', 'request_type']]
+        ordering = ['-date']
+        indexes = [
+            models.Index(fields=['business', 'date', 'request_type']),
+            models.Index(fields=['date']),
+        ]
+    
+    def __str__(self):
+        business_name = self.business.name if self.business else "Global"
+        return f"{business_name} - {self.date} - {self.request_type}: {self.request_count}"
+    
+    @classmethod
+    def increment_usage(cls, business=None, request_type='directions', date=None):
+        """Increment usage counter for a given business/date/type."""
+        from django.utils import timezone
+        if date is None:
+            date = timezone.now().date()
+        
+        usage, created = cls.objects.get_or_create(
+            business=business,
+            date=date,
+            request_type=request_type,
+            defaults={'request_count': 0}
+        )
+        usage.request_count += 1
+        usage.save(update_fields=['request_count', 'updated_at'])
+        return usage
+    
+    @classmethod
+    def get_usage_today(cls, business=None, request_type='directions'):
+        """Get today's usage count."""
+        from django.utils import timezone
+        today = timezone.now().date()
+        try:
+            usage = cls.objects.get(
+                business=business,
+                date=today,
+                request_type=request_type
+            )
+            return usage.request_count
+        except cls.DoesNotExist:
+            return 0
+    
+    @classmethod
+    def get_usage_this_month(cls, business=None, request_type='directions'):
+        """Get this month's total usage count."""
+        from django.utils import timezone
+        from datetime import date
+        from django.db.models import Sum
+        today = timezone.now().date()
+        first_of_month = date(today.year, today.month, 1)
+        
+        return cls.objects.filter(
+            business=business,
+            date__gte=first_of_month,
+            request_type=request_type
+        ).aggregate(
+            total=Sum('request_count')
+        )['total'] or 0
+

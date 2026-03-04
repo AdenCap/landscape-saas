@@ -706,6 +706,8 @@ def update_route_order(request):
 @role_required("owner")
 def optimize_route(request):
     """Reorder jobs using Google Directions API waypoint optimization (by driving time/distance). Uses addresses."""
+    from billing.models import GoogleMapsApiUsage
+    
     date_str = request.POST.get("date") or request.GET.get("date")
     if date_str:
         jobs = list(Job.objects.filter(scheduled_date=date_str).order_by("route_order"))
@@ -724,6 +726,30 @@ def optimize_route(request):
     if not api_key:
         messages.error(request, "Google Maps API key not set. Add GOOGLE_MAPS_API_KEY to enable route optimization by address.")
         return redirect("daily_route" + ("?date=" + date_str if date_str else ""))
+    
+    # Check usage limits before making API call
+    monthly_limit = getattr(settings, "GOOGLE_MAPS_MONTHLY_LIMIT", 10000)
+    monthly_usage = GoogleMapsApiUsage.get_usage_this_month(business=business, request_type='directions')
+    
+    if monthly_usage >= monthly_limit:
+        messages.error(
+            request, 
+            f"Monthly Google Maps API limit reached ({monthly_limit:,} requests). "
+            f"Current usage: {monthly_usage:,}. Please contact support or wait until next month."
+        )
+        return redirect("daily_route" + ("?date=" + date_str if date_str else ""))
+    
+    # Check daily limit (optional safety check)
+    daily_limit = getattr(settings, "GOOGLE_MAPS_DAILY_LIMIT", None)
+    if daily_limit:
+        daily_usage = GoogleMapsApiUsage.get_usage_today(business=business, request_type='directions')
+        if daily_usage >= daily_limit:
+            messages.error(
+                request,
+                f"Daily Google Maps API limit reached ({daily_limit:,} requests). "
+                f"Current usage today: {daily_usage:,}. Please try again tomorrow."
+            )
+            return redirect("daily_route" + ("?date=" + date_str if date_str else ""))
 
     # Need at least 2 jobs with non-empty addresses
     jobs_with_address = [j for j in jobs if (j.property and j.property.address and j.property.address.strip())]
@@ -784,8 +810,21 @@ def optimize_route(request):
 
     for i, j in enumerate(ordered_jobs):
         Job.objects.filter(id=j.id).update(route_order=i)
-
-    messages.success(request, "Route optimized with Google Maps.")
+    
+    # Track API usage after successful request
+    GoogleMapsApiUsage.increment_usage(business=business, request_type='directions')
+    monthly_usage_after = GoogleMapsApiUsage.get_usage_this_month(business=business, request_type='directions')
+    
+    # Warn if approaching limit
+    monthly_limit = getattr(settings, "GOOGLE_MAPS_MONTHLY_LIMIT", 10000)
+    if monthly_usage_after >= monthly_limit * 0.9:  # 90% threshold
+        messages.warning(
+            request,
+            f"Route optimized. Warning: {monthly_usage_after:,}/{monthly_limit:,} monthly API requests used ({int(monthly_usage_after/monthly_limit*100)}%)."
+        )
+    else:
+        messages.success(request, f"Route optimized with Google Maps. ({monthly_usage_after:,}/{monthly_limit:,} monthly requests used)")
+    
     return redirect("daily_route" + ("?date=" + date_str if date_str else ""))
 
 
