@@ -14,13 +14,16 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.decorators import role_required
 from accounts.utils import get_business
+from accounts.models import User
 
 
 def _stripe_enabled():
     return bool(getattr(settings, "STRIPE_SECRET_KEY", None))
 
 
-def _get_price_id():
+def _get_price_id(plan_tier="core"):
+    if plan_tier == "solo":
+        return getattr(settings, "STRIPE_SUBSCRIPTION_PRICE_ID_SOLO", None) or ""
     return getattr(settings, "STRIPE_SUBSCRIPTION_PRICE_ID", None) or ""
 
 
@@ -32,6 +35,19 @@ def subscription_status(request):
     if not business:
         messages.error(request, "No business associated with your account.")
         return redirect("/")
+    pricing = {
+        "solo_price": getattr(settings, "PLATFORM_SOLO_PRICE", "29.99"),
+        "pro_price": getattr(settings, "PLATFORM_PRO_PRICE", "99.99"),
+        "crew_soft_cap": getattr(settings, "PLATFORM_CREW_SOFT_CAP", 12),
+    }
+    crew_user_count = User.objects.filter(business=business, role="crew", is_active=True).count()
+    effective_soft_cap = business.crew_soft_cap(pricing["crew_soft_cap"])
+    pricing_signal = {
+        "crew_user_count": crew_user_count,
+        "effective_soft_cap": effective_soft_cap,
+        "solo_fit": crew_user_count <= 1,
+        "recommend_pro": business.subscription_plan_tier == "solo" and crew_user_count > 1,
+    }
     return render(
         request,
         "subscription/status.html",
@@ -39,6 +55,8 @@ def subscription_status(request):
             "business": business,
             "stripe_enabled": _stripe_enabled(),
             "has_active_subscription": business.has_active_subscription(),
+            "pricing": pricing,
+            "pricing_signal": pricing_signal,
         },
     )
 
@@ -50,7 +68,10 @@ def create_checkout_session(request):
     if not _stripe_enabled():
         messages.info(request, "Subscription setup is in progress. Please contact support to activate your account.")
         return redirect("subscription:status")
-    price_id = _get_price_id()
+    plan_tier = (request.POST.get("plan_tier") or "core").strip().lower()
+    if plan_tier not in {"solo", "core"}:
+        plan_tier = "core"
+    price_id = _get_price_id(plan_tier)
     if not price_id:
         messages.info(request, "Subscription setup is in progress. Please contact support to activate your account.")
         return redirect("subscription:status")
@@ -65,8 +86,10 @@ def create_checkout_session(request):
     if request.user.email:
         customer_email = request.user.email
     # Generate idempotency key to prevent duplicate sessions
-    idempotency_key = f"subscription:{business.id}:{hashlib.md5(f'{business.id}:{price_id}'.encode()).hexdigest()[:16]}"
+    idempotency_key = f"subscription:{business.id}:{plan_tier}:{hashlib.md5(f'{business.id}:{price_id}'.encode()).hexdigest()[:16]}"
     
+    trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_SOLO", 7) if plan_tier == "solo" else getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
+
     try:
         # Ensure we have a Stripe customer ID
         if not business.stripe_customer_id:
@@ -79,14 +102,18 @@ def create_checkout_session(request):
             business.save(update_fields=["stripe_customer_id"])
         
         # Create checkout session with existing customer
+        sub_data = {"metadata": {"business_id": str(business.id), "plan_tier": plan_tier}}
+        if trial_days > 0:
+            sub_data["trial_period_days"] = trial_days
+
         session = stripe.checkout.Session.create(
             customer=business.stripe_customer_id,
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
             success_url=success_url,
             cancel_url=cancel_url,
-            metadata={"business_id": str(business.id)},
-            subscription_data={"metadata": {"business_id": str(business.id)}},
+            metadata={"business_id": str(business.id), "plan_tier": plan_tier},
+            subscription_data=sub_data,
             idempotency_key=idempotency_key,
         )
         return redirect(session.url)
@@ -200,15 +227,15 @@ def stripe_webhook(request):
         
         return HttpResponse(status=200)
     except Exception as e:
-        # Log error but return 200 to Stripe (we don't want retries for bad data)
+        # Return non-2xx so Stripe retries transient processing failures.
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"Error processing webhook {event_id}: {str(e)}", exc_info=True)
-        
+
         if event_id:
             webhook_event.processed = False
             webhook_event.error_message = str(e)[:1000]  # Truncate long errors
             webhook_event.save()
-        
-        # Return 200 to prevent Stripe from retrying (idempotency handled)
-        return HttpResponse(status=200)
+
+        # 500 triggers Stripe retry with exponential backoff.
+        return HttpResponse("Webhook processing failed", status=500)

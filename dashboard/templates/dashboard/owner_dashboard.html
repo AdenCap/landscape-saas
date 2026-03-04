@@ -6,6 +6,14 @@
   <p>{{ today }} — key metrics at a glance</p>
 </div>
 
+{% if solo_plan_overage %}
+<div class="card" style="margin-bottom:14px; border-color: rgba(251,191,36,.45); background: rgba(251,191,36,.08);">
+  <strong style="display:block; margin-bottom:6px; color:#fde68a;">Solo Starter usage notice</strong>
+  <span style="color:var(--text-muted);">You currently have {{ crew_user_count }} active crew users. Solo Starter is intended for one-person operations. Consider switching to Pro All-Access for best fit as your team grows.</span>
+  <div style="margin-top:10px;"><a href="{% url 'subscription:status' %}" class="btn btn-secondary btn-sm">Review plans</a></div>
+</div>
+{% endif %}
+
 <div class="kpi-grid">
   <div class="kpi-card card kpi-card-revenue">
     <div class="kpi-label">Revenue this month</div>
@@ -61,6 +69,16 @@
       <a href="{% url 'job_list' %}" class="btn btn-secondary btn-sm">Jobs</a>
     </div>
   </div>
+  <div class="kpi-card card">
+    <div class="kpi-label">Google review funnel</div>
+    <div class="kpi-sub">Asked: {{ review_asked }} · Reviewed: {{ review_completed }} · Opt-out: {{ review_opted_out }}</div>
+    <div class="kpi-value">{{ review_conversion_pct }}%</div>
+    <div class="kpi-sub">Review conversion (reviewed ÷ contacted)</div>
+    <div class="kpi-actions">
+      <a href="/settings/" class="btn btn-secondary btn-sm">Review settings</a>
+      <a href="/customers/" class="btn btn-secondary btn-sm">Customers</a>
+    </div>
+  </div>
   <div class="kpi-card card kpi-card-payroll">
     <div class="kpi-label">Payroll balance</div>
     {% if next_pay_date %}
@@ -79,9 +97,23 @@
 
 <div class="dashboard-quick-links">
   <a href="/settings/" class="btn btn-secondary">Customize emails &amp; settings</a>
-  <a href="{% url 'billing:document_templates_list' %}" class="btn btn-secondary">Document templates</a>
+  <a href="{% url 'dispatch_command_center' %}" class="btn btn-secondary">Dispatch Command Center</a>
+  <a href="{% url 'reliability_center' %}" class="btn btn-secondary">Integration Health</a>
   <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">Invoices</a>
   <a href="{% url 'billing:estimate_list' %}" class="btn btn-secondary">Estimates</a>
+</div>
+
+<div class="dashboard-section card">
+  <h2 class="card-title">What changed today</h2>
+  {% if changes_feed %}
+  <ul class="change-feed">
+    {% for item in changes_feed %}
+    <li><span class="change-time">{{ item.time|date:"g:i A" }}</span> <span class="change-text">{{ item.text }}</span></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="no-messages">No major activity in the last 24 hours.</p>
+  {% endif %}
 </div>
 
 <div class="dashboard-section card">
@@ -135,6 +167,9 @@
 
   .dashboard-section { margin-top: 24px; }
   .card-subtitle { color: var(--text-muted); font-size: 14px; margin: -4px 0 16px 0; }
+  .change-feed { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
+  .change-feed li { color: var(--text-muted); }
+  .change-time { color: var(--text); font-weight: 600; margin-right: 8px; }
   .message-list { display: flex; flex-direction: column; gap: 16px; }
   .message-row { padding: 16px; border-radius: 10px; border-left: 4px solid var(--border); background: rgba(38, 38, 38, 0.5); }
   .message-row.message-sent { border-left-color: var(--primary); }

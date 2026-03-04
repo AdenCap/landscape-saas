@@ -4,6 +4,12 @@ from django.urls import reverse
 from django.utils.deprecation import MiddlewareMixin
 
 
+SOLO_ALLOWED_PREFIXES = (
+    "/jobs/calendar",
+    "/clients",
+)
+
+
 # Path prefixes that do not require an active subscription
 SUBSCRIPTION_EXEMPT_PREFIXES = (
     "/accounts/login",
@@ -13,6 +19,7 @@ SUBSCRIPTION_EXEMPT_PREFIXES = (
     "/admin/",
     "/platform/",
     "/subscription/",
+    "/dashboard/onboarding",
     "/webhooks/stripe",
     "/static/",
     "/media/",
@@ -54,6 +61,11 @@ class SubscriptionRequiredMiddleware(MiddlewareMixin):
         if not business:
             return None
         if getattr(business, "has_active_subscription", lambda: False)():
+            # Solo Starter: keep access intentionally basic (calendar + client management)
+            if getattr(business, "subscription_plan_tier", "core") == "solo":
+                normalized = (path.rstrip("/") or "/")
+                if not any(normalized == p or normalized.startswith(p + "/") for p in SOLO_ALLOWED_PREFIXES):
+                    return redirect("/jobs/calendar/")
             return None
         # No active subscription: redirect to subscription status page
         status_url = reverse("subscription:status")

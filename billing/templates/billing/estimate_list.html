@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load billing_filters %}
 
 {% block content %}
 <div class="estimate-page">
@@ -8,7 +9,6 @@
       <p class="estimate-page-subtitle">Create and send professional quotes to customers</p>
     </div>
     <div class="estimate-header-actions">
-      <a href="{% url 'billing:document_templates_list' %}" class="btn btn-secondary">Document templates</a>
       <a href="/settings/" class="btn btn-secondary">Settings</a>
       <a href="{% url 'billing:estimate_create' %}" class="btn btn-primary">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -17,11 +17,34 @@
     </div>
   </header>
 
+  <div class="billing-tabs" style="margin-bottom: 16px;">
+    <a href="{% url 'billing:estimate_list' %}" class="billing-tab active">Estimates</a>
+    <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="billing-tab">Estimate template editor</a>
+  </div>
+
   <div class="estimate-filters">
     <a href="?status=pending" class="filter-pill {% if status_filter == 'pending' %}active{% endif %}">Pending</a>
     <a href="?status=accepted" class="filter-pill {% if status_filter == 'accepted' %}active{% endif %}">Accepted</a>
     <a href="?status=all" class="filter-pill {% if status_filter == 'all' %}active{% endif %}">All</a>
   </div>
+
+  {% if stuck_quotes %}
+  <div class="card" style="padding:14px; margin-bottom:14px;">
+    <h3 style="margin:0 0 8px; font-size:16px;">Stuck quote nudges</h3>
+    <p style="margin:0 0 10px; color:var(--text-muted); font-size:14px;">These quotes have been idle for 5+ days. Suggested text: “Just checking in — want me to lock this in for next week?”</p>
+    <div style="display:grid; gap:8px;">
+      {% for q in stuck_quotes %}
+      <div style="display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; border:1px solid var(--border); border-radius:10px; padding:10px;">
+        <div><strong>#{{ q.id }}</strong> · {{ q.customer.name }} · {{ q.title }}</div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <a href="{% url 'billing:estimate_detail' q.id %}" class="btn btn-secondary btn-sm">View</a>
+          <a href="{% url 'billing:estimate_send_followup' q.id %}" class="btn btn-primary btn-sm">Send follow-up</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 
   <div class="card estimate-list-card">
     {% if estimates %}
@@ -43,7 +66,7 @@
             <td class="col-id">{{ est.id }}</td>
             <td><a href="{% url 'customer_detail' est.customer.id %}" class="link-primary">{{ est.customer.name }}</a></td>
             <td>{{ est.title }}</td>
-            <td class="num">{{ est.total }}</td>
+            <td class="num">{{ est.total|currency }}</td>
             <td><span class="badge badge-{{ est.status }}">{{ est.status|title }}</span></td>
             <td class="col-actions">
               <a href="{% url 'billing:estimate_detail' est.id %}" class="btn btn-secondary btn-sm">View</a>
@@ -81,6 +104,31 @@
   .estimate-header-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .estimate-page-header .btn { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
   .estimate-page-header .btn svg { flex-shrink: 0; }
+  .billing-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 14px !important;
+    padding-bottom: 2px;
+  }
+  .billing-tabs::-webkit-scrollbar { height: 6px; }
+  .billing-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+  .billing-tab {
+    display: inline-block;
+    padding: 9px 18px;
+    font-size: 15px;
+    font-weight: 500;
+    border-radius: 20px;
+    text-decoration: none;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    transition: all 0.15s ease;
+  }
+  .billing-tab:hover { color: var(--text); border-color: var(--text-muted); }
+  .billing-tab.active { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
 
   .estimate-filters {
     display: flex;
@@ -129,5 +177,19 @@
   .badge-sent { background: rgba(234, 179, 8, 0.2); color: #fde047; }
   .badge-accepted { background: rgba(34, 197, 94, 0.2); color: #86efac; }
   .badge-declined { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+
+  @media (max-width: 768px) {
+    .estimate-page-header { gap: 12px; margin-bottom: 16px; }
+    .estimate-page-heading h1 { font-size: 24px; }
+    .estimate-page-subtitle { font-size: 14px; }
+    .estimate-header-actions { width: 100%; gap: 8px; }
+    .estimate-header-actions .btn { min-height: 42px; }
+    .estimate-header-actions .btn-secondary { flex: 1 1 calc(50% - 8px); justify-content: center; }
+    .estimate-header-actions .btn-primary { width: 100%; justify-content: center; }
+    .billing-tab { white-space: nowrap; }
+    .estimate-filters { overflow-x: auto; padding-bottom: 2px; }
+    .filter-pill { white-space: nowrap; }
+    .estimate-table th, .estimate-table td { padding: 12px 10px; font-size: 14px; }
+  }
 </style>
 {% endblock %}

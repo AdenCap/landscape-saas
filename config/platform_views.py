@@ -3,8 +3,10 @@ Platform admin: one superuser (you) can view platform metrics and open any busin
 Separate from company dashboards — shows users, revenue across the software, businesses, etc.
 """
 import json
+import os
 from datetime import date
 from decimal import Decimal
+from django.utils import timezone
 
 from django.contrib import messages
 from django.db.models import Sum, Q
@@ -20,6 +22,7 @@ from accounts.models import User
 from billing.models import Invoice
 from customers.models import Customer
 from jobs.models import Job
+from subscription.models import StripeWebhookEvent
 
 
 def _get_client_ip(request):
@@ -60,7 +63,11 @@ def _last_12_months():
 @require_http_methods(["GET"])
 def platform_home(request):
     """Platform dashboard: metrics, charts (area + horizontal bar), business list, audit log."""
-    businesses = Business.objects.all().order_by("name")
+    crew_soft_cap_default = int(os.environ.get("PLATFORM_CREW_SOFT_CAP", "12") or "12")
+    businesses = list(Business.objects.all().annotate(
+        crew_users=models.Count("users", filter=Q(users__role="crew", users__is_active=True), distinct=True),
+        owner_users=models.Count("users", filter=Q(users__role="owner", users__is_active=True), distinct=True),
+    ).order_by("name"))
     today = date.today()
 
     # Platform-wide stats
@@ -73,6 +80,11 @@ def platform_home(request):
     platform_revenue = (
         Invoice.objects.filter(status="paid").aggregate(s=Sum("total"))["s"] or Decimal("0")
     )
+    active_subscriptions = Business.objects.filter(subscription_status="active").count()
+    trial_subscriptions = Business.objects.filter(subscription_status="trialing").count()
+    at_risk_subscriptions = Business.objects.filter(subscription_status__in=["past_due", "unpaid"]).count()
+    solo_subscriptions = Business.objects.filter(subscription_plan_tier="solo", subscription_status__in=["active", "trialing"]).count()
+    pro_subscriptions = Business.objects.filter(subscription_plan_tier="core", subscription_status__in=["active", "trialing"]).count()
 
     # This month (for KPIs)
     month_start = today.replace(day=1)
@@ -92,6 +104,46 @@ def platform_home(request):
         date_joined__month=month_start.month,
     ).count()
     paid_invoices_count = Invoice.objects.filter(status="paid").count()
+
+    # Owner deep metrics
+    monthly_price = Decimal(os.environ.get("PLATFORM_MONTHLY_PRICE", "99.99") or "99.99")
+    monthly_recurring_revenue = monthly_price * Decimal(active_subscriptions)
+
+    previous_month_end = month_start
+    if month_start.month == 1:
+        previous_month_start = month_start.replace(year=month_start.year - 1, month=12, day=1)
+    else:
+        previous_month_start = month_start.replace(month=month_start.month - 1, day=1)
+
+    active_at_start_of_month = Business.objects.filter(
+        updated_at__lt=month_start,
+        subscription_status="active",
+    ).count()
+    canceled_this_month = StripeWebhookEvent.objects.filter(
+        event_type="customer.subscription.deleted",
+        created_at__gte=month_start,
+        created_at__lt=month_end,
+    ).count()
+    monthly_churn_rate = round((canceled_this_month / active_at_start_of_month) * 100, 1) if active_at_start_of_month else 0
+
+    failed_payments_this_month = StripeWebhookEvent.objects.filter(
+        event_type="invoice.payment_failed",
+        created_at__gte=month_start,
+        created_at__lt=month_end,
+    ).count()
+
+    new_trial_subscriptions = StripeWebhookEvent.objects.filter(
+        event_type="customer.subscription.created",
+        created_at__gte=month_start,
+        created_at__lt=month_end,
+    ).count()
+    converted_to_active = StripeWebhookEvent.objects.filter(
+        event_type="customer.subscription.updated",
+        created_at__gte=month_start,
+        created_at__lt=month_end,
+        raw_data__data__object__status="active",
+    ).count()
+    conversion_rate_trial_to_active = round((converted_to_active / new_trial_subscriptions) * 100, 1) if new_trial_subscriptions else 0
 
     # Chart data: last 12 months (revenue = area chart; new users = horizontal bar)
     monthly_revenue = []
@@ -116,6 +168,8 @@ def platform_home(request):
     monthly_revenue_json = json.dumps(monthly_revenue)
     new_users_by_month_json = json.dumps(new_users_by_month)
 
+    solo_overage_count = sum(1 for b in businesses if b.subscription_plan_tier == "solo" and b.crew_users > 1)
+
     audit_logs = AuditLog.objects.select_related("user").order_by("-created_at")[:50]
 
     return render(request, "platform/admin_home.html", {
@@ -128,11 +182,25 @@ def platform_home(request):
         "total_customers": total_customers,
         "total_jobs": total_jobs,
         "platform_revenue": platform_revenue,
+        "active_subscriptions": active_subscriptions,
+        "trial_subscriptions": trial_subscriptions,
+        "at_risk_subscriptions": at_risk_subscriptions,
+        "solo_subscriptions": solo_subscriptions,
+        "pro_subscriptions": pro_subscriptions,
+        "solo_overage_count": solo_overage_count,
         "revenue_this_month": revenue_this_month,
         "new_users_this_month": new_users_this_month,
         "paid_invoices_count": paid_invoices_count,
+        "monthly_recurring_revenue": monthly_recurring_revenue,
+        "monthly_churn_rate": monthly_churn_rate,
+        "canceled_this_month": canceled_this_month,
+        "failed_payments_this_month": failed_payments_this_month,
+        "new_trial_subscriptions": new_trial_subscriptions,
+        "converted_to_active": converted_to_active,
+        "conversion_rate_trial_to_active": conversion_rate_trial_to_active,
         "monthly_revenue_json": monthly_revenue_json,
         "new_users_by_month_json": new_users_by_month_json,
+        "crew_soft_cap_default": crew_soft_cap_default,
     })
 
 
@@ -149,8 +217,94 @@ def platform_enter(request, business_id):
         details=f"Business: {business.name} (id={business.id})",
         ip_address=_get_client_ip(request),
     )
-    messages.info(request, f"Viewing as: {business.name}. Use 'Exit' to return to platform admin.")
-    return redirect("/")
+    messages.info(request, f"Viewing app as: {business.name}. Use 'Exit' to return to platform admin.")
+    return redirect("owner_dashboard")
+
+
+@_platform_admin_required
+@require_POST
+def platform_enter_demo(request):
+    """Create a blank demo company and enter app view scoped to it."""
+    timestamp = timezone.now().strftime("%Y%m%d-%H%M%S")
+    business = Business.objects.create(name=f"Demo Company {timestamp}")
+    request.session["platform_business_id"] = business.id
+    request.session["platform_business_name"] = business.name
+    AuditLog.objects.create(
+        user=request.user,
+        action="platform_enter",
+        details=f"Demo business created + entered: {business.name} (id={business.id})",
+        ip_address=_get_client_ip(request),
+    )
+    messages.success(request, f"Opened blank demo company: {business.name}")
+    return redirect("owner_dashboard")
+
+
+@_platform_admin_required
+@require_POST
+def platform_apply_plan_recommendations(request):
+    """Bulk-apply plan recommendations based on current crew counts."""
+    businesses = Business.objects.all().annotate(
+        crew_users=models.Count("users", filter=Q(users__role="crew", users__is_active=True), distinct=True),
+    )
+    to_pro = [b for b in businesses if b.subscription_plan_tier == "solo" and b.crew_users > 1]
+
+    updated = 0
+    for b in to_pro:
+        b.subscription_plan_tier = "core"
+        b.save(update_fields=["subscription_plan_tier", "updated_at"])
+        updated += 1
+
+    AuditLog.objects.create(
+        user=request.user,
+        action="platform_enter",
+        details=f"Bulk plan recommendation apply: updated={updated} (to_pro={len(to_pro)})",
+        ip_address=_get_client_ip(request),
+    )
+    messages.success(request, f"Applied pricing recommendations to {updated} business(es).")
+    return redirect("platform_home")
+
+
+@_platform_admin_required
+@require_POST
+def platform_set_plan(request, business_id):
+    """Platform admin override for business plan tier (Solo/Pro)."""
+    business = get_object_or_404(Business, pk=business_id)
+    plan = (request.POST.get("plan_tier") or "").strip().lower()
+    if plan not in {"solo", "core"}:
+        messages.error(request, "Invalid plan tier.")
+        return redirect("platform_home")
+
+    old_plan = business.subscription_plan_tier
+    business.subscription_plan_tier = plan
+    business.save(update_fields=["subscription_plan_tier", "updated_at"])
+
+    AuditLog.objects.create(
+        user=request.user,
+        action="platform_enter",
+        details=f"Plan override: {business.name} (id={business.id}) {old_plan} -> {plan}",
+        ip_address=_get_client_ip(request),
+    )
+    messages.success(request, f"Updated {business.name} plan to {business.get_subscription_plan_tier_display()}.")
+    return redirect("platform_home")
+
+
+@_platform_admin_required
+@require_POST
+def platform_toggle_free_access(request, business_id):
+    """Platform admin: toggle complimentary access override for a business."""
+    business = get_object_or_404(Business, pk=business_id)
+    business.complimentary_access_enabled = not business.complimentary_access_enabled
+    business.save(update_fields=["complimentary_access_enabled", "updated_at"])
+
+    AuditLog.objects.create(
+        user=request.user,
+        action="platform_enter",
+        details=f"Complimentary access {'ENABLED' if business.complimentary_access_enabled else 'DISABLED'} for {business.name} (id={business.id})",
+        ip_address=_get_client_ip(request),
+    )
+    state = "enabled" if business.complimentary_access_enabled else "disabled"
+    messages.success(request, f"Complimentary access {state} for {business.name}.")
+    return redirect("platform_home")
 
 
 @_platform_admin_required

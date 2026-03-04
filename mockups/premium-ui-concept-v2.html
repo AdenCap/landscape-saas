@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Field Ops — Futuristic Monotone v2</title>
+  <style>
+    :root{--bg:#050505;--bg2:#0d0d0d;--s1:#121212;--s2:#181818;--t:#f4f4f4;--m:#a3a3a3;--b:#2f2f2f;--hi:#e5e5e5}
+    *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--t);font-family:Inter,system-ui;scroll-behavior:smooth}
+    .shell{max-width:1240px;margin:0 auto;padding:0 24px}
+    .progress{position:fixed;top:0;left:0;height:2px;background:var(--hi);width:var(--p,0%);z-index:99}
+    .nav{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:90;width:min(1160px,calc(100% - 20px));display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border:1px solid #3a3a3a;border-radius:999px;background:rgba(8,8,8,.8);backdrop-filter:blur(10px)}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.04em}.logo{width:26px;height:26px;border:1px solid #595959;border-radius:7px;position:relative}.logo:before{content:"";position:absolute;left:5px;top:5px;width:13px;height:13px;border:1px solid #7a7a7a;border-radius:3px}.logo:after{content:"";position:absolute;right:4px;bottom:4px;width:6px;height:6px;background:#ddd;border-radius:50%}
+    .hero{position:relative;padding:124px 0 70px;border-bottom:1px solid var(--b);background:radial-gradient(1200px 600px at 15% -20%,rgba(255,255,255,.08),transparent 60%),linear-gradient(180deg,var(--bg2),var(--bg))}
+    .hero h1{font-size:clamp(44px,7vw,92px);line-height:.94;letter-spacing:-.05em;margin:0 0 14px;max-width:980px}
+    .sub{font-size:clamp(17px,2.2vw,22px);line-height:1.58;color:var(--m);max-width:820px;margin:0 0 24px}
+    .cta{display:flex;gap:10px;flex-wrap:wrap}.btn{padding:13px 20px;border-radius:12px;border:1px solid #4a4a4a;color:var(--t);text-decoration:none;font-weight:700}.btn.primary{background:#efefef;color:#090909;border-color:#efefef}
+    .hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-top:28px}
+    .panel,.tile{border:1px solid #3a3a3a;border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.01));box-shadow:0 18px 48px rgba(0,0,0,.45)}
+    .bar{padding:10px 14px;border-bottom:1px solid var(--b);display:flex;gap:6px}.dot{width:8px;height:8px;border-radius:50%;background:#666}
+    .kpis{padding:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.card{border:1px solid var(--b);border-radius:12px;background:var(--s1);padding:12px}.k{font-size:11px;color:var(--m)}.v{font-size:24px;font-weight:800;margin-top:4px}
+    .section{padding:84px 0}.title{font-size:clamp(30px,4.6vw,58px);letter-spacing:-.04em;margin:0 0 12px}.lead{font-size:18px;color:var(--m);line-height:1.6;max-width:860px;margin:0 0 24px}
+    .bento{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}.b{border:1px solid var(--b);border-radius:16px;background:var(--s2);padding:16px;min-height:140px;transition:.2s}.b:hover{border-color:#585858;transform:translateY(-2px)}.b h3{margin:0 0 8px}.b p{margin:0;color:var(--m);line-height:1.5;font-size:14px}
+    .c1{grid-column:span 4}.c2{grid-column:span 2}.c3{grid-column:span 2}.c4{grid-column:span 4}.c5{grid-column:span 3}.c6{grid-column:span 3}
+    .sticky-wrap{display:grid;grid-template-columns:.9fr 1.1fr;gap:12px}.sticky{position:sticky;top:84px;height:fit-content;border:1px solid var(--b);border-radius:16px;background:var(--s1);padding:16px}
+    .compare{border:1px solid var(--b);border-radius:16px;overflow:hidden} table{width:100%;border-collapse:collapse} th,td{padding:14px;border-bottom:1px solid var(--b);font-size:14px} th{text-align:left;color:var(--m)} td:nth-child(2){color:#f0f0f0;font-weight:700}
+    [data-r]{opacity:0;transform:translateY(18px);transition:.6s ease}[data-r].on{opacity:1;transform:none}
+    @media (max-width:980px){.hero-grid,.sticky-wrap{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.bento{grid-template-columns:1fr 1fr}.c1,.c2,.c3,.c4,.c5,.c6{grid-column:span 2}}
+    @media (max-width:700px){.shell{padding:0 16px}.kpis,.bento{grid-template-columns:1fr}.c1,.c2,.c3,.c4,.c5,.c6{grid-column:span 1}.btn{width:100%;text-align:center}.section{padding:62px 0}}
+  </style>
+</head>
+<body>
+  <div class="progress"></div>
+  <div class="nav"><div class="brand"><span class="logo"></span>FIELD OPS</div><div style="color:#9a9a9a;font-size:14px">Features · Command Center · Pricing · Demo</div></div>
+
+  <section class="hero">
+    <div class="shell" data-r>
+      <h1>Another futuristic direction:<br>stronger story, richer features, cleaner rhythm.</h1>
+      <p class="sub">Monotone palette, premium depth, and smooth scroll choreography focused on feature comprehension and conversion clarity.</p>
+      <div class="cta"><a class="btn primary" href="#">Start Free Trial</a><a class="btn" href="#">View Live Product Tour</a></div>
+      <div class="hero-grid">
+        <div class="panel" data-r><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div><div class="kpis"><div class="card"><div class="k">MRR</div><div class="v">$10,240</div></div><div class="card"><div class="k">Overdue</div><div class="v">$1,960</div></div><div class="card"><div class="k">Jobs Today</div><div class="v">24</div></div><div class="card"><div class="k">Utilization</div><div class="v">88%</div></div></div></div>
+        <div class="tile" data-r style="padding:16px"><h3>Live Operations Pulse</h3><p style="color:var(--m);line-height:1.6">3 delayed jobs · 2 high-risk invoices · 4 route adjustments · autopilot ready.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section"><div class="shell" data-r><h2 class="title">Feature-packed without feeling crowded</h2><p class="lead">This concept spreads feature communication across modular blocks so users instantly understand depth and day-to-day value.</p>
+    <div class="bento">
+      <article class="b c1"><h3>Dispatch Command Center</h3><p>Delay detection, auto-assignment, route pressure, and “Fix my day” decisions in one control surface.</p></article>
+      <article class="b c2"><h3>Crew Quick</h3><p>3-tap field flow, optimized for adoption.</p></article>
+      <article class="b c3"><h3>Cash Flow Autopilot</h3><p>Reminder cadence, owner gates, and risk flags.</p></article>
+      <article class="b c4"><h3>Reliability Center</h3><p>Integration health, webhook retry queue, and self-heal controls.</p></article>
+      <article class="b c5"><h3>Onboarding Mode</h3><p>Guided setup to get businesses live quickly.</p></article>
+      <article class="b c6"><h3>Quote-to-Job</h3><p>Nudges, follow-ups, and conversion lift workflows.</p></article>
+    </div>
+  </div></section>
+
+  <section class="section" style="padding-top:0"><div class="shell sticky-wrap">
+    <aside class="sticky" data-r><h3 style="margin:0 0 8px;font-size:28px;letter-spacing:-.02em">Designed, not generated.</h3><p style="margin:0;color:var(--m);line-height:1.65">Asymmetric pacing, intentional whitespace, and restrained motion to avoid generic AI-template vibe while keeping conversion-first clarity.</p></aside>
+    <div>
+      <div class="compare" data-r><table><thead><tr><th>What users care about</th><th>Field Ops</th><th>Typical tools</th></tr></thead><tbody><tr><td>Dispatch decisions</td><td>One command context</td><td>Multi-page chase</td></tr><tr><td>Collections speed</td><td>Autopilot + risk insight</td><td>Manual reminder loops</td></tr><tr><td>Crew adoption</td><td>Fast field UX</td><td>Heavy mobile complexity</td></tr></tbody></table></div>
+    </div>
+  </div></section>
+
+  <script>
+  (()=>{
+    const els=document.querySelectorAll('[data-r]');
+    const root=document.documentElement;
+    function sp(){const h=document.documentElement.scrollHeight-window.innerHeight;root.style.setProperty('--p',((h>0?window.scrollY/h:0)*100)+'%')}
+    const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(reduce||!('IntersectionObserver'in window)){els.forEach(e=>e.classList.add('on'));sp();window.addEventListener('scroll',sp,{passive:true});return}
+    const io=new IntersectionObserver(es=>es.forEach(x=>{if(x.isIntersecting){x.target.classList.add('on');io.unobserve(x.target)}}),{threshold:.14,rootMargin:'0px 0px -8% 0px'});
+    els.forEach(e=>io.observe(e));sp();window.addEventListener('scroll',sp,{passive:true});
+  })();
+  </script>
+</body>
+</html>

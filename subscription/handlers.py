@@ -31,6 +31,9 @@ def _subscription_updated(event):
         return
     business.stripe_subscription_id = sub.get("id", "")
     business.subscription_status = (sub.get("status") or "").lower() or ""
+    plan_tier = (sub.get("metadata") or {}).get("plan_tier")
+    if plan_tier in {"solo", "core"}:
+        business.subscription_plan_tier = plan_tier
     period_end = sub.get("current_period_end")
     if period_end:
         business.subscription_current_period_end = timezone.datetime.fromtimestamp(period_end, tz=timezone.utc)
@@ -41,7 +44,7 @@ def _subscription_updated(event):
         business.stripe_customer_id = customer_id
     business.save(update_fields=[
         "stripe_customer_id", "stripe_subscription_id", "subscription_status",
-        "subscription_current_period_end",
+        "subscription_current_period_end", "subscription_plan_tier",
     ])
 
 

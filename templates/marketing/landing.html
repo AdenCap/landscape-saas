@@ -1,483 +1,318 @@
-{% extends "base.html" %}
-
-{% block title %}Field Ops – Professional Landscaping Operations Software{% endblock %}
+{% extends "marketing/base_marketing.html" %}
+{% block title %}ProFieldOps — Run Your Entire Lawn Care & Landscaping Business From One Platform{% endblock %}
 
 {% block extra_css %}
 <style>
-  /* Landing page specific styles */
-  .landing-hero {
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
-    padding: 80px 24px;
-    text-align: center;
-    border-bottom: 1px solid var(--border);
+  :root{
+    --accent:#3b82f6;
+    --accent-2:#60a5fa;
+    --glass:rgba(255,255,255,.04);
+    --glass-strong:rgba(255,255,255,.08);
   }
-  .landing-hero h1 {
-    font-size: 56px;
-    font-weight: 800;
-    line-height: 1.1;
-    letter-spacing: -0.04em;
-    margin: 0 0 24px 0;
-    background: linear-gradient(135deg, var(--primary) 0%, #16a34a 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .hero-premium{padding:78px 0 40px;border-bottom:1px solid var(--border);background:
+    radial-gradient(700px 300px at 70% -10%,rgba(59,130,246,.22),transparent 65%),
+    radial-gradient(500px 260px at 8% 5%,rgba(255,255,255,.07),transparent 72%),
+    linear-gradient(180deg,#0b0b0c 0%,#070707 100%)}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:26px;align-items:center}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:var(--glass);border:1px solid var(--border);font-size:12px;color:#d4d4d4;margin-bottom:14px}
+  .eyebrow:before{content:"";width:6px;height:6px;border-radius:999px;background:var(--accent);box-shadow:0 0 16px var(--accent)}
+  .hero-h1{font-size:clamp(34px,6vw,70px);line-height:.95;letter-spacing:-.045em;margin:0 0 14px;max-width:820px}
+  .hero-sub{font-size:clamp(16px,2.1vw,21px);line-height:1.6;color:#b3b3b3;max-width:700px;margin:0 0 22px}
+  .cta-row{display:flex;gap:10px;flex-wrap:wrap}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));border:0;color:#f8fbff}
+  .btn:hover{transform:translateY(-1px);transition:transform .16s ease,border-color .16s ease,background .16s ease}
+
+  .dash-shell{position:relative;border:1px solid #2c3542;border-radius:20px;padding:14px;background:linear-gradient(170deg,#11151a,#0b0f14);box-shadow:0 24px 90px rgba(20,25,38,.45)}
+  .dash-shell:before{content:"";position:absolute;inset:0;border-radius:20px;pointer-events:none;background:linear-gradient(135deg,rgba(255,255,255,.12),transparent 28%,transparent 72%,rgba(255,255,255,.06));mix-blend-mode:screen}
+  .dash-top{display:flex;justify-content:space-between;align-items:center;padding:4px 2px 12px}
+  .dot-row{display:flex;gap:6px}.dot{width:8px;height:8px;border-radius:999px;background:#3b3f46}.dot:nth-child(1){background:#ef4444}.dot:nth-child(2){background:#f59e0b}.dot:nth-child(3){background:#22c55e}
+  .dash-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:8px}
+  .k{padding:10px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid #26303b}.k b{font-size:18px}.k span{display:block;color:#9ca3af;font-size:12px;margin-top:4px}
+  .dash-main{display:grid;grid-template-columns:1.1fr .9fr;gap:8px}
+  .panel{border:1px solid #27303b;background:rgba(255,255,255,.02);border-radius:12px;padding:10px;min-height:114px}
+  .line{height:8px;background:#293240;border-radius:999px;margin:8px 0;overflow:hidden}
+  .line > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#7dd3fc);border-radius:999px;animation:flow 2.7s ease-in-out infinite}
+  @keyframes flow{0%,100%{width:42%}50%{width:74%}}
+
+  .trust-strip{padding:20px 0;border-bottom:1px solid var(--border);border-top:1px solid var(--border);background:#0c0c0c}
+  .trust-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .trust{padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--glass)}
+  .trust b{display:block;margin-bottom:6px}
+  .trust p{margin:0;color:var(--muted);line-height:1.55}
+
+  .story{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+  .story + .story{margin-top:12px}
+  .story-copy,.story-visual{border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:18px}
+  .story-copy h3{margin:0 0 8px;font-size:26px;letter-spacing:-.02em}
+  .story-copy ul{padding-left:18px;color:#b8b8b8;line-height:1.7;margin:10px 0 0}
+  .story-visual{background:linear-gradient(150deg,#12161c,#0d1118);position:relative;overflow:hidden}
+  .story-visual:after{content:"";position:absolute;inset:-10% -40% auto auto;width:50%;height:120%;background:linear-gradient(180deg,rgba(96,165,250,.2),transparent 45%);transform:rotate(18deg)}
+  .demo-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+  .demo-mini .tile{border:1px solid #2f3844;border-radius:10px;padding:8px;background:rgba(255,255,255,.02);font-size:11px;color:#9ca3af;transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease)}
+  .demo-mini .tile:hover{transform:translateY(-2px);border-color:#3b82f6}
+
+  .showcase{margin-top:18px;border:1px solid #2b313a;border-radius:22px;padding:18px;background:linear-gradient(180deg,#0e1116,#090c11)}
+  .show-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}
+  .show-left,.show-right{border:1px solid #2a3441;border-radius:14px;padding:12px;background:rgba(255,255,255,.02)}
+  .shot-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}
+  .shot{border:1px solid #2a3441;border-radius:12px;overflow:hidden;background:#0f141c;transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease)}
+  .shot:hover{transform:translateY(-3px);border-color:#3b82f6}
+  .shot .mini{height:120px;padding:10px;background:linear-gradient(150deg,#121824,#0d1118)}
+  .shot .mini i{display:block;height:8px;border-radius:999px;background:linear-gradient(90deg,#3b82f6,#7dd3fc);margin:8px 0;opacity:.9;animation:flow 2.5s ease-in-out infinite}
+  .shot span{display:block;padding:8px 10px;font-size:12px;color:#a1a1aa}
+
+  .how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
+  .step{border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--surface)}
+  .step .n{display:inline-flex;width:28px;height:28px;border-radius:999px;align-items:center;justify-content:center;background:var(--glass-strong);border:1px solid #31435c;font-weight:700;margin-bottom:8px}
+
+  .industry-grid,.pricing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .industry{border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--surface);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+  .industry:hover{transform:translateY(-3px);border-color:#3a4759;box-shadow:0 12px 26px rgba(0,0,0,.24)}
+  .industry p{margin:6px 0 0;color:var(--muted)}
+
+  .plan{border:1px solid var(--border);border-radius:16px;padding:16px;background:var(--surface)}
+  .plan h3{margin:0}.price{font-size:34px;font-weight:800;letter-spacing:-.03em;margin:8px 0}
+  .plan ul{margin:10px 0 0;padding-left:18px;color:#b8b8b8;line-height:1.7}
+  .plan.featured{border-color:#3b82f6;background:linear-gradient(160deg,rgba(59,130,246,.16),rgba(16,21,29,.9));box-shadow:0 18px 42px rgba(22,47,88,.35)}
+
+  .final{padding:90px 0 94px;background:radial-gradient(700px 320px at 50% 0%,rgba(59,130,246,.23),transparent 72%)}
+  .final-box{border:1px solid #304056;border-radius:24px;padding:36px 24px;text-align:center;background:linear-gradient(180deg,#101722,#0b1118)}
+  .final h2{font-size:clamp(30px,4.6vw,58px);line-height:1;letter-spacing:-.04em;margin:0 0 10px}
+
+  .floaty{transform:translateY(var(--py,0px));will-change:transform}
+  @media (max-width:980px){
+    .hero-grid,.story,.show-grid{grid-template-columns:1fr}
+    .industry-grid,.pricing-grid,.trust-grid,.how{grid-template-columns:1fr 1fr}
   }
-  .landing-hero .subtitle {
-    font-size: 22px;
-    color: var(--text-muted);
-    max-width: 720px;
-    margin: 0 auto 40px;
-    line-height: 1.6;
-  }
-  .landing-cta {
-    display: flex;
-    gap: 16px;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-bottom: 24px;
-  }
-  .btn-hero {
-    padding: 16px 32px;
-    font-size: 18px;
-    font-weight: 700;
-    border-radius: 12px;
-  }
-  .trust-badges {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 32px;
-    flex-wrap: wrap;
-    margin-top: 48px;
-    padding-top: 32px;
-    border-top: 1px solid var(--border);
-  }
-  .trust-badge {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-muted);
-    font-size: 14px;
-  }
-  .feature-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 32px;
-    margin: 60px 0;
-  }
-  .feature-card {
-    text-align: center;
-    padding: 32px 24px;
-  }
-  .feature-icon {
-    width: 64px;
-    height: 64px;
-    margin: 0 auto 20px;
-    background: rgba(34, 197, 94, 0.15);
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 32px;
-  }
-  .feature-card h3 {
-    font-size: 20px;
-    font-weight: 700;
-    margin: 0 0 12px 0;
-  }
-  .feature-card p {
-    color: var(--text-muted);
-    font-size: 15px;
-    line-height: 1.6;
-    margin: 0;
-  }
-  .section {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 80px 24px;
-  }
-  .section-title {
-    font-size: 42px;
-    font-weight: 800;
-    text-align: center;
-    margin: 0 0 16px 0;
-    letter-spacing: -0.02em;
-  }
-  .section-subtitle {
-    font-size: 18px;
-    color: var(--text-muted);
-    text-align: center;
-    max-width: 640px;
-    margin: 0 auto 60px;
-    line-height: 1.6;
-  }
-  .pricing-card {
-    background: var(--surface);
-    border: 2px solid var(--border);
-    border-radius: 16px;
-    padding: 40px 32px;
-    text-align: center;
-    max-width: 400px;
-    margin: 0 auto;
-  }
-  .pricing-price {
-    font-size: 48px;
-    font-weight: 800;
-    color: var(--primary);
-    margin: 16px 0 8px;
-  }
-  .pricing-period {
-    color: var(--text-muted);
-    font-size: 16px;
-  }
-  .testimonial {
-    background: var(--surface);
-    border-radius: 16px;
-    padding: 32px;
-    border: 1px solid var(--border);
-  }
-  .testimonial-text {
-    font-size: 18px;
-    line-height: 1.7;
-    margin: 0 0 24px 0;
-    font-style: italic;
-    color: var(--text);
-  }
-  .testimonial-author {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .testimonial-author strong {
-    font-size: 16px;
-  }
-  .testimonial-author span {
-    color: var(--text-muted);
-    font-size: 14px;
-  }
-  .how-it-works {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 40px;
-    margin: 60px 0;
-  }
-  .step {
-    text-align: center;
-  }
-  .step-number {
-    width: 56px;
-    height: 56px;
-    background: var(--primary);
-    color: #0a0a0a;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    font-weight: 800;
-    margin: 0 auto 20px;
-  }
-  .step h3 {
-    font-size: 20px;
-    font-weight: 700;
-    margin: 0 0 12px 0;
-  }
-  .step p {
-    color: var(--text-muted);
-    font-size: 15px;
-    line-height: 1.6;
-    margin: 0;
-  }
-  .cta-section {
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%);
-    border-radius: 24px;
-    padding: 60px 40px;
-    text-align: center;
-    border: 1px solid rgba(34, 197, 94, 0.2);
-  }
-  .cta-section h2 {
-    font-size: 36px;
-    font-weight: 800;
-    margin: 0 0 16px 0;
-  }
-  .cta-section p {
-    font-size: 18px;
-    color: var(--text-muted);
-    margin: 0 0 32px 0;
-  }
-  @media (max-width: 768px) {
-    .landing-hero h1 { font-size: 36px; }
-    .landing-hero .subtitle { font-size: 18px; }
-    .section-title { font-size: 32px; }
-    .section { padding: 60px 20px; }
-    .feature-grid { grid-template-columns: 1fr; gap: 24px; }
+  @media (max-width:700px){
+    .industry-grid,.pricing-grid,.trust-grid,.how,.dash-kpis,.dash-main{grid-template-columns:1fr}
+    .hero-premium{padding-top:56px}
+    .final-box{padding:24px 16px}
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Hero Section -->
-<section class="landing-hero">
-  <div style="max-width: 1200px; margin: 0 auto;">
-    <p style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--primary); font-weight: 600; margin: 0 0 16px 0;">
-      Built for Landscaping Professionals
-    </p>
-    <h1>Run Your Entire Landscaping Business<br>From One Powerful Platform</h1>
-    <p class="subtitle">
-      Schedule jobs, manage crews, send invoices, and track profit—all in one modern workspace 
-      designed for field service teams who want to grow.
-    </p>
-    <div class="landing-cta">
-      <a href="{% url 'signup' %}" class="btn btn-primary btn-hero">
-        Start Free Trial
-      </a>
-      <a href="{% url 'login' %}" class="btn btn-secondary btn-hero">
-        Sign In
-      </a>
+<section class="hero-premium">
+  <div class="shell hero-grid">
+    <div data-r>
+      <span class="eyebrow">Built for modern lawn care & landscaping companies</span>
+      <h1 class="hero-h1" id="hero-headline">Run Your Entire Lawn Care & Landscaping Business From One Platform</h1>
+      <p class="hero-sub" id="hero-subhead">Built around the actual ProFieldOps stack: Dashboard, Jobs, Calendar, Daily Routes, Clients, Messaging, Estimator, Invoices, Estimates, Employee Management, and Financials—connected in one operating system.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial">Start Free Trial</a>
+        <a class="btn" href="/features/" data-cta="watch-demo">Watch Demo</a>
+      </div>
+      <p style="margin:10px 0 0;color:var(--muted);font-size:14px;">Free trial available. Choose Solo Starter or Pro All-Access when you’re ready.</p>
     </div>
-    <p style="font-size: 14px; color: var(--text-muted); margin: 0;">
-      No credit card required • Cancel anytime • 14-day money-back guarantee
-    </p>
-    <div class="trust-badges">
-      <div class="trust-badge">
-        <span style="font-size: 20px;">✓</span>
-        <span>Trusted by landscaping businesses</span>
+
+    <div class="dash-shell floaty" data-r data-parallax="16">
+      <div class="dash-top"><div class="dot-row"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><small style="color:#9ca3af">ProFieldOps Dashboard</small></div>
+      <div class="dash-kpis">
+        <div class="k"><b>$42.1k</b><span>Revenue (MTD)</span></div>
+        <div class="k"><b>89%</b><span>On-time jobs</span></div>
+        <div class="k"><b>14</b><span>Open invoices</span></div>
       </div>
-      <div class="trust-badge">
-        <span style="font-size: 20px;">🔒</span>
-        <span>Secure & encrypted</span>
-      </div>
-      <div class="trust-badge">
-        <span style="font-size: 20px;">📱</span>
-        <span>Works on all devices</span>
+      <div class="dash-main">
+        <div class="panel"><small style="color:#9ca3af">Smart Scheduling</small><div class="line"><i style="width:65%"></i></div><div class="line"><i style="width:48%"></i></div><div class="line"><i style="width:72%"></i></div></div>
+        <div class="panel"><small style="color:#9ca3af">Crew Status</small><div class="line"><i style="width:54%"></i></div><div class="line"><i style="width:62%"></i></div><div class="line"><i style="width:44%"></i></div></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Features Section -->
+<section class="trust-strip">
+  <div class="shell trust-grid" data-r>
+    <article class="trust"><b>Built from real ProFieldOps modules</b><p>Not conceptual mockups—this mirrors the live app workflows your team uses daily.</p></article>
+    <article class="trust"><b>Operational continuity end-to-end</b><p>Schedule in Calendar, execute with Daily Routes, and bill through Invoices/Estimates.</p></article>
+    <article class="trust"><b>Field + office alignment</b><p>Clients, Messaging, Employee Management, and Financials stay in sync across roles.</p></article>
+  </div>
+</section>
+
+<section class="section" style="padding-top:34px;padding-bottom:30px">
+  <div class="shell" data-r>
+    <h2 class="title">Running a lawn care or landscaping company shouldn't require five different tools.</h2>
+    <div class="industry-grid" style="margin-top:14px;">
+      <article class="industry"><h3 style="margin:0">Scheduling chaos</h3><p>Jobs slip when dispatch and calendars are disconnected.</p></article>
+      <article class="industry"><h3 style="margin:0">Missed invoices</h3><p>Cash flow suffers when billing happens late or manually.</p></article>
+      <article class="industry"><h3 style="margin:0">Crew coordination gaps</h3><p>Teams lose time without real-time assignment clarity.</p></article>
+    </div>
+  </div>
+</section>
+
 <section class="section">
-  <h2 class="section-title">Everything You Need to Run Your Business</h2>
-  <p class="section-subtitle">
-    Field Ops combines all the tools you need into one streamlined platform. 
-    No more switching between apps or juggling spreadsheets.
-  </p>
-  
-  <div class="feature-grid">
-    <div class="feature-card">
-      <div class="feature-icon">📅</div>
-      <h3>Smart Scheduling</h3>
-      <p>Drag-and-drop calendar, daily route optimization, and automatic crew assignments. Your team always knows where to be and when.</p>
-    </div>
-    
-    <div class="feature-card">
-      <div class="feature-icon">👥</div>
-      <h3>Crew Management</h3>
-      <p>Track time, manage schedules, assign jobs, and handle payroll—all from one place. Keep your team organized and productive.</p>
-    </div>
-    
-    <div class="feature-card">
-      <div class="feature-icon">💰</div>
-      <h3>Estimates & Invoicing</h3>
-      <p>Create professional estimates, convert to invoices, and get paid faster with integrated credit card processing. Track what's outstanding at a glance.</p>
-    </div>
-    
-    <div class="feature-card">
-      <div class="feature-icon">📊</div>
-      <h3>Profit Tracking</h3>
-      <p>See revenue, costs, and profit in real-time. Know exactly how much money you're making on every job and customer.</p>
-    </div>
-    
-    <div class="feature-card">
-      <div class="feature-icon">📱</div>
-      <h3>Mobile-Ready</h3>
-      <p>Crews can clock in, view routes, complete jobs, and upload photos from their phones. Works perfectly on any device.</p>
-    </div>
-    
-    <div class="feature-card">
-      <div class="feature-icon">🔗</div>
-      <h3>QuickBooks Integration</h3>
-      <p>Push invoices and payroll directly to QuickBooks Online. Keep your books in sync without manual data entry.</p>
-    </div>
+  <div class="shell" data-r>
+    <h2 class="title">Product Story, Section by Section</h2>
+    <p class="lead">A guided, scroll-based walkthrough of the core workflows that grow revenue and protect margin.</p>
+
+    <article class="story">
+      <div class="story-copy"><h3>Calendar + Daily Routes</h3><ul><li>Drag-and-drop rescheduling in Calendar</li><li>Push work into Daily Routes for execution</li><li>Keep unscheduled jobs visible until assigned</li></ul></div>
+      <div class="story-visual floaty" data-parallax="10"><div class="line"><i></i></div><div class="line"><i style="width:70%"></i></div><div class="line"><i style="width:52%"></i></div><div class="demo-mini"><div class="tile">Calendar Drag</div><div class="tile">Crew Assign</div><div class="tile">Route Push</div></div></div>
+    </article>
+
+    <article class="story">
+      <div class="story-copy"><h3>Invoices + Estimates</h3><ul><li>Create estimates and convert cleanly to billing</li><li>Track paid/sent/draft status at a glance</li><li>Run monthly invoice workflows without spreadsheet cleanup</li></ul></div>
+      <div class="story-visual floaty" data-parallax="12"><div class="line"><i style="width:58%"></i></div><div class="line"><i style="width:77%"></i></div><div class="line"><i style="width:48%"></i></div><div class="demo-mini"><div class="tile">Estimate</div><div class="tile">Invoice Send</div><div class="tile">Payment State</div></div></div>
+    </article>
+
+    <article class="story">
+      <div class="story-copy"><h3>Clients + Messaging</h3><ul><li>Unified customer profiles and property records</li><li>Client messaging inbox tied to active jobs</li><li>Complete history for faster follow-up</li></ul></div>
+      <div class="story-visual floaty" data-parallax="14"><div class="line"><i style="width:63%"></i></div><div class="line"><i style="width:51%"></i></div><div class="line"><i style="width:74%"></i></div></div>
+    </article>
+
+    <article class="story">
+      <div class="story-copy"><h3>Estimator + Employee Management + Financials</h3><ul><li>Estimator tools speed quote creation</li><li>Employee Management keeps assignment ownership clear</li><li>Financials surface revenue and collection performance</li></ul></div>
+      <div class="story-visual floaty" data-parallax="11"><div class="line"><i style="width:68%"></i></div><div class="line"><i style="width:57%"></i></div><div class="line"><i style="width:71%"></i></div></div>
+    </article>
   </div>
 </section>
 
-<!-- How It Works -->
-<section class="section" style="background: var(--surface-alt);">
-  <h2 class="section-title">Get Started in Minutes</h2>
-  <p class="section-subtitle">
-    Setting up Field Ops is simple. Get your team onboarded and start managing jobs today.
-  </p>
-  
-  <div class="how-it-works">
-    <div class="step">
-      <div class="step-number">1</div>
-      <h3>Sign Up Free</h3>
-      <p>Create your account and set up your business profile. No credit card required to get started.</p>
-    </div>
-    
-    <div class="step">
-      <div class="step-number">2</div>
-      <h3>Add Your Team</h3>
-      <p>Invite crew members and office staff. They'll get instant access to their schedules and tools.</p>
-    </div>
-    
-    <div class="step">
-      <div class="step-number">3</div>
-      <h3>Start Managing</h3>
-      <p>Create jobs, schedule crews, send invoices, and track everything. Subscribe when you're ready for full access.</p>
-    </div>
-  </div>
-</section>
-
-<!-- Pricing Section -->
-<section class="section">
-  <h2 class="section-title">Simple, Transparent Pricing</h2>
-  <p class="section-subtitle">
-    One plan. All features. No hidden fees. Cancel anytime.
-  </p>
-  
-  <div class="pricing-card">
-    <h3 style="font-size: 24px; font-weight: 700; margin: 0 0 8px 0;">Professional</h3>
-    <div class="pricing-price">$99</div>
-    <div class="pricing-period">per month</div>
-    <p style="color: var(--text-muted); margin: 24px 0; line-height: 1.6;">
-      Everything you need to run your landscaping business. Unlimited users, unlimited jobs, all features included.
-    </p>
-    <ul style="text-align: left; list-style: none; padding: 0; margin: 24px 0;">
-      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--primary); font-size: 20px;">✓</span>
-        <span>Unlimited jobs & clients</span>
-      </li>
-      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--primary); font-size: 20px;">✓</span>
-        <span>Unlimited team members</span>
-      </li>
-      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--primary); font-size: 20px;">✓</span>
-        <span>Credit card payments</span>
-      </li>
-      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--primary); font-size: 20px;">✓</span>
-        <span>QuickBooks integration</span>
-      </li>
-      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--primary); font-size: 20px;">✓</span>
-        <span>Mobile app access</span>
-      </li>
-      <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--primary); font-size: 20px;">✓</span>
-        <span>Priority support</span>
-      </li>
-    </ul>
-    <a href="{% url 'signup' %}" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 16px; font-weight: 700; margin-top: 24px;">
-      Start Free Trial
-    </a>
-    <p style="font-size: 13px; color: var(--text-muted); margin: 12px 0 0 0;">
-      No credit card required • Cancel anytime
-    </p>
-  </div>
-</section>
-
-<!-- Testimonials Section -->
-<section class="section" style="background: var(--surface-alt);">
-  <h2 class="section-title">Trusted by Landscaping Professionals</h2>
-  <p class="section-subtitle">
-    See what business owners are saying about Field Ops
-  </p>
-  
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; max-width: 1000px; margin: 0 auto;">
-    <div class="testimonial">
-      <p class="testimonial-text">
-        "Field Ops has completely transformed how we run our business. We can schedule jobs, track time, and send invoices all from one place. Our crew loves the mobile app."
-      </p>
-      <div class="testimonial-author">
-        <div>
-          <strong>Mike Johnson</strong><br>
-          <span>GreenScape Landscaping</span>
+<section class="section" style="padding-top:12px">
+  <div class="shell" data-r>
+    <h2 class="title">Professional Platform Showcase</h2>
+    <p class="lead">One full-width view of the real operating loop: scheduling, routes, CRM, invoicing, and financial visibility (with QuickBooks integration available in-app).</p>
+    <div class="showcase">
+      <div class="show-grid">
+        <div class="show-left">
+          <small style="color:#9ca3af">Operations Timeline</small>
+          <div class="line"><i style="width:72%"></i></div><div class="line"><i style="width:55%"></i></div><div class="line"><i style="width:66%"></i></div>
+        </div>
+        <div class="show-right">
+          <small style="color:#9ca3af">Live KPI Feed</small>
+          <div class="line"><i style="width:61%"></i></div><div class="line"><i style="width:47%"></i></div><div class="line"><i style="width:80%"></i></div>
         </div>
       </div>
-    </div>
-    
-    <div class="testimonial">
-      <p class="testimonial-text">
-        "The profit tracking feature alone is worth it. We finally know exactly how much we're making on each job. It's helped us price our services better and grow our revenue."
-      </p>
-      <div class="testimonial-author">
-        <div>
-          <strong>Sarah Martinez</strong><br>
-          <span>Premier Lawn Care</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="testimonial">
-      <p class="testimonial-text">
-        "Getting paid faster with credit card payments has been a game-changer. Our clients love the convenience, and we get paid immediately instead of waiting weeks for checks."
-      </p>
-      <div class="testimonial-author">
-        <div>
-          <strong>David Chen</strong><br>
-          <span>Elite Landscaping Services</span>
-        </div>
+      <div class="shot-grid">
+        <a class="shot" href="/features/dashboard/"><div class="mini"><i style="width:65%"></i><i style="width:48%"></i><i style="width:77%"></i></div><span>Dashboard</span></a>
+        <a class="shot" href="/features/calendar/"><div class="mini"><i style="width:57%"></i><i style="width:72%"></i><i style="width:51%"></i></div><span>Calendar</span></a>
+        <a class="shot" href="/features/clients/"><div class="mini"><i style="width:61%"></i><i style="width:44%"></i><i style="width:69%"></i></div><span>Clients</span></a>
+        <a class="shot" href="/features/invoices/"><div class="mini"><i style="width:52%"></i><i style="width:81%"></i><i style="width:58%"></i></div><span>Invoices</span></a>
+        <a class="shot" href="/features/financials/"><div class="mini"><i style="width:74%"></i><i style="width:55%"></i><i style="width:66%"></i></div><span>Financials</span></a>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Final CTA Section -->
-<section class="section">
-  <div class="cta-section">
-    <h2>Ready to Grow Your Business?</h2>
-    <p>
-      Join landscaping companies who are using Field Ops to streamline operations, 
-      increase revenue, and scale their business.
-    </p>
-    <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
-      <a href="{% url 'signup' %}" class="btn btn-primary btn-hero">
-        Start Your Free Trial
-      </a>
-      <a href="{% url 'login' %}" class="btn btn-secondary btn-hero">
-        Sign In
-      </a>
+<section class="section" style="padding-top:8px;padding-bottom:18px">
+  <div class="shell" data-r>
+    <h2 class="title">Scroll Through Every Core Feature</h2>
+    <p class="lead">Each module below links to a dedicated deep-dive page with in-depth details on how it works and why it converts operations into results.</p>
+    <div class="industry-grid">
+      <a class="industry" href="/features/dashboard/" style="text-decoration:none;color:inherit"><h3 style="margin:0">Dashboard</h3><p>Daily ops, revenue, and team visibility.</p></a>
+      <a class="industry" href="/features/calendar/" style="text-decoration:none;color:inherit"><h3 style="margin:0">Calendar + Routes</h3><p>Schedule, dispatch, and route execution.</p></a>
+      <a class="industry" href="/features/jobs/" style="text-decoration:none;color:inherit"><h3 style="margin:0">Jobs</h3><p>Track jobs from scheduled to completed.</p></a>
+      <a class="industry" href="/features/clients/" style="text-decoration:none;color:inherit"><h3 style="margin:0">Clients + Messaging</h3><p>Unified records and communication context.</p></a>
+      <a class="industry" href="/features/invoices/" style="text-decoration:none;color:inherit"><h3 style="margin:0">Invoices + Estimates</h3><p>Move from quote to paid faster.</p></a>
+      <a class="industry" href="/features/financials/" style="text-decoration:none;color:inherit"><h3 style="margin:0">Financials</h3><p>Track cash performance and trends.</p></a>
     </div>
-    <p style="font-size: 14px; color: var(--text-muted); margin: 24px 0 0 0;">
-      No credit card required • Set up in minutes • Cancel anytime
-    </p>
+    <div class="cta-row" style="margin-top:12px;"><a class="btn" href="/features/" data-cta="view-all-features">View all features</a></div>
   </div>
 </section>
 
-<!-- Footer -->
-<footer style="max-width: 1200px; margin: 0 auto; padding: 60px 24px 40px; border-top: 1px solid var(--border);">
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 40px; margin-bottom: 40px;">
-    <div>
-      <h4 style="font-size: 16px; font-weight: 700; margin: 0 0 16px 0;">Product</h4>
-      <ul style="list-style: none; padding: 0; margin: 0;">
-        <li style="margin-bottom: 8px;"><a href="#features" style="color: var(--text-muted); text-decoration: none;">Features</a></li>
-        <li style="margin-bottom: 8px;"><a href="#pricing" style="color: var(--text-muted); text-decoration: none;">Pricing</a></li>
-        <li style="margin-bottom: 8px;"><a href="{% url 'signup' %}" style="color: var(--text-muted); text-decoration: none;">Sign Up</a></li>
-      </ul>
-    </div>
-    <div>
-      <h4 style="font-size: 16px; font-weight: 700; margin: 0 0 16px 0;">Company</h4>
-      <ul style="list-style: none; padding: 0; margin: 0;">
-        <li style="margin-bottom: 8px;"><a href="mailto:support@yourdomain.com" style="color: var(--text-muted); text-decoration: none;">Contact</a></li>
-        <li style="margin-bottom: 8px;"><a href="{% url 'terms_of_service' %}" style="color: var(--text-muted); text-decoration: none;">Terms</a></li>
-      </ul>
-    </div>
-    <div>
-      <h4 style="font-size: 16px; font-weight: 700; margin: 0 0 16px 0;">Support</h4>
-      <ul style="list-style: none; padding: 0; margin: 0;">
-        <li style="margin-bottom: 8px;"><a href="mailto:support@yourdomain.com" style="color: var(--text-muted); text-decoration: none;">Help Center</a></li>
-        <li style="margin-bottom: 8px;"><a href="{% url 'privacy_policy' %}" style="color: var(--text-muted); text-decoration: none;">Privacy Policy</a></li>
-        <li style="margin-bottom: 8px;"><a href="{% url 'login' %}" style="color: var(--text-muted); text-decoration: none;">Sign In</a></li>
-      </ul>
+<section class="section" style="padding-top:20px">
+  <div class="shell" data-r>
+    <h2 class="title">How It Works</h2>
+    <div class="how">
+      <article class="step"><span class="n">1</span><h3 style="margin:0 0 6px">Sign up</h3><p class="lead" style="margin:0">Create your account and workspace in minutes.</p></article>
+      <article class="step"><span class="n">2</span><h3 style="margin:0 0 6px">Add jobs and customers</h3><p class="lead" style="margin:0">Import your pipeline and configure your team flow.</p></article>
+      <article class="step"><span class="n">3</span><h3 style="margin:0 0 6px">Run the business</h3><p class="lead" style="margin:0">Dispatch, invoice, collect, and scale from one dashboard.</p></article>
     </div>
   </div>
-  <div style="text-align: center; padding-top: 40px; border-top: 1px solid var(--border);">
-    <p style="color: var(--text-muted); font-size: 14px; margin: 0;">
-      © 2026 Field Ops. All rights reserved.
-    </p>
+</section>
+
+<section class="section" style="padding-top:6px">
+  <div class="shell" data-r>
+    <h2 class="title">Pricing Preview</h2>
+    <p class="lead">Directly aligned with the live ProFieldOps subscription plans.</p>
+    <div class="pricing-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+      <article class="plan"><h3>Solo Starter</h3><div class="price">${{ pricing.solo_price }}</div><ul><li>Calendar scheduling</li><li>Client management basics</li><li>Perfect for owner-operators</li></ul></article>
+      <article class="plan featured"><h3>Pro All-Access</h3><div class="price">${{ pricing.pro_price }}</div><ul><li>Dashboard, Jobs, Calendar, Routes</li><li>Invoices, Estimates, Messaging</li><li>Employee Management + Financials</li></ul></article>
+    </div>
+    <div class="cta-row" style="margin-top:14px"><a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial">Start Free Trial</a><a class="btn" href="/pricing/" data-cta="see-pricing">See Full Pricing</a></div>
   </div>
-</footer>
+</section>
+
+<section class="section" style="padding-top:10px;padding-bottom:18px">
+  <div class="shell" data-r>
+    <h2 class="title">Outcomes You Feel Immediately</h2>
+    <div class="industry-grid">
+      <article class="industry"><h3 style="margin:0">Save hours every week</h3><p>Eliminate repetitive dispatch and billing tasks.</p></article>
+      <article class="industry"><h3 style="margin:0">Get paid faster</h3><p>Automated reminders and cleaner invoice flow.</p></article>
+      <article class="industry"><h3 style="margin:0">Never miss a job</h3><p>Live schedule visibility with crew accountability.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <div class="shell" data-r>
+    <div class="final-box">
+      <h2>Run Your Field Service Business Like a Modern Company.</h2>
+      <p class="lead" style="margin:0 auto 14px;max-width:760px">Make your first impression count, onboard fast, and turn visitors into paying subscribers with a product-first experience.</p>
+      <a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial-final">Start Your Free Trial Today</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+  const variants = {
+    A: {
+      h: 'Run Your Entire Lawn Care & Landscaping Business From One Platform',
+      s: 'Built around the actual ProFieldOps stack for landscaping operators: Dashboard, Jobs, Calendar, Daily Routes, Clients, Messaging, Estimator, Invoices, Estimates, Employee Management, and Financials.'
+    },
+    B: {
+      h: 'From Route Schedule to Paid Invoice in One Workflow',
+      s: 'Plan recurring service in Calendar, execute with Jobs and Daily Routes, and close the loop with Invoices, Estimates, Messaging, and Financials.'
+    }
+  };
+  const key='pfo_hero_variant';
+  let v=localStorage.getItem(key);
+  if(!v) { v=Math.random()<0.5?'A':'B'; localStorage.setItem(key,v); }
+  const hh=document.getElementById('hero-headline');
+  const hs=document.getElementById('hero-subhead');
+  if(hh&&hs&&variants[v]){ hh.textContent=variants[v].h; hs.textContent=variants[v].s; }
+  window.dataLayer=window.dataLayer||[];
+  window.dataLayer.push({event:'pfo_hero_variant',variant:v});
+
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) return;
+
+  const parallaxEls = [...document.querySelectorAll('[data-parallax]')];
+
+  const pushedDepth={25:false,50:false,75:false,100:false};
+  const sections=[...document.querySelectorAll('section')];
+  const seen=new WeakSet();
+  const pushEvent=(payload)=>{window.dataLayer=window.dataLayer||[];window.dataLayer.push(payload)};
+  const io=('IntersectionObserver' in window)?new IntersectionObserver((entries)=>{
+    entries.forEach(en=>{if(en.isIntersecting&&!seen.has(en.target)){seen.add(en.target);pushEvent({event:'pfo_section_view',section:(en.target.querySelector('h2,h1')?.textContent||'section').trim()})}})
+  },{threshold:.35}):null;
+  if(io) sections.forEach(s=>io.observe(s));
+
+  let raf = null;
+  const update = () => {
+    const vh = window.innerHeight || 1;
+    parallaxEls.forEach((el) => {
+      const amount = Number(el.getAttribute('data-parallax') || 10);
+      const rect = el.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      const delta = (mid - vh / 2) / vh;
+      el.style.setProperty('--py', `${(-delta * amount).toFixed(2)}px`);
+    });
+    raf = null;
+  };
+
+  const onScroll = () => {
+    if (!raf) raf = requestAnimationFrame(update);
+    const max=document.documentElement.scrollHeight-window.innerHeight;
+    const pct=max>0?Math.round((window.scrollY/max)*100):100;
+    [25,50,75,100].forEach(d=>{if(pct>=d&&!pushedDepth[d]){pushedDepth[d]=true;pushEvent({event:'pfo_scroll_depth',depth:d})}});
+  };
+  update();
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+})();
+</script>
 {% endblock %}

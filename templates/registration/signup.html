@@ -1,91 +1,76 @@
-{% extends "base.html" %}
-
-{% block title %}Sign up - Field Ops{% endblock %}
+{% extends "marketing/base_marketing.html" %}
+{% block title %}Start free trial — Field Ops{% endblock %}
 
 {% block content %}
-<div style="max-width: 440px; margin: 48px auto;">
-  <div class="card" style="padding: 32px;">
-    <h1 style="font-size: 24px; font-weight: 700; margin: 0 0 8px 0;">Create your account</h1>
-    <p style="color: var(--text-muted); margin: 0 0 24px 0;">Sign up to start managing jobs, clients, and billing.</p>
+<section class="section" style="padding-top:34px;">
+  <div class="shell" style="display:grid;grid-template-columns:.95fr 1.05fr;gap:14px;align-items:start;">
+    <aside class="card" data-r style="padding:22px;position:sticky;top:86px;">
+      <h1 style="font-size:36px;line-height:1.02;letter-spacing:-.03em;margin:0 0 10px;">Start your free trial in minutes.</h1>
+      <p class="lead" style="margin-bottom:14px;">Create your account and go directly into plan selection. No friction, no confusing setup.</p>
+      <ul style="margin:0;padding-left:18px;color:var(--muted);line-height:1.8;">
+        <li>Guided onboarding mode</li>
+        <li>Solo Starter or Pro All-Access selection</li>
+        <li>Operator-friendly dashboard from day one</li>
+      </ul>
+      <div style="margin-top:14px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-size:13px;color:var(--muted);">Already have an account? <a href="{% url 'login' %}" style="color:var(--text)">Sign in</a></div>
+    </aside>
 
-    {% if form.non_field_errors %}
-    <p style="color: #fca5a5; margin-bottom: 16px; font-size: 14px;">
-      {{ form.non_field_errors }}
-    </p>
-    {% endif %}
+    <div class="card" data-r style="padding:22px;">
+      <h2 style="margin:0 0 6px;font-size:28px;letter-spacing:-.02em;">Create account</h2>
+      <p style="margin:0 0 16px;color:var(--muted);">Assumption: you’re new here. We’ll set up your workspace and route you to subscription selection next.</p>
 
-    <form method="post" action="{% url 'signup' %}">
-      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div style="margin-bottom:12px;padding:10px;border:1px solid #7f1d1d;background:#450a0a;color:#fecaca;border-radius:10px;font-size:14px;">{{ form.non_field_errors }}</div>
+      {% endif %}
 
-      <div style="margin-bottom: 16px;">
-        <label for="id_business_name" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px;">{{ form.business_name.label }}</label>
-        <input type="text" name="business_name" id="id_business_name" required
-          value="{{ form.business_name.value|default:'' }}"
-          style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px;"
-          placeholder="Your company name">
-        {% if form.business_name.errors %}<p style="color: #fca5a5; font-size: 13px; margin-top: 4px;">{{ form.business_name.errors.0 }}</p>{% endif %}
-      </div>
-
-      <div style="margin-bottom: 16px;">
-        <label for="id_username" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px;">{{ form.username.label }}</label>
-        <input type="text" name="username" id="id_username" required
-          value="{{ form.username.value|default:'' }}" autocomplete="username"
-          style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px;"
-          placeholder="Choose a username">
-        {% if form.username.errors %}<p style="color: #fca5a5; font-size: 13px; margin-top: 4px;">{{ form.username.errors.0 }}</p>{% endif %}
-      </div>
-
-      <div style="margin-bottom: 16px;">
-        <label for="id_email" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px;">{{ form.email.label }}</label>
-        <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 6px 0;">Required. Used to send you a link if you forget your password.</p>
-        <input type="email" name="email" id="id_email" required
-          value="{{ form.email.value|default:'' }}" autocomplete="email"
-          style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px;"
-          placeholder="you@example.com">
-        {% if form.email.errors %}<p style="color: #fca5a5; font-size: 13px; margin-top: 4px;">{{ form.email.errors.0 }}</p>{% endif %}
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+      <form method="post" action="{% url 'signup' %}" style="display:grid;gap:12px;">
+        {% csrf_token %}
         <div>
-          <label for="id_first_name" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px;">{{ form.first_name.label }}</label>
-          <input type="text" name="first_name" id="id_first_name"
-            value="{{ form.first_name.value|default:'' }}"
-            style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px;"
-            placeholder="First name">
+          <label for="id_business_name" style="display:block;margin-bottom:6px;font-size:14px;">Business name</label>
+          <input id="id_business_name" name="business_name" value="{{ form.business_name.value|default:'' }}" required placeholder="Your company name" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+          {% if form.business_name.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.business_name.errors.0 }}</p>{% endif %}
         </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label for="id_first_name" style="display:block;margin-bottom:6px;font-size:14px;">First name</label>
+            <input id="id_first_name" name="first_name" value="{{ form.first_name.value|default:'' }}" placeholder="First name" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+          </div>
+          <div>
+            <label for="id_last_name" style="display:block;margin-bottom:6px;font-size:14px;">Last name</label>
+            <input id="id_last_name" name="last_name" value="{{ form.last_name.value|default:'' }}" placeholder="Last name" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+          </div>
+        </div>
+
         <div>
-          <label for="id_last_name" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px;">{{ form.last_name.label }}</label>
-          <input type="text" name="last_name" id="id_last_name"
-            value="{{ form.last_name.value|default:'' }}"
-            style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px;"
-            placeholder="Last name">
+          <label for="id_username" style="display:block;margin-bottom:6px;font-size:14px;">Username</label>
+          <input id="id_username" name="username" value="{{ form.username.value|default:'' }}" required autocomplete="username" placeholder="Choose a username" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+          {% if form.username.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.username.errors.0 }}</p>{% endif %}
         </div>
-      </div>
 
-      <div style="margin-bottom: 16px;">
-        <label for="id_password1" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px;">{{ form.password1.label }}</label>
-        <input type="password" name="password1" id="id_password1" required autocomplete="new-password"
-          style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px;"
-          placeholder="Password">
-        {% if form.password1.errors %}<p style="color: #fca5a5; font-size: 13px; margin-top: 4px;">{{ form.password1.errors.0 }}</p>{% endif %}
-      </div>
+        <div>
+          <label for="id_email" style="display:block;margin-bottom:6px;font-size:14px;">Email</label>
+          <input id="id_email" name="email" type="email" value="{{ form.email.value|default:'' }}" required autocomplete="email" placeholder="you@example.com" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+          {% if form.email.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.email.errors.0 }}</p>{% endif %}
+        </div>
 
-      <div style="margin-bottom: 24px;">
-        <label for="id_password2" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px;">{{ form.password2.label }}</label>
-        <input type="password" name="password2" id="id_password2" required autocomplete="new-password"
-          style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px;"
-          placeholder="Confirm password">
-        {% if form.password2.errors %}<p style="color: #fca5a5; font-size: 13px; margin-top: 4px;">{{ form.password2.errors.0 }}</p>{% endif %}
-      </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label for="id_password1" style="display:block;margin-bottom:6px;font-size:14px;">Password</label>
+            <input id="id_password1" name="password1" type="password" required autocomplete="new-password" placeholder="Create password" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+            {% if form.password1.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.password1.errors.0 }}</p>{% endif %}
+          </div>
+          <div>
+            <label for="id_password2" style="display:block;margin-bottom:6px;font-size:14px;">Confirm</label>
+            <input id="id_password2" name="password2" type="password" required autocomplete="new-password" placeholder="Confirm password" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text)">
+            {% if form.password2.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.password2.errors.0 }}</p>{% endif %}
+          </div>
+        </div>
 
-      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">
-        Create account
-      </button>
-    </form>
-
-    <p style="margin-top: 24px; text-align: center; color: var(--text-muted); font-size: 14px;">
-      Already have an account? <a href="{% url 'login' %}" style="color: var(--primary); font-weight: 500;">Sign in</a>
-    </p>
+        <button class="btn btn-primary" type="submit" style="width:100%;">Create account & continue</button>
+      </form>
+    </div>
   </div>
-</div>
+</section>
+<style>@media(max-width:900px){.shell[style*='grid-template-columns:.95fr 1.05fr']{grid-template-columns:1fr!important}}</style>
 {% endblock %}

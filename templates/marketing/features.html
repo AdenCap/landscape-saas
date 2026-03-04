@@ -1,0 +1,24 @@
+{% extends "marketing/base_marketing.html" %}
+{% block title %}ProFieldOps Features{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="shell" data-r>
+    <h1>Every core operation has its own feature system.</h1>
+    <p class="sub">Scroll, scan, and click into dedicated feature pages for dashboard, jobs, calendar, routes, CRM, messaging, estimator, invoices, estimates, employee management, and financials.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="shell" data-r>
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+      {% for slug, f in feature_pages.items %}
+      <a href="/features/{{ slug }}/" class="card" style="text-decoration:none;color:inherit;transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease);">
+        <h3>{{ f.title }}</h3>
+        <p style="margin-bottom:12px;">{{ f.subtitle }}</p>
+        <span class="btn btn-ghost" style="padding:0;border:none;">View feature details →</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

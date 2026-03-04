@@ -6,9 +6,14 @@ name: landscape-saas
 
 services:
   - name: web
-    environment_slug: python
-    # Do not run migrate in build – build runners may not have DATABASE_URL or network to Supabase
-    build_command: pip install --no-cache-dir -r requirements.txt && python manage.py collectstatic --noinput
-    run_command: python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    dockerfile_path: Dockerfile
+    run_command: python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     http_port: 8080
-    # In DO dashboard: on the *web* component set PG_URL = your Supabase URI, scope = Run Time. Set DJANGO_SECRET_KEY, DB_CHECK_SECRET (optional, for /api/db-check/).
+    # In DO dashboard: on the *web* component set PG_URL = your Supabase URI, scope = Run Time.
+    # Required: DJANGO_SECRET_KEY, DJANGO_DEBUG=0, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, Stripe env vars.
+
+workers:
+  - name: celery-worker
+    dockerfile_path: Dockerfile
+    run_command: celery -A config worker -l info --concurrency=2
+    # Required env: CELERY_BROKER_URL (or REDIS_URL), CELERY_RESULT_BACKEND (or REDIS_URL)

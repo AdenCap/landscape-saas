@@ -1,0 +1,92 @@
+{% extends "marketing/base_marketing.html" %}
+{% block title %}{{ feature.title }} — ProFieldOps{% endblock %}
+{% block meta_description %}{{ feature.seo_description|default:feature.subtitle }}{% endblock %}
+{% block og_title %}{{ feature.title }} — ProFieldOps{% endblock %}
+{% block og_description %}{{ feature.seo_description|default:feature.subtitle }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.feature-demo{margin-top:16px;border:1px solid var(--border);border-radius:16px;padding:14px;background:linear-gradient(170deg,#13151a,#0f1217)}
+.demo-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:10px}
+.demo-panel{border:1px solid #2f3640;border-radius:12px;padding:10px;background:rgba(255,255,255,.02);transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease)}
+.demo-panel:hover{transform:translateY(-2px);border-color:#3b82f6}
+.demo-line{height:8px;background:#2a313d;border-radius:999px;margin:8px 0;overflow:hidden}
+.demo-line i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#3b82f6,#7dd3fc);animation:demoFlow 2.4s ease-in-out infinite}
+@keyframes demoFlow{0%,100%{width:40%}50%{width:78%}}
+@media (max-width:900px){.demo-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="shell" data-r>
+    <h1>{{ feature.title }}</h1>
+    <p class="sub">{{ feature.subtitle }}</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial">Start Free Trial</a>
+      <a class="btn btn-secondary" href="/features/">Back to all features</a>
+    </div>
+    <p style="margin:10px 0 0;color:var(--muted);font-size:14px;">Start with a free trial and upgrade when you’re ready.</p>
+    <div class="feature-demo" data-r>
+      <div class="demo-grid" style="margin-top:10px;">
+        <div class="demo-panel">
+          <small style="color:var(--muted)">{{ feature.title }} · Live Workflow Preview</small>
+          <div class="demo-line"><i></i></div><div class="demo-line"><i style="width:63%"></i></div><div class="demo-line"><i style="width:51%"></i></div>
+        </div>
+        <div class="demo-panel">
+          <small style="color:var(--muted)">Connected Modules</small>
+          <div class="demo-line"><i style="width:74%"></i></div><div class="demo-line"><i style="width:46%"></i></div><div class="demo-line"><i style="width:69%"></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="shell" data-r>
+    <h2 class="title">Why this feature works</h2>
+    <div class="grid">
+      {% for b in feature.bullets %}
+      <article class="card" style="transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease);">
+        <h3>{{ b }}</h3>
+        <p>Built with the same unified ProFieldOps design system for speed, clarity, and reliable execution.</p>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:8px;">
+  <div class="shell" data-r>
+    <h2 class="title">Who this is built for</h2>
+    <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+      {% for role, blurb in feature.roles.items %}
+      <article class="card"><h3>{{ role }}</h3><p>{{ blurb }}</p></article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0;">
+  <div class="shell" data-r>
+    <div class="card" style="padding:24px;">
+      <h2 class="title" style="margin-bottom:8px;">See it in your workflow</h2>
+      <p class="lead">Every ProFieldOps module connects to scheduling, customers, invoicing, and team operations so your business runs as one system—not isolated tools.</p>
+      <a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial">Start Free Trial</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"FAQPage",
+  "mainEntity":[
+    {"@type":"Question","name":"What does {{ feature.title|escapejs }} help with?","acceptedAnswer":{"@type":"Answer","text":"{{ feature.subtitle|escapejs }}"}},
+    {"@type":"Question","name":"Is this connected to other ProFieldOps modules?","acceptedAnswer":{"@type":"Answer","text":"Yes. ProFieldOps modules are designed to work together across scheduling, clients, invoicing, estimates, and financial workflows."}}
+  ]
+}
+</script>
+{% endblock %}

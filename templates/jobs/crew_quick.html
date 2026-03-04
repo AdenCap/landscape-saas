@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1>Crew Quick Mode</h1>
+  <p>3 taps max: Start → Complete with photo → Close & bill trigger</p>
+</div>
+
+<div class="card" style="margin-bottom:12px; display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+  <a href="{% url 'crew_today' %}" class="btn btn-secondary">Open full crew view</a>
+  <div id="offline-pill" class="muted">Online</div>
+</div>
+
+<div class="quick-list">
+  {% for job in jobs %}
+  <div class="card quick-job">
+    <div class="quick-main">
+      <h3>{{ job.property.customer.name }}</h3>
+      <p>{{ job.property.address }}{% if job.scheduled_time %} · {{ job.scheduled_time }}{% endif %}</p>
+    </div>
+    <div class="quick-actions">
+      {% if job.status == 'scheduled' %}
+      <form method="post" action="{% url 'start_job' job.id %}" class="quick-offline-form" data-job-id="{{ job.id }}" data-action-label="Start">{% csrf_token %}<button class="btn btn-primary">1) Start</button></form>
+      {% endif %}
+      <a class="btn btn-secondary" href="{% url 'upload_completion_photo' job.id %}">2) Photo</a>
+      <form method="post" action="{% url 'complete_job' job.id %}" class="quick-offline-form" data-job-id="{{ job.id }}" data-action-label="Complete">{% csrf_token %}<button class="btn btn-primary">3) Complete</button></form>
+    </div>
+  </div>
+  {% empty %}
+  <div class="card"><p class="muted">No active jobs for this crew right now.</p></div>
+  {% endfor %}
+</div>
+
+<style>
+.quick-list{display:grid;gap:12px}
+.quick-job{padding:14px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.quick-job h3{margin:0 0 4px}
+.quick-job p{margin:0;color:var(--text-muted)}
+.quick-actions{display:flex;gap:8px;flex-wrap:wrap}
+.quick-actions .btn{min-height:46px;padding:10px 16px;font-weight:700}
+#offline-pill{padding:6px 10px;border-radius:999px;border:1px solid var(--border)}
+#offline-pill.offline{color:#fcd34d;border-color:#fcd34d55;background:#f59e0b22}
+#offline-pill.online{color:#86efac;border-color:#22c55e55;background:#22c55e1a}
+</style>
+
+<script>
+(function(){
+  const pill=document.getElementById('offline-pill');
+  const forms=[...document.querySelectorAll('.quick-offline-form')];
+  const key='crewQuickOfflineQueue';
+
+  function setStatus(){
+    const offline=!navigator.onLine;
+    pill.textContent=offline?'Offline · actions will queue':'Online';
+    pill.classList.toggle('offline',offline);
+    pill.classList.toggle('online',!offline);
+  }
+
+  function getQueue(){ try{return JSON.parse(localStorage.getItem(key)||'[]')}catch(e){return []} }
+  function setQueue(q){ localStorage.setItem(key, JSON.stringify(q)); }
+
+  async function replayQueue(){
+    if(!navigator.onLine) return;
+    let q=getQueue();
+    if(!q.length) return;
+    const remain=[];
+    for(const item of q){
+      try{
+        const resp=await fetch(item.url,{method:'POST',headers:{'X-CSRFToken':item.csrf}});
+        if(!resp.ok) remain.push(item);
+      }catch(e){ remain.push(item); }
+    }
+    setQueue(remain);
+  }
+
+  forms.forEach(f=>{
+    f.addEventListener('submit', function(e){
+      if(navigator.onLine) return;
+      e.preventDefault();
+      const csrf=(f.querySelector('input[name=csrfmiddlewaretoken]')||{}).value||'';
+      const q=getQueue();
+      q.push({url:f.action, csrf:csrf, at:Date.now(), label:f.dataset.actionLabel||'Action'});
+      setQueue(q);
+      alert((f.dataset.actionLabel||'Action')+' queued. It will sync when back online.');
+      setStatus();
+    });
+  });
+
+  window.addEventListener('online', ()=>{setStatus(); replayQueue();});
+  window.addEventListener('offline', setStatus);
+  setStatus();
+  replayQueue();
+})();
+</script>
+{% endblock %}

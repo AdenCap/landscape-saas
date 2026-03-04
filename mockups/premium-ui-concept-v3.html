@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Field Ops — Bold Motion Concept v3</title>
+  <style>
+    :root{--bg:#040404;--s1:#111;--s2:#181818;--t:#f4f4f4;--m:#aaa;--b:#2d2d2d;--hi:#f2f2f2}
+    *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--t);font-family:Inter,system-ui;scroll-behavior:smooth;overflow-x:hidden}
+    .shell{max-width:1240px;margin:0 auto;padding:0 24px;position:relative;z-index:3}
+    .progress{position:fixed;top:0;left:0;height:3px;background:var(--hi);width:var(--p,0%);z-index:100}
+
+    .bg-logo{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.08;transform:translateY(var(--logoShift,0px)) scale(var(--logoScale,1));transition:transform .12s linear}
+    .bg-logo svg{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:min(80vw,980px);height:auto}
+
+    .nav{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:90;width:min(1160px,calc(100% - 20px));display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border:1px solid #3c3c3c;border-radius:999px;background:rgba(8,8,8,.78);backdrop-filter:blur(10px)}
+    .brand{display:flex;gap:10px;align-items:center;font-weight:800;letter-spacing:.05em}.logo{width:26px;height:26px;border:1px solid #5a5a5a;border-radius:7px;position:relative}.logo:before{content:"";position:absolute;left:5px;top:5px;width:13px;height:13px;border:1px solid #7f7f7f;border-radius:3px}.logo:after{content:"";position:absolute;right:4px;bottom:4px;width:6px;height:6px;background:#ddd;border-radius:50%}
+
+    .hero{position:relative;padding:130px 0 76px;border-bottom:1px solid var(--b);background:radial-gradient(1300px 600px at 10% -20%,rgba(255,255,255,.12),transparent 60%),linear-gradient(180deg,#0b0b0b,#040404)}
+    .hero h1{font-size:clamp(46px,7.4vw,108px);line-height:.9;letter-spacing:-.055em;margin:0 0 14px;max-width:1050px}
+    .sub{font-size:clamp(18px,2.2vw,24px);line-height:1.58;color:var(--m);max-width:830px;margin:0 0 24px}
+    .cta{display:flex;gap:10px;flex-wrap:wrap}.btn{padding:13px 20px;border-radius:12px;border:1px solid #4a4a4a;color:var(--t);text-decoration:none;font-weight:700;transition:.2s}.btn.primary{background:var(--hi);color:#080808;border-color:var(--hi)}.btn:hover{transform:translateY(-2px) scale(1.01)}
+
+    .panel{border:1px solid #3b3b3b;border-radius:20px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01));box-shadow:0 22px 58px rgba(0,0,0,.5)}
+    .bar{padding:10px 14px;border-bottom:1px solid var(--b);display:flex;gap:6px}.dot{width:8px;height:8px;border-radius:50%;background:#666}
+    .hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-top:30px}
+    .kpis{padding:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .card{border:1px solid var(--b);border-radius:12px;background:var(--s1);padding:12px;transform:translateY(var(--cardLift,0px));transition:transform .15s linear}
+    .k{font-size:11px;color:var(--m)}.v{font-size:24px;font-weight:800;margin-top:4px}
+
+    .section{padding:96px 0}.title{font-size:clamp(34px,5vw,68px);letter-spacing:-.045em;line-height:1;margin:0 0 12px}.lead{font-size:19px;color:var(--m);line-height:1.62;max-width:860px;margin:0 0 24px}
+    .bento{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+    .b{border:1px solid var(--b);border-radius:16px;background:var(--s2);padding:16px;min-height:150px;transition:.25s}.b:hover{border-color:#666;transform:translateY(-4px)}.b h3{margin:0 0 8px;font-size:22px}.b p{margin:0;color:var(--m);line-height:1.55}
+    .c1{grid-column:span 4}.c2{grid-column:span 2}.c3{grid-column:span 2}.c4{grid-column:span 4}.c5{grid-column:span 3}.c6{grid-column:span 3}
+
+    .sticky-wrap{display:grid;grid-template-columns:.9fr 1.1fr;gap:12px}.sticky{position:sticky;top:88px;border:1px solid var(--b);border-radius:16px;background:#101010;padding:18px}
+    .compare{border:1px solid var(--b);border-radius:16px;overflow:hidden} table{width:100%;border-collapse:collapse} th,td{padding:14px;border-bottom:1px solid var(--b)} th{text-align:left;color:var(--m)} td:nth-child(2){color:#f0f0f0;font-weight:700}
+
+    [data-r]{opacity:0;transform:translateY(24px) scale(.985);transition:opacity .7s ease, transform .7s ease}[data-r].on{opacity:1;transform:none}
+
+    @media (max-width:980px){.hero-grid,.sticky-wrap{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.bento{grid-template-columns:1fr 1fr}.c1,.c2,.c3,.c4,.c5,.c6{grid-column:span 2}}
+    @media (max-width:700px){.shell{padding:0 16px}.kpis,.bento{grid-template-columns:1fr}.c1,.c2,.c3,.c4,.c5,.c6{grid-column:span 1}.btn{width:100%;text-align:center}}
+  </style>
+</head>
+<body>
+  <div class="progress"></div>
+  <div class="bg-logo" id="bgLogo">
+    <svg viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="180" y="180" width="440" height="440" rx="78" stroke="#ffffff" stroke-opacity="0.8" stroke-width="26"/>
+      <rect x="290" y="290" width="220" height="220" rx="34" stroke="#ffffff" stroke-opacity="0.65" stroke-width="16"/>
+      <circle cx="544" cy="544" r="30" fill="#ffffff" fill-opacity="0.9"/>
+    </svg>
+  </div>
+
+  <div class="nav"><div class="brand"><span class="logo"></span>FIELD OPS</div><div style="color:#a0a0a0;font-size:14px">Features · Motion · Pricing · Demo</div></div>
+
+  <section class="hero">
+    <div class="shell" data-r>
+      <h1>Bold. Futuristic.<br>Built to move when you scroll.</h1>
+      <p class="sub">This concept pushes kinetic storytelling harder: parallax logo background, scroll-linked depth, sticky narrative transitions, and high-impact feature choreography.</p>
+      <div class="cta"><a class="btn primary" href="#">Start Free Trial</a><a class="btn" href="#">See Product in Motion</a></div>
+
+      <div class="hero-grid">
+        <div class="panel" data-r>
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+          <div class="kpis">
+            <div class="card"><div class="k">MRR</div><div class="v">$11,240</div></div>
+            <div class="card"><div class="k">Overdue</div><div class="v">$1,420</div></div>
+            <div class="card"><div class="k">Jobs Today</div><div class="v">27</div></div>
+            <div class="card"><div class="k">Utilization</div><div class="v">89%</div></div>
+          </div>
+        </div>
+        <div class="panel" data-r style="padding:16px"><h3 style="margin:0 0 8px;font-size:24px">Operations Pulse</h3><p style="color:var(--m);line-height:1.6;margin:0">2 delays · 3 route shifts · 2 collection risks · automation ready now.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section"><div class="shell" data-r><h2 class="title">Feature-rich, cinematic flow</h2><p class="lead">Clear block-by-block feature storytelling with stronger motion and larger visual beats.</p>
+    <div class="bento">
+      <article class="b c1"><h3>Dispatch Command Center</h3><p>Delay detection, auto-assignment, route pressure and same-screen decisioning.</p></article>
+      <article class="b c2"><h3>Crew Quick</h3><p>3-tap field UX with offline queue.</p></article>
+      <article class="b c3"><h3>Cash Autopilot</h3><p>Reminder cadence + risk flags + owner gates.</p></article>
+      <article class="b c4"><h3>Reliability Layer</h3><p>Webhook retry queue, health panel, and integration confidence tooling.</p></article>
+      <article class="b c5"><h3>Onboarding Mode</h3><p>Guided launch system for fast go-live.</p></article>
+      <article class="b c6"><h3>Quote-to-Job</h3><p>Nudges, follow-ups, and upsell flow.</p></article>
+    </div>
+  </div></section>
+
+  <section class="section" style="padding-top:0"><div class="shell sticky-wrap">
+    <aside class="sticky" data-r><h3 style="margin:0 0 8px;font-size:30px;letter-spacing:-.03em">Scroll-driven narrative</h3><p style="margin:0;color:var(--m);line-height:1.7">As you scroll, the background logo drifts, cards subtly lift, and the page gains depth—designed to feel like a polished product story.</p></aside>
+    <div>
+      <div class="compare" data-r><table><thead><tr><th>What matters</th><th>Field Ops</th><th>Typical tools</th></tr></thead><tbody><tr><td>Dispatch speed</td><td>Command context in one surface</td><td>Multiple disconnected pages</td></tr><tr><td>Collections velocity</td><td>Automated + risk-aware</td><td>Manual reminders</td></tr><tr><td>Adoption</td><td>Designed for real crews</td><td>Feature-heavy friction</td></tr></tbody></table></div>
+    </div>
+  </div></section>
+
+  <script>
+  (()=>{
+    const root=document.documentElement;
+    const els=[...document.querySelectorAll('[data-r]')];
+    const cards=[...document.querySelectorAll('.card')];
+    const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function onScroll(){
+      const h=document.documentElement.scrollHeight-window.innerHeight;
+      const p=h>0?window.scrollY/h:0;
+      root.style.setProperty('--p',(p*100).toFixed(2)+'%');
+      if(!reduce){
+        root.style.setProperty('--logoShift',(window.scrollY*0.22).toFixed(1)+'px');
+        root.style.setProperty('--logoScale',(1+Math.min(0.08,p*0.1)).toFixed(4));
+        const lift=(Math.sin(window.scrollY/220)*2).toFixed(2)+'px';
+        cards.forEach(c=>c.style.setProperty('--cardLift',lift));
+      }
+    }
+
+    if(reduce||!('IntersectionObserver' in window)){
+      els.forEach(e=>e.classList.add('on'));
+      onScroll();window.addEventListener('scroll',onScroll,{passive:true});return;
+    }
+    const io=new IntersectionObserver(entries=>entries.forEach(en=>{if(en.isIntersecting){en.target.classList.add('on');io.unobserve(en.target);}}),{threshold:.14,rootMargin:'0px 0px -8% 0px'});
+    els.forEach(e=>io.observe(e));
+    onScroll();window.addEventListener('scroll',onScroll,{passive:true});
+  })();
+  </script>
+</body>
+</html>

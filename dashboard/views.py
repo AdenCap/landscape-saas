@@ -1,19 +1,23 @@
 from calendar import monthrange
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from decimal import Decimal
-from django.db.models import Sum, DecimalField, Count, F
+from django.db.models import Sum, DecimalField, Count, F, Q
 from django.db.models.functions import Coalesce
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+from urllib.parse import urlencode
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django.contrib import messages
+from django.core.management import call_command
 
 from accounts.decorators import role_required
 from accounts.utils import get_business
 from accounts.models import User
 from businesses.models import Business
-from jobs.models import Job, JobServiceItem
-from billing.models import Invoice
-from customers.models import ClientMessage
+from jobs.models import Job, JobServiceItem, Crew
+from billing.models import Invoice, Estimate
+from customers.models import ClientMessage, Customer
+from subscription.models import StripeWebhookEvent
 
 
 
@@ -53,15 +57,335 @@ def _year_range(d: date):
     return start, end
 
 
+def _onboarding_skip_key(business_id):
+    return f"onboarding_skipped_steps:{business_id}"
+
+
+def _onboarding_return_url(step_key):
+    return "/dashboard/onboarding/?" + urlencode({"step": step_key})
+
+
+@role_required("owner")
+def owner_onboarding(request):
+    business = get_business(request)
+    if not business:
+        if request.user.is_superuser:
+            return redirect("platform_home")
+        return redirect("/accounts/login/")
+
+    customers_count = Customer.objects.filter(business=business).count()
+    jobs_count = Job.objects.filter(property__customer__business=business).count()
+    smtp_connected = bool(getattr(business, "email_smtp_user", "") and getattr(business, "email_smtp_password", ""))
+    stripe_connected = bool(getattr(business, "stripe_connect_account_id", ""))
+
+    checklist = [
+        {
+            "key": "business_profile",
+            "label": "Complete business profile/settings",
+            "done": bool(business.name),
+            "action_url": "/settings/",
+            "action_label": "Open Settings",
+            "optional": False,
+        },
+        {
+            "key": "first_customer",
+            "label": "Add your first customer",
+            "done": customers_count > 0,
+            "action_url": "/clients/add/",
+            "action_label": "Add Customer",
+            "secondary_action_url": "/clients/import/",
+            "secondary_action_label": "Import CSV",
+            "optional": False,
+        },
+        {
+            "key": "first_job",
+            "label": "Create your first job",
+            "done": jobs_count > 0,
+            "action_url": "/jobs/create/",
+            "action_label": "Create Job",
+            "optional": False,
+        },
+        {
+            "key": "first_estimate",
+            "label": "Create first estimate/invoice",
+            "done": Invoice.objects.filter(business=business).exists(),
+            "action_url": "/billing/estimates/create/",
+            "action_label": "Create Estimate",
+            "optional": False,
+        },
+        {
+            "key": "smtp",
+            "label": "Connect email sending (SMTP)",
+            "done": smtp_connected,
+            "action_url": "/settings/",
+            "action_label": "Connect Email",
+            "optional": True,
+        },
+        {
+            "key": "payments",
+            "label": "Connect Stripe payments (optional)",
+            "done": stripe_connected,
+            "action_url": "/billing/connect/onboarding/",
+            "action_label": "Connect Stripe",
+            "optional": True,
+        },
+    ]
+
+    skipped_steps = set(request.session.get(_onboarding_skip_key(business.id), []))
+    for item in checklist:
+        item["skipped"] = item["key"] in skipped_steps
+        item["effective_done"] = item["done"] or item["skipped"]
+        item["action_url"] = item["action_url"] + "?" + urlencode({"next": _onboarding_return_url(item["key"])})
+        if item.get("secondary_action_url"):
+            item["secondary_action_url"] = item["secondary_action_url"] + "?" + urlencode({"next": _onboarding_return_url(item["key"])})
+
+    done_count = sum(1 for item in checklist if item["effective_done"])
+    completion_pct = int((done_count / len(checklist)) * 100)
+
+    step_keys = [item["key"] for item in checklist]
+    first_incomplete_key = next((item["key"] for item in checklist if not item["effective_done"]), step_keys[0])
+    current_step = request.GET.get("step") or first_incomplete_key
+    if current_step not in step_keys:
+        current_step = first_incomplete_key
+    current_index = step_keys.index(current_step)
+    current_item = checklist[current_index]
+    prev_step = step_keys[current_index - 1] if current_index > 0 else None
+    next_step = step_keys[current_index + 1] if current_index < len(step_keys) - 1 else None
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+        target_step = (request.POST.get("step") or "").strip()
+        if action in {"skip", "unskip"} and target_step in step_keys:
+            skip_key = _onboarding_skip_key(business.id)
+            current_skipped = set(request.session.get(skip_key, []))
+            item = next((x for x in checklist if x["key"] == target_step), None)
+            if not item:
+                return redirect(_onboarding_return_url(current_step))
+            if not item.get("optional"):
+                messages.warning(request, "Only optional steps can be skipped.")
+                return redirect(_onboarding_return_url(target_step))
+            if action == "skip":
+                current_skipped.add(target_step)
+                messages.info(request, f"Skipped optional step: {item['label']}")
+            else:
+                current_skipped.discard(target_step)
+                messages.info(request, f"Restored step: {item['label']}")
+            request.session[skip_key] = sorted(current_skipped)
+            request.session.modified = True
+            return redirect(_onboarding_return_url(target_step))
+
+        # Allow completion once core operational steps are done.
+        core_ready = customers_count > 0 and jobs_count > 0
+        if not core_ready:
+            messages.warning(request, "Finish at least: first customer + first job before completing onboarding.")
+        else:
+            business.onboarding_completed = True
+            business.onboarding_completed_at = timezone.now()
+            business.save(update_fields=["onboarding_completed", "onboarding_completed_at"])
+            request.session.pop(_onboarding_skip_key(business.id), None)
+            messages.success(request, "Onboarding completed. Welcome to your live dashboard.")
+            return redirect("owner_dashboard")
+
+    return render(request, "dashboard/onboarding.html", {
+        "business": business,
+        "checklist": checklist,
+        "done_count": done_count,
+        "total_count": len(checklist),
+        "completion_pct": completion_pct,
+        "customers_count": customers_count,
+        "jobs_count": jobs_count,
+        "smtp_connected": smtp_connected,
+        "stripe_connected": stripe_connected,
+        "current_step": current_step,
+        "current_item": current_item,
+        "current_step_number": current_index + 1,
+        "prev_step": prev_step,
+        "next_step": next_step,
+    })
+
+
+@role_required("owner")
+def dispatch_command_center(request):
+    business = get_business(request)
+    if not business:
+        if request.user.is_superuser:
+            return redirect("platform_home")
+        return redirect("/accounts/login/")
+
+    today = timezone.localdate()
+    now_local = timezone.localtime()
+
+    delayed_jobs = Job.objects.filter(
+        property__customer__business=business,
+        scheduled_date=today,
+        status="scheduled",
+        scheduled_time__isnull=False,
+        scheduled_time__lt=now_local.time(),
+    ).select_related("property__customer", "assigned_to", "assigned_crew").order_by("scheduled_time")[:25]
+
+    unassigned_jobs = Job.objects.filter(
+        property__customer__business=business,
+        scheduled_date=today,
+        status="scheduled",
+        assigned_to__isnull=True,
+        assigned_crew__isnull=True,
+    ).select_related("property__customer").order_by("scheduled_time")[:25]
+
+    crew_load = (
+        Job.objects.filter(property__customer__business=business, scheduled_date=today)
+        .values("assigned_crew__name")
+        .annotate(total=Count("id"))
+        .order_by("total")
+    )
+
+    overdue_invoices = Invoice.objects.filter(
+        business=business,
+        status="sent",
+        due_date__lt=today,
+    ).select_related("customer").order_by("due_date")[:25]
+
+    late_risk = []
+    for inv in overdue_invoices:
+        customer = inv.customer
+        customer_overdue_count = Invoice.objects.filter(
+            business=business,
+            customer=customer,
+            status="sent",
+            due_date__lt=today,
+        ).count()
+        days_overdue = (today - inv.due_date).days if inv.due_date else 0
+        score = 0
+        if days_overdue >= 30:
+            score += 2
+        if customer_overdue_count >= 2:
+            score += 2
+        if inv.total >= 1000:
+            score += 1
+        flag = "High" if score >= 4 else ("Medium" if score >= 2 else "Low")
+        late_risk.append({"invoice": inv, "days_overdue": days_overdue, "flag": flag})
+
+    suggestions = []
+    if delayed_jobs.count() >= 3:
+        suggestions.append("Delay chain detected: move low-priority jobs to tomorrow and notify clients automatically.")
+    if unassigned_jobs.count() > 0:
+        suggestions.append(f"Assign {unassigned_jobs.count()} unassigned jobs to available crews to avoid same-day spillover.")
+    if overdue_invoices.count() > 0:
+        suggestions.append("Trigger payment reminders for overdue invoices and prioritize high-risk accounts.")
+    if not suggestions:
+        suggestions.append("Day looks stable. Focus on finishing active jobs and collecting completion photos.")
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "fix_my_day":
+            messages.success(request, "Fix My Day generated: dispatch suggestions refreshed and priorities ranked.")
+        elif action == "run_collection_autopilot":
+            try:
+                call_command("send_invoice_reminders", force=True)
+                messages.success(request, "Cash Flow Autopilot ran invoice reminders successfully.")
+            except Exception as e:
+                messages.error(request, f"Autopilot run failed: {e}")
+        elif action == "auto_assign_unassigned":
+            crews = list(Crew.objects.filter(business=business).order_by("name"))
+            if not crews:
+                messages.warning(request, "No crews available for auto-assign.")
+            else:
+                assigned_count = 0
+                for job in unassigned_jobs:
+                    least = min(
+                        crews,
+                        key=lambda c: Job.objects.filter(
+                            property__customer__business=business,
+                            scheduled_date=today,
+                            assigned_crew=c,
+                            status__in=["scheduled", "in_progress"],
+                        ).count(),
+                    )
+                    job.assigned_crew = least
+                    job.assigned_to = None
+                    job.save(update_fields=["assigned_crew", "assigned_to"])
+                    assigned_count += 1
+                messages.success(request, f"Auto-assigned {assigned_count} unassigned job(s) to least-loaded crews.")
+
+    return render(request, "dashboard/dispatch_command_center.html", {
+        "today": today,
+        "delayed_jobs": delayed_jobs,
+        "unassigned_jobs": unassigned_jobs,
+        "crew_load": list(crew_load),
+        "overdue_invoices": overdue_invoices,
+        "late_risk": late_risk,
+        "suggestions": suggestions,
+    })
+
+
+@role_required("owner")
+def reliability_center(request):
+    business = get_business(request)
+    if not business:
+        if request.user.is_superuser:
+            return redirect("platform_home")
+        return redirect("/accounts/login/")
+
+    if request.method == "POST" and request.POST.get("action") == "retry_failed_webhooks":
+        try:
+            call_command("retry_failed_webhooks", limit=50)
+            messages.success(request, "Triggered retry for failed webhooks.")
+        except Exception as e:
+            messages.error(request, f"Webhook retry failed: {e}")
+
+    recent_webhooks = StripeWebhookEvent.objects.order_by("-created_at")[:30]
+    webhook_failures = StripeWebhookEvent.objects.filter(processed=False).count()
+    retry_candidates = []
+    for w in StripeWebhookEvent.objects.filter(processed=False).order_by("created_at")[:15]:
+        age_min = int((timezone.now() - w.created_at).total_seconds() // 60)
+        # simple progressive retry hint curve
+        if age_min < 5:
+            next_retry = "in ~5 min"
+        elif age_min < 30:
+            next_retry = "in ~15 min"
+        elif age_min < 120:
+            next_retry = "in ~60 min"
+        else:
+            next_retry = "manual review recommended"
+        retry_candidates.append({"event": w, "age_min": age_min, "next_retry": next_retry})
+
+    quickbooks_connected = bool(
+        Invoice.objects.filter(business=business).exclude(quickbooks_invoice_id__isnull=True).exclude(quickbooks_invoice_id="").exists()
+    )
+    stripe_connected = bool(getattr(business, "stripe_connect_account_id", ""))
+    smtp_connected = bool(getattr(business, "email_smtp_user", "") and getattr(business, "email_smtp_password", ""))
+
+    health_alerts = []
+    if not smtp_connected:
+        health_alerts.append("SMTP not connected — invoice/estimate sending can fail.")
+    if not stripe_connected:
+        health_alerts.append("Stripe Connect not connected — card payments unavailable.")
+    if webhook_failures:
+        health_alerts.append(f"{webhook_failures} unprocessed Stripe webhook events need review.")
+    if not health_alerts:
+        health_alerts.append("All core integrations look healthy.")
+
+    return render(request, "dashboard/reliability_center.html", {
+        "recent_webhooks": recent_webhooks,
+        "quickbooks_connected": quickbooks_connected,
+        "stripe_connected": stripe_connected,
+        "smtp_connected": smtp_connected,
+        "webhook_failures": webhook_failures,
+        "retry_candidates": retry_candidates,
+        "health_alerts": health_alerts,
+    })
+
+
 @role_required("owner")
 def owner_dashboard(request):
     today = timezone.localdate()
     business = get_business(request)
     if not business:
-        from django.shortcuts import redirect
         if request.user.is_superuser:
             return redirect("platform_home")
         return redirect("/accounts/login/")
+
+    if not getattr(business, "onboarding_completed", False):
+        return redirect("owner_onboarding")
 
     month_start, month_end = _month_range(today)
     year_start, year_end = _year_range(today)
@@ -272,6 +596,32 @@ def owner_dashboard(request):
                 payroll_balance += Decimal(str(mins)) / Decimal("60") * rate
             pay_frequency_label = dict(Business.PAY_FREQUENCY_CHOICES).get(freq, freq)
 
+    review_qs = Customer.objects.filter(business=business)
+    review_stats = {
+        "review_asked": review_qs.filter(google_review_status="asked").count(),
+        "review_completed": review_qs.filter(google_review_status="reviewed").count(),
+        "review_opted_out": review_qs.filter(google_review_status="opted_out").count(),
+    }
+    total_review_contacts = sum(review_stats.values())
+    review_stats["review_conversion_pct"] = round((review_stats["review_completed"] / total_review_contacts) * 100, 1) if total_review_contacts else 0
+
+    crew_user_count = User.objects.filter(business=business, role="crew", is_active=True).count()
+    solo_plan_overage = business.subscription_plan_tier == "solo" and crew_user_count > 1
+
+    day_start = timezone.now() - timedelta(hours=24)
+    changes_feed = []
+    recent_jobs = Job.objects.filter(property__customer__business=business, created_at__gte=day_start).select_related("property__customer").order_by("-created_at")[:6]
+    for j in recent_jobs:
+        changes_feed.append({"time": timezone.localtime(j.created_at), "text": f"Job created: {j.property.customer.name} · {j.property.address}"})
+    recent_invoices = Invoice.objects.filter(business=business, issue_date__gte=(today - timedelta(days=1))).select_related("customer").order_by("-issue_date")[:6]
+    for inv in recent_invoices:
+        inv_time = timezone.make_aware(datetime.combine(inv.issue_date, datetime.min.time()))
+        changes_feed.append({"time": inv_time, "text": f"Invoice #{inv.id} ({inv.status}) · {inv.customer.name}"})
+    recent_messages = ClientMessage.objects.filter(customer__business=business, created_at__gte=day_start).select_related("customer").order_by("-created_at")[:6]
+    for msg in recent_messages:
+        changes_feed.append({"time": timezone.localtime(msg.created_at), "text": f"{msg.get_direction_display()} {msg.get_channel_display()} · {msg.customer.name}"})
+    changes_feed = sorted(changes_feed, key=lambda x: x["time"], reverse=True)[:10]
+
     context = {
         "today": today,
         "revenue_this_month": revenue_this_month,
@@ -294,6 +644,10 @@ def owner_dashboard(request):
         "payroll_balance": payroll_balance,
         "next_pay_date": next_pay_date,
         "pay_frequency_label": pay_frequency_label,
+        "changes_feed": changes_feed,
+        "crew_user_count": crew_user_count,
+        "solo_plan_overage": solo_plan_overage,
+        **review_stats,
     }
     return render(request, "dashboard/owner_dashboard.html", context)
 

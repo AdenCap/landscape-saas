@@ -2,9 +2,15 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="page-header" style="margin-bottom: 24px;">
-  <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 8px 0;">Platform Dashboard</h1>
-  <p style="margin: 0; color: var(--platform-muted); font-size: 15px;">Users, revenue, and tenants across your software. Separate from each company’s dashboard.</p>
+<div class="page-header" style="margin-bottom: 24px; display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap;">
+  <div>
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 8px 0;">Platform Dashboard</h1>
+    <p style="margin: 0; color: var(--platform-muted); font-size: 15px;">Users, revenue, and tenants across your software. Separate from each company’s dashboard.</p>
+  </div>
+  <form method="post" action="{% url 'platform_enter_demo' %}" style="margin:0;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">Open app (blank demo company)</button>
+  </form>
 </div>
 
 <section class="kpi-row">
@@ -29,18 +35,53 @@
     <div class="kpi-label">New users this month</div>
   </div>
   <div class="kpi-card card">
-    <div class="kpi-value">{{ total_customers }}</div>
-    <div class="kpi-label">Clients</div>
+    <div class="kpi-value">{{ active_subscriptions }}</div>
+    <div class="kpi-label">Active subscriptions</div>
   </div>
   <div class="kpi-card card">
-    <div class="kpi-value">{{ total_jobs }}</div>
-    <div class="kpi-label">Jobs</div>
+    <div class="kpi-value">{{ trial_subscriptions }}</div>
+    <div class="kpi-label">Trials</div>
   </div>
   <div class="kpi-card card">
-    <div class="kpi-value">{{ paid_invoices_count }}</div>
-    <div class="kpi-label">Paid invoices</div>
+    <div class="kpi-value">{{ at_risk_subscriptions }}</div>
+    <div class="kpi-label">At-risk billing</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">${{ monthly_recurring_revenue|floatformat:0 }}</div>
+    <div class="kpi-label">MRR</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">{{ monthly_churn_rate }}%</div>
+    <div class="kpi-label">Monthly churn</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">{{ failed_payments_this_month }}</div>
+    <div class="kpi-label">Failed payments (month)</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">{{ conversion_rate_trial_to_active }}%</div>
+    <div class="kpi-label">Trial → active conversion</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">{{ solo_subscriptions }}</div>
+    <div class="kpi-label">Solo Starter (active/trial)</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">{{ pro_subscriptions }}</div>
+    <div class="kpi-label">Pro All-Access (active/trial)</div>
+  </div>
+  <div class="kpi-card card">
+    <div class="kpi-value">{{ solo_overage_count }}</div>
+    <div class="kpi-label">Solo overage accounts</div>
   </div>
 </section>
+
+<div style="display:flex; justify-content:flex-end; margin:-10px 0 16px;">
+  <form method="post" action="{% url 'platform_apply_plan_recommendations' %}" style="margin:0;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary btn-sm">Apply all plan recommendations</button>
+  </form>
+</div>
 
 <section class="charts-section">
   <div class="card chart-card">
@@ -66,11 +107,40 @@
     <ul class="business-list">
       {% for b in businesses %}
       <li>
-        <span>{{ b.name }}</span>
-        <form method="post" action="{% url 'platform_enter' b.id %}" style="margin: 0;">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-primary btn-sm">Enter dashboard</button>
-        </form>
+        <span>
+          <strong>{{ b.name }}</strong>
+          <small style="display:block; color:var(--platform-muted); margin-top:2px;">
+            Plan: {{ b.get_subscription_plan_tier_display }}{% if b.complimentary_access_enabled %} · <span style="color:#86efac;">Complimentary access ON</span>{% endif %} · Owners: {{ b.owner_users }} · Crew: {{ b.crew_users }}
+            {% if b.subscription_plan_tier == 'solo' and b.crew_users > 1 %}
+              · <span style="color:#fbbf24;">Solo overage</span>
+            {% endif %}
+          </small>
+        </span>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <form method="post" action="{% url 'platform_set_plan' b.id %}" style="margin: 0; display:flex; gap:6px; align-items:center;">
+            {% csrf_token %}
+            <select name="plan_tier" class="input" style="min-width:140px; padding:6px 8px;">
+              <option value="solo" {% if b.subscription_plan_tier == 'solo' %}selected{% endif %}>Solo Starter</option>
+              <option value="core" {% if b.subscription_plan_tier == 'core' %}selected{% endif %}>Pro All-Access</option>
+            </select>
+            <button type="submit" class="btn btn-secondary btn-sm">Set plan</button>
+          </form>
+          {% if b.subscription_plan_tier == 'solo' and b.crew_users > 1 %}
+          <form method="post" action="{% url 'platform_set_plan' b.id %}" style="margin: 0;">
+            {% csrf_token %}
+            <input type="hidden" name="plan_tier" value="core">
+            <button type="submit" class="btn btn-secondary btn-sm">Apply Pro recommendation</button>
+          </form>
+          {% endif %}
+          <form method="post" action="{% url 'platform_toggle_free_access' b.id %}" style="margin: 0;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm">{% if b.complimentary_access_enabled %}Disable free access{% else %}Enable free access{% endif %}</button>
+          </form>
+          <form method="post" action="{% url 'platform_enter' b.id %}" style="margin: 0;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm">Open this company</button>
+          </form>
+        </div>
       </li>
       {% empty %}
       <li class="empty">No businesses yet. Create one via Django Admin.</li>

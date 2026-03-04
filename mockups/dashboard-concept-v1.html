@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Field Ops Dashboard Concept</title>
+<style>
+:root{--bg:#070707;--s1:#121212;--s2:#1a1a1a;--t:#f3f3f3;--m:#a3a3a3;--b:#2e2e2e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font-family:Inter,system-ui}
+.app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+.side{border-right:1px solid var(--b);padding:18px;background:#0e0e0e}.logo{font-weight:800;letter-spacing:.04em;margin-bottom:18px}
+.nav a{display:block;padding:10px 12px;border:1px solid transparent;border-radius:10px;color:var(--m);text-decoration:none;margin-bottom:8px}
+.nav a.active{background:var(--s1);border-color:#444;color:var(--t)}
+.main{padding:20px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}
+.search{flex:1;max-width:420px;border:1px solid var(--b);background:var(--s1);padding:10px 12px;border-radius:10px;color:var(--t)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.card{border:1px solid var(--b);background:var(--s1);border-radius:12px;padding:12px}.k{font-size:11px;color:var(--m)}.v{font-size:24px;font-weight:800;margin-top:4px}
+.grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}
+.table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px;border-bottom:1px solid var(--b);font-size:13px}.table th{text-align:left;color:var(--m)}
+.badge{padding:4px 8px;border-radius:999px;border:1px solid #555;font-size:11px;color:#ddd}
+.list{display:grid;gap:8px}.item{padding:10px;border:1px solid var(--b);border-radius:10px;background:var(--s2);font-size:13px;color:#ddd}
+@media(max-width:980px){.app{grid-template-columns:1fr}.side{display:none}.kpis{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="app">
+  <aside class="side"><div class="logo">FIELD OPS</div><nav class="nav">
+    <a class="active" href="#">Owner Dashboard</a><a href="#">Command Center</a><a href="#">Calendar</a><a href="#">Clients</a><a href="#">Invoices</a><a href="#">Reliability</a><a href="#">Settings</a>
+  </nav></aside>
+  <main class="main">
+    <div class="top"><h1 style="margin:0;font-size:28px;letter-spacing:-.02em">Owner Dashboard</h1><input class="search" value="Search jobs, clients, invoices..."/></div>
+    <section class="kpis">
+      <div class="card"><div class="k">Revenue (Month)</div><div class="v">$18,420</div></div>
+      <div class="card"><div class="k">Overdue</div><div class="v">$2,190</div></div>
+      <div class="card"><div class="k">Jobs Today</div><div class="v">23</div></div>
+      <div class="card"><div class="k">Utilization</div><div class="v">84%</div></div>
+    </section>
+    <section class="grid">
+      <div class="card">
+        <h3 style="margin:0 0 10px">Dispatch Command Center</h3>
+        <table class="table"><thead><tr><th>Job</th><th>Status</th><th>Crew</th><th>Risk</th></tr></thead>
+        <tbody>
+          <tr><td>Maple St Weekly Service</td><td><span class="badge">Delayed</span></td><td>Crew A</td><td>Medium</td></tr>
+          <tr><td>North Ridge HOA</td><td><span class="badge">Unassigned</span></td><td>—</td><td>High</td></tr>
+          <tr><td>Oak Ave Cleanup</td><td><span class="badge">In Progress</span></td><td>Crew C</td><td>Low</td></tr>
+        </tbody></table>
+      </div>
+      <div class="list">
+        <div class="card"><h3 style="margin:0 0 8px">What changed today</h3>
+          <div class="item">09:14 · Invoice #204 sent to Lennon McDuffie</div>
+          <div class="item">10:02 · Crew B auto-assigned 2 jobs</div>
+          <div class="item">11:31 · Payment received $420</div>
+        </div>
+        <div class="card"><h3 style="margin:0 0 8px">Cash Flow Autopilot</h3>
+          <div class="item">7 reminders queued</div><div class="item">2 high-risk accounts flagged</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+</body></html>
