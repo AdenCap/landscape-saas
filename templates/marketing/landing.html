@@ -54,6 +54,12 @@
   .showcase{margin-top:18px;border:1px solid #2b313a;border-radius:22px;padding:18px;background:linear-gradient(180deg,#0e1116,#090c11)}
   .show-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}
   .show-left,.show-right{border:1px solid #2a3441;border-radius:14px;padding:12px;background:rgba(255,255,255,.02)}
+  .shot-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}
+  .shot{border:1px solid #2a3441;border-radius:12px;overflow:hidden;background:#0f141c;transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease)}
+  .shot:hover{transform:translateY(-3px);border-color:#3b82f6}
+  .shot .mini{height:120px;padding:10px;background:linear-gradient(150deg,#121824,#0d1118)}
+  .shot .mini i{display:block;height:8px;border-radius:999px;background:linear-gradient(90deg,#3b82f6,#7dd3fc);margin:8px 0;opacity:.9;animation:flow 2.5s ease-in-out infinite}
+  .shot span{display:block;padding:8px 10px;font-size:12px;color:#a1a1aa}
 
   .how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
   .step{border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--surface)}
@@ -94,8 +100,8 @@
       <h1 class="hero-h1">Run Your Entire Field Service Business From One Platform</h1>
       <p class="hero-sub">Built around the actual ProFieldOps stack: Dashboard, Jobs, Calendar, Daily Routes, Clients, Messaging, Estimator, Invoices, Estimates, Employee Management, and Financials—connected in one operating system.</p>
       <div class="cta-row">
-        <a class="btn btn-primary" href="/accounts/signup/">Start Free Trial</a>
-        <a class="btn" href="/features/">Watch Demo</a>
+        <a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial">Start Free Trial</a>
+        <a class="btn" href="/features/" data-cta="watch-demo">Watch Demo</a>
       </div>
     </div>
 
@@ -175,6 +181,13 @@
           <div class="line"><i style="width:61%"></i></div><div class="line"><i style="width:47%"></i></div><div class="line"><i style="width:80%"></i></div>
         </div>
       </div>
+      <div class="shot-grid">
+        <a class="shot" href="/features/dashboard/"><div class="mini"><i style="width:65%"></i><i style="width:48%"></i><i style="width:77%"></i></div><span>Dashboard</span></a>
+        <a class="shot" href="/features/calendar/"><div class="mini"><i style="width:57%"></i><i style="width:72%"></i><i style="width:51%"></i></div><span>Calendar</span></a>
+        <a class="shot" href="/features/clients/"><div class="mini"><i style="width:61%"></i><i style="width:44%"></i><i style="width:69%"></i></div><span>Clients</span></a>
+        <a class="shot" href="/features/invoices/"><div class="mini"><i style="width:52%"></i><i style="width:81%"></i><i style="width:58%"></i></div><span>Invoices</span></a>
+        <a class="shot" href="/features/financials/"><div class="mini"><i style="width:74%"></i><i style="width:55%"></i><i style="width:66%"></i></div><span>Financials</span></a>
+      </div>
     </div>
   </div>
 </section>
@@ -232,7 +245,7 @@
       <article class="plan"><h3>Solo Starter</h3><div class="price">${{ pricing.solo_price }}</div><ul><li>Calendar scheduling</li><li>Client management basics</li><li>Perfect for owner-operators</li></ul></article>
       <article class="plan featured"><h3>Pro All-Access</h3><div class="price">${{ pricing.pro_price }}</div><ul><li>Dashboard, Jobs, Calendar, Routes</li><li>Invoices, Estimates, Messaging</li><li>Employee Management + Financials</li></ul></article>
     </div>
-    <div class="cta-row" style="margin-top:14px"><a class="btn btn-primary" href="/accounts/signup/">Start Free Trial</a><a class="btn" href="/pricing/">See Full Pricing</a></div>
+    <div class="cta-row" style="margin-top:14px"><a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial">Start Free Trial</a><a class="btn" href="/pricing/" data-cta="see-pricing">See Full Pricing</a></div>
   </div>
 </section>
 
@@ -263,7 +276,7 @@
     <div class="final-box">
       <h2>Run Your Field Service Business Like a Modern Company.</h2>
       <p class="lead" style="margin:0 auto 14px;max-width:760px">Make your first impression count, onboard fast, and turn visitors into paying subscribers with a product-first experience.</p>
-      <a class="btn btn-primary" href="/accounts/signup/">Start Your Free Trial Today</a>
+      <a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial-final">Start Your Free Trial Today</a>
     </div>
   </div>
 </section>

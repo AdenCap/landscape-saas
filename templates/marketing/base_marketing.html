@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}Field Ops{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}ProFieldOps helps field service teams run scheduling, jobs, clients, invoicing, estimates, and financials from one platform.{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}ProFieldOps — Field Service Operating System{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Run your field service business with one modern operating system.{% endblock %}">
+  <meta property="og:type" content="website">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -70,6 +74,16 @@
     const io=new IntersectionObserver(entries=>entries.forEach(en=>{if(en.isIntersecting){en.target.classList.add('on');io.unobserve(en.target)}}),{threshold:.14,rootMargin:'0px 0px -8% 0px'});
     els.forEach(e=>io.observe(e));
     sp();window.addEventListener('scroll',sp,{passive:true});
+  })();
+  </script>
+  <script>
+  (()=>{
+    const ctas=document.querySelectorAll('[data-cta]');
+    ctas.forEach(el=>el.addEventListener('click',()=>{
+      const payload={event:'pfo_cta_click',cta:el.getAttribute('data-cta'),href:el.getAttribute('href')||null,ts:Date.now()};
+      window.dataLayer=window.dataLayer||[];
+      window.dataLayer.push(payload);
+    }));
   })();
   </script>
   {% block extra_js %}{% endblock %}
