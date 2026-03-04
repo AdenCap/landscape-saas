@@ -748,8 +748,8 @@ class FertilizerApplication(models.Model):
     class Meta:
         ordering = ['-application_date', '-id']
         indexes = [
-            models.Index(fields=['property', '-application_date']),
-            models.Index(fields=['business', '-application_date']),
+            models.Index(fields=['property', 'application_date']),
+            models.Index(fields=['business', 'application_date']),
         ]
     
     def __str__(self):

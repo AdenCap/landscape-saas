@@ -59,10 +59,10 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='fertilizerapplication',
-            index=models.Index(fields=['property', '-application_date'], name='billing_fer_propert_idx'),
+            index=models.Index(fields=['property', 'application_date'], name='billing_fer_propert_idx'),
         ),
         migrations.AddIndex(
             model_name='fertilizerapplication',
-            index=models.Index(fields=['business', '-application_date'], name='billing_fer_busines_idx'),
+            index=models.Index(fields=['business', 'application_date'], name='billing_fer_busines_idx'),
         ),
     ]
