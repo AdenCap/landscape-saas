@@ -13,6 +13,23 @@
 <div class="card calc-card">
   <h2 class="card-title">Inputs</h2>
   <div class="calc-grid">
+    <div class="field" style="grid-column: 1 / -1;">
+      <label for="product_select">Product (optional - select to auto-fill pricing)</label>
+      <select id="product_select">
+        <option value="">— Select saved product or enter manually —</option>
+        {% for product in products %}
+        <option value="{{ product.id }}" 
+                data-pricing-type="{{ product.pricing_type }}"
+                data-cost-per-pound="{{ product.cost_per_pound|default:'' }}"
+                data-cost-per-bag="{{ product.cost_per_bag|default:'' }}"
+                data-lbs-per-bag="{{ product.lbs_per_bag|default:'' }}"
+                data-name="{{ product.name }}">{{ product.name }}</option>
+        {% endfor %}
+      </select>
+      <div style="margin-top: 8px;">
+        <a href="{% url 'billing:fertilizer_products_list' %}" class="btn btn-secondary btn-sm" target="_blank">Manage Products</a>
+      </div>
+    </div>
     <div class="field">
       <label for="lbs_per_1000">Lbs per 1,000 sq ft</label>
       <input type="number" id="lbs_per_1000" min="0" step="0.5" value="4" placeholder="e.g. 4">
@@ -39,6 +56,10 @@
     <div class="field fertilizing-per-bag" style="display: none;">
       <label for="lbs_per_bag">Lbs per bag</label>
       <input type="number" id="lbs_per_bag" min="0.1" step="0.1" value="50" placeholder="50">
+    </div>
+    <div class="field" style="grid-column: 1 / -1;">
+      <label for="product_name">Product name</label>
+      <input type="text" id="product_name" placeholder="e.g. Scotts Turf Builder" value="Fertilizer">
     </div>
   </div>
   <div class="calc-result" id="fertilizer_result">
@@ -69,9 +90,16 @@
         </select>
       </div>
       <div class="field">
-        <label for="create_estimate_product">Product name (optional)</label>
+        <label for="create_estimate_product">Product name</label>
         <input type="text" name="product" id="create_estimate_product" placeholder="e.g. Scotts Turf Builder" value="Fertilizer">
       </div>
+      <div class="field">
+        <label for="create_estimate_property">Property (optional - for tracking history)</label>
+        <select name="property_id" id="create_estimate_property">
+          <option value="">— Select property —</option>
+        </select>
+      </div>
+      <input type="hidden" name="product_id" id="form_product_id">
     </div>
     <button type="submit" class="btn btn-primary" style="margin-top: 16px;">Create estimate</button>
   </form>
@@ -89,13 +117,68 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  var productSelect = document.getElementById('product_select');
   var lbsPer1000 = document.getElementById('lbs_per_1000');
   var totalSqft = document.getElementById('total_sqft');
   var pricingType = document.getElementById('pricing_type');
   var costPerPound = document.getElementById('cost_per_pound');
   var costPerBag = document.getElementById('cost_per_bag');
   var lbsPerBag = document.getElementById('lbs_per_bag');
+  var productName = document.getElementById('product_name');
   var resultEl = document.getElementById('fertilizer_result');
+  var customerSelect = document.getElementById('create_estimate_customer');
+  var propertySelect = document.getElementById('create_estimate_property');
+
+  // Load properties when customer is selected
+  var customerProperties = {};
+  {% if customers %}
+  {% for customer in customers %}
+  customerProperties[{{ customer.id }}] = [
+    {% for prop in customer.properties.all %}
+    {id: {{ prop.id }}, address: "{{ prop.address|escapejs }}"}{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ];
+  {% endfor %}
+  {% endif %}
+
+  if (customerSelect && propertySelect) {
+    customerSelect.addEventListener('change', function() {
+      var customerId = customerSelect.value;
+      propertySelect.innerHTML = '<option value="">— Select property —</option>';
+      if (customerId && customerProperties[customerId]) {
+        customerProperties[customerId].forEach(function(prop) {
+          var opt = document.createElement('option');
+          opt.value = prop.id;
+          opt.textContent = prop.address;
+          propertySelect.appendChild(opt);
+        });
+      }
+    });
+  }
+
+  // Product selection handler
+  if (productSelect) {
+    productSelect.addEventListener('change', function() {
+      var option = productSelect.options[productSelect.selectedIndex];
+      if (option.value) {
+        pricingType.value = option.dataset.pricingType || 'per_pound';
+        if (option.dataset.costPerPound) {
+          costPerPound.value = option.dataset.costPerPound;
+        }
+        if (option.dataset.costPerBag) {
+          costPerBag.value = option.dataset.costPerBag;
+        }
+        if (option.dataset.lbsPerBag) {
+          lbsPerBag.value = option.dataset.lbsPerBag;
+        }
+        if (option.dataset.name) {
+          productName.value = option.dataset.name;
+        }
+        togglePricing();
+        update();
+      }
+    });
+  }
 
   function togglePricing() {
     var isPerBag = pricingType.value === 'per_bag';
@@ -139,6 +222,7 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('form_cost_per_pound').value = costPerPound.value;
       document.getElementById('form_cost_per_bag').value = costPerBag.value;
       document.getElementById('form_lbs_per_bag').value = lbsPerBag.value;
+      document.getElementById('form_product_id').value = productSelect.value || '';
     });
   }
 });

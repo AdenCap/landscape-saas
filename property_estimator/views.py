@@ -36,11 +36,17 @@ def estimator_list(request):
 @role_required("owner")
 def fertilizer_calculator(request):
     """Standalone fertilizer calculator: lbs per 1k sq ft, total sq ft, pricing per lb or per bag."""
+    from billing.models import FertilizerProduct
     business = _get_business(request)
     customers = []
+    products = []
     if business:
         customers = Customer.objects.filter(business=business).order_by("name")
-    return render(request, "property_estimator/fertilizer_calculator.html", {"customers": customers})
+        products = FertilizerProduct.objects.filter(business=business, active=True).order_by("name")
+    return render(request, "property_estimator/fertilizer_calculator.html", {
+        "customers": customers,
+        "products": products,
+    })
 
 
 @role_required("owner")

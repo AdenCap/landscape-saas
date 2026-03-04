@@ -15,3 +15,24 @@ def currency(value):
         return f"${s}" if s else "$0"
     except (TypeError, ValueError):
         return str(value)
+
+
+@register.filter
+def mul(value, arg):
+    """Multiply value by arg."""
+    try:
+        return float(value) * float(arg)
+    except (TypeError, ValueError):
+        return 0
+
+
+@register.filter
+def div(value, arg):
+    """Divide value by arg."""
+    try:
+        arg_float = float(arg)
+        if arg_float == 0:
+            return 0
+        return float(value) / arg_float
+    except (TypeError, ValueError):
+        return 0

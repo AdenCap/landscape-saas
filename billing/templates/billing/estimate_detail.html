@@ -149,6 +149,87 @@
     <div class="doc-footer-custom">{{ doc_template.footer_text|safe }}</div>
     {% endif %}
   </div>
+  
+  {% if fertilizer_applications %}
+  <div class="card" style="margin-top: 24px;">
+    <h2 class="card-title">Fertilizer Application & Profit Analysis</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Property</th>
+          <th>Pounds</th>
+          <th>Material Cost</th>
+          <th>Charged</th>
+          <th>Profit</th>
+          <th>Margin</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for app in fertilizer_applications %}
+        <tr>
+          <td><strong>{% if app.product %}{{ app.product.name }}{% else %}Unknown Product{% endif %}</strong></td>
+          <td><a href="{% url 'billing:property_fertilizer_history' app.property.id %}" class="link-primary">{{ app.property.address }}</a></td>
+          <td>{{ app.pounds_used|floatformat:1 }} lbs</td>
+          <td>${{ app.material_cost|floatformat:2 }}</td>
+          <td>{% if app.charge_amount %}${{ app.charge_amount|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td>
+            {% if app.profit is not None %}
+              <span style="color: {% if app.profit >= 0 %}var(--primary){% else %}#ef4444{% endif %}; font-weight: 600;">
+                ${{ app.profit|floatformat:2 }}
+              </span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>
+            {% if app.profit_margin is not None %}
+              <span style="color: {% if app.profit >= 0 %}var(--primary){% else %}#ef4444{% endif %};">
+                {{ app.profit_margin|floatformat:1 }}%
+              </span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="border-top: 2px solid var(--border); font-weight: 600;">
+          <td colspan="3"><strong>Totals</strong></td>
+          <td>${{ total_material_cost|floatformat:2 }}</td>
+          <td>
+            {% if total_charged %}
+              ${{ total_charged|floatformat:2 }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>
+            {% if total_profit is not None %}
+              <span style="color: {% if total_profit >= 0 %}var(--primary){% else %}#ef4444{% endif %};">
+                ${{ total_profit|floatformat:2 }}
+              </span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>
+            {% if total_profit is not None and total_charged and total_charged > 0 %}
+              {% with margin=total_profit|mul:100|div:total_charged %}
+                <span style="color: {% if total_profit >= 0 %}var(--primary){% else %}#ef4444{% endif %};">
+                  {{ margin|floatformat:1 }}%
+                </span>
+              {% endwith %}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% endif %}
 </div>
 
 <style>

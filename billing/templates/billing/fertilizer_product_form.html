@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{% if product %}Edit Product{% else %}New Fertilizer Product{% endif %}</h1>
+  <p>{% if product %}Update product details and pricing{% else %}Add a product to your catalog for accurate cost calculations{% endif %}</p>
+</div>
+
+<div class="quick-actions" style="margin-bottom: 24px;">
+  <a href="{% url 'billing:fertilizer_products_list' %}" class="btn btn-secondary">← Back to Products</a>
+</div>
+
+<div class="card" style="max-width: 700px;">
+  <form method="post">
+    {% csrf_token %}
+    
+    <div class="field" style="margin-bottom: 20px;">
+      <label for="name">Product Name *</label>
+      <input type="text" name="name" id="name" required value="{{ product.name|default:'' }}" placeholder="e.g. Scotts Turf Builder 32-0-4" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">
+    </div>
+    
+    <div class="field" style="margin-bottom: 20px;">
+      <label for="pricing_type">Pricing Type *</label>
+      <select name="pricing_type" id="pricing_type" required style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">
+        <option value="per_pound" {% if not product or product.pricing_type == 'per_pound' %}selected{% endif %}>Per pound</option>
+        <option value="per_bag" {% if product and product.pricing_type == 'per_bag' %}selected{% endif %}>Per bag</option>
+      </select>
+    </div>
+    
+    <div id="per-pound-fields" style="margin-bottom: 20px;">
+      <div class="field">
+        <label for="cost_per_pound">Cost per pound ($) *</label>
+        <input type="number" name="cost_per_pound" id="cost_per_pound" step="0.01" min="0" value="{{ product.cost_per_pound|default:'' }}" placeholder="0.50" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">
+      </div>
+    </div>
+    
+    <div id="per-bag-fields" style="display: none; margin-bottom: 20px;">
+      <div class="field" style="margin-bottom: 16px;">
+        <label for="cost_per_bag">Cost per bag ($) *</label>
+        <input type="number" name="cost_per_bag" id="cost_per_bag" step="0.01" min="0" value="{{ product.cost_per_bag|default:'' }}" placeholder="25.00" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">
+      </div>
+      <div class="field">
+        <label for="lbs_per_bag">Pounds per bag *</label>
+        <input type="number" name="lbs_per_bag" id="lbs_per_bag" step="0.1" min="0.1" value="{{ product.lbs_per_bag|default:'' }}" placeholder="50" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">
+      </div>
+    </div>
+    
+    {% if product %}
+    <div class="field" style="margin-bottom: 20px;">
+      <label style="display: flex; align-items: center; gap: 8px;">
+        <input type="checkbox" name="active" {% if product.active %}checked{% endif %}>
+        Active (show in product selection)
+      </label>
+    </div>
+    {% endif %}
+    
+    <div class="field" style="margin-bottom: 20px;">
+      <label for="notes">Notes (optional)</label>
+      <textarea name="notes" id="notes" rows="3" placeholder="Optional notes about this product" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">{{ product.notes|default:'' }}</textarea>
+    </div>
+    
+    <div style="display: flex; gap: 10px;">
+      <button type="submit" class="btn btn-primary">{% if product %}Update Product{% else %}Create Product{% endif %}</button>
+      <a href="{% url 'billing:fertilizer_products_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var pricingType = document.getElementById('pricing_type');
+  var perPoundFields = document.getElementById('per-pound-fields');
+  var perBagFields = document.getElementById('per-bag-fields');
+  
+  function toggleFields() {
+    if (pricingType.value === 'per_bag') {
+      perPoundFields.style.display = 'none';
+      perBagFields.style.display = 'block';
+      document.getElementById('cost_per_pound').required = false;
+      document.getElementById('cost_per_bag').required = true;
+      document.getElementById('lbs_per_bag').required = true;
+    } else {
+      perPoundFields.style.display = 'block';
+      perBagFields.style.display = 'none';
+      document.getElementById('cost_per_pound').required = true;
+      document.getElementById('cost_per_bag').required = false;
+      document.getElementById('lbs_per_bag').required = false;
+    }
+  }
+  
+  pricingType.addEventListener('change', toggleFields);
+  toggleFields();
+});
+</script>
+{% endblock %}

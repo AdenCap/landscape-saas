@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Fertilizer Products</h1>
+  <p>Manage your product catalog with pricing for accurate cost and profit calculations</p>
+</div>
+
+<div class="quick-actions" style="margin-bottom: 24px;">
+  <a href="{% url 'billing:fertilizer_product_create' %}" class="btn btn-primary">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="12" y1="5" x2="12" y2="19"/>
+      <line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    New Product
+  </a>
+  <a href="{% url 'estimator_index' %}" class="btn btn-secondary">← Back to Estimator</a>
+</div>
+
+{% if products %}
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Product Name</th>
+        <th>Pricing</th>
+        <th>Cost</th>
+        <th>Status</th>
+        <th class="col-actions"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for product in products %}
+      <tr>
+        <td><strong>{{ product.name }}</strong></td>
+        <td>
+          {% if product.pricing_type == 'per_pound' %}
+            Per pound
+          {% else %}
+            Per bag ({{ product.lbs_per_bag|default:"—" }} lbs)
+          {% endif %}
+        </td>
+        <td>
+          {% if product.pricing_type == 'per_pound' %}
+            ${{ product.cost_per_pound|floatformat:2 }}/lb
+            {% if product.get_cost_per_pound_equivalent %}
+              <span style="color: var(--text-muted); font-size: 12px;">(effective)</span>
+            {% endif %}
+          {% else %}
+            ${{ product.cost_per_bag|floatformat:2 }}/bag
+            {% if product.lbs_per_bag %}
+              <span style="color: var(--text-muted); font-size: 12px;">(${{ product.get_cost_per_pound_equivalent|floatformat:2 }}/lb)</span>
+            {% endif %}
+          {% endif %}
+        </td>
+        <td>
+          {% if product.active %}
+            <span style="color: var(--primary);">Active</span>
+          {% else %}
+            <span style="color: var(--text-muted);">Inactive</span>
+          {% endif %}
+        </td>
+        <td class="col-actions">
+          <a href="{% url 'billing:fertilizer_product_edit' product.id %}" class="btn btn-secondary btn-sm">Edit</a>
+          <form method="post" action="{% url 'billing:fertilizer_product_delete' product.id %}" style="display: inline;" onsubmit="return confirm('Delete this product?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4);">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <p style="text-align: center; padding: 40px; color: var(--text-muted);">
+    No products yet. <a href="{% url 'billing:fertilizer_product_create' %}" class="link-primary">Create your first product</a> to get started.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

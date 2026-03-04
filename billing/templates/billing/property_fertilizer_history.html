@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% load billing_filters %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Fertilizer History</h1>
+  <p>{{ property.address }} · {{ property.customer.name }}</p>
+</div>
+
+<div class="quick-actions" style="margin-bottom: 24px;">
+  <a href="{% url 'customer_detail' property.customer.id %}" class="btn btn-secondary">← Back to Customer</a>
+  <a href="{% url 'estimator_index' %}" class="btn btn-secondary">Estimator</a>
+</div>
+
+{% if applications %}
+<div class="card" style="margin-bottom: 24px;">
+  <h2 class="card-title">Summary</h2>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+    <div>
+      <div style="font-size: 24px; font-weight: 700; color: var(--primary);">{{ total_pounds|floatformat:1 }}</div>
+      <div style="color: var(--text-muted); font-size: 14px;">Total Pounds</div>
+    </div>
+    <div>
+      <div style="font-size: 24px; font-weight: 700; color: var(--text);">${{ total_cost|floatformat:2 }}</div>
+      <div style="color: var(--text-muted); font-size: 14px;">Total Material Cost</div>
+    </div>
+    {% if total_charged %}
+    <div>
+      <div style="font-size: 24px; font-weight: 700; color: var(--text);">${{ total_charged|floatformat:2 }}</div>
+      <div style="color: var(--text-muted); font-size: 14px;">Total Charged</div>
+    </div>
+    <div>
+      <div style="font-size: 24px; font-weight: 700; color: {% if total_profit >= 0 %}var(--primary){% else %}#ef4444{% endif %};">${{ total_profit|floatformat:2 }}</div>
+      <div style="color: var(--text-muted); font-size: 14px;">Total Profit</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="card-title">Application History</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Product</th>
+        <th>Pounds</th>
+        <th>Sq Ft</th>
+        <th>Rate</th>
+        <th>Material Cost</th>
+        <th>Charged</th>
+        <th>Profit</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for app in applications %}
+      <tr>
+        <td>{{ app.application_date|date:"M j, Y" }}</td>
+        <td>
+          {% if app.product %}
+            <strong>{{ app.product.name }}</strong>
+          {% else %}
+            <span style="color: var(--text-muted);">Unknown Product</span>
+          {% endif %}
+        </td>
+        <td>{{ app.pounds_used|floatformat:1 }} lbs</td>
+        <td>{% if app.square_feet %}{{ app.square_feet|floatformat:0 }}{% else %}—{% endif %}</td>
+        <td>{% if app.lbs_per_1000_sqft %}{{ app.lbs_per_1000_sqft|floatformat:2 }}{% else %}—{% endif %}</td>
+        <td>${{ app.material_cost|floatformat:2 }}</td>
+        <td>{% if app.charge_amount %}${{ app.charge_amount|floatformat:2 }}{% else %}—{% endif %}</td>
+        <td>
+          {% if app.profit is not None %}
+            <span style="color: {% if app.profit >= 0 %}var(--primary){% else %}#ef4444{% endif %};">
+              ${{ app.profit|floatformat:2 }}
+              {% if app.profit_margin %}
+                ({{ app.profit_margin|floatformat:1 }}%)
+              {% endif %}
+            </span>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+      {% if app.notes %}
+      <tr>
+        <td colspan="8" style="color: var(--text-muted); font-size: 13px; padding-left: 24px; border-top: none;">
+          <em>{{ app.notes }}</em>
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <p style="text-align: center; padding: 40px; color: var(--text-muted);">
+    No fertilizer applications recorded for this property yet.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

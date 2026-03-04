@@ -558,3 +558,218 @@ class GoogleMapsApiUsage(models.Model):
             total=Sum('request_count')
         )['total'] or 0
 
+
+class FertilizerProduct(models.Model):
+    """Business-specific catalog of fertilizer products with pricing."""
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.CASCADE,
+        related_name='fertilizer_products'
+    )
+    
+    name = models.CharField(
+        max_length=200,
+        help_text="Product name (e.g. 'Scotts Turf Builder 32-0-4')"
+    )
+    
+    pricing_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('per_pound', 'Per pound'),
+            ('per_bag', 'Per bag'),
+        ],
+        default='per_pound',
+        help_text="How this product is priced"
+    )
+    
+    # Per pound pricing
+    cost_per_pound = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Cost per pound (if pricing_type = per_pound)"
+    )
+    
+    # Per bag pricing
+    cost_per_bag = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Cost per bag (if pricing_type = per_bag)"
+    )
+    
+    lbs_per_bag = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Pounds per bag (if pricing_type = per_bag)"
+    )
+    
+    active = models.BooleanField(
+        default=True,
+        help_text="Show in product selection dropdowns"
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text="Optional notes about this product"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['name']
+        unique_together = [['business', 'name']]
+    
+    def __str__(self):
+        return f"{self.name} ({self.business.name})"
+    
+    def calculate_cost(self, pounds):
+        """Calculate material cost for given pounds."""
+        from decimal import Decimal, ROUND_CEILING
+        pounds = Decimal(str(pounds))
+        
+        if self.pricing_type == 'per_bag':
+            if not self.lbs_per_bag or self.lbs_per_bag <= 0:
+                return Decimal('0')
+            if not self.cost_per_bag:
+                return Decimal('0')
+            bags = (pounds / self.lbs_per_bag).quantize(Decimal('1'), rounding=ROUND_CEILING)
+            return bags * self.cost_per_bag
+        else:
+            if not self.cost_per_pound:
+                return Decimal('0')
+            return pounds * self.cost_per_pound
+    
+    def get_cost_per_pound_equivalent(self):
+        """Get effective cost per pound (useful for comparison)."""
+        from decimal import Decimal
+        if self.pricing_type == 'per_pound':
+            return self.cost_per_pound or Decimal('0')
+        else:
+            if not self.lbs_per_bag or self.lbs_per_bag <= 0 or not self.cost_per_bag:
+                return Decimal('0')
+            return (self.cost_per_bag / self.lbs_per_bag)
+
+
+class FertilizerApplication(models.Model):
+    """Tracks fertilizer applications to properties with product, date, and amount."""
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.CASCADE,
+        related_name='fertilizer_applications'
+    )
+    
+    property = models.ForeignKey(
+        "customers.Property",
+        on_delete=models.CASCADE,
+        related_name='fertilizer_applications'
+    )
+    
+    product = models.ForeignKey(
+        FertilizerProduct,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='applications',
+        help_text="Product used (null if product was deleted)"
+    )
+    
+    job = models.ForeignKey(
+        "jobs.Job",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='fertilizer_applications',
+        help_text="Job where this was applied (optional)"
+    )
+    
+    estimate = models.ForeignKey(
+        Estimate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='fertilizer_applications',
+        help_text="Estimate that led to this application (optional)"
+    )
+    
+    application_date = models.DateField(
+        help_text="Date fertilizer was applied"
+    )
+    
+    pounds_used = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Total pounds of fertilizer applied"
+    )
+    
+    square_feet = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Square footage treated"
+    )
+    
+    lbs_per_1000_sqft = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        help_text="Application rate (lbs per 1,000 sq ft)"
+    )
+    
+    material_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Cost of materials (calculated from product)"
+    )
+    
+    charge_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Amount charged to customer (for profit calculation)"
+    )
+    
+    notes = models.TextField(
+        blank=True,
+        help_text="Optional notes about this application"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-application_date', '-id']
+        indexes = [
+            models.Index(fields=['property', '-application_date']),
+            models.Index(fields=['business', '-application_date']),
+        ]
+    
+    def __str__(self):
+        product_name = self.product.name if self.product else "Unknown Product"
+        return f"{product_name} - {self.property.address} - {self.application_date}"
+    
+    @property
+    def profit(self):
+        """Calculate profit (charge_amount - material_cost)."""
+        if self.charge_amount is None:
+            return None
+        return self.charge_amount - self.material_cost
+    
+    @property
+    def profit_margin(self):
+        """Calculate profit margin percentage."""
+        if self.charge_amount is None or self.charge_amount == 0:
+            return None
+        profit = self.profit
+        if profit is None:
+            return None
+        return (profit / self.charge_amount) * 100
+

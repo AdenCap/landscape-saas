@@ -36,6 +36,8 @@ from .models import (
     EstimateLineItem,
     EstimateImage,
     DocumentTemplate,
+    FertilizerProduct,
+    FertilizerApplication,
 )
 from .forms import (
     EstimateForm,
@@ -1028,25 +1030,54 @@ def estimate_create_from_fertilizer(request):
     except (Customer.DoesNotExist, TypeError, ValueError):
         messages.error(request, "Please select a valid customer.")
         return redirect("fertilizer_calculator")
+    
+    # Get product if product_id is provided
+    product = None
+    product_id = request.POST.get("product_id")
+    if product_id:
+        try:
+            product = FertilizerProduct.objects.get(id=product_id, business=business)
+        except FertilizerProduct.DoesNotExist:
+            pass
+    
     config = {
         "lbs_per_1000": request.POST.get("lbs_per_1000"),
         "total_sqft": request.POST.get("total_sqft"),
-        "product": request.POST.get("product") or "Fertilizer",
-        "pricing_type": request.POST.get("pricing_type") or "per_pound",
-        "cost_per_pound": request.POST.get("cost_per_pound"),
-        "cost_per_bag": request.POST.get("cost_per_bag"),
-        "lbs_per_bag": request.POST.get("lbs_per_bag"),
+        "product": request.POST.get("product") or (product.name if product else "Fertilizer"),
+        "pricing_type": request.POST.get("pricing_type") or (product.pricing_type if product else "per_pound"),
+        "cost_per_pound": request.POST.get("cost_per_pound") or (str(product.cost_per_pound) if product and product.cost_per_pound else None),
+        "cost_per_bag": request.POST.get("cost_per_bag") or (str(product.cost_per_bag) if product and product.cost_per_bag else None),
+        "lbs_per_bag": request.POST.get("lbs_per_bag") or (str(product.lbs_per_bag) if product and product.lbs_per_bag else None),
     }
+    
+    # If product is selected, use its pricing
+    if product:
+        if product.pricing_type == 'per_pound' and product.cost_per_pound:
+            config['cost_per_pound'] = str(product.cost_per_pound)
+            config['pricing_type'] = 'per_pound'
+        elif product.pricing_type == 'per_bag' and product.cost_per_bag and product.lbs_per_bag:
+            config['cost_per_bag'] = str(product.cost_per_bag)
+            config['lbs_per_bag'] = str(product.lbs_per_bag)
+            config['pricing_type'] = 'per_bag'
+        config['product'] = product.name
+    
     desc, material_cost = _compute_fertilizing(config)
     if not desc:
         messages.error(request, "Invalid calculator inputs.")
         return redirect("fertilizer_calculator")
+    
+    # Calculate pounds used
+    rate = Decimal(str(config.get('lbs_per_1000') or 0))
+    sqft = Decimal(str(config.get('total_sqft') or 0))
+    total_pounds = (rate / 1000) * sqft
+    
     estimate = Estimate.objects.create(
         business=business,
         customer=customer,
         title=request.POST.get("title") or "Field Ops Service Estimate",
     )
-    EstimateLineItem.objects.create(
+    
+    line_item = EstimateLineItem.objects.create(
         estimate=estimate,
         item_type="fertilizing",
         fertilizing_config=config,
@@ -1059,6 +1090,49 @@ def estimate_create_from_fertilizer(request):
         labor_cost=Decimal("0"),
         order=0,
     )
+    
+    # Create FertilizerApplication record if product is selected and property exists
+    property_id = request.POST.get("property_id")
+    if product and property_id:
+        try:
+            from customers.models import Property
+            property_obj = Property.objects.get(id=property_id, customer=customer, customer__business=business)
+            FertilizerApplication.objects.create(
+                business=business,
+                property=property_obj,
+                product=product,
+                estimate=estimate,
+                application_date=timezone.now().date(),
+                pounds_used=total_pounds,
+                square_feet=sqft,
+                lbs_per_1000_sqft=rate,
+                material_cost=material_cost,
+                charge_amount=None,  # Will be set when estimate is accepted/invoiced
+            )
+        except (Property.DoesNotExist, ValueError, TypeError):
+            pass  # Property not found, skip application record
+    elif product:
+        # Product selected but no property - still create application record if we can find property
+        # Try to get first property for customer
+        try:
+            from customers.models import Property
+            property_obj = Property.objects.filter(customer=customer, customer__business=business).first()
+            if property_obj:
+                FertilizerApplication.objects.create(
+                    business=business,
+                    property=property_obj,
+                    product=product,
+                    estimate=estimate,
+                    application_date=timezone.now().date(),
+                    pounds_used=total_pounds,
+                    square_feet=sqft,
+                    lbs_per_1000_sqft=rate,
+                    material_cost=material_cost,
+                    charge_amount=None,
+                )
+        except Exception:
+            pass
+    
     messages.success(request, f"Estimate created for {customer.name}. Add labor or more line items below.")
     return redirect("billing:estimate_edit", estimate_id=estimate.id)
 
@@ -1172,7 +1246,26 @@ def estimate_detail(request, estimate_id):
         business=business,
     )
     doc_template = DocumentTemplate.get_default_for_business(business, "estimate")
-    return render(request, "billing/estimate_detail.html", {"estimate": estimate, "doc_template": doc_template})
+    
+    # Get fertilizer applications for this estimate
+    fertilizer_apps = FertilizerApplication.objects.filter(
+        estimate=estimate
+    ).select_related('product', 'property')
+    
+    # Calculate totals for profit analysis
+    from decimal import Decimal
+    total_material_cost = sum(Decimal(str(app.material_cost)) for app in fertilizer_apps)
+    total_charged = sum(Decimal(str(app.charge_amount)) for app in fertilizer_apps if app.charge_amount) or None
+    total_profit = (total_charged - total_material_cost) if total_charged else None
+    
+    return render(request, "billing/estimate_detail.html", {
+        "estimate": estimate,
+        "doc_template": doc_template,
+        "fertilizer_applications": fertilizer_apps,
+        "total_material_cost": total_material_cost,
+        "total_charged": total_charged,
+        "total_profit": total_profit,
+    })
 
 
 def _build_estimate_pdf(estimate, business):
@@ -1593,6 +1686,12 @@ def estimate_client_accept(request, estimate_id, token):
     estimate.accepted_at = timezone.now()
     estimate.accepted_total = total
     estimate.save()
+    
+    # Update FertilizerApplication records with charge amount
+    if estimate.accepted_total:
+        for app in estimate.fertilizer_applications.all():
+            app.charge_amount = estimate.accepted_total
+            app.save(update_fields=['charge_amount', 'updated_at'])
     return render(request, "billing/estimate_client_accepted.html", {
         "estimate": estimate,
         "accepted_total": total,
@@ -1684,4 +1783,153 @@ def document_template_edit(request, doc_type):
         "form": form,
         "doc_type": doc_type,
         "template_obj": template_obj,
+    })
+
+
+# Fertilizer Product Management
+@role_required("owner")
+def fertilizer_products_list(request):
+    """List all fertilizer products for the business."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    
+    products = FertilizerProduct.objects.filter(business=business).order_by('name')
+    return render(request, "billing/fertilizer_products_list.html", {
+        "products": products,
+    })
+
+
+@role_required("owner")
+@require_http_methods(["GET", "POST"])
+def fertilizer_product_create(request):
+    """Create a new fertilizer product."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+        if not name:
+            messages.error(request, "Product name is required.")
+            return redirect("billing:fertilizer_products_list")
+        
+        pricing_type = request.POST.get("pricing_type", "per_pound")
+        cost_per_pound = request.POST.get("cost_per_pound") or None
+        cost_per_bag = request.POST.get("cost_per_bag") or None
+        lbs_per_bag = request.POST.get("lbs_per_bag") or None
+        notes = request.POST.get("notes", "").strip()
+        
+        try:
+            product = FertilizerProduct.objects.create(
+                business=business,
+                name=name,
+                pricing_type=pricing_type,
+                cost_per_pound=Decimal(cost_per_pound) if cost_per_pound else None,
+                cost_per_bag=Decimal(cost_per_bag) if cost_per_bag else None,
+                lbs_per_bag=Decimal(lbs_per_bag) if lbs_per_bag else None,
+                notes=notes,
+            )
+            messages.success(request, f"Product '{product.name}' created.")
+            return redirect("billing:fertilizer_products_list")
+        except Exception as e:
+            messages.error(request, f"Error creating product: {str(e)}")
+            return redirect("billing:fertilizer_products_list")
+    
+    return render(request, "billing/fertilizer_product_form.html", {
+        "product": None,
+    })
+
+
+@role_required("owner")
+@require_http_methods(["GET", "POST"])
+def fertilizer_product_edit(request, product_id):
+    """Edit an existing fertilizer product."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    
+    product = get_object_or_404(FertilizerProduct, id=product_id, business=business)
+    
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+        if not name:
+            messages.error(request, "Product name is required.")
+            return redirect("billing:fertilizer_product_edit", product_id=product_id)
+        
+        pricing_type = request.POST.get("pricing_type", "per_pound")
+        cost_per_pound = request.POST.get("cost_per_pound") or None
+        cost_per_bag = request.POST.get("cost_per_bag") or None
+        lbs_per_bag = request.POST.get("lbs_per_bag") or None
+        active = request.POST.get("active") == "on"
+        notes = request.POST.get("notes", "").strip()
+        
+        try:
+            product.name = name
+            product.pricing_type = pricing_type
+            product.cost_per_pound = Decimal(cost_per_pound) if cost_per_pound else None
+            product.cost_per_bag = Decimal(cost_per_bag) if cost_per_bag else None
+            product.lbs_per_bag = Decimal(lbs_per_bag) if lbs_per_bag else None
+            product.active = active
+            product.notes = notes
+            product.save()
+            messages.success(request, f"Product '{product.name}' updated.")
+            return redirect("billing:fertilizer_products_list")
+        except Exception as e:
+            messages.error(request, f"Error updating product: {str(e)}")
+            return redirect("billing:fertilizer_product_edit", product_id=product_id)
+    
+    return render(request, "billing/fertilizer_product_form.html", {
+        "product": product,
+    })
+
+
+@role_required("owner")
+@require_POST
+def fertilizer_product_delete(request, product_id):
+    """Delete a fertilizer product."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    
+    product = get_object_or_404(FertilizerProduct, id=product_id, business=business)
+    product_name = product.name
+    product.delete()
+    messages.success(request, f"Product '{product_name}' deleted.")
+    return redirect("billing:fertilizer_products_list")
+
+
+@role_required("owner")
+def property_fertilizer_history(request, property_id):
+    """View fertilizer application history for a property."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    
+    from customers.models import Property
+    property_obj = get_object_or_404(Property, id=property_id, customer__business=business)
+    
+    applications = FertilizerApplication.objects.filter(
+        business=business,
+        property=property_obj
+    ).select_related('product', 'job', 'estimate').order_by('-application_date')
+    
+    # Calculate totals
+    total_pounds = sum(app.pounds_used for app in applications)
+    total_cost = sum(app.material_cost for app in applications)
+    total_charged = sum(app.charge_amount for app in applications if app.charge_amount)
+    total_profit = sum(app.profit for app in applications if app.profit is not None)
+    
+    return render(request, "billing/property_fertilizer_history.html", {
+        "property": property_obj,
+        "applications": applications,
+        "total_pounds": total_pounds,
+        "total_cost": total_cost,
+        "total_charged": total_charged,
+        "total_profit": total_profit,
     })

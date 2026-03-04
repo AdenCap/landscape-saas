@@ -70,8 +70,11 @@
         {% if prop.has_dog %}<span class="badge badge-warning">Dog</span>{% endif %}
         {% if prop.notes %}<p class="prop-notes">{{ prop.notes }}</p>{% endif %}
       </div>
-      <a href="{% url 'estimator_new' prop.id %}" class="btn btn-secondary btn-sm">Property Estimator</a>
-      <a href="{% url 'property_edit' customer.id prop.id %}" class="btn btn-secondary btn-sm">Edit</a>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <a href="{% url 'billing:property_fertilizer_history' prop.id %}" class="btn btn-secondary btn-sm">Fertilizer History</a>
+        <a href="{% url 'estimator_new' prop.id %}" class="btn btn-secondary btn-sm">Property Estimator</a>
+        <a href="{% url 'property_edit' customer.id prop.id %}" class="btn btn-secondary btn-sm">Edit</a>
+      </div>
     </div>
     {% empty %}
     <p>No properties. <a href="{% url 'property_add' customer.id %}" class="link-primary">Add one</a> to schedule jobs.</p>
