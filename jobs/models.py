@@ -276,30 +276,30 @@ class Meeting(models.Model):
 
 
 class JobServiceItem(models.Model):
-        job = models.ForeignKey("jobs.Job", on_delete=models.CASCADE, related_name="service_items")
-        service = models.ForeignKey(ServiceTemplate, on_delete=models.PROTECT)
+    job = models.ForeignKey("jobs.Job", on_delete=models.CASCADE, related_name="service_items")
+    service = models.ForeignKey(ServiceTemplate, on_delete=models.PROTECT)
 
-        description = models.CharField(max_length=255, blank=True)  # optional override label
-        quantity = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("1.00"))
+    description = models.CharField(max_length=255, blank=True)  # optional override label
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("1.00"))
 
-        # Snapshot pricing used for this job (copied from property override or template at time of adding)
-        unit = models.CharField(max_length=20, default="visit")
-        unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    # Snapshot pricing used for this job (copied from property override or template at time of adding)
+    unit = models.CharField(max_length=20, default="visit")
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
 
-        billed_invoice = models.ForeignKey(
+    billed_invoice = models.ForeignKey(
         "billing.Invoice",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="billed_job_items",
-        )
-        billed_at = models.DateTimeField(null=True, blank=True)
+    )
+    billed_at = models.DateTimeField(null=True, blank=True)
 
-        def line_total(self):
-            return self.quantity * self.unit_price
+    def line_total(self):
+        return self.quantity * self.unit_price
 
-        def __str__(self):
-            return f"{self.job} - {self.service.name}"
+    def __str__(self):
+        return f"{self.job} - {self.service.name}"
 
 
 class RecurringJob(models.Model):
