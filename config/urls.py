@@ -28,7 +28,7 @@ from config.platform_views import (
     admin_users, admin_grant, admin_revoke
 )
 from config.marketing_views import (
-    marketing_home, marketing_features, marketing_automation, marketing_pricing,
+    marketing_home, marketing_features, marketing_feature_detail, marketing_automation, marketing_pricing,
     terms_of_service, privacy_policy,
 )
 from config.db_check import db_check
@@ -53,6 +53,7 @@ urlpatterns = [
     # Public marketing pages
     path("", marketing_home, name="marketing_home"),
     path("features/", marketing_features, name="marketing_features"),
+    path("features/<slug:slug>/", marketing_feature_detail, name="marketing_feature_detail"),
     path("automation/", marketing_automation, name="marketing_automation"),
     path("pricing/", marketing_pricing, name="marketing_pricing"),
     path("terms/", terms_of_service, name="terms_of_service"),

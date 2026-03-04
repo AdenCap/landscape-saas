@@ -1,13 +1,24 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}Field Ops Features{% endblock %}
+{% block title %}ProFieldOps Features{% endblock %}
 {% block content %}
-<section class="hero"><div class="shell" data-r><h1>Features built for operators, not fluff.</h1><p class="sub">Every module is designed to remove daily friction and improve speed, clarity, and cash collection.</p></div></section>
-<section class="section"><div class="shell" data-r><div class="grid">
-  <article class="card"><h3>Scheduling & Recurring Jobs</h3><p>Plan routes and recurring service quickly without spreadsheet sprawl.</p></article>
-  <article class="card"><h3>Dispatch Control</h3><p>Auto-assign support, unassigned job visibility, and same-day triage actions.</p></article>
-  <article class="card"><h3>Invoices & Estimates</h3><p>Professional docs, template editing, reminders, and faster payment flow.</p></article>
-  <article class="card"><h3>Customer CRM</h3><p>Centralized client records, properties, notes, and communication touchpoints.</p></article>
-  <article class="card"><h3>Owner KPI Cockpit</h3><p>Revenue, overdue, utilization, and “what changed today” operational feed.</p></article>
-  <article class="card"><h3>Crew Mobile UX</h3><p>Fast field execution with touch-friendly controls and offline-safe behavior.</p></article>
-</div></div></section>
+<section class="hero">
+  <div class="shell" data-r>
+    <h1>Every core operation has its own feature system.</h1>
+    <p class="sub">Scroll, scan, and click into dedicated feature pages for dashboard, jobs, calendar, routes, CRM, messaging, estimator, invoices, estimates, employee management, and financials.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="shell" data-r>
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+      {% for slug, f in feature_pages.items %}
+      <a href="/features/{{ slug }}/" class="card" style="text-decoration:none;color:inherit;transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease);">
+        <h3>{{ f.title }}</h3>
+        <p style="margin-bottom:12px;">{{ f.subtitle }}</p>
+        <span class="btn btn-ghost" style="padding:0;border:none;">View feature details →</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
 {% endblock %}
