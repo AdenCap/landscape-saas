@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Invoice, InvoiceLineItem, InvoiceAuditLog, Estimate, EstimateLineItem, EstimateImage, DocumentTemplate
+from .models import (
+    Invoice, InvoiceLineItem, InvoiceAuditLog, Estimate, EstimateLineItem,
+    EstimateImage, DocumentTemplate, FertilizerProduct, FertilizerApplication,
+)
 
 
 class InvoiceLineItemInline(admin.TabularInline):
@@ -53,3 +56,22 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
     list_filter = ("doc_type", "business")
     search_fields = ("name", "business__name")
     raw_id_fields = ("business",)
+
+
+@admin.register(FertilizerProduct)
+class FertilizerProductAdmin(admin.ModelAdmin):
+    list_display = ('name', 'business', 'npk_display', 'product_type', 'application_rate',
+                    'pricing_type', 'cost_per_pound', 'cost_per_bag', 'active')
+    list_filter = ('business', 'active', 'pricing_type', 'product_type')
+    search_fields = ('name', 'business__name', 'epa_registration_number')
+    raw_id_fields = ('business',)
+
+
+@admin.register(FertilizerApplication)
+class FertilizerApplicationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'business', 'property', 'product', 'application_date',
+                    'pounds_used', 'material_cost', 'charge_amount', 'applied_by')
+    list_filter = ('business', 'application_date', 'weather_conditions')
+    search_fields = ('property__address', 'product__name')
+    raw_id_fields = ('business', 'property', 'product', 'job', 'estimate', 'applied_by')
+    ordering = ('-application_date',)
