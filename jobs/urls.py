@@ -14,6 +14,7 @@ urlpatterns = [
     path('calendar/job/<int:job_id>/update/', views.calendar_job_update, name='calendar_job_update'),
     path('calendar/job/<int:job_id>/reschedule/', views.calendar_job_reschedule, name='calendar_job_reschedule'),
     path('calendar/unscheduled/', views.calendar_unscheduled_jobs, name='calendar_unscheduled_jobs'),
+    path('calendar/bulk-reschedule/', views.calendar_bulk_reschedule, name='calendar_bulk_reschedule'),
     path('calendar/meeting/<int:meeting_id>/', views.calendar_meeting_data, name='calendar_meeting_data'),
 
     path('meetings/', views.meeting_list, name='meeting_list'),

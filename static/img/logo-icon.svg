@@ -1,19 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
-  <!-- Field Ops: Abstract geometric mark — stacked angular planes suggesting layered operations -->
-  <defs>
-    <linearGradient id="g1" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#60a5fa"/>
-      <stop offset="100%" stop-color="#3b82f6"/>
-    </linearGradient>
-    <linearGradient id="g2" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#3b82f6"/>
-      <stop offset="100%" stop-color="#2563eb"/>
-    </linearGradient>
-  </defs>
-  <!-- Back plane -->
-  <path d="M8 14l16-8 16 8v4L24 26 8 18v-4z" fill="url(#g1)" opacity="0.5"/>
-  <!-- Middle plane -->
-  <path d="M8 22l16-8 16 8v4L24 34 8 26v-4z" fill="url(#g1)" opacity="0.75"/>
-  <!-- Front plane -->
-  <path d="M8 30l16-8 16 8v4L24 42 8 34v-4z" fill="url(#g2)"/>
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <circle cx="256" cy="256" r="256" fill="#3b82f6"/>
+
+  <!-- Abstract geometric design: overlapping squares rotated -->
+  <!-- Outer square rotated 45deg -->
+  <rect x="128" y="128" width="256" height="256" fill="none" stroke="white" stroke-width="24" transform="rotate(45 256 256)" opacity="0.9"/>
+
+  <!-- Inner square rotated -45deg -->
+  <rect x="160" y="160" width="192" height="192" fill="none" stroke="white" stroke-width="20" transform="rotate(-45 256 256)" opacity="0.7"/>
+
+  <!-- Center accent circle -->
+  <circle cx="256" cy="256" r="32" fill="white" opacity="0.8"/>
+
+  <!-- Four corner dots for field/grid concept -->
+  <circle cx="144" cy="144" r="12" fill="white" opacity="0.5"/>
+  <circle cx="368" cy="144" r="12" fill="white" opacity="0.5"/>
+  <circle cx="144" cy="368" r="12" fill="white" opacity="0.5"/>
+  <circle cx="368" cy="368" r="12" fill="white" opacity="0.5"/>
 </svg>

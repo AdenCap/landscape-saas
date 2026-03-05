@@ -341,6 +341,8 @@ def calendar_events(request):
                 "extendedProps": {
                     "status": job.status, "crew": assignee_name, "jobId": job.id,
                     "customer": customer_name, "services": services_str,
+                    "crewColor": base_color or UNASSIGNED_COLOR,
+                    "serviceAbbr": service_names[0][:3].upper() if service_names else "",
                 },
             }
         else:
@@ -354,6 +356,8 @@ def calendar_events(request):
                 "extendedProps": {
                     "status": job.status, "crew": assignee_name, "jobId": job.id,
                     "customer": customer_name, "services": services_str,
+                    "crewColor": base_color or UNASSIGNED_COLOR,
+                    "serviceAbbr": service_names[0][:3].upper() if service_names else "",
                 },
             }
         events.append(evt)
@@ -618,6 +622,35 @@ def calendar_job_reschedule(request, job_id):
         return JsonResponse({"status": "ok", "scheduled_date": date_str})
     except (ValueError, TypeError) as e:
         return JsonResponse({"error": str(e)}, status=400)
+
+
+@require_POST
+@role_required("owner")
+def calendar_bulk_reschedule(request):
+    """Bulk reschedule jobs from one date to another (rain day push)."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    data = json.loads(request.body) if request.body else {}
+    from_date = data.get("from_date")
+    to_date = data.get("to_date")
+    job_ids = data.get("job_ids", [])
+    if not from_date or not to_date:
+        return JsonResponse({"error": "Missing from_date or to_date"}, status=400)
+    try:
+        from_d = datetime.strptime(from_date, "%Y-%m-%d").date()
+        to_d = datetime.strptime(to_date, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "Invalid date format"}, status=400)
+    jobs = Job.objects.filter(
+        property__customer__business=business,
+        scheduled_date=from_d,
+        status__in=["scheduled", "in_progress"],
+    )
+    if job_ids:
+        jobs = jobs.filter(id__in=job_ids)
+    count = jobs.update(scheduled_date=to_d)
+    return JsonResponse({"moved": count, "to_date": to_date})
 
 
 @require_GET
