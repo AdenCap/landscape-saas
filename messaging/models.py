@@ -50,7 +50,17 @@ class Conversation(models.Model):
 
 
 class ConversationMember(models.Model):
-    """Tracks which users belong to a conversation and their read state."""
+    """Tracks which users belong to a conversation and their read state.
+
+    Dual read-tracking strategy:
+    - ``last_read_at`` is the "high water mark" used for fast unread-count
+      queries (badge counts).  Only a single timestamp comparison is needed.
+    - ``MessageReadReceipt`` provides per-message "Seen by X, Y" display
+      in group chats.
+    - Both are updated together when a user marks a conversation as read:
+      the mark-read API endpoint updates ``last_read_at`` AND creates
+      ``MessageReadReceipt`` records for every newly-read message.
+    """
     conversation = models.ForeignKey(
         Conversation,
         on_delete=models.CASCADE,
@@ -92,6 +102,9 @@ class Message(models.Model):
 
     class Meta:
         ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['conversation', 'is_deleted', 'created_at']),
+        ]
 
     def __str__(self):
         preview = (self.content[:50] + '...') if len(self.content) > 50 else self.content
@@ -129,7 +142,7 @@ class MessageAttachment(models.Model):
     )
     file = models.FileField(upload_to='message_attachments/')
     filename = models.CharField(max_length=255)
-    file_size = models.IntegerField()
+    file_size = models.PositiveIntegerField()
     content_type = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
 
