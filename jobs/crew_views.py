@@ -9,7 +9,7 @@ from .models import Crew
 from .crew_forms import CrewForm
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def crew_list(request):
     business = _get_business(request)
     if not business:
@@ -19,7 +19,7 @@ def crew_list(request):
     return render(request, "jobs/crew_list.html", {"crews": crews})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def crew_add(request):
     business = _get_business(request)
@@ -42,7 +42,7 @@ def crew_add(request):
     return render(request, "jobs/crew_form.html", {"form": form, "title": "Add Crew"})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def crew_edit(request, crew_id):
     business = _get_business(request)

@@ -26,7 +26,7 @@ from .forms import (
 )
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def customer_list(request):
     """CRM home: list all customers with search."""
     business = _get_business(request)
@@ -58,7 +58,7 @@ def customer_list(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def client_messages_list(request):
     """Dedicated client messaging hub: all messages, search, send new, reply."""
     business = _get_business(request)
@@ -96,7 +96,7 @@ def client_messages_list(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def customer_detail(request, customer_id):
     """Full CRM profile: contact info, properties, past services, contracts, invoices."""
     business = _get_business(request)
@@ -157,7 +157,7 @@ def _safe_next(request, value):
     return None
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def customer_create(request):
     business = _get_business(request)
@@ -191,7 +191,7 @@ def customer_create(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def customer_import(request):
     """Bulk import clients from a CSV file (first row = headers)."""
@@ -284,7 +284,7 @@ def customer_import(request):
     return render(request, "customers/customer_import.html", {"form": form, "next_value": request.GET.get("next", "")})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def customer_import_template(request):
     """Download a starter CSV template for client imports."""
     response = HttpResponse(content_type="text/csv")
@@ -302,7 +302,7 @@ def customer_import_template(request):
     return response
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def customer_export(request):
     """Export all business customers as CSV."""
     business = _get_business(request)
@@ -335,7 +335,7 @@ def customer_export(request):
     return response
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def customer_edit(request, customer_id):
     business = _get_business(request)
@@ -361,7 +361,7 @@ def customer_edit(request, customer_id):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def property_add(request, customer_id):
     business = _get_business(request)
@@ -389,7 +389,7 @@ def property_add(request, customer_id):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def property_edit(request, customer_id, property_id):
     business = _get_business(request)
@@ -417,7 +417,7 @@ def property_edit(request, customer_id, property_id):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def contract_add(request, customer_id):
     business = _get_business(request)
@@ -445,7 +445,7 @@ def contract_add(request, customer_id):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def contract_edit(request, customer_id, contract_id):
     business = _get_business(request)
@@ -483,7 +483,7 @@ def _send_message_redirect(request, customer_id, fallback_view="customer_detail"
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def customer_send_message(request, customer_id):
     """Send an email or SMS to the client and log it under their profile."""
     business = _get_business(request)

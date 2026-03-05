@@ -52,6 +52,28 @@
   {% if require_completion_photo and job.id not in job_ids_with_photos and job.status != "completed" %}
   <p class="photo-required-msg">Photo required before you can complete.</p>
   {% endif %}
+  <!-- Notes section (expandable) -->
+  <div class="job-notes-section">
+    <button type="button" class="notes-toggle" data-job-id="{{ job.id }}" onclick="toggleNotes(this, {{ job.id }})">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Notes <span class="notes-count" id="notes-count-{{ job.id }}"></span>
+    </button>
+    <div class="notes-panel" id="notes-panel-{{ job.id }}" style="display: none;">
+      <div class="notes-list" id="notes-list-{{ job.id }}">
+        <p class="muted" style="text-align:center; padding:8px;">Loading…</p>
+      </div>
+      <div class="notes-add-forms">
+        <div class="note-form-group">
+          <textarea id="job-note-text-{{ job.id }}" class="note-textarea" rows="2" placeholder="Add a job note…"></textarea>
+          <button type="button" class="btn btn-primary btn-sm" onclick="submitNote({{ job.id }}, 'job')">Add job note</button>
+        </div>
+        <div class="note-form-group">
+          <textarea id="prop-note-text-{{ job.id }}" class="note-textarea" rows="2" placeholder="Add a property note (visible on all jobs at this address)…"></textarea>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="submitNote({{ job.id }}, 'property')">Add property note</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="job-actions">
     {% if job.status == "scheduled" %}
     <form method="post" action="{% url 'start_job' job.id %}">
@@ -109,6 +131,25 @@
   .photo-required-msg { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; }
   .crew-empty { padding: 24px; text-align: center; }
   .crew-empty p { margin: 0; color: var(--text-muted); }
+  /* Notes section */
+  .job-notes-section { margin: 12px 0 0; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; }
+  .notes-toggle { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 6px; padding: 6px 0; }
+  .notes-toggle:hover { color: var(--primary-hover, #60a5fa); }
+  .notes-count { font-size: 12px; background: rgba(59,130,246,0.2); color: #93c5fd; padding: 2px 6px; border-radius: 10px; }
+  .notes-panel { margin-top: 10px; }
+  .notes-list { max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
+  .note-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; }
+  .note-item:last-child { border-bottom: none; }
+  .note-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
+  .note-type-badge { display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 1px 5px; border-radius: 3px; margin-right: 4px; }
+  .note-type-badge.job { background: rgba(59,130,246,0.2); color: #93c5fd; }
+  .note-type-badge.property { background: rgba(168,85,247,0.2); color: #c4b5fd; }
+  .note-text { color: var(--text-primary, #e5e5e5); line-height: 1.4; }
+  .notes-add-forms { display: flex; flex-direction: column; gap: 8px; }
+  .note-form-group { display: flex; gap: 8px; align-items: flex-end; }
+  .note-textarea { flex: 1; resize: none; font-size: 13px; padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); background: var(--bg, #0a0a0a); color: var(--text-primary, #e5e5e5); min-height: 44px; }
+  .note-textarea:focus { outline: none; border-color: var(--primary); }
+  .notes-empty { text-align: center; color: var(--text-muted); font-size: 13px; padding: 12px 0; }
   @media (min-width: 769px) {
     .crew-today-header { align-items: center; margin-bottom: 24px; }
     .crew-today-header h1 { font-size: 28px; }
@@ -126,4 +167,84 @@
     .job-card-address { font-size: 15px; }
   }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var CSRF_TOKEN = '{{ csrf_token }}';
+
+function toggleNotes(btn, jobId) {
+  var panel = document.getElementById('notes-panel-' + jobId);
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    loadNotes(jobId);
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+function loadNotes(jobId) {
+  var list = document.getElementById('notes-list-' + jobId);
+  list.innerHTML = '<p class="muted" style="text-align:center;padding:8px;">Loading…</p>';
+  fetch('/jobs/' + jobId + '/notes/', {
+    headers: {'X-Requested-With': 'XMLHttpRequest'}
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var all = [];
+    (data.job_notes || []).forEach(function(n) { all.push(n); });
+    (data.property_notes || []).forEach(function(n) { all.push(n); });
+    all.sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); });
+    var countEl = document.getElementById('notes-count-' + jobId);
+    if (countEl) countEl.textContent = all.length > 0 ? all.length : '';
+    if (all.length === 0) {
+      list.innerHTML = '<p class="notes-empty">No notes yet</p>';
+      return;
+    }
+    var html = '';
+    all.forEach(function(n) {
+      var d = new Date(n.created_at);
+      var time = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+      html += '<div class="note-item">';
+      html += '<div class="note-meta"><span class="note-type-badge ' + n.type + '">' + n.type + '</span>' + n.author + ' · ' + time + '</div>';
+      html += '<div class="note-text">' + escHtml(n.text) + '</div>';
+      html += '</div>';
+    });
+    list.innerHTML = html;
+  })
+  .catch(function() {
+    list.innerHTML = '<p class="notes-empty">Failed to load notes</p>';
+  });
+}
+
+function submitNote(jobId, noteType) {
+  var textareaId = noteType === 'job' ? 'job-note-text-' + jobId : 'prop-note-text-' + jobId;
+  var textarea = document.getElementById(textareaId);
+  var text = (textarea.value || '').trim();
+  if (!text) return;
+  var url = noteType === 'job'
+    ? '/jobs/' + jobId + '/notes/add/'
+    : '/jobs/' + jobId + '/property-notes/add/';
+  var body = new FormData();
+  body.append('text', text);
+  fetch(url, {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest'},
+    body: body,
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) { alert(data.error); return; }
+    textarea.value = '';
+    loadNotes(jobId);
+  })
+  .catch(function() { alert('Failed to save note'); });
+}
+
+function escHtml(s) {
+  var d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+</script>
 {% endblock %}

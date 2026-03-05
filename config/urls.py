@@ -76,6 +76,7 @@ urlpatterns = [
     path("webhooks/stripe/", include("subscription.webhook_urls")),
     path("financials/", include(("financials.urls", "financials"), namespace="financials")),
     path("estimator/", include("property_estimator.urls")),
+    path("quickbooks/", include("quickbooks.urls")),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

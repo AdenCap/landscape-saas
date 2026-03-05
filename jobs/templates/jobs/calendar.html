@@ -15,7 +15,7 @@
   <div class="calendar-actions">
     <a href="{% url 'daily_route' %}" class="btn btn-primary">Daily Routes</a>
     <a href="{% url 'crew_today' %}" class="btn btn-secondary">Crew Today</a>
-    {% if user.role == "owner" %}
+    {% if user.role == "owner" or user.role == "manager" %}
     <a href="{% url 'meeting_create' %}" class="btn btn-secondary">+ Meeting</a>
     {% endif %}
     <a href="/" class="btn btn-secondary">Dashboard</a>
@@ -63,7 +63,7 @@
   <span class="legend-item"><span class="legend-dot" style="background: {{ item.color }};"></span>{{ item.name }}</span>
   {% endfor %}
   <span class="legend-note">✓ completed</span>
-  {% if user.role == "owner" %}
+  {% if user.role == "owner" or user.role == "manager" %}
   <span class="legend-item"><span class="legend-dot" style="background: #7c3aed;"></span>Meetings</span>
   {% endif %}
 </div>
@@ -94,7 +94,7 @@
     </div>
   </div>
 
-  {% if user.role == "owner" %}
+  {% if user.role == "owner" or user.role == "manager" %}
   <!-- Desktop: side panel / Mobile: bottom sheet via FAB -->
   <aside class="unscheduled-panel" id="unscheduled-panel">
     <div class="unscheduled-panel-header">
@@ -235,7 +235,7 @@
       </div>
     </div>
     <div class="modal-footer">
-      {% if user.role == "owner" %}
+      {% if user.role == "owner" or user.role == "manager" %}
       <a id="meeting-modal-edit" href="#" class="btn btn-secondary">Edit</a>
       <form id="meeting-modal-delete-form" method="post" action="" style="display: inline;" onsubmit="return confirm('Delete this meeting?');">
         {% csrf_token %}
@@ -248,7 +248,7 @@
 </div>
 
 <!-- Rain Day Push Modal -->
-{% if user.role == "owner" %}
+{% if user.role == "owner" or user.role == "manager" %}
 <div id="rain-modal" class="modal-overlay" role="dialog" aria-modal="true">
   <div class="modal-card">
     <div class="modal-header">
@@ -284,7 +284,7 @@
 <script>
   // Django template variables — only data that requires server-side rendering
   var CSRF_TOKEN = '{{ csrf_token }}';
-  var IS_OWNER = {% if user.role == "owner" %}true{% else %}false{% endif %};
+  var IS_OWNER = {% if user.role == "owner" or user.role == "manager" %}true{% else %}false{% endif %};
   var WEATHER_DATA = {};
   {% for day in weather_forecast %}
   WEATHER_DATA["{{ day.date }}"] = {

@@ -64,7 +64,7 @@ def signup(request):
     return render(request, "registration/signup.html", {"form": form})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def employee_list(request):
     """List all employees (users in the owner's business)."""
     business = _get_business(request)
@@ -76,7 +76,7 @@ def employee_list(request):
     return render(request, "accounts/employee_list.html", {"employees": employees})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def employee_add(request):
     """Add a new employee with login credentials."""
     business = _get_business(request)
@@ -102,7 +102,7 @@ def employee_add(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def employee_edit(request, user_id):
     """Edit employee profile and optionally change password."""
@@ -158,10 +158,10 @@ def employee_record_payment(request, user_id):
     return redirect("employee_edit", user_id=employee.id)
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def notification_send(request):
-    """Owner: send a notification to selected employees and/or crews (multi-select)."""
+    """Owner or manager: send a notification to selected employees and/or crews (multi-select)."""
     business = _get_business(request)
     if not business:
         messages.error(request, "You must be associated with a business.")

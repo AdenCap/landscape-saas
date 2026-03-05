@@ -19,7 +19,7 @@ def _hours_from_minutes(minutes):
     return Decimal(str(minutes)) / Decimal("60")
 
 
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def clock_view(request):
     """Shows clock in/out status and allows punching."""
     user = request.user
@@ -52,7 +52,7 @@ def clock_view(request):
 
 
 @require_POST
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def clock_in(request):
     TimeEntry.objects.create(user=request.user, clock_in=timezone.now())
     messages.success(request, 'Clocked in successfully.')
@@ -60,7 +60,7 @@ def clock_in(request):
 
 
 @require_POST
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def clock_out(request):
     entry = TimeEntry.objects.filter(
         user=request.user, clock_out__isnull=True
@@ -76,7 +76,7 @@ def clock_out(request):
     return redirect('time_clock')
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def timesheets_view(request):
     """Owner view: all employees' timesheets with weekly and yearly costs."""
     today = timezone.localdate()
@@ -158,7 +158,7 @@ def timesheets_view(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def time_entries_pending(request):
     """Owner: list time entries pending approval (complete punch pairs)."""
     business = _get_business(request)
@@ -179,7 +179,7 @@ def time_entries_pending(request):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def time_entry_approve(request, entry_id):
     """Owner approves a time entry so it counts for payroll."""
     business = _get_business(request)
@@ -200,7 +200,7 @@ def time_entry_approve(request, entry_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def time_entry_reject(request, entry_id):
     """Owner rejects a time entry; it will not count for payroll."""
     business = _get_business(request)
@@ -220,7 +220,7 @@ def time_entry_reject(request, entry_id):
     return redirect("time_entries_pending")
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def time_entry_edit(request, entry_id):
     """Owner manually adjusts clock-in/clock-out for a time entry."""
     business = _get_business(request)
@@ -249,7 +249,7 @@ def time_entry_edit(request, entry_id):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def time_entries_list(request):
     """Owner: list time entries (all statuses) with optional employee filter; links to edit."""
     business = _get_business(request)
@@ -311,11 +311,11 @@ def _get_business(request):
     return None
 
 
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def time_off_list(request):
     """List time off requests: crew sees own, owner sees all for business."""
     business = _get_business(request)
-    if not business and request.user.role == "owner":
+    if not business and request.user.role in ("owner", "manager"):
         return redirect("/")
     if request.user.role == "crew":
         requests_qs = TimeOffRequest.objects.filter(user=request.user).select_related("reviewed_by")
@@ -326,12 +326,12 @@ def time_off_list(request):
     requests_qs = requests_qs.order_by("-start_date", "-created_at")
     return render(request, "time_tracking/time_off_list.html", {
         "time_off_requests": requests_qs,
-        "is_owner": request.user.role == "owner",
+        "is_owner": request.user.role in ("owner", "manager"),
         "employees": employees or [],
     })
 
 
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def time_off_create(request):
     """Submit a new time off request (crew) or for selected employee (owner)."""
     business = _get_business(request)
@@ -339,7 +339,7 @@ def time_off_create(request):
         return redirect("/")
     # Owner can submit on behalf of employee via ?user_id=
     target_user = request.user
-    if request.user.role == "owner" and request.GET.get("user_id"):
+    if request.user.role in ("owner", "manager") and request.GET.get("user_id"):
         target_user = get_object_or_404(User, pk=request.GET["user_id"], business=business, role="crew")
     if request.method == "POST":
         form = TimeOffRequestForm(request.POST)
@@ -361,7 +361,7 @@ def time_off_create(request):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def time_off_approve(request, pk):
     """Approve a time off request."""
     req = get_object_or_404(TimeOffRequest, pk=pk, business=_get_business(request))
@@ -375,7 +375,7 @@ def time_off_approve(request, pk):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def time_off_deny(request, pk):
     """Deny a time off request."""
     req = get_object_or_404(TimeOffRequest, pk=pk, business=_get_business(request))
@@ -388,11 +388,11 @@ def time_off_deny(request, pk):
     return redirect(reverse("employee_management") + "#timeoff")
 
 
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def schedule_view(request):
     """View schedule: crew sees own, owner sees dropdown to pick employee or overview."""
     business = _get_business(request)
-    if not business and request.user.role == "owner":
+    if not business and request.user.role in ("owner", "manager"):
         return redirect("/")
     employees = User.objects.filter(business=business, role="crew").order_by("first_name", "last_name", "username")
     selected_id = request.GET.get("user_id")
@@ -415,7 +415,7 @@ def schedule_view(request):
         "employees": employees,
         "selected_user": selected_user,
         "schedule_rows": schedule_rows,
-        "is_owner": request.user.role == "owner",
+        "is_owner": request.user.role in ("owner", "manager"),
     })
 
 
@@ -430,7 +430,7 @@ def _ensure_schedule_slots(user):
     return EmployeeSchedule.objects.filter(user=user).order_by("day_of_week")
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def schedule_edit(request):
     """Edit weekly schedule (owner only). Owners set each employee's schedule."""
     business = _get_business(request)

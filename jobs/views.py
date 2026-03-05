@@ -16,7 +16,7 @@ from accounts.utils import get_business
 from accounts.models import Notification
 from billing.services import create_draft_invoice_for_job
 from billing.monthly import generate_monthly_invoice_for_customer
-from .models import Job, JobServiceItem, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobAssignmentLog, Meeting
+from .models import Job, JobServiceItem, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobAssignmentLog, Meeting, JobNote, PropertyNote
 from customers.models import Property
 from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset, ReportIssueForm, MeetingForm
 from pricing.utils import get_effective_rate
@@ -77,7 +77,7 @@ def _get_job_details(job):
     }
 
 
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def job_list(request):
     """
     List jobs with filtering options:
@@ -212,6 +212,7 @@ def job_list(request):
     })
 
 
+@role_required("owner", "manager", "crew")
 def calendar_view(request):
     business = get_business(request) if request.user.is_authenticated else None
     crew_legend = _get_crew_legend(business)
@@ -251,6 +252,7 @@ def _color_for_assignee(job, crew_colors, user_colors):
     return UNASSIGNED_COLOR
 
 
+@login_required
 def calendar_events(request):
     jobs = Job.objects.select_related(
         'property', 'property__customer', 'assigned_to', 'assigned_crew'
@@ -408,7 +410,7 @@ def calendar_job_data(request, job_id):
         property__customer__business=business,
     )
     user_role = getattr(request.user, 'role', 'owner')
-    is_owner = user_role == 'owner'
+    is_owner = user_role in ('owner', 'manager')
 
     # Crew may only view jobs assigned to them or their crew
     if not is_owner:
@@ -482,7 +484,7 @@ def calendar_job_data(request, job_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def calendar_job_update(request, job_id):
     """Update job crew, notes, and customer contact from calendar modal."""
     business = get_business(request)
@@ -588,7 +590,7 @@ def calendar_job_update(request, job_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def calendar_job_reschedule(request, job_id):
     """Update job scheduled_date when dragged to new date."""
     business = get_business(request)
@@ -625,7 +627,7 @@ def calendar_job_reschedule(request, job_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def calendar_bulk_reschedule(request):
     """Bulk reschedule jobs from one date to another (rain day push)."""
     business = get_business(request)
@@ -654,7 +656,7 @@ def calendar_bulk_reschedule(request):
 
 
 @require_GET
-@role_required("owner")
+@role_required("owner", "manager")
 def calendar_unscheduled_jobs(request):
     """List jobs with no scheduled_date (accepted but not yet on calendar)."""
     business = get_business(request)
@@ -697,7 +699,7 @@ def calendar_meeting_data(request, meeting_id):
     })
 
 
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def daily_route_view(request):
     date_str = request.GET.get('date')
     if date_str:
@@ -728,7 +730,7 @@ def daily_route_view(request):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def update_route_order(request):
     business = get_business(request) if request.user.is_authenticated else None
     data = json.loads(request.body)
@@ -740,9 +742,7 @@ def update_route_order(request):
     return JsonResponse({"status": "ok"})
 
 
-@require_POST
-@role_required("owner")
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def crew_quick_view(request):
     """Three-tap optimized crew workflow screen."""
     today = timezone.now().date()
@@ -760,7 +760,7 @@ def crew_quick_view(request):
     return render(request, "jobs/crew_quick.html", {"jobs": jobs})
 
 
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def crew_today_view(request):
     from time_tracking.models import TimeEntry
 
@@ -797,7 +797,7 @@ def crew_today_view(request):
 
 def _user_can_access_job(user, job):
     """Crew can access if assigned to them or if they're in the assigned crew (or crew leader)."""
-    if user.role == "owner":
+    if user.role in ("owner", "manager"):
         return True
     if job.assigned_to_id == user.id:
         return True
@@ -810,7 +810,7 @@ def _user_can_access_job(user, job):
 
 
 @require_POST
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def start_job(request, job_id):
     job = get_object_or_404(Job.objects.select_related("assigned_crew"), id=job_id)
 
@@ -823,7 +823,7 @@ def start_job(request, job_id):
 
 
 @require_POST
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def complete_job(request, job_id):
     job = get_object_or_404(Job.objects.select_related("assigned_crew", "property", "property__customer"), id=job_id)
 
@@ -848,7 +848,7 @@ def complete_job(request, job_id):
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return JsonResponse({"status": "ok", "redirect": None})
 
-    if request.user.role == "owner":
+    if request.user.role in ("owner", "manager"):
         customer = job.property.customer
         business = getattr(customer, "business", None)
         freq = (getattr(customer, "invoice_frequency", None) or "").strip()
@@ -896,7 +896,7 @@ def complete_job(request, job_id):
     return redirect("crew_today")
 
 
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def report_issue(request, job_id):
     """Crew or owner reports an issue on a job (type, description, optional photo)."""
     job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id)
@@ -929,7 +929,7 @@ def report_issue(request, job_id):
                         message=msg,
                     )
             messages.success(request, "Issue reported. The owner will be notified.")
-            if request.user.role == "owner":
+            if request.user.role in ("owner", "manager"):
                 return redirect("job_detail", job_id=job_id)
             return redirect("crew_today")
     else:
@@ -941,7 +941,7 @@ def report_issue(request, job_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def resolve_issue(request, issue_id):
     """Owner marks an issue as resolved with notes."""
     issue = get_object_or_404(JobIssue, id=issue_id)
@@ -958,9 +958,12 @@ def resolve_issue(request, issue_id):
     return redirect("job_detail", job_id=issue.job_id)
 
 
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def upload_completion_photo(request, job_id):
     """Crew or owner uploads a completion photo for a job (proof of work)."""
+    ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+    MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
+
     job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id)
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
         messages.error(request, "You don't have access to this job.")
@@ -970,15 +973,98 @@ def upload_completion_photo(request, job_id):
         if not image:
             messages.error(request, "Please select a photo to upload.")
             return render(request, "jobs/upload_completion_photo.html", {"job": job})
+        if image.content_type not in ALLOWED_IMAGE_TYPES:
+            messages.error(request, "Invalid file type. Please upload a JPEG, PNG, or WebP image.")
+            return render(request, "jobs/upload_completion_photo.html", {"job": job})
+        if image.size > MAX_UPLOAD_SIZE:
+            messages.error(request, "File too large. Maximum size is 10 MB.")
+            return render(request, "jobs/upload_completion_photo.html", {"job": job})
         JobCompletionPhoto.objects.create(job=job, image=image, uploaded_by=request.user)
         messages.success(request, "Completion photo uploaded.")
-        if request.user.role == "owner":
+        if request.user.role in ("owner", "manager"):
             return redirect("job_detail", job_id=job_id)
         return redirect("crew_today")
     return render(request, "jobs/upload_completion_photo.html", {"job": job})
 
 
-@role_required("owner")
+@require_POST
+@role_required("owner", "manager", "crew")
+def add_job_note(request, job_id):
+    """Add a timestamped note to a job. Crew must be assigned to the job."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
+    if request.user.role == "crew" and not _user_can_access_job(request.user, job):
+        return JsonResponse({"error": "Not assigned to this job"}, status=403)
+    text = (request.POST.get("text") or "").strip()
+    if not text:
+        return JsonResponse({"error": "Note text is required"}, status=400)
+    note = JobNote.objects.create(job=job, author=request.user, text=text)
+    return JsonResponse({
+        "id": note.id,
+        "text": note.text,
+        "author": note.author.get_full_name() or note.author.username,
+        "created_at": note.created_at.isoformat(),
+    })
+
+
+@require_POST
+@role_required("owner", "manager", "crew")
+def add_property_note(request, job_id):
+    """Add a note to the job's property (visible across all jobs at this address)."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
+    if request.user.role == "crew" and not _user_can_access_job(request.user, job):
+        return JsonResponse({"error": "Not assigned to this job"}, status=403)
+    text = (request.POST.get("text") or "").strip()
+    if not text:
+        return JsonResponse({"error": "Note text is required"}, status=400)
+    note = PropertyNote.objects.create(property=job.property, author=request.user, text=text)
+    return JsonResponse({
+        "id": note.id,
+        "text": note.text,
+        "author": note.author.get_full_name() or note.author.username,
+        "created_at": note.created_at.isoformat(),
+        "property_address": job.property.address,
+    })
+
+
+@require_GET
+@role_required("owner", "manager", "crew")
+def get_job_notes(request, job_id):
+    """Return all job notes and property notes for a job (JSON). Used by crew_today and job_detail."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    job = get_object_or_404(
+        Job.objects.select_related("property"),
+        id=job_id,
+        property__customer__business=business,
+    )
+    if request.user.role == "crew" and not _user_can_access_job(request.user, job):
+        return JsonResponse({"error": "Not assigned to this job"}, status=403)
+    job_notes = list(
+        job.job_notes.select_related("author").values_list("id", "text", "author__first_name", "author__last_name", "author__username", "created_at")
+    )
+    property_notes = list(
+        job.property.property_notes.select_related("author").values_list("id", "text", "author__first_name", "author__last_name", "author__username", "created_at")
+    )
+    def fmt(rows, note_type):
+        out = []
+        for nid, text, first, last, uname, created in rows:
+            name = f"{first} {last}".strip() or uname
+            out.append({"id": nid, "text": text, "author": name, "created_at": created.isoformat(), "type": note_type})
+        return out
+    return JsonResponse({
+        "job_notes": fmt(job_notes, "job"),
+        "property_notes": fmt(property_notes, "property"),
+    })
+
+
+@role_required("owner", "manager")
 def create_job(request):
     """Create a new landscaping job from the dashboard."""
     business = get_business(request)
@@ -1160,7 +1246,7 @@ def create_job(request):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def job_delete(request, job_id):
     """Delete a job."""
     business = get_business(request)
@@ -1182,7 +1268,7 @@ def job_delete(request, job_id):
 
 # ---------- Meetings (owner-only) ----------
 
-@role_required("owner")
+@role_required("owner", "manager")
 def meeting_list(request):
     """List upcoming meetings for the business."""
     business = get_business(request)
@@ -1196,7 +1282,7 @@ def meeting_list(request):
     return render(request, "jobs/meeting_list.html", {"meetings": meetings})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def meeting_create(request):
     """Create a new meeting (e.g. client meeting)."""
     business = get_business(request)
@@ -1224,7 +1310,7 @@ def meeting_create(request):
     return render(request, "jobs/meeting_form.html", {"form": form, "meeting": None})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def meeting_edit(request, meeting_id):
     """Edit an existing meeting."""
     business = get_business(request)
@@ -1243,7 +1329,7 @@ def meeting_edit(request, meeting_id):
     return render(request, "jobs/meeting_form.html", {"form": form, "meeting": meeting})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def meeting_delete(request, meeting_id):
     """Delete a meeting."""
     business = get_business(request)
@@ -1258,7 +1344,7 @@ def meeting_delete(request, meeting_id):
     return redirect("calendar")
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def job_billing_options(request, job_id):
     """After job completion: choose to send invoice now or add to monthly."""
     job = get_object_or_404(Job, id=job_id)
@@ -1272,7 +1358,7 @@ def job_billing_options(request, job_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def job_bill_now(request, job_id):
     """Create and send invoice immediately for completed job."""
     job = get_object_or_404(Job, id=job_id)
@@ -1299,7 +1385,7 @@ def job_bill_now(request, job_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def job_add_to_monthly(request, job_id):
     """Add completed job to customer's monthly invoice."""
     job = get_object_or_404(Job, id=job_id)
@@ -1322,7 +1408,7 @@ def job_add_to_monthly(request, job_id):
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def job_detail(request, job_id):
     job = get_object_or_404(
         Job.objects.prefetch_related("issues__photos", "completion_photos", "issues__reported_by"),
@@ -1368,7 +1454,7 @@ def job_detail(request, job_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def add_job_service_item(request, job_id):
     job = get_object_or_404(Job, id=job_id)
 
@@ -1401,7 +1487,7 @@ def add_job_service_item(request, job_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def remove_job_service_item(request, job_id, item_id):
     job = get_object_or_404(Job, id=job_id)
     JobServiceItem.objects.filter(id=item_id, job=job).delete()
@@ -1409,7 +1495,7 @@ def remove_job_service_item(request, job_id, item_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def job_update_costs(request, job_id):
     """Update labor_cost and material_cost for profit tracking."""
     from decimal import Decimal
@@ -1447,7 +1533,7 @@ def _fertilization_dates_for_year(year, n_services, start_month=3, end_month=10)
     return [first + timedelta(days=int(i * step)) for i in range(n_services)]
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def fertilization_schedule(request):
     """List properties with fertilization programs and create optimized schedule (same N = same dates)."""
     business = get_business(request)
@@ -1577,7 +1663,7 @@ def update_job_location(request, job_id):
 
 
 @require_GET
-@role_required("owner")
+@role_required("owner", "manager")
 def get_job_tracking(request, job_id):
     """Get real-time tracking info for a job (owner only - customers cannot track technicians)."""
     business = get_business(request)

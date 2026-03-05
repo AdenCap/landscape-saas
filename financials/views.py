@@ -392,12 +392,24 @@ def parse_receipt(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 @require_POST
 def job_add_material_cost(request, job_id):
     """Add a material cost (with optional receipt) to a job from the job detail page."""
     from jobs.models import Job
     job = get_object_or_404(Job, id=job_id, property__customer__business=getattr(request.user, "business", None))
+    # Crew must be assigned to this job to add material costs
+    if request.user.role == "crew":
+        is_assigned = (
+            job.assigned_to == request.user
+            or (job.assigned_crew and (
+                job.assigned_crew.crew_leader == request.user
+                or job.assigned_crew.members.filter(id=request.user.id).exists()
+            ))
+        )
+        if not is_assigned:
+            messages.error(request, "You can only add costs to jobs you're assigned to.")
+            return redirect("crew_today")
     business = job.property.customer.business
     form = ReceiptForm(request.POST, request.FILES, business=business, for_job=job)
     if form.is_valid():

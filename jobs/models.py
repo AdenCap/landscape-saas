@@ -367,3 +367,41 @@ class RecurringJob(models.Model):
             return f"{self.property.address} (every {self.custom_interval_days} days)"
         return f"{self.property.address} ({self.get_frequency_display()})"
 
+
+class JobNote(models.Model):
+    """Timestamped note on a job. Crew, managers, and owners can add. Visible to all assigned."""
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="job_notes")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="job_notes_authored",
+    )
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Note by {self.author} on Job #{self.job_id}"
+
+
+class PropertyNote(models.Model):
+    """Note on a property (visible across all jobs at this property). Any role can add."""
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="property_notes")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="property_notes_authored",
+    )
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Note on {self.property.address} by {self.author}"
+

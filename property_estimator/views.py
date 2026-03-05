@@ -15,14 +15,14 @@ from .models import PropertyEstimate, PropertyEstimateImage
 from .analysis import analyze_image, HAS_OPENCV
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def estimator_index(request):
     """Landing page for Estimator tools: property estimates, fertilizer calculator, mulch/rock calculator."""
     # Redirect to estimates page with estimator tools accessible via tabs
     return render(request, "property_estimator/estimator_index.html")
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def estimator_list(request):
     business = _get_business(request)
     if not business:
@@ -34,7 +34,7 @@ def estimator_list(request):
     return render(request, "property_estimator/estimator_list.html", {"estimates": estimates})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def fertilizer_calculator(request):
     """Standalone fertilizer calculator: lbs per 1k sq ft, total sq ft, pricing per lb or per bag."""
     from billing.models import FertilizerProduct
@@ -50,7 +50,7 @@ def fertilizer_calculator(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def mulch_rock_calculator(request):
     """Standalone mulch and rock calculator: sq ft, depth, pricing per bag or per cubic yard."""
     business = _get_business(request)
@@ -60,7 +60,7 @@ def mulch_rock_calculator(request):
     return render(request, "property_estimator/mulch_rock_calculator.html", {"customers": customers})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def estimator_new(request, property_id):
     business = _get_business(request)
@@ -80,7 +80,7 @@ def estimator_new(request, property_id):
     return render(request, "property_estimator/estimator_new.html", {"property": prop})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def estimator_detail(request, property_id, estimate_id):
     business = _get_business(request)
     if not business:
@@ -114,7 +114,7 @@ def estimator_detail(request, property_id, estimate_id):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_POST
 def estimator_upload(request, property_id, estimate_id):
     business = _get_business(request)
@@ -134,7 +134,7 @@ def estimator_upload(request, property_id, estimate_id):
     return redirect("estimator_detail", property_id=property_id, estimate_id=estimate_id)
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def estimator_analyze(request, property_id, estimate_id, image_id):
     business = _get_business(request)
@@ -183,7 +183,7 @@ def estimator_analyze(request, property_id, estimate_id, image_id):
     return JsonResponse(payload)
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_POST
 def estimator_save(request, property_id, estimate_id):
     business = _get_business(request)
@@ -231,7 +231,7 @@ def _geocode_address(address):
     return None
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def estimator_satellite_image(request, property_id):
     """Serve satellite/aerial image for property address. Geocodes if needed, uses Mapbox."""
     business = _get_business(request)

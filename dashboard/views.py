@@ -65,7 +65,7 @@ def _onboarding_return_url(step_key):
     return "/dashboard/onboarding/?" + urlencode({"step": step_key})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def owner_onboarding(request):
     business = get_business(request)
     if not business:
@@ -219,7 +219,7 @@ def owner_onboarding(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def dispatch_command_center(request):
     business = get_business(request)
     if not business:
@@ -332,7 +332,7 @@ def dispatch_command_center(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def reliability_center(request):
     business = get_business(request)
     if not business:
@@ -388,7 +388,7 @@ def reliability_center(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def owner_dashboard(request):
     today = timezone.localdate()
     business = get_business(request)
@@ -686,7 +686,7 @@ def _schedule_rows_for_user(user):
     return [(day_names[i], slots.get(i)) for i in range(7)]
 
 
-@role_required("owner", "crew")
+@role_required("owner", "manager", "crew")
 def employee_management(request):
     """Combined page: Employees, Timesheets, Crews, Payroll, Time off, Schedule. Crew only sees Time off and Schedule."""
     business = getattr(request.user, "business", None)
@@ -790,7 +790,7 @@ def employee_management(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def crew_day_detail(request, user_id):
     User = get_user_model()
     crew_user = get_object_or_404(User, id=user_id, role="crew")

@@ -39,6 +39,11 @@ urlpatterns = [
     path("<int:job_id>/items/<int:item_id>/remove/", views.remove_job_service_item, name="remove_job_service_item"),
     path("<int:job_id>/costs/", views.job_update_costs, name="job_update_costs"),
     
+    # Notes (all roles)
+    path("<int:job_id>/notes/", views.get_job_notes, name="get_job_notes"),
+    path("<int:job_id>/notes/add/", views.add_job_note, name="add_job_note"),
+    path("<int:job_id>/property-notes/add/", views.add_property_note, name="add_property_note"),
+
     # Real-time tracking (owner only)
     path("<int:job_id>/tracking/update/", views.update_job_location, name="update_job_location"),
     path("<int:job_id>/tracking/", views.get_job_tracking, name="get_job_tracking"),

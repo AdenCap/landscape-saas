@@ -7,6 +7,7 @@ from businesses.models import Business
 class User(AbstractUser):
     ROLE_CHOICES = [
         ('owner', 'Owner'),
+        ('manager', 'Manager'),
         ('crew', 'Crew'),
     ]
 

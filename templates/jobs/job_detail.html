@@ -159,6 +159,24 @@
   {% endif %}
 </div>
 
+<!-- Notes thread -->
+<div class="card" style="margin-bottom: 20px;">
+  <h2 class="card-title">Notes</h2>
+  <div id="notes-thread" style="margin-bottom: 16px;">
+    <p class="muted" style="text-align:center; padding:8px;">Loading notes…</p>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; gap: 8px; align-items: flex-end;">
+      <textarea id="add-job-note" rows="2" placeholder="Add a job note…" style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text); font-size:13px; resize:none;"></textarea>
+      <button type="button" class="btn btn-primary btn-sm" onclick="addNote('job')">Add job note</button>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: flex-end;">
+      <textarea id="add-prop-note" rows="2" placeholder="Add a property note (visible on all jobs at this address)…" style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text); font-size:13px; resize:none;"></textarea>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="addNote('property')">Add property note</button>
+    </div>
+  </div>
+</div>
+
 <div class="card" style="margin-bottom: 20px;">
   <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
     Completion photos
@@ -281,6 +299,67 @@
       .catch(function() { alert('Could not parse receipt.'); })
       .then(function() { parseBtn.disabled = false; parseBtn.textContent = 'Parse receipt (auto-fill)'; });
   });
+})();
+
+// --- Notes thread ---
+(function() {
+  var JOB_ID = {{ job.id }};
+  var CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  var thread = document.getElementById('notes-thread');
+
+  function escHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  function loadNotes() {
+    thread.innerHTML = '<p class="muted" style="text-align:center;padding:8px;">Loading…</p>';
+    fetch('/jobs/' + JOB_ID + '/notes/', { headers: {'X-Requested-With': 'XMLHttpRequest'} })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var all = [];
+        (data.job_notes || []).forEach(function(n) { all.push(n); });
+        (data.property_notes || []).forEach(function(n) { all.push(n); });
+        all.sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); });
+        if (all.length === 0) { thread.innerHTML = '<p style="margin:0;color:var(--text-muted);font-size:13px;">No notes yet.</p>'; return; }
+        var html = '';
+        all.forEach(function(n) {
+          var d = new Date(n.created_at);
+          var time = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+          var badge = n.type === 'property'
+            ? '<span style="font-size:10px;font-weight:600;text-transform:uppercase;padding:1px 5px;border-radius:3px;background:rgba(168,85,247,0.2);color:#c4b5fd;margin-right:4px;">property</span>'
+            : '<span style="font-size:10px;font-weight:600;text-transform:uppercase;padding:1px 5px;border-radius:3px;background:rgba(59,130,246,0.2);color:#93c5fd;margin-right:4px;">job</span>';
+          html += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px;">';
+          html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;">' + badge + escHtml(n.author) + ' · ' + time + '</div>';
+          html += '<div style="color:var(--text);line-height:1.4;">' + escHtml(n.text) + '</div>';
+          html += '</div>';
+        });
+        thread.innerHTML = html;
+      })
+      .catch(function() { thread.innerHTML = '<p style="margin:0;color:var(--text-muted);">Failed to load notes.</p>'; });
+  }
+
+  window.addNote = function(type) {
+    var ta = document.getElementById(type === 'job' ? 'add-job-note' : 'add-prop-note');
+    var text = (ta.value || '').trim();
+    if (!text) return;
+    var url = type === 'job'
+      ? '/jobs/' + JOB_ID + '/notes/add/'
+      : '/jobs/' + JOB_ID + '/property-notes/add/';
+    var fd = new FormData();
+    fd.append('text', text);
+    fetch(url, {
+      method: 'POST',
+      headers: {'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest'},
+      body: fd,
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { alert(data.error); return; }
+      ta.value = '';
+      loadNotes();
+    })
+    .catch(function() { alert('Failed to save note.'); });
+  };
+
+  loadNotes();
 })();
 </script>
 {% endblock %}

@@ -24,7 +24,7 @@
     </div>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">Report issue</button>
-      {% if request.user.role == "owner" %}
+      {% if request.user.role == "owner" or request.user.role == "manager" %}
       <a href="{% url 'job_detail' job.id %}" class="btn btn-secondary">Cancel</a>
       {% else %}
       <a href="{% url 'crew_today' %}" class="btn btn-secondary">Cancel</a>

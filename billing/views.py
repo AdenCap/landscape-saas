@@ -57,7 +57,7 @@ def invoice_list_view(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def invoice_list(request):
     business = getattr(request.user, "business", None)
     qs = Invoice.objects.select_related("customer")
@@ -67,7 +67,7 @@ def invoice_list(request):
     return render(request, "billing/invoice_list.html", {"invoices": invoices})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def invoice_create(request):
     """Create a new blank draft invoice for a selected customer, then redirect to line-item editor."""
     business = _get_business(request)
@@ -99,7 +99,7 @@ def invoice_create(request):
     return render(request, "billing/invoice_create.html", {"customers": customers})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def monthly_invoice_list(request):
     """List monthly invoices (period-based), including drafts being built during the month."""
     business = getattr(request.user, "business", None)
@@ -143,7 +143,7 @@ def monthly_invoice_list(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def outstanding_invoices(request):
     """Outstanding invoice dashboard: sent/unpaid with aging (0-30, 31-60, 61+ days overdue)."""
     business = _get_business(request)
@@ -192,7 +192,7 @@ def outstanding_invoices(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def invoice_detail(request, invoice_id):
     business = getattr(request.user, "business", None)
     qs = Invoice.objects.select_related("business", "customer").filter(id=invoice_id)
@@ -214,7 +214,7 @@ def invoice_detail(request, invoice_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def invoice_update_dates(request, invoice_id):
     """Owner can change due date (and optionally issue date) on any invoice."""
     business = _get_business(request)
@@ -251,7 +251,7 @@ def invoice_update_dates(request, invoice_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def invoice_edit_custom_fields(request, invoice_id):
     """Save custom field values for an invoice (from document template)."""
     business = _get_business(request)
@@ -287,7 +287,7 @@ def _log_invoice_audit(invoice, action, request=None, details=None):
     )
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def invoice_edit_line_items(request, invoice_id):
     """Owner can add/edit/delete line items on a draft invoice."""
     business = _get_business(request)
@@ -335,7 +335,7 @@ def invoice_edit_line_items(request, invoice_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def send_invoice(request, invoice_id):
     business = _get_business(request)
     qs = Invoice.objects.filter(id=invoice_id)
@@ -397,7 +397,7 @@ def invoice_pay_page(request, invoice_id, token):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def mark_invoice_paid(request, invoice_id):
     """Owner marks a sent invoice as paid (after customer has paid via Venmo/Zelle/Cash App)."""
     business = _get_business(request)
@@ -419,7 +419,7 @@ def _stripe_connect_enabled():
     return bool(getattr(settings, "STRIPE_SECRET_KEY", None))
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET"])
 def connect_onboarding(request):
     """Start or resume Stripe Connect Express onboarding; redirect to Stripe."""
@@ -464,7 +464,7 @@ def connect_onboarding(request):
         return redirect("business_settings")
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET"])
 def connect_return(request):
     """Stripe redirects here after Connect onboarding. Webhook account.updated will set charges_enabled."""
@@ -472,7 +472,7 @@ def connect_return(request):
     return redirect("business_settings")
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET"])
 def connect_dashboard(request):
     """Redirect to Stripe Express Dashboard for the connected account."""
@@ -799,7 +799,7 @@ def _build_invoice_pdf(invoice, request):
     return buffer.read()
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def invoice_pdf(request, invoice_id):
     business = _get_business(request)
     qs = Invoice.objects.select_related("business", "customer").filter(id=invoice_id)
@@ -812,7 +812,7 @@ def invoice_pdf(request, invoice_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def resend_invoice(request, invoice_id):
     """Resend the invoice by email to the customer (PDF + pay link). Can be used any number of times for sent/paid invoices."""
     business = _get_business(request)
@@ -912,7 +912,7 @@ def resend_invoice(request, invoice_id):
 # --- Estimates ---
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def estimate_list(request):
     from datetime import timedelta
     
@@ -944,7 +944,7 @@ def estimate_list(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def leads_followups(request):
     """Leads & Follow-ups: View for tracking quotes that were sent but never converted."""
     from datetime import timedelta
@@ -1018,7 +1018,7 @@ def leads_followups(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def estimate_create(request):
     business = _get_business(request)
@@ -1050,7 +1050,7 @@ def estimate_create(request):
     return render(request, "billing/estimate_form.html", {"form": form, "title": "Create Estimate", "next_value": request.GET.get("next", "")})
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_POST
 def estimate_create_from_fertilizer(request):
     """Create an estimate with one fertilizing line item from calculator data (POST from estimator)."""
@@ -1171,7 +1171,7 @@ def estimate_create_from_fertilizer(request):
     return redirect("billing:estimate_edit", estimate_id=estimate.id)
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_POST
 def estimate_create_from_mulch(request):
     """Create an estimate with one mulch/rock line item from calculator data (POST from estimator)."""
@@ -1220,7 +1220,7 @@ def estimate_create_from_mulch(request):
     return redirect("billing:estimate_edit", estimate_id=estimate.id)
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def estimate_edit(request, estimate_id):
     business = _get_business(request)
@@ -1267,7 +1267,7 @@ def estimate_edit(request, estimate_id):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def estimate_detail(request, estimate_id):
     business = _get_business(request)
     if not business:
@@ -1460,7 +1460,7 @@ def _build_estimate_pdf(estimate, business):
     return buffer.read()
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def estimate_pdf(request, estimate_id):
     business = _get_business(request)
     if not business:
@@ -1472,7 +1472,7 @@ def estimate_pdf(request, estimate_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def estimate_send(request, estimate_id):
     business = _get_business(request)
     if not business:
@@ -1582,7 +1582,7 @@ def estimate_send(request, estimate_id):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def estimate_send_followup(request, estimate_id):
     """Send a follow-up / reminder email for an estimate awaiting response."""
     business = _get_business(request)
@@ -1733,14 +1733,28 @@ def estimate_client_accept(request, estimate_id, token):
 
 
 @require_POST
-@role_required("owner")
+@role_required("owner", "manager")
 def estimate_add_image(request, estimate_id):
+    ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+    MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
+
     business = _get_business(request)
     if not business:
         messages.error(request, "You must be associated with a business.")
         return redirect("/")
 
     estimate = get_object_or_404(Estimate, id=estimate_id, business=business)
+
+    # Validate file before passing to form
+    uploaded = request.FILES.get("image")
+    if uploaded:
+        if uploaded.content_type not in ALLOWED_IMAGE_TYPES:
+            messages.error(request, "Invalid file type. Please upload a JPEG, PNG, or WebP image.")
+            return redirect("billing:estimate_edit", estimate_id=estimate.id)
+        if uploaded.size > MAX_UPLOAD_SIZE:
+            messages.error(request, "File too large. Maximum size is 10 MB.")
+            return redirect("billing:estimate_edit", estimate_id=estimate.id)
+
     form = EstimateImageForm(request.POST, request.FILES)
     if form.is_valid():
         img = form.save(commit=False)
@@ -1754,7 +1768,7 @@ def estimate_add_image(request, estimate_id):
 
 # --- Document templates (customizable forms for estimates & invoices) ---
 
-@role_required("owner")
+@role_required("owner", "manager")
 def document_templates_list(request):
     """List document template types (estimate, invoice) with links to customize."""
     business = _get_business(request)
@@ -1769,7 +1783,7 @@ def document_templates_list(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def document_template_edit(request, doc_type):
     """Edit the default template for estimates or invoices: style, colors, header/footer/terms, custom fields."""
     if doc_type not in ("estimate", "invoice"):
@@ -1821,7 +1835,7 @@ def document_template_edit(request, doc_type):
 
 
 # Fertilizer Product Management
-@role_required("owner")
+@role_required("owner", "manager")
 def fertilizer_products_list(request):
     """List all fertilizer products for the business."""
     business = _get_business(request)
@@ -1835,7 +1849,7 @@ def fertilizer_products_list(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def fertilizer_product_create(request):
     """Create a new fertilizer product."""
@@ -1877,7 +1891,7 @@ def fertilizer_product_create(request):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def fertilizer_product_edit(request, product_id):
     """Edit an existing fertilizer product."""
@@ -1921,7 +1935,7 @@ def fertilizer_product_edit(request, product_id):
     })
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 @require_POST
 def fertilizer_product_delete(request, product_id):
     """Delete a fertilizer product."""
@@ -1937,7 +1951,7 @@ def fertilizer_product_delete(request, product_id):
     return redirect("billing:fertilizer_products_list")
 
 
-@role_required("owner")
+@role_required("owner", "manager")
 def property_fertilizer_history(request, property_id):
     """View fertilizer application history for a property."""
     business = _get_business(request)
