@@ -16,6 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'css/design-system.css' %}">
+  <link rel="stylesheet" href="{% static 'css/messaging.css' %}">
 
   <style>
     :root {
@@ -734,6 +735,10 @@
 
   <!-- Toast notification container -->
   <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  {% if user.is_authenticated %}
+  {% include "messaging/_chat_panel.html" %}
+  {% endif %}
 
   {% if not user.is_authenticated or request.path == '/' %}
   <!-- Landing page layout (no sidebar) -->
