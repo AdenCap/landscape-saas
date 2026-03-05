@@ -617,16 +617,60 @@ class FertilizerProduct(models.Model):
         blank=True,
         help_text="Optional notes about this product"
     )
-    
+
+    # NPK Analysis
+    nitrogen_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Nitrogen percentage from product label (e.g., 32.00 for 32-0-4)"
+    )
+    phosphorus_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Phosphorus percentage from product label"
+    )
+    potassium_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Potassium percentage from product label"
+    )
+
+    # Application rate
+    application_rate = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        help_text="Recommended lbs per 1,000 sq ft"
+    )
+
+    # Product type
+    product_type = models.CharField(
+        max_length=20,
+        choices=[('granular', 'Granular'), ('liquid', 'Liquid')],
+        default='granular',
+        help_text="Affects unit display in calculators"
+    )
+
+    # EPA registration
+    epa_registration_number = models.CharField(
+        max_length=50, blank=True,
+        help_text="EPA registration number for compliance tracking"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         ordering = ['name']
         unique_together = [['business', 'name']]
-    
+
     def __str__(self):
         return f"{self.name} ({self.business.name})"
+
+    @property
+    def npk_display(self):
+        """Return NPK string like '32-0-4' or empty string."""
+        if self.nitrogen_pct is not None:
+            n = int(self.nitrogen_pct) if self.nitrogen_pct == int(self.nitrogen_pct) else self.nitrogen_pct
+            p = int(self.phosphorus_pct) if self.phosphorus_pct and self.phosphorus_pct == int(self.phosphorus_pct) else (self.phosphorus_pct or 0)
+            k = int(self.potassium_pct) if self.potassium_pct and self.potassium_pct == int(self.potassium_pct) else (self.potassium_pct or 0)
+            return f"{n}-{p}-{k}"
+        return ""
     
     def calculate_cost(self, pounds):
         """Calculate material cost for given pounds."""
@@ -662,6 +706,14 @@ _python_property = property
 
 class FertilizerApplication(models.Model):
     """Tracks fertilizer applications to properties with product, date, and amount."""
+    WEATHER_CHOICES = [
+        ('clear', 'Clear'),
+        ('partly_cloudy', 'Partly Cloudy'),
+        ('cloudy', 'Cloudy'),
+        ('overcast', 'Overcast'),
+        ('light_rain', 'Light Rain'),
+    ]
+
     business = models.ForeignKey(
         Business,
         on_delete=models.CASCADE,
@@ -745,10 +797,31 @@ class FertilizerApplication(models.Model):
         blank=True,
         help_text="Optional notes about this application"
     )
-    
+
+    # Weather at time of application
+    weather_temp_f = models.SmallIntegerField(
+        null=True, blank=True,
+        help_text="Temperature (°F) at time of application"
+    )
+    weather_wind_mph = models.DecimalField(
+        max_digits=4, decimal_places=1, null=True, blank=True,
+        help_text="Wind speed (mph) at time of application"
+    )
+    weather_conditions = models.CharField(
+        max_length=20, choices=WEATHER_CHOICES, blank=True,
+        help_text="Weather conditions at time of application"
+    )
+    applied_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='fertilizer_applications_applied',
+        help_text="Technician who applied the product"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         ordering = ['-application_date', '-id']
         indexes = [
