@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     'property_estimator',
     'financials',
     'subscription',
+    'quickbooks',
 ]
 
 # Stripe: platform subscription (business pays you) + Connect (businesses accept invoice payments)
