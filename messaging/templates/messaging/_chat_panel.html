@@ -1,0 +1,93 @@
+{% load static %}
+
+<!-- Floating Chat Button -->
+<button type="button" class="chat-fab" id="chat-fab" aria-label="Open messages">
+  <i data-lucide="message-circle"></i>
+  {% if messaging_unread_count > 0 %}
+  <span class="chat-fab-badge" id="chat-fab-badge">{{ messaging_unread_count }}</span>
+  {% else %}
+  <span class="chat-fab-badge" id="chat-fab-badge" style="display:none"></span>
+  {% endif %}
+</button>
+
+<!-- Chat Overlay (mobile) -->
+<div class="chat-overlay" id="chat-overlay"></div>
+
+<!-- Chat Panel -->
+<div class="chat-panel" id="chat-panel" data-user-id="{{ request.user.id }}">
+  {% csrf_token %}
+
+  <!-- ========================================
+       Conversation List View
+       ======================================== -->
+  <div class="chat-view active" id="chat-view-list">
+    <div class="chat-panel-header">
+      <span class="title">Messages</span>
+      <button type="button" class="new-msg-btn" id="btn-new-message" title="New message">
+        <i data-lucide="plus"></i>
+      </button>
+      <button type="button" class="close-btn" id="btn-close-list" title="Close">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <div class="conversation-list" id="conversation-list">
+      <div class="chat-empty" id="conv-empty">
+        <i data-lucide="message-circle" style="width:48px;height:48px;opacity:0.3"></i>
+        <p>No conversations yet</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       Chat View
+       ======================================== -->
+  <div class="chat-view" id="chat-view-chat">
+    <div class="chat-panel-header">
+      <button type="button" class="back-btn" id="btn-back-chat" title="Back">
+        <i data-lucide="arrow-left"></i>
+      </button>
+      <span class="title" id="chat-title"></span>
+      <button type="button" class="close-btn" id="btn-close-chat" title="Close">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <div class="chat-messages" id="chat-messages">
+      <div class="chat-loading" id="chat-loading">
+        <span class="loading-dots">Loading...</span>
+      </div>
+    </div>
+    <div class="chat-attachment-preview" id="attachment-preview" style="display:none"></div>
+    <div class="chat-input-bar">
+      <button type="button" class="attach-btn" id="btn-attach" title="Attach file">
+        <i data-lucide="paperclip"></i>
+      </button>
+      <input type="file" id="file-input" multiple style="display:none" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+      <textarea id="message-input" placeholder="Type a message..." rows="1"></textarea>
+      <button type="button" class="send-btn" id="btn-send" title="Send" disabled>
+        <i data-lucide="send"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================
+       New Message Picker
+       ======================================== -->
+  <div class="chat-view" id="chat-view-new">
+    <div class="chat-panel-header">
+      <button type="button" class="back-btn" id="btn-back-new" title="Back">
+        <i data-lucide="arrow-left"></i>
+      </button>
+      <span class="title">New Message</span>
+      <button type="button" class="close-btn" id="btn-close-new" title="Close">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <div class="new-message-search">
+      <input type="text" id="user-search" placeholder="Search people or crews...">
+    </div>
+    <div class="new-message-list" id="new-message-list"></div>
+  </div>
+</div>
+
+<!-- Messaging scripts -->
+<script src="{% static 'js/messaging.js' %}"></script>
