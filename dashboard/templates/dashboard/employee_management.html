@@ -4,32 +4,57 @@
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
   <div>
     <h1>{% if is_owner %}Employee Management{% else %}Time off &amp; Schedule{% endif %}</h1>
-    <p>{% if is_owner %}Employees, timesheets, crews, payroll, time off, and schedules{% else %}Your time off requests and work schedule{% endif %}</p>
+    <p>{% if is_owner %}Employees, timesheets, crews, payroll, time off, and schedules — all in one place{% else %}Your time off requests and work schedule{% endif %}</p>
   </div>
 </div>
 
+{# Global CSRF token for AJAX #}
+<form id="em-csrf-form" style="display:none;">{% csrf_token %}</form>
+
 <nav class="emp-mgmt-tabs" aria-label="Sections">
   {% if is_owner %}
-  <a href="#employees" class="emp-tab active" data-tab="employees">Employees</a>
-  <a href="#timesheets" class="emp-tab" data-tab="timesheets">Timesheets</a>
-  <a href="#crews" class="emp-tab" data-tab="crews">Crews</a>
-  <a href="#payroll" class="emp-tab" data-tab="payroll">Payroll</a>
+  <a href="#employees" class="emp-tab active" data-tab="employees">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Employees
+  </a>
+  <a href="#timesheets" class="emp-tab" data-tab="timesheets">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Timesheets{% if pending_time_entries_count %} <span class="tab-badge">{{ pending_time_entries_count }}</span>{% endif %}
+  </a>
+  <a href="#crews" class="emp-tab" data-tab="crews">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-4-4h-4"/><circle cx="19" cy="7" r="4"/></svg>
+    Crews
+  </a>
+  <a href="#payroll" class="emp-tab" data-tab="payroll">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    Payroll
+  </a>
   {% endif %}
-  <a href="#timeoff" class="emp-tab {% if not is_owner %}active{% endif %}" data-tab="timeoff">Time off</a>
-  <a href="#schedule" class="emp-tab" data-tab="schedule">Schedule</a>
+  <a href="#timeoff" class="emp-tab {% if not is_owner %}active{% endif %}" data-tab="timeoff">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Time off
+  </a>
+  <a href="#schedule" class="emp-tab" data-tab="schedule">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Schedule
+  </a>
 </nav>
 
-<!-- Employees (owner only) -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     EMPLOYEES TAB (owner only)
+     ═══════════════════════════════════════════════════════════════════ -->
 {% if is_owner %}
-<section id="section-employees" class="emp-mgmt-section card emp-tab-panel" data-panel="employees">
-  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-    Employees
-    <span style="display: flex; gap: 8px;">
+<section id="section-employees" class="emp-section card emp-tab-panel" data-panel="employees">
+  <div class="section-header">
+    <div>
+      <h2 class="card-title">Employees</h2>
+      <p class="section-desc">Manage your team: profiles, pay rates, roles, and login credentials.</p>
+    </div>
+    <span class="header-actions">
       <a href="{% url 'notification_send' %}" class="btn btn-secondary btn-sm">Send notification</a>
-      <a href="{% url 'employee_add' %}" class="btn btn-primary btn-sm">+ Add Employee</a>
+      <button type="button" class="btn btn-primary btn-sm" onclick="EmModal.addEmployee()">+ Add Employee</button>
     </span>
-  </h2>
-  <p class="section-desc">Manage your team: contact info, pay, roles, and login credentials.</p>
+  </div>
   <table class="data-table">
     <thead>
       <tr>
@@ -37,16 +62,16 @@
         <th>Role</th>
         <th>Contact</th>
         <th class="num">Pay</th>
+        <th>Status</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
       {% for emp in employees %}
-      <tr>
+      <tr class="{% if not emp.is_active %}row-inactive{% endif %}">
         <td>
-          <a href="{% url 'employee_edit' emp.id %}" class="link-primary">
-            {{ emp.get_full_name|default:emp.username }}
-          </a>
+          <strong>{{ emp.get_full_name|default:emp.username }}</strong>
+          {% if emp.username != emp.get_full_name %}<span class="text-muted text-sm"> · {{ emp.username }}</span>{% endif %}
         </td>
         <td><span class="badge badge-{{ emp.role }}">{{ emp.get_role_display }}</span></td>
         <td>
@@ -55,49 +80,70 @@
           {% if emp.email %}{{ emp.email }}{% endif %}
           {% if not emp.phone and not emp.email %}—{% endif %}
         </td>
-        <td class="num">{% if emp.hourly_rate %}${% endif %}{{ emp.hourly_rate|default:"—" }}</td>
+        <td class="num">{% if emp.hourly_rate %}${{ emp.hourly_rate }}/hr{% else %}—{% endif %}</td>
         <td>
-          <a href="{% url 'employee_edit' emp.id %}" class="btn btn-secondary btn-sm">Edit</a>
+          {% if emp.is_active %}
+          <span class="badge badge-success">Active</span>
+          {% else %}
+          <span class="badge badge-danger">Inactive</span>
+          {% endif %}
+        </td>
+        <td class="actions-cell">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="EmModal.editEmployee({{ emp.id }})">Edit</button>
+          <div class="dropdown-wrap">
+            <button type="button" class="btn-icon" onclick="this.parentElement.classList.toggle('open')" title="More actions">⋯</button>
+            <div class="dropdown-menu">
+              <button type="button" onclick="EmModal.changePassword({{ emp.id }}, '{{ emp.get_full_name|default:emp.username|escapejs }}')">Change password</button>
+              {% if emp.id != request.user.id %}
+              <button type="button" onclick="EmModal.toggleActive({{ emp.id }}, {{ emp.is_active|yesno:'true,false' }}, '{{ emp.get_full_name|default:emp.username|escapejs }}')">{% if emp.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+              {% endif %}
+            </div>
+          </div>
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="5">No employees yet. <a href="{% url 'employee_add' %}" class="link-primary">Add your first employee</a></td></tr>
+      <tr><td colspan="6">No employees yet. <button type="button" class="link-primary" onclick="EmModal.addEmployee()" style="background:none;border:none;cursor:pointer;color:var(--primary);text-decoration:underline;">Add your first employee</button></td></tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
 {% endif %}
 
-<!-- Timesheets (owner only) -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     TIMESHEETS TAB (owner only)
+     ═══════════════════════════════════════════════════════════════════ -->
 {% if is_owner %}
-<section id="section-timesheets" class="emp-mgmt-section card emp-tab-panel" data-panel="timesheets" hidden>
-  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-    Timesheets
-    <span style="display: flex; gap: 8px;">
-      <a href="{% url 'time_entries_list' %}" class="btn btn-secondary btn-sm">View & edit time entries</a>
-      {% if pending_time_entries_count %}
-      <a href="{% url 'time_entries_pending' %}" class="btn btn-primary btn-sm">Approve time entries ({{ pending_time_entries_count }})</a>
-      {% endif %}
+<section id="section-timesheets" class="emp-section card emp-tab-panel" data-panel="timesheets" hidden>
+  <div class="section-header">
+    <div>
+      <h2 class="card-title">Timesheets</h2>
+      <p class="section-desc">Weekly and yearly labor costs. Only approved time entries count for payroll.</p>
+    </div>
+    <span class="header-actions">
+      <a href="{% url 'time_entries_list' %}" class="btn btn-secondary btn-sm">All entries</a>
     </span>
-  </h2>
-  <p class="section-desc">Weekly and yearly hours and labor costs. Only approved time entries count for payroll. Use “View & edit time entries” to correct clock-in/clock-out times.</p>
-  <div class="kpi-grid" style="margin-bottom: 20px;">
-    <div class="kpi-card card" style="margin-bottom: 0;">
+  </div>
+
+  {# KPI Cards #}
+  <div class="kpi-grid">
+    <div class="kpi-card card">
       <div class="kpi-label">This Week's Labor Cost</div>
       <div class="kpi-value">${{ total_week_cost }}</div>
       <div class="kpi-sub">{{ week_start }} → {{ week_end }}</div>
     </div>
-    <div class="kpi-card card" style="margin-bottom: 0;">
+    <div class="kpi-card card">
       <div class="kpi-label">This Year's Labor Cost</div>
       <div class="kpi-value">${{ total_year_cost }}</div>
       <div class="kpi-sub">{{ year_start }} → {{ year_end }}</div>
     </div>
   </div>
+
+  {# Per-Employee Summary #}
   <table class="data-table">
     <thead>
       <tr>
         <th>Employee</th>
-        <th class="num">Hourly Rate</th>
+        <th class="num">Rate</th>
         <th class="num">Week Hours</th>
         <th class="num">Week Cost</th>
         <th class="num">Year Hours</th>
@@ -106,34 +152,85 @@
     </thead>
     <tbody>
       {% for stat in employee_stats %}
-      <tr>
-        <td>{{ stat.user.get_full_name|default:stat.user.username }}</td>
+      <tr class="expandable-row" onclick="toggleTimeEntries(this, {{ stat.user.id }}, '{{ stat.user.get_full_name|default:stat.user.username|escapejs }}')" style="cursor:pointer;" title="Click to view time entries">
+        <td>
+          <span class="expand-icon">▶</span>
+          {{ stat.user.get_full_name|default:stat.user.username }}
+        </td>
         <td class="num">${{ stat.hourly_rate }}/hr</td>
         <td class="num">{{ stat.week_display }}</td>
         <td class="num">${{ stat.week_cost }}</td>
         <td class="num">{{ stat.year_display }}</td>
         <td class="num">${{ stat.year_cost }}</td>
       </tr>
+      <tr class="time-entries-detail" data-user="{{ stat.user.id }}" hidden>
+        <td colspan="6">
+          <div class="entries-loading">Loading time entries…</div>
+          <div class="entries-content" style="display:none;"></div>
+        </td>
+      </tr>
       {% empty %}
       <tr><td colspan="6">No crew members. Add employees with the "Crew" role to see timesheets.</td></tr>
       {% endfor %}
     </tbody>
   </table>
+
+  {# Pending Approvals Section #}
+  {% if pending_time_entries %}
+  <div class="pending-section">
+    <h3 class="pending-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Pending Approval ({{ pending_time_entries_count }})
+    </h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Date</th>
+          <th>Clock In</th>
+          <th>Clock Out</th>
+          <th>Duration</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in pending_time_entries %}
+        <tr id="pending-row-{{ entry.id }}">
+          <td>{{ entry.user.get_full_name|default:entry.user.username }}</td>
+          <td>{{ entry.clock_in|date:"M j, Y" }}</td>
+          <td>{{ entry.clock_in|time:"g:i A" }}</td>
+          <td>{{ entry.clock_out|time:"g:i A" }}</td>
+          <td>{{ entry.duration_display }}</td>
+          <td class="actions-cell">
+            <button type="button" class="btn btn-sm" style="background:rgba(34,197,94,.2);color:#86efac;" onclick="approveEntry({{ entry.id }})">✓ Approve</button>
+            <button type="button" class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#fca5a5;" onclick="rejectEntry({{ entry.id }})">✗ Reject</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="EmModal.editTimeEntry({{ entry.id }}, '{{ entry.clock_in|date:'Y-m-d' }}', '{{ entry.clock_in|time:'H:i' }}', '{{ entry.clock_out|date:'Y-m-d' }}', '{{ entry.clock_out|time:'H:i' }}')">Edit</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 </section>
 {% endif %}
 
-<!-- Crews (owner only) -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     CREWS TAB (owner only)
+     ═══════════════════════════════════════════════════════════════════ -->
 {% if is_owner %}
-<section id="section-crews" class="emp-mgmt-section card emp-tab-panel" data-panel="crews" hidden>
-  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-    Crews
-    <a href="{% url 'crew_add' %}" class="btn btn-primary btn-sm">+ Add Crew</a>
-  </h2>
-  <p class="section-desc">Organize employees into crews. Assign a leader and set colors for the calendar.</p>
+<section id="section-crews" class="emp-section card emp-tab-panel" data-panel="crews" hidden>
+  <div class="section-header">
+    <div>
+      <h2 class="card-title">Crews</h2>
+      <p class="section-desc">Organize employees into crews. Assign a leader and set colors for the calendar.</p>
+    </div>
+    <button type="button" class="btn btn-primary btn-sm" onclick="EmModal.addCrew()">+ Add Crew</button>
+  </div>
   <table class="data-table">
     <thead>
       <tr>
-        <th>Color</th>
+        <th style="width:40px;">Color</th>
         <th>Name</th>
         <th>Leader</th>
         <th>Members</th>
@@ -143,41 +240,46 @@
     <tbody>
       {% for crew in crews %}
       <tr>
-        <td>
-          <span class="crew-color-swatch" style="background: {{ crew.color|default:'#94a3b8' }};" title="{{ crew.color }}"></span>
-        </td>
+        <td><span class="crew-color-swatch" style="background: {{ crew.color|default:'#94a3b8' }};"></span></td>
         <td><strong>{{ crew.name }}</strong></td>
         <td>{% if crew.crew_leader %}{{ crew.crew_leader.get_full_name|default:crew.crew_leader.username }}{% else %}—{% endif %}</td>
-        <td>{{ crew.members.count }} member{{ crew.members.count|pluralize }}</td>
         <td>
-          <a href="{% url 'crew_edit' crew.id %}" class="btn btn-secondary btn-sm">Edit</a>
+          {% for m in crew.members.all %}{{ m.get_full_name|default:m.username }}{% if not forloop.last %}, {% endif %}{% empty %}No members{% endfor %}
+        </td>
+        <td class="actions-cell">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="EmModal.editCrew({{ crew.id }})">Edit</button>
+          <button type="button" class="btn-icon" style="color: var(--text-muted);" onclick="EmModal.deleteCrew({{ crew.id }}, '{{ crew.name|escapejs }}')" title="Delete crew">🗑</button>
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="5">No crews yet. <a href="{% url 'crew_add' %}" class="link-primary">Create your first crew</a></td></tr>
+      <tr><td colspan="5">No crews yet. <button type="button" class="link-primary" onclick="EmModal.addCrew()" style="background:none;border:none;cursor:pointer;color:var(--primary);text-decoration:underline;">Create your first crew</button></td></tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
 {% endif %}
 
-<!-- Payroll (owner only) -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     PAYROLL TAB (owner only)
+     ═══════════════════════════════════════════════════════════════════ -->
 {% if is_owner %}
-<section id="section-payroll" class="emp-mgmt-section card emp-tab-panel" data-panel="payroll" hidden>
-  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-    Payroll
-    {% if quickbooks_connected and payroll_unsynced_count > 0 %}
-    <form id="payroll-csrf-form" style="display: none;">{% csrf_token %}</form>
-    <button type="button" id="payroll-sync-qb-btn" class="btn btn-primary">Sync {{ payroll_unsynced_count }} to QuickBooks</button>
-    {% elif quickbooks_connected %}
-    <span class="btn btn-secondary" title="All payments synced">✓ All synced to QuickBooks</span>
-    {% else %}
-    <a href="{% url 'quickbooks:settings' %}" class="btn btn-secondary">Connect QuickBooks to sync</a>
-    {% endif %}
-  </h2>
-  <p class="section-desc">Payments recorded when you pay employees. Sync to QuickBooks to transfer them as journal entries.</p>
+<section id="section-payroll" class="emp-section card emp-tab-panel" data-panel="payroll" hidden>
+  <div class="section-header">
+    <div>
+      <h2 class="card-title">Payroll</h2>
+      <p class="section-desc">Record employee payments. Track bonuses, deductions, and QuickBooks sync status.</p>
+    </div>
+    <span class="header-actions">
+      <button type="button" class="btn btn-primary btn-sm" onclick="EmModal.recordPayment()">+ Record Payment</button>
+      {% if quickbooks_connected and payroll_unsynced_count > 0 %}
+      <button type="button" id="payroll-sync-qb-btn" class="btn btn-secondary btn-sm">Sync {{ payroll_unsynced_count }} to QB</button>
+      {% elif quickbooks_connected %}
+      <span class="btn btn-secondary btn-sm" style="opacity:.6;">✓ All synced</span>
+      {% endif %}
+    </span>
+  </div>
   <div class="kpi-grid" style="margin-bottom: 16px;">
-    <div class="kpi-card card" style="margin-bottom: 0;">
+    <div class="kpi-card card">
       <div class="kpi-label">Total recorded</div>
       <div class="kpi-value">${{ payroll_total|floatformat:2 }}</div>
     </div>
@@ -186,37 +288,46 @@
     <thead>
       <tr>
         <th>Employee</th>
-        <th>Date paid</th>
+        <th>Date</th>
+        <th>Type</th>
         <th class="num">Amount</th>
         <th>Notes</th>
-        <th>QuickBooks</th>
+        {% if quickbooks_connected %}<th>QB</th>{% endif %}
       </tr>
     </thead>
     <tbody>
       {% for p in payroll_payments %}
       <tr>
-        <td><a href="{% url 'employee_edit' p.employee_id %}" class="link-primary">{{ p.employee.get_full_name|default:p.employee.username }}</a></td>
+        <td>{{ p.employee.get_full_name|default:p.employee.username }}</td>
         <td>{{ p.paid_date }}</td>
+        <td><span class="badge badge-ptype-{{ p.payment_type }}">{{ p.get_payment_type_display }}</span></td>
         <td class="num">${{ p.amount|floatformat:2 }}</td>
         <td>{{ p.notes|default:"—" }}</td>
-        <td>{% if p.quickbooks_journal_entry_id %}<span class="badge badge-synced">✓ Synced</span>{% else %}<span class="badge badge-unsynced">Not synced</span>{% endif %}</td>
+        {% if quickbooks_connected %}
+        <td>{% if p.quickbooks_journal_entry_id %}<span class="badge badge-synced">✓</span>{% else %}<span class="badge badge-unsynced">—</span>{% endif %}</td>
+        {% endif %}
       </tr>
       {% empty %}
-      <tr><td colspan="5">No payroll payments yet. Record payments on each employee’s profile.</td></tr>
+      <tr><td colspan="{% if quickbooks_connected %}6{% else %}5{% endif %}">No payroll payments yet. <button type="button" class="link-primary" onclick="EmModal.recordPayment()" style="background:none;border:none;cursor:pointer;color:var(--primary);text-decoration:underline;">Record your first payment</button></td></tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
 {% endif %}
 
-<!-- Time off -->
-<section id="section-timeoff" class="emp-mgmt-section card emp-tab-panel" data-panel="timeoff" {% if is_owner %}hidden{% endif %}>
-  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
-    Time off
-    <span style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+<!-- ═══════════════════════════════════════════════════════════════════
+     TIME OFF TAB
+     ═══════════════════════════════════════════════════════════════════ -->
+<section id="section-timeoff" class="emp-section card emp-tab-panel" data-panel="timeoff" {% if is_owner %}hidden{% endif %}>
+  <div class="section-header">
+    <div>
+      <h2 class="card-title">Time off</h2>
+      <p class="section-desc">{% if is_owner %}View and manage employee time off requests.{% else %}Your time off requests.{% endif %}</p>
+    </div>
+    <span class="header-actions">
       <a href="{% url 'time_off_create' %}" class="btn btn-primary btn-sm">+ Request time off</a>
       {% if is_owner and time_off_employees %}
-      <select class="form-control" style="max-width: 200px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px;" onchange="if(this.value) window.location.href='{% url 'time_off_create' %}?user_id=' + this.value;">
+      <select class="select-sm" onchange="if(this.value) window.location.href='{% url 'time_off_create' %}?user_id=' + this.value;">
         <option value="">Request for employee…</option>
         {% for emp in time_off_employees %}
         <option value="{{ emp.id }}">{{ emp.get_full_name|default:emp.username }}</option>
@@ -224,8 +335,7 @@
       </select>
       {% endif %}
     </span>
-  </h2>
-  <p class="section-desc">{% if is_owner %}View and manage employee time off requests.{% else %}Your time off requests.{% endif %}</p>
+  </div>
   <table class="data-table">
     <thead>
       <tr>
@@ -241,9 +351,7 @@
     <tbody>
       {% for req in time_off_requests %}
       <tr>
-        {% if is_owner %}
-        <td>{{ req.user.get_full_name|default:req.user.username }}</td>
-        {% endif %}
+        {% if is_owner %}<td>{{ req.user.get_full_name|default:req.user.username }}</td>{% endif %}
         <td>{{ req.start_date }}</td>
         <td>{{ req.end_date }}</td>
         <td>{{ req.get_request_type_display }}</td>
@@ -254,41 +362,34 @@
         </td>
         <td>{{ req.created_at|date:"M j, Y" }}</td>
         {% if is_owner and req.status == 'pending' %}
-        <td>
-          <form action="{% url 'time_off_approve' req.pk %}" method="post" style="display:inline;">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-secondary btn-sm">Approve</button>
-          </form>
-          <form action="{% url 'time_off_deny' req.pk %}" method="post" style="display:inline;">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-secondary btn-sm" style="margin-left:4px;">Deny</button>
-          </form>
+        <td class="actions-cell">
+          <form action="{% url 'time_off_approve' req.pk %}" method="post" style="display:inline;">{% csrf_token %}<button type="submit" class="btn btn-sm" style="background:rgba(34,197,94,.2);color:#86efac;">Approve</button></form>
+          <form action="{% url 'time_off_deny' req.pk %}" method="post" style="display:inline;">{% csrf_token %}<button type="submit" class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#fca5a5;margin-left:4px;">Deny</button></form>
         </td>
-        {% elif is_owner %}
-        <td>—</td>
-        {% endif %}
+        {% elif is_owner %}<td>—</td>{% endif %}
       </tr>
       {% if req.notes %}
-      <tr>
-        <td colspan="{% if is_owner %}7{% else %}5{% endif %}" style="color: var(--text-muted); font-size: 13px; padding-top: 0;">Note: {{ req.notes }}</td>
-      </tr>
+      <tr><td colspan="{% if is_owner %}7{% else %}5{% endif %}" class="note-row">Note: {{ req.notes }}</td></tr>
       {% endif %}
       {% empty %}
-      <tr>
-        <td colspan="{% if is_owner %}7{% else %}5{% endif %}">No time off requests yet. <a href="{% url 'time_off_create' %}" class="link-primary">Submit a request</a>.</td>
-      </tr>
+      <tr><td colspan="{% if is_owner %}7{% else %}5{% endif %}">No time off requests yet. <a href="{% url 'time_off_create' %}" class="link-primary">Submit a request</a>.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
 
-<!-- Schedule -->
-<section id="section-schedule" class="emp-mgmt-section card emp-tab-panel" data-panel="schedule" hidden>
-  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
-    Schedule
+<!-- ═══════════════════════════════════════════════════════════════════
+     SCHEDULE TAB
+     ═══════════════════════════════════════════════════════════════════ -->
+<section id="section-schedule" class="emp-section card emp-tab-panel" data-panel="schedule" hidden>
+  <div class="section-header">
+    <div>
+      <h2 class="card-title">Schedule</h2>
+      <p class="section-desc">{% if is_owner %}Weekly work schedule per employee.{% else %}Your typical weekly schedule (set by your manager).{% endif %}</p>
+    </div>
     {% if is_owner %}
-    <span style="display: flex; gap: 8px; align-items: center;">
-      <select id="schedule-employee-select" class="form-control" style="max-width: 220px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px;" onchange="window.location.href='?schedule_user_id=' + this.value;">
+    <span class="header-actions">
+      <select id="schedule-employee-select" class="select-sm" onchange="window.location.href='?schedule_user_id=' + this.value + '#schedule';">
         {% for emp in schedule_employees %}
         <option value="{{ emp.id }}" {% if schedule_selected_user and schedule_selected_user.id == emp.id %}selected{% endif %}>{{ emp.get_full_name|default:emp.username }}</option>
         {% endfor %}
@@ -296,16 +397,10 @@
       <a href="{% url 'time_schedule_edit' %}{% if schedule_selected_user %}?user_id={{ schedule_selected_user.id }}{% endif %}" class="btn btn-primary btn-sm">Edit schedule</a>
     </span>
     {% endif %}
-  </h2>
-  <p class="section-desc">{% if is_owner %}Weekly work schedule per employee. Only owners can edit schedules.{% else %}Your typical weekly schedule (set by your manager).{% endif %}</p>
+  </div>
   <table class="data-table">
     <thead>
-      <tr>
-        <th>Day</th>
-        <th>Start time</th>
-        <th>End time</th>
-        <th>Status</th>
-      </tr>
+      <tr><th>Day</th><th>Start</th><th>End</th><th>Status</th></tr>
     </thead>
     <tbody>
       {% for day_name, slot in schedule_rows %}
@@ -313,7 +408,7 @@
         <td>{{ day_name }}</td>
         <td>{% if slot and slot.start_time %}{{ slot.start_time|time:"g:i A" }}{% else %}—{% endif %}</td>
         <td>{% if slot and slot.end_time %}{{ slot.end_time|time:"g:i A" }}{% else %}—{% endif %}</td>
-        <td>{% if slot and slot.start_time and slot.end_time %}Working{% else %}Off{% endif %}</td>
+        <td>{% if slot and slot.start_time and slot.end_time %}<span class="badge badge-success">Working</span>{% else %}<span class="badge badge-muted">Off</span>{% endif %}</td>
       </tr>
       {% empty %}
       <tr><td colspan="4">No schedule set yet.{% if is_owner %} Select an employee and click Edit schedule.{% endif %}</td></tr>
@@ -322,56 +417,691 @@
   </table>
 </section>
 
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     MODAL TEMPLATES (hidden <template> elements cloned by JS)
+     ═══════════════════════════════════════════════════════════════════ -->
+
+{# Add Employee #}
+<template id="tpl-add-employee">
+  <div class="modal-form-grid">
+    <div class="form-section"><h4>Login Credentials</h4>
+      <div class="field"><label>Username</label><input name="username" required autocomplete="off"></div>
+      <div class="field-row">
+        <div class="field"><label>Password</label><input name="password1" type="password" required minlength="8" autocomplete="new-password"></div>
+        <div class="field"><label>Confirm password</label><input name="password2" type="password" required minlength="8" autocomplete="new-password"></div>
+      </div>
+    </div>
+    <div class="form-section"><h4>Profile</h4>
+      <div class="field-row">
+        <div class="field"><label>First name</label><input name="first_name"></div>
+        <div class="field"><label>Last name</label><input name="last_name"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Email</label><input name="email" type="email"></div>
+        <div class="field"><label>Phone</label><input name="phone"></div>
+      </div>
+    </div>
+    <div class="form-section"><h4>Role &amp; Pay</h4>
+      <div class="field-row">
+        <div class="field"><label>Role</label>
+          <select name="role"><option value="crew">Crew</option><option value="manager">Manager</option><option value="owner">Owner</option></select>
+        </div>
+        <div class="field"><label>Hourly rate ($)</label><input name="hourly_rate" type="number" step="0.01" min="0" placeholder="0.00"></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+{# Edit Employee #}
+<template id="tpl-edit-employee">
+  <div class="modal-form-grid">
+    <div class="form-section"><h4>Profile</h4>
+      <div class="field-row">
+        <div class="field"><label>First name</label><input name="first_name"></div>
+        <div class="field"><label>Last name</label><input name="last_name"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Email</label><input name="email" type="email"></div>
+        <div class="field"><label>Phone</label><input name="phone"></div>
+      </div>
+    </div>
+    <div class="form-section"><h4>Address</h4>
+      <div class="field"><label>Address line 1</label><input name="address_line1"></div>
+      <div class="field"><label>Address line 2</label><input name="address_line2"></div>
+      <div class="field-row-3">
+        <div class="field"><label>City</label><input name="city"></div>
+        <div class="field"><label>State</label><input name="state"></div>
+        <div class="field"><label>ZIP</label><input name="postal_code"></div>
+      </div>
+    </div>
+    <div class="form-section"><h4>Role &amp; Pay</h4>
+      <div class="field-row">
+        <div class="field"><label>Role</label>
+          <select name="role"><option value="crew">Crew</option><option value="manager">Manager</option><option value="owner">Owner</option></select>
+        </div>
+        <div class="field"><label>Hourly rate ($)</label><input name="hourly_rate" type="number" step="0.01" min="0"></div>
+      </div>
+      <div class="field checkbox-inline"><input type="checkbox" name="is_active" id="edit-is-active"><label for="edit-is-active">Active</label></div>
+    </div>
+  </div>
+</template>
+
+{# Change Password #}
+<template id="tpl-change-password">
+  <div class="modal-form-grid">
+    <div class="field"><label>New password (min 8 characters)</label><input name="new_password1" type="password" required minlength="8" autocomplete="new-password"></div>
+    <div class="field"><label>Confirm new password</label><input name="new_password2" type="password" required minlength="8" autocomplete="new-password"></div>
+  </div>
+</template>
+
+{# Add/Edit Crew #}
+<template id="tpl-crew-form">
+  <div class="modal-form-grid">
+    <div class="field-row">
+      <div class="field"><label>Crew name</label><input name="name" required placeholder="e.g. Green Team"></div>
+      <div class="field"><label>Color</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="color" name="color_picker" value="#3b82f6" style="width:48px;height:36px;padding:2px;border-radius:6px;cursor:pointer;border:1px solid var(--border);">
+          <input type="text" name="color" value="#3b82f6" maxlength="7" style="width:90px;font-family:monospace;" placeholder="#3b82f6">
+        </div>
+      </div>
+    </div>
+    <div class="field"><label>Crew leader</label>
+      <select name="crew_leader"><option value="">— None —</option></select>
+    </div>
+    <div class="field"><label>Members</label>
+      <div class="checkbox-list" data-name="members"></div>
+    </div>
+  </div>
+</template>
+
+{# Record Payment #}
+<template id="tpl-record-payment">
+  <div class="modal-form-grid">
+    <div class="field"><label>Employee</label>
+      <select name="employee" required><option value="">Select employee…</option></select>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Amount ($)</label><input name="amount" type="number" step="0.01" min="0" required placeholder="0.00"></div>
+      <div class="field"><label>Date paid</label><input name="paid_date" type="date" required value="{{ today_iso }}"></div>
+    </div>
+    <div class="field"><label>Payment type</label>
+      <select name="payment_type">
+        <option value="regular">Regular Pay</option>
+        <option value="bonus">Bonus</option>
+        <option value="deduction">Deduction</option>
+        <option value="reimbursement">Reimbursement</option>
+      </select>
+    </div>
+    <div class="field"><label>Notes (optional)</label><input name="notes" maxlength="500" placeholder="e.g. Week of Mar 1, Bonus for overtime"></div>
+    <div class="calc-helper">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="EmModal.calculatePay()">Calculate from timesheets</button>
+      <span id="calc-result" class="text-muted text-sm"></span>
+    </div>
+  </div>
+</template>
+
+{# Edit Time Entry #}
+<template id="tpl-edit-time-entry">
+  <div class="modal-form-grid">
+    <div class="field-row">
+      <div class="field"><label>Clock-in date</label><input name="clock_in_date" type="date" required></div>
+      <div class="field"><label>Clock-in time</label><input name="clock_in_time" type="time" required></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Clock-out date</label><input name="clock_out_date" type="date"></div>
+      <div class="field"><label>Clock-out time</label><input name="clock_out_time" type="time"></div>
+    </div>
+  </div>
+</template>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     MODAL SHELL (single reusable overlay)
+     ═══════════════════════════════════════════════════════════════════ -->
+<div id="em-modal" class="em-modal-overlay" role="dialog" aria-modal="true" hidden>
+  <div class="em-modal-card">
+    <div class="em-modal-header">
+      <h3 id="em-modal-title"></h3>
+      <button type="button" class="em-modal-close" onclick="EmModal.close()" aria-label="Close">&times;</button>
+    </div>
+    <form id="em-modal-form" onsubmit="return EmModal.submit(event)">
+      <div class="em-modal-body" id="em-modal-body"></div>
+      <div class="em-modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="EmModal.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="em-modal-submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     STYLES
+     ═══════════════════════════════════════════════════════════════════ -->
 <style>
-  .emp-mgmt-section { margin-bottom: 24px; }
-  .emp-mgmt-section .section-desc { color: var(--text-muted); font-size: 14px; margin: -8px 0 16px 0; }
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-  .kpi-card .kpi-label { color: var(--text-muted); font-size: 13px; margin-bottom: 4px; }
-  .kpi-card .kpi-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
-  .kpi-card .kpi-sub { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
-  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
-  .badge-owner { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
-  .badge-crew { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .badge-synced { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .badge-unsynced { background: rgba(234, 179, 8, 0.25); color: #fde047; }
-  .badge-success { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .badge-danger { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
-  .badge-warning { background: rgba(234, 179, 8, 0.25); color: #fde047; }
-  .crew-color-swatch { display: inline-block; width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); }
-  .emp-mgmt-tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
-  .emp-tab { padding: 10px 16px; border-radius: 10px; text-decoration: none; color: var(--text-muted); font-weight: 500; font-size: 14px; }
-  .emp-tab:hover { color: var(--text); background: var(--surface); }
-  .emp-tab.active { background: var(--primary); color: #0a0a0a; }
+/* --- Layout --- */
+.emp-section { margin-bottom: 24px; }
+.section-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+.section-desc { color: var(--text-muted); font-size: 14px; margin: 0; }
+.header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.kpi-card { margin-bottom: 0; }
+.kpi-card .kpi-label { color: var(--text-muted); font-size: 13px; margin-bottom: 4px; }
+.kpi-card .kpi-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.kpi-card .kpi-sub { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+
+/* --- Tabs --- */
+.emp-mgmt-tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+.emp-tab { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px; text-decoration: none; color: var(--text-muted); font-weight: 500; font-size: 14px; transition: all .15s; }
+.emp-tab:hover { color: var(--text); background: var(--surface); }
+.emp-tab.active { background: var(--primary); color: #0a0a0a; }
+.emp-tab svg { flex-shrink: 0; }
+.tab-badge { background: rgba(239,68,68,.3); color: #fca5a5; font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+.emp-tab.active .tab-badge { background: rgba(0,0,0,.2); color: #0a0a0a; }
+
+/* --- Badges --- */
+.badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+.badge-owner { background: rgba(59,130,246,.25); color: #93c5fd; }
+.badge-manager { background: rgba(168,85,247,.25); color: #c4b5fd; }
+.badge-crew { background: rgba(34,197,94,.25); color: #86efac; }
+.badge-success { background: rgba(34,197,94,.25); color: #86efac; }
+.badge-danger { background: rgba(239,68,68,.25); color: #fca5a5; }
+.badge-warning { background: rgba(234,179,8,.25); color: #fde047; }
+.badge-muted { background: var(--surface-alt); color: var(--text-muted); }
+.badge-synced { background: rgba(34,197,94,.25); color: #86efac; }
+.badge-unsynced { background: rgba(234,179,8,.25); color: #fde047; }
+.badge-ptype-regular { background: rgba(59,130,246,.15); color: #93c5fd; }
+.badge-ptype-bonus { background: rgba(34,197,94,.15); color: #86efac; }
+.badge-ptype-deduction { background: rgba(239,68,68,.15); color: #fca5a5; }
+.badge-ptype-reimbursement { background: rgba(168,85,247,.15); color: #c4b5fd; }
+
+/* --- Table enhancements --- */
+.row-inactive td { opacity: .5; }
+.actions-cell { white-space: nowrap; }
+.note-row { color: var(--text-muted); font-size: 13px; padding-top: 0 !important; }
+.crew-color-swatch { display: inline-block; width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); }
+.text-muted { color: var(--text-muted); }
+.text-sm { font-size: 13px; }
+.select-sm { max-width: 200px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; }
+
+/* --- Dropdown menu --- */
+.dropdown-wrap { display: inline-block; position: relative; }
+.btn-icon { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 18px; padding: 4px 8px; border-radius: 6px; }
+.btn-icon:hover { background: var(--surface-alt); }
+.dropdown-menu { display: none; position: absolute; right: 0; top: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; min-width: 160px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,.4); overflow: hidden; }
+.dropdown-wrap.open .dropdown-menu { display: block; }
+.dropdown-menu button { display: block; width: 100%; text-align: left; padding: 10px 14px; border: none; background: none; color: var(--text); font-size: 13px; cursor: pointer; }
+.dropdown-menu button:hover { background: var(--surface-alt); }
+
+/* --- Expandable time entries --- */
+.expandable-row .expand-icon { display: inline-block; transition: transform .15s; font-size: 10px; margin-right: 6px; }
+.expandable-row.expanded .expand-icon { transform: rotate(90deg); }
+.entries-loading { color: var(--text-muted); font-size: 13px; padding: 8px 0; }
+.entries-content table { margin: 4px 0 8px 0; background: var(--surface-alt); border-radius: 8px; }
+.entries-content table td, .entries-content table th { padding: 6px 12px; font-size: 13px; }
+
+/* --- Pending section --- */
+.pending-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.pending-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: #fde047; margin-bottom: 12px; }
+.pending-title svg { color: #fde047; }
+
+/* --- Modal --- */
+.em-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; animation: emFadeIn .15s ease; }
+.em-modal-overlay[hidden] { display: none !important; }
+.em-modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 560px; max-height: 85vh; display: flex; flex-direction: column; animation: emSlideUp .2s ease; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.em-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
+.em-modal-header h3 { font-size: 18px; font-weight: 600; margin: 0; }
+.em-modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted); padding: 4px 8px; border-radius: 6px; line-height: 1; }
+.em-modal-close:hover { background: var(--surface-alt); color: var(--text); }
+.em-modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+.em-modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border); }
+@keyframes emFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes emSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* --- Modal form fields --- */
+.modal-form-grid .form-section { margin-bottom: 16px; }
+.modal-form-grid .form-section h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); font-weight: 600; margin: 0 0 10px 0; }
+.modal-form-grid .field { margin-bottom: 12px; }
+.modal-form-grid .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; color: var(--text); }
+.modal-form-grid .field input,
+.modal-form-grid .field select { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px; font-family: inherit; }
+.modal-form-grid .field input:focus,
+.modal-form-grid .field select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(59,130,246,.25); }
+.modal-form-grid .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal-form-grid .field-row-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+.modal-form-grid .field .error-text { color: #fca5a5; font-size: 12px; margin-top: 4px; }
+.modal-form-grid .field.has-error input,
+.modal-form-grid .field.has-error select { border-color: #ef4444; }
+.checkbox-inline { display: flex; align-items: center; gap: 8px; }
+.checkbox-inline input { width: auto; }
+.checkbox-list { max-height: 160px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.checkbox-list label { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; cursor: pointer; }
+.checkbox-list input { width: auto; }
+.calc-helper { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+
+/* --- Mobile --- */
+@media (max-width: 640px) {
+  .emp-tab svg { display: none; }
+  .emp-tab { padding: 8px 12px; font-size: 13px; }
+  .modal-form-grid .field-row,
+  .modal-form-grid .field-row-3 { grid-template-columns: 1fr; }
+  .em-modal-card { max-width: 100%; border-radius: 16px 16px 0 0; align-self: flex-end; max-height: 90vh; }
+  .section-header { flex-direction: column; }
+}
 </style>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════════════════════════════ -->
 <script>
 (function() {
+  /* ── Tab Switcher ─────────────────────────────────────────── */
   var tabs = document.querySelectorAll('.emp-tab');
   var panels = document.querySelectorAll('.emp-tab-panel');
-  function showTab(tabId) {
-    tabId = tabId || 'employees';
-    tabs.forEach(function(t) {
-      t.classList.toggle('active', t.getAttribute('data-tab') === tabId);
-    });
-    panels.forEach(function(p) {
-      p.hidden = p.getAttribute('data-panel') !== tabId;
-    });
-    window.location.hash = tabId;
+  function showTab(id) {
+    id = id || 'employees';
+    tabs.forEach(function(t) { t.classList.toggle('active', t.getAttribute('data-tab') === id); });
+    panels.forEach(function(p) { p.hidden = p.getAttribute('data-panel') !== id; });
+    history.replaceState(null, '', '#' + id);
   }
   tabs.forEach(function(t) {
-    t.addEventListener('click', function(e) {
-      e.preventDefault();
-      showTab(this.getAttribute('data-tab'));
-    });
+    t.addEventListener('click', function(e) { e.preventDefault(); showTab(this.getAttribute('data-tab')); });
   });
-  if (window.location.hash) {
-    var id = window.location.hash.replace('#', '');
-    if (id && document.querySelector('[data-panel="' + id + '"]')) showTab(id);
+  if (location.hash) {
+    var id = location.hash.replace('#', '');
+    if (document.querySelector('[data-panel="' + id + '"]')) showTab(id);
   } else {
-    var activeTab = document.querySelector('.emp-tab.active');
-    if (activeTab) showTab(activeTab.getAttribute('data-tab'));
+    var at = document.querySelector('.emp-tab.active');
+    if (at) showTab(at.getAttribute('data-tab'));
   }
+
+  /* Close dropdowns on outside click */
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.dropdown-wrap')) {
+      document.querySelectorAll('.dropdown-wrap.open').forEach(function(d) { d.classList.remove('open'); });
+    }
+  });
+
+  /* ── CSRF Helper ──────────────────────────────────────────── */
+  function csrf() { return document.querySelector('#em-csrf-form [name=csrfmiddlewaretoken]').value; }
+
+  /* ── EmModal Controller ──────────────────────────────────── */
+  var modal = document.getElementById('em-modal');
+  var modalTitle = document.getElementById('em-modal-title');
+  var modalBody = document.getElementById('em-modal-body');
+  var modalSubmit = document.getElementById('em-modal-submit');
+  var _submitUrl = '';
+  var _onSuccess = null;
+
+  window.EmModal = {
+    open: function(title, tplId, url, opts) {
+      opts = opts || {};
+      modalTitle.textContent = title;
+      modalSubmit.textContent = opts.submitLabel || 'Save';
+      modalSubmit.disabled = false;
+      _submitUrl = url;
+      _onSuccess = opts.onSuccess || function() { location.reload(); };
+
+      var tpl = document.getElementById(tplId);
+      modalBody.innerHTML = '';
+      modalBody.appendChild(tpl.content.cloneNode(true));
+
+      // Populate callback
+      if (opts.populate) opts.populate(modalBody);
+
+      // Wire color pickers
+      var cp = modalBody.querySelector('[name=color_picker]');
+      var ct = modalBody.querySelector('[name=color]');
+      if (cp && ct) {
+        cp.addEventListener('input', function() { ct.value = this.value; });
+        ct.addEventListener('input', function() {
+          if (/^#[0-9A-Fa-f]{6}$/.test(this.value)) cp.value = this.value;
+        });
+      }
+
+      modal.hidden = false;
+      var firstInput = modalBody.querySelector('input:not([type=hidden]):not([type=color]),select');
+      if (firstInput) setTimeout(function() { firstInput.focus(); }, 50);
+    },
+
+    close: function() {
+      modal.hidden = true;
+      modalBody.innerHTML = '';
+    },
+
+    submit: function(e) {
+      e.preventDefault();
+      // Clear previous errors
+      modalBody.querySelectorAll('.error-text').forEach(function(el) { el.remove(); });
+      modalBody.querySelectorAll('.has-error').forEach(function(el) { el.classList.remove('has-error'); });
+
+      modalSubmit.disabled = true;
+      modalSubmit.textContent = 'Saving…';
+
+      var form = document.getElementById('em-modal-form');
+      var fd = new FormData(form);
+
+      // Handle checkbox members for crews
+      var memberCheckboxes = modalBody.querySelectorAll('.checkbox-list input[type=checkbox]:checked');
+      if (memberCheckboxes.length) {
+        memberCheckboxes.forEach(function(cb) { fd.append('members', cb.value); });
+      }
+
+      // Handle is_active checkbox (Django needs it as "on" or absent)
+      var activeCheckbox = modalBody.querySelector('[name=is_active]');
+      if (activeCheckbox && !activeCheckbox.checked) {
+        fd.delete('is_active');
+      }
+
+      fetch(_submitUrl, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+        body: fd,
+        credentials: 'same-origin',
+      }).then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+      .then(function(res) {
+        if (res.ok && res.data.ok) {
+          EmModal.close();
+          _onSuccess(res.data);
+        } else if (res.data.errors) {
+          EmModal._showErrors(res.data.errors);
+          modalSubmit.disabled = false;
+          modalSubmit.textContent = 'Save';
+        } else {
+          alert(res.data.error || 'Something went wrong.');
+          modalSubmit.disabled = false;
+          modalSubmit.textContent = 'Save';
+        }
+      }).catch(function(err) {
+        alert('Request failed: ' + err.message);
+        modalSubmit.disabled = false;
+        modalSubmit.textContent = 'Save';
+      });
+      return false;
+    },
+
+    _showErrors: function(errors) {
+      for (var field in errors) {
+        var input = modalBody.querySelector('[name="' + field + '"]');
+        if (input) {
+          var wrap = input.closest('.field');
+          if (wrap) {
+            wrap.classList.add('has-error');
+            var errEl = document.createElement('div');
+            errEl.className = 'error-text';
+            errEl.textContent = errors[field];
+            wrap.appendChild(errEl);
+          }
+        }
+      }
+    },
+
+    /* ── Employee modals ───────────────────────────────────── */
+    addEmployee: function() {
+      EmModal.open('Add Employee', 'tpl-add-employee', '{% url "em_employee_add" %}');
+    },
+
+    editEmployee: function(id) {
+      fetch('/dashboard/employee-management/api/employee/' + id + '/', {
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        EmModal.open('Edit Employee', 'tpl-edit-employee', '/dashboard/employee-management/api/employee/' + id + '/edit/', {
+          populate: function(body) {
+            ['first_name','last_name','email','phone','address_line1','address_line2','city','state','postal_code','hourly_rate'].forEach(function(f) {
+              var inp = body.querySelector('[name="' + f + '"]');
+              if (inp) inp.value = data[f] || '';
+            });
+            var roleSelect = body.querySelector('[name=role]');
+            if (roleSelect) roleSelect.value = data.role;
+            var activeCheck = body.querySelector('[name=is_active]');
+            if (activeCheck) activeCheck.checked = data.is_active;
+          }
+        });
+      });
+    },
+
+    changePassword: function(id, name) {
+      EmModal.open('Change Password — ' + name, 'tpl-change-password', '/dashboard/employee-management/api/employee/' + id + '/password/', {
+        submitLabel: 'Update Password'
+      });
+    },
+
+    toggleActive: function(id, isActive, name) {
+      var action = isActive ? 'deactivate' : 'activate';
+      if (!confirm('Are you sure you want to ' + action + ' ' + name + '?')) return;
+      fetch('/dashboard/employee-management/api/employee/' + id + '/toggle-active/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.ok) location.reload();
+        else alert(d.error || 'Failed');
+      });
+    },
+
+    /* ── Crew modals ───────────────────────────────────────── */
+    _populateCrewUsers: function(body, selectedLeader, selectedMembers) {
+      var crewUsers = {{ crew_users_json|safe }};
+      var leaderSelect = body.querySelector('[name=crew_leader]');
+      crewUsers.forEach(function(u) {
+        var opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = u.name;
+        if (u.id === selectedLeader) opt.selected = true;
+        leaderSelect.appendChild(opt);
+      });
+      var memberList = body.querySelector('.checkbox-list');
+      crewUsers.forEach(function(u) {
+        var lbl = document.createElement('label');
+        var cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.name = 'members'; cb.value = u.id;
+        if (selectedMembers && selectedMembers.indexOf(u.id) !== -1) cb.checked = true;
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode(' ' + u.name));
+        memberList.appendChild(lbl);
+      });
+    },
+
+    addCrew: function() {
+      EmModal.open('Add Crew', 'tpl-crew-form', '{% url "em_crew_add" %}', {
+        populate: function(body) { EmModal._populateCrewUsers(body, null, []); }
+      });
+    },
+
+    editCrew: function(id) {
+      fetch('/dashboard/employee-management/api/crew/' + id + '/', {
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        EmModal.open('Edit Crew', 'tpl-crew-form', '/dashboard/employee-management/api/crew/' + id + '/edit/', {
+          populate: function(body) {
+            body.querySelector('[name=name]').value = data.name;
+            body.querySelector('[name=color]').value = data.color;
+            body.querySelector('[name=color_picker]').value = data.color;
+            EmModal._populateCrewUsers(body, data.crew_leader, data.members);
+          }
+        });
+      });
+    },
+
+    deleteCrew: function(id, name) {
+      if (!confirm('Delete crew "' + name + '"? This cannot be undone.')) return;
+      fetch('/dashboard/employee-management/api/crew/' + id + '/delete/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.ok) location.reload();
+        else alert(d.error || 'Cannot delete crew');
+      });
+    },
+
+    /* ── Payroll modals ────────────────────────────────────── */
+    recordPayment: function() {
+      EmModal.open('Record Payment', 'tpl-record-payment', '{% url "em_payment_record" %}', {
+        populate: function(body) {
+          var allEmployees = {{ all_employees_json|safe }};
+          var empSelect = body.querySelector('[name=employee]');
+          allEmployees.forEach(function(u) {
+            var opt = document.createElement('option');
+            opt.value = u.id;
+            opt.textContent = u.name + (u.hourly_rate !== '0' ? ' ($' + u.hourly_rate + '/hr)' : '');
+            empSelect.appendChild(opt);
+          });
+        }
+      });
+    },
+
+    calculatePay: function() {
+      var body = modalBody;
+      var empId = body.querySelector('[name=employee]').value;
+      var paidDate = body.querySelector('[name=paid_date]').value;
+      if (!empId) { alert('Select an employee first.'); return; }
+      if (!paidDate) { alert('Set a date first.'); return; }
+      // Calculate for last 14 days ending on paid_date
+      var end = new Date(paidDate);
+      var start = new Date(end);
+      start.setDate(start.getDate() - 14);
+      var startStr = start.toISOString().slice(0, 10);
+
+      document.getElementById('calc-result').textContent = 'Calculating…';
+      fetch('/dashboard/employee-management/api/payment/calculate/?employee_id=' + empId + '&start=' + startStr + '&end=' + paidDate, {
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.error) {
+          document.getElementById('calc-result').textContent = d.error;
+        } else {
+          document.getElementById('calc-result').textContent = d.hours + 'h × $' + d.rate + '/hr = $' + d.amount;
+          body.querySelector('[name=amount]').value = d.amount;
+        }
+      });
+    },
+
+    /* ── Time Entry modal ──────────────────────────────────── */
+    editTimeEntry: function(id, ciDate, ciTime, coDate, coTime) {
+      EmModal.open('Edit Time Entry', 'tpl-edit-time-entry', '/dashboard/employee-management/api/time-entry/' + id + '/edit/', {
+        populate: function(body) {
+          body.querySelector('[name=clock_in_date]').value = ciDate;
+          body.querySelector('[name=clock_in_time]').value = ciTime;
+          body.querySelector('[name=clock_out_date]').value = coDate || '';
+          body.querySelector('[name=clock_out_time]').value = coTime || '';
+        }
+      });
+    },
+  };
+
+  // Close modal on overlay click
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) EmModal.close();
+  });
+  // Close modal on Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !modal.hidden) EmModal.close();
+  });
+
+
+  /* ── Expandable Time Entries ──────────────────────────────── */
+  window.toggleTimeEntries = function(row, userId, userName) {
+    var detailRow = document.querySelector('.time-entries-detail[data-user="' + userId + '"]');
+    var isExpanded = row.classList.contains('expanded');
+    // Collapse all first
+    document.querySelectorAll('.expandable-row.expanded').forEach(function(r) { r.classList.remove('expanded'); });
+    document.querySelectorAll('.time-entries-detail').forEach(function(r) { r.hidden = true; });
+
+    if (isExpanded) return;
+    row.classList.add('expanded');
+    detailRow.hidden = false;
+
+    var loadingDiv = detailRow.querySelector('.entries-loading');
+    var contentDiv = detailRow.querySelector('.entries-content');
+    loadingDiv.style.display = 'block';
+    contentDiv.style.display = 'none';
+
+    // Fetch this week's entries
+    var today = new Date();
+    var monday = new Date(today);
+    monday.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
+    var startStr = monday.toISOString().slice(0, 10);
+    var endDate = new Date(monday);
+    endDate.setDate(endDate.getDate() + 6);
+    var endStr = endDate.toISOString().slice(0, 10);
+
+    fetch('/dashboard/employee-management/api/time-entries/?employee_id=' + userId + '&start=' + startStr + '&end=' + endStr, {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      loadingDiv.style.display = 'none';
+      contentDiv.style.display = 'block';
+      if (!data.entries || data.entries.length === 0) {
+        contentDiv.innerHTML = '<p class="text-muted text-sm" style="padding:4px 0;">No time entries this week for ' + userName + '.</p>';
+        return;
+      }
+      var html = '<table class="data-table"><thead><tr><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Status</th><th></th></tr></thead><tbody>';
+      data.entries.forEach(function(e) {
+        var ci = new Date(e.clock_in);
+        var co = e.clock_out ? new Date(e.clock_out) : null;
+        var statusCls = e.status === 'approved' ? 'success' : (e.status === 'rejected' ? 'danger' : 'warning');
+        html += '<tr><td>' + ci.toLocaleDateString() + '</td>';
+        html += '<td>' + ci.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + '</td>';
+        html += '<td>' + (co ? co.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—') + '</td>';
+        html += '<td>' + e.duration + '</td>';
+        html += '<td><span class="badge badge-' + statusCls + '">' + e.status.replace('_', ' ') + '</span></td>';
+        html += '<td>';
+        if (e.status === 'pending_approval') {
+          html += '<button class="btn btn-sm" style="background:rgba(34,197,94,.2);color:#86efac;font-size:12px;" onclick="approveEntry(' + e.id + ')">✓</button> ';
+          html += '<button class="btn btn-sm" style="background:rgba(239,68,68,.2);color:#fca5a5;font-size:12px;" onclick="rejectEntry(' + e.id + ')">✗</button> ';
+        }
+        var ciD = ci.toISOString().slice(0,10);
+        var ciT = ci.toTimeString().slice(0,5);
+        var coD = co ? co.toISOString().slice(0,10) : '';
+        var coT = co ? co.toTimeString().slice(0,5) : '';
+        html += '<button class="btn btn-secondary btn-sm" style="font-size:12px;" onclick="EmModal.editTimeEntry(' + e.id + ',\'' + ciD + '\',\'' + ciT + '\',\'' + coD + '\',\'' + coT + '\')">Edit</button>';
+        html += '</td></tr>';
+      });
+      html += '</tbody></table>';
+      contentDiv.innerHTML = html;
+    });
+  };
+
+
+  /* ── Approve / Reject Time Entry ─────────────────────────── */
+  window.approveEntry = function(entryId) {
+    fetch('/time/entries/' + entryId + '/approve/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      if (d.status === 'ok') {
+        var row = document.getElementById('pending-row-' + entryId);
+        if (row) row.style.display = 'none';
+        location.reload();
+      }
+    });
+  };
+
+  window.rejectEntry = function(entryId) {
+    if (!confirm('Reject this time entry?')) return;
+    fetch('/time/entries/' + entryId + '/reject/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      if (d.status === 'ok') {
+        var row = document.getElementById('pending-row-' + entryId);
+        if (row) row.style.display = 'none';
+        location.reload();
+      }
+    });
+  };
+
 })();
 </script>
+
 {% if quickbooks_connected and payroll_unsynced_count > 0 %}
 <script>
 document.getElementById('payroll-sync-qb-btn').addEventListener('click', function() {
@@ -382,7 +1112,7 @@ document.getElementById('payroll-sync-qb-btn').addEventListener('click', functio
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-CSRFToken': document.querySelector('#payroll-csrf-form [name=csrfmiddlewaretoken]').value,
+      'X-CSRFToken': document.querySelector('#em-csrf-form [name=csrfmiddlewaretoken]').value,
       'X-Requested-With': 'XMLHttpRequest'
     },
     credentials: 'same-origin',

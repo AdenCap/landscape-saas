@@ -89,9 +89,10 @@ class EmployeePaymentForm(forms.ModelForm):
     """Form to record a payment made to an employee."""
     class Meta:
         model = EmployeePayment
-        fields = ['amount', 'paid_date', 'notes']
+        fields = ['amount', 'payment_type', 'paid_date', 'notes']
         widgets = {
             'amount': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': '0.00'}),
+            'payment_type': forms.Select(),
             'paid_date': forms.DateInput(attrs={'type': 'date'}),
             'notes': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Optional notes (e.g. pay period)'}),
         }
