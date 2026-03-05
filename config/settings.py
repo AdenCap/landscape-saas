@@ -304,6 +304,10 @@ else:
         "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
     }
 
+# Supabase Realtime (for in-app messaging)
+SUPABASE_PROJECT_URL = os.environ.get("SUPABASE_PROJECT_URL", "").strip()
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "").strip()
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

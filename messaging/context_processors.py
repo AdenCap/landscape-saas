@@ -1,4 +1,5 @@
 """Context processors for the messaging app."""
+from django.conf import settings as django_settings
 from django.db.models import Q
 
 
@@ -35,4 +36,8 @@ def messaging_unread_count(request):
         .count()
     )
 
-    return {"messaging_unread_count": count}
+    return {
+        "messaging_unread_count": count,
+        "supabase_project_url": getattr(django_settings, "SUPABASE_PROJECT_URL", ""),
+        "supabase_anon_key": getattr(django_settings, "SUPABASE_ANON_KEY", ""),
+    }

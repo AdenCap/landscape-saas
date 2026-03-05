@@ -14,7 +14,10 @@
 <div class="chat-overlay" id="chat-overlay"></div>
 
 <!-- Chat Panel -->
-<div class="chat-panel" id="chat-panel" data-user-id="{{ request.user.id }}">
+<div class="chat-panel" id="chat-panel"
+     data-user-id="{{ request.user.id }}"
+     data-supabase-url="{{ supabase_project_url }}"
+     data-supabase-key="{{ supabase_anon_key }}">
   {% csrf_token %}
 
   <!-- ========================================
@@ -90,4 +93,5 @@
 </div>
 
 <!-- Messaging scripts -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="{% static 'js/messaging.js' %}"></script>
