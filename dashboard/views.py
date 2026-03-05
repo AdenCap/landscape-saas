@@ -690,8 +690,10 @@ def _schedule_rows_for_user(user):
 @role_required("owner", "manager", "crew")
 def employee_management(request):
     """Combined page: Employees, Timesheets, Crews, Payroll, Time off, Schedule. Crew only sees Time off and Schedule."""
-    business = getattr(request.user, "business", None)
+    business = get_business(request)
     if not business:
+        if request.user.is_superuser:
+            return redirect("platform_home")
         return redirect("/")
 
     is_owner = getattr(request.user, "role", None) in ("owner", "manager")
