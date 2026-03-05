@@ -693,7 +693,7 @@ def employee_management(request):
     if not business:
         return redirect("/")
 
-    is_owner = getattr(request.user, "role", None) == "owner"
+    is_owner = getattr(request.user, "role", None) in ("owner", "manager")
 
     # Owner-only data (crew gets empty)
     today = timezone.localdate()

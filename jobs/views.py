@@ -365,7 +365,7 @@ def calendar_events(request):
         events.append(evt)
 
     # Owner-only: add meetings to calendar
-    if business and getattr(request.user, "role", None) == "owner":
+    if business and getattr(request.user, "role", None) in ("owner", "manager"):
         meetings = Meeting.objects.filter(business=business).select_related("customer").order_by("scheduled_at")
         if search:
             meetings = meetings.filter(
