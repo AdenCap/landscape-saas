@@ -196,17 +196,8 @@ def _create_crew(request, data, business, user):
     return JsonResponse({"conversation": serialize_conversation(conversation, user)})
 
 
-def _create_broadcast_conversation(request, business, user):
-    if not can_create_broadcast(user):
-        return JsonResponse({"error": "Permission denied"}, status=403)
-
-    conversation, created = Conversation.objects.get_or_create(
-        business=business,
-        conversation_type="broadcast",
-        defaults={"title": "All Employees"},
-    )
-
-    # Add all active business users as members
+def _sync_broadcast_members(business, conversation):
+    """Ensure all active business users are members of the broadcast conversation."""
     all_user_ids = set(
         User.objects.filter(business=business, is_active=True)
         .values_list("pk", flat=True)
@@ -223,6 +214,19 @@ def _create_broadcast_conversation(request, business, user):
     ]
     if new_members:
         ConversationMember.objects.bulk_create(new_members, ignore_conflicts=True)
+
+
+def _create_broadcast_conversation(request, business, user):
+    if not can_create_broadcast(user):
+        return JsonResponse({"error": "Permission denied"}, status=403)
+
+    conversation, created = Conversation.objects.get_or_create(
+        business=business,
+        conversation_type="broadcast",
+        defaults={"title": "All Employees"},
+    )
+
+    _sync_broadcast_members(business, conversation)
 
     return JsonResponse({"conversation": serialize_conversation(conversation, user)})
 
@@ -253,11 +257,13 @@ def conversation_messages(request, conversation_id):
         .filter(conversation=conversation)
         .select_related("sender")
         .prefetch_related("attachments")
-        .order_by("-created_at")
     )
 
     # Pagination: ?before=<message_id> for older messages
     before = request.GET.get("before")
+    since = request.GET.get("since")
+    use_ascending = False
+
     if before:
         try:
             before_id = int(before)
@@ -268,23 +274,29 @@ def conversation_messages(request, conversation_id):
             pass
 
     # Catch-up: ?since=<iso_timestamp> for messages since a timestamp
-    since = request.GET.get("since")
     if since:
         try:
             from django.utils.dateparse import parse_datetime
             since_dt = parse_datetime(since)
             if since_dt:
                 qs = qs.filter(created_at__gt=since_dt)
+                use_ascending = True
         except (ValueError, TypeError):
             pass
 
-    # Fetch one extra to know if there are more
-    messages = list(qs[: PAGE_SIZE + 1])
-    has_more = len(messages) > PAGE_SIZE
-    messages = messages[:PAGE_SIZE]
-
-    # Return in ascending order (oldest first)
-    messages.reverse()
+    if use_ascending:
+        # Ascending: return the first PAGE_SIZE messages after the timestamp
+        qs = qs.order_by("created_at")
+        messages = list(qs[: PAGE_SIZE + 1])
+        has_more = len(messages) > PAGE_SIZE
+        messages = messages[:PAGE_SIZE]
+    else:
+        # Descending: return the latest PAGE_SIZE messages, then reverse
+        qs = qs.order_by("-created_at")
+        messages = list(qs[: PAGE_SIZE + 1])
+        has_more = len(messages) > PAGE_SIZE
+        messages = messages[:PAGE_SIZE]
+        messages.reverse()
 
     return JsonResponse({
         "messages": [serialize_message(m) for m in messages],
@@ -483,6 +495,9 @@ def delete_message(request, message_id):
     message.content = ""
     message.save(update_fields=["is_deleted", "content"])
 
+    # Update conversation timestamp to reflect the change
+    Conversation.objects.filter(pk=message.conversation_id).update(updated_at=timezone.now())
+
     # Delete attachment files and records
     attachments = message.attachments.all()
     for attachment in attachments:
@@ -527,22 +542,7 @@ def broadcast(request):
     )
 
     # Add any new employees as ConversationMembers
-    all_user_ids = set(
-        User.objects.filter(business=business, is_active=True)
-        .values_list("pk", flat=True)
-    )
-    existing_member_ids = set(
-        ConversationMember.objects
-        .filter(conversation=conversation)
-        .values_list("user_id", flat=True)
-    )
-    new_members = [
-        ConversationMember(conversation=conversation, user_id=uid)
-        for uid in all_user_ids
-        if uid not in existing_member_ids
-    ]
-    if new_members:
-        ConversationMember.objects.bulk_create(new_members, ignore_conflicts=True)
+    _sync_broadcast_members(business, conversation)
 
     # Send message
     message = Message.objects.create(
@@ -576,20 +576,29 @@ def unread_count(request):
     """Return total unread message count across all conversations."""
     user = request.user
 
-    memberships = ConversationMember.objects.filter(user=user).select_related(
-        "conversation"
+    # First query: get all memberships with conversation IDs and last_read_at
+    memberships = list(
+        ConversationMember.objects.filter(user=user)
+        .values('conversation_id', 'last_read_at')
     )
 
-    total = 0
-    for membership in memberships:
-        qs = (
-            Message.objects
-            .filter(conversation=membership.conversation, is_deleted=False)
-            .exclude(sender=user)
-        )
-        if membership.last_read_at:
-            qs = qs.filter(created_at__gt=membership.last_read_at)
-        total += qs.count()
+    if not memberships:
+        return JsonResponse({"unread_count": 0})
+
+    # Second query: single COUNT using Q objects for all conversations
+    q = Q()
+    for m in memberships:
+        conv_q = Q(conversation_id=m['conversation_id'])
+        if m['last_read_at']:
+            conv_q &= Q(created_at__gt=m['last_read_at'])
+        q |= conv_q
+
+    total = (
+        Message.objects
+        .filter(q, is_deleted=False)
+        .exclude(sender=user)
+        .count()
+    )
 
     return JsonResponse({"unread_count": total})
 
