@@ -1,281 +1,519 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Business Settings</h1>
-  <p>Configure how your business communicates with clients</p>
-</div>
+<div class="settings-page">
+  <div class="settings-header">
+    <h1>Settings</h1>
+    <p class="settings-subtitle">Manage your business configuration</p>
+  </div>
 
-<div class="card" style="max-width: 540px;">
-  <form method="post" enctype="multipart/form-data">
+  <nav class="settings-tabs" id="settings-tabs">
+    <button class="settings-tab active" data-tab="general" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      General
+    </button>
+    <button class="settings-tab" data-tab="email" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      Email
+    </button>
+    <button class="settings-tab" data-tab="invoicing" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Invoicing
+    </button>
+    <button class="settings-tab" data-tab="automation" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+      Automation
+    </button>
+    <button class="settings-tab" data-tab="integrations" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+      Integrations
+    </button>
+    <button class="settings-tab" data-tab="security" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Security
+    </button>
+  </nav>
+
+  <form method="post" enctype="multipart/form-data" id="settings-form">
     {% csrf_token %}
     {% if next_value %}<input type="hidden" name="next" value="{{ next_value }}">{% endif %}
     {% if form.non_field_errors %}
-    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    <div class="alert alert-error" style="margin-bottom: 16px;">{{ form.non_field_errors }}</div>
     {% endif %}
-    <div class="field">
-      {{ form.name.label_tag }}{{ form.name }}{{ form.name.errors }}
-    </div>
-    <div class="form-section">
-      <h3>Logo</h3>
-      <p class="muted">Your logo appears on invoices, estimates, and emails sent to clients.</p>
-      {% if business.logo %}
-      <div class="logo-preview">
-        <img src="{{ business.logo.url }}" alt="{{ business.name }} logo" height="64">
-      </div>
-      {% endif %}
-      <div class="field">
-        {{ form.logo.label_tag }}{{ form.logo }}{{ form.logo.errors }}
-      </div>
-    </div>
-    <div class="form-section gmail-section">
-      <h3>Gmail – Send estimates & invoices</h3>
-      <p class="muted">One place to connect Gmail. All client emails (estimates, invoices, follow-ups) are sent from this account. Your App Password is stored encrypted and never shared.</p>
-      <div class="field">
-        {{ form.email_smtp_user.label_tag }}{{ form.email_smtp_user }}{{ form.email_smtp_user.errors }}
-        {% if form.email_smtp_user.help_text %}<p class="help">{{ form.email_smtp_user.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.email_smtp_password.label_tag }}{{ form.email_smtp_password }}{{ form.email_smtp_password.errors }}
-        <p class="help">Stored encrypted. <a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noopener">How to create a Gmail App Password</a> (requires 2-Step Verification).</p>
-      </div>
-      {% if business.email_smtp_user and business.email_smtp_password %}
-      <p class="help status-connected">Gmail connected. You can send estimates and invoices from this account.</p>
-      <form method="post" action="{% url 'test_gmail_connection' %}" style="display: inline; margin-left: 8px;">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-secondary btn-sm">Send test email</button>
-      </form>
-      {% else %}
-      <p class="help status-disconnected">Enter your Gmail and App Password above, then save to connect.</p>
-      {% endif %}
-    </div>
-    <div class="form-section">
-      <h3>Email & Phone for Client Communication</h3>
-      <p class="muted">Shown to clients so they can reach you.</p>
-      <div class="field">
-        {{ form.from_email.label_tag }}{{ form.from_email }}{{ form.from_email.errors }}
-        {% if form.from_email.help_text %}<p class="help">{{ form.from_email.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.contact_email.label_tag }}{{ form.contact_email }}{{ form.contact_email.errors }}
-        {% if form.contact_email.help_text %}<p class="help">{{ form.contact_email.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.contact_phone.label_tag }}{{ form.contact_phone }}{{ form.contact_phone.errors }}
-        {% if form.contact_phone.help_text %}<p class="help">{{ form.contact_phone.help_text }}</p>{% endif %}
-      </div>
-    </div>
-    <div class="form-section">
-      <h3>Email content (invoices & estimates)</h3>
-      <p class="muted">Customize the subject and message text for emails sent to clients. Leave any field blank to use the default. You can use <code>{{invoice_id}}</code>, <code>{{customer_name}}</code>, <code>{{business_name}}</code>, <code>{{title}}</code> (estimates) in subject lines.</p>
-      <div class="field">
-        {{ form.invoice_email_subject.label_tag }}{{ form.invoice_email_subject }}{{ form.invoice_email_subject.errors }}
-        {% if form.invoice_email_subject.help_text %}<p class="help">{{ form.invoice_email_subject.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.invoice_email_intro.label_tag }}{{ form.invoice_email_intro }}{{ form.invoice_email_intro.errors }}
-      </div>
-      <div class="field">
-        {{ form.invoice_email_closing.label_tag }}{{ form.invoice_email_closing }}{{ form.invoice_email_closing.errors }}
-      </div>
-      <div class="field">
-        {{ form.estimate_email_subject.label_tag }}{{ form.estimate_email_subject }}{{ form.estimate_email_subject.errors }}
-      </div>
-      <div class="field">
-        {{ form.estimate_email_intro.label_tag }}{{ form.estimate_email_intro }}{{ form.estimate_email_intro.errors }}
-      </div>
-      <div class="field">
-        {{ form.estimate_email_closing.label_tag }}{{ form.estimate_email_closing }}{{ form.estimate_email_closing.errors }}
-      </div>
-      <div class="field">
-        {{ form.estimate_followup_email_subject.label_tag }}{{ form.estimate_followup_email_subject }}{{ form.estimate_followup_email_subject.errors }}
-      </div>
-      <div class="field">
-        {{ form.estimate_followup_email_intro.label_tag }}{{ form.estimate_followup_email_intro }}{{ form.estimate_followup_email_intro.errors }}
-      </div>
-    </div>
-    <div class="form-section">
-      <h3>Estimate Follow-up</h3>
-      <p class="muted">Automatically send follow-up reminders for estimates awaiting response.</p>
-      <div class="field">
-        {{ form.estimate_follow_up_days.label_tag }}{{ form.estimate_follow_up_days }}{{ form.estimate_follow_up_days.errors }}
-        {% if form.estimate_follow_up_days.help_text %}<p class="help">{{ form.estimate_follow_up_days.help_text }}</p>{% endif %}
-      </div>
-    </div>
-    <div class="form-section">
-      <h3>Google review requests</h3>
-      <p class="muted">Ask clients for reviews after they pay, and automatically stop once they review or opt out.</p>
-      <div class="field">
-        {{ form.google_review_requests_enabled.label_tag }} {{ form.google_review_requests_enabled }} {{ form.google_review_requests_enabled.errors }}
-      </div>
-      <div class="field">
-        {{ form.google_review_link.label_tag }}{{ form.google_review_link }}{{ form.google_review_link.errors }}
-        {% if form.google_review_link.help_text %}<p class="help">{{ form.google_review_link.help_text }}</p>{% endif %}
-      </div>
-      <div class="field" style="display:flex; gap:16px; align-items:flex-end;">
-        <div style="flex:1;">
-          {{ form.google_review_request_delay_hours.label_tag }}{{ form.google_review_request_delay_hours }}{{ form.google_review_request_delay_hours.errors }}
+
+    <!-- GENERAL -->
+    <div class="settings-panel active" id="panel-general">
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Business Info</h2>
+          <p>Your company name and logo appear on all client-facing documents.</p>
         </div>
-        <div style="flex:1;">
-          {{ form.google_review_followup_days.label_tag }}{{ form.google_review_followup_days }}{{ form.google_review_followup_days.errors }}
-        </div>
-        <div style="flex:1;">
-          {{ form.google_review_max_attempts.label_tag }}{{ form.google_review_max_attempts }}{{ form.google_review_max_attempts.errors }}
+        <div class="panel-card-body">
+          <div class="field">
+            <label for="{{ form.name.id_for_label }}">Business name</label>
+            {{ form.name }}
+            {{ form.name.errors }}
+          </div>
+          <div class="field">
+            <label>Logo</label>
+            <p class="field-help">Appears on invoices, estimates, and emails.</p>
+            {% if business.logo %}
+            <div class="logo-preview">
+              <img src="{{ business.logo.url }}" alt="{{ business.name }} logo">
+            </div>
+            {% endif %}
+            {{ form.logo }}
+            {{ form.logo.errors }}
+          </div>
         </div>
       </div>
-      <div class="field">
-        {{ form.google_review_sms_enabled.label_tag }} {{ form.google_review_sms_enabled }} {{ form.google_review_sms_enabled.errors }}
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Contact Info</h2>
+          <p>Shown to clients on invoices and estimates so they can reach you.</p>
+        </div>
+        <div class="panel-card-body">
+          <div class="field">
+            <label for="{{ form.contact_email.id_for_label }}">Contact email</label>
+            {{ form.contact_email }}
+            {{ form.contact_email.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.contact_phone.id_for_label }}">Phone number</label>
+            {{ form.contact_phone }}
+            {{ form.contact_phone.errors }}
+          </div>
+        </div>
       </div>
-      <div class="field">
-        {{ form.google_review_sms_template.label_tag }}{{ form.google_review_sms_template }}{{ form.google_review_sms_template.errors }}
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Operations</h2>
+          <p>Control how field work is managed.</p>
+        </div>
+        <div class="panel-card-body">
+          <div class="field field-checkbox">
+            {{ form.require_completion_photo }}
+            <div>
+              <label for="{{ form.require_completion_photo.id_for_label }}">Require completion photos</label>
+              <p class="field-help">Crew must upload a photo before marking a job done.</p>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="{{ form.growing_season_start_month.id_for_label }}">Season start (month)</label>
+              {{ form.growing_season_start_month }}
+              {{ form.growing_season_start_month.errors }}
+            </div>
+            <div class="field">
+              <label for="{{ form.growing_season_end_month.id_for_label }}">Season end (month)</label>
+              {{ form.growing_season_end_month }}
+              {{ form.growing_season_end_month.errors }}
+            </div>
+          </div>
+          <p class="field-help">Used for fertilization schedule generation.</p>
+        </div>
       </div>
-      <p class="help">Run <code>python manage.py send_google_review_requests</code> daily (cron) to send queued review requests. Recommended: <code>python manage.py send_google_review_requests --start-hour 9 --end-hour 20 --max-per-run 200</code>.</p>
-      <p class="help">Tip: use your direct Google review URL (often includes <code>/writeareview</code> or PlaceID format) so clients land on the review form immediately.</p>
-    </div>
-    <div class="form-section">
-      <h3>Invoicing automation</h3>
-      <p class="muted">Choose your default automation for customers that don't have a custom billing frequency set.</p>
-      <div class="field">
-        {{ form.default_invoice_automation_mode.label_tag }}{{ form.default_invoice_automation_mode }}{{ form.default_invoice_automation_mode.errors }}
-        {% if form.default_invoice_automation_mode.help_text %}<p class="help">{{ form.default_invoice_automation_mode.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.auto_invoice_send_behavior.label_tag }}{{ form.auto_invoice_send_behavior }}{{ form.auto_invoice_send_behavior.errors }}
-        {% if form.auto_invoice_send_behavior.help_text %}<p class="help">{{ form.auto_invoice_send_behavior.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.default_monthly_invoice_send_day.label_tag }}{{ form.default_monthly_invoice_send_day }}{{ form.default_monthly_invoice_send_day.errors }}
-        {% if form.default_monthly_invoice_send_day.help_text %}<p class="help">{{ form.default_monthly_invoice_send_day.help_text }}</p>{% endif %}
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Payment Methods</h2>
+          <p>Show these at the bottom of every invoice so clients know how to pay.</p>
+        </div>
+        <div class="panel-card-body">
+          <div class="field">
+            <label for="{{ form.venmo_username.id_for_label }}">Venmo</label>
+            {{ form.venmo_username }}
+            <p class="field-help">e.g. @YourBusiness</p>
+            {{ form.venmo_username.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.zelle_email_or_phone.id_for_label }}">Zelle</label>
+            {{ form.zelle_email_or_phone }}
+            <p class="field-help">Email or phone number</p>
+            {{ form.zelle_email_or_phone.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.cashapp_cashtag.id_for_label }}">Cash App</label>
+            {{ form.cashapp_cashtag }}
+            <p class="field-help">e.g. $YourBusiness</p>
+            {{ form.cashapp_cashtag.errors }}
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="form-section">
-      <h3>Cash Flow Autopilot</h3>
-      <p class="muted">Automate reminder cadence and estimate follow-ups with owner safety gates.</p>
-      <div class="field">
-        {{ form.invoice_reminder_enabled.label_tag }} {{ form.invoice_reminder_enabled }} {{ form.invoice_reminder_enabled.errors }}
-        {% if form.invoice_reminder_enabled.help_text %}<p class="help">{{ form.invoice_reminder_enabled.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.invoice_reminder_days.label_tag }}{{ form.invoice_reminder_days }}{{ form.invoice_reminder_days.errors }}
-        {% if form.invoice_reminder_days.help_text %}<p class="help">{{ form.invoice_reminder_days.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.invoice_reminder_require_owner_approval.label_tag }} {{ form.invoice_reminder_require_owner_approval }} {{ form.invoice_reminder_require_owner_approval.errors }}
-        {% if form.invoice_reminder_require_owner_approval.help_text %}<p class="help">{{ form.invoice_reminder_require_owner_approval.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.estimate_follow_up_days.label_tag }}{{ form.estimate_follow_up_days }}{{ form.estimate_follow_up_days.errors }}
-        {% if form.estimate_follow_up_days.help_text %}<p class="help">{{ form.estimate_follow_up_days.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.estimate_follow_up_cadence_days.label_tag }}{{ form.estimate_follow_up_cadence_days }}{{ form.estimate_follow_up_cadence_days.errors }}
-        {% if form.estimate_follow_up_cadence_days.help_text %}<p class="help">{{ form.estimate_follow_up_cadence_days.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.quote_upsell_suggestions.label_tag }}{{ form.quote_upsell_suggestions }}{{ form.quote_upsell_suggestions.errors }}
-        {% if form.quote_upsell_suggestions.help_text %}<p class="help">{{ form.quote_upsell_suggestions.help_text }}</p>{% endif %}
-      </div>
-    </div>
-
-    <div class="form-section">
-      <h3>Invoices – default due date</h3>
-      <p class="muted">New invoices will be due this many days after the issue date. You can override this per client in Clients, or change the due date on any invoice.</p>
-      <div class="field">
-        {{ form.default_invoice_due_days.label_tag }}{{ form.default_invoice_due_days }}{{ form.default_invoice_due_days.errors }}
-        {% if form.default_invoice_due_days.help_text %}<p class="help">{{ form.default_invoice_due_days.help_text }}</p>{% endif %}
-      </div>
-    </div>
-    <div class="form-section">
-      <h3>Fertilization scheduling</h3>
-      <p class="muted">Growing season used when you generate fertilization schedules (Jobs → Fertilization schedule). Same number of applications = same dates for efficiency.</p>
-      <div class="field" style="display: flex; gap: 16px; align-items: flex-end;">
-        <div>
-          {{ form.growing_season_start_month.label_tag }}{{ form.growing_season_start_month }}{{ form.growing_season_start_month.errors }}
+    <!-- EMAIL -->
+    <div class="settings-panel" id="panel-email">
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Gmail Connection</h2>
+          <p>Connect Gmail to send estimates, invoices, and follow-ups to clients. Your app password is stored encrypted.</p>
         </div>
-        <div>
-          {{ form.growing_season_end_month.label_tag }}{{ form.growing_season_end_month }}{{ form.growing_season_end_month.errors }}
-        </div>
-      </div>
-    </div>
-    <div class="form-section">
-      <h3>Payment handles (invoices)</h3>
-      <p class="muted">Add your Venmo, Zelle, and Cash App handles. They appear at the bottom of every sent invoice so customers know how to pay you.</p>
-      <div class="field">
-        {{ form.venmo_username.label_tag }}{{ form.venmo_username }}{{ form.venmo_username.errors }}
-        {% if form.venmo_username.help_text %}<p class="help">{{ form.venmo_username.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.zelle_email_or_phone.label_tag }}{{ form.zelle_email_or_phone }}{{ form.zelle_email_or_phone.errors }}
-        {% if form.zelle_email_or_phone.help_text %}<p class="help">{{ form.zelle_email_or_phone.help_text }}</p>{% endif %}
-      </div>
-      <div class="field">
-        {{ form.cashapp_cashtag.label_tag }}{{ form.cashapp_cashtag }}{{ form.cashapp_cashtag.errors }}
-        {% if form.cashapp_cashtag.help_text %}<p class="help">{{ form.cashapp_cashtag.help_text }}</p>{% endif %}
-      </div>
-    </div>
-    <div class="form-section">
-      <h3>Platform subscription</h3>
-      <p class="muted">Your business pays a subscription for access to Field Ops. Manage or start your subscription here.</p>
-      <a href="{% url 'subscription:status' %}" class="btn btn-secondary">Subscription</a>
-    </div>
-    <div class="form-section">
-      <h3>Accept client payments (Stripe)</h3>
-      <p class="muted">Let customers pay invoices by card. Connect your Stripe account once; then "Pay with card" appears on invoice pay links.</p>
-      {% if stripe_connect_fee_percent %}
-      <p class="help">Platform fee on card payments: {{ stripe_connect_fee_percent }}% (set by platform).</p>
-      {% endif %}
-      {% if not stripe_connect_enabled %}
-      <div class="alert alert-warning" style="margin-top: 12px;">
-        <p style="margin: 0; font-size: 14px;">Credit card payments are not yet enabled on the platform. Contact your administrator to enable Stripe payment processing.</p>
-      </div>
-      {% elif business.stripe_connect_account_id %}
-        {% if business.stripe_connect_charges_enabled %}
-        <p class="help status-connected">Stripe connected. Customers can pay invoices by card.</p>
-        <a href="{% url 'billing:connect_dashboard' %}" class="btn btn-secondary">Stripe Express dashboard</a>
-        {% else %}
-        <p class="help status-disconnected">Stripe account created but not yet enabled for charges. Complete onboarding below.</p>
-        <a href="{% url 'billing:connect_onboarding' %}" class="btn btn-secondary">Complete Stripe setup</a>
-        {% endif %}
-      {% else %}
-        <a href="{% url 'billing:connect_onboarding' %}" class="btn btn-secondary">Connect Stripe to accept card payments</a>
-      {% endif %}
-    </div>
-    <div class="form-section">
-      <h3>QuickBooks Online</h3>
-      <p class="muted">Push invoices to QuickBooks. Connect once, then use "Push to QuickBooks" on any invoice.</p>
-      <a href="{% url 'quickbooks:settings' %}" class="btn btn-secondary">Open QuickBooks settings</a>
-    </div>
-    <div class="form-section">
-      <h3>Security – Two-factor authentication</h3>
-      <p class="muted">Require a code from your phone (e.g. Google Authenticator) when signing in from a new device. Trusted devices skip 2FA.</p>
-      {% if has_2fa %}
-      <p class="help status-connected">2FA is enabled.</p>
-      <form method="post" action="{% url 'twofa_disable' %}" style="display: inline;">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-secondary">Disable 2FA</button>
-      </form>
-      {% if trusted_devices %}
-      <p class="muted" style="margin-top: 12px;">Trusted devices (2FA not required on next login):</p>
-      <ul class="trusted-device-list">
-        {% for dev in trusted_devices %}
-        <li>
-          <span>{{ dev.name|default:"This device" }} – added {{ dev.created_at|date:"M j, Y" }}</span>
-          <form method="post" action="{% url 'twofa_revoke_device' %}" style="display: inline; margin-left: 8px;">
-            {% csrf_token %}
-            <input type="hidden" name="device_id" value="{{ dev.pk }}">
-            <button type="submit" class="btn btn-sm btn-outline">Revoke</button>
+        <div class="panel-card-body">
+          {% if business.email_smtp_user and business.email_smtp_password %}
+          <div class="status-banner status-ok">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Gmail connected — emails send from this account
+          </div>
+          {% else %}
+          <div class="status-banner status-warn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Not connected — enter credentials below and save
+          </div>
+          {% endif %}
+          <div class="field">
+            <label for="{{ form.email_smtp_user.id_for_label }}">Gmail address</label>
+            {{ form.email_smtp_user }}
+            {{ form.email_smtp_user.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.email_smtp_password.id_for_label }}">App Password</label>
+            {{ form.email_smtp_password }}
+            {{ form.email_smtp_password.errors }}
+            <p class="field-help"><a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noopener">How to create a Gmail App Password</a> (requires 2-Step Verification on your Google account)</p>
+          </div>
+          {% if business.email_smtp_user and business.email_smtp_password %}
           </form>
-        </li>
-        {% endfor %}
-      </ul>
-      {% endif %}
-      {% else %}
-      <a href="{% url 'twofa_setup' %}" class="btn btn-secondary">Enable 2FA</a>
-      {% endif %}
+          <form method="post" action="{% url 'test_gmail_connection' %}" style="margin-top: 4px;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm">Send test email</button>
+          </form>
+          <form method="post" enctype="multipart/form-data" id="settings-form-resume">
+          {% csrf_token %}
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Sender Details</h2>
+          <p>Controls who emails appear to come from.</p>
+        </div>
+        <div class="panel-card-body">
+          <div class="field">
+            <label for="{{ form.from_email.id_for_label }}">From email</label>
+            {{ form.from_email }}
+            <p class="field-help">Should match your Gmail address above.</p>
+            {{ form.from_email.errors }}
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Email Templates</h2>
+          <p>Customize subject lines and body text. Leave blank for defaults. Variables: <code>{% templatetag openvariable %}customer_name{% templatetag closevariable %}</code>, <code>{% templatetag openvariable %}business_name{% templatetag closevariable %}</code>, <code>{% templatetag openvariable %}invoice_id{% templatetag closevariable %}</code>, <code>{% templatetag openvariable %}title{% templatetag closevariable %}</code></p>
+        </div>
+        <div class="panel-card-body">
+          <h3 class="field-group-title">Invoice emails</h3>
+          <div class="field">
+            <label for="{{ form.invoice_email_subject.id_for_label }}">Subject</label>
+            {{ form.invoice_email_subject }}
+            {{ form.invoice_email_subject.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.invoice_email_intro.id_for_label }}">Opening message</label>
+            {{ form.invoice_email_intro }}
+            {{ form.invoice_email_intro.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.invoice_email_closing.id_for_label }}">Closing message</label>
+            {{ form.invoice_email_closing }}
+            {{ form.invoice_email_closing.errors }}
+          </div>
+          <h3 class="field-group-title" style="margin-top: 20px;">Estimate emails</h3>
+          <div class="field">
+            <label for="{{ form.estimate_email_subject.id_for_label }}">Subject</label>
+            {{ form.estimate_email_subject }}
+            {{ form.estimate_email_subject.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.estimate_email_intro.id_for_label }}">Opening message</label>
+            {{ form.estimate_email_intro }}
+            {{ form.estimate_email_intro.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.estimate_email_closing.id_for_label }}">Closing message</label>
+            {{ form.estimate_email_closing }}
+            {{ form.estimate_email_closing.errors }}
+          </div>
+          <h3 class="field-group-title" style="margin-top: 20px;">Estimate follow-up emails</h3>
+          <div class="field">
+            <label for="{{ form.estimate_followup_email_subject.id_for_label }}">Subject</label>
+            {{ form.estimate_followup_email_subject }}
+            {{ form.estimate_followup_email_subject.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.estimate_followup_email_intro.id_for_label }}">Opening message</label>
+            {{ form.estimate_followup_email_intro }}
+            {{ form.estimate_followup_email_intro.errors }}
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">Save</button>
+
+    <!-- INVOICING -->
+    <div class="settings-panel" id="panel-invoicing">
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Invoice Defaults</h2>
+          <p>Set how invoices are created and when they're due. Override per-client in Clients.</p>
+        </div>
+        <div class="panel-card-body">
+          <div class="field">
+            <label for="{{ form.default_invoice_automation_mode.id_for_label }}">Automation mode</label>
+            {{ form.default_invoice_automation_mode }}
+            <p class="field-help">How invoices are created when a job is completed.</p>
+            {{ form.default_invoice_automation_mode.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.auto_invoice_send_behavior.id_for_label }}">Send behavior</label>
+            {{ form.auto_invoice_send_behavior }}
+            <p class="field-help">Create as draft for review, or send automatically.</p>
+            {{ form.auto_invoice_send_behavior.errors }}
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="{{ form.default_monthly_invoice_send_day.id_for_label }}">Monthly send day</label>
+              {{ form.default_monthly_invoice_send_day }}
+              <p class="field-help">Day of month (1-28)</p>
+              {{ form.default_monthly_invoice_send_day.errors }}
+            </div>
+            <div class="field">
+              <label for="{{ form.default_invoice_due_days.id_for_label }}">Due in (days)</label>
+              {{ form.default_invoice_due_days }}
+              <p class="field-help">e.g. 30 for Net 30</p>
+              {{ form.default_invoice_due_days.errors }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUTOMATION -->
+    <div class="settings-panel" id="panel-automation">
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Payment Reminders</h2>
+          <p>Automatically remind clients about overdue invoices.</p>
+        </div>
+        <div class="panel-card-body">
+          <div class="field field-checkbox">
+            {{ form.invoice_reminder_enabled }}
+            <div>
+              <label for="{{ form.invoice_reminder_enabled.id_for_label }}">Enable payment reminders</label>
+              <p class="field-help">Sends reminder emails on the schedule below.</p>
+            </div>
+          </div>
+          <div class="field">
+            <label for="{{ form.invoice_reminder_days.id_for_label }}">Reminder schedule</label>
+            {{ form.invoice_reminder_days }}
+            <p class="field-help">Days after due date, comma-separated (e.g. 7, 14, 21)</p>
+            {{ form.invoice_reminder_days.errors }}
+          </div>
+          <div class="field field-checkbox">
+            {{ form.invoice_reminder_require_owner_approval }}
+            <div>
+              <label for="{{ form.invoice_reminder_require_owner_approval.id_for_label }}">Require owner approval</label>
+              <p class="field-help">Reminders wait for you to approve from the dashboard.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Estimate Follow-ups</h2>
+          <p>Automatically follow up on estimates that haven't been approved.</p>
+        </div>
+        <div class="panel-card-body">
+          <div class="field">
+            <label for="{{ form.estimate_follow_up_days.id_for_label }}">First follow-up (days)</label>
+            {{ form.estimate_follow_up_days }}
+            <p class="field-help">Days after sending estimate.</p>
+            {{ form.estimate_follow_up_days.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.estimate_follow_up_cadence_days.id_for_label }}">Follow-up cadence</label>
+            {{ form.estimate_follow_up_cadence_days }}
+            <p class="field-help">Comma-separated (e.g. 3, 7, 14)</p>
+            {{ form.estimate_follow_up_cadence_days.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.quote_upsell_suggestions.id_for_label }}">Upsell suggestions</label>
+            {{ form.quote_upsell_suggestions }}
+            <p class="field-help">One per line. Included in follow-up emails.</p>
+            {{ form.quote_upsell_suggestions.errors }}
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Google Review Requests</h2>
+          <p>Automatically ask clients for reviews after they pay.</p>
+        </div>
+        <div class="panel-card-body">
+          <div class="field field-checkbox">
+            {{ form.google_review_requests_enabled }}
+            <div>
+              <label for="{{ form.google_review_requests_enabled.id_for_label }}">Enable review requests</label>
+              <p class="field-help">Sends after payment, stops when client reviews or opts out.</p>
+            </div>
+          </div>
+          <div class="field">
+            <label for="{{ form.google_review_link.id_for_label }}">Google review URL</label>
+            {{ form.google_review_link }}
+            <p class="field-help">Direct link where clients leave reviews.</p>
+            {{ form.google_review_link.errors }}
+          </div>
+          <div class="field-row field-row-3">
+            <div class="field">
+              <label for="{{ form.google_review_request_delay_hours.id_for_label }}">Delay (hrs)</label>
+              {{ form.google_review_request_delay_hours }}
+              {{ form.google_review_request_delay_hours.errors }}
+            </div>
+            <div class="field">
+              <label for="{{ form.google_review_followup_days.id_for_label }}">Follow-up (days)</label>
+              {{ form.google_review_followup_days }}
+              {{ form.google_review_followup_days.errors }}
+            </div>
+            <div class="field">
+              <label for="{{ form.google_review_max_attempts.id_for_label }}">Max asks</label>
+              {{ form.google_review_max_attempts }}
+              {{ form.google_review_max_attempts.errors }}
+            </div>
+          </div>
+          <div class="field field-checkbox" style="margin-top: 12px;">
+            {{ form.google_review_sms_enabled }}
+            <div>
+              <label for="{{ form.google_review_sms_enabled.id_for_label }}">Also send via SMS</label>
+              <p class="field-help">Requires Twilio. Sends when client has a phone number.</p>
+            </div>
+          </div>
+          <div class="field">
+            <label for="{{ form.google_review_sms_template.id_for_label }}">SMS template</label>
+            {{ form.google_review_sms_template }}
+            <p class="field-help">Leave blank for default.</p>
+            {{ form.google_review_sms_template.errors }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INTEGRATIONS -->
+    <div class="settings-panel" id="panel-integrations">
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Stripe — Accept Card Payments</h2>
+          <p>Connect Stripe so clients can pay invoices by credit card.</p>
+        </div>
+        <div class="panel-card-body">
+          {% if stripe_connect_fee_percent %}
+          <p class="field-help" style="margin-bottom: 12px;">Platform fee: {{ stripe_connect_fee_percent }}% on card payments.</p>
+          {% endif %}
+          {% if not stripe_connect_enabled %}
+          <div class="status-banner status-warn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Card payments not enabled on the platform yet. Contact your administrator.
+          </div>
+          {% elif business.stripe_connect_account_id %}
+            {% if business.stripe_connect_charges_enabled %}
+            <div class="status-banner status-ok">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Stripe connected — clients can pay by card
+            </div>
+            <a href="{% url 'billing:connect_dashboard' %}" class="btn btn-secondary" style="margin-top: 8px;">Open Stripe dashboard</a>
+            {% else %}
+            <div class="status-banner status-warn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Account created but onboarding not complete
+            </div>
+            <a href="{% url 'billing:connect_onboarding' %}" class="btn btn-primary" style="margin-top: 8px;">Complete Stripe setup</a>
+            {% endif %}
+          {% else %}
+          <a href="{% url 'billing:connect_onboarding' %}" class="btn btn-primary">Connect Stripe</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>QuickBooks Online</h2>
+          <p>Push invoices to QuickBooks with one click.</p>
+        </div>
+        <div class="panel-card-body">
+          <a href="{% url 'quickbooks:settings' %}" class="btn btn-secondary">Open QuickBooks settings</a>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Subscription</h2>
+          <p>Manage your Field Ops plan and billing.</p>
+        </div>
+        <div class="panel-card-body">
+          <a href="{% url 'subscription:status' %}" class="btn btn-secondary">Manage subscription</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECURITY -->
+    <div class="settings-panel" id="panel-security">
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Two-Factor Authentication</h2>
+          <p>Require a code from an authenticator app when signing in from a new device.</p>
+        </div>
+        <div class="panel-card-body">
+          {% if has_2fa %}
+          <div class="status-banner status-ok">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            2FA is enabled
+          </div>
+          </form>
+          <form method="post" action="{% url 'twofa_disable' %}" style="margin-top: 8px;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm">Disable 2FA</button>
+          </form>
+          {% if trusted_devices %}
+          <div class="trusted-section">
+            <h3 class="field-group-title" style="margin-top: 16px;">Trusted devices</h3>
+            <p class="field-help">These devices skip 2FA on next login.</p>
+            <ul class="trusted-device-list">
+              {% for dev in trusted_devices %}
+              <li>
+                <div class="trusted-device-info">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                  <span>{{ dev.name|default:"This device" }}</span>
+                  <span class="trusted-device-date">{{ dev.created_at|date:"M j, Y" }}</span>
+                </div>
+                <form method="post" action="{% url 'twofa_revoke_device' %}" style="display: inline;">
+                  {% csrf_token %}
+                  <input type="hidden" name="device_id" value="{{ dev.pk }}">
+                  <button type="submit" class="btn btn-sm btn-outline">Revoke</button>
+                </form>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+          {% else %}
+          <div class="status-banner status-warn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            2FA is not enabled
+          </div>
+          <a href="{% url 'twofa_setup' %}" class="btn btn-primary" style="margin-top: 8px;">Enable 2FA</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- SAVE BAR -->
+    <div class="settings-save-bar">
+      <button type="submit" class="btn btn-primary">Save changes</button>
       {% if next_value %}
       <a href="{{ next_value }}" class="btn btn-secondary">Back to onboarding</a>
       {% else %}
@@ -286,23 +524,150 @@
 </div>
 
 <style>
-  .field { margin-bottom: 16px; }
-  .field label { display: block; font-weight: 500; margin-bottom: 4px; }
-  .field input, .field textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; }
-  .field textarea { min-height: 60px; resize: vertical; }
-  .form-section code { font-size: 12px; background: var(--surface-alt); padding: 2px 6px; border-radius: 4px; }
-  .field .help, .form-section .muted { font-size: 13px; color: var(--text-muted); margin: 4px 0 0 0; }
-  .form-section { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
-  .form-section h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px 0; }
-  .status-connected { color: #059669; font-weight: 500; }
-  .status-disconnected { color: var(--text-muted); }
-  .form-actions { display: flex; gap: 10px; margin-top: 24px; }
-  .logo-preview { margin-bottom: 12px; }
-  .logo-preview img { display: block; border-radius: 8px; }
-  .trusted-device-list { list-style: none; padding: 0; margin: 8px 0 0 0; }
-  .trusted-device-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .settings-page { max-width: 780px; margin: 0 auto; }
+  .settings-header { margin-bottom: 20px; }
+  .settings-header h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .settings-subtitle { color: var(--text-muted); margin: 0; font-size: 15px; }
+
+  /* Tabs */
+  .settings-tabs {
+    display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px;
+    border-bottom: 1px solid var(--border); margin-bottom: 20px;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .settings-tabs::-webkit-scrollbar { display: none; }
+  .settings-tab {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 16px; border: none; background: none;
+    color: var(--text-muted); font-size: 13px; font-weight: 500;
+    cursor: pointer; white-space: nowrap; border-radius: 8px 8px 0 0;
+    border-bottom: 2px solid transparent; transition: all 0.15s ease;
+  }
+  .settings-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  .settings-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(59,130,246,0.06); }
+  .settings-tab svg { opacity: 0.6; flex-shrink: 0; }
+  .settings-tab.active svg { opacity: 1; color: var(--primary); }
+
+  /* Panels */
+  .settings-panel { display: none; }
+  .settings-panel.active { display: block; }
+  .panel-card {
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface, #141414); margin-bottom: 16px; overflow: hidden;
+  }
+  .panel-card-header {
+    padding: 18px 20px 14px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .panel-card-header h2 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+  .panel-card-header p { font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.45; }
+  .panel-card-body { padding: 16px 20px 20px; }
+
+  /* Fields */
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: var(--text); }
+  .field input[type="text"], .field input[type="email"], .field input[type="url"],
+  .field input[type="number"], .field input[type="password"], .field input[type="tel"],
+  .field textarea, .field select {
+    width: 100%; padding: 9px 12px; border-radius: 8px;
+    border: 1px solid var(--border); font-size: 14px;
+    background: var(--bg, #0a0a0a); color: var(--text);
+    transition: border-color 0.15s ease;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  }
+  .field textarea { min-height: 56px; resize: vertical; }
+  .field select { cursor: pointer; }
+  .field-help { font-size: 12px; color: var(--text-muted); margin: 4px 0 0; line-height: 1.4; }
+  .field-help a { color: var(--primary); text-decoration: none; }
+  .field-help a:hover { text-decoration: underline; }
+  .field-help code { font-size: 11px; background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px; }
+  .field-group-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin: 0 0 10px; }
+  .field-row { display: flex; gap: 12px; }
+  .field-row .field { flex: 1; }
+  .field-row-3 { display: flex; gap: 12px; }
+  .field-row-3 .field { flex: 1; }
+
+  /* Checkbox */
+  .field-checkbox { display: flex; align-items: flex-start; gap: 10px; }
+  .field-checkbox input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; accent-color: var(--primary); cursor: pointer; }
+  .field-checkbox label { margin-bottom: 0; cursor: pointer; }
+
+  /* Status banners */
+  .status-banner {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    margin-bottom: 14px;
+  }
+  .status-banner svg { flex-shrink: 0; }
+  .status-ok { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+  .status-warn { background: rgba(234,179,8,0.08); color: #facc15; border: 1px solid rgba(234,179,8,0.15); }
+
+  .logo-preview { margin-bottom: 10px; }
+  .logo-preview img { display: block; max-height: 56px; border-radius: 8px; }
+
+  /* Trusted devices */
+  .trusted-device-list { list-style: none; padding: 0; margin: 8px 0 0; }
+  .trusted-device-list li {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
   .trusted-device-list li:last-child { border-bottom: none; }
-  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .trusted-device-info { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .trusted-device-date { color: var(--text-muted); font-size: 12px; }
+
+  /* Save bar */
+  .settings-save-bar {
+    display: flex; gap: 10px; padding: 16px 0 32px;
+    position: sticky; bottom: 0; background: var(--bg, #0a0a0a);
+    border-top: 1px solid var(--border); margin-top: 8px; z-index: 10;
+  }
+
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
   .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--text-muted); }
+
+  @media (max-width: 768px) {
+    .settings-page { padding: 0 4px; }
+    .settings-header h1 { font-size: 22px; }
+    .settings-tab { padding: 8px 12px; font-size: 12px; }
+    .settings-tab svg { display: none; }
+    .panel-card-header, .panel-card-body { padding-left: 16px; padding-right: 16px; }
+    .field-row, .field-row-3 { flex-direction: column; gap: 0; }
+  }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  var tabs = document.querySelectorAll('.settings-tab');
+  var panels = document.querySelectorAll('.settings-panel');
+  var storageKey = 'fieldops_settings_tab';
+
+  function activate(tabId) {
+    tabs.forEach(function(t) {
+      t.classList.toggle('active', t.getAttribute('data-tab') === tabId);
+    });
+    panels.forEach(function(p) {
+      p.classList.toggle('active', p.id === 'panel-' + tabId);
+    });
+    try { sessionStorage.setItem(storageKey, tabId); } catch(e) {}
+  }
+
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      activate(tab.getAttribute('data-tab'));
+    });
+  });
+
+  try {
+    var saved = sessionStorage.getItem(storageKey);
+    if (saved && document.getElementById('panel-' + saved)) {
+      activate(saved);
+    }
+  } catch(e) {}
+})();
+</script>
 {% endblock %}
