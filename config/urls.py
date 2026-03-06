@@ -78,6 +78,7 @@ urlpatterns = [
     path("estimator/", include("property_estimator.urls")),
     path("quickbooks/", include("quickbooks.urls")),
     path("api/messages/", include("messaging.urls")),
+    path("fertilization/", include(("fertilization.urls", "fertilization"), namespace="fertilization")),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
