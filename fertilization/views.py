@@ -10,8 +10,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
 from django.contrib import messages
 
+from django.contrib.auth import get_user_model
+
 from accounts.decorators import role_required
 from accounts.utils import get_business
+
+User = get_user_model()
 
 from .models import (
     FertilizationProgram,
@@ -42,10 +46,6 @@ def hub(request):
     if not business:
         messages.error(request, "You must be associated with a business.")
         return redirect("/")
-
-    from billing.models import FertilizerProduct, FertilizerApplication
-    from customers.models import Property, Customer
-    from .models import FertilizationProgram, CustomerProgramEnrollment, ScheduledRound
 
     # Programs tab data
     programs = FertilizationProgram.objects.filter(
@@ -99,7 +99,7 @@ def hub(request):
         {
             'id': prog.id,
             'name': prog.name,
-            'num_rounds': prog.rounds.count(),
+            'num_rounds': len(prog.rounds.all()),
             'grass_type': prog.grass_type,
         }
         for prog in programs.filter(is_active=True)
@@ -134,10 +134,73 @@ def _biz_or_403(request):
     return biz, None
 
 
+def _dec_or_none(request, field):
+    """Parse a POST field as Decimal, returning None if blank or invalid."""
+    val = request.POST.get(field, '').strip()
+    if not val:
+        return None
+    try:
+        return Decimal(val)
+    except InvalidOperation:
+        return None
+
+
+def _int_or_none(request, field):
+    """Parse a POST field as int, returning None if blank or invalid."""
+    val = request.POST.get(field, '').strip()
+    if not val:
+        return None
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def _validate_fk_ownership(model_class, pk_value, business, field_name="id"):
+    """Validate that a FK value belongs to the business. Returns (pk, None) or (None, error_msg)."""
+    if not pk_value:
+        return None, None
+    try:
+        pk_int = int(pk_value)
+    except (ValueError, TypeError):
+        return None, f"Invalid {field_name}."
+    if not model_class.objects.filter(pk=pk_int, business=business).exists():
+        return None, f"{field_name} not found or not accessible."
+    return pk_int, None
+
+
+def _validate_user_ownership(pk_value, business):
+    """Validate that a user FK belongs to the business. Returns (pk, None) or (None, error_msg)."""
+    if not pk_value:
+        return None, None
+    try:
+        pk_int = int(pk_value)
+    except (ValueError, TypeError):
+        return None, "Invalid applied_by_id."
+    if not User.objects.filter(pk=pk_int, business=business).exists():
+        return None, "applied_by_id not found or not accessible."
+    return pk_int, None
+
+
+def _program_round_to_dict(rnd):
+    """Serialize a ProgramRound (template round, not scheduled round)."""
+    return {
+        'id': rnd.id,
+        'round_number': rnd.round_number,
+        'name': rnd.name,
+        'target_month_start': rnd.target_month_start,
+        'target_month_end': rnd.target_month_end,
+        'product_ids': list(rnd.products.values_list('id', flat=True)),
+        'product_names': list(rnd.products.values_list('name', flat=True)),
+        'default_rate_override': str(rnd.default_rate_override) if rnd.default_rate_override else '',
+        'crew_instructions': rnd.crew_instructions,
+    }
+
+
 def _program_to_dict(program):
     """Serialize a FertilizationProgram with nested rounds."""
     rounds = []
-    for r in program.rounds.prefetch_related('products').all():
+    for r in program.rounds.all():
         rounds.append({
             'id': r.id,
             'round_number': r.round_number,
@@ -257,6 +320,7 @@ def _application_to_dict(app):
 #  Task 9 — Programs + Rounds API
 # ─────────────────────────────────────────────────────────────
 
+@require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
 def program_list_create(request):
     """GET: list all programs. POST: create a new program."""
@@ -293,6 +357,7 @@ def program_list_create(request):
     return JsonResponse({"items": [_program_to_dict(p) for p in programs]})
 
 
+@require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
 def program_detail(request, pk):
     """GET: single program detail. POST: update program."""
@@ -389,6 +454,7 @@ def program_duplicate(request, pk):
     return JsonResponse({"ok": True, "program": _program_to_dict(new_program)})
 
 
+@require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
 def round_list_create(request, program_id):
     """GET: list rounds for a program. POST: create a round."""
@@ -444,38 +510,14 @@ def round_list_create(request, program_id):
             except (ValueError, TypeError):
                 pass  # ignore bad product ids
 
-        return JsonResponse({
-            "ok": True,
-            "round": {
-                'id': rnd.id,
-                'round_number': rnd.round_number,
-                'name': rnd.name,
-                'target_month_start': rnd.target_month_start,
-                'target_month_end': rnd.target_month_end,
-                'product_ids': list(rnd.products.values_list('id', flat=True)),
-                'product_names': list(rnd.products.values_list('name', flat=True)),
-                'default_rate_override': str(rnd.default_rate_override) if rnd.default_rate_override else '',
-                'crew_instructions': rnd.crew_instructions,
-            },
-        })
+        return JsonResponse({"ok": True, "round": _program_round_to_dict(rnd)})
 
     # GET
-    rounds = []
-    for r in program.rounds.prefetch_related('products').all():
-        rounds.append({
-            'id': r.id,
-            'round_number': r.round_number,
-            'name': r.name,
-            'target_month_start': r.target_month_start,
-            'target_month_end': r.target_month_end,
-            'product_ids': list(r.products.values_list('id', flat=True)),
-            'product_names': list(r.products.values_list('name', flat=True)),
-            'default_rate_override': str(r.default_rate_override) if r.default_rate_override else '',
-            'crew_instructions': r.crew_instructions,
-        })
+    rounds = [_program_round_to_dict(r) for r in program.rounds.prefetch_related('products').all()]
     return JsonResponse({"items": rounds})
 
 
+@require_http_methods(["POST", "DELETE"])
 @role_required("owner", "manager")
 def round_update_delete(request, program_id, pk):
     """POST: update round. DELETE (or POST _method=delete): delete round."""
@@ -545,17 +587,7 @@ def round_update_delete(request, program_id, pk):
 
         return JsonResponse({
             "ok": True,
-            "round": {
-                'id': rnd.id,
-                'round_number': rnd.round_number,
-                'name': rnd.name,
-                'target_month_start': rnd.target_month_start,
-                'target_month_end': rnd.target_month_end,
-                'product_ids': list(rnd.products.values_list('id', flat=True)),
-                'product_names': list(rnd.products.values_list('name', flat=True)),
-                'default_rate_override': str(rnd.default_rate_override) if rnd.default_rate_override else '',
-                'crew_instructions': rnd.crew_instructions,
-            },
+            "round": _program_round_to_dict(rnd),
         })
 
     return JsonResponse({"error": "Method not allowed."}, status=405)
@@ -565,6 +597,7 @@ def round_update_delete(request, program_id, pk):
 #  Task 10 — Products API
 # ─────────────────────────────────────────────────────────────
 
+@require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
 def product_list_create(request):
     """GET: list all products. POST: create a product."""
@@ -588,37 +621,19 @@ def product_list_create(request):
         if product_type not in ('granular', 'liquid'):
             product_type = 'granular'
 
-        def _dec_or_none(field):
-            val = request.POST.get(field, '').strip()
-            if not val:
-                return None
-            try:
-                return Decimal(val)
-            except InvalidOperation:
-                return None
-
-        def _int_or_none(field):
-            val = request.POST.get(field, '').strip()
-            if not val:
-                return None
-            try:
-                return int(val)
-            except (ValueError, TypeError):
-                return None
-
         product = FertilizerProduct.objects.create(
             business=biz,
             name=name,
             pricing_type=pricing_type,
-            cost_per_pound=_dec_or_none('cost_per_pound'),
-            cost_per_bag=_dec_or_none('cost_per_bag'),
-            lbs_per_bag=_dec_or_none('lbs_per_bag'),
+            cost_per_pound=_dec_or_none(request, 'cost_per_pound'),
+            cost_per_bag=_dec_or_none(request, 'cost_per_bag'),
+            lbs_per_bag=_dec_or_none(request, 'lbs_per_bag'),
             active=request.POST.get('active', 'true').lower() not in ('false', '0'),
             notes=request.POST.get('notes', '').strip(),
-            nitrogen_pct=_dec_or_none('nitrogen_pct'),
-            phosphorus_pct=_dec_or_none('phosphorus_pct'),
-            potassium_pct=_dec_or_none('potassium_pct'),
-            application_rate=_dec_or_none('application_rate'),
+            nitrogen_pct=_dec_or_none(request, 'nitrogen_pct'),
+            phosphorus_pct=_dec_or_none(request, 'phosphorus_pct'),
+            potassium_pct=_dec_or_none(request, 'potassium_pct'),
+            application_rate=_dec_or_none(request, 'application_rate'),
             product_type=product_type,
             epa_registration_number=request.POST.get('epa_registration_number', '').strip(),
         )
@@ -629,6 +644,7 @@ def product_list_create(request):
     return JsonResponse({"items": [_product_to_dict(p) for p in products]})
 
 
+@require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
 def product_detail(request, pk):
     """GET: single product detail. POST: update product."""
@@ -655,20 +671,17 @@ def product_detail(request, pk):
             if pt in ('granular', 'liquid'):
                 product.product_type = pt
 
-        def _update_dec(field):
-            if field in request.POST:
-                val = request.POST.get(field, '').strip()
+        for f in ('cost_per_pound', 'cost_per_bag', 'lbs_per_bag',
+                   'nitrogen_pct', 'phosphorus_pct', 'potassium_pct', 'application_rate'):
+            if f in request.POST:
+                val = request.POST.get(f, '').strip()
                 if val:
                     try:
-                        setattr(product, field, Decimal(val))
+                        setattr(product, f, Decimal(val))
                     except InvalidOperation:
                         pass
                 else:
-                    setattr(product, field, None)
-
-        for f in ('cost_per_pound', 'cost_per_bag', 'lbs_per_bag',
-                   'nitrogen_pct', 'phosphorus_pct', 'potassium_pct', 'application_rate'):
-            _update_dec(f)
+                    setattr(product, f, None)
 
         if 'active' in request.POST:
             product.active = request.POST.get('active', 'true').lower() not in ('false', '0')
@@ -688,6 +701,7 @@ def product_detail(request, pk):
 #  Task 11 — Enrollments + Pricing API
 # ─────────────────────────────────────────────────────────────
 
+@require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
 def enrollment_list_create(request):
     """GET: list enrollments for year. POST: create enrollment with scheduled rounds."""
@@ -782,6 +796,10 @@ def enrollment_list_create(request):
                 material_cost=mat_cost,
             )
 
+        # Refetch with select_related for proper serialization
+        enrollment = CustomerProgramEnrollment.objects.select_related(
+            'property__customer', 'program'
+        ).prefetch_related('scheduled_rounds').get(pk=enrollment.pk)
         return JsonResponse({"ok": True, "enrollment": _enrollment_to_dict(enrollment)})
 
     # GET
@@ -801,6 +819,7 @@ def enrollment_list_create(request):
     return JsonResponse({"items": [_enrollment_to_dict(e) for e in enrollments]})
 
 
+@require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
 def enrollment_detail(request, pk):
     """GET: single enrollment with all scheduled rounds."""
@@ -834,6 +853,7 @@ def enrollment_cancel(request, pk):
     return JsonResponse({"ok": True})
 
 
+@require_http_methods(["GET"])
 @role_required("owner", "manager")
 def calculate_pricing(request):
     """GET: calculate enrollment pricing breakdown."""
@@ -907,6 +927,7 @@ def calculate_pricing(request):
     })
 
 
+@require_http_methods(["GET"])
 @role_required("owner", "manager")
 def calculate_product(request):
     """GET: calculate lbs/bags/cost for a product on a given area."""
@@ -956,6 +977,7 @@ def calculate_product(request):
     })
 
 
+@require_http_methods(["GET"])
 @role_required("owner", "manager")
 def route_calculator(request):
     """GET: truck loading sheet for a given date — aggregate materials per product."""
@@ -1049,6 +1071,7 @@ def route_calculator(request):
 #  Task 12 — Applications + Reports API
 # ─────────────────────────────────────────────────────────────
 
+@require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
 def application_list_create(request):
     """GET: list applications with filters. POST: create application."""
@@ -1091,46 +1114,47 @@ def application_list_create(request):
             except InvalidOperation:
                 pass
 
-        def _dec_or_none(field):
-            val = request.POST.get(field, '').strip()
-            if not val:
-                return None
-            try:
-                return Decimal(val)
-            except InvalidOperation:
-                return None
-
-        def _int_or_none(field):
-            val = request.POST.get(field, '').strip()
-            if not val:
-                return None
-            try:
-                return int(val)
-            except (ValueError, TypeError):
-                return None
+        # Validate FK ownership for job, estimate, applied_by
+        from jobs.models import Job
+        from billing.models import Estimate
 
         job_id_str = request.POST.get('job_id', '').strip()
+        job_pk, job_err = _validate_fk_ownership(Job, job_id_str, biz, "job_id") if job_id_str else (None, None)
+        if job_err:
+            return JsonResponse({"error": job_err}, status=400)
+
         estimate_id_str = request.POST.get('estimate_id', '').strip()
+        estimate_pk, est_err = _validate_fk_ownership(Estimate, estimate_id_str, biz, "estimate_id") if estimate_id_str else (None, None)
+        if est_err:
+            return JsonResponse({"error": est_err}, status=400)
+
         applied_by_id_str = request.POST.get('applied_by_id', '').strip()
+        applied_by_pk, ab_err = _validate_user_ownership(applied_by_id_str, biz)
+        if ab_err:
+            return JsonResponse({"error": ab_err}, status=400)
 
         app = FertilizerApplication.objects.create(
             business=biz,
             property=prop,
             product=product,
-            job_id=int(job_id_str) if job_id_str else None,
-            estimate_id=int(estimate_id_str) if estimate_id_str else None,
+            job_id=job_pk,
+            estimate_id=estimate_pk,
             application_date=application_date_val,
             pounds_used=pounds_used,
-            square_feet=_dec_or_none('square_feet'),
-            lbs_per_1000_sqft=_dec_or_none('lbs_per_1000_sqft'),
+            square_feet=_dec_or_none(request, 'square_feet'),
+            lbs_per_1000_sqft=_dec_or_none(request, 'lbs_per_1000_sqft'),
             material_cost=material_cost,
-            charge_amount=_dec_or_none('charge_amount'),
+            charge_amount=_dec_or_none(request, 'charge_amount'),
             notes=request.POST.get('notes', '').strip(),
-            weather_temp_f=_int_or_none('weather_temp_f'),
-            weather_wind_mph=_dec_or_none('weather_wind_mph'),
+            weather_temp_f=_int_or_none(request, 'weather_temp_f'),
+            weather_wind_mph=_dec_or_none(request, 'weather_wind_mph'),
             weather_conditions=request.POST.get('weather_conditions', '').strip(),
-            applied_by_id=int(applied_by_id_str) if applied_by_id_str else None,
+            applied_by_id=applied_by_pk,
         )
+        # Refetch with select_related for serialization
+        app = FertilizerApplication.objects.select_related(
+            'property__customer', 'product', 'applied_by'
+        ).get(pk=app.pk)
         return JsonResponse({"ok": True, "application": _application_to_dict(app)})
 
     # GET with filters
@@ -1161,6 +1185,7 @@ def application_list_create(request):
     return JsonResponse({"items": [_application_to_dict(a) for a in qs[:200]]})
 
 
+@require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
 def application_detail(request, pk):
     """GET: single application. POST: update application."""
@@ -1202,31 +1227,37 @@ def application_detail(request, pk):
             else:
                 app.product = None
 
-        def _update_dec(field):
-            if field in request.POST:
-                val = request.POST.get(field, '').strip()
+        for f in ('square_feet', 'lbs_per_1000_sqft', 'material_cost',
+                   'charge_amount', 'weather_wind_mph'):
+            if f in request.POST:
+                val = request.POST.get(f, '').strip()
                 if val:
                     try:
-                        setattr(app, field, Decimal(val))
+                        setattr(app, f, Decimal(val))
                     except InvalidOperation:
                         pass
                 else:
-                    setattr(app, field, None)
-
-        for f in ('square_feet', 'lbs_per_1000_sqft', 'material_cost',
-                   'charge_amount', 'weather_wind_mph'):
-            _update_dec(f)
+                    setattr(app, f, None)
 
         if 'notes' in request.POST:
             app.notes = request.POST.get('notes', '')
         if 'weather_temp_f' in request.POST:
             val = request.POST.get('weather_temp_f', '').strip()
-            app.weather_temp_f = int(val) if val else None
+            if val:
+                try:
+                    app.weather_temp_f = int(val)
+                except (ValueError, TypeError):
+                    pass  # ignore invalid temp
+            else:
+                app.weather_temp_f = None
         if 'weather_conditions' in request.POST:
             app.weather_conditions = request.POST.get('weather_conditions', '').strip()
         if 'applied_by_id' in request.POST:
             val = request.POST.get('applied_by_id', '').strip()
-            app.applied_by_id = int(val) if val else None
+            validated_pk, err = _validate_user_ownership(val, biz)
+            if err:
+                return JsonResponse({"error": err}, status=400)
+            app.applied_by_id = validated_pk
 
         app.save()
         # Refresh relations after save
@@ -1240,6 +1271,7 @@ def application_detail(request, pk):
     return JsonResponse({"data": _application_to_dict(app)})
 
 
+@require_http_methods(["GET"])
 @role_required("owner", "manager")
 def report_compliance(request):
     """GET: CSV download of compliance report for date range."""
@@ -1293,6 +1325,7 @@ def report_compliance(request):
     return response
 
 
+@require_http_methods(["GET"])
 @role_required("owner", "manager")
 def report_profit(request):
     """GET: CSV download of profit report for date range."""
@@ -1342,6 +1375,7 @@ def report_profit(request):
     return response
 
 
+@require_http_methods(["GET"])
 @role_required("owner", "manager")
 def report_material_usage(request):
     """GET: CSV download of material usage aggregated by product."""
