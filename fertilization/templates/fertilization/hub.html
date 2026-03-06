@@ -1,0 +1,584 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/fertilization.css' %}">
+{% endblock %}
+
+{% block context_panel %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Fertilization Management</h1>
+  <p>Programs, enrollments, products, applications, calculators, and reports</p>
+</div>
+
+{# Global CSRF token for AJAX #}
+<form id="fert-csrf-form" style="display:none;">{% csrf_token %}</form>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB NAVIGATION
+     ═══════════════════════════════════════════════════════════ -->
+<nav class="fert-tabs" aria-label="Fertilization sections">
+  <a href="#programs" class="fert-tab active" data-tab="programs">
+    <i data-lucide="clipboard-list" style="width:16px;height:16px;"></i>
+    Programs
+  </a>
+  <a href="#customers" class="fert-tab" data-tab="customers">
+    <i data-lucide="users" style="width:16px;height:16px;"></i>
+    Customers
+  </a>
+  <a href="#products" class="fert-tab" data-tab="products">
+    <i data-lucide="package" style="width:16px;height:16px;"></i>
+    Products
+  </a>
+  <a href="#applications" class="fert-tab" data-tab="applications">
+    <i data-lucide="spray-can" style="width:16px;height:16px;"></i>
+    Applications
+  </a>
+  <a href="#calculator" class="fert-tab" data-tab="calculator">
+    <i data-lucide="calculator" style="width:16px;height:16px;"></i>
+    Calculator
+  </a>
+  <a href="#reports" class="fert-tab" data-tab="reports">
+    <i data-lucide="file-bar-chart" style="width:16px;height:16px;"></i>
+    Reports
+  </a>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PROGRAMS TAB
+     ═══════════════════════════════════════════════════════════ -->
+<div id="panel-programs" class="fert-panel" data-panel="programs">
+  <div class="panel-header">
+    <h2>Fertilization Programs</h2>
+    <button type="button" class="btn btn-primary btn-sm" onclick="FertHub.addProgram()">+ New Program</button>
+  </div>
+
+  {% if programs %}
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Rounds</th>
+          <th>Grass Type</th>
+          <th class="num">Enrollments</th>
+          <th>Active</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for prog in programs %}
+        <tr>
+          <td><strong>{{ prog.name }}</strong>{% if prog.description %}<br><span style="color:var(--text-muted);font-size:13px;">{{ prog.description|truncatewords:12 }}</span>{% endif %}</td>
+          <td>{{ prog.rounds.count }}</td>
+          <td>{{ prog.get_grass_type_display }}</td>
+          <td class="num">{{ prog.enrollments.count }}</td>
+          <td>
+            {% if prog.is_active %}
+            <span class="status-badge status-active">Active</span>
+            {% else %}
+            <span class="status-badge status-inactive">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="actions-cell">
+            <button class="btn btn-sm btn-secondary" onclick="FertHub.editProgram({{ prog.id }})">Edit</button>
+            <button class="btn btn-sm btn-ghost" onclick="FertHub.duplicateProgram({{ prog.id }})" title="Duplicate">
+              <i data-lucide="copy" style="width:14px;height:14px;"></i>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i data-lucide="clipboard-list" class="empty-state-icon"></i>
+    <div class="empty-state-title">No programs yet</div>
+    <div class="empty-state-desc">Create your first fertilization program to define rounds, products, and schedules for your customers.</div>
+    <button type="button" class="btn btn-primary" onclick="FertHub.addProgram()">+ Create Program</button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CUSTOMERS TAB
+     ═══════════════════════════════════════════════════════════ -->
+<div id="panel-customers" class="fert-panel" data-panel="customers" style="display:none;">
+  <div class="panel-header">
+    <h2>Customer Enrollments ({{ current_year }})</h2>
+    <button type="button" class="btn btn-primary btn-sm" onclick="FertHub.addEnrollment()">+ Enroll Customer</button>
+  </div>
+
+  {% if enrollments %}
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Property</th>
+          <th>Customer</th>
+          <th>Program</th>
+          <th class="num">Sqft</th>
+          <th class="num">Price</th>
+          <th>Progress</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for enr in enrollments %}
+        <tr>
+          <td>{{ enr.property.address }}</td>
+          <td>{{ enr.property.customer.name }}</td>
+          <td>{{ enr.program.name }}</td>
+          <td class="num">{{ enr.property.lawn_square_feet|default:"--" }}</td>
+          <td class="num">
+            {% if enr.pricing_method == 'per_application' and enr.price_per_application %}
+              ${{ enr.price_per_application }}/app
+            {% elif enr.pricing_method == 'annual_flat' and enr.annual_price %}
+              ${{ enr.annual_price }}/yr
+            {% elif enr.pricing_method == 'per_sqft' and enr.price_per_sqft %}
+              ${{ enr.price_per_sqft }}/sqft
+            {% else %}
+              --
+            {% endif %}
+          </td>
+          <td>{{ enr.rounds_completed }}/{{ enr.total_rounds }}</td>
+          <td><span class="status-badge status-{{ enr.status }}">{{ enr.get_status_display }}</span></td>
+          <td class="actions-cell">
+            <button class="btn btn-sm btn-secondary" onclick="FertHub.editEnrollment({{ enr.id }})">Edit</button>
+            {% if enr.status != 'cancelled' %}
+            <button class="btn btn-sm btn-ghost" onclick="FertHub.cancelEnrollment({{ enr.id }})" title="Cancel enrollment">
+              <i data-lucide="x-circle" style="width:14px;height:14px;"></i>
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i data-lucide="users" class="empty-state-icon"></i>
+    <div class="empty-state-title">No enrollments for {{ current_year }}</div>
+    <div class="empty-state-desc">Enroll customers in a fertilization program to schedule rounds and track applications throughout the season.</div>
+    <button type="button" class="btn btn-primary" onclick="FertHub.addEnrollment()">+ Enroll Customer</button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PRODUCTS TAB
+     ═══════════════════════════════════════════════════════════ -->
+<div id="panel-products" class="fert-panel" data-panel="products" style="display:none;">
+  <div class="panel-header">
+    <h2>Fertilizer Products</h2>
+    <button type="button" class="btn btn-primary btn-sm" onclick="FertHub.addProduct()">+ New Product</button>
+  </div>
+
+  {% if products %}
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>NPK</th>
+          <th>Type</th>
+          <th class="num">App Rate</th>
+          <th class="num">Cost/lb</th>
+          <th>EPA #</th>
+          <th>Active</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for prod in products %}
+        <tr>
+          <td><strong>{{ prod.name }}</strong></td>
+          <td>{{ prod.npk_display|default:"--" }}</td>
+          <td>{{ prod.get_product_type_display }}</td>
+          <td class="num">{{ prod.application_rate|default:"--" }}</td>
+          <td class="num">${{ prod.get_cost_per_pound_equivalent|floatformat:2 }}</td>
+          <td>{{ prod.epa_registration_number|default:"--" }}</td>
+          <td>
+            {% if prod.active %}
+            <span class="status-badge status-active">Active</span>
+            {% else %}
+            <span class="status-badge status-inactive">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="actions-cell">
+            <button class="btn btn-sm btn-secondary" onclick="FertHub.editProduct({{ prod.id }})">Edit</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i data-lucide="package" class="empty-state-icon"></i>
+    <div class="empty-state-title">No products yet</div>
+    <div class="empty-state-desc">Add your fertilizer products with NPK analysis, application rates, and pricing to use in programs and applications.</div>
+    <button type="button" class="btn btn-primary" onclick="FertHub.addProduct()">+ Add Product</button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     APPLICATIONS TAB
+     ═══════════════════════════════════════════════════════════ -->
+<div id="panel-applications" class="fert-panel" data-panel="applications" style="display:none;">
+  <div class="panel-header">
+    <h2>Recent Applications</h2>
+    <button type="button" class="btn btn-primary btn-sm" onclick="FertHub.addApplication()">+ Log Application</button>
+  </div>
+
+  {% if recent_applications %}
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Property</th>
+          <th>Product</th>
+          <th class="num">Amount</th>
+          <th class="num">Rate</th>
+          <th>Weather</th>
+          <th class="num">Material $</th>
+          <th class="num">Charged $</th>
+          <th class="num">Profit %</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for app in recent_applications %}
+        <tr>
+          <td>{{ app.application_date|date:"M j, Y" }}</td>
+          <td>{{ app.property.address }}<br><span style="color:var(--text-muted);font-size:13px;">{{ app.property.customer.name }}</span></td>
+          <td>{{ app.product.name|default:"--" }}</td>
+          <td class="num">{{ app.pounds_used }} lbs</td>
+          <td class="num">{{ app.lbs_per_1000_sqft|default:"--" }}</td>
+          <td>
+            {% if app.weather_conditions %}{{ app.get_weather_conditions_display }}{% endif %}
+            {% if app.weather_temp_f %} {{ app.weather_temp_f }}F{% endif %}
+          </td>
+          <td class="num">${{ app.material_cost|floatformat:2 }}</td>
+          <td class="num">{% if app.charge_amount %} ${{ app.charge_amount|floatformat:2 }}{% else %}--{% endif %}</td>
+          <td class="num">
+            {% if app.profit_margin != None %}
+              <span class="{% if app.profit_margin >= 40 %}text-success{% elif app.profit_margin >= 20 %}text-warning{% else %}text-danger{% endif %}">
+                {{ app.profit_margin|floatformat:1 }}%
+              </span>
+            {% else %}
+              --
+            {% endif %}
+          </td>
+          <td class="actions-cell">
+            <button class="btn btn-sm btn-secondary" onclick="FertHub.editApplication({{ app.id }})">Edit</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i data-lucide="spray-can" class="empty-state-icon"></i>
+    <div class="empty-state-title">No applications logged</div>
+    <div class="empty-state-desc">Log fertilizer applications to track material usage, costs, weather conditions, and profitability.</div>
+    <button type="button" class="btn btn-primary" onclick="FertHub.addApplication()">+ Log Application</button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CALCULATOR TAB
+     ═══════════════════════════════════════════════════════════ -->
+<div id="panel-calculator" class="fert-panel" data-panel="calculator" style="display:none;">
+  <div class="panel-header">
+    <h2>Calculators</h2>
+  </div>
+
+  <div class="calc-grid">
+    <!-- Product Calculator -->
+    <div class="calc-card">
+      <h3 style="margin:0 0 4px 0;font-size:18px;">Product Calculator</h3>
+      <p class="calc-desc">Calculate how much product you need for a given area and application rate.</p>
+
+      <div class="form-group">
+        <label class="form-label">Product</label>
+        <select id="calc-product-select" class="form-control" onchange="FertHub.onCalcProductChange()">
+          <option value="">-- Select product --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Lawn area (sq ft)</label>
+        <input type="number" id="calc-sqft" class="form-control" placeholder="e.g. 5000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Application rate (lbs / 1,000 sq ft)</label>
+        <input type="number" id="calc-rate" class="form-control" step="0.1" placeholder="e.g. 3.5">
+      </div>
+      <button type="button" class="btn btn-primary btn-sm" onclick="FertHub.calculateProduct()" style="margin-bottom:16px;">Calculate</button>
+      <div id="calc-product-result" class="calc-result" style="display:none;">
+      </div>
+    </div>
+
+    <!-- Pricing Calculator -->
+    <div class="calc-card">
+      <h3 style="margin:0 0 4px 0;font-size:18px;">Pricing Calculator</h3>
+      <p class="calc-desc">Calculate pricing for a customer enrollment based on property size and desired margin.</p>
+
+      <div class="form-group">
+        <label class="form-label">Property</label>
+        <select id="calc-property-select" class="form-control">
+          <option value="">-- Select property --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Program</label>
+        <select id="calc-program-select" class="form-control">
+          <option value="">-- Select program --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Target markup (%)</label>
+        <input type="number" id="calc-markup" class="form-control" value="40" step="5" min="0" max="200">
+      </div>
+      <button type="button" class="btn btn-primary btn-sm" onclick="FertHub.calculatePricing()" style="margin-bottom:16px;">Calculate</button>
+      <div id="calc-pricing-result" class="calc-result" style="display:none;">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     REPORTS TAB
+     ═══════════════════════════════════════════════════════════ -->
+<div id="panel-reports" class="fert-panel" data-panel="reports" style="display:none;">
+  <div class="panel-header">
+    <h2>Reports</h2>
+  </div>
+
+  <div class="calc-grid" style="grid-template-columns: repeat(3, 1fr);">
+    <!-- Compliance Report -->
+    <div class="calc-card">
+      <h3 style="margin:0 0 4px 0;font-size:18px;">
+        <i data-lucide="shield-check" style="width:18px;height:18px;vertical-align:text-bottom;"></i>
+        Compliance Report
+      </h3>
+      <p class="calc-desc">EPA-ready report with product details, application dates, amounts, and weather conditions.</p>
+      <div class="form-group">
+        <label class="form-label">Date range</label>
+        <div style="display:flex;gap:8px;">
+          <input type="date" id="report-compliance-start" class="form-control">
+          <input type="date" id="report-compliance-end" class="form-control">
+        </div>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="FertHub.downloadReport('compliance')">
+        <i data-lucide="download" style="width:14px;height:14px;"></i> Download PDF
+      </button>
+    </div>
+
+    <!-- Profit Report -->
+    <div class="calc-card">
+      <h3 style="margin:0 0 4px 0;font-size:18px;">
+        <i data-lucide="trending-up" style="width:18px;height:18px;vertical-align:text-bottom;"></i>
+        Profit Report
+      </h3>
+      <p class="calc-desc">Material costs vs. revenue, profit margins by property, program, and product.</p>
+      <div class="form-group">
+        <label class="form-label">Date range</label>
+        <div style="display:flex;gap:8px;">
+          <input type="date" id="report-profit-start" class="form-control">
+          <input type="date" id="report-profit-end" class="form-control">
+        </div>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="FertHub.downloadReport('profit')">
+        <i data-lucide="download" style="width:14px;height:14px;"></i> Download PDF
+      </button>
+    </div>
+
+    <!-- Material Usage Report -->
+    <div class="calc-card">
+      <h3 style="margin:0 0 4px 0;font-size:18px;">
+        <i data-lucide="bar-chart-3" style="width:18px;height:18px;vertical-align:text-bottom;"></i>
+        Material Usage
+      </h3>
+      <p class="calc-desc">Total product usage by type, nitrogen applied per property, and inventory estimates.</p>
+      <div class="form-group">
+        <label class="form-label">Date range</label>
+        <div style="display:flex;gap:8px;">
+          <input type="date" id="report-material-start" class="form-control">
+          <input type="date" id="report-material-end" class="form-control">
+        </div>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="FertHub.downloadReport('material-usage')">
+        <i data-lucide="download" style="width:14px;height:14px;"></i> Download PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL CONTAINER
+     ═══════════════════════════════════════════════════════════ -->
+<div id="fert-modal-overlay" class="fert-modal-overlay" style="display:none;" onclick="FertHub.closeModal()">
+  <div class="fert-modal" onclick="event.stopPropagation()">
+    <div class="fert-modal-header">
+      <h3 id="fert-modal-title">Modal</h3>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="FertHub.closeModal()" aria-label="Close">
+        <i data-lucide="x" style="width:18px;height:18px;"></i>
+      </button>
+    </div>
+    <div class="fert-modal-body" id="fert-modal-body">
+    </div>
+    <div class="fert-modal-footer" id="fert-modal-footer">
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     JSON DATA FOR JAVASCRIPT
+     ═══════════════════════════════════════════════════════════ -->
+<script id="fert-products-data" type="application/json">{{ products_json|safe }}</script>
+<script id="fert-properties-data" type="application/json">{{ properties_json|safe }}</script>
+<script id="fert-programs-data" type="application/json">{{ programs_json|safe }}</script>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ── Tab Switcher ─────────────────────────────────────────── */
+(function() {
+  var tabs = document.querySelectorAll('.fert-tab');
+  var panels = document.querySelectorAll('.fert-panel');
+
+  function showTab(id) {
+    id = id || 'programs';
+    tabs.forEach(function(t) {
+      t.classList.toggle('active', t.getAttribute('data-tab') === id);
+    });
+    panels.forEach(function(p) {
+      p.style.display = p.getAttribute('data-panel') === id ? '' : 'none';
+    });
+  }
+
+  tabs.forEach(function(t) {
+    t.addEventListener('click', function(e) {
+      e.preventDefault();
+      var id = this.getAttribute('data-tab');
+      showTab(id);
+      history.replaceState(null, '', '#' + id);
+    });
+  });
+
+  if (location.hash) {
+    var id = location.hash.replace('#', '');
+    if (document.querySelector('[data-panel="' + id + '"]')) showTab(id);
+  } else {
+    var at = document.querySelector('.fert-tab.active');
+    if (at) showTab(at.getAttribute('data-tab'));
+  }
+})();
+
+/* ── FertHub namespace stub ───────────────────────────────── */
+var FertHub = window.FertHub || {};
+
+/* CSRF helper */
+FertHub.csrf = function() {
+  var el = document.querySelector('#fert-csrf-form [name=csrfmiddlewaretoken]');
+  return el ? el.value : '';
+};
+
+/* Modal helpers */
+FertHub.openModal = function(title, bodyText, footerText) {
+  document.getElementById('fert-modal-title').textContent = title;
+  var bodyEl = document.getElementById('fert-modal-body');
+  while (bodyEl.firstChild) bodyEl.removeChild(bodyEl.firstChild);
+  var p = document.createElement('p');
+  p.style.color = 'var(--text-muted)';
+  p.textContent = bodyText || '';
+  bodyEl.appendChild(p);
+  var footerEl = document.getElementById('fert-modal-footer');
+  while (footerEl.firstChild) footerEl.removeChild(footerEl.firstChild);
+  if (footerText) {
+    var span = document.createElement('span');
+    span.textContent = footerText;
+    footerEl.appendChild(span);
+  }
+  document.getElementById('fert-modal-overlay').style.display = '';
+  document.body.style.overflow = 'hidden';
+  if (window.lucide) lucide.createIcons();
+};
+
+FertHub.closeModal = function() {
+  document.getElementById('fert-modal-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+};
+
+/* Placeholder action stubs */
+FertHub.addProgram = function() { FertHub.openModal('New Program', 'Program form will be implemented in a later task.'); };
+FertHub.editProgram = function(id) { FertHub.openModal('Edit Program #' + id, 'Loading...'); };
+FertHub.duplicateProgram = function(id) { FertHub.openModal('Duplicate Program', 'Loading...'); };
+FertHub.addEnrollment = function() { FertHub.openModal('Enroll Customer', 'Enrollment form will be implemented in a later task.'); };
+FertHub.editEnrollment = function(id) { FertHub.openModal('Edit Enrollment #' + id, 'Loading...'); };
+FertHub.cancelEnrollment = function(id) { if (confirm('Cancel this enrollment?')) { /* stub */ } };
+FertHub.addProduct = function() { FertHub.openModal('New Product', 'Product form will be implemented in a later task.'); };
+FertHub.editProduct = function(id) { FertHub.openModal('Edit Product #' + id, 'Loading...'); };
+FertHub.addApplication = function() { FertHub.openModal('Log Application', 'Application form will be implemented in a later task.'); };
+FertHub.editApplication = function(id) { FertHub.openModal('Edit Application #' + id, 'Loading...'); };
+FertHub.calculateProduct = function() { /* stub */ };
+FertHub.calculatePricing = function() { /* stub */ };
+FertHub.onCalcProductChange = function() { /* stub */ };
+FertHub.downloadReport = function(type) { /* stub */ };
+
+/* ── Populate calculator dropdowns from JSON ──────────────── */
+(function() {
+  try {
+    var products = JSON.parse(document.getElementById('fert-products-data').textContent);
+    var properties = JSON.parse(document.getElementById('fert-properties-data').textContent);
+    var programs = JSON.parse(document.getElementById('fert-programs-data').textContent);
+
+    var prodSel = document.getElementById('calc-product-select');
+    if (prodSel) {
+      products.forEach(function(p) {
+        var opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name + (p.npk ? ' (' + p.npk + ')' : '');
+        opt.dataset.rate = p.application_rate;
+        prodSel.appendChild(opt);
+      });
+    }
+
+    var propSel = document.getElementById('calc-property-select');
+    if (propSel) {
+      properties.forEach(function(p) {
+        var opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.address + ' - ' + p.customer_name + (p.lawn_sqft ? ' (' + p.lawn_sqft + ' sqft)' : '');
+        opt.dataset.sqft = p.lawn_sqft || '';
+        propSel.appendChild(opt);
+      });
+    }
+
+    var progSel = document.getElementById('calc-program-select');
+    if (progSel) {
+      programs.forEach(function(p) {
+        var opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name + ' (' + p.num_rounds + ' rounds)';
+        progSel.appendChild(opt);
+      });
+    }
+  } catch(e) { /* data not available */ }
+})();
+
+/* Reinitialize lucide icons for dynamic content */
+if (window.lucide) lucide.createIcons();
+</script>
+{% endblock %}

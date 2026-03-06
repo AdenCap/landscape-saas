@@ -1,0 +1,458 @@
+/* ══════════════════════════════════════════════════════════════
+   Fertilization Hub Styles
+   Uses design-system.css variables for consistency
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Tab Navigation ──────────────────────────────────────── */
+.fert-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.fert-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.fert-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 10px 10px 0 0;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 14px;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: all var(--motion-fast) var(--motion-ease);
+}
+
+.fert-tab:hover {
+  color: var(--text);
+  background: var(--glass);
+}
+
+.fert-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.fert-tab svg,
+.fert-tab [data-lucide] {
+  flex-shrink: 0;
+}
+
+/* ── Tab Badge ───────────────────────────────────────────── */
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  background: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  border-radius: 9px;
+}
+
+.fert-tab.active .tab-badge {
+  background: rgba(59, 130, 246, 0.25);
+  color: var(--primary);
+}
+
+/* ── Panel Container ─────────────────────────────────────── */
+.fert-panel {
+  animation: fadeIn var(--motion-slow) var(--motion-ease-out);
+}
+
+/* ── Panel Header ────────────────────────────────────────── */
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.panel-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* ── Calculator / Report Grid ────────────────────────────── */
+.calc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-5);
+}
+
+.calc-card {
+  background: var(--gradient-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  transition: all var(--motion-base) var(--motion-ease);
+}
+
+.calc-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.calc-desc {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--line-height-relaxed);
+  margin-bottom: var(--space-5);
+}
+
+.calc-result {
+  background: rgba(34, 197, 94, 0.06);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text);
+  animation: fadeIn var(--motion-base) var(--motion-ease-out);
+}
+
+/* ── Modal ────────────────────────────────────────────────── */
+.fert-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  animation: fadeIn var(--motion-fast) var(--motion-ease-out);
+}
+
+.fert-modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 600px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-xl);
+  animation: scaleIn var(--motion-base) var(--motion-ease-out);
+}
+
+.fert-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.fert-modal-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.fert-modal-body {
+  padding: var(--space-6);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.fert-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.fert-modal-footer:empty {
+  display: none;
+}
+
+/* ── Status Badges ───────────────────────────────────────── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.status-active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #86efac;
+}
+
+.status-enrolled {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+
+.status-in_progress {
+  background: rgba(234, 179, 8, 0.15);
+  color: #fde047;
+}
+
+.status-completed {
+  background: rgba(34, 197, 94, 0.15);
+  color: #86efac;
+}
+
+.status-cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+.status-inactive {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+}
+
+.status-pending {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+}
+
+.status-scheduled {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+
+.status-skipped {
+  background: rgba(249, 115, 22, 0.15);
+  color: #fdba74;
+}
+
+/* ── Actions Cell ────────────────────────────────────────── */
+.actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* ── Colored Text Utilities ──────────────────────────────── */
+.text-success {
+  color: #86efac;
+}
+
+.text-warning {
+  color: #fde047;
+}
+
+.text-danger {
+  color: #fca5a5;
+}
+
+/* ── Empty State (fertilization-specific overrides) ──────── */
+.fert-panel .empty-state {
+  padding: var(--space-12) var(--space-6);
+}
+
+.fert-panel .empty-state-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--space-4);
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+/* ── Form Group ──────────────────────────────────────────── */
+.calc-card .form-group {
+  margin-bottom: var(--space-4);
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .calc-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .fert-modal {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    align-self: flex-end;
+  }
+
+  .fert-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .fert-tab {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .fert-tab [data-lucide],
+  .fert-tab svg {
+    display: none;
+  }
+
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .panel-header h2 {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .calc-grid[style*="repeat(3"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .calc-grid[style*="repeat(3"],
+  .calc-grid[style*="repeat(2"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Light Theme Overrides ───────────────────────────────── */
+[data-theme="light"] .status-active {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+[data-theme="light"] .status-enrolled {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+[data-theme="light"] .status-in_progress {
+  background: rgba(234, 179, 8, 0.12);
+  color: #a16207;
+}
+
+[data-theme="light"] .status-completed {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+[data-theme="light"] .status-cancelled {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+[data-theme="light"] .status-inactive {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .status-pending {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .status-scheduled {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+[data-theme="light"] .status-skipped {
+  background: rgba(249, 115, 22, 0.12);
+  color: #c2410c;
+}
+
+[data-theme="light"] .text-success {
+  color: #16a34a;
+}
+
+[data-theme="light"] .text-warning {
+  color: #a16207;
+}
+
+[data-theme="light"] .text-danger {
+  color: #dc2626;
+}
+
+[data-theme="light"] .calc-result {
+  background: rgba(34, 197, 94, 0.04);
+  border-color: rgba(34, 197, 94, 0.15);
+}
+
+[data-theme="light"] .tab-badge {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+/* System preference: light theme */
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] .status-active {
+    background: rgba(34, 197, 94, 0.12);
+    color: #16a34a;
+  }
+  [data-theme="system"] .status-enrolled {
+    background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+  }
+  [data-theme="system"] .status-in_progress {
+    background: rgba(234, 179, 8, 0.12);
+    color: #a16207;
+  }
+  [data-theme="system"] .status-completed {
+    background: rgba(34, 197, 94, 0.12);
+    color: #16a34a;
+  }
+  [data-theme="system"] .status-cancelled {
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+  }
+  [data-theme="system"] .status-inactive,
+  [data-theme="system"] .status-pending {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-muted);
+  }
+  [data-theme="system"] .status-scheduled {
+    background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+  }
+  [data-theme="system"] .status-skipped {
+    background: rgba(249, 115, 22, 0.12);
+    color: #c2410c;
+  }
+  [data-theme="system"] .text-success { color: #16a34a; }
+  [data-theme="system"] .text-warning { color: #a16207; }
+  [data-theme="system"] .text-danger { color: #dc2626; }
+  [data-theme="system"] .calc-result {
+    background: rgba(34, 197, 94, 0.04);
+    border-color: rgba(34, 197, 94, 0.15);
+  }
+  [data-theme="system"] .tab-badge {
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+  }
+}
