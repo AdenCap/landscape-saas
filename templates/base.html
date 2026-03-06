@@ -539,7 +539,7 @@
   {% block extra_css %}{% endblock %}
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body>
+<body data-tz="{% if user.is_authenticated and user.business %}{{ user.business.timezone }}{% else %}America/New_York{% endif %}">
 
   {% if user.is_authenticated %}
     <!-- Desktop sidebar -->
