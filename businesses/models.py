@@ -259,6 +259,22 @@ class Business(models.Model):
         help_text="Last month of growing season (1–12). Default 10 = October.",
     )
 
+    # Timezone — all times in the app display in this timezone
+    US_TIMEZONE_CHOICES = [
+        ("America/New_York", "Eastern"),
+        ("America/Chicago", "Central"),
+        ("America/Denver", "Mountain"),
+        ("America/Los_Angeles", "Pacific"),
+        ("America/Anchorage", "Alaska"),
+        ("Pacific/Honolulu", "Hawaii"),
+    ]
+    timezone = models.CharField(
+        max_length=50,
+        choices=US_TIMEZONE_CHOICES,
+        default="America/New_York",
+        help_text="All times in the app display in this timezone.",
+    )
+
     # Payroll schedule — used for dashboard "Payroll balance" (amount due next pay period)
     PAY_FREQUENCY_CHOICES = [
         ("weekly", "Weekly"),
