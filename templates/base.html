@@ -612,6 +612,10 @@
             <i data-lucide="file-text" class="nav-icon"></i>
             Estimates
           </a>
+          <a href="{% url 'fertilization:hub' %}" class="btn btn-nav {% if '/fertilization' in request.path %}active{% endif %}">
+            <i data-lucide="leaf" class="nav-icon"></i>
+            Fertilization
+          </a>
           <a href="{% url 'employee_management' %}" class="btn btn-nav {% if '/employee-management' in request.path %}active{% endif %}">
             <i data-lucide="users" class="nav-icon"></i>
             Employee Management
@@ -711,6 +715,7 @@
             <a href="{% url 'client_messages_list' %}"><i data-lucide="messages-square" class="nav-icon"></i>Client messaging</a>
             <a href="/billing/"><i data-lucide="file-plus-2" class="nav-icon"></i>Invoices</a>
             <a href="/billing/estimates/"><i data-lucide="file-text" class="nav-icon"></i>Estimates</a>
+            <a href="{% url 'fertilization:hub' %}"><i data-lucide="leaf" class="nav-icon"></i>Fertilization</a>
             <a href="{% url 'employee_management' %}"><i data-lucide="users" class="nav-icon"></i>Employees</a>
             <a href="{% url 'notification_send' %}"><i data-lucide="bell" class="nav-icon"></i>Notifications</a>
             <a href="{% url 'financials:dashboard' %}"><i data-lucide="chart-column" class="nav-icon"></i>Financials</a>
