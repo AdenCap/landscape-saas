@@ -486,34 +486,30 @@
   }
 })();
 
-/* ── FertHub namespace stub ───────────────────────────────── */
+/* ── FertHub namespace ────────────────────────────────────── */
 var FertHub = window.FertHub || {};
 
-/* CSRF helper */
+/* ── Parse JSON data blocks ──────────────────────────────── */
+FertHub._products = (function() { try { return JSON.parse(document.getElementById('fert-products-data').textContent); } catch(e) { return []; } })();
+FertHub._properties = (function() { try { return JSON.parse(document.getElementById('fert-properties-data').textContent); } catch(e) { return []; } })();
+FertHub._programs = (function() { try { return JSON.parse(document.getElementById('fert-programs-data').textContent); } catch(e) { return []; } })();
+
+/* ── CSRF helper ─────────────────────────────────────────── */
 FertHub.csrf = function() {
   var el = document.querySelector('#fert-csrf-form [name=csrfmiddlewaretoken]');
   return el ? el.value : '';
 };
 
-/* Modal helpers */
-FertHub.openModal = function(title, bodyText, footerText) {
+/* ── Modal helpers ───────────────────────────────────────── */
+FertHub.openModal = function(title, bodyHtml, footerHtml) {
   document.getElementById('fert-modal-title').textContent = title;
-  var bodyEl = document.getElementById('fert-modal-body');
-  while (bodyEl.firstChild) bodyEl.removeChild(bodyEl.firstChild);
-  var p = document.createElement('p');
-  p.style.color = 'var(--text-muted)';
-  p.textContent = bodyText || '';
-  bodyEl.appendChild(p);
-  var footerEl = document.getElementById('fert-modal-footer');
-  while (footerEl.firstChild) footerEl.removeChild(footerEl.firstChild);
-  if (footerText) {
-    var span = document.createElement('span');
-    span.textContent = footerText;
-    footerEl.appendChild(span);
-  }
+  document.getElementById('fert-modal-body').innerHTML = bodyHtml || '';
+  document.getElementById('fert-modal-footer').innerHTML = footerHtml || '';
   document.getElementById('fert-modal-overlay').style.display = '';
   document.body.style.overflow = 'hidden';
   if (window.lucide) lucide.createIcons();
+  var first = document.querySelector('#fert-modal-body input:not([type=hidden]):not([type=checkbox]),#fert-modal-body select');
+  if (first) setTimeout(function() { first.focus(); }, 50);
 };
 
 FertHub.closeModal = function() {
@@ -521,21 +517,682 @@ FertHub.closeModal = function() {
   document.body.style.overflow = '';
 };
 
-/* Placeholder action stubs */
-FertHub.addProgram = function() { FertHub.openModal('New Program', 'Program form will be implemented in a later task.'); };
-FertHub.editProgram = function(id) { FertHub.openModal('Edit Program #' + id, 'Loading...'); };
-FertHub.duplicateProgram = function(id) { FertHub.openModal('Duplicate Program', 'Loading...'); };
-FertHub.addEnrollment = function() { FertHub.openModal('Enroll Customer', 'Enrollment form will be implemented in a later task.'); };
-FertHub.editEnrollment = function(id) { FertHub.openModal('Edit Enrollment #' + id, 'Loading...'); };
-FertHub.cancelEnrollment = function(id) { if (confirm('Cancel this enrollment?')) { /* stub */ } };
-FertHub.addProduct = function() { FertHub.openModal('New Product', 'Product form will be implemented in a later task.'); };
-FertHub.editProduct = function(id) { FertHub.openModal('Edit Product #' + id, 'Loading...'); };
-FertHub.addApplication = function() { FertHub.openModal('Log Application', 'Application form will be implemented in a later task.'); };
-FertHub.editApplication = function(id) { FertHub.openModal('Edit Application #' + id, 'Loading...'); };
-FertHub.calculateProduct = function() { /* stub */ };
-FertHub.calculatePricing = function() { /* stub */ };
-FertHub.onCalcProductChange = function() { /* stub */ };
-FertHub.downloadReport = function(type) { /* stub */ };
+/* Close on Escape */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && document.getElementById('fert-modal-overlay').style.display !== 'none') {
+    FertHub.closeModal();
+  }
+});
+
+/* ── Error display helper ────────────────────────────────── */
+FertHub._showErrors = function(errors) {
+  /* errors can be {field: "msg"} or {"error": "msg"} */
+  if (typeof errors === 'string') { alert(errors); return; }
+  if (errors.error) { alert(errors.error); return; }
+  var body = document.getElementById('fert-modal-body');
+  body.querySelectorAll('.error-text').forEach(function(el) { el.remove(); });
+  body.querySelectorAll('.has-error').forEach(function(el) { el.classList.remove('has-error'); });
+  var fieldErrors = errors.errors || errors;
+  for (var field in fieldErrors) {
+    var msg = Array.isArray(fieldErrors[field]) ? fieldErrors[field].join(', ') : fieldErrors[field];
+    var input = body.querySelector('[name="' + field + '"]');
+    if (input) {
+      var wrap = input.closest('.form-group');
+      if (wrap) {
+        wrap.classList.add('has-error');
+        var errEl = document.createElement('div');
+        errEl.className = 'error-text';
+        errEl.style.cssText = 'color:var(--danger,#ef4444);font-size:13px;margin-top:2px;';
+        errEl.textContent = msg;
+        wrap.appendChild(errEl);
+      }
+    } else {
+      alert(field + ': ' + msg);
+    }
+  }
+};
+
+/* ── Generic POST helper ─────────────────────────────────── */
+FertHub._post = function(url, fd, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': FertHub.csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+    body: fd,
+    credentials: 'same-origin',
+  }).then(function(r) {
+    return r.json().then(function(d) { return { ok: r.ok, data: d }; });
+  }).then(function(res) {
+    if (res.ok && res.data.ok !== false) {
+      FertHub.closeModal();
+      location.reload();
+    } else {
+      FertHub._showErrors(res.data);
+      if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+    }
+  }).catch(function(err) {
+    alert('Request failed: ' + err.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+  });
+};
+
+/* ── Generic GET helper ──────────────────────────────────── */
+FertHub._get = function(url) {
+  return fetch(url, {
+    credentials: 'same-origin',
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+  }).then(function(r) { return r.json(); });
+};
+
+/* ── Dropdown builder helpers ────────────────────────────── */
+FertHub._monthName = function(m) {
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1] || m;
+};
+
+FertHub._optionsProducts = function(selected) {
+  var html = '<option value="">-- Select product --</option>';
+  FertHub._products.forEach(function(p) {
+    html += '<option value="' + p.id + '"' + (p.id == selected ? ' selected' : '') + '>' + p.name + (p.npk ? ' (' + p.npk + ')' : '') + '</option>';
+  });
+  return html;
+};
+
+FertHub._optionsProperties = function(selected) {
+  var html = '<option value="">-- Select property --</option>';
+  FertHub._properties.forEach(function(p) {
+    html += '<option value="' + p.id + '"' + (p.id == selected ? ' selected' : '') + '>' + p.address + ' - ' + p.customer_name + '</option>';
+  });
+  return html;
+};
+
+FertHub._optionsPrograms = function(selected) {
+  var html = '<option value="">-- Select program --</option>';
+  FertHub._programs.forEach(function(p) {
+    html += '<option value="' + p.id + '"' + (p.id == selected ? ' selected' : '') + '>' + p.name + ' (' + p.num_rounds + ' rounds)</option>';
+  });
+  return html;
+};
+
+FertHub._optionsMonths = function(selected) {
+  var html = '<option value="">--</option>';
+  for (var i = 1; i <= 12; i++) {
+    html += '<option value="' + i + '"' + (i == selected ? ' selected' : '') + '>' + FertHub._monthName(i) + '</option>';
+  }
+  return html;
+};
+
+/* ═══════════════════════════════════════════════════════════
+   PROGRAMS
+   ═══════════════════════════════════════════════════════════ */
+FertHub._programFormHtml = function(p) {
+  p = p || {};
+  return '<form class="fert-form" id="fert-program-form">' +
+    '<div class="form-group"><label class="form-label">Program Name *</label>' +
+    '<input type="text" name="name" class="form-control" value="' + (p.name || '') + '" required></div>' +
+    '<div class="form-group"><label class="form-label">Description</label>' +
+    '<textarea name="description" class="form-control" rows="3">' + (p.description || '') + '</textarea></div>' +
+    '<div class="form-group"><label class="form-label">Grass Type</label>' +
+    '<select name="grass_type" class="form-control">' +
+    '<option value="cool_season"' + (p.grass_type === 'cool_season' ? ' selected' : '') + '>Cool Season</option>' +
+    '<option value="warm_season"' + (p.grass_type === 'warm_season' ? ' selected' : '') + '>Warm Season</option>' +
+    '<option value="both"' + (p.grass_type === 'both' ? ' selected' : '') + '>Both</option>' +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label" style="display:flex;align-items:center;gap:8px;">' +
+    '<input type="checkbox" name="is_active"' + (p.is_active !== false ? ' checked' : '') + '> Active</label></div>' +
+    '</form>';
+};
+
+FertHub._roundsEditorHtml = function(programId, rounds) {
+  rounds = rounds || [];
+  var html = '<hr style="margin:16px 0;border-color:var(--border-subtle,#333);">' +
+    '<h4 style="margin:0 0 8px 0;">Rounds</h4>' +
+    '<div id="fert-rounds-list">';
+  rounds.forEach(function(r) {
+    html += FertHub._roundRowHtml(programId, r);
+  });
+  html += '</div>' +
+    '<button type="button" class="btn btn-sm btn-secondary" style="margin-top:8px;" ' +
+    'onclick="FertHub._addRoundRow(' + programId + ')">+ Add Round</button>';
+  return html;
+};
+
+FertHub._roundRowHtml = function(programId, r) {
+  r = r || {};
+  var rid = r.id || 'new_' + Date.now();
+  var prodChecks = '';
+  FertHub._products.forEach(function(p) {
+    var checked = r.product_ids && r.product_ids.indexOf(p.id) !== -1 ? ' checked' : '';
+    prodChecks += '<label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:13px;">' +
+      '<input type="checkbox" class="round-product-cb" value="' + p.id + '"' + checked + '> ' + p.name + '</label>';
+  });
+  return '<div class="fert-round-row" data-round-id="' + rid + '" style="border:1px solid var(--border-subtle,#333);border-radius:8px;padding:12px;margin-bottom:8px;">' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">' +
+    '<div class="form-group" style="flex:0 0 60px;margin-bottom:0;"><label class="form-label" style="font-size:12px;">Round #</label>' +
+    '<input type="number" class="form-control round-number" value="' + (r.round_number || '') + '" style="padding:4px 6px;"></div>' +
+    '<div class="form-group" style="flex:1;min-width:120px;margin-bottom:0;"><label class="form-label" style="font-size:12px;">Name</label>' +
+    '<input type="text" class="form-control round-name" value="' + (r.name || '') + '" style="padding:4px 6px;"></div>' +
+    '<div class="form-group" style="flex:0 0 90px;margin-bottom:0;"><label class="form-label" style="font-size:12px;">Month Start</label>' +
+    '<select class="form-control round-month-start" style="padding:4px 6px;">' + FertHub._optionsMonths(r.target_month_start) + '</select></div>' +
+    '<div class="form-group" style="flex:0 0 90px;margin-bottom:0;"><label class="form-label" style="font-size:12px;">Month End</label>' +
+    '<select class="form-control round-month-end" style="padding:4px 6px;">' + FertHub._optionsMonths(r.target_month_end) + '</select></div>' +
+    '<div class="form-group" style="flex:0 0 100px;margin-bottom:0;"><label class="form-label" style="font-size:12px;">Rate Override</label>' +
+    '<input type="number" step="0.1" class="form-control round-rate" value="' + (r.default_rate_override || '') + '" style="padding:4px 6px;"></div>' +
+    '</div>' +
+    '<div class="form-group" style="margin:8px 0 0;"><label class="form-label" style="font-size:12px;">Products</label>' +
+    '<div class="round-products-wrap" style="display:flex;flex-wrap:wrap;">' + prodChecks + '</div></div>' +
+    '<div class="form-group" style="margin:4px 0 0;"><label class="form-label" style="font-size:12px;">Crew Instructions</label>' +
+    '<textarea class="form-control round-instructions" rows="2" style="padding:4px 6px;">' + (r.crew_instructions || '') + '</textarea></div>' +
+    '<div style="text-align:right;margin-top:4px;">' +
+    (r.id ? '<button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger,#ef4444);" onclick="FertHub._deleteRound(' + programId + ',' + r.id + ',this)">Delete</button> ' : '') +
+    '<button type="button" class="btn btn-sm btn-secondary" onclick="FertHub._saveRound(' + programId + ',' + (r.id || 'null') + ',this)">Save Round</button>' +
+    '</div></div>';
+};
+
+FertHub._addRoundRow = function(programId) {
+  var list = document.getElementById('fert-rounds-list');
+  var nextNum = list.querySelectorAll('.fert-round-row').length + 1;
+  var r = { round_number: nextNum, name: '', target_month_start: '', target_month_end: '', product_ids: [], default_rate_override: '', crew_instructions: '' };
+  var div = document.createElement('div');
+  div.innerHTML = FertHub._roundRowHtml(programId, r);
+  list.appendChild(div.firstElementChild);
+};
+
+FertHub._saveRound = function(programId, roundId, btn) {
+  var row = btn.closest('.fert-round-row');
+  var fd = new FormData();
+  fd.append('round_number', row.querySelector('.round-number').value);
+  fd.append('name', row.querySelector('.round-name').value);
+  fd.append('target_month_start', row.querySelector('.round-month-start').value);
+  fd.append('target_month_end', row.querySelector('.round-month-end').value);
+  fd.append('default_rate_override', row.querySelector('.round-rate').value);
+  fd.append('crew_instructions', row.querySelector('.round-instructions').value);
+  row.querySelectorAll('.round-product-cb:checked').forEach(function(cb) {
+    fd.append('product_ids', cb.value);
+  });
+  var url = roundId
+    ? '/fertilization/api/rounds/' + programId + '/' + roundId + '/'
+    : '/fertilization/api/rounds/' + programId + '/';
+  btn.disabled = true;
+  btn.textContent = 'Saving\u2026';
+  fetch(url, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': FertHub.csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+    body: fd,
+    credentials: 'same-origin',
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.ok) {
+      /* Reload the program edit modal to show updated rounds */
+      FertHub.editProgram(programId);
+    } else {
+      FertHub._showErrors(data);
+      btn.disabled = false;
+      btn.textContent = 'Save Round';
+    }
+  }).catch(function(err) {
+    alert('Failed: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = 'Save Round';
+  });
+};
+
+FertHub._deleteRound = function(programId, roundId, btn) {
+  if (!confirm('Delete this round?')) return;
+  btn.disabled = true;
+  fetch('/fertilization/api/rounds/' + programId + '/' + roundId + '/', {
+    method: 'DELETE',
+    headers: { 'X-CSRFToken': FertHub.csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+    credentials: 'same-origin',
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.ok) {
+      FertHub.editProgram(programId);
+    } else {
+      alert(data.error || 'Failed to delete round');
+      btn.disabled = false;
+    }
+  });
+};
+
+FertHub.addProgram = function() {
+  var body = FertHub._programFormHtml();
+  var footer = '<button type="button" class="btn btn-secondary" onclick="FertHub.closeModal()">Cancel</button> ' +
+    '<button type="button" class="btn btn-primary" id="fert-save-btn" onclick="FertHub._submitProgram(null)">Save</button>';
+  FertHub.openModal('New Program', body, footer);
+};
+
+FertHub.editProgram = function(id) {
+  FertHub.openModal('Edit Program #' + id, '<p style="color:var(--text-muted)">Loading\u2026</p>', '');
+  FertHub._get('/fertilization/api/programs/' + id + '/').then(function(data) {
+    var p = data.program || data;
+    var body = FertHub._programFormHtml(p) + FertHub._roundsEditorHtml(id, p.rounds || []);
+    var footer = '<button type="button" class="btn btn-ghost" style="color:var(--danger,#ef4444);" onclick="FertHub._deleteProgram(' + id + ')">Delete Program</button>' +
+      '<span style="flex:1;"></span>' +
+      '<button type="button" class="btn btn-secondary" onclick="FertHub.closeModal()">Cancel</button> ' +
+      '<button type="button" class="btn btn-primary" id="fert-save-btn" onclick="FertHub._submitProgram(' + id + ')">Save Program</button>';
+    FertHub.openModal('Edit Program: ' + p.name, body, footer);
+    document.getElementById('fert-modal-footer').style.display = 'flex';
+  });
+};
+
+FertHub._submitProgram = function(id) {
+  var form = document.getElementById('fert-program-form');
+  var fd = new FormData(form);
+  /* Handle is_active checkbox */
+  if (!form.querySelector('[name=is_active]').checked) {
+    fd.delete('is_active');
+    fd.append('is_active', '');
+  }
+  var url = id ? '/fertilization/api/programs/' + id + '/' : '/fertilization/api/programs/';
+  FertHub._post(url, fd, document.getElementById('fert-save-btn'));
+};
+
+FertHub._deleteProgram = function(id) {
+  if (!confirm('Delete this program? This cannot be undone.')) return;
+  var fd = new FormData();
+  FertHub._post('/fertilization/api/programs/' + id + '/delete/', fd);
+};
+
+FertHub.duplicateProgram = function(id) {
+  if (!confirm('Duplicate this program?')) return;
+  var fd = new FormData();
+  FertHub._post('/fertilization/api/programs/' + id + '/duplicate/', fd);
+};
+
+/* ═══════════════════════════════════════════════════════════
+   PRODUCTS
+   ═══════════════════════════════════════════════════════════ */
+FertHub._productFormHtml = function(p) {
+  p = p || {};
+  var isPerBag = p.pricing_type === 'per_bag';
+  return '<form class="fert-form" id="fert-product-form">' +
+    '<div class="form-group"><label class="form-label">Product Name *</label>' +
+    '<input type="text" name="name" class="form-control" value="' + (p.name || '') + '" required></div>' +
+    '<div class="form-group"><label class="form-label">Product Type</label>' +
+    '<select name="product_type" class="form-control">' +
+    '<option value="granular"' + (p.product_type === 'granular' ? ' selected' : '') + '>Granular</option>' +
+    '<option value="liquid"' + (p.product_type === 'liquid' ? ' selected' : '') + '>Liquid</option>' +
+    '<option value="organic"' + (p.product_type === 'organic' ? ' selected' : '') + '>Organic</option>' +
+    '<option value="blend"' + (p.product_type === 'blend' ? ' selected' : '') + '>Blend</option>' +
+    '<option value="other"' + (p.product_type === 'other' ? ' selected' : '') + '>Other</option>' +
+    '</select></div>' +
+    '<div style="display:flex;gap:12px;">' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Nitrogen (N) %</label>' +
+    '<input type="number" name="nitrogen_pct" class="form-control" min="0" max="100" step="0.1" value="' + (p.nitrogen_pct || '') + '"></div>' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Phosphorus (P) %</label>' +
+    '<input type="number" name="phosphorus_pct" class="form-control" min="0" max="100" step="0.1" value="' + (p.phosphorus_pct || '') + '"></div>' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Potassium (K) %</label>' +
+    '<input type="number" name="potassium_pct" class="form-control" min="0" max="100" step="0.1" value="' + (p.potassium_pct || '') + '"></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">Application Rate (lbs / 1,000 sqft)</label>' +
+    '<input type="number" name="application_rate" class="form-control" step="0.1" value="' + (p.application_rate || '') + '"></div>' +
+    '<div class="form-group"><label class="form-label">Pricing Type</label>' +
+    '<select name="pricing_type" class="form-control" onchange="FertHub._toggleProductPricing(this.value)">' +
+    '<option value="per_pound"' + (!isPerBag ? ' selected' : '') + '>Per Pound</option>' +
+    '<option value="per_bag"' + (isPerBag ? ' selected' : '') + '>Per Bag</option>' +
+    '</select></div>' +
+    '<div id="fert-pricing-per-pound" style="' + (isPerBag ? 'display:none;' : '') + '">' +
+    '<div class="form-group"><label class="form-label">Cost per Pound ($)</label>' +
+    '<input type="number" name="cost_per_pound" class="form-control" step="0.01" value="' + (p.cost_per_pound || '') + '"></div>' +
+    '</div>' +
+    '<div id="fert-pricing-per-bag" style="' + (!isPerBag ? 'display:none;' : '') + '">' +
+    '<div style="display:flex;gap:12px;">' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Cost per Bag ($)</label>' +
+    '<input type="number" name="cost_per_bag" class="form-control" step="0.01" value="' + (p.cost_per_bag || '') + '"></div>' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Lbs per Bag</label>' +
+    '<input type="number" name="lbs_per_bag" class="form-control" step="0.1" value="' + (p.lbs_per_bag || '') + '"></div>' +
+    '</div></div>' +
+    '<div class="form-group"><label class="form-label">EPA Registration Number</label>' +
+    '<input type="text" name="epa_registration_number" class="form-control" value="' + (p.epa_registration_number || '') + '"></div>' +
+    '<div class="form-group"><label class="form-label" style="display:flex;align-items:center;gap:8px;">' +
+    '<input type="checkbox" name="active"' + (p.active !== false ? ' checked' : '') + '> Active</label></div>' +
+    '</form>';
+};
+
+FertHub._toggleProductPricing = function(val) {
+  document.getElementById('fert-pricing-per-pound').style.display = val === 'per_bag' ? 'none' : '';
+  document.getElementById('fert-pricing-per-bag').style.display = val === 'per_bag' ? '' : 'none';
+};
+
+FertHub.addProduct = function() {
+  var body = FertHub._productFormHtml();
+  var footer = '<button type="button" class="btn btn-secondary" onclick="FertHub.closeModal()">Cancel</button> ' +
+    '<button type="button" class="btn btn-primary" id="fert-save-btn" onclick="FertHub._submitProduct(null)">Save</button>';
+  FertHub.openModal('New Product', body, footer);
+};
+
+FertHub.editProduct = function(id) {
+  FertHub.openModal('Edit Product #' + id, '<p style="color:var(--text-muted)">Loading\u2026</p>', '');
+  FertHub._get('/fertilization/api/products/' + id + '/').then(function(data) {
+    var p = data.product || data;
+    /* Parse npk string if individual fields are absent */
+    if (p.npk && !p.nitrogen_pct) {
+      var parts = p.npk.split('-');
+      p.nitrogen_pct = parts[0] || '';
+      p.phosphorus_pct = parts[1] || '';
+      p.potassium_pct = parts[2] || '';
+    }
+    var body = FertHub._productFormHtml(p);
+    var footer = '<button type="button" class="btn btn-secondary" onclick="FertHub.closeModal()">Cancel</button> ' +
+      '<button type="button" class="btn btn-primary" id="fert-save-btn" onclick="FertHub._submitProduct(' + id + ')">Save</button>';
+    FertHub.openModal('Edit Product: ' + p.name, body, footer);
+  });
+};
+
+FertHub._submitProduct = function(id) {
+  var form = document.getElementById('fert-product-form');
+  var fd = new FormData(form);
+  /* Handle active checkbox */
+  if (!form.querySelector('[name=active]').checked) {
+    fd.delete('active');
+    fd.append('active', '');
+  }
+  var url = id ? '/fertilization/api/products/' + id + '/' : '/fertilization/api/products/';
+  FertHub._post(url, fd, document.getElementById('fert-save-btn'));
+};
+
+/* ═══════════════════════════════════════════════════════════
+   ENROLLMENTS
+   ═══════════════════════════════════════════════════════════ */
+FertHub._enrollmentFormHtml = function(e) {
+  e = e || {};
+  var currentYear = new Date().getFullYear();
+  var method = e.pricing_method || 'per_application';
+  return '<form class="fert-form" id="fert-enrollment-form">' +
+    '<div class="form-group"><label class="form-label">Property *</label>' +
+    '<select name="property_id" class="form-control">' + FertHub._optionsProperties(e.property_id) + '</select></div>' +
+    '<div class="form-group"><label class="form-label">Program *</label>' +
+    '<select name="program_id" class="form-control">' + FertHub._optionsPrograms(e.program_id) + '</select></div>' +
+    '<div class="form-group"><label class="form-label">Year</label>' +
+    '<input type="number" name="year" class="form-control" value="' + (e.year || currentYear) + '"></div>' +
+    '<div class="form-group"><label class="form-label">Pricing Method</label>' +
+    '<select name="pricing_method" class="form-control" onchange="FertHub._toggleEnrollmentPricing(this.value)">' +
+    '<option value="per_application"' + (method === 'per_application' ? ' selected' : '') + '>Per Application</option>' +
+    '<option value="annual_flat"' + (method === 'annual_flat' ? ' selected' : '') + '>Annual Flat</option>' +
+    '<option value="per_sqft"' + (method === 'per_sqft' ? ' selected' : '') + '>Per Sq Ft</option>' +
+    '</select></div>' +
+    '<div id="fert-enr-per-app" style="' + (method !== 'per_application' ? 'display:none;' : '') + '">' +
+    '<div class="form-group"><label class="form-label">Price per Application ($)</label>' +
+    '<input type="number" name="price_per_application" class="form-control" step="0.01" value="' + (e.price_per_application || '') + '"></div></div>' +
+    '<div id="fert-enr-annual" style="' + (method !== 'annual_flat' ? 'display:none;' : '') + '">' +
+    '<div class="form-group"><label class="form-label">Annual Price ($)</label>' +
+    '<input type="number" name="annual_price" class="form-control" step="0.01" value="' + (e.annual_price || '') + '"></div></div>' +
+    '<div id="fert-enr-per-sqft" style="' + (method !== 'per_sqft' ? 'display:none;' : '') + '">' +
+    '<div class="form-group"><label class="form-label">Price per Sq Ft ($)</label>' +
+    '<input type="number" name="price_per_sqft" class="form-control" step="0.001" value="' + (e.price_per_sqft || '') + '"></div></div>' +
+    '<div style="display:flex;gap:12px;">' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Markup %</label>' +
+    '<input type="number" name="markup_pct" class="form-control" value="' + (e.markup_pct != null ? e.markup_pct : 40) + '" step="5" min="0" max="200"></div>' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Base Fee ($)</label>' +
+    '<input type="number" name="base_fee" class="form-control" step="0.01" value="' + (e.base_fee || 0) + '"></div>' +
+    '</div>' +
+    '<div class="form-group"><button type="button" class="btn btn-sm btn-secondary" onclick="FertHub._calcEnrollmentPricing()">Calculate Suggested Pricing</button>' +
+    '<div id="fert-enr-calc-result" style="margin-top:8px;font-size:13px;color:var(--text-muted);"></div></div>' +
+    '<div class="form-group"><label class="form-label">Notes</label>' +
+    '<textarea name="notes" class="form-control" rows="3">' + (e.notes || '') + '</textarea></div>' +
+    '</form>';
+};
+
+FertHub._toggleEnrollmentPricing = function(val) {
+  document.getElementById('fert-enr-per-app').style.display = val === 'per_application' ? '' : 'none';
+  document.getElementById('fert-enr-annual').style.display = val === 'annual_flat' ? '' : 'none';
+  document.getElementById('fert-enr-per-sqft').style.display = val === 'per_sqft' ? '' : 'none';
+};
+
+FertHub._calcEnrollmentPricing = function() {
+  var form = document.getElementById('fert-enrollment-form');
+  var programId = form.querySelector('[name=program_id]').value;
+  var propertyId = form.querySelector('[name=property_id]').value;
+  var markup = form.querySelector('[name=markup_pct]').value;
+  if (!programId || !propertyId) { alert('Select a property and program first.'); return; }
+  var resultDiv = document.getElementById('fert-enr-calc-result');
+  resultDiv.textContent = 'Calculating\u2026';
+  FertHub._get('/fertilization/api/calculate-pricing/?program_id=' + programId + '&property_id=' + propertyId + '&markup_pct=' + markup)
+    .then(function(data) {
+      if (data.error) { resultDiv.textContent = data.error; return; }
+      var html = '<strong>Material Cost:</strong> $' + Number(data.total_material_cost).toFixed(2) +
+        ' | <strong>Rounds:</strong> ' + data.num_rounds +
+        ' | <strong>Cost/Round:</strong> $' + Number(data.cost_per_round).toFixed(2) +
+        '<br><strong>Suggested per Application:</strong> $' + Number(data.suggested_per_application).toFixed(2) +
+        ' | <strong>Suggested Annual:</strong> $' + Number(data.suggested_annual).toFixed(2);
+      if (data.round_breakdown && data.round_breakdown.length) {
+        html += '<table style="width:100%;margin-top:8px;font-size:12px;"><thead><tr><th>Round</th><th>Name</th><th>Material</th><th>Suggested</th></tr></thead><tbody>';
+        data.round_breakdown.forEach(function(rb) {
+          html += '<tr><td>' + rb.round_number + '</td><td>' + (rb.name || '') + '</td><td>$' + Number(rb.material_cost).toFixed(2) + '</td><td>$' + Number(rb.suggested_price).toFixed(2) + '</td></tr>';
+        });
+        html += '</tbody></table>';
+      }
+      resultDiv.innerHTML = html;
+      /* Auto-fill price fields */
+      var appInput = form.querySelector('[name=price_per_application]');
+      var annualInput = form.querySelector('[name=annual_price]');
+      if (appInput && data.suggested_per_application) appInput.value = Number(data.suggested_per_application).toFixed(2);
+      if (annualInput && data.suggested_annual) annualInput.value = Number(data.suggested_annual).toFixed(2);
+    }).catch(function(err) { resultDiv.textContent = 'Error: ' + err.message; });
+};
+
+FertHub.addEnrollment = function() {
+  var body = FertHub._enrollmentFormHtml();
+  var footer = '<button type="button" class="btn btn-secondary" onclick="FertHub.closeModal()">Cancel</button> ' +
+    '<button type="button" class="btn btn-primary" id="fert-save-btn" onclick="FertHub._submitEnrollment(null)">Save</button>';
+  FertHub.openModal('Enroll Customer', body, footer);
+};
+
+FertHub.editEnrollment = function(id) {
+  FertHub.openModal('Edit Enrollment #' + id, '<p style="color:var(--text-muted)">Loading\u2026</p>', '');
+  FertHub._get('/fertilization/api/enrollments/' + id + '/').then(function(data) {
+    var e = data.enrollment || data;
+    var body = FertHub._enrollmentFormHtml(e);
+    /* Show scheduled rounds summary if available */
+    if (e.scheduled_rounds && e.scheduled_rounds.length) {
+      body += '<hr style="margin:16px 0;border-color:var(--border-subtle,#333);">' +
+        '<h4 style="margin:0 0 8px 0;">Scheduled Rounds</h4>' +
+        '<table style="width:100%;font-size:13px;"><thead><tr><th>Round</th><th>Date</th><th>Status</th><th>Price</th><th>Material</th></tr></thead><tbody>';
+      e.scheduled_rounds.forEach(function(sr) {
+        body += '<tr><td>' + sr.round_number + '</td><td>' + (sr.scheduled_date || '--') + '</td><td>' + (sr.status || '--') + '</td><td>$' + Number(sr.price || 0).toFixed(2) + '</td><td>$' + Number(sr.material_cost || 0).toFixed(2) + '</td></tr>';
+      });
+      body += '</tbody></table>';
+    }
+    var footer = '<button type="button" class="btn btn-secondary" onclick="FertHub.closeModal()">Cancel</button> ' +
+      '<button type="button" class="btn btn-primary" id="fert-save-btn" onclick="FertHub._submitEnrollment(' + id + ')">Save</button>';
+    FertHub.openModal('Edit Enrollment: ' + (e.customer_name || '#' + id), body, footer);
+  });
+};
+
+FertHub._submitEnrollment = function(id) {
+  var form = document.getElementById('fert-enrollment-form');
+  var fd = new FormData(form);
+  var url = id ? '/fertilization/api/enrollments/' + id + '/' : '/fertilization/api/enrollments/';
+  FertHub._post(url, fd, document.getElementById('fert-save-btn'));
+};
+
+FertHub.cancelEnrollment = function(id) {
+  if (!confirm('Cancel this enrollment? This will mark it as cancelled.')) return;
+  var fd = new FormData();
+  fetch('/fertilization/api/enrollments/' + id + '/cancel/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': FertHub.csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+    body: fd,
+    credentials: 'same-origin',
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.ok !== false) { location.reload(); }
+    else { alert(data.error || 'Failed to cancel enrollment.'); }
+  }).catch(function(err) { alert('Request failed: ' + err.message); });
+};
+
+/* ═══════════════════════════════════════════════════════════
+   APPLICATIONS
+   ═══════════════════════════════════════════════════════════ */
+FertHub._applicationFormHtml = function(a) {
+  a = a || {};
+  var today = new Date().toISOString().slice(0, 10);
+  return '<form class="fert-form" id="fert-application-form">' +
+    '<div class="form-group"><label class="form-label">Property *</label>' +
+    '<select name="property_id" class="form-control">' + FertHub._optionsProperties(a.property_id) + '</select></div>' +
+    '<div class="form-group"><label class="form-label">Product *</label>' +
+    '<select name="product_id" class="form-control">' + FertHub._optionsProducts(a.product_id) + '</select></div>' +
+    '<div class="form-group"><label class="form-label">Application Date</label>' +
+    '<input type="date" name="application_date" class="form-control" value="' + (a.application_date || today) + '"></div>' +
+    '<div style="display:flex;gap:12px;">' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Pounds Used</label>' +
+    '<input type="number" name="pounds_used" class="form-control" step="0.1" value="' + (a.pounds_used || '') + '" oninput="FertHub._calcAppRate()"></div>' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Square Feet</label>' +
+    '<input type="number" name="square_feet" class="form-control" value="' + (a.square_feet || '') + '" oninput="FertHub._calcAppRate()"></div>' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">lbs/1000 sqft</label>' +
+    '<input type="number" name="lbs_per_1000_sqft" class="form-control" step="0.01" value="' + (a.lbs_per_1000_sqft || '') + '" readonly style="background:var(--bg-muted,#222);"></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:12px;">' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Material Cost ($)</label>' +
+    '<input type="number" name="material_cost" class="form-control" step="0.01" value="' + (a.material_cost || '') + '"></div>' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Charge Amount ($)</label>' +
+    '<input type="number" name="charge_amount" class="form-control" step="0.01" value="' + (a.charge_amount || '') + '"></div>' +
+    '</div>' +
+    '<h4 style="margin:12px 0 4px;font-size:15px;">Weather Conditions</h4>' +
+    '<div style="display:flex;gap:12px;">' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Conditions</label>' +
+    '<select name="weather_conditions" class="form-control">' +
+    '<option value="">-- None --</option>' +
+    '<option value="sunny"' + (a.weather_conditions === 'sunny' ? ' selected' : '') + '>Sunny</option>' +
+    '<option value="cloudy"' + (a.weather_conditions === 'cloudy' ? ' selected' : '') + '>Cloudy</option>' +
+    '<option value="rainy"' + (a.weather_conditions === 'rainy' ? ' selected' : '') + '>Rainy</option>' +
+    '<option value="windy"' + (a.weather_conditions === 'windy' ? ' selected' : '') + '>Windy</option>' +
+    '<option value="overcast"' + (a.weather_conditions === 'overcast' ? ' selected' : '') + '>Overcast</option>' +
+    '<option value="other"' + (a.weather_conditions === 'other' ? ' selected' : '') + '>Other</option>' +
+    '</select></div>' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Temp (\u00b0F)</label>' +
+    '<input type="number" name="weather_temp_f" class="form-control" value="' + (a.weather_temp_f || '') + '"></div>' +
+    '<div class="form-group" style="flex:1;"><label class="form-label">Wind (mph)</label>' +
+    '<input type="number" name="weather_wind_mph" class="form-control" step="0.1" value="' + (a.weather_wind_mph || '') + '"></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">Notes</label>' +
+    '<textarea name="notes" class="form-control" rows="3">' + (a.notes || '') + '</textarea></div>' +
+    '</form>';
+};
+
+FertHub._calcAppRate = function() {
+  var form = document.getElementById('fert-application-form');
+  if (!form) return;
+  var lbs = parseFloat(form.querySelector('[name=pounds_used]').value) || 0;
+  var sqft = parseFloat(form.querySelector('[name=square_feet]').value) || 0;
+  var rateField = form.querySelector('[name=lbs_per_1000_sqft]');
+  if (sqft > 0 && lbs > 0) {
+    rateField.value = ((lbs / sqft) * 1000).toFixed(2);
+  } else {
+    rateField.value = '';
+  }
+};
+
+FertHub.addApplication = function() {
+  var body = FertHub._applicationFormHtml();
+  var footer = '<button type="button" class="btn btn-secondary" onclick="FertHub.closeModal()">Cancel</button> ' +
+    '<button type="button" class="btn btn-primary" id="fert-save-btn" onclick="FertHub._submitApplication(null)">Save</button>';
+  FertHub.openModal('Log Application', body, footer);
+};
+
+FertHub.editApplication = function(id) {
+  FertHub.openModal('Edit Application #' + id, '<p style="color:var(--text-muted)">Loading\u2026</p>', '');
+  FertHub._get('/fertilization/api/applications/' + id + '/').then(function(data) {
+    var a = data.application || data;
+    var body = FertHub._applicationFormHtml(a);
+    var footer = '<button type="button" class="btn btn-secondary" onclick="FertHub.closeModal()">Cancel</button> ' +
+      '<button type="button" class="btn btn-primary" id="fert-save-btn" onclick="FertHub._submitApplication(' + id + ')">Save</button>';
+    FertHub.openModal('Edit Application', body, footer);
+  });
+};
+
+FertHub._submitApplication = function(id) {
+  var form = document.getElementById('fert-application-form');
+  var fd = new FormData(form);
+  var url = id ? '/fertilization/api/applications/' + id + '/' : '/fertilization/api/applications/';
+  FertHub._post(url, fd, document.getElementById('fert-save-btn'));
+};
+
+/* ═══════════════════════════════════════════════════════════
+   CALCULATORS
+   ═══════════════════════════════════════════════════════════ */
+FertHub.onCalcProductChange = function() {
+  var sel = document.getElementById('calc-product-select');
+  var opt = sel.options[sel.selectedIndex];
+  if (opt && opt.dataset.rate) {
+    document.getElementById('calc-rate').value = opt.dataset.rate;
+  }
+};
+
+FertHub.calculateProduct = function() {
+  var productId = document.getElementById('calc-product-select').value;
+  var sqft = document.getElementById('calc-sqft').value;
+  var rate = document.getElementById('calc-rate').value;
+  if (!productId || !sqft || !rate) { alert('Please fill in all fields.'); return; }
+  var resultDiv = document.getElementById('calc-product-result');
+  resultDiv.style.display = '';
+  resultDiv.innerHTML = '<p style="color:var(--text-muted)">Calculating\u2026</p>';
+  FertHub._get('/fertilization/api/calculate-product/?product_id=' + productId + '&square_feet=' + sqft + '&rate=' + rate)
+    .then(function(data) {
+      if (data.error) { resultDiv.innerHTML = '<p style="color:var(--danger,#ef4444);">' + data.error + '</p>'; return; }
+      resultDiv.innerHTML =
+        '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">' +
+        '<div><div style="font-size:13px;color:var(--text-muted);">Lbs Needed</div><div style="font-size:20px;font-weight:600;">' + Number(data.lbs_needed).toFixed(1) + '</div></div>' +
+        '<div><div style="font-size:13px;color:var(--text-muted);">Bags Needed</div><div style="font-size:20px;font-weight:600;">' + (data.bags_needed != null ? Math.ceil(data.bags_needed) : 'N/A') + '</div></div>' +
+        '<div><div style="font-size:13px;color:var(--text-muted);">Total Cost</div><div style="font-size:20px;font-weight:600;">$' + Number(data.total_cost).toFixed(2) + '</div></div>' +
+        '<div><div style="font-size:13px;color:var(--text-muted);">Cost / 1,000 sqft</div><div style="font-size:20px;font-weight:600;">$' + Number(data.cost_per_1000_sqft).toFixed(2) + '</div></div>' +
+        '</div>';
+    }).catch(function(err) {
+      resultDiv.innerHTML = '<p style="color:var(--danger,#ef4444);">Error: ' + err.message + '</p>';
+    });
+};
+
+FertHub.calculatePricing = function() {
+  var propertyId = document.getElementById('calc-property-select').value;
+  var programId = document.getElementById('calc-program-select').value;
+  var markup = document.getElementById('calc-markup').value;
+  if (!propertyId || !programId) { alert('Please select a property and program.'); return; }
+  var resultDiv = document.getElementById('calc-pricing-result');
+  resultDiv.style.display = '';
+  resultDiv.innerHTML = '<p style="color:var(--text-muted)">Calculating\u2026</p>';
+  FertHub._get('/fertilization/api/calculate-pricing/?program_id=' + programId + '&property_id=' + propertyId + '&markup_pct=' + markup)
+    .then(function(data) {
+      if (data.error) { resultDiv.innerHTML = '<p style="color:var(--danger,#ef4444);">' + data.error + '</p>'; return; }
+      var html = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:12px;">' +
+        '<div><div style="font-size:13px;color:var(--text-muted);">Total Material Cost</div><div style="font-size:20px;font-weight:600;">$' + Number(data.total_material_cost).toFixed(2) + '</div></div>' +
+        '<div><div style="font-size:13px;color:var(--text-muted);">Number of Rounds</div><div style="font-size:20px;font-weight:600;">' + data.num_rounds + '</div></div>' +
+        '<div><div style="font-size:13px;color:var(--text-muted);">Suggested / Application</div><div style="font-size:20px;font-weight:600;color:var(--primary,#22c55e);">$' + Number(data.suggested_per_application).toFixed(2) + '</div></div>' +
+        '<div><div style="font-size:13px;color:var(--text-muted);">Suggested Annual</div><div style="font-size:20px;font-weight:600;color:var(--primary,#22c55e);">$' + Number(data.suggested_annual).toFixed(2) + '</div></div>' +
+        '</div>';
+      if (data.round_breakdown && data.round_breakdown.length) {
+        html += '<table style="width:100%;font-size:13px;"><thead><tr><th style="text-align:left;">Round</th><th style="text-align:left;">Name</th><th style="text-align:right;">Material</th><th style="text-align:right;">Suggested</th></tr></thead><tbody>';
+        data.round_breakdown.forEach(function(rb) {
+          html += '<tr><td>' + rb.round_number + '</td><td>' + (rb.name || '') + '</td><td style="text-align:right;">$' + Number(rb.material_cost).toFixed(2) + '</td><td style="text-align:right;">$' + Number(rb.suggested_price).toFixed(2) + '</td></tr>';
+        });
+        html += '</tbody></table>';
+      }
+      resultDiv.innerHTML = html;
+    }).catch(function(err) {
+      resultDiv.innerHTML = '<p style="color:var(--danger,#ef4444);">Error: ' + err.message + '</p>';
+    });
+};
+
+/* ═══════════════════════════════════════════════════════════
+   REPORTS
+   ═══════════════════════════════════════════════════════════ */
+FertHub.downloadReport = function(type) {
+  var startEl, endEl;
+  if (type === 'compliance') {
+    startEl = document.getElementById('report-compliance-start');
+    endEl = document.getElementById('report-compliance-end');
+  } else if (type === 'profit') {
+    startEl = document.getElementById('report-profit-start');
+    endEl = document.getElementById('report-profit-end');
+  } else {
+    startEl = document.getElementById('report-material-start');
+    endEl = document.getElementById('report-material-end');
+  }
+  var startDate = startEl ? startEl.value : '';
+  var endDate = endEl ? endEl.value : '';
+  var params = [];
+  if (startDate) params.push('start_date=' + startDate);
+  if (endDate) params.push('end_date=' + endDate);
+  var url = '/fertilization/api/reports/' + type + '/';
+  if (params.length) url += '?' + params.join('&');
+  window.location.href = url;
+};
 
 /* ── Populate calculator dropdowns from JSON ──────────────── */
 (function() {
