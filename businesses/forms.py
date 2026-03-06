@@ -16,6 +16,7 @@ class BusinessSettingsForm(forms.ModelForm):
         fields = [
             "name",
             "logo",
+            "timezone",
             "email_smtp_user",
             "email_smtp_password",
             "from_email",
@@ -54,11 +55,13 @@ class BusinessSettingsForm(forms.ModelForm):
             "estimate_followup_email_intro",
         ]
         labels = {
+            "timezone": "Business timezone",
             "venmo_username": "Venmo handle",
             "zelle_email_or_phone": "Zelle (email or phone)",
             "cashapp_cashtag": "Cash App handle",
         }
         help_texts = {
+            "timezone": "All dates and times across the app display in this timezone.",
             "require_completion_photo": "If enabled, crew must upload at least one completion photo before marking a job complete.",
             "default_invoice_automation_mode": "Default invoice automation when a customer-level invoice setting is not set.",
             "auto_invoice_send_behavior": "For per-service automation, choose whether to create draft invoices or send immediately.",
