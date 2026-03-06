@@ -3,7 +3,7 @@
 <div class="page-header" style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">
   <div>
     <h1>Integration Health Center</h1>
-    <p>Trust-grade reliability view for Stripe, SMTP, QuickBooks, and webhook processing.</p>
+    <p>Trust-grade reliability view for Stripe, SMTP, and webhook processing.</p>
   </div>
   <form method="post">{% csrf_token %}<input type="hidden" name="action" value="retry_failed_webhooks"><button class="btn btn-secondary" type="submit">Retry failed webhooks</button></form>
 </div>
@@ -16,7 +16,6 @@
 <div class="kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:14px;">
   <div class="card"><div class="muted">SMTP</div><div style="font-size:26px;font-weight:700;">{% if smtp_connected %}Connected{% else %}Not connected{% endif %}</div></div>
   <div class="card"><div class="muted">Stripe Connect</div><div style="font-size:26px;font-weight:700;">{% if stripe_connected %}Connected{% else %}Not connected{% endif %}</div></div>
-  <div class="card"><div class="muted">QuickBooks push</div><div style="font-size:26px;font-weight:700;">{% if quickbooks_connected %}Active{% else %}Not active{% endif %}</div></div>
   <div class="card"><div class="muted">Webhook failures</div><div style="font-size:26px;font-weight:700;">{{ webhook_failures }}</div></div>
 </div>
 

@@ -76,7 +76,6 @@ urlpatterns = [
     path("webhooks/stripe/", include("subscription.webhook_urls")),
     path("financials/", include(("financials.urls", "financials"), namespace="financials")),
     path("estimator/", include("property_estimator.urls")),
-    path("quickbooks/", include("quickbooks.urls")),
     path("api/messages/", include("messaging.urls")),
     path("fertilization/", include(("fertilization.urls", "fertilization"), namespace="fertilization")),
 ]

@@ -364,8 +364,6 @@ def reliability_center(request):
             next_retry = "manual review recommended"
         retry_candidates.append({"event": w, "age_min": age_min, "next_retry": next_retry})
 
-    # QuickBooks integration removed
-    quickbooks_connected = False
     stripe_connected = bool(getattr(business, "stripe_connect_account_id", ""))
     smtp_connected = bool(getattr(business, "email_smtp_user", "") and getattr(business, "email_smtp_password", ""))
 
@@ -738,8 +736,6 @@ def employee_management(request):
             .order_by("-paid_date", "-created_at")
         )
         payroll_total = sum(p.amount for p in payroll_payments)
-        payroll_unsynced = [p for p in payroll_payments if not p.quickbooks_journal_entry_id]
-        quickbooks_connected = bool(getattr(business, "quickbooks_connection", None))
         pending_time_entries_qs = TimeEntry.objects.filter(
             user__business_id=business.id,
             status="pending_approval",
@@ -773,8 +769,6 @@ def employee_management(request):
         crews = []
         payroll_payments = []
         payroll_total = Decimal("0")
-        payroll_unsynced = []
-        quickbooks_connected = False
         pending_time_entries_count = 0
         pending_time_entries = []
         all_employees_json = "[]"
@@ -796,7 +790,6 @@ def employee_management(request):
         "crews": crews,
         "payroll_payments": payroll_payments,
         "payroll_total": payroll_total,
-        "payroll_unsynced_count": len(payroll_unsynced),
         "is_owner": is_owner,
         "time_off_requests": time_off_requests,
         "schedule_employees": schedule_employees,
@@ -807,7 +800,6 @@ def employee_management(request):
         "pending_time_entries": pending_time_entries,
         "all_employees_json": all_employees_json,
         "crew_users_json": crew_users_json,
-        "quickbooks_connected": quickbooks_connected if is_owner else False,
         "today_iso": today.isoformat(),
     })
 

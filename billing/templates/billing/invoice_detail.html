@@ -196,15 +196,6 @@
         <button type="submit" class="btn btn-primary">Mark as paid</button>
       </form>
       {% endif %}
-      {% if quickbooks_connected %}
-        {% if invoice.quickbooks_invoice_id %}
-        <span class="btn btn-secondary" title="Already in QuickBooks">✓ In QuickBooks</span>
-        {% else %}
-        {% csrf_token %}
-        <button type="button" id="qb-push-btn" class="btn btn-secondary" data-invoice-id="{{ invoice.id }}">Push to QuickBooks</button>
-        <span id="qb-push-status" style="display: none;"></span>
-        {% endif %}
-      {% endif %}
       <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">← Back to Invoices</a>
     </div>
   </div>
@@ -289,40 +280,4 @@
   }
 })();
 </script>
-{% if quickbooks_connected and not invoice.quickbooks_invoice_id %}
-<script>
-document.getElementById('qb-push-btn').addEventListener('click', function() {
-  var btn = this;
-  var status = document.getElementById('qb-push-status');
-  btn.disabled = true;
-  status.style.display = 'inline';
-  status.textContent = 'Pushing…';
-  status.className = '';
-  fetch('/quickbooks/invoice/' + btn.dataset.invoiceId + '/push/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    credentials: 'same-origin',
-    body: JSON.stringify({})
-  }).then(function(r) { return r.json(); }).then(function(data) {
-    if (data.ok) {
-      status.textContent = '✓ Pushed to QuickBooks';
-      status.style.color = 'var(--primary)';
-      btn.remove();
-    } else {
-      status.textContent = data.error || 'Failed';
-      status.style.color = '#dc2626';
-      btn.disabled = false;
-    }
-  }).catch(function() {
-    status.textContent = 'Request failed';
-    status.style.color = '#dc2626';
-    btn.disabled = false;
-  });
-});
-</script>
-{% endif %}
 {% endblock %}

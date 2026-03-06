@@ -99,7 +99,6 @@ INSTALLED_APPS = [
     'property_estimator',
     'financials',
     'subscription',
-    'quickbooks',
     'messaging',
     'fertilization',
 ]

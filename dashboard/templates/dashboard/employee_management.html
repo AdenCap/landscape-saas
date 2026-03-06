@@ -267,15 +267,10 @@
   <div class="section-header">
     <div>
       <h2 class="card-title">Payroll</h2>
-      <p class="section-desc">Record employee payments. Track bonuses, deductions, and QuickBooks sync status.</p>
+      <p class="section-desc">Record employee payments. Track bonuses, deductions, and reimbursements.</p>
     </div>
     <span class="header-actions">
       <button type="button" class="btn btn-primary btn-sm" onclick="EmModal.recordPayment()">+ Record Payment</button>
-      {% if quickbooks_connected and payroll_unsynced_count > 0 %}
-      <button type="button" id="payroll-sync-qb-btn" class="btn btn-secondary btn-sm">Sync {{ payroll_unsynced_count }} to QB</button>
-      {% elif quickbooks_connected %}
-      <span class="btn btn-secondary btn-sm" style="opacity:.6;">✓ All synced</span>
-      {% endif %}
     </span>
   </div>
   <div class="kpi-grid" style="margin-bottom: 16px;">
@@ -292,7 +287,6 @@
         <th>Type</th>
         <th class="num">Amount</th>
         <th>Notes</th>
-        {% if quickbooks_connected %}<th>QB</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -303,12 +297,9 @@
         <td><span class="badge badge-ptype-{{ p.payment_type }}">{{ p.get_payment_type_display }}</span></td>
         <td class="num">${{ p.amount|floatformat:2 }}</td>
         <td>{{ p.notes|default:"—" }}</td>
-        {% if quickbooks_connected %}
-        <td>{% if p.quickbooks_journal_entry_id %}<span class="badge badge-synced">✓</span>{% else %}<span class="badge badge-unsynced">—</span>{% endif %}</td>
-        {% endif %}
       </tr>
       {% empty %}
-      <tr><td colspan="{% if quickbooks_connected %}6{% else %}5{% endif %}">No payroll payments yet. <button type="button" class="link-primary" onclick="EmModal.recordPayment()" style="background:none;border:none;cursor:pointer;color:var(--primary);text-decoration:underline;">Record your first payment</button></td></tr>
+      <tr><td colspan="5">No payroll payments yet. <button type="button" class="link-primary" onclick="EmModal.recordPayment()" style="background:none;border:none;cursor:pointer;color:var(--primary);text-decoration:underline;">Record your first payment</button></td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -1102,36 +1093,4 @@
 })();
 </script>
 
-{% if quickbooks_connected and payroll_unsynced_count > 0 %}
-<script>
-document.getElementById('payroll-sync-qb-btn').addEventListener('click', function() {
-  var btn = this;
-  btn.disabled = true;
-  btn.textContent = 'Syncing…';
-  fetch('{% url "quickbooks:sync_payroll" %}', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': document.querySelector('#em-csrf-form [name=csrfmiddlewaretoken]').value,
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    credentials: 'same-origin',
-    body: JSON.stringify({})
-  }).then(function(r) { return r.json(); }).then(function(data) {
-    if (data.ok) {
-      btn.textContent = '✓ Synced ' + (data.synced || 0);
-      window.location.reload();
-    } else {
-      btn.disabled = false;
-      btn.textContent = 'Sync to QuickBooks';
-      alert(data.error || 'Sync failed');
-    }
-  }).catch(function() {
-    btn.disabled = false;
-    btn.textContent = 'Sync to QuickBooks';
-    alert('Request failed');
-  });
-});
-</script>
-{% endif %}
 {% endblock %}

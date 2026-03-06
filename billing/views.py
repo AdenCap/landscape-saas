@@ -467,7 +467,20 @@ def connect_onboarding(request):
 @role_required("owner", "manager")
 @require_http_methods(["GET"])
 def connect_return(request):
-    """Stripe redirects here after Connect onboarding. Webhook account.updated will set charges_enabled."""
+    """Stripe redirects here after Connect onboarding.
+
+    Actively checks the Stripe account status instead of waiting for the
+    webhook, so the settings page shows the correct status immediately.
+    """
+    business = _get_business(request)
+    if business and business.stripe_connect_account_id:
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        try:
+            acc = stripe.Account.retrieve(business.stripe_connect_account_id)
+            business.stripe_connect_charges_enabled = bool(acc.get("charges_enabled"))
+            business.save(update_fields=["stripe_connect_charges_enabled"])
+        except Exception:
+            pass  # Webhook will update later as fallback
     messages.success(request, "Stripe setup complete. You can now accept card payments on invoices.")
     return redirect("business_settings")
 
