@@ -25,6 +25,8 @@ document.addEventListener('DOMContentLoaded', function () {
   // ── Helper functions ──
   function pad2(n) { return String(n).padStart(2, '0'); }
 
+  var BUSINESS_TZ = document.body.getAttribute('data-tz') || 'America/New_York';
+
   function formatDateStr(d) {
     if (!d || !d.getFullYear) return '';
     return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
@@ -35,11 +37,20 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function formatTimeShort(d) {
-    var h = d.getHours();
-    var m = d.getMinutes();
-    var ampm = h >= 12 ? 'p' : 'a';
-    var hr = h % 12 || 12;
-    return hr + (m ? ':' + pad2(m) : '') + ampm;
+    try {
+      return d.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: BUSINESS_TZ
+      }).replace(' ', '').toLowerCase();
+    } catch (e) {
+      // Fallback if timezone not supported
+      var h = d.getHours();
+      var m = d.getMinutes();
+      var ampm = h >= 12 ? 'p' : 'a';
+      if (h === 0) h = 12; else if (h > 12) h -= 12;
+      return m === 0 ? h + ampm : h + ':' + pad2(m) + ampm;
+    }
   }
 
   function nextWeekday(dateStr) {
