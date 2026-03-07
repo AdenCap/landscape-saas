@@ -20,8 +20,8 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.contrib import admin
 from django.urls import path, include
 
-admin.site.site_header = "Field Ops Admin"
-admin.site.site_title = "Field Ops"
+admin.site.site_header = "Tradevo Admin"
+admin.site.site_title = "Tradevo"
 admin.site.index_title = "Companies, users, and data — full control"
 
 from config.platform_views import (

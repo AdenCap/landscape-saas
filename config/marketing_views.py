@@ -25,7 +25,7 @@ def _marketing_context():
 
 def marketing_home(request):
     """
-    Public landing page for the Field Ops platform.
+    Public landing page for the Tradevo platform.
 
     - Anonymous visitors see the marketing site with features and pricing overview.
     - Authenticated users are redirected into the app so `/` still behaves like
@@ -41,7 +41,7 @@ FEATURE_PAGES = {
     "dashboard": {
         "title": "Dashboard Command Center",
         "subtitle": "Run the day from one operational control surface.",
-        "seo_description": "Field Ops Dashboard centralizes schedule, revenue, invoices, and team activity for lawn care and landscaping operators.",
+        "seo_description": "Tradevo Dashboard centralizes schedule, revenue, invoices, and team activity for home service operators.",
         "bullets": ["Today's schedule and blockers", "Revenue and collections at a glance", "Live team activity stream"],
         "roles": {
             "Owner": "See today's performance and decide fast with KPI-level visibility.",
@@ -125,7 +125,7 @@ def marketing_feature_detail(request, slug):
             "Crew Lead": "Execute work with clear context and fewer blockers."
         }
     if "seo_description" not in feature:
-        feature["seo_description"] = f"{feature['title']} for lawn care and landscaping teams: {feature['subtitle']}"
+        feature["seo_description"] = f"{feature['title']} for home service teams: {feature['subtitle']}"
     ctx = _marketing_context()
     ctx.update({"feature": feature, "slug": slug})
     return render(request, "marketing/feature_detail.html", ctx)
@@ -262,13 +262,13 @@ def vertical_landing(request, vertical):
 
 
 def robots_txt(request):
-    base = getattr(settings, "CANONICAL_BASE_URL", "https://profieldops.com").rstrip("/")
+    base = getattr(settings, "CANONICAL_BASE_URL", "https://tradevo.com").rstrip("/")
     body = f"User-agent: *\nAllow: /\nSitemap: {base}/sitemap.xml\n"
     return HttpResponse(body, content_type="text/plain")
 
 
 def sitemap_xml(request):
-    base = getattr(settings, "CANONICAL_BASE_URL", "https://profieldops.com").rstrip("/")
+    base = getattr(settings, "CANONICAL_BASE_URL", "https://tradevo.com").rstrip("/")
     urls = [
         "/", "/features/", "/pricing/", "/automation/", "/terms/", "/privacy/",
     ] + [f"/features/{slug}/" for slug in FEATURE_PAGES.keys()] + [f"/{v}/" for v in VERTICAL_PAGES.keys()]

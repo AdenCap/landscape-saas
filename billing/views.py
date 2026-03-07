@@ -1121,7 +1121,7 @@ def estimate_create_from_fertilizer(request):
     estimate = Estimate.objects.create(
         business=business,
         customer=customer,
-        title=request.POST.get("title") or "Field Ops Service Estimate",
+        title=request.POST.get("title") or "Tradevo Service Estimate",
     )
     
     line_item = EstimateLineItem.objects.create(
@@ -1214,7 +1214,7 @@ def estimate_create_from_mulch(request):
     estimate = Estimate.objects.create(
         business=business,
         customer=customer,
-        title=request.POST.get("title") or "Field Ops Service Estimate",
+        title=request.POST.get("title") or "Tradevo Service Estimate",
     )
     EstimateLineItem.objects.create(
         estimate=estimate,

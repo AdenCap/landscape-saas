@@ -5,7 +5,7 @@
     // Apply saved theme before paint to prevent flash
     (function(){var t=localStorage.getItem('fo-theme')||'system';document.documentElement.setAttribute('data-theme',t);})();
   </script>
-  <title>{% block title %}Field Ops{% endblock %}</title>
+  <title>{% block title %}Tradevo{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0a0a0a" id="theme-color-meta">
   {% load static %}
@@ -546,7 +546,7 @@
     <aside class="sidebar">
       <a href="/" class="sidebar-brand" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
         <img src="{% static 'img/logo-icon.svg' %}" alt="" width="32" height="32">
-        <span>Field Ops</span>
+        <span>Tradevo</span>
       </a>
 
       {% if user.role != "crew" %}
@@ -696,7 +696,7 @@
     <header class="topbar-mobile">
       <a href="/" class="brand" style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
         <img src="{% static 'img/logo-icon.svg' %}" alt="" width="28" height="28">
-        <span>Field Ops</span>
+        <span>Tradevo</span>
       </a>
       <button type="button" class="menu-btn" id="mobile-menu-btn" aria-label="Open menu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>

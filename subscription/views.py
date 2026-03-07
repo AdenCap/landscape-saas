@@ -132,7 +132,7 @@ def checkout_success(request):
     session_id = request.GET.get("session_id")
     if not session_id:
         return redirect("subscription:status")
-    messages.success(request, "Subscription started. You now have full access to Field Ops.")
+    messages.success(request, "Subscription started. You now have full access to Tradevo.")
     return redirect("/")
 
 

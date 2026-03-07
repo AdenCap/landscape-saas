@@ -1,7 +1,7 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}{{ feature.title }} — Field Ops{% endblock %}
+{% block title %}{{ feature.title }} — Tradevo{% endblock %}
 {% block meta_description %}{{ feature.seo_description|default:feature.subtitle }}{% endblock %}
-{% block og_title %}{{ feature.title }} — Field Ops{% endblock %}
+{% block og_title %}{{ feature.title }} — Tradevo{% endblock %}
 {% block og_description %}{{ feature.seo_description|default:feature.subtitle }}{% endblock %}
 
 {% block extra_css %}
@@ -49,7 +49,7 @@
       {% for b in feature.bullets %}
       <article class="card" style="transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease);">
         <h3>{{ b }}</h3>
-        <p>Built with the same unified Field Ops design system for speed, clarity, and reliable execution.</p>
+        <p>Built with the same unified Tradevo design system for speed, clarity, and reliable execution.</p>
       </article>
       {% endfor %}
     </div>
@@ -71,7 +71,7 @@
   <div class="shell" data-r>
     <div class="card" style="padding:24px;">
       <h2 class="title" style="margin-bottom:8px;">See it in your workflow</h2>
-      <p class="lead">Every Field Ops module connects to scheduling, customers, invoicing, and team operations so your business runs as one system—not isolated tools.</p>
+      <p class="lead">Every Tradevo module connects to scheduling, customers, invoicing, and team operations so your business runs as one system—not isolated tools.</p>
       <a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial">Start Free Trial</a>
     </div>
   </div>
@@ -85,7 +85,7 @@
   "@type":"FAQPage",
   "mainEntity":[
     {"@type":"Question","name":"What does {{ feature.title|escapejs }} help with?","acceptedAnswer":{"@type":"Answer","text":"{{ feature.subtitle|escapejs }}"}},
-    {"@type":"Question","name":"Is this connected to other Field Ops modules?","acceptedAnswer":{"@type":"Answer","text":"Yes. Field Ops modules are designed to work together across scheduling, clients, invoicing, estimates, and financial workflows."}}
+    {"@type":"Question","name":"Is this connected to other Tradevo modules?","acceptedAnswer":{"@type":"Answer","text":"Yes. Tradevo modules are designed to work together across scheduling, clients, invoicing, estimates, and financial workflows."}}
   ]
 }
 </script>

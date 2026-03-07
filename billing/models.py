@@ -264,7 +264,7 @@ class Estimate(models.Model):
         related_name='estimates'
     )
 
-    title = models.CharField(max_length=255, default='Field Ops Service Estimate')
+    title = models.CharField(max_length=255, default='Tradevo Service Estimate')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     valid_until = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
