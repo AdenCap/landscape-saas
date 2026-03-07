@@ -47,7 +47,7 @@ InvoiceLineItemFormSet = inlineformset_factory(
     Invoice,
     InvoiceLineItem,
     form=InvoiceLineItemForm,
-    extra=2,
+    extra=1,
     can_delete=True,
     min_num=0,
     validate_min=False,
@@ -163,6 +163,7 @@ class EstimateLineItemForm(forms.ModelForm):
         model = EstimateLineItem
         fields = ['item_type', 'fertilizing_config', 'mulch_config', 'mowing_config', 'description', 'quantity', 'material_cost', 'labor_cost', 'total_override', 'is_addon', 'order']
         widgets = {
+            'order': forms.HiddenInput(),
             'fertilizing_config': forms.HiddenInput(),
             'mulch_config': forms.HiddenInput(),
             'mowing_config': forms.HiddenInput(),

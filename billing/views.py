@@ -1711,6 +1711,7 @@ def estimate_client_view(request, estimate_id, token):
         "base_total": base_total,
         "token": token,
         "doc_template": doc_template,
+        "images": estimate.images.all(),
     })
 
 
@@ -1757,25 +1758,48 @@ def estimate_add_image(request, estimate_id):
         return redirect("/")
 
     estimate = get_object_or_404(Estimate, id=estimate_id, business=business)
+    caption = request.POST.get("caption", "").strip()
 
-    # Validate file before passing to form
-    uploaded = request.FILES.get("image")
-    if uploaded:
+    files = request.FILES.getlist("images")
+    if not files:
+        messages.error(request, "No images selected.")
+        return redirect("billing:estimate_edit", estimate_id=estimate.id)
+
+    added = 0
+    next_order = estimate.images.count()
+    for uploaded in files:
         if uploaded.content_type not in ALLOWED_IMAGE_TYPES:
-            messages.error(request, "Invalid file type. Please upload a JPEG, PNG, or WebP image.")
-            return redirect("billing:estimate_edit", estimate_id=estimate.id)
+            messages.warning(request, f"Skipped {uploaded.name}: invalid file type.")
+            continue
         if uploaded.size > MAX_UPLOAD_SIZE:
-            messages.error(request, "File too large. Maximum size is 10 MB.")
-            return redirect("billing:estimate_edit", estimate_id=estimate.id)
+            messages.warning(request, f"Skipped {uploaded.name}: file too large (max 10 MB).")
+            continue
+        EstimateImage.objects.create(
+            estimate=estimate,
+            image=uploaded,
+            caption=caption,
+            order=next_order,
+        )
+        next_order += 1
+        added += 1
 
-    form = EstimateImageForm(request.POST, request.FILES)
-    if form.is_valid():
-        img = form.save(commit=False)
-        img.estimate = estimate
-        img.save()
-        messages.success(request, "Image added.")
-    else:
-        messages.error(request, "Invalid image upload.")
+    if added:
+        messages.success(request, f"{added} image{'s' if added != 1 else ''} added.")
+    return redirect("billing:estimate_edit", estimate_id=estimate.id)
+
+
+@require_POST
+@role_required("owner", "manager")
+def estimate_delete_image(request, estimate_id, image_id):
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    estimate = get_object_or_404(Estimate, id=estimate_id, business=business)
+    image = get_object_or_404(EstimateImage, id=image_id, estimate=estimate)
+    image.image.delete(save=False)
+    image.delete()
+    messages.success(request, "Image removed.")
     return redirect("billing:estimate_edit", estimate_id=estimate.id)
 
 
@@ -1816,11 +1840,10 @@ def document_template_edit(request, doc_type):
                 template_obj.template_key = form.cleaned_data["template_key"]
             template_obj.save()
 
-            # Parse custom fields from POST
+            # Parse custom fields from POST (using indexed checkbox names to avoid misalignment)
             keys = request.POST.getlist("custom_field_key")
             labels = request.POST.getlist("custom_field_label")
             types = request.POST.getlist("custom_field_type")
-            required_list = request.POST.getlist("custom_field_required")
             custom_fields = []
             seen_keys = set()
             for i in range(len(keys)):
@@ -1829,7 +1852,7 @@ def document_template_edit(request, doc_type):
                 field_type = (types[i] or "text") if i < len(types) else "text"
                 if field_type not in ("text", "number", "date", "textarea"):
                     field_type = "text"
-                required = (required_list[i] == "on" or required_list[i] == "true") if i < len(required_list) else False
+                required = request.POST.get(f"custom_field_required_{i}") == "on"
                 if key and key not in seen_keys:
                     seen_keys.add(key)
                     custom_fields.append({"key": key, "label": label or key.replace("_", " ").title(), "type": field_type, "required": bool(required)})

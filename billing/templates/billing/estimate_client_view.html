@@ -5,61 +5,117 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ estimate.title }} - {{ estimate.customer.name }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  {% with accent=doc_template.primary_color|default:'#0d9488' %}
   <style>
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5; color: #1e293b; max-width: 640px; margin: 0 auto; padding: 28px; background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 100%); min-height: 100vh; }
-    .card { background: white; border-radius: 16px; padding: 32px; box-shadow: 0 4px 24px rgba(0,0,0,0.06); margin-bottom: 24px; border: 1px solid rgba(0,0,0,0.04); }
-    .doc-header-custom { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #475569; }
-    .doc-footer-custom { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 14px; color: #475569; }
-    .doc-terms { background: #f8fafc; padding: 16px; border-radius: 12px; margin-top: 20px; font-size: 13px; color: #475569; border: 1px solid #e2e8f0; }
-    .doc-custom-fields { margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
-    .doc-custom-fields dt { font-weight: 600; font-size: 12px; color: #64748b; margin-top: 10px; }
-    .doc-custom-fields dt:first-child { margin-top: 0; }
-    .doc-custom-fields dd { margin: 4px 0 0 0; font-size: 14px; }
-    h1 { font-size: 26px; margin: 0 0 12px 0; font-weight: 700; color: #0f172a; }
-    .meta { color: #64748b; font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
+    :root { --accent: {{ accent }}; }
+    * { box-sizing: border-box; margin: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5; color: #1e293b; max-width: 680px; margin: 0 auto; padding: 0 20px 40px; background: #f8fafc; min-height: 100vh; }
+    .accent-bar { height: 4px; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #60a5fa)); margin: 0 -20px 0; }
+    .card { background: white; border-radius: 16px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.04); margin-top: 24px; border: 1px solid rgba(0,0,0,.04); }
+    .doc-header-custom { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #475569; line-height: 1.6; }
+    .doc-footer-custom { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 14px; color: #475569; line-height: 1.6; }
+    .doc-logo { margin-bottom: 24px; }
+    .doc-logo img { max-height: 56px; max-width: 200px; object-fit: contain; }
+    h1 { font-size: 26px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
+    .meta { color: #64748b; font-size: 14px; margin-bottom: 24px; line-height: 1.7; }
+
+    /* Images */
+    .client-images { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; }
+    .client-images img { width: 100%; height: 180px; object-fit: cover; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .client-image-caption { font-size: 12px; color: #64748b; margin-top: 4px; }
+
+    /* Line items */
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #e2e8f0; }
     th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; font-weight: 600; }
     .num { text-align: right; }
-    .optional-row { background: #f8fafc; }
-    .optional-row td:first-child { padding-left: 40px; }
-    .total-row { font-size: 20px; font-weight: 700; padding-top: 24px; margin-top: 8px; }
-    .total-row td { border-bottom: none; padding-top: 20px; padding-bottom: 20px; }
-    .btn { display: inline-block; padding: 16px 32px; font-size: 16px; font-weight: 600; border-radius: 12px; border: none; cursor: pointer; text-decoration: none; font-family: inherit; transition: background 0.2s; margin-top: 24px; }
-    .btn-primary { color: white; }
-    .btn-primary:hover { opacity: 0.9; }
-    .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+    .base-total-row { font-weight: 600; font-size: 15px; }
+    .base-total-row td { border-bottom: none; padding-top: 16px; }
+
+    /* Optional items */
+    .optional-section { margin-top: 24px; }
+    .optional-section-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; font-weight: 600; padding: 8px 16px; background: #f1f5f9; border-radius: 8px; margin-bottom: 12px; }
+    .optional-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 8px; background: #fafbfc; transition: border-color 0.15s, background 0.15s; cursor: pointer; }
+    .optional-item:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 4%, white); }
+    .optional-item.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, white); }
+    .optional-item label { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; font-size: 15px; }
+    .optional-item input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+    .optional-badge { font-size: 10px; padding: 2px 8px; background: #e0f2fe; color: #0369a1; border-radius: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    .optional-price { font-weight: 600; font-size: 15px; white-space: nowrap; margin-left: 16px; }
+
+    /* Total breakdown */
+    .total-breakdown { margin-top: 24px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .total-line { display: flex; justify-content: space-between; font-size: 14px; color: #64748b; padding: 4px 0; }
+    .total-line-addons { display: none; }
+    .total-line-addons.visible { display: flex; }
+    .total-grand { display: flex; justify-content: space-between; font-size: 22px; font-weight: 700; color: #0f172a; padding-top: 12px; margin-top: 8px; border-top: 2px solid var(--accent); }
+
+    /* Notes, terms, custom fields */
     .notes { background: #f8fafc; padding: 20px; border-radius: 12px; margin-top: 24px; font-size: 14px; border: 1px solid #e2e8f0; }
-    .optional-label { font-size: 11px; padding: 2px 8px; background: #e0f2fe; color: #0369a1; border-radius: 6px; margin-left: 8px; font-weight: 600; }
-    input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; margin-right: 4px; vertical-align: middle; }
-    .doc-logo { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
-    .doc-logo img { max-height: 56px; max-width: 200px; object-fit: contain; }
+    .notes strong { display: block; margin-bottom: 8px; }
+    .doc-terms { background: #f8fafc; padding: 16px; border-radius: 12px; margin-top: 20px; font-size: 13px; color: #475569; border: 1px solid #e2e8f0; }
+    .doc-terms strong { display: block; margin-bottom: 8px; }
+    .doc-custom-fields { margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .doc-custom-fields strong { display: block; margin-bottom: 8px; }
+    .doc-custom-fields dt { font-weight: 600; font-size: 12px; color: #64748b; margin-top: 10px; }
+    .doc-custom-fields dt:first-of-type { margin-top: 0; }
+    .doc-custom-fields dd { margin: 4px 0 0 0; font-size: 14px; }
+
+    /* Accept button */
+    .accept-section { margin-top: 28px; text-align: center; }
+    .btn-accept { display: inline-block; padding: 16px 48px; font-size: 16px; font-weight: 600; border-radius: 12px; border: none; cursor: pointer; font-family: inherit; background: var(--accent); color: white; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent); width: 100%; max-width: 360px; }
+    .btn-accept:hover { transform: translateY(-1px); box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 40%, transparent); }
+    .btn-accept:active { transform: translateY(0); }
+
+    .powered-by { text-align: center; margin-top: 24px; font-size: 12px; color: #94a3b8; }
+
+    @media (max-width: 640px) {
+      .card { padding: 24px 20px; }
+      h1 { font-size: 22px; }
+      .client-images { grid-template-columns: 1fr; }
+      .btn-accept { max-width: 100%; }
+    }
   </style>
+  {% endwith %}
 </head>
 <body>
+  <div class="accent-bar"></div>
   <div class="card">
-    {% if doc_template %}<style>.total-row { border-top: 2px solid {{ doc_template.primary_color|default:'#0d9488' }}; background: {{ doc_template.primary_color|default:'#0d9488' }}11; } .btn-primary { background: {{ doc_template.primary_color|default:'#0d9488' }}; }</style>{% endif %}
     {% if doc_template and doc_template.header_text %}
-    <div class="doc-header-custom">{{ doc_template.header_text|safe }}</div>
+    <div class="doc-header-custom">{{ doc_template.header_text|linebreaksbr }}</div>
     {% endif %}
+
     {% if estimate.business.logo %}
     <div class="doc-logo">
       <img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}">
     </div>
     {% endif %}
+
     <h1>{{ estimate.title }}</h1>
     <p class="meta">
       Estimate #{{ estimate.id }} from {{ estimate.business.name }}<br>
-      Prepared for {{ estimate.customer.name }}{% if estimate.valid_until %} · Valid until {{ estimate.valid_until }}{% endif %}
-      {% if estimate.business.contact_email or estimate.business.contact_phone %}<br>Contact: {% if estimate.business.contact_email %}{{ estimate.business.contact_email }}{% endif %}{% if estimate.business.contact_email and estimate.business.contact_phone %} · {% endif %}{% if estimate.business.contact_phone %}{{ estimate.business.contact_phone }}{% endif %}{% endif %}
+      Prepared for {{ estimate.customer.name }}{% if estimate.valid_until %} &middot; Valid until {{ estimate.valid_until }}{% endif %}
+      {% if estimate.business.contact_email or estimate.business.contact_phone %}<br>{{ estimate.business.contact_email }}{% if estimate.business.contact_email and estimate.business.contact_phone %} &middot; {% endif %}{{ estimate.business.contact_phone }}{% endif %}
     </p>
+
+    {% if images %}
+    <div class="client-images">
+      {% for img in images %}
+      <div>
+        <img src="{{ img.image.url }}" alt="{{ img.caption|default:'' }}">
+        {% if img.caption %}<p class="client-image-caption">{{ img.caption }}</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
 
     <table>
       <thead>
         <tr>
           <th>Description</th>
-          <th class="num">Total</th>
+          <th class="num">Amount</th>
         </tr>
       </thead>
       <tbody>
@@ -69,26 +125,43 @@
           <td class="num">{{ item.line_total|currency }}</td>
         </tr>
         {% endfor %}
-        {% for item in optional_items %}
-        <tr class="optional-row" data-item-id="{{ item.id }}" data-line-total="{{ item.line_total }}">
-          <td>
-            <input type="checkbox" name="optional_items" value="{{ item.id }}" id="opt-{{ item.id }}" class="optional-cb">
-            <label for="opt-{{ item.id }}">{{ item.description }}</label>
-            <span class="optional-label">Optional</span>
-          </td>
-          <td class="num opt-total">{{ item.line_total|currency }}</td>
-        </tr>
-        {% endfor %}
-        <tr class="total-row">
-          <td style="text-align: right;">Total:</td>
-          <td class="num" id="grand-total">{{ base_total|currency }}</td>
-        </tr>
       </tbody>
     </table>
 
+    {% if optional_items %}
+    <div class="optional-section">
+      <div class="optional-section-label">Optional add-ons — select any you'd like to include</div>
+      {% for item in optional_items %}
+      <div class="optional-item" data-item-id="{{ item.id }}" data-line-total="{{ item.line_total }}">
+        <label for="opt-{{ item.id }}">
+          <input type="checkbox" name="optional_items" value="{{ item.id }}" id="opt-{{ item.id }}" class="optional-cb">
+          {{ item.description }}
+          <span class="optional-badge">Optional</span>
+        </label>
+        <span class="optional-price">+{{ item.line_total|currency }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="total-breakdown">
+      <div class="total-line">
+        <span>Base services</span>
+        <span>{{ base_total|currency }}</span>
+      </div>
+      <div class="total-line total-line-addons" id="addons-line">
+        <span>Selected add-ons</span>
+        <span id="addons-total">$0</span>
+      </div>
+      <div class="total-grand">
+        <span>Total</span>
+        <span id="grand-total">{{ base_total|currency }}</span>
+      </div>
+    </div>
+
     {% if estimate.notes %}
     <div class="notes">
-      <strong>Notes:</strong><br>
+      <strong>Notes</strong>
       {{ estimate.notes|linebreaks }}
     </div>
     {% endif %}
@@ -110,42 +183,67 @@
     {% endif %}
 
     {% if doc_template and doc_template.terms_and_conditions %}
-    <div class="doc-terms"><strong>Terms &amp; conditions</strong><br>{{ doc_template.terms_and_conditions|linebreaks }}</div>
+    <div class="doc-terms">
+      <strong>Terms &amp; conditions</strong>
+      {{ doc_template.terms_and_conditions|linebreaks }}
+    </div>
     {% endif %}
 
     {% if doc_template and doc_template.footer_text %}
-    <div class="doc-footer-custom">{{ doc_template.footer_text|safe }}</div>
+    <div class="doc-footer-custom">{{ doc_template.footer_text|linebreaksbr }}</div>
     {% endif %}
 
-    <form method="post" action="{% url 'billing:estimate_client_accept' estimate.id token %}">
+    <form method="post" action="{% url 'billing:estimate_client_accept' estimate.id token %}" class="accept-section">
       {% csrf_token %}
-      <button type="submit" class="btn btn-primary">Accept Estimate</button>
+      <button type="submit" class="btn-accept">Accept Estimate</button>
     </form>
   </div>
 
+  <div class="powered-by">Powered by Tradevo</div>
+
   <script>
-    const baseTotal = {{ base_total }};
-    const optionalRows = document.querySelectorAll('.optional-row');
-    const grandTotalEl = document.getElementById('grand-total');
+    var baseTotal = {{ base_total }};
+    var optionalItems = document.querySelectorAll('.optional-item');
+    var grandTotalEl = document.getElementById('grand-total');
+    var addonsLine = document.getElementById('addons-line');
+    var addonsTotalEl = document.getElementById('addons-total');
 
     function fmtCurrency(n) {
-      const s = n.toFixed(2).replace(/\.?0+$/, '');
-      return '$' + (s || '0');
-    }
-    function updateTotal() {
-      let total = baseTotal;
-      optionalRows.forEach(row => {
-        const cb = row.querySelector('.optional-cb');
-        if (cb && cb.checked) {
-          total += parseFloat(row.dataset.lineTotal);
-        }
-      });
-      grandTotalEl.textContent = fmtCurrency(total);
+      return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    optionalRows.forEach(row => {
-      const cb = row.querySelector('.optional-cb');
-      if (cb) cb.addEventListener('change', updateTotal);
+    function updateTotal() {
+      var addonsTotal = 0;
+      optionalItems.forEach(function(item) {
+        var cb = item.querySelector('.optional-cb');
+        if (cb && cb.checked) {
+          addonsTotal += parseFloat(item.dataset.lineTotal) || 0;
+          item.classList.add('selected');
+        } else {
+          item.classList.remove('selected');
+        }
+      });
+      var total = baseTotal + addonsTotal;
+      grandTotalEl.textContent = fmtCurrency(total);
+      if (addonsTotal > 0) {
+        addonsLine.classList.add('visible');
+        addonsTotalEl.textContent = fmtCurrency(addonsTotal);
+      } else {
+        addonsLine.classList.remove('visible');
+      }
+    }
+
+    optionalItems.forEach(function(item) {
+      var cb = item.querySelector('.optional-cb');
+      if (cb) {
+        cb.addEventListener('change', updateTotal);
+        item.addEventListener('click', function(e) {
+          if (e.target !== cb && e.target.tagName !== 'LABEL') {
+            cb.checked = !cb.checked;
+            updateTotal();
+          }
+        });
+      }
     });
   </script>
 </body>

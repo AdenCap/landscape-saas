@@ -29,6 +29,7 @@ urlpatterns = [
     path("estimates/<int:estimate_id>/send/", views.estimate_send, name="estimate_send"),
     path("estimates/<int:estimate_id>/send-followup/", views.estimate_send_followup, name="estimate_send_followup"),
     path("estimates/<int:estimate_id>/images/add/", views.estimate_add_image, name="estimate_add_image"),
+    path("estimates/<int:estimate_id>/images/<int:image_id>/delete/", views.estimate_delete_image, name="estimate_delete_image"),
     path("estimates/<int:estimate_id>/view/<str:token>/", views.estimate_client_view, name="estimate_client_view"),
     path("estimates/<int:estimate_id>/accept/<str:token>/", views.estimate_client_accept, name="estimate_client_accept"),
     path("templates/", views.document_templates_list, name="document_templates_list"),

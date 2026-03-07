@@ -3,42 +3,68 @@
 
 {% block content %}
 <div class="invoice-edit-page">
-  <h1 class="page-title">Edit line items – Invoice #{{ invoice.id }}</h1>
-  <p class="page-subtitle">Customer: {{ invoice.customer.name }}. Only draft invoices can be edited.</p>
+  <header class="invoice-edit-header">
+    <div>
+      <h1 class="page-title">Edit line items &ndash; Invoice #{{ invoice.id }}</h1>
+      <p class="page-subtitle">{{ invoice.customer.name }} &middot; Only draft invoices can be edited</p>
+    </div>
+    <a href="{% url 'billing:invoice_detail' invoice.id %}" class="btn btn-secondary">Back to invoice</a>
+  </header>
 
   <form method="post" action="" class="invoice-line-items-form">
     {% csrf_token %}
     {{ formset.management_form }}
 
-    <div class="table-wrap">
-      <table class="line-items-table">
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th class="col-num">Qty</th>
-            <th class="col-num">Unit price</th>
-            <th class="col-num">Materials</th>
-            <th class="col-num">Labor</th>
-            <th class="col-del">Delete</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for form in formset %}
-          <tr class="line-item-row {% if form.errors %}errors{% endif %}">
-            <td>
-              {{ form.id }}
-              {{ form.description }}
-              {% if form.description.errors %}<span class="field-error">{{ form.description.errors.0 }}</span>{% endif %}
-            </td>
-            <td class="col-num">{{ form.quantity }}</td>
-            <td class="col-num">{{ form.unit_price }}</td>
-            <td class="col-num">{{ form.material_cost }}</td>
-            <td class="col-num">{{ form.labor_cost }}</td>
-            <td class="col-del">{% if form.instance.pk %}{{ form.DELETE }}{% endif %}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="line-items-cards" id="line-items-container">
+      {% for form in formset %}
+      <div class="line-item-card" data-form-index="{{ forloop.counter0 }}">
+        {{ form.id }}
+        <div class="line-item-card-header">
+          <span class="line-item-card-number">#{{ forloop.counter }}</span>
+          {% if form.instance.pk %}
+          <label class="delete-toggle">
+            {{ form.DELETE }}
+            <span class="delete-toggle-label">Remove</span>
+          </label>
+          {% endif %}
+        </div>
+        <div class="line-item-card-body">
+          <div class="form-group form-group-desc">
+            <label>Description</label>
+            {{ form.description }}
+            {% if form.description.errors %}<span class="field-error">{{ form.description.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="line-item-numbers">
+            <div class="form-group">
+              <label>Qty</label>
+              {{ form.quantity }}
+            </div>
+            <div class="form-group">
+              <label>Unit price ($)</label>
+              {{ form.unit_price }}
+            </div>
+            <div class="form-group">
+              <label>Materials ($)</label>
+              {{ form.material_cost }}
+            </div>
+            <div class="form-group">
+              <label>Labor ($)</label>
+              {{ form.labor_cost }}
+            </div>
+          </div>
+          <div class="line-item-total-display">
+            Line total: <span class="line-total-value">$0.00</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <button type="button" class="btn btn-secondary add-line-btn" id="add-line-item">+ Add line item</button>
+
+    <div class="running-total-bar">
+      <span>Subtotal</span>
+      <span class="running-total-value" id="running-total">$0.00</span>
     </div>
 
     <div class="form-actions">
@@ -47,23 +73,188 @@
     </div>
   </form>
 
-  <p class="help-text">Leave description blank to remove a line. Total is computed from materials + labor, or qty × unit price when cost fields are zero.</p>
+  <p class="help-text">Total is computed from materials + labor, or qty &times; unit price when cost fields are zero.</p>
 </div>
 
 <style>
-  .invoice-edit-page { max-width: 960px; margin: 0 auto; }
-  .page-title { margin: 0 0 8px 0; font-size: 24px; font-weight: 700; }
-  .page-subtitle { color: var(--text-muted); margin-bottom: 24px; }
-  .table-wrap { overflow-x: auto; margin-bottom: 24px; }
-  .line-items-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-  .line-items-table th { text-align: left; padding: 12px 16px; background: var(--surface-alt); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; }
-  .line-items-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); }
-  .line-items-table .col-num { width: 100px; text-align: right; }
-  .line-items-table .col-del { width: 80px; text-align: center; }
-  .line-items-table input[type="text"], .line-items-table input[type="number"] { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
-  .line-items-table .col-num input { text-align: right; max-width: 100px; }
-  .form-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .help-text { font-size: 13px; color: var(--text-muted); margin-top: 16px; }
+  .invoice-edit-page { max-width: 800px; }
+  .invoice-edit-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+  .page-title { margin: 0 0 4px; font-size: 24px; font-weight: 700; }
+  .page-subtitle { color: var(--text-muted); margin: 0; font-size: 15px; }
+
+  .line-items-cards { margin-bottom: 16px; }
+  .line-item-card {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 12px;
+    transition: border-color 0.15s;
+  }
+  .line-item-card:hover { border-color: color-mix(in srgb, var(--border) 60%, var(--primary)); }
+  .line-item-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .line-item-card-number {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--surface);
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+  .delete-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    margin-bottom: 0;
+  }
+  .delete-toggle input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+  .delete-toggle-label { font-size: 13px; color: #ef4444; }
+
+  .line-item-card-body { }
+  .form-group { margin-bottom: 0; }
+  .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+  .form-group-desc { margin-bottom: 14px; }
+  .form-group-desc input,
+  .form-group-desc textarea {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: inherit;
+  }
+  .line-item-numbers {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .line-item-numbers input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: inherit;
+  }
+  .line-item-numbers input:focus,
+  .form-group-desc input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-light);
+  }
+  .line-item-total-display {
+    font-size: 14px;
+    color: var(--text-muted);
+    padding: 8px 12px;
+    background: var(--surface);
+    border-radius: 8px;
+  }
+  .line-total-value { font-weight: 600; color: var(--text); }
+
+  .add-line-btn { margin-bottom: 20px; }
+
+  .running-total-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 24px;
+  }
+  .running-total-value { color: var(--primary); }
+
+  .form-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .help-text { font-size: 13px; color: var(--text-muted); }
   .field-error { font-size: 12px; color: #dc2626; display: block; margin-top: 4px; }
+
+  @media (max-width: 640px) {
+    .line-item-numbers { grid-template-columns: 1fr 1fr; }
+    .invoice-edit-header { flex-direction: column; }
+  }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var container = document.getElementById('line-items-container');
+  var totalFormsInput = document.getElementById('id_line_items-TOTAL_FORMS');
+
+  function calcLineTotal(card) {
+    var mat = parseFloat(card.querySelector('input[name$="-material_cost"]')?.value) || 0;
+    var lab = parseFloat(card.querySelector('input[name$="-labor_cost"]')?.value) || 0;
+    var qty = parseFloat(card.querySelector('input[name$="-quantity"]')?.value) || 1;
+    var unit = parseFloat(card.querySelector('input[name$="-unit_price"]')?.value) || 0;
+    return (mat > 0 || lab > 0) ? (mat + lab) : (qty * unit);
+  }
+
+  function updateAllTotals() {
+    var subtotal = 0;
+    container.querySelectorAll('.line-item-card').forEach(function(card) {
+      var deleteCb = card.querySelector('input[name$="-DELETE"]');
+      if (deleteCb && deleteCb.checked) {
+        card.querySelector('.line-total-value').textContent = '$0.00';
+        return;
+      }
+      var lineTotal = calcLineTotal(card);
+      card.querySelector('.line-total-value').textContent = '$' + lineTotal.toFixed(2);
+      subtotal += lineTotal;
+    });
+    document.getElementById('running-total').textContent = '$' + subtotal.toFixed(2);
+  }
+
+  container.addEventListener('input', function(e) {
+    if (e.target.matches('input[type="number"], input[type="text"]')) updateAllTotals();
+  });
+  container.addEventListener('change', function(e) {
+    if (e.target.matches('input[name$="-DELETE"]')) updateAllTotals();
+  });
+
+  updateAllTotals();
+
+  /* Add line item */
+  document.getElementById('add-line-item').addEventListener('click', function() {
+    var count = parseInt(totalFormsInput.value);
+    var firstCard = container.querySelector('.line-item-card');
+    if (!firstCard) return;
+    var newCard = firstCard.cloneNode(true);
+    newCard.dataset.formIndex = count;
+    newCard.querySelector('.line-item-card-number').textContent = '#' + (count + 1);
+    /* Clear values and update name/id indices */
+    newCard.querySelectorAll('input, select, textarea').forEach(function(inp) {
+      if (inp.name) inp.name = inp.name.replace(/-\d+-/, '-' + count + '-');
+      if (inp.id) inp.id = inp.id.replace(/-\d+-/, '-' + count + '-');
+      if (inp.type === 'hidden' && inp.name.endsWith('-id')) inp.value = '';
+      else if (inp.type === 'checkbox') inp.checked = false;
+      else if (inp.type !== 'hidden') inp.value = '';
+    });
+    newCard.querySelectorAll('label[for]').forEach(function(lbl) {
+      lbl.setAttribute('for', lbl.getAttribute('for').replace(/-\d+-/, '-' + count + '-'));
+    });
+    /* Remove delete toggle from new (unsaved) items */
+    var delToggle = newCard.querySelector('.delete-toggle');
+    if (delToggle) delToggle.remove();
+    /* Remove any error messages */
+    newCard.querySelectorAll('.field-error').forEach(function(el) { el.remove(); });
+    container.appendChild(newCard);
+    totalFormsInput.value = count + 1;
+    updateAllTotals();
+    newCard.querySelector('input[name$="-description"]')?.focus();
+  });
+});
+</script>
 {% endblock %}
