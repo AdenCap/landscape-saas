@@ -4,6 +4,65 @@ from django.db import models
 class Business(models.Model):
     name = models.CharField(max_length=255)
 
+    # ── Business type & vertical ──────────────────────────────────────
+    BUSINESS_TYPE_CHOICES = [
+        ("landscaping", "Landscaping & Lawn Care"),
+        ("hvac", "HVAC"),
+        ("plumbing", "Plumbing"),
+        ("electrical", "Electrical"),
+        ("cleaning", "Cleaning"),
+        ("general", "Other Home Service"),
+    ]
+
+    BUSINESS_SUBTYPE_CHOICES = [
+        ("lawn_care", "Lawn Care Only"),
+        ("full_service", "Full-Service Landscaping"),
+        ("residential_hvac", "Residential HVAC"),
+        ("commercial_hvac", "Commercial HVAC"),
+        ("both_hvac", "Residential & Commercial HVAC"),
+        ("residential_plumbing", "Residential Plumbing"),
+        ("commercial_plumbing", "Commercial Plumbing"),
+        ("both_plumbing", "Residential & Commercial Plumbing"),
+        ("residential_electrical", "Residential Electrical"),
+        ("commercial_electrical", "Commercial Electrical"),
+        ("both_electrical", "Residential & Commercial Electrical"),
+        ("residential_cleaning", "Residential Cleaning"),
+        ("commercial_cleaning", "Commercial Cleaning"),
+        ("both_cleaning", "Residential & Commercial Cleaning"),
+        ("general", "General"),
+    ]
+
+    MODULE_DEFAULTS = {
+        "landscaping": ["fertilization", "property_estimator", "growing_season", "checklists"],
+        "hvac": ["pricebook", "equipment", "service_agreements", "inspections", "checklists"],
+        "plumbing": ["pricebook", "equipment", "service_agreements", "inspections", "checklists"],
+        "electrical": ["pricebook", "equipment", "service_agreements", "inspections", "checklists"],
+        "cleaning": ["checklists", "service_agreements"],
+        "general": ["checklists"],
+    }
+
+    business_type = models.CharField(
+        max_length=20,
+        choices=BUSINESS_TYPE_CHOICES,
+        default="landscaping",
+    )
+    business_subtype = models.CharField(
+        max_length=30,
+        choices=BUSINESS_SUBTYPE_CHOICES,
+        default="full_service",
+        blank=True,
+    )
+    enabled_modules = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Auto-populated based on business_type.",
+    )
+    terminology_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Custom label overrides for terminology engine.",
+    )
+
     logo = models.ImageField(
         upload_to="business_logos/%Y/",
         blank=True,
@@ -384,5 +443,15 @@ class Business(models.Model):
 
     def is_growth_tier(self):
         return self.subscription_plan_tier == "growth"
+
+    def get_default_modules(self):
+        """Return default module list for this business type."""
+        return self.MODULE_DEFAULTS.get(self.business_type, self.MODULE_DEFAULTS["general"])
+
+    def save(self, *args, **kwargs):
+        # Auto-populate enabled_modules from business_type if empty
+        if not self.enabled_modules:
+            self.enabled_modules = self.get_default_modules()
+        super().save(*args, **kwargs)
 
 
