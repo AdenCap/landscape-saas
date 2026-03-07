@@ -65,6 +65,12 @@
             {{ form.logo }}
             {{ form.logo.errors }}
           </div>
+          <div class="field">
+            <label for="{{ form.timezone.id_for_label }}">Timezone</label>
+            <p class="field-help">All dates and times across the app display in this timezone.</p>
+            {{ form.timezone }}
+            {{ form.timezone.errors }}
+          </div>
         </div>
       </div>
 

@@ -221,7 +221,7 @@ def _geocode_address(address):
     try:
         from geopy.geocoders import Nominatim
         from geopy.extra.rate_limiter import RateLimiter
-        geolocator = Nominatim(user_agent="field-ops-estimator")
+        geolocator = Nominatim(user_agent="tradevo-estimator")
         geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1.0)
         location = geocode(address)
         if location:
