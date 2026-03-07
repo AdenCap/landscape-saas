@@ -692,7 +692,7 @@ def customer_portal_reschedule(request, token, job_id):
 def customer_portal_cancel(request, token, job_id):
     """Customer cancels a job."""
     customer = get_object_or_404(Customer, portal_access_token=token, portal_enabled=True)
-    
+
     try:
         job = Job.objects.get(id=job_id, property__customer=customer, status__in=['scheduled', 'in_progress'])
         job.status = 'skipped'
@@ -702,5 +702,102 @@ def customer_portal_cancel(request, token, job_id):
         messages.error(request, "Job not found.")
     except Exception as e:
         messages.error(request, f"Error: {str(e)}")
-    
+
     return redirect("customer_portal", token=token)
+
+
+# ── Public booking (no auth required) ────────────────────────────────
+
+@require_http_methods(["GET", "POST"])
+def public_booking(request, token):
+    """Public booking page — prospects can request a service without an account."""
+    from businesses.models import Business
+    from pricing.models import ServiceTemplate
+
+    business = get_object_or_404(Business, booking_token=token, booking_enabled=True)
+    services = ServiceTemplate.objects.filter(business=business, active=True).order_by("name")
+
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+        email = request.POST.get("email", "").strip()
+        phone = request.POST.get("phone", "").strip()
+        address = request.POST.get("address", "").strip()
+        city = request.POST.get("city", "").strip()
+        state = request.POST.get("state", "").strip()
+        postal_code = request.POST.get("postal_code", "").strip()
+        service_id = request.POST.get("service_id")
+        service_date = request.POST.get("service_date")
+        service_time = request.POST.get("service_time")
+        notes = request.POST.get("notes", "").strip()
+
+        if not name or not service_date:
+            return render(request, "customers/public_booking.html", {
+                "business": business,
+                "services": services,
+                "error": "Name and preferred date are required.",
+            })
+
+        # Find or create customer
+        customer = None
+        if email:
+            customer = Customer.objects.filter(business=business, email__iexact=email).first()
+        if not customer and phone:
+            customer = Customer.objects.filter(business=business, phone=phone).first()
+        if not customer:
+            customer = Customer.objects.create(
+                business=business,
+                name=name,
+                email=email,
+                phone=phone,
+                address_line1=address,
+                city=city,
+                state=state,
+                postal_code=postal_code,
+            )
+
+        # Find or create property from address
+        property_obj = None
+        if address:
+            property_obj = Property.objects.filter(customer=customer, address__iexact=address).first()
+            if not property_obj:
+                property_obj = Property.objects.create(
+                    customer=customer,
+                    name=address[:50],
+                    address=address,
+                    city=city,
+                    state=state,
+                    postal_code=postal_code,
+                )
+        else:
+            property_obj = customer.properties.first()
+            if not property_obj:
+                property_obj = Property.objects.create(
+                    customer=customer,
+                    name=f"{name}'s property",
+                )
+
+        # Create the job
+        job_notes = notes
+        if service_id:
+            try:
+                svc = ServiceTemplate.objects.get(id=service_id, business=business)
+                job_notes = f"[{svc.name}] {notes}".strip()
+            except ServiceTemplate.DoesNotExist:
+                pass
+
+        Job.objects.create(
+            property=property_obj,
+            scheduled_date=service_date,
+            scheduled_time=service_time if service_time else None,
+            status="scheduled",
+            notes=job_notes,
+        )
+
+        return render(request, "customers/public_booking_success.html", {
+            "business": business,
+        })
+
+    return render(request, "customers/public_booking.html", {
+        "business": business,
+        "services": services,
+    })

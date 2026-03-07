@@ -1,4 +1,10 @@
+import uuid
+
 from django.db import models
+
+
+def _default_booking_token():
+    return uuid.uuid4().hex[:12]
 
 
 class Business(models.Model):
@@ -94,6 +100,15 @@ class Business(models.Model):
         max_length=20,
         blank=True,
         help_text="Phone number clients can use to reach you (shown in estimates/emails)"
+    )
+
+    # Online booking
+    booking_enabled = models.BooleanField(
+        default=False, help_text="Enable the public booking page for this business."
+    )
+    booking_token = models.CharField(
+        max_length=12, unique=True, default=_default_booking_token,
+        help_text="URL token for public booking page: /book/<token>/",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

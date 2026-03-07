@@ -28,6 +28,7 @@ from config.platform_views import (
     platform_home, platform_enter, platform_enter_demo, platform_set_plan, platform_apply_plan_recommendations, platform_toggle_free_access, platform_exit,
     admin_users, admin_grant, admin_revoke
 )
+from customers.views import public_booking
 from config.marketing_views import (
     marketing_home, marketing_features, marketing_feature_detail, marketing_automation, marketing_pricing,
     terms_of_service, privacy_policy, robots_txt, sitemap_xml,
@@ -61,6 +62,9 @@ urlpatterns = [
     path("privacy/", privacy_policy, name="privacy_policy"),
     path("robots.txt", robots_txt, name="robots_txt"),
     path("sitemap.xml", sitemap_xml, name="sitemap_xml"),
+
+    # Public booking page (no auth)
+    path("book/<str:token>/", public_booking, name="public_booking"),
 
     # Main app (company dashboards)
     path("dashboard/", include("dashboard.urls")),

@@ -1,0 +1,102 @@
+{% extends "marketing/base_marketing.html" %}
+{% block title %}Book a Service — {{ business.name }}{% endblock %}
+
+{% block content %}
+<section class="section" style="padding-top:34px;">
+  <div class="shell" style="max-width:640px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:28px;">
+      {% if business.logo %}
+      <img src="{{ business.logo.url }}" alt="{{ business.name }}" style="max-height:60px;margin-bottom:14px;">
+      {% endif %}
+      <h1 style="font-size:32px;line-height:1.1;letter-spacing:-.02em;margin:0 0 8px;">Book a Service</h1>
+      <p class="lead" style="margin-bottom:0;">{{ business.name }} — request a service appointment online.</p>
+    </div>
+
+    {% if error %}
+    <div style="margin-bottom:14px;padding:12px;border:1px solid #7f1d1d;background:#450a0a;color:#fecaca;border-radius:10px;font-size:14px;">{{ error }}</div>
+    {% endif %}
+
+    <div class="card" data-r style="padding:22px;">
+      <form method="post" style="display:grid;gap:14px;">
+        {% csrf_token %}
+
+        <h2 style="margin:0 0 4px;font-size:20px;">Your Information</h2>
+
+        <div>
+          <label for="name" style="display:block;margin-bottom:6px;font-size:14px;">Full name *</label>
+          <input id="name" name="name" required placeholder="Your name" class="auth-input">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label for="email" style="display:block;margin-bottom:6px;font-size:14px;">Email</label>
+            <input id="email" name="email" type="email" placeholder="you@example.com" class="auth-input">
+          </div>
+          <div>
+            <label for="phone" style="display:block;margin-bottom:6px;font-size:14px;">Phone</label>
+            <input id="phone" name="phone" type="tel" placeholder="(555) 123-4567" class="auth-input">
+          </div>
+        </div>
+
+        <div>
+          <label for="address" style="display:block;margin-bottom:6px;font-size:14px;">Service address</label>
+          <input id="address" name="address" placeholder="123 Main St" class="auth-input">
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;">
+          <div>
+            <label for="city" style="display:block;margin-bottom:6px;font-size:14px;">City</label>
+            <input id="city" name="city" placeholder="City" class="auth-input">
+          </div>
+          <div>
+            <label for="state" style="display:block;margin-bottom:6px;font-size:14px;">State</label>
+            <input id="state" name="state" placeholder="State" class="auth-input">
+          </div>
+          <div>
+            <label for="postal_code" style="display:block;margin-bottom:6px;font-size:14px;">ZIP</label>
+            <input id="postal_code" name="postal_code" placeholder="ZIP" class="auth-input">
+          </div>
+        </div>
+
+        <hr style="border:0;border-top:1px solid var(--border);margin:6px 0;">
+        <h2 style="margin:0 0 4px;font-size:20px;">Service Details</h2>
+
+        {% if services %}
+        <div>
+          <label for="service_id" style="display:block;margin-bottom:6px;font-size:14px;">Service requested</label>
+          <select id="service_id" name="service_id" class="auth-input">
+            <option value="">— Select a service —</option>
+            {% for svc in services %}
+            <option value="{{ svc.id }}">{{ svc.name }}{% if svc.default_rate %} — ${{ svc.default_rate }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label for="service_date" style="display:block;margin-bottom:6px;font-size:14px;">Preferred date *</label>
+            <input id="service_date" name="service_date" type="date" required class="auth-input">
+          </div>
+          <div>
+            <label for="service_time" style="display:block;margin-bottom:6px;font-size:14px;">Preferred time</label>
+            <input id="service_time" name="service_time" type="time" class="auth-input">
+          </div>
+        </div>
+
+        <div>
+          <label for="notes" style="display:block;margin-bottom:6px;font-size:14px;">Notes</label>
+          <textarea id="notes" name="notes" rows="3" placeholder="Tell us about the work you need..." class="auth-input" style="resize:vertical;"></textarea>
+        </div>
+
+        <button class="btn btn-primary" type="submit" style="width:100%;padding:14px;">Request Appointment</button>
+        <p style="margin:0;font-size:12px;color:var(--muted);text-align:center;">We'll confirm your appointment via email or phone.</p>
+      </form>
+    </div>
+  </div>
+</section>
+<style>
+.auth-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text);transition:border-color .2s ease,box-shadow .2s ease;outline:none}
+.auth-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.auth-input:hover:not(:focus){border-color:var(--text-muted)}
+</style>
+{% endblock %}

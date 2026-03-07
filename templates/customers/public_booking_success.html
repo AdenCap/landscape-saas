@@ -1,0 +1,27 @@
+{% extends "marketing/base_marketing.html" %}
+{% block title %}Booking Confirmed — {{ business.name }}{% endblock %}
+
+{% block content %}
+<section class="section" style="padding-top:60px;">
+  <div class="shell" style="max-width:540px;margin:0 auto;text-align:center;">
+    <div class="card" data-r style="padding:40px;">
+      <div style="font-size:48px;margin-bottom:16px;">&#10003;</div>
+      <h1 style="font-size:28px;line-height:1.1;letter-spacing:-.02em;margin:0 0 10px;">Request Received!</h1>
+      <p style="color:var(--muted);line-height:1.6;margin:0 0 20px;">
+        Thank you for booking with <strong>{{ business.name }}</strong>.
+        We'll review your request and confirm your appointment soon.
+      </p>
+      {% if business.contact_phone %}
+      <p style="color:var(--muted);font-size:14px;margin:0 0 8px;">
+        Questions? Call us at <a href="tel:{{ business.contact_phone }}" style="color:var(--text);">{{ business.contact_phone }}</a>
+      </p>
+      {% endif %}
+      {% if business.contact_email %}
+      <p style="color:var(--muted);font-size:14px;margin:0;">
+        Or email <a href="mailto:{{ business.contact_email }}" style="color:var(--text);">{{ business.contact_email }}</a>
+      </p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
