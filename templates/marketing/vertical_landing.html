@@ -1,0 +1,85 @@
+{% extends "marketing/base_marketing.html" %}
+{% block title %}{{ page.seo_title }}{% endblock %}
+{% block meta_description %}{{ page.seo_description }}{% endblock %}
+{% block og_title %}{{ page.seo_title }}{% endblock %}
+{% block og_description %}{{ page.seo_description }}{% endblock %}
+
+{% block content %}
+<section class="section vl-hero">
+  <div class="shell" style="max-width:960px;text-align:center;">
+    <div class="vl-badge">{{ page.type_label }}</div>
+    <h1 class="vl-h1">{{ page.headline }}</h1>
+    <p class="vl-sub">{{ page.subheadline }}</p>
+    <div class="vl-cta">
+      <a href="{% url 'signup' %}" class="btn btn-primary" style="padding:14px 36px;font-size:16px;">Start free trial</a>
+      <a href="{% url 'marketing_pricing' %}" class="btn btn-secondary" style="padding:14px 28px;">View pricing</a>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);margin-top:10px;">No credit card required. Set up in under 5 minutes.</p>
+  </div>
+</section>
+
+<section class="section vl-pain">
+  <div class="shell" style="max-width:960px;">
+    <h2 class="vl-section-title">Problems we solve for {{ page.type_label|lower }} businesses</h2>
+    <div class="vl-pain-grid">
+      {% for title, desc in page.pain_points %}
+      <div class="card vl-pain-card">
+        <h3>{{ title }}</h3>
+        <p>{{ desc }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section vl-features">
+  <div class="shell" style="max-width:960px;">
+    <h2 class="vl-section-title">Features built for {{ page.type_label|lower }} contractors</h2>
+    <div class="vl-feat-grid">
+      {% for title, desc in page.features %}
+      <div class="card vl-feat-card">
+        <h3>{{ title }}</h3>
+        <p>{{ desc }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section vl-cta-bottom">
+  <div class="shell" style="max-width:640px;text-align:center;">
+    <h2 style="font-size:32px;letter-spacing:-.02em;margin:0 0 12px;">Ready to streamline your {{ page.type_label|lower }} business?</h2>
+    <p style="color:var(--text-secondary);margin:0 0 20px;line-height:1.6;">Join hundreds of home service businesses running on Tradevo. Start your free trial today.</p>
+    <a href="{% url 'signup' %}" class="btn btn-primary" style="padding:16px 48px;font-size:17px;">Get started free</a>
+  </div>
+</section>
+
+<style>
+.vl-hero{padding:var(--space-32) 0 var(--space-24);border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.vl-hero::before{content:"";position:absolute;width:700px;height:700px;border-radius:50%;background:radial-gradient(circle,rgba(59,130,246,.07),transparent 70%);top:-250px;right:-150px;pointer-events:none}
+.vl-badge{display:inline-block;padding:6px 16px;border-radius:var(--radius-full);background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);color:var(--primary);font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:16px}
+.vl-h1{font-size:clamp(36px,5vw,52px);line-height:1.05;letter-spacing:-.03em;margin:0 0 14px;background:linear-gradient(180deg,var(--text) 0%,var(--text-secondary) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.vl-sub{font-size:var(--text-lg);line-height:1.6;color:var(--text-secondary);max-width:620px;margin:0 auto 24px}
+.vl-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
+.vl-pain{padding:var(--space-24) 0;border-bottom:1px solid var(--border)}
+.vl-section-title{font-size:28px;letter-spacing:-.02em;text-align:center;margin:0 0 24px}
+.vl-pain-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.vl-pain-card{padding:22px}
+.vl-pain-card h3{font-size:17px;margin:0 0 8px;font-weight:600}
+.vl-pain-card p{margin:0;color:var(--text-secondary);font-size:14px;line-height:1.6}
+
+.vl-features{padding:var(--space-24) 0;border-bottom:1px solid var(--border)}
+.vl-feat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.vl-feat-card{padding:22px}
+.vl-feat-card h3{font-size:17px;margin:0 0 8px;font-weight:600;color:var(--primary)}
+.vl-feat-card p{margin:0;color:var(--text-secondary);font-size:14px;line-height:1.6}
+
+.vl-cta-bottom{padding:var(--space-24) 0}
+
+@media(max-width:800px){
+  .vl-pain-grid{grid-template-columns:1fr}
+  .vl-feat-grid{grid-template-columns:1fr}
+}
+</style>
+{% endblock %}

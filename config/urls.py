@@ -31,7 +31,7 @@ from config.platform_views import (
 from customers.views import public_booking
 from config.marketing_views import (
     marketing_home, marketing_features, marketing_feature_detail, marketing_automation, marketing_pricing,
-    terms_of_service, privacy_policy, robots_txt, sitemap_xml,
+    terms_of_service, privacy_policy, robots_txt, sitemap_xml, vertical_landing,
 )
 from config.db_check import db_check
 
@@ -62,6 +62,13 @@ urlpatterns = [
     path("privacy/", privacy_policy, name="privacy_policy"),
     path("robots.txt", robots_txt, name="robots_txt"),
     path("sitemap.xml", sitemap_xml, name="sitemap_xml"),
+
+    # Vertical landing pages
+    path("hvac/", vertical_landing, {"vertical": "hvac"}, name="vertical_hvac"),
+    path("plumbing/", vertical_landing, {"vertical": "plumbing"}, name="vertical_plumbing"),
+    path("electrical/", vertical_landing, {"vertical": "electrical"}, name="vertical_electrical"),
+    path("cleaning/", vertical_landing, {"vertical": "cleaning"}, name="vertical_cleaning"),
+    path("landscaping/", vertical_landing, {"vertical": "landscaping"}, name="vertical_landscaping"),
 
     # Public booking page (no auth)
     path("book/<str:token>/", public_booking, name="public_booking"),
