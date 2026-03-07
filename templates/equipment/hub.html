@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Equipment{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <h1>Equipment</h1>
+  <p class="text-muted">Track customer equipment, warranties, and service history.</p>
+</div>
+
+<div class="card" data-r style="padding:22px;">
+  {% if equipment_list %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Equipment</th>
+        <th>Customer</th>
+        <th>Serial #</th>
+        <th>Warranty</th>
+        <th>Next Service</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for eq in equipment_list %}
+      <tr>
+        <td>{{ eq }}</td>
+        <td>{{ eq.customer.name }}</td>
+        <td>{{ eq.serial_number|default:"—" }}</td>
+        <td>{{ eq.warranty_expiry|default:"—" }}</td>
+        <td>{{ eq.next_service_due|default:"—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:var(--muted);text-align:center;padding:40px 0;">No equipment tracked yet. Add equipment from a customer's profile.</p>
+  {% endif %}
+</div>
+{% endblock %}

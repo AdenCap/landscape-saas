@@ -101,6 +101,11 @@ INSTALLED_APPS = [
     'subscription',
     'messaging',
     'fertilization',
+    'pricebook',
+    'equipment',
+    'service_agreements',
+    'checklists',
+    'inspections',
 ]
 
 # Stripe: platform subscription (business pays you) + Connect (businesses accept invoice payments)

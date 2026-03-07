@@ -618,6 +618,36 @@
             Fertilization
           </a>
           {% endif %}
+          {% if show_pricebook %}
+          <a href="{% url 'pricebook:hub' %}" class="btn btn-nav {% if '/pricebook' in request.path %}active{% endif %}">
+            <i data-lucide="book-open" class="nav-icon"></i>
+            Pricebook
+          </a>
+          {% endif %}
+          {% if show_equipment %}
+          <a href="{% url 'equipment:hub' %}" class="btn btn-nav {% if '/equipment' in request.path %}active{% endif %}">
+            <i data-lucide="wrench" class="nav-icon"></i>
+            Equipment
+          </a>
+          {% endif %}
+          {% if show_service_agreements %}
+          <a href="{% url 'service_agreements:hub' %}" class="btn btn-nav {% if '/agreements' in request.path %}active{% endif %}">
+            <i data-lucide="file-check" class="nav-icon"></i>
+            Agreements
+          </a>
+          {% endif %}
+          {% if show_checklists %}
+          <a href="{% url 'checklists:hub' %}" class="btn btn-nav {% if '/checklists' in request.path %}active{% endif %}">
+            <i data-lucide="check-square" class="nav-icon"></i>
+            Checklists
+          </a>
+          {% endif %}
+          {% if show_inspections %}
+          <a href="{% url 'inspections:hub' %}" class="btn btn-nav {% if '/inspections' in request.path %}active{% endif %}">
+            <i data-lucide="clipboard-check" class="nav-icon"></i>
+            Inspections
+          </a>
+          {% endif %}
           <a href="{% url 'employee_management' %}" class="btn btn-nav {% if '/employee-management' in request.path %}active{% endif %}">
             <i data-lucide="users" class="nav-icon"></i>
             Employee Management
@@ -719,6 +749,21 @@
             <a href="/billing/estimates/"><i data-lucide="file-text" class="nav-icon"></i>Estimates</a>
             {% if show_fertilization %}
             <a href="{% url 'fertilization:hub' %}"><i data-lucide="leaf" class="nav-icon"></i>Fertilization</a>
+            {% endif %}
+            {% if show_pricebook %}
+            <a href="{% url 'pricebook:hub' %}"><i data-lucide="book-open" class="nav-icon"></i>Pricebook</a>
+            {% endif %}
+            {% if show_equipment %}
+            <a href="{% url 'equipment:hub' %}"><i data-lucide="wrench" class="nav-icon"></i>Equipment</a>
+            {% endif %}
+            {% if show_service_agreements %}
+            <a href="{% url 'service_agreements:hub' %}"><i data-lucide="file-check" class="nav-icon"></i>Agreements</a>
+            {% endif %}
+            {% if show_checklists %}
+            <a href="{% url 'checklists:hub' %}"><i data-lucide="check-square" class="nav-icon"></i>Checklists</a>
+            {% endif %}
+            {% if show_inspections %}
+            <a href="{% url 'inspections:hub' %}"><i data-lucide="clipboard-check" class="nav-icon"></i>Inspections</a>
             {% endif %}
             <a href="{% url 'employee_management' %}"><i data-lucide="users" class="nav-icon"></i>Employees</a>
             <a href="{% url 'notification_send' %}"><i data-lucide="bell" class="nav-icon"></i>Notifications</a>

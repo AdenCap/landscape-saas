@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Pricebook{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <h1>Pricebook</h1>
+  <p class="text-muted">Manage your service and parts pricing.</p>
+</div>
+
+<div class="card" data-r style="padding:22px;">
+  {% if items %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Category</th>
+        <th>Price</th>
+        <th>Cost</th>
+        <th>Labor (min)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.name }}</td>
+        <td>{{ item.category.name|default:"—" }}</td>
+        <td>{{ item.flat_rate_price|default:"—" }}</td>
+        <td>{{ item.material_cost|default:"—" }}</td>
+        <td>{{ item.labor_minutes|default:"—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:var(--muted);text-align:center;padding:40px 0;">No pricebook items yet. Add your first service or part.</p>
+  {% endif %}
+</div>
+{% endblock %}

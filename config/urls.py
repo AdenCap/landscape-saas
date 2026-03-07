@@ -78,6 +78,11 @@ urlpatterns = [
     path("estimator/", include("property_estimator.urls")),
     path("api/messages/", include("messaging.urls")),
     path("fertilization/", include(("fertilization.urls", "fertilization"), namespace="fertilization")),
+    path("pricebook/", include(("pricebook.urls", "pricebook"), namespace="pricebook")),
+    path("equipment/", include(("equipment.urls", "equipment"), namespace="equipment")),
+    path("agreements/", include(("service_agreements.urls", "service_agreements"), namespace="service_agreements")),
+    path("checklists/", include(("checklists.urls", "checklists"), namespace="checklists")),
+    path("inspections/", include(("inspections.urls", "inspections"), namespace="inspections")),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
