@@ -151,3 +151,39 @@ class MessageAttachment(models.Model):
 
     def __str__(self):
         return self.filename
+
+
+class SMSLog(models.Model):
+    """Log of outbound SMS messages sent via Twilio."""
+    STATUS_CHOICES = [
+        ("queued", "Queued"),
+        ("sent", "Sent"),
+        ("delivered", "Delivered"),
+        ("failed", "Failed"),
+    ]
+    PURPOSE_CHOICES = [
+        ("booking_confirm", "Booking Confirmation"),
+        ("appointment_reminder", "Appointment Reminder"),
+        ("invoice_reminder", "Invoice Reminder"),
+        ("review_request", "Review Request"),
+        ("notification", "General Notification"),
+        ("other", "Other"),
+    ]
+
+    business = models.ForeignKey(
+        Business, on_delete=models.CASCADE, related_name="sms_logs"
+    )
+    to_phone = models.CharField(max_length=20)
+    from_phone = models.CharField(max_length=20, blank=True)
+    body = models.TextField()
+    purpose = models.CharField(max_length=30, choices=PURPOSE_CHOICES, default="other")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="queued")
+    twilio_sid = models.CharField(max_length=64, blank=True)
+    error_message = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"SMS to {self.to_phone} ({self.status})"

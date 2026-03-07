@@ -115,6 +115,11 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_SUBSCRIPTION_PRICE_ID = os.environ.get("STRIPE_SUBSCRIPTION_PRICE_ID", "")
 STRIPE_CONNECT_APPLICATION_FEE_PERCENT = float(os.environ.get("STRIPE_CONNECT_APPLICATION_FEE_PERCENT", "0") or "0")
 
+# Twilio SMS — optional; set these env vars to enable outbound SMS
+TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
+TWILIO_FROM_NUMBER = os.environ.get("TWILIO_FROM_NUMBER", "")
+
 # QuickBooks Online integration removed - using built-in features instead
 
 _middleware = ['django.middleware.security.SecurityMiddleware']
