@@ -1,34 +1,48 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}Start free trial — Field Ops{% endblock %}
+{% block title %}Create your account — Field Ops{% endblock %}
 
 {% block content %}
 <section class="section" style="padding-top:34px;">
   <div class="shell" style="display:grid;grid-template-columns:.95fr 1.05fr;gap:14px;align-items:start;">
     <aside class="card" data-r style="padding:22px;position:sticky;top:86px;">
-      <h1 style="font-size:36px;line-height:1.02;letter-spacing:-.03em;margin:0 0 10px;">Start your free trial in minutes.</h1>
+      <p style="color:var(--primary);font-weight:600;font-size:14px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;">Step 2 of 2</p>
+      <h1 style="font-size:36px;line-height:1.02;letter-spacing:-.03em;margin:0 0 10px;">Set up your {{ business_type_label }} business.</h1>
       <p class="lead" style="margin-bottom:14px;">Create your account and go directly into plan selection. No friction, no confusing setup.</p>
       <ul style="margin:0;padding-left:18px;color:var(--muted);line-height:1.8;">
+        <li>Customized for {{ business_type_label }}</li>
         <li>Guided onboarding mode</li>
-        <li>Solo Starter or Pro All-Access selection</li>
         <li>Operator-friendly dashboard from day one</li>
       </ul>
-      <div style="margin-top:14px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-size:13px;color:var(--muted);">Already have an account? <a href="{% url 'login' %}" style="color:var(--text)">Sign in</a></div>
+      <div style="margin-top:14px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-size:13px;color:var(--muted);">
+        Wrong trade? <a href="{% url 'signup' %}" style="color:var(--text)">Go back</a> &middot;
+        Already have an account? <a href="{% url 'login' %}" style="color:var(--text)">Sign in</a>
+      </div>
     </aside>
 
     <div class="card" data-r style="padding:22px;">
       <h2 style="margin:0 0 6px;font-size:28px;letter-spacing:-.02em;">Create account</h2>
-      <p style="margin:0 0 16px;color:var(--muted);">Assumption: you’re new here. We’ll set up your workspace and route you to subscription selection next.</p>
+      <p style="margin:0 0 16px;color:var(--muted);">We'll set up your workspace and route you to subscription selection next.</p>
 
       {% if form.non_field_errors %}
       <div style="margin-bottom:12px;padding:10px;border:1px solid #7f1d1d;background:#450a0a;color:#fecaca;border-radius:10px;font-size:14px;">{{ form.non_field_errors }}</div>
       {% endif %}
 
-      <form method="post" action="{% url 'signup' %}" style="display:grid;gap:12px;">
+      <form method="post" action="{% url 'signup' %}?step=2" style="display:grid;gap:12px;">
         {% csrf_token %}
-        <div>
-          <label for="id_business_name" style="display:block;margin-bottom:6px;font-size:14px;">Business name</label>
-          <input id="id_business_name" name="business_name" value="{{ form.business_name.value|default:'' }}" required placeholder="Your company name" class="auth-input">
-          {% if form.business_name.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.business_name.errors.0 }}</p>{% endif %}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label for="id_business_name" style="display:block;margin-bottom:6px;font-size:14px;">Business name</label>
+            <input id="id_business_name" name="business_name" value="{{ form.business_name.value|default:'' }}" required placeholder="Your company name" class="auth-input">
+            {% if form.business_name.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.business_name.errors.0 }}</p>{% endif %}
+          </div>
+          <div>
+            <label for="id_business_subtype" style="display:block;margin-bottom:6px;font-size:14px;">Specialization</label>
+            <select id="id_business_subtype" name="business_subtype" class="auth-input">
+              {% for value, label in form.fields.business_subtype.choices %}
+              <option value="{{ value }}" {% if form.business_subtype.value == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">

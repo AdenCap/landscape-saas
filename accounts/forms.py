@@ -16,6 +16,11 @@ class SignUpForm(UserCreationForm):
         label="Business name",
         help_text="Your company or business name.",
     )
+    business_subtype = forms.ChoiceField(
+        required=False,
+        label="Specialization",
+        choices=[("", "— Select (optional) —")],
+    )
     email = forms.EmailField(
         required=True,
         label="Email",
@@ -26,6 +31,7 @@ class SignUpForm(UserCreationForm):
         model = User
         fields = [
             "business_name",
+            "business_subtype",
             "username",
             "email",
             "first_name",
@@ -33,6 +39,49 @@ class SignUpForm(UserCreationForm):
             "password1",
             "password2",
         ]
+
+    # Subtype choices per business type
+    SUBTYPE_MAP = {
+        "landscaping": [
+            ("", "— Select (optional) —"),
+            ("lawn_care", "Lawn Care Only"),
+            ("full_service", "Full-Service Landscaping"),
+        ],
+        "hvac": [
+            ("", "— Select (optional) —"),
+            ("residential_hvac", "Residential HVAC"),
+            ("commercial_hvac", "Commercial HVAC"),
+            ("both_hvac", "Residential & Commercial"),
+        ],
+        "plumbing": [
+            ("", "— Select (optional) —"),
+            ("residential_plumbing", "Residential Plumbing"),
+            ("commercial_plumbing", "Commercial Plumbing"),
+            ("both_plumbing", "Residential & Commercial"),
+        ],
+        "electrical": [
+            ("", "— Select (optional) —"),
+            ("residential_electrical", "Residential Electrical"),
+            ("commercial_electrical", "Commercial Electrical"),
+            ("both_electrical", "Residential & Commercial"),
+        ],
+        "cleaning": [
+            ("", "— Select (optional) —"),
+            ("residential_cleaning", "Residential Cleaning"),
+            ("commercial_cleaning", "Commercial Cleaning"),
+            ("both_cleaning", "Residential & Commercial"),
+        ],
+        "general": [
+            ("", "— Select (optional) —"),
+            ("general", "General"),
+        ],
+    }
+
+    def __init__(self, *args, business_type=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._business_type = business_type or "landscaping"
+        choices = self.SUBTYPE_MAP.get(self._business_type, self.SUBTYPE_MAP["general"])
+        self.fields["business_subtype"].choices = choices
 
 
 class EmployeeForm(forms.ModelForm):

@@ -42,26 +42,66 @@ class LoginView(AuthLoginView):
         return base
 
 
+BUSINESS_TYPE_INFO = [
+    ("landscaping", "Landscaping", "\U0001F33F", "Lawn care, mowing, landscaping, irrigation"),
+    ("hvac", "HVAC", "\U00002744\uFE0F", "Heating, ventilation, air conditioning"),
+    ("plumbing", "Plumbing", "\U0001F6BF", "Residential & commercial plumbing"),
+    ("electrical", "Electrical", "\U000026A1", "Electrical installation & repair"),
+    ("cleaning", "Cleaning", "\U00002728", "Residential & commercial cleaning"),
+    ("general", "Other", "\U0001F527", "General home service business"),
+]
+
+
 @require_http_methods(["GET", "POST"])
 def signup(request):
-    """Public signup: create a business and an owner user, then log them in."""
+    """Multi-step signup: Step 1 picks business type, Step 2 collects details."""
     if request.user.is_authenticated:
         return redirect("/")
+
+    step = request.GET.get("step", "1")
+
+    # Step 1: select business type
+    if step == "1" or (step != "2" and "signup_business_type" not in request.session):
+        selected_type = request.GET.get("type")
+        if selected_type and selected_type in dict(Business.BUSINESS_TYPE_CHOICES):
+            request.session["signup_business_type"] = selected_type
+        else:
+            selected_type = request.session.get("signup_business_type")
+        return render(request, "registration/select_business_type.html", {
+            "business_types": BUSINESS_TYPE_INFO,
+            "selected_type": selected_type,
+        })
+
+    # Step 2: business details + account creation
+    business_type = request.session.get("signup_business_type", "landscaping")
+
     if request.method == "POST":
-        form = SignUpForm(request.POST)
+        form = SignUpForm(request.POST, business_type=business_type)
         if form.is_valid():
             business_name = form.cleaned_data.pop("business_name")
-            business = Business.objects.create(name=business_name)
+            business_subtype = form.cleaned_data.pop("business_subtype", "")
+            business = Business.objects.create(
+                name=business_name,
+                business_type=business_type,
+                business_subtype=business_subtype,
+            )
             user = form.save(commit=False)
             user.business = business
             user.role = "owner"
             user.save()
+            request.session.pop("signup_business_type", None)
             login(request, user)
             messages.success(request, f"Welcome! Your business '{business.name}' is set up.")
             return redirect("/subscription/status/")
     else:
-        form = SignUpForm()
-    return render(request, "registration/signup.html", {"form": form})
+        form = SignUpForm(business_type=business_type)
+
+    type_label = dict(Business.BUSINESS_TYPE_CHOICES).get(business_type, business_type)
+    return render(request, "registration/signup.html", {
+        "form": form,
+        "business_type": business_type,
+        "business_type_label": type_label,
+    })
 
 
 @role_required("owner", "manager")
