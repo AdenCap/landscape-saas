@@ -16,8 +16,9 @@
       <p style="margin:0 0 10px; color:var(--text-muted);">Best for one-person operators.</p>
       <ul style="margin:0 0 12px; color:var(--text-muted); padding-left:18px; line-height:1.7;">
         <li>Calendar scheduling</li>
-        <li>Client management basics</li>
-        <li>Lean starter workflow</li>
+        <li>Client management</li>
+        <li>Job tracking</li>
+        <li>Basic invoicing</li>
       </ul>
       {% if stripe_enabled and not has_active_subscription %}
       <form method="post" action="{% url 'subscription:create_checkout' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="solo"><button class="btn btn-secondary" style="width:100%;">Start Solo free trial</button></form>
@@ -29,9 +30,13 @@
       <div style="font-size:34px; font-weight:800; margin:2px 0 8px;">${{ pricing.pro_price }}<span style="font-size:13px; color:var(--text-muted); font-weight:500;">/mo</span></div>
       <p style="margin:0 0 10px; color:var(--text-muted);">All features included for full operations control.</p>
       <ul style="margin:0 0 12px; color:var(--text-muted); padding-left:18px; line-height:1.7;">
-        <li>Dispatch Command Center</li>
-        <li>Invoicing + automations</li>
-        <li>Reliability and KPI layers</li>
+        <li>Everything in Solo</li>
+        <li>Dispatch command center</li>
+        <li>Invoicing + automation</li>
+        <li>Pricebook & equipment tracking</li>
+        <li>Inspections & checklists</li>
+        <li>Service agreements</li>
+        <li>Online booking & SMS</li>
       </ul>
       {% if stripe_enabled and not has_active_subscription %}
       <form method="post" action="{% url 'subscription:create_checkout' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="core"><button class="btn btn-primary" style="width:100%;">Start Pro free trial</button></form>

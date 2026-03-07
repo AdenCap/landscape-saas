@@ -1,7 +1,7 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}Field Ops Pricing{% endblock %}
+{% block title %}Tradevo Pricing{% endblock %}
 {% block content %}
-<section class="hero"><div class="shell" data-r><h1>Simple pricing that scales with your business.</h1><p class="sub">Start lean, then grow into full-feature operations without messy migrations.</p></div></section>
+<section class="hero"><div class="shell" data-r><h1>Simple pricing that scales with your business.</h1><p class="sub">One platform for every home service trade. Start lean, then grow into full operations.</p></div></section>
 <section class="section"><div class="shell" data-r>
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));">
     <article class="card">
@@ -9,19 +9,31 @@
       <p style="font-size:36px;font-weight:800;margin:8px 0;">${{ pricing.solo_price }}<span style="font-size:14px;font-weight:500;color:var(--muted)">/mo</span></p>
       <p>For one-person operations that need scheduling and client tracking without complexity.</p>
       <ul style="color:var(--muted);line-height:1.7; padding-left:18px;">
-        <li>Calendar scheduling</li><li>Client management basics</li><li>Low-friction start</li>
+        <li>Calendar scheduling</li>
+        <li>Client management</li>
+        <li>Job tracking</li>
+        <li>Basic invoicing</li>
       </ul>
       <a class="btn" href="/accounts/signup/">Start Solo trial</a>
     </article>
     <article class="card" style="border-color:#4d4d4d;">
       <h3>Pro All-Access</h3>
       <p style="font-size:36px;font-weight:800;margin:8px 0;">${{ pricing.pro_price }}<span style="font-size:14px;font-weight:500;color:var(--muted)">/mo</span></p>
-      <p>All features included for teams serious about operational performance and growth.</p>
+      <p>All features for teams serious about operational performance and growth.</p>
       <ul style="color:var(--muted);line-height:1.7; padding-left:18px;">
-        <li>Full command center</li><li>Invoicing + automation</li><li>Reliability toolkit</li>
+        <li>Everything in Solo</li>
+        <li>Dispatch command center</li>
+        <li>Invoicing + automation</li>
+        <li>Pricebook & equipment tracking</li>
+        <li>Inspections & checklists</li>
+        <li>Service agreements</li>
+        <li>Online booking portal</li>
+        <li>SMS notifications</li>
+        <li>Employee management</li>
       </ul>
       <a class="btn btn-primary" href="/accounts/signup/">Start Pro trial</a>
     </article>
   </div>
+  <p style="text-align:center;color:var(--muted);margin-top:18px;font-size:14px;">All plans include vertical-specific modules for HVAC, plumbing, electrical, cleaning, and landscaping.</p>
 </div></section>
 {% endblock %}

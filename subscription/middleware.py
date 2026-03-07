@@ -5,8 +5,28 @@ from django.utils.deprecation import MiddlewareMixin
 
 
 SOLO_ALLOWED_PREFIXES = (
-    "/jobs/calendar",
+    "/dashboard",
+    "/jobs",
     "/clients",
+    "/billing",
+    "/settings",
+    "/crews",
+    "/employees",
+    "/notifications",
+    "/time",
+    "/estimator",
+    "/api/messages",
+)
+
+# These require Pro. Solo users get redirected.
+PRO_ONLY_PREFIXES = (
+    "/pricebook",
+    "/equipment",
+    "/agreements",
+    "/checklists",
+    "/inspections",
+    "/fertilization",
+    "/financials",
 )
 
 
@@ -23,6 +43,8 @@ SUBSCRIPTION_EXEMPT_PREFIXES = (
     "/webhooks/stripe",
     "/static/",
     "/media/",
+    "/book/",
+    "/api/db-check",
 )
 
 
@@ -61,11 +83,11 @@ class SubscriptionRequiredMiddleware(MiddlewareMixin):
         if not business:
             return None
         if getattr(business, "has_active_subscription", lambda: False)():
-            # Solo Starter: keep access intentionally basic (calendar + client management)
+            # Solo Starter: core features allowed, vertical modules require Pro
             if getattr(business, "subscription_plan_tier", "core") == "solo":
                 normalized = (path.rstrip("/") or "/")
-                if not any(normalized == p or normalized.startswith(p + "/") for p in SOLO_ALLOWED_PREFIXES):
-                    return redirect("/jobs/calendar/")
+                if any(normalized == p or normalized.startswith(p + "/") for p in PRO_ONLY_PREFIXES):
+                    return redirect("/subscription/status/")
             return None
         # No active subscription: redirect to subscription status page
         status_url = reverse("subscription:status")
