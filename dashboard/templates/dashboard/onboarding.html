@@ -4,8 +4,8 @@
 <div class="onboarding-page">
   <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
     <div>
-      <h1>Welcome to Field Ops</h1>
-      <p>Complete a few quick steps to get your business up and running.</p>
+      <h1>Welcome to Tradevo</h1>
+      <p>Complete a few quick steps to get your {{ business.get_business_type_display }} business up and running.</p>
     </div>
     <form method="post" style="margin:0;">
       {% csrf_token %}
@@ -90,7 +90,7 @@
         <strong>{{ customers_count }}</strong>
       </div>
       <div class="health-item {% if jobs_count > 0 %}ok{% endif %}">
-        <span class="health-label">Jobs</span>
+        <span class="health-label">{{ terms.job_plural }}</span>
         <strong>{{ jobs_count }}</strong>
       </div>
       <div class="health-item {% if smtp_connected %}ok{% endif %}">
@@ -154,6 +154,10 @@
   .step-card:nth-child(4){animation-delay:180ms}
   .step-card:nth-child(5){animation-delay:240ms}
   .step-card:nth-child(6){animation-delay:300ms}
+  .step-card:nth-child(7){animation-delay:360ms}
+  .step-card:nth-child(8){animation-delay:420ms}
+  .step-card:nth-child(9){animation-delay:480ms}
+  .step-card:nth-child(10){animation-delay:540ms}
   @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
   @media (max-width:800px) {

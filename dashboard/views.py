@@ -74,10 +74,18 @@ def owner_onboarding(request):
             return redirect("platform_home")
         return redirect("/accounts/login/")
 
+    from businesses.context_processors import TERMINOLOGY, DEFAULT_TERMS
+    terms = dict(TERMINOLOGY.get(business.business_type or "general", DEFAULT_TERMS))
+    overrides = business.terminology_overrides
+    if overrides and isinstance(overrides, dict):
+        terms.update(overrides)
+
     customers_count = Customer.objects.filter(business=business).count()
     jobs_count = Job.objects.filter(property__customer__business=business).count()
     smtp_connected = bool(getattr(business, "email_smtp_user", "") and getattr(business, "email_smtp_password", ""))
     stripe_connected = bool(getattr(business, "stripe_connect_account_id", ""))
+
+    modules = business.enabled_modules or []
 
     checklist = [
         {
@@ -102,26 +110,79 @@ def owner_onboarding(request):
         },
         {
             "key": "first_job",
-            "label": "Create a job",
-            "hint": "Schedule your first job to start tracking work and generating invoices.",
+            "label": f"Create a {terms['job'].lower()}",
+            "hint": f"Schedule your first {terms['job'].lower()} to start tracking work and generating invoices.",
             "done": jobs_count > 0,
             "action_url": "/jobs/create/",
-            "action_label": "Create Job",
+            "action_label": f"Create {terms['job']}",
             "optional": False,
         },
         {
             "key": "first_estimate",
-            "label": "Create an estimate or invoice",
-            "hint": "Send a professional estimate or invoice to a customer.",
-            "done": Invoice.objects.filter(business=business).exists(),
+            "label": f"Create a {terms['estimate'].lower()} or invoice",
+            "hint": f"Send a professional {terms['estimate'].lower()} or invoice to a customer.",
+            "done": Invoice.objects.filter(business=business).exists() or Estimate.objects.filter(business=business).exists(),
             "action_url": "/billing/estimates/create/",
-            "action_label": "Create Estimate",
+            "action_label": f"Create {terms['estimate']}",
             "optional": False,
         },
+    ]
+
+    # ── Vertical-specific optional steps based on enabled modules ───
+    if "pricebook" in modules:
+        from pricebook.models import PricebookItem
+        checklist.append({
+            "key": "pricebook",
+            "label": "Set up your pricebook",
+            "hint": f"Add {terms['material'].lower()}s and services with pricing so you can quickly build {terms['estimate'].lower()}s.",
+            "done": PricebookItem.objects.filter(business=business).exists(),
+            "action_url": "/pricebook/",
+            "action_label": "Open Pricebook",
+            "optional": True,
+        })
+
+    if "equipment" in modules:
+        from equipment.models import Equipment
+        checklist.append({
+            "key": "equipment",
+            "label": "Add customer equipment",
+            "hint": "Track equipment at customer properties for service history and warranty tracking.",
+            "done": Equipment.objects.filter(business=business).exists(),
+            "action_url": "/equipment/",
+            "action_label": "Add Equipment",
+            "optional": True,
+        })
+
+    if "checklists" in modules:
+        from checklists.models import ChecklistTemplate
+        checklist.append({
+            "key": "checklist_template",
+            "label": "Create a checklist template",
+            "hint": f"Build reusable checklists your {terms['crew_member'].lower()}s complete on every {terms['job'].lower()}.",
+            "done": ChecklistTemplate.objects.filter(business=business).exists(),
+            "action_url": "/checklists/",
+            "action_label": "Create Checklist",
+            "optional": True,
+        })
+
+    if "inspections" in modules:
+        from inspections.models import InspectionTemplate
+        checklist.append({
+            "key": "inspection_template",
+            "label": "Create an inspection template",
+            "hint": "Set up inspection forms for site visits and equipment evaluations.",
+            "done": InspectionTemplate.objects.filter(business=business).exists(),
+            "action_url": "/inspections/",
+            "action_label": "Create Template",
+            "optional": True,
+        })
+
+    # Core optional steps at the end
+    checklist.extend([
         {
             "key": "smtp",
             "label": "Connect email",
-            "hint": "Set up SMTP so Field Ops can send invoices and estimates on your behalf.",
+            "hint": f"Set up SMTP so Tradevo can send {terms['estimate'].lower()}s and invoices on your behalf.",
             "done": smtp_connected,
             "action_url": "/settings/",
             "action_label": "Connect Email",
@@ -136,7 +197,7 @@ def owner_onboarding(request):
             "action_label": "Connect Stripe",
             "optional": True,
         },
-    ]
+    ])
 
     skipped_steps = set(request.session.get(_onboarding_skip_key(business.id), []))
     for item in checklist:
