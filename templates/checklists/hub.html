@@ -1,34 +1,96 @@
 {% extends "base.html" %}
-{% block title %}Checklists{% endblock %}
+{% block title %}Checklist Templates{% endblock %}
 
 {% block content %}
-<div class="content-header">
-  <h1>Checklists</h1>
-  <p class="text-muted">Create reusable checklist templates for your jobs.</p>
+<div class="page-header">
+  <h1>Jobs Workspace</h1>
+  <p>Track scheduled, in-progress, and completed work from one board.</p>
 </div>
 
-<div class="card" data-r style="padding:22px;">
-  {% if templates %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Items</th>
-        <th>Default</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for t in templates %}
-      <tr>
-        <td>{{ t.name }}</td>
-        <td>{{ t.items.count }}</td>
-        <td>{% if t.is_default %}Yes{% else %}—{% endif %}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p style="color:var(--muted);text-align:center;padding:40px 0;">No checklist templates yet. Create your first template.</p>
-  {% endif %}
+<div class="billing-tabs" style="margin-bottom: 16px;">
+  <a href="{% url 'job_list' %}" class="billing-tab">Jobs</a>
+  <a href="{% url 'checklists:template_list' %}" class="billing-tab active">Checklists</a>
 </div>
+
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+  <div>
+    <h2 style="margin:0; font-size:20px;">Checklist Templates</h2>
+    <p style="margin:4px 0 0; color:var(--text-muted); font-size:14px;">Create reusable checklists for your crew to follow on jobs.</p>
+  </div>
+  <a href="{% url 'checklists:template_create' %}" class="btn btn-primary">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    New Template
+  </a>
+</div>
+
+{% if templates %}
+<div class="checklist-grid">
+  {% for t in templates %}
+  <div class="checklist-card">
+    <div class="checklist-card-header">
+      <div class="checklist-card-title">{{ t.name }}</div>
+      {% if t.is_default %}
+      <span class="checklist-badge">Default</span>
+      {% endif %}
+    </div>
+    {% if t.description %}
+    <p class="checklist-card-desc">{{ t.description|truncatewords:20 }}</p>
+    {% endif %}
+    <div class="checklist-card-meta">
+      <span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        {{ t.items.count }} item{{ t.items.count|pluralize }}
+      </span>
+    </div>
+    <div class="checklist-card-actions">
+      <a href="{% url 'checklists:template_edit' t.id %}" class="btn btn-secondary btn-sm">Edit</a>
+      <form method="post" action="{% url 'checklists:template_delete' t.id %}" style="display:inline;" onsubmit="return confirm('Delete &quot;{{ t.name }}&quot;? This cannot be undone.')">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary btn-sm" style="color:var(--text-muted);">Delete</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center; padding:48px 24px;">
+  <div style="margin-bottom:12px;">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="opacity:0.5;">
+      <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+    </svg>
+  </div>
+  <div style="font-size:17px; font-weight:600; margin-bottom:6px;">No checklist templates yet</div>
+  <p style="color:var(--text-muted); margin:0 0 16px; font-size:14px;">Create a template with tasks your crew should complete on every job.</p>
+  <a href="{% url 'checklists:template_create' %}" class="btn btn-primary">Create First Template</a>
+</div>
+{% endif %}
+
+<style>
+.billing-tabs{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+.billing-tab{display:inline-block;padding:9px 18px;font-size:15px;font-weight:500;border-radius:20px;text-decoration:none;color:var(--text-muted);background:var(--surface);border:1px solid var(--border);transition:all .15s ease;white-space:nowrap;}
+.billing-tab:hover{color:var(--text);border-color:var(--text-muted);transform:translateY(-1px);}
+.billing-tab.active{border-color:var(--primary);color:var(--primary);background:var(--primary-light);}
+
+.checklist-grid{display:grid;gap:12px;}
+.checklist-card{background:var(--gradient-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;transition:all var(--motion-base) var(--motion-ease);}
+.checklist-card:hover{border-color:var(--border-hover);box-shadow:var(--shadow-sm);}
+.checklist-card-header{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.checklist-card-title{font-size:16px;font-weight:600;flex:1;}
+.checklist-badge{display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-radius:20px;background:rgba(59,130,246,.15);color:var(--primary);border:1px solid rgba(59,130,246,.3);}
+.checklist-card-desc{margin:0 0 8px;font-size:14px;color:var(--text-muted);line-height:1.4;}
+.checklist-card-meta{display:flex;gap:14px;font-size:13px;color:var(--text-muted);margin-bottom:12px;}
+.checklist-card-meta span{display:inline-flex;align-items:center;gap:5px;}
+.checklist-card-actions{display:flex;gap:8px;}
+</style>
+{% endblock %}
+
+{% block context_panel %}
+<aside class="context-panel">
+  <h3>About Checklists</h3>
+  <div class="context-panel-body">
+    <div class="context-chip">Templates define tasks your crew completes on each job.</div>
+    <div class="context-chip">Mark a template as "Default" to auto-attach it to every new job.</div>
+    <div class="context-chip">Items can require photo proof for quality control.</div>
+  </div>
+</aside>
 {% endblock %}

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}{% if is_edit %}Edit{% else %}New{% endif %} Checklist Template{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:20px;">
+  <h1>{% if is_edit %}Edit Checklist Template{% else %}New Checklist Template{% endif %}</h1>
+  <p>{% if is_edit %}Update the template and its items.{% else %}Define tasks your crew should complete on a job.{% endif %}</p>
+</div>
+
+<form method="post" id="template-form">
+  {% csrf_token %}
+
+  {# ── Template Details ── #}
+  <div class="card" style="padding:20px; margin-bottom:16px;">
+    <h3 style="margin:0 0 14px; font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted);">Template Details</h3>
+
+    {% if form.errors %}
+    <div class="alert alert-error" style="margin-bottom:14px;">Please fix the errors below.</div>
+    {% endif %}
+
+    <div style="display:grid; gap:14px;">
+      <div class="form-group">
+        <label for="id_name" style="display:block; font-size:13px; font-weight:600; margin-bottom:4px; color:var(--text-muted);">Template Name</label>
+        {{ form.name }}
+        {% if form.name.errors %}<div class="field-error">{{ form.name.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="id_description" style="display:block; font-size:13px; font-weight:600; margin-bottom:4px; color:var(--text-muted);">Description</label>
+        {{ form.description }}
+      </div>
+      <label class="toggle-row" style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+        {{ form.is_default }}
+        <span style="font-size:14px;">Auto-attach to every new job (default template)</span>
+      </label>
+    </div>
+  </div>
+
+  {# ── Checklist Items ── #}
+  <div class="card" style="padding:20px; margin-bottom:16px;">
+    <h3 style="margin:0 0 14px; font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted);">Checklist Items</h3>
+
+    {{ formset.management_form }}
+
+    <div id="items-container">
+      {% for f in formset %}
+      <div class="item-card{% if f.instance.pk %} existing{% endif %}" data-index="{{ forloop.counter0 }}">
+        {{ f.id }}
+        {{ f.sort_order }}
+
+        {% if f.DELETE %}
+        <div style="display:none;">{{ f.DELETE }}</div>
+        {% endif %}
+
+        <div class="item-card-body">
+          <div class="item-field-row">
+            <div class="item-field" style="flex:2;">
+              <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:3px; display:block;">Task</label>
+              {{ f.label }}
+              {% if f.label.errors %}<div class="field-error">{{ f.label.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="item-field" style="flex:1;">
+              <label style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:3px; display:block;">Section</label>
+              {{ f.section }}
+            </div>
+          </div>
+          <div class="item-footer">
+            <label class="photo-toggle" style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; color:var(--text-muted);">
+              {{ f.requires_photo }}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Requires photo
+            </label>
+            <button type="button" class="btn-remove" onclick="removeItem(this)" title="Remove item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Remove
+            </button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <button type="button" class="btn btn-secondary" id="add-item-btn" style="margin-top:12px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Item
+    </button>
+  </div>
+
+  {# ── Actions ── #}
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <button type="submit" class="btn btn-primary">
+      {% if is_edit %}Save Changes{% else %}Create Template{% endif %}
+    </button>
+    <a href="{% url 'checklists:template_list' %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+
+<style>
+.form-group input, .form-group textarea, .form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 15px;
+}
+.field-error { color: #f87171; font-size: 13px; margin-top: 4px; }
+
+.item-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: rgba(255,255,255,.02);
+  transition: all var(--motion-base) var(--motion-ease);
+  animation: slideUp var(--motion-slow) var(--motion-ease-out) both;
+}
+.item-card:hover { border-color: var(--border-hover); }
+.item-card-body { display: flex; flex-direction: column; gap: 10px; }
+.item-field-row { display: flex; gap: 12px; }
+.item-field { display: flex; flex-direction: column; }
+.item-field input { width: 100%; padding: 8px 10px; font-size: 14px; }
+.item-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.btn-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all .15s ease;
+}
+.btn-remove:hover { color: #f87171; background: rgba(248,113,113,.1); }
+
+@keyframes slideUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+@media (max-width: 600px) {
+  .item-field-row { flex-direction: column; }
+}
+</style>
+
+<script>
+(function() {
+  var container = document.getElementById('items-container');
+  var addBtn = document.getElementById('add-item-btn');
+  var totalForms = document.getElementById('id_items-TOTAL_FORMS');
+
+  addBtn.addEventListener('click', function() {
+    var idx = parseInt(totalForms.value);
+    // Get the last item card to clone structure
+    var cards = container.querySelectorAll('.item-card');
+    var tmpl = cards[cards.length - 1];
+    var clone = tmpl.cloneNode(true);
+
+    // Update all input names/ids from old index to new index
+    clone.querySelectorAll('input, select, textarea').forEach(function(el) {
+      if (el.name) el.name = el.name.replace(/-\d+-/, '-' + idx + '-');
+      if (el.id) el.id = el.id.replace(/-\d+-/, '-' + idx + '-');
+      // Clear values for new row
+      if (el.type === 'checkbox') { el.checked = false; }
+      else if (el.type === 'hidden' && el.name.indexOf('-id') > -1) { el.value = ''; }
+      else if (el.type === 'hidden' && el.name.indexOf('sort_order') > -1) { el.value = idx; }
+      else { el.value = ''; }
+    });
+    clone.querySelectorAll('label[for]').forEach(function(el) {
+      el.setAttribute('for', el.getAttribute('for').replace(/-\d+-/, '-' + idx + '-'));
+    });
+    clone.setAttribute('data-index', idx);
+    clone.classList.remove('existing');
+
+    container.appendChild(clone);
+    totalForms.value = idx + 1;
+
+    // Focus the label field in the new row
+    var labelInput = clone.querySelector('input[name$="-label"]');
+    if (labelInput) labelInput.focus();
+  });
+})();
+
+function removeItem(btn) {
+  var card = btn.closest('.item-card');
+  // If existing record, mark DELETE checkbox and hide
+  var deleteCheckbox = card.querySelector('input[name$="-DELETE"]');
+  if (deleteCheckbox) {
+    deleteCheckbox.checked = true;
+    card.style.display = 'none';
+  } else {
+    // New unsaved row — just remove from DOM and decrement total
+    card.remove();
+    var totalForms = document.getElementById('id_items-TOTAL_FORMS');
+    // Don't decrement — Django uses TOTAL_FORMS as upper bound, gaps are OK with smart formset save
+  }
+}
+</script>
+{% endblock %}
+
+{% block context_panel %}
+<aside class="context-panel">
+  <h3>Tips</h3>
+  <div class="context-panel-body">
+    <div class="context-chip">Use <strong>sections</strong> to group related tasks (e.g. "Cleanup", "Quality Check").</div>
+    <div class="context-chip">Enable <strong>photo required</strong> on items where you need proof of completion.</div>
+    <div class="context-chip">The <strong>default</strong> template auto-attaches to every new job.</div>
+  </div>
+</aside>
+{% endblock %}
