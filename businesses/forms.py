@@ -17,6 +17,8 @@ class BusinessSettingsForm(forms.ModelForm):
             "name",
             "logo",
             "timezone",
+            "business_type",
+            "business_subtype",
             "email_smtp_user",
             "email_smtp_password",
             "from_email",

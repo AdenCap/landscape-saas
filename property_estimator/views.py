@@ -8,7 +8,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
 from django.http import JsonResponse, HttpResponse
 
-from accounts.decorators import role_required
+from accounts.decorators import role_required, module_required
 from accounts.utils import get_business as _get_business
 from customers.models import Customer, Property
 from .models import PropertyEstimate, PropertyEstimateImage
@@ -16,6 +16,7 @@ from .analysis import analyze_image, HAS_OPENCV
 
 
 @role_required("owner", "manager")
+@module_required("property_estimator")
 def estimator_index(request):
     """Landing page for Estimator tools: property estimates, fertilizer calculator, mulch/rock calculator."""
     # Redirect to estimates page with estimator tools accessible via tabs
@@ -23,6 +24,7 @@ def estimator_index(request):
 
 
 @role_required("owner", "manager")
+@module_required("property_estimator")
 def estimator_list(request):
     business = _get_business(request)
     if not business:
@@ -35,6 +37,7 @@ def estimator_list(request):
 
 
 @role_required("owner", "manager")
+@module_required("property_estimator")
 def fertilizer_calculator(request):
     """Standalone fertilizer calculator: lbs per 1k sq ft, total sq ft, pricing per lb or per bag."""
     from billing.models import FertilizerProduct
@@ -51,6 +54,7 @@ def fertilizer_calculator(request):
 
 
 @role_required("owner", "manager")
+@module_required("property_estimator")
 def mulch_rock_calculator(request):
     """Standalone mulch and rock calculator: sq ft, depth, pricing per bag or per cubic yard."""
     business = _get_business(request)
@@ -81,6 +85,7 @@ def estimator_new(request, property_id):
 
 
 @role_required("owner", "manager")
+@module_required("property_estimator")
 def estimator_detail(request, property_id, estimate_id):
     business = _get_business(request)
     if not business:
@@ -232,6 +237,7 @@ def _geocode_address(address):
 
 
 @role_required("owner", "manager")
+@module_required("property_estimator")
 def estimator_satellite_image(request, property_id):
     """Serve satellite/aerial image for property address. Geocodes if needed, uses Mapbox."""
     business = _get_business(request)

@@ -12,7 +12,7 @@ from django.contrib import messages
 
 from django.contrib.auth import get_user_model
 
-from accounts.decorators import role_required
+from accounts.decorators import role_required, module_required
 from accounts.utils import get_business
 
 User = get_user_model()
@@ -40,6 +40,7 @@ from jobs.views import _fertilization_dates_for_year
 # ─────────────────────────────────────────────────────────────
 
 @role_required("owner", "manager")
+@module_required("fertilization")
 def hub(request):
     """Main fertilization management hub — tabbed page."""
     business = get_business(request)
@@ -322,6 +323,7 @@ def _application_to_dict(app):
 
 @require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def program_list_create(request):
     """GET: list all programs. POST: create a new program."""
     biz, err = _biz_or_403(request)
@@ -359,6 +361,7 @@ def program_list_create(request):
 
 @require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def program_detail(request, pk):
     """GET: single program detail. POST: update program."""
     biz, err = _biz_or_403(request)
@@ -390,6 +393,7 @@ def program_detail(request, pk):
 
 @require_POST
 @role_required("owner", "manager")
+@module_required("fertilization")
 def program_delete(request, pk):
     """POST: delete program if no active enrollments."""
     biz, err = _biz_or_403(request)
@@ -411,6 +415,7 @@ def program_delete(request, pk):
 
 @require_POST
 @role_required("owner", "manager")
+@module_required("fertilization")
 def program_duplicate(request, pk):
     """POST: duplicate program with all rounds and M2M products."""
     biz, err = _biz_or_403(request)
@@ -456,6 +461,7 @@ def program_duplicate(request, pk):
 
 @require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def round_list_create(request, program_id):
     """GET: list rounds for a program. POST: create a round."""
     biz, err = _biz_or_403(request)
@@ -519,6 +525,7 @@ def round_list_create(request, program_id):
 
 @require_http_methods(["POST", "DELETE"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def round_update_delete(request, program_id, pk):
     """POST: update round. DELETE (or POST _method=delete): delete round."""
     biz, err = _biz_or_403(request)
@@ -599,6 +606,7 @@ def round_update_delete(request, program_id, pk):
 
 @require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def product_list_create(request):
     """GET: list all products. POST: create a product."""
     biz, err = _biz_or_403(request)
@@ -646,6 +654,7 @@ def product_list_create(request):
 
 @require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def product_detail(request, pk):
     """GET: single product detail. POST: update product."""
     biz, err = _biz_or_403(request)
@@ -703,6 +712,7 @@ def product_detail(request, pk):
 
 @require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def enrollment_list_create(request):
     """GET: list enrollments for year. POST: create enrollment with scheduled rounds."""
     biz, err = _biz_or_403(request)
@@ -821,6 +831,7 @@ def enrollment_list_create(request):
 
 @require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def enrollment_detail(request, pk):
     """GET: single enrollment with all scheduled rounds."""
     biz, err = _biz_or_403(request)
@@ -837,6 +848,7 @@ def enrollment_detail(request, pk):
 
 @require_POST
 @role_required("owner", "manager")
+@module_required("fertilization")
 def enrollment_cancel(request, pk):
     """POST: cancel enrollment, skip pending rounds."""
     biz, err = _biz_or_403(request)
@@ -855,6 +867,7 @@ def enrollment_cancel(request, pk):
 
 @require_http_methods(["GET"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def calculate_pricing(request):
     """GET: calculate enrollment pricing breakdown."""
     biz, err = _biz_or_403(request)
@@ -929,6 +942,7 @@ def calculate_pricing(request):
 
 @require_http_methods(["GET"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def calculate_product(request):
     """GET: calculate lbs/bags/cost for a product on a given area."""
     biz, err = _biz_or_403(request)
@@ -979,6 +993,7 @@ def calculate_product(request):
 
 @require_http_methods(["GET"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def route_calculator(request):
     """GET: truck loading sheet for a given date — aggregate materials per product."""
     biz, err = _biz_or_403(request)
@@ -1073,6 +1088,7 @@ def route_calculator(request):
 
 @require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def application_list_create(request):
     """GET: list applications with filters. POST: create application."""
     biz, err = _biz_or_403(request)
@@ -1187,6 +1203,7 @@ def application_list_create(request):
 
 @require_http_methods(["GET", "POST"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def application_detail(request, pk):
     """GET: single application. POST: update application."""
     biz, err = _biz_or_403(request)
@@ -1273,6 +1290,7 @@ def application_detail(request, pk):
 
 @require_http_methods(["GET"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def report_compliance(request):
     """GET: CSV download of compliance report for date range."""
     biz, err = _biz_or_403(request)
@@ -1327,6 +1345,7 @@ def report_compliance(request):
 
 @require_http_methods(["GET"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def report_profit(request):
     """GET: CSV download of profit report for date range."""
     biz, err = _biz_or_403(request)
@@ -1377,6 +1396,7 @@ def report_profit(request):
 
 @require_http_methods(["GET"])
 @role_required("owner", "manager")
+@module_required("fertilization")
 def report_material_usage(request):
     """GET: CSV download of material usage aggregated by product."""
     biz, err = _biz_or_403(request)

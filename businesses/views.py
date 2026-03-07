@@ -21,9 +21,16 @@ def business_settings(request):
         return redirect("/")
 
     if request.method == "POST":
+        old_business_type = business.business_type
         form = BusinessSettingsForm(request.POST, request.FILES, instance=business)
         if form.is_valid():
-            form.save()
+            obj = form.save(commit=False)
+            # Re-sync enabled_modules when business type changes
+            if obj.business_type != old_business_type:
+                obj.enabled_modules = list(
+                    Business.MODULE_DEFAULTS.get(obj.business_type, [])
+                )
+            obj.save()
             messages.success(request, "Business settings updated.")
             next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
             if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):

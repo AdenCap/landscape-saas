@@ -225,7 +225,7 @@ class Business(models.Model):
     )
     quote_upsell_suggestions = models.TextField(
         blank=True,
-        default="Seasonal fertilizer program\nMulch refresh\nIrrigation tune-up",
+        default="",
         help_text="Optional upsells to include in follow-up nudges (one per line).",
     )
 

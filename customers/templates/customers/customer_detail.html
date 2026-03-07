@@ -108,8 +108,8 @@ Thank you for choosing {{ business.name }}!">
         {% if prop.notes %}<p class="prop-notes">{{ prop.notes }}</p>{% endif %}
       </div>
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <a href="{% url 'billing:property_fertilizer_history' prop.id %}" class="btn btn-secondary btn-sm">Fertilizer History</a>
-        <a href="{% url 'estimator_new' prop.id %}" class="btn btn-secondary btn-sm">Property Estimator</a>
+        {% if show_fertilization %}<a href="{% url 'billing:property_fertilizer_history' prop.id %}" class="btn btn-secondary btn-sm">Fertilizer History</a>{% endif %}
+        {% if show_property_estimator %}<a href="{% url 'estimator_new' prop.id %}" class="btn btn-secondary btn-sm">Property Estimator</a>{% endif %}
         <a href="{% url 'property_edit' customer.id prop.id %}" class="btn btn-secondary btn-sm">Edit</a>
       </div>
     </div>

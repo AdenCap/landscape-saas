@@ -76,6 +76,26 @@
 
       <div class="panel-card">
         <div class="panel-card-header">
+          <h2>Business Type</h2>
+          <p>Your industry vertical controls which modules and terminology are available.</p>
+        </div>
+        <div class="panel-card-body">
+          <div class="field">
+            <label for="{{ form.business_type.id_for_label }}">Industry</label>
+            {{ form.business_type }}
+            {{ form.business_type.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.business_subtype.id_for_label }}">Specialization</label>
+            {{ form.business_subtype }}
+            {{ form.business_subtype.errors }}
+          </div>
+          <p class="field-help">Changing your industry will update your available modules and sidebar navigation. Your existing data is not affected.</p>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-card-header">
           <h2>Contact Info</h2>
           <p>Shown to clients on invoices and estimates so they can reach you.</p>
         </div>
@@ -106,6 +126,7 @@
               <p class="field-help">Crew must upload a photo before marking a job done.</p>
             </div>
           </div>
+          {% if show_growing_season %}
           <div class="field-row">
             <div class="field">
               <label for="{{ form.growing_season_start_month.id_for_label }}">Season start (month)</label>
@@ -119,6 +140,7 @@
             </div>
           </div>
           <p class="field-help">Used for fertilization schedule generation.</p>
+          {% endif %}
         </div>
       </div>
 
@@ -640,7 +662,7 @@
 (function() {
   var tabs = document.querySelectorAll('.settings-tab');
   var panels = document.querySelectorAll('.settings-panel');
-  var storageKey = 'fieldops_settings_tab';
+  var storageKey = 'tradevo_settings_tab';
 
   function activate(tabId) {
     tabs.forEach(function(t) {
