@@ -636,24 +636,14 @@
             Agreements
           </a>
           {% endif %}
-          {% if show_checklists %}
-          <a href="{% url 'checklists:hub' %}" class="btn btn-nav {% if '/checklists' in request.path %}active{% endif %}">
-            <i data-lucide="check-square" class="nav-icon"></i>
-            Checklists
-          </a>
-          {% endif %}
+          {# Checklists hidden until feature is fleshed out #}
           {% if show_inspections %}
           <a href="{% url 'inspections:hub' %}" class="btn btn-nav {% if '/inspections' in request.path %}active{% endif %}">
             <i data-lucide="clipboard-check" class="nav-icon"></i>
             Inspections
           </a>
           {% endif %}
-          {% if show_property_estimator %}
-          <a href="{% url 'estimator_index' %}" class="btn btn-nav {% if '/estimator' in request.path %}active{% endif %}">
-            <i data-lucide="map-pin" class="nav-icon"></i>
-            Property Estimator
-          </a>
-          {% endif %}
+          {# Property Estimator accessible via Estimates > Estimator Tools tab #}
           <a href="{% url 'employee_management' %}" class="btn btn-nav {% if '/employee-management' in request.path %}active{% endif %}">
             <i data-lucide="users" class="nav-icon"></i>
             Employee Management
@@ -765,15 +755,11 @@
             {% if show_service_agreements %}
             <a href="{% url 'service_agreements:hub' %}"><i data-lucide="file-check" class="nav-icon"></i>Agreements</a>
             {% endif %}
-            {% if show_checklists %}
-            <a href="{% url 'checklists:hub' %}"><i data-lucide="check-square" class="nav-icon"></i>Checklists</a>
-            {% endif %}
+            {# Checklists hidden until feature is fleshed out #}
             {% if show_inspections %}
             <a href="{% url 'inspections:hub' %}"><i data-lucide="clipboard-check" class="nav-icon"></i>Inspections</a>
             {% endif %}
-            {% if show_property_estimator %}
-            <a href="{% url 'estimator_index' %}"><i data-lucide="map-pin" class="nav-icon"></i>Property Estimator</a>
-            {% endif %}
+            {# Property Estimator accessible via Estimates > Estimator Tools tab #}
             <a href="{% url 'employee_management' %}"><i data-lucide="users" class="nav-icon"></i>Employees</a>
             <a href="{% url 'notification_send' %}"><i data-lucide="bell" class="nav-icon"></i>Notifications</a>
             <a href="{% url 'financials:dashboard' %}"><i data-lucide="chart-column" class="nav-icon"></i>Financials</a>
