@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
   <h1>{% if meeting %}Edit meeting{% else %}Add meeting{% endif %}</h1>
-  <p>Schedule a client meeting or other appointment. You’ll get a reminder before it starts.</p>
+  <p class="text-secondary">Schedule a client meeting or other appointment. You'll get a reminder before it starts.</p>
 </div>
 
 <div class="quick-actions" style="margin-bottom: 24px;">
@@ -11,68 +11,122 @@
   <a href="{% url 'meeting_list' %}" class="btn btn-secondary">Meetings</a>
 </div>
 
-<div class="card" style="max-width: 560px;">
+<div class="card" style="max-width: 600px;">
   <form method="post">
     {% csrf_token %}
 
-    <div class="form-group" style="margin-bottom: 20px;">
+    <div class="form-group">
       <label for="id_title">Title</label>
       {{ form.title }}
-      {% if form.title.errors %}<span class="error">{{ form.title.errors.0 }}</span>{% endif %}
+      {% if form.title.errors %}<span class="form-error">{{ form.title.errors.0 }}</span>{% endif %}
     </div>
 
-    <div class="form-row" style="display: flex; gap: 16px; margin-bottom: 20px;">
-      <div class="form-group flex-2">
+    <div class="meeting-form-row">
+      <div class="form-group meeting-form-date">
         <label for="id_scheduled_date">Date</label>
         {{ form.scheduled_date }}
-        {% if form.scheduled_date.errors %}<span class="error">{{ form.scheduled_date.errors.0 }}</span>{% endif %}
+        {% if form.scheduled_date.errors %}<span class="form-error">{{ form.scheduled_date.errors.0 }}</span>{% endif %}
       </div>
-      <div class="form-group flex-1" style="max-width: 120px;">
+      <div class="form-group meeting-form-time">
         <label for="id_scheduled_time">Time</label>
         {{ form.scheduled_time }}
-        <small style="color: var(--text-muted); font-size: 12px;">Optional (all-day if empty)</small>
+        <span class="form-help">Optional (all-day if empty)</span>
       </div>
-      <div class="form-group flex-1" style="max-width: 100px;">
+      <div class="form-group meeting-form-duration">
         <label for="id_duration_minutes">Duration (min)</label>
         {{ form.duration_minutes }}
       </div>
     </div>
 
-    <div class="form-group" style="margin-bottom: 20px;">
+    <div class="form-group">
       <label for="id_customer">Client (optional)</label>
       {{ form.customer }}
-      {% if form.customer.errors %}<span class="error">{{ form.customer.errors.0 }}</span>{% endif %}
+      {% if form.customer.errors %}<span class="form-error">{{ form.customer.errors.0 }}</span>{% endif %}
     </div>
 
-    <div class="form-group" style="margin-bottom: 20px;">
+    <div class="form-group">
       <label for="id_location">Location</label>
       {{ form.location }}
-      {% if form.location.errors %}<span class="error">{{ form.location.errors.0 }}</span>{% endif %}
+      {% if form.location.errors %}<span class="form-error">{{ form.location.errors.0 }}</span>{% endif %}
     </div>
 
-    <div class="form-group" style="margin-bottom: 20px;">
+    <div class="form-group">
       <label for="id_notes">Notes</label>
       {{ form.notes }}
-      {% if form.notes.errors %}<span class="error">{{ form.notes.errors.0 }}</span>{% endif %}
+      {% if form.notes.errors %}<span class="form-error">{{ form.notes.errors.0 }}</span>{% endif %}
     </div>
 
-    <div class="form-group" style="margin-bottom: 20px;">
+    <div class="form-group">
       <label for="id_reminder_hours_before">Remind me (hours before)</label>
       {{ form.reminder_hours_before }}
-      <small style="color: var(--text-muted); font-size: 12px;">You’ll get an in-app notification this many hours before the meeting.</small>
-      {% if form.reminder_hours_before.errors %}<span class="error">{{ form.reminder_hours_before.errors.0 }}</span>{% endif %}
+      <span class="form-help">You'll get an in-app notification this many hours before the meeting.</span>
+      {% if form.reminder_hours_before.errors %}<span class="form-error">{{ form.reminder_hours_before.errors.0 }}</span>{% endif %}
     </div>
 
-    <div style="display: flex; gap: 12px; margin-top: 24px; align-items: center; flex-wrap: wrap;">
+    <div class="meeting-form-actions">
       <button type="submit" class="btn btn-primary">{% if meeting %}Save changes{% else %}Add meeting{% endif %}</button>
       <a href="{% url 'calendar' %}" class="btn btn-secondary">Cancel</a>
     </div>
   </form>
   {% if meeting %}
-  <form method="post" action="{% url 'meeting_delete' meeting.id %}" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);" onsubmit="return confirm('Delete this meeting?');">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-secondary" style="color: #dc2626;">Delete meeting</button>
-  </form>
+  <div class="meeting-form-danger-zone">
+    <form method="post" action="{% url 'meeting_delete' meeting.id %}" onsubmit="return confirm('Delete this meeting?');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-secondary btn-danger">Delete meeting</button>
+    </form>
+  </div>
   {% endif %}
 </div>
+
+<style>
+  .meeting-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: var(--space-5);
+  }
+  .meeting-form-row .form-group {
+    margin-bottom: 0;
+  }
+  .meeting-form-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: var(--space-6);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--border);
+  }
+  .meeting-form-danger-zone {
+    margin-top: var(--space-5);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--border);
+  }
+  .btn-danger {
+    color: #fca5a5 !important;
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+  .btn-danger:hover {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fca5a5 !important;
+  }
+
+  @media (max-width: 768px) {
+    .meeting-form-row {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    .meeting-form-row .form-group {
+      margin-bottom: var(--space-5);
+    }
+    .meeting-form-actions {
+      flex-direction: column;
+    }
+    .meeting-form-actions .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
 {% endblock %}

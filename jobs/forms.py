@@ -222,12 +222,12 @@ class ReportIssueForm(forms.Form):
 class MeetingForm(forms.ModelForm):
     """Owner creates/edits a meeting (e.g. client meeting) for the schedule."""
     scheduled_date = forms.DateField(
-        widget=forms.DateInput(attrs={"type": "date"}),
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
         label="Date",
     )
     scheduled_time = forms.TimeField(
         required=False,
-        widget=forms.TimeInput(attrs={"type": "time"}),
+        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
         label="Time",
         help_text="Leave empty for all-day.",
     )
@@ -245,11 +245,12 @@ class MeetingForm(forms.ModelForm):
             "reminder_hours_before",
         )
         widgets = {
-            "title": forms.TextInput(attrs={"placeholder": "e.g. Client walkthrough – Smith"}),
-            "duration_minutes": forms.NumberInput(attrs={"min": 15, "max": 480, "step": 15}),
-            "location": forms.TextInput(attrs={"placeholder": "Address or place name"}),
-            "notes": forms.Textarea(attrs={"rows": 3, "placeholder": "Agenda, prep notes..."}),
-            "reminder_hours_before": forms.NumberInput(attrs={"min": 0, "max": 168}),
+            "title": forms.TextInput(attrs={"placeholder": "e.g. Client walkthrough – Smith", "class": "form-control"}),
+            "duration_minutes": forms.NumberInput(attrs={"min": 15, "max": 480, "step": 15, "class": "form-control"}),
+            "location": forms.TextInput(attrs={"placeholder": "Address or place name", "class": "form-control"}),
+            "notes": forms.Textarea(attrs={"rows": 3, "placeholder": "Agenda, prep notes...", "class": "form-control"}),
+            "reminder_hours_before": forms.NumberInput(attrs={"min": 0, "max": 168, "class": "form-control"}),
+            "customer": forms.Select(attrs={"class": "form-control"}),
         }
 
     def __init__(self, *args, **kwargs):

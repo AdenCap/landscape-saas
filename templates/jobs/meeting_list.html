@@ -3,32 +3,107 @@
 {% block content %}
 <div class="page-header">
   <h1>Meetings</h1>
-  <p>Upcoming client and other meetings · <a href="{% url 'calendar' %}" class="link-primary">Calendar</a> · <a href="{% url 'meeting_create' %}" class="link-primary">Add meeting</a></p>
+  <p class="text-secondary">Upcoming client and other meetings</p>
 </div>
 
-<div class="quick-actions" style="margin-bottom: 20px;">
-  <a href="{% url 'calendar' %}" class="btn btn-primary">📅 Calendar</a>
-  <a href="{% url 'meeting_create' %}" class="btn btn-secondary">+ Add meeting</a>
+<div class="quick-actions" style="margin-bottom: 24px;">
+  <a href="{% url 'meeting_create' %}" class="btn btn-primary">+ Add meeting</a>
+  <a href="{% url 'calendar' %}" class="btn btn-secondary">Calendar</a>
   <a href="{% url 'job_list' %}" class="btn btn-secondary">Jobs</a>
 </div>
 
-<div class="card" style="margin-bottom: 24px;">
-  <h2 class="card-title">Upcoming</h2>
+<div class="card">
+  <h2 style="font-size: var(--text-lg); font-weight: 700; margin-bottom: var(--space-4);">Upcoming</h2>
   {% if meetings %}
-  <div class="meeting-list">
+  <div class="meeting-list stagger-list">
     {% for m in meetings %}
-    <div class="meeting-list-item" style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border);">
-      <span class="meeting-datetime" style="min-width: 140px; font-weight: 600; color: var(--primary);">
-        {{ m.scheduled_at|date:"M j, Y" }} · {{ m.scheduled_at|time:"g:i A" }}
-      </span>
-      <span class="meeting-title" style="flex: 1;">{{ m.title }}</span>
-      <span class="meeting-customer" style="color: var(--text-muted); font-size: 14px;">{{ m.customer.name|default:"—" }}</span>
-      <a href="{% url 'meeting_edit' m.id %}" class="btn btn-secondary btn-sm">Edit</a>
-    </div>
+    <a href="{% url 'meeting_edit' m.id %}" class="meeting-list-item">
+      <div class="meeting-list-date">
+        <span class="meeting-list-day">{{ m.scheduled_at|date:"M j" }}</span>
+        <span class="meeting-list-time">{{ m.scheduled_at|time:"g:i A" }}</span>
+      </div>
+      <div class="meeting-list-info">
+        <span class="meeting-list-title">{{ m.title }}</span>
+        {% if m.customer %}<span class="meeting-list-customer">{{ m.customer.name }}</span>{% endif %}
+      </div>
+      <span class="meeting-list-arrow">&rsaquo;</span>
+    </a>
     {% endfor %}
   </div>
   {% else %}
-  <p class="muted" style="padding: 20px; margin: 0;">No upcoming meetings. <a href="{% url 'meeting_create' %}" class="link-primary">Add one</a> or use the <a href="{% url 'calendar' %}" class="link-primary">calendar</a>.</p>
+  <div class="empty-state" style="padding: var(--space-10) var(--space-4);">
+    <div class="empty-state-title">No upcoming meetings</div>
+    <p class="empty-state-desc">Schedule a client meeting to keep your calendar organized.</p>
+    <a href="{% url 'meeting_create' %}" class="btn btn-primary">+ Add meeting</a>
+  </div>
   {% endif %}
 </div>
+
+<style>
+  .meeting-list-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    transition: background var(--motion-fast) var(--motion-ease);
+  }
+  .meeting-list-item:last-child { border-bottom: none; }
+  .meeting-list-item:hover {
+    background: var(--bg-surface-hover);
+    color: var(--text);
+  }
+  .meeting-list-date {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 72px;
+    text-align: center;
+  }
+  .meeting-list-day {
+    font-weight: 700;
+    font-size: var(--text-sm);
+    color: var(--primary);
+  }
+  .meeting-list-time {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .meeting-list-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .meeting-list-title {
+    font-weight: 600;
+    font-size: var(--text-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .meeting-list-customer {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .meeting-list-arrow {
+    font-size: 20px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 768px) {
+    .meeting-list-item {
+      padding: 16px 8px;
+      min-height: 64px;
+    }
+    .meeting-list-date {
+      min-width: 60px;
+    }
+  }
+</style>
 {% endblock %}

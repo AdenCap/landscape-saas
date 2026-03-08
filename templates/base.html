@@ -177,39 +177,7 @@
         var(--surface-alt);
     }
 
-    .workspace-shell {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 320px;
-      gap: 18px;
-      align-items: start;
-    }
     .workspace-main { min-width: 0; }
-    .context-panel {
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
-      position: sticky;
-      top: 24px;
-      overflow: hidden;
-    }
-    .context-panel h3 {
-      margin: 0;
-      padding: 14px 16px;
-      font-size: 13px;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      border-bottom: 1px solid var(--border);
-    }
-    .context-panel-body { padding: 14px 16px; display: grid; gap: 10px; }
-    .context-chip {
-      padding: 10px 11px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.02);
-      font-size: 13px;
-      color: var(--text-muted);
-    }
 
     .topbar {
       display: none;
@@ -301,8 +269,6 @@
     input::placeholder, textarea::placeholder { color: var(--text-muted); }
     @media (max-width: 768px) {
       input, select, textarea { font-size: 16px; }
-      .workspace-shell { grid-template-columns: 1fr; }
-      .context-panel { position: static; }
     }
 
     /* Theme toggle */
@@ -803,26 +769,7 @@
       </div>
       {% endif %}
   {% endif %}
-    {% if user.is_authenticated and request.path != '/' %}
-    <div class="workspace-shell">
-      <div class="workspace-main">
-    {% endif %}
-
     {% block content %}{% endblock %}
-
-    {% if user.is_authenticated and request.path != '/' %}
-      </div>
-      {% block context_panel %}
-      <aside class="context-panel">
-        <h3>Context</h3>
-        <div class="context-panel-body">
-          <div class="context-chip">Use quick actions on the left to create jobs, invoices, and customers.</div>
-          <div class="context-chip">Tip: move between Dashboard, Schedule, Customers, and Invoices without losing context.</div>
-        </div>
-      </aside>
-      {% endblock %}
-    </div>
-    {% endif %}
     </div>
   </main>
 

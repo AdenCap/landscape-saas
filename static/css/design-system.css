@@ -663,6 +663,45 @@ a:hover {
   margin-top: var(--space-1);
 }
 
+/* Labels inside form groups inherit design system styling */
+.form-group > label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.form-group:focus-within > label {
+  color: var(--primary);
+}
+
+/* Safety net: bare inputs/selects/textareas inside forms inherit .form-control styles */
+.form-group input:not([type="checkbox"]):not([type="radio"]):not(.form-control),
+.form-group select:not(.form-control),
+.form-group textarea:not(.form-control) {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  line-height: var(--line-height-normal);
+  transition: border-color var(--motion-base) var(--motion-ease),
+              box-shadow var(--motion-base) var(--motion-ease);
+  outline: none;
+}
+
+.form-group input:not([type="checkbox"]):not([type="radio"]):not(.form-control):focus,
+.form-group select:not(.form-control):focus,
+.form-group textarea:not(.form-control):focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15), var(--shadow-sm);
+  background: var(--bg-surface);
+}
+
 .form-error {
   font-size: var(--text-xs);
   color: #fca5a5;
@@ -1064,6 +1103,15 @@ a:hover {
   /* Forms: ensure 16px to prevent iOS zoom */
   .form-control { font-size: 16px; padding: 12px 14px; min-height: 44px; }
   select.form-control { min-height: 44px; }
+
+  /* Same sizing for bare inputs inside form groups (safety net) */
+  .form-group input:not([type="checkbox"]):not([type="radio"]):not(.form-control),
+  .form-group select:not(.form-control),
+  .form-group textarea:not(.form-control) {
+    font-size: 16px;
+    padding: 12px 14px;
+    min-height: 44px;
+  }
 
   /* Empty states: less vertical padding */
   .empty-state { padding: var(--space-8) var(--space-4); }

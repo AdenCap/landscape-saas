@@ -16,29 +16,29 @@
     {% csrf_token %}
     {% if next_value %}<input type="hidden" name="next" value="{{ next_value }}">{% endif %}
 
-    <div class="form-group" style="margin-bottom: 20px;">
+    <div class="form-group">
       <label for="id_customer">Client</label>
       {{ form.customer }}
-      <small style="color: var(--text-muted); font-size: 12px;">Select the client first, then choose a property</small>
-      {% if form.customer.errors %}<span class="error">{{ form.customer.errors.0 }}</span>{% endif %}
+      <span class="form-help">Select the client first, then choose a property</span>
+      {% if form.customer.errors %}<span class="form-error">{{ form.customer.errors.0 }}</span>{% endif %}
     </div>
-    <div class="form-group" style="margin-bottom: 20px;">
+    <div class="form-group">
       <label for="id_property">Property / Address</label>
       {{ form.property }}
-      {% if form.property.errors %}<span class="error">{{ form.property.errors.0 }}</span>{% endif %}
+      {% if form.property.errors %}<span class="form-error">{{ form.property.errors.0 }}</span>{% endif %}
     </div>
 
-    <div class="form-row" style="display: flex; gap: 16px; margin-bottom: 20px;">
-      <div class="form-group flex-2">
+    <div class="job-create-datetime-row">
+      <div class="form-group">
         <label for="id_scheduled_date">Scheduled Date</label>
         {{ form.scheduled_date }}
-        <small style="color: var(--text-muted); font-size: 12px;">Leave empty to add to unscheduled (schedule later from calendar). Required if repeating.</small>
-        {% if form.scheduled_date.errors %}<span class="error">{{ form.scheduled_date.errors.0 }}</span>{% endif %}
+        <span class="form-help">Leave empty to add to unscheduled. Required if repeating.</span>
+        {% if form.scheduled_date.errors %}<span class="form-error">{{ form.scheduled_date.errors.0 }}</span>{% endif %}
       </div>
-      <div class="form-group flex-1" style="max-width: 140px;">
+      <div class="form-group">
         <label for="id_scheduled_time">Time (optional)</label>
         {{ form.scheduled_time }}
-        <small style="color: var(--text-muted); font-size: 12px;">For week/day view</small>
+        <span class="form-help">For week/day view</span>
       </div>
     </div>
 
@@ -52,12 +52,12 @@
           <span style="color: var(--text-muted); font-size: 13px;">days</span>
         </span>
       </div>
-      <small style="color: var(--text-muted); font-size: 12px;">Choose how often this job repeats. Future occurrences are generated automatically. Requires a scheduled date above.</small>
-      {% if form.repeat_frequency.errors %}<span class="error">{{ form.repeat_frequency.errors.0 }}</span>{% endif %}
-      {% if form.custom_interval_days.errors %}<span class="error">{{ form.custom_interval_days.errors.0 }}</span>{% endif %}
+      <span class="form-help">Choose how often this job repeats. Future occurrences are generated automatically. Requires a scheduled date above.</span>
+      {% if form.repeat_frequency.errors %}<span class="form-error">{{ form.repeat_frequency.errors.0 }}</span>{% endif %}
+      {% if form.custom_interval_days.errors %}<span class="form-error">{{ form.custom_interval_days.errors.0 }}</span>{% endif %}
     </div>
 
-    <div class="form-group" style="margin-bottom: 20px;">
+    <div class="form-group">
       <label>Assignment</label>
       <div class="assignee-type" style="display: flex; gap: 16px; margin-bottom: 12px;">
         {{ form.assignee_type }}
@@ -72,19 +72,19 @@
       </div>
     </div>
 
-    <div class="form-group" style="margin-bottom: 20px;">
+    <div class="form-group">
       <label>Job color</label>
       <div style="display: flex; align-items: center; gap: 10px;">
         <input type="color" id="id_color_picker" value="#3b82f6" style="width: 48px; height: 36px; padding: 4px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border, #e2e8f0);">
         {{ form.color }}
       </div>
-      <small style="color: var(--text-muted); font-size: 12px;">Optional. Leave empty for crew/employee default.</small>
+      <span class="form-help">Optional. Leave empty for crew/employee default.</span>
     </div>
 
-    <div class="form-group" style="margin-bottom: 20px;">
+    <div class="form-group">
       <label for="id_notes">Notes</label>
       {{ form.notes }}
-      <small style="color: var(--text-muted); display: block; margin-top: 4px;">Gate codes, dog on premises, access instructions, special requests</small>
+      <span class="form-help">Gate codes, dog on premises, access instructions, special requests</span>
     </div>
 
     <h3 style="font-size: 16px; font-weight: 600; margin: 24px 0 16px;">Services</h3>
@@ -118,7 +118,7 @@
         <div class="form-group flex-2">
           <label>Service</label>
           {{ f.service_name }}
-          {% if f.service_name.errors %}<span class="error">{{ f.service_name.errors.0 }}</span>{% endif %}
+          {% if f.service_name.errors %}<span class="form-error">{{ f.service_name.errors.0 }}</span>{% endif %}
         </div>
         <div class="form-group flex-1">
           <label>Qty</label>
@@ -141,10 +141,13 @@
 </div>
 
 <style>
-  .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
-  .form-group input, .form-group select, .form-group textarea {
-    width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px;
+  .job-create-datetime-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: var(--space-5);
   }
+  .job-create-datetime-row .form-group { margin-bottom: 0; }
   .form-row-service { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-end; }
   .form-row-service .flex-1 { max-width: 100px; }
   .btn-add-service {
@@ -157,7 +160,10 @@
   .btn-add-service:hover { background: var(--border, #e2e8f0); color: var(--text, #334155); }
   .flex-2 { flex: 2; }
   .flex-1 { flex: 1; max-width: 120px; }
-  .error { color: #dc2626; font-size: 13px; display: block; margin-top: 4px; }
+  @media (max-width: 768px) {
+    .job-create-datetime-row { grid-template-columns: 1fr; gap: 0; }
+    .job-create-datetime-row .form-group { margin-bottom: var(--space-5); }
+  }
   .assignee-type-radio { list-style: none; padding: 0; margin: 0; display: flex; gap: 16px; flex-wrap: wrap; }
   .assignee-type-radio li { display: flex; align-items: center; gap: 6px; }
   #id_color { width: 110px !important; font-family: monospace; }
