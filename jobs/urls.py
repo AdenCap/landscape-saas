@@ -28,6 +28,7 @@ urlpatterns = [
     path('crew/', views.crew_today_view, name='crew_today'),
     path('crew/quick/', views.crew_quick_view, name='crew_quick'),
     path('<int:job_id>/start/', views.start_job, name='start_job'),
+    path('<int:job_id>/en-route/', views.notify_en_route, name='notify_en_route'),
     path('<int:job_id>/complete/', views.complete_job, name='complete_job'),
     path('<int:job_id>/report-issue/', views.report_issue, name='report_issue'),
     path('<int:job_id>/upload-completion-photo/', views.upload_completion_photo, name='upload_completion_photo'),

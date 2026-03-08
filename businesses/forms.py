@@ -10,7 +10,6 @@ class BusinessSettingsForm(forms.ModelForm):
         label="Gmail App Password",
         help_text="Create one at myaccount.google.com/apppasswords (requires 2-Step Verification). Stored encrypted.",
     )
-
     class Meta:
         model = Business
         fields = [
@@ -55,12 +54,28 @@ class BusinessSettingsForm(forms.ModelForm):
             "estimate_email_closing",
             "estimate_followup_email_subject",
             "estimate_followup_email_intro",
+            # Client notifications
+            "notify_job_scheduled",
+            "notify_crew_en_route",
+            "notify_job_completed",
+            "notify_include_completion_photos",
+            # Notification templates
+            "template_job_scheduled",
+            "template_crew_en_route",
+            "template_job_completed",
         ]
         labels = {
             "timezone": "Business timezone",
             "venmo_username": "Venmo handle",
             "zelle_email_or_phone": "Zelle (email or phone)",
             "cashapp_cashtag": "Cash App handle",
+            "notify_job_scheduled": "Job scheduled",
+            "notify_crew_en_route": "Crew on the way",
+            "notify_job_completed": "Job completed",
+            "notify_include_completion_photos": "Include completion photos",
+            "template_job_scheduled": "Scheduled notification",
+            "template_crew_en_route": "En-route notification",
+            "template_job_completed": "Completed notification",
         }
         help_texts = {
             "timezone": "All dates and times across the app display in this timezone.",
@@ -99,6 +114,13 @@ class BusinessSettingsForm(forms.ModelForm):
             "estimate_email_closing": "Optional sign-off.",
             "estimate_followup_email_subject": "Leave blank for: Reminder: {{title}} – {{business_name}}",
             "estimate_followup_email_intro": "Optional intro for follow-up emails.",
+            "notify_job_scheduled": "Text or email client when a job is put on the calendar.",
+            "notify_crew_en_route": "Text or email client when crew taps 'On My Way'.",
+            "notify_job_completed": "Text or email client when a job is marked complete.",
+            "notify_include_completion_photos": "Attach completion photos in the job-completed email.",
+            "template_job_scheduled": "Variables: {{customer_name}}, {{service_list}}, {{business_name}}, {{scheduled_date}}, {{scheduled_time}}",
+            "template_crew_en_route": "Variables: {{customer_name}}, {{service_list}}, {{business_name}}, {{crew_name}}",
+            "template_job_completed": "Variables: {{customer_name}}, {{service_list}}, {{business_name}}",
         }
         widgets = {
             "email_smtp_password": forms.PasswordInput(
@@ -118,12 +140,16 @@ class BusinessSettingsForm(forms.ModelForm):
             "estimate_email_intro": forms.Textarea(attrs={"rows": 2}),
             "estimate_email_closing": forms.Textarea(attrs={"rows": 2}),
             "estimate_followup_email_intro": forms.Textarea(attrs={"rows": 2}),
+            "template_job_scheduled": forms.Textarea(attrs={"rows": 2, "placeholder": "Hi {{customer_name}}, your {{service_list}} is scheduled for {{scheduled_date}}."}),
+            "template_crew_en_route": forms.Textarea(attrs={"rows": 2, "placeholder": "Hi {{customer_name}}, our crew is heading to your property now for {{service_list}}."}),
+            "template_job_completed": forms.Textarea(attrs={"rows": 2, "placeholder": "Hi {{customer_name}}, your {{service_list}} is complete! Thank you for choosing {{business_name}}."}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.instance and self.instance.pk and self.instance.email_smtp_password:
-            self.fields["email_smtp_password"].widget.attrs["placeholder"] = "•••••••• (saved)"
+        if self.instance and self.instance.pk:
+            if self.instance.email_smtp_password:
+                self.fields["email_smtp_password"].widget.attrs["placeholder"] = "•••••••• (saved)"
 
     def save(self, commit=True):
         obj = super().save(commit=False)

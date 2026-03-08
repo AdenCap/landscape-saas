@@ -846,6 +846,45 @@ def start_job(request, job_id):
 
 @require_POST
 @role_required("owner", "manager", "crew")
+def notify_en_route(request, job_id):
+    """1-tap: mark job in_progress + notify customer crew is on the way."""
+    job = get_object_or_404(
+        Job.objects.select_related("assigned_crew", "property", "property__customer"),
+        id=job_id,
+    )
+    if request.user.role == "crew" and not _user_can_access_job(request.user, job):
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        return redirect("crew_today")
+
+    job.status = "in_progress"
+    job.en_route_at = timezone.now()
+    job.save(update_fields=["status", "en_route_at"])
+
+    customer = job.property.customer
+    notified = False
+    try:
+        from customers.notifications import notify_customer
+        notified = notify_customer(customer, "crew_en_route", job=job)
+    except Exception:
+        pass
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({
+            "status": "ok",
+            "notified": notified,
+            "message": f"{'Customer notified — ' if notified else ''}crew on the way",
+        })
+
+    if notified:
+        messages.success(request, f"'{customer.name}' notified — crew on the way")
+    else:
+        messages.success(request, "Job started (client notification skipped — no contact info or SMS not configured)")
+    return redirect("crew_today")
+
+
+@require_POST
+@role_required("owner", "manager", "crew")
 def complete_job(request, job_id):
     job = get_object_or_404(Job.objects.select_related("assigned_crew", "property", "property__customer"), id=job_id)
 
@@ -866,6 +905,14 @@ def complete_job(request, job_id):
     job.completed_by = request.user
     job.completed_at = timezone.now()
     job.save(update_fields=["status", "completed_by", "completed_at"])
+
+    # Notify client that job is complete
+    try:
+        from customers.notifications import notify_customer
+        customer = job.property.customer
+        notify_customer(customer, "job_completed", job=job)
+    except Exception:
+        pass  # notification failures should never block completion
 
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return JsonResponse({"status": "ok", "redirect": None})

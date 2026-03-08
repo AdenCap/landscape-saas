@@ -576,6 +576,8 @@ document.addEventListener('DOMContentLoaded', function () {
         jobActions.style.display = ownerMode ? 'block' : 'none';
         ownerActions.style.display = ownerMode ? 'flex' : 'none';
         if (ownerMode) {
+          var enRouteBtn = document.getElementById('modal-en-route');
+          if (enRouteBtn) enRouteBtn.style.display = job.status === 'scheduled' ? '' : 'none';
           document.getElementById('modal-complete').style.display = job.status !== 'completed' ? '' : 'none';
           var canBill = job.status === 'completed' && job.has_unbilled_items && job.has_services;
           document.getElementById('modal-bill-now').style.display = canBill ? '' : 'none';
@@ -649,6 +651,16 @@ document.addEventListener('DOMContentLoaded', function () {
       return r.json();
     });
   }
+
+  var enRouteBtn = document.getElementById('modal-en-route');
+  if (enRouteBtn) enRouteBtn.addEventListener('click', function() {
+    var jobId = document.getElementById('job-modal').dataset.jobId;
+    if (!jobId) return;
+    ajaxPost('/jobs/' + jobId + '/en-route/').then(function(d) {
+      calendar.refetchEvents(); if (isOwner) loadUnscheduled(); closeModal('job-modal');
+      showToast(d && d.message ? d.message : 'Crew dispatched');
+    }).catch(function(e) { showToast(e.message, 'error'); });
+  });
 
   var completeBtn = document.getElementById('modal-complete');
   if (completeBtn) completeBtn.addEventListener('click', function() {

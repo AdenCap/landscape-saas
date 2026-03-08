@@ -84,6 +84,11 @@ class Job(models.Model):
 
     notes = models.TextField(blank=True)
 
+    en_route_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When crew tapped 'On My Way' and customer was notified.",
+    )
+
     color = models.CharField(
         max_length=7,
         blank=True,

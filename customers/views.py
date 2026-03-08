@@ -536,13 +536,21 @@ def customer_send_message(request, customer_id):
             return _send_message_redirect(request, customer.id)
         messages.success(request, f"Email sent to {to_address}")
     else:
-        # SMS: use primary phone; log only (actual SMS can be added via Twilio later)
+        # SMS: use primary phone; send via Twilio if configured
+        from customers.sms import send_sms, is_sms_configured
+
         to_address = customer.phone or customer.alt_phone or ""
         if not to_address:
             messages.error(request, "This client has no phone number. Add one in Edit Client.")
             return _send_message_redirect(request, customer.id)
-        # TODO: integrate Twilio (or similar) to send real SMS when configured
-        messages.success(request, f"Message logged for {to_address}. Configure Twilio in Settings to send real SMS.")
+        if not is_sms_configured():
+            messages.error(request, "SMS is not configured yet. Contact your administrator.")
+            return _send_message_redirect(request, customer.id)
+        ok, detail = send_sms(to_address, body)
+        if not ok:
+            messages.error(request, f"SMS failed: {detail}")
+            return _send_message_redirect(request, customer.id)
+        messages.success(request, f"SMS sent to {to_address}")
 
     ClientMessage.objects.create(
         customer=customer,

@@ -87,6 +87,55 @@ class Business(models.Model):
         help_text="Gmail App Password (not your normal password)",
     )
 
+    # ── Twilio SMS ─────────────────────────────────────────────────────
+    twilio_account_sid = models.CharField(
+        max_length=100, blank=True,
+        help_text="Twilio Account SID (starts with AC…)",
+    )
+    twilio_auth_token = models.CharField(
+        max_length=255, blank=True,
+        help_text="Twilio Auth Token (stored encrypted)",
+    )
+    twilio_from_number = models.CharField(
+        max_length=20, blank=True,
+        help_text="Twilio phone number for outbound SMS (e.g. +15551234567)",
+    )
+
+    # ── Client notifications ───────────────────────────────────────────
+    notify_job_scheduled = models.BooleanField(
+        default=True,
+        help_text="Notify client when a job is scheduled or rescheduled.",
+    )
+    notify_crew_en_route = models.BooleanField(
+        default=True,
+        help_text="Notify client when crew taps 'On My Way'.",
+    )
+    notify_job_completed = models.BooleanField(
+        default=True,
+        help_text="Notify client when a job is marked complete.",
+    )
+    notify_include_completion_photos = models.BooleanField(
+        default=True,
+        help_text="Include completion photos in job-completed notifications.",
+    )
+
+    # ── Notification message templates ─────────────────────────────────
+    template_job_scheduled = models.TextField(
+        blank=True,
+        default="Hi {{customer_name}}, your {{service_list}} with {{business_name}} is scheduled for {{scheduled_date}}. We'll notify you when our crew is on the way!",
+        help_text="SMS/email template for job-scheduled notification.",
+    )
+    template_crew_en_route = models.TextField(
+        blank=True,
+        default="Hi {{customer_name}}, our crew is heading to your property now for {{service_list}}. See you soon!",
+        help_text="SMS/email template for crew-en-route notification.",
+    )
+    template_job_completed = models.TextField(
+        blank=True,
+        default="Hi {{customer_name}}, your {{service_list}} is complete! Thank you for choosing {{business_name}}.",
+        help_text="SMS/email template for job-completed notification.",
+    )
+
     # Communication / branding - used when sending estimates and contacting clients
     from_email = models.EmailField(
         blank=True,

@@ -1,6 +1,3 @@
-import base64
-import json
-from urllib import parse, request as urlrequest
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
@@ -13,6 +10,7 @@ from django.utils import timezone
 from billing.models import InvoiceAuditLog
 from businesses.models import Business
 from customers.models import ClientMessage, Customer
+from customers.sms import send_sms as _send_twilio_sms
 from customers.views import make_review_action_token
 
 
@@ -37,31 +35,6 @@ def _within_customer_hours(customer, start_hour, end_hour, now_utc):
     tz_name = _infer_timezone_for_customer(customer)
     local_hour = now_utc.astimezone(ZoneInfo(tz_name)).hour
     return start_hour <= local_hour < end_hour
-
-
-def _send_twilio_sms(to_number, body):
-    sid = getattr(settings, "TWILIO_ACCOUNT_SID", "")
-    token = getattr(settings, "TWILIO_AUTH_TOKEN", "")
-    from_number = getattr(settings, "TWILIO_FROM_NUMBER", "")
-    if not (sid and token and from_number):
-        return False, "Twilio not configured"
-
-    payload = parse.urlencode({"To": to_number, "From": from_number, "Body": body}).encode()
-    req = urlrequest.Request(
-        f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json",
-        data=payload,
-        method="POST",
-    )
-    auth = base64.b64encode(f"{sid}:{token}".encode()).decode()
-    req.add_header("Authorization", f"Basic {auth}")
-    req.add_header("Content-Type", "application/x-www-form-urlencoded")
-    try:
-        with urlrequest.urlopen(req, timeout=15) as resp:
-            ok = 200 <= resp.status < 300
-            data = resp.read().decode("utf-8", errors="ignore")
-            return ok, data[:200]
-    except Exception as exc:
-        return False, str(exc)
 
 
 class Command(BaseCommand):
@@ -185,7 +158,7 @@ class Command(BaseCommand):
                         self.stderr.write(self.style.ERROR(f"Failed email to {customer.email}: {exc}"))
 
                 if business.google_review_sms_enabled and customer.phone:
-                    ok, info = _send_twilio_sms(customer.phone, sms_body)
+                    ok, info = _send_twilio_sms(customer.phone, sms_body, business=business)
                     if ok:
                         sent_via_any = True
                     else:
