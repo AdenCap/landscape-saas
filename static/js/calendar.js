@@ -117,9 +117,11 @@ document.addEventListener('DOMContentLoaded', function () {
       var params = [];
       var svc = document.getElementById('filter-services');
       var crew = document.getElementById('filter-crews');
+      var emp = document.getElementById('filter-employees');
       var searchEl = document.getElementById('calendar-search');
       if (svc && svc.value) params.push('services=' + encodeURIComponent(svc.value));
       if (crew && crew.value) params.push('crews=' + encodeURIComponent(crew.value));
+      if (emp && emp.value) params.push('employees=' + encodeURIComponent(emp.value));
       if (searchEl && searchEl.value.trim()) params.push('search=' + encodeURIComponent(searchEl.value.trim()));
       var qs = params.length ? '?' + params.join('&') : '';
       fetch('/jobs/calendar/events/' + qs)
@@ -365,26 +367,15 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Filter toggle
-  var filterToggle = document.getElementById('toolbar-filter-toggle');
-  var filterRow = document.getElementById('calendar-filters');
-  if (filterToggle && filterRow) {
-    filterToggle.addEventListener('click', function() {
-      filterRow.classList.toggle('open');
-      filterToggle.classList.toggle('active');
-    });
-  }
-
-  var filterApply = document.getElementById('filter-apply');
-  if (filterApply) filterApply.addEventListener('click', function() { calendar.refetchEvents(); });
-
-  var filterClear = document.getElementById('filter-clear');
-  if (filterClear) filterClear.addEventListener('click', function() {
-    var svc = document.getElementById('filter-services');
-    var crew = document.getElementById('filter-crews');
-    if (svc) svc.value = '';
-    if (crew) crew.value = '';
-    calendar.refetchEvents();
+  // Auto-apply filters on change & highlight active selections
+  ['filter-crews', 'filter-employees', 'filter-services'].forEach(function(id) {
+    var sel = document.getElementById(id);
+    if (sel) {
+      sel.addEventListener('change', function() {
+        sel.classList.toggle('active-filter', !!sel.value);
+        calendar.refetchEvents();
+      });
+    }
   });
 
   // ══════════════════════════════════════════════════════════════

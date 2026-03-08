@@ -4,7 +4,55 @@
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'css/calendar.css' %}">
+<style>
+  /* Full-width calendar — no context panel */
+  .workspace-shell { grid-template-columns: minmax(0, 1fr); }
+
+  /* Inline filter dropdowns in toolbar */
+  .calendar-toolbar-center {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    justify-content: center;
+  }
+  .toolbar-filter-select {
+    padding: 7px 10px;
+    font-size: var(--text-sm);
+    background: var(--bg-surface-hover);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    min-width: 130px;
+    cursor: pointer;
+  }
+  .toolbar-filter-select:focus {
+    border-color: var(--primary);
+    outline: none;
+  }
+  /* Highlight active filters */
+  .toolbar-filter-select.active-filter {
+    border-color: var(--primary);
+    background: rgba(59,130,246,.1);
+  }
+
+  @media (max-width: 768px) {
+    .calendar-toolbar { flex-wrap: wrap; }
+    .calendar-toolbar-center {
+      order: 3;
+      width: 100%;
+      justify-content: flex-start;
+      overflow-x: auto;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+    .toolbar-filter-select { min-width: 110px; flex-shrink: 0; }
+  }
+</style>
 {% endblock %}
+
+{% block context_panel %}{% endblock %}
 
 {% block content %}
 <div class="calendar-page-header">
@@ -13,12 +61,12 @@
     <p class="calendar-subtitle">Drag to reschedule · Click to edit crew, client, notes</p>
   </div>
   <div class="calendar-actions">
-    <a href="{% url 'daily_route' %}" class="btn btn-primary">Daily Routes</a>
-    <a href="{% url 'crew_today' %}" class="btn btn-secondary">Crew Today</a>
     {% if user.role == "owner" or user.role == "manager" %}
+    <a href="{% url 'create_job' %}" class="btn btn-primary">+ Job</a>
     <a href="{% url 'meeting_create' %}" class="btn btn-secondary">+ Meeting</a>
     {% endif %}
-    <a href="/" class="btn btn-secondary">Dashboard</a>
+    <a href="{% url 'daily_route' %}" class="btn btn-secondary">Daily Routes</a>
+    <a href="{% url 'crew_today' %}" class="btn btn-secondary">Crew Today</a>
   </div>
 </div>
 
@@ -29,31 +77,28 @@
     <button type="button" id="calendar-goto-btn" class="btn btn-secondary btn-sm">Go</button>
     <button type="button" id="calendar-today-btn" class="btn btn-secondary btn-sm">Today</button>
   </div>
+  <div class="calendar-toolbar-center">
+    <select id="filter-crews" class="toolbar-filter-select" aria-label="Filter by crew">
+      <option value="">All Crews</option>
+      {% for c in filter_crews %}
+      <option value="{{ c.id }}">{{ c.name }}</option>
+      {% endfor %}
+    </select>
+    <select id="filter-employees" class="toolbar-filter-select" aria-label="Filter by employee">
+      <option value="">All Employees</option>
+      {% for e in filter_employees %}
+      <option value="{{ e.id }}">{{ e.name }}</option>
+      {% endfor %}
+    </select>
+    <select id="filter-services" class="toolbar-filter-select" aria-label="Filter by service">
+      <option value="">All Services</option>
+      {% for s in filter_services %}
+      <option value="{{ s.id }}">{{ s.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
   <div class="calendar-toolbar-right">
     <input type="text" id="calendar-search" class="toolbar-search-input" placeholder="Search jobs…" aria-label="Search jobs">
-    <button type="button" id="toolbar-filter-toggle" class="btn btn-secondary btn-sm toolbar-filter-toggle">Filters</button>
-  </div>
-  <div class="calendar-filters" id="calendar-filters">
-    <div class="tool-group">
-      <label for="filter-services">Service</label>
-      <select id="filter-services">
-        <option value="">All</option>
-        {% for s in filter_services %}
-        <option value="{{ s.id }}">{{ s.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="tool-group">
-      <label for="filter-crews">Crew</label>
-      <select id="filter-crews">
-        <option value="">All</option>
-        {% for c in filter_crews %}
-        <option value="{{ c.id }}">{{ c.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button type="button" id="filter-apply" class="btn btn-primary btn-sm">Apply</button>
-    <button type="button" id="filter-clear" class="btn btn-secondary btn-sm">Clear</button>
   </div>
 </div>
 

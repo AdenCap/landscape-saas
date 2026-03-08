@@ -434,41 +434,7 @@
 .toolbar-search-input::placeholder { color: var(--text-muted); }
 .toolbar-date-input::placeholder { color: var(--text-muted); }
 
-.toolbar-filter-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.toolbar-filter-toggle.active {
-  color: var(--primary);
-}
-
-.calendar-filters {
-  display: none;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  margin-bottom: 8px;
-  animation: calFadeIn var(--motion-base) var(--motion-ease-out);
-}
-
-.calendar-filters.open {
-  display: flex;
-}
-
-.calendar-filters select {
-  min-width: 140px;
-  padding: 7px 10px;
-  font-size: var(--text-sm);
-  background: var(--bg-surface-hover);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-}
+/* Old filter toggle/panel removed — filters are now inline in toolbar */
 
 /* ==========================================================================
    Crew Legend
@@ -1086,17 +1052,6 @@ body.is-dragging * {
   .toolbar-search-input {
     flex: 1;
     width: auto;
-    min-height: 44px;
-    font-size: 16px;
-  }
-
-  .calendar-filters {
-    flex-wrap: wrap;
-  }
-
-  .calendar-filters select {
-    flex: 1;
-    min-width: 0;
     min-height: 44px;
     font-size: 16px;
   }

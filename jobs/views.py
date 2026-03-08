@@ -218,11 +218,16 @@ def calendar_view(request):
     crew_legend = _get_crew_legend(business)
     services = []
     crews = []
+    employees = []
     weather_forecast = []
     if business:
         from pricing.models import ServiceTemplate
         services = list(ServiceTemplate.objects.filter(business=business, active=True).order_by("name").values("id", "name"))
         crews = list(Crew.objects.filter(business=business).order_by("name").values("id", "name"))
+        employees = [
+            {"id": u.id, "name": u.get_full_name() or u.username}
+            for u in User.objects.filter(business=business).exclude(role="client").order_by("first_name", "last_name")
+        ]
         # Fetch weather forecast for the business location
         from jobs.weather import get_forecast, get_business_location
         location = get_business_location(business)
@@ -232,6 +237,7 @@ def calendar_view(request):
         'crew_legend': crew_legend,
         'filter_services': services,
         'filter_crews': crews,
+        'filter_employees': employees,
         'weather_forecast': weather_forecast,
     })
 
@@ -274,6 +280,7 @@ def calendar_events(request):
     # Filters from query params
     service_ids = request.GET.get("services", "")
     crew_ids = request.GET.get("crews", "")
+    employee_ids = request.GET.get("employees", "")
     if service_ids:
         ids = [int(x) for x in service_ids.split(",") if x.strip().isdigit()]
         if ids:
@@ -282,6 +289,10 @@ def calendar_events(request):
         cids = [int(x) for x in crew_ids.split(",") if x.strip().isdigit()]
         if cids:
             jobs = jobs.filter(assigned_crew_id__in=cids)
+    if employee_ids:
+        eids = [int(x) for x in employee_ids.split(",") if x.strip().isdigit()]
+        if eids:
+            jobs = jobs.filter(assigned_to_id__in=eids)
 
     search = (request.GET.get("search") or "").strip()
     if search:
