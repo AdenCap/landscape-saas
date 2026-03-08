@@ -261,7 +261,8 @@ def _color_for_assignee(job, crew_colors, user_colors):
 @login_required
 def calendar_events(request):
     jobs = Job.objects.select_related(
-        'property', 'property__customer', 'assigned_to', 'assigned_crew'
+        'property', 'property__customer', 'assigned_to', 'assigned_crew',
+        'recurring_job'
     ).prefetch_related('service_items__service').filter(scheduled_date__isnull=False)
 
     business = get_business(request) if request.user.is_authenticated else None
@@ -356,6 +357,8 @@ def calendar_events(request):
                     "customer": customer_name, "services": services_str,
                     "crewColor": base_color or UNASSIGNED_COLOR,
                     "serviceAbbr": service_names[0][:3].upper() if service_names else "",
+                    "recurring": bool(job.recurring_job_id),
+                    "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
                 },
             }
         else:
@@ -371,6 +374,8 @@ def calendar_events(request):
                     "customer": customer_name, "services": services_str,
                     "crewColor": base_color or UNASSIGNED_COLOR,
                     "serviceAbbr": service_names[0][:3].upper() if service_names else "",
+                    "recurring": bool(job.recurring_job_id),
+                    "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
                 },
             }
         events.append(evt)
@@ -648,6 +653,7 @@ def calendar_bulk_reschedule(request):
     from_date = data.get("from_date")
     to_date = data.get("to_date")
     job_ids = data.get("job_ids", [])
+    skip_weekends = data.get("skip_weekends", False)
     if not from_date or not to_date:
         return JsonResponse({"error": "Missing from_date or to_date"}, status=400)
     try:
@@ -655,6 +661,11 @@ def calendar_bulk_reschedule(request):
         to_d = datetime.strptime(to_date, "%Y-%m-%d").date()
     except (ValueError, TypeError):
         return JsonResponse({"error": "Invalid date format"}, status=400)
+    # If skip_weekends, advance Saturday/Sunday to Monday
+    if skip_weekends:
+        while to_d.weekday() >= 5:
+            to_d += timedelta(days=1)
+        to_date = to_d.strftime("%Y-%m-%d")
     jobs = Job.objects.filter(
         property__customer__business=business,
         scheduled_date=from_d,

@@ -780,6 +780,35 @@ body.is-dragging * {
 }
 
 /* ==========================================================================
+   Day Job Count Badge
+   ========================================================================== */
+
+.day-job-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-surface-hover);
+  border-radius: 10px;
+  padding: 0 5px;
+  margin-left: auto;
+  line-height: 1;
+}
+
+.day-job-count:empty {
+  display: none;
+}
+
+.fc-day-today .day-job-count {
+  color: var(--primary);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+/* ==========================================================================
    Rain Modal
    ========================================================================== */
 
@@ -834,6 +863,14 @@ body.is-dragging * {
   width: 16px;
   height: 16px;
   accent-color: var(--primary);
+}
+
+.rain-job-recurring {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-right: 6px;
+  white-space: nowrap;
 }
 
 .rain-modal-options {
@@ -991,6 +1028,74 @@ body.is-dragging * {
 }
 
 /* ==========================================================================
+   List View Styles
+   ========================================================================== */
+
+.fc .fc-list-day-cushion {
+  background: var(--bg-elevated);
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.fc .fc-list-event td {
+  padding: 8px 16px;
+  border-color: var(--border);
+  vertical-align: middle;
+}
+
+.fc .fc-list-event:hover td {
+  background: var(--bg-surface-hover);
+}
+
+/* List view event card modifier */
+.cal-event-card--list {
+  min-height: 44px;
+  padding: 4px 0;
+  gap: 10px;
+}
+
+.cal-event-card--list .cal-event-name {
+  font-size: 14px;
+}
+
+.cal-event-card--list .cal-event-addr {
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+}
+
+.cal-event-card--list .cal-event-svc {
+  font-size: 11px;
+}
+
+.cal-event-card--list .cal-event-time {
+  font-size: 12px;
+}
+
+.cal-event-card--list .cal-event-crew {
+  font-size: 12px;
+}
+
+.cal-event-card--list .cal-event-dot {
+  width: 10px;
+  height: 10px;
+}
+
+/* List view empty message */
+.fc .fc-list-empty-cushion {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-base);
+}
+
+/* Remove event dot marker in list view (our custom dot provides color) */
+.fc .fc-list-event-dot {
+  display: none;
+}
+
+/* ==========================================================================
    Loading Skeleton
    ========================================================================== */
 
@@ -1077,6 +1182,76 @@ body.is-dragging * {
   .fc .fc-toolbar .fc-toolbar-chunk {
     display: flex;
     justify-content: center;
+  }
+
+  /* ── Mobile touch targets (44px minimum) ── */
+  .fc .fc-button {
+    padding: 10px 14px;
+    font-size: 13px;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .fc .fc-daygrid-event {
+    margin: 2px 2px;
+    padding: 6px 8px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .cal-event-card {
+    min-height: 40px;
+    padding: 6px 8px;
+    gap: 8px;
+  }
+
+  .cal-event-name {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .cal-event-time {
+    font-size: 12px;
+  }
+
+  .cal-event-svc {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .cal-event-addr {
+    font-size: 12px;
+  }
+
+  .cal-event-crew {
+    font-size: 12px;
+  }
+
+  .cal-event-dot {
+    width: 8px;
+    height: 8px;
+  }
+
+  .cal-event-check {
+    font-size: 14px;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  /* Month view: cap visible events to reduce mobile clutter */
+  .fc .fc-dayGridMonth-view .fc-daygrid-day-events {
+    max-height: 60px;
+    overflow: hidden;
+  }
+
+  .fc .fc-dayGridMonth-view .fc-daygrid-more-link {
+    font-size: 12px;
+    padding: 4px 8px;
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
   }
 
   /* Unscheduled panel → bottom sheet */

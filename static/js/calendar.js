@@ -14,10 +14,15 @@ document.addEventListener('DOMContentLoaded', function () {
   var isOwner = typeof IS_OWNER !== 'undefined' ? IS_OWNER : false;
   var weatherData = typeof WEATHER_DATA !== 'undefined' ? WEATHER_DATA : {};
 
-  var STORAGE_VIEW = 'fieldops_calendar_view';
+  // ── Mobile-aware view persistence ──
+  var isMobile = window.matchMedia('(max-width: 768px)').matches;
+  var STORAGE_VIEW = isMobile ? 'fieldops_calendar_view_mobile' : 'fieldops_calendar_view';
   var STORAGE_DATE = 'fieldops_calendar_date';
 
-  var savedView = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_VIEW)) || 'dayGridMonth';
+  var defaultView = isMobile ? 'listWeek' : 'dayGridMonth';
+  var savedView = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_VIEW)) || null;
+  var initialView = savedView || defaultView;
+
   var savedDate = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_DATE) : null;
   var initialDate = null;
   if (savedDate && /^\d{4}-\d{2}-\d{2}$/.test(savedDate)) initialDate = savedDate;
@@ -92,14 +97,17 @@ document.addEventListener('DOMContentLoaded', function () {
     headerToolbar: {
       left: 'prev,next today',
       center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay'
+      right: isMobile
+        ? 'listWeek,timeGridDay,dayGridMonth'
+        : 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
     },
-    initialView: savedView,
+    initialView: initialView,
     initialDate: initialDate || undefined,
     views: {
       dayGridMonth: { buttonText: 'Month' },
       timeGridWeek: { buttonText: 'Week' },
-      timeGridDay: { buttonText: 'Day' }
+      timeGridDay: { buttonText: 'Day' },
+      listWeek: { buttonText: 'List' }
     },
     slotMinTime: '06:00:00',
     slotMaxTime: '20:00:00',
@@ -154,12 +162,14 @@ document.addEventListener('DOMContentLoaded', function () {
       var props = arg.event.extendedProps || {};
       var isCompleted = props.status === 'completed';
       var isMeeting = props.type === 'meeting';
+      var isListView = arg.view.type.indexOf('list') === 0;
 
       if (isCompleted) container.classList.add('cal-event--completed');
       if (isMeeting) container.classList.add('cal-event--meeting');
+      if (isListView) container.classList.add('cal-event-card--list');
 
-      // Time badge (month view only, timed events)
-      if (arg.event.start && !arg.event.allDay && arg.view.type === 'dayGridMonth') {
+      // Time badge (month + list views, timed events)
+      if (arg.event.start && !arg.event.allDay && (arg.view.type === 'dayGridMonth' || isListView)) {
         var timeBadge = document.createElement('span');
         timeBadge.className = 'cal-event-time';
         timeBadge.textContent = formatTimeShort(arg.event.start);
@@ -277,16 +287,10 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     },
 
-    // ── Weather badges + rain day push buttons ──
+    // ── Weather badges, rain push, job count badges ──
     dayCellDidMount: function(info) {
-      if (!info.date || !weatherData) return;
+      if (!info.date) return;
       var key = formatDateStr(info.date);
-      var w = weatherData[key];
-      if (!w || w.high == null) return;
-
-      // Skip if already rendered
-      if (info.el.querySelector('.weather-badge')) return;
-
       var dayFrame = info.el.querySelector('.fc-daygrid-day-top');
       if (!dayFrame) return;
 
@@ -294,38 +298,76 @@ document.addEventListener('DOMContentLoaded', function () {
       dayFrame.style.justifyContent = 'space-between';
       dayFrame.style.alignItems = 'center';
 
-      // Weather badge
-      var badge = document.createElement('div');
-      badge.className = 'weather-badge';
-      badge.title = w.label + ' · Precip: ' + w.precip + '"';
-      badge.innerHTML = '<i data-lucide="' + w.icon + '"></i><span>' + w.high + '°</span>' +
-        (w.precip > 0 ? '<span class="weather-rain"></span>' : '');
-      dayFrame.appendChild(badge);
+      // Weather badge (only if forecast data exists for this date)
+      var w = weatherData ? weatherData[key] : null;
+      if (w && w.high != null && !info.el.querySelector('.weather-badge')) {
+        var badge = document.createElement('div');
+        badge.className = 'weather-badge';
+        badge.title = w.label + ' · Precip: ' + w.precip + '"';
 
-      // Rain day push button (owner only, precip > 0.1")
-      if (isOwner && w.precip > 0.1) {
-        info.el.classList.add('rain-day-cell');
-        var pushBtn = document.createElement('button');
-        pushBtn.className = 'rain-push-btn';
-        pushBtn.textContent = 'Push →';
-        pushBtn.title = 'Push jobs to another day';
-        pushBtn.setAttribute('data-date', key);
-        pushBtn.setAttribute('data-weather-label', w.label);
-        pushBtn.setAttribute('data-weather-precip', w.precip);
-        pushBtn.setAttribute('data-weather-icon', w.icon);
-        pushBtn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          e.preventDefault();
-          openRainModal(this.getAttribute('data-date'), {
-            label: this.getAttribute('data-weather-label'),
-            precip: this.getAttribute('data-weather-precip'),
-            icon: this.getAttribute('data-weather-icon')
+        // Build weather badge content with DOM methods
+        var icon = document.createElement('i');
+        icon.setAttribute('data-lucide', w.icon);
+        badge.appendChild(icon);
+        var tempSpan = document.createElement('span');
+        tempSpan.textContent = w.high + '\u00B0';
+        badge.appendChild(tempSpan);
+        if (w.precip > 0) {
+          var rain = document.createElement('span');
+          rain.className = 'weather-rain';
+          badge.appendChild(rain);
+        }
+        dayFrame.appendChild(badge);
+
+        // Rain day push button (owner only, precip > 0.1")
+        if (isOwner && w.precip > 0.1) {
+          info.el.classList.add('rain-day-cell');
+          var pushBtn = document.createElement('button');
+          pushBtn.className = 'rain-push-btn';
+          pushBtn.textContent = 'Push \u2192';
+          pushBtn.title = 'Push jobs to another day';
+          pushBtn.setAttribute('data-date', key);
+          pushBtn.setAttribute('data-weather-label', w.label);
+          pushBtn.setAttribute('data-weather-precip', w.precip);
+          pushBtn.setAttribute('data-weather-icon', w.icon);
+          pushBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            openRainModal(this.getAttribute('data-date'), {
+              label: this.getAttribute('data-weather-label'),
+              precip: this.getAttribute('data-weather-precip'),
+              icon: this.getAttribute('data-weather-icon')
+            });
           });
-        });
-        dayFrame.appendChild(pushBtn);
+          dayFrame.appendChild(pushBtn);
+        }
+
+        if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [badge] });
       }
 
-      if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [badge] });
+      // ── Job count badge (month view only, all days) ──
+      if (info.view.type === 'dayGridMonth' && !info.el.querySelector('.day-job-count')) {
+        var countBadge = document.createElement('span');
+        countBadge.className = 'day-job-count';
+        countBadge.setAttribute('data-date', key);
+        dayFrame.appendChild(countBadge);
+      }
+    },
+
+    // ── Update job count badges when events change ──
+    eventsSet: function(events) {
+      var counts = {};
+      events.forEach(function(evt) {
+        if (!evt.start) return;
+        var d = formatDateStr(evt.start);
+        counts[d] = (counts[d] || 0) + 1;
+      });
+      document.querySelectorAll('.day-job-count').forEach(function(el) {
+        var d = el.getAttribute('data-date');
+        var c = counts[d] || 0;
+        el.textContent = c > 0 ? c : '';
+        el.style.display = c > 0 ? '' : 'none';
+      });
     }
   });
   calendar.render();
@@ -949,7 +991,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Set default push date
     var pushDateInput = document.getElementById('rain-push-date');
-    if (pushDateInput) pushDateInput.value = nextDay(dateStr);
+    if (pushDateInput) pushDateInput.value = nextWeekday(dateStr);
 
     // Fetch jobs for that date
     var jobsList = document.getElementById('rain-modal-jobs');
@@ -968,9 +1010,14 @@ document.addEventListener('DOMContentLoaded', function () {
           } else {
             jobsList.innerHTML = rainJobsData.map(function(ev, i) {
               var p = ev.extendedProps || {};
+              var recurBadge = '';
+              if (p.recurring && p.frequency) {
+                var freqLabel = p.frequency.charAt(0).toUpperCase() + p.frequency.slice(1);
+                recurBadge = '<span class="rain-job-recurring">\u{1F504} ' + freqLabel + '</span>';
+              }
               return '<label class="rain-job-item">' +
                 '<input type="checkbox" checked data-index="' + i + '" data-job-id="' + (p.jobId || '') + '">' +
-                '<span>' + (p.customer || ev.title || 'Job') + (p.services ? ' — ' + p.services : '') + '</span>' +
+                '<span>' + recurBadge + (p.customer || ev.title || 'Job') + (p.services ? ' \u2014 ' + p.services : '') + '</span>' +
               '</label>';
             }).join('');
           }
@@ -1027,7 +1074,7 @@ document.addEventListener('DOMContentLoaded', function () {
     fetch('/jobs/calendar/bulk-reschedule/', {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-      body: JSON.stringify({ from_date: rainFromDate, to_date: toDate, job_ids: jobIds })
+      body: JSON.stringify({ from_date: rainFromDate, to_date: toDate, job_ids: jobIds, skip_weekends: true })
     }).then(function(r) {
       if (!r.ok) throw new Error('Failed');
       return r.json();
