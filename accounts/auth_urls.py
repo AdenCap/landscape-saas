@@ -3,7 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from accounts import twofa_views
-from accounts.views import LoginView, signup
+from accounts.views import LoginView, signup, social_signup_complete
 from accounts.ratelimit import ratelimit
 
 # Rate limit sensitive auth endpoints (per IP)
@@ -11,6 +11,7 @@ _password_reset_view = ratelimit(key="ip", rate="5/m", method="POST", block=True
 
 urlpatterns = [
     path("signup/", signup, name="signup"),
+    path("social/complete/", social_signup_complete, name="social_signup_complete"),
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(next_page="/accounts/login/"), name="logout"),
     path("password_change/", auth_views.PasswordChangeView.as_view(), name="password_change"),

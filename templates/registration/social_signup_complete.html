@@ -1,0 +1,64 @@
+{% extends "marketing/base_marketing.html" %}
+{% block title %}Complete your account — Tradevo{% endblock %}
+
+{% block content %}
+<section class="section" style="padding-top:34px;">
+  <div class="shell" style="max-width:820px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <p style="color:var(--primary);font-weight:600;font-size:14px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;">Almost there</p>
+      <h1 style="font-size:36px;line-height:1.02;letter-spacing:-.03em;margin:0 0 10px;">Set up your business.</h1>
+      <p class="lead" style="margin-bottom:0;">Welcome{% if request.user.first_name %}, {{ request.user.first_name }}{% endif %}! Tell us about your business so we can customize your workspace.</p>
+    </div>
+
+    {% if form.errors %}
+    <div style="margin-bottom:16px;padding:10px;border:1px solid #7f1d1d;background:#450a0a;color:#fecaca;border-radius:10px;font-size:14px;text-align:center;">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <form method="post" action="{% url 'social_signup_complete' %}">
+      {% csrf_token %}
+
+      <div style="margin-bottom:20px;">
+        <label for="id_business_name" style="display:block;margin-bottom:6px;font-size:14px;">Business name</label>
+        <input id="id_business_name" name="business_name" value="{{ form.business_name.value|default:'' }}" required placeholder="Your company name" class="auth-input" style="max-width:480px;">
+        {% if form.business_name.errors %}<p style="color:#fca5a5;font-size:13px;margin:4px 0 0;">{{ form.business_name.errors.0 }}</p>{% endif %}
+      </div>
+
+      <p style="font-size:14px;margin:0 0 14px;color:var(--muted);">What type of business do you run?</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
+        {% for type_value, type_label, icon, description in business_types %}
+        <label class="card type-card" data-r style="padding:22px;text-align:center;cursor:pointer;" data-type="{{ type_value }}">
+          <input type="radio" name="business_type" value="{{ type_value }}" style="display:none;" {% if form.business_type.value == type_value or forloop.first and not form.business_type.value %}checked{% endif %}>
+          <div style="font-size:36px;margin-bottom:10px;">{{ icon }}</div>
+          <h3 style="font-size:18px;margin:0 0 6px;letter-spacing:-.01em;">{{ type_label }}</h3>
+          <p style="margin:0;font-size:13px;color:var(--muted);line-height:1.5;">{{ description }}</p>
+        </label>
+        {% endfor %}
+      </div>
+
+      <div style="text-align:center;">
+        <button class="btn btn-primary" type="submit" style="padding:14px 40px;font-size:16px;">Set up my business & continue</button>
+      </div>
+    </form>
+  </div>
+</section>
+<style>
+.auth-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text);transition:border-color .2s ease,box-shadow .2s ease;outline:none}
+.auth-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.auth-input:hover:not(:focus){border-color:var(--text-muted)}
+.type-card{transition:all .2s ease;border:1px solid var(--border)}
+.type-card:hover{border-color:var(--primary);transform:translateY(-2px);box-shadow:0 8px 24px rgba(59,130,246,.15)}
+.type-card:has(input:checked){border-color:var(--primary);background:rgba(59,130,246,.08)}
+@media(max-width:640px){div[style*='grid-template-columns:repeat(3,1fr)']{grid-template-columns:1fr 1fr!important}}
+</style>
+<script>
+document.querySelectorAll('.type-card').forEach(card=>{
+  card.addEventListener('click',()=>{
+    document.querySelectorAll('.type-card').forEach(c=>{c.style.borderColor='';c.style.background='';});
+    card.style.borderColor='var(--primary)';
+    card.style.background='rgba(59,130,246,.08)';
+    card.querySelector('input[type=radio]').checked=true;
+  });
+  if(card.querySelector('input:checked')){card.style.borderColor='var(--primary)';card.style.background='rgba(59,130,246,.08)';}
+});
+</script>
+{% endblock %}

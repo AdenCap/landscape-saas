@@ -526,6 +526,7 @@
           <a href="{% url 'billing:estimate_create' %}" class="sidebar-create-item"><i data-lucide="file-text" class="nav-icon"></i> New quote</a>
           <a href="{% url 'create_job' %}" class="sidebar-create-item"><i data-lucide="clipboard-list" class="nav-icon"></i> New job</a>
           <a href="{% url 'billing:invoice_create' %}" class="sidebar-create-item"><i data-lucide="file-plus-2" class="nav-icon"></i> New invoice</a>
+          <a href="{% url 'billing:field_capture' %}" class="sidebar-create-item"><i data-lucide="camera" class="nav-icon"></i> Field capture</a>
         </div>
       </div>
       {% endif %}
@@ -550,6 +551,10 @@
             <i data-lucide="layout-dashboard" class="nav-icon"></i>
             Dashboard
           </a>
+          <a href="{% url 'morning_brief' %}" class="btn btn-nav {% if '/dashboard/morning-brief' in request.path %}active{% endif %}">
+            <i data-lucide="sunrise" class="nav-icon"></i>
+            Morning Brief
+          </a>
           <a href="{% url 'job_list' %}" class="btn btn-nav {% if request.path == '/jobs/' or request.path == '/jobs' %}active{% endif %}">
             <i data-lucide="clipboard-list" class="nav-icon"></i>
             Jobs
@@ -567,16 +572,21 @@
             Clients
           </a>
           <a href="{% url 'client_messages_list' %}" class="btn btn-nav {% if '/clients/messages' in request.path %}active{% endif %}">
-            <i data-lucide="messages-square" class="nav-icon"></i>
-            Client messaging
+            <i data-lucide="mail" class="nav-icon"></i>
+            Email Log
           </a>
           <a href="/billing/" class="btn btn-nav {% if '/billing' in request.path and 'estimates' not in request.path %}active{% endif %}">
             <i data-lucide="file-plus-2" class="nav-icon"></i>
             Invoices
           </a>
-          <a href="/billing/estimates/" class="btn btn-nav {% if '/billing/estimates' in request.path %}active{% endif %}">
+          <a href="/billing/estimates/" class="btn btn-nav {% if request.path == '/billing/estimates/' %}active{% endif %}">
             <i data-lucide="file-text" class="nav-icon"></i>
             Estimates
+          </a>
+          <a href="{% url 'billing:estimate_queue' %}" class="btn btn-nav {% if '/billing/estimates/queue' in request.path %}active{% endif %}" style="position: relative;">
+            <i data-lucide="inbox" class="nav-icon"></i>
+            Quote Queue
+            {% if estimate_queue_count > 0 %}<span class="nav-badge">{{ estimate_queue_count }}</span>{% endif %}
           </a>
           {% if show_fertilization %}
           <a href="{% url 'fertilization:hub' %}" class="btn btn-nav {% if '/fertilization' in request.path %}active{% endif %}">
@@ -683,6 +693,7 @@
             <a href="{% url 'create_job' %}" role="menuitem">New job</a>
             <a href="{% url 'billing:estimate_create' %}" role="menuitem">Estimate</a>
             <a href="{% url 'billing:invoice_create' %}" role="menuitem">Invoice</a>
+            <a href="{% url 'billing:field_capture' %}" role="menuitem">Field capture</a>
           </div>
         </div>
       {% endif %}
@@ -705,10 +716,12 @@
           {% if user.role == "crew" %}
             <a href="{% url 'employee_management' %}"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Time off &amp; schedule</a>
           {% else %}
+            <a href="{% url 'morning_brief' %}"><i data-lucide="sunrise" class="nav-icon"></i>Morning Brief</a>
             <a href="/jobs/calendar/"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendar</a>
-            <a href="{% url 'client_messages_list' %}"><i data-lucide="messages-square" class="nav-icon"></i>Client messaging</a>
+            <a href="{% url 'client_messages_list' %}"><i data-lucide="mail" class="nav-icon"></i>Email Log</a>
             <a href="/billing/"><i data-lucide="file-plus-2" class="nav-icon"></i>Invoices</a>
             <a href="/billing/estimates/"><i data-lucide="file-text" class="nav-icon"></i>Estimates</a>
+            <a href="{% url 'billing:estimate_queue' %}"><i data-lucide="inbox" class="nav-icon"></i>Quote Queue{% if estimate_queue_count > 0 %} <span class="bottom-nav-count">{{ estimate_queue_count }}</span>{% endif %}</a>
             {% if show_fertilization %}
             <a href="{% url 'fertilization:hub' %}"><i data-lucide="leaf" class="nav-icon"></i>Fertilization</a>
             {% endif %}

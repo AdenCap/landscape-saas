@@ -76,6 +76,14 @@ class SubscriptionRequiredMiddleware(MiddlewareMixin):
         path = request.path
         if _path_exempt(path) or _invoice_pay_path(path):
             return None
+        # Social signup incomplete: user exists but hasn't created a business yet
+        if (
+            request.session.get("social_signup_pending")
+            and not getattr(request.user, "business", None)
+            and not path.startswith("/accounts/social/complete")
+        ):
+            return redirect("/accounts/social/complete/")
+
         # Platform admins and superusers always have full access without subscription
         if getattr(request.user, "is_platform_admin", False) or request.user.is_superuser:
             return None

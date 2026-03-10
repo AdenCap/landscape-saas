@@ -84,6 +84,19 @@ class SignUpForm(UserCreationForm):
         self.fields["business_subtype"].choices = choices
 
 
+class SocialSignupCompleteForm(forms.Form):
+    """Collects business details for users who signed up via social auth."""
+    business_name = forms.CharField(
+        max_length=255,
+        label="Business name",
+        help_text="Your company or business name.",
+    )
+    business_type = forms.ChoiceField(
+        choices=Business.BUSINESS_TYPE_CHOICES,
+        label="Business type",
+    )
+
+
 class EmployeeForm(forms.ModelForm):
     """Form for editing employee profile (name, contact, address, role, pay)."""
     class Meta:

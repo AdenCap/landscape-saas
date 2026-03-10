@@ -61,10 +61,10 @@ def customer_list(request):
 
 @role_required("owner", "manager")
 def client_messages_list(request):
-    """Dedicated client messaging hub: all messages, search, send new, reply."""
+    """Email log: all emails sent to clients, with search."""
     business = _get_business(request)
     if not business:
-        messages.error(request, "You must be associated with a business to view messages.")
+        messages.error(request, "You must be associated with a business to view emails.")
         return redirect("/")
 
     messages_search_q = (request.GET.get("q") or "").strip()
@@ -81,19 +81,12 @@ def client_messages_list(request):
             | Q(to_address__icontains=messages_search_q)
         )
     client_messages = list(qs[:200])
-    unread_messages_count = ClientMessage.objects.filter(
-        customer__business=business,
-        direction=ClientMessage.DIRECTION_RECEIVED,
-        is_read=False,
-    ).count()
     customers_list = list(Customer.objects.filter(business=business).order_by("name"))
 
     return render(request, "customers/client_messages_list.html", {
         "client_messages": client_messages,
         "messages_search_q": messages_search_q,
-        "unread_messages_count": unread_messages_count,
         "customers_list": customers_list,
-        "send_message_form": SendMessageForm(),
     })
 
 
@@ -486,7 +479,7 @@ def _send_message_redirect(request, customer_id, fallback_view="customer_detail"
 @require_POST
 @role_required("owner", "manager")
 def customer_send_message(request, customer_id):
-    """Send an email or SMS to the client and log it under their profile."""
+    """Send an email to the client and log it under their profile."""
     business = _get_business(request)
     if not business:
         messages.error(request, "You must be associated with a business.")
@@ -500,62 +493,43 @@ def customer_send_message(request, customer_id):
                 messages.error(request, err)
         return _send_message_redirect(request, customer_id)
 
-    channel = form.cleaned_data["channel"]
     subject = (form.cleaned_data.get("subject") or "").strip()
     body = form.cleaned_data["body"].strip()
     if not body:
         messages.error(request, "Message body is required.")
         return redirect("customer_detail", customer_id=customer.id)
 
-    to_address = ""
-    if channel == "email":
-        to_address = customer.email or ""
-        if not to_address:
-            messages.error(request, "This client has no email address. Add one in Edit Client.")
-            return _send_message_redirect(request, customer.id)
-        connection = business.get_smtp_connection()
-        if not connection:
-            messages.error(
-                request,
-                "Connect your Gmail in Settings to send emails. Go to Settings and add your Gmail address and App Password.",
-            )
-            return _send_message_redirect(request, customer.id)
-        from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com")
-        reply_to = [business.contact_email] if business.contact_email else None
-        msg = EmailMultiAlternatives(
-            subject or f"Message from {business.name}",
-            body,
-            from_email,
-            [to_address],
-            reply_to=reply_to,
-            connection=connection,
+    to_address = customer.email or ""
+    if not to_address:
+        messages.error(request, "This client has no email address. Add one in Edit Client.")
+        return _send_message_redirect(request, customer.id)
+    connection = business.get_smtp_connection()
+    if not connection:
+        messages.error(
+            request,
+            "Connect your Gmail in Settings to send emails. Go to Settings and add your Gmail address and App Password.",
         )
-        try:
-            msg.send()
-        except Exception as e:
-            messages.error(request, f"Failed to send email: {str(e)}")
-            return _send_message_redirect(request, customer.id)
-        messages.success(request, f"Email sent to {to_address}")
-    else:
-        # SMS: use primary phone; send via Twilio if configured
-        from customers.sms import send_sms, is_sms_configured
-
-        to_address = customer.phone or customer.alt_phone or ""
-        if not to_address:
-            messages.error(request, "This client has no phone number. Add one in Edit Client.")
-            return _send_message_redirect(request, customer.id)
-        if not is_sms_configured():
-            messages.error(request, "SMS is not configured yet. Contact your administrator.")
-            return _send_message_redirect(request, customer.id)
-        ok, detail = send_sms(to_address, body)
-        if not ok:
-            messages.error(request, f"SMS failed: {detail}")
-            return _send_message_redirect(request, customer.id)
-        messages.success(request, f"SMS sent to {to_address}")
+        return _send_message_redirect(request, customer.id)
+    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com")
+    reply_to = [business.contact_email] if business.contact_email else None
+    msg = EmailMultiAlternatives(
+        subject or f"Message from {business.name}",
+        body,
+        from_email,
+        [to_address],
+        reply_to=reply_to,
+        connection=connection,
+    )
+    try:
+        msg.send()
+    except Exception as e:
+        messages.error(request, f"Failed to send email: {str(e)}")
+        return _send_message_redirect(request, customer.id)
+    messages.success(request, f"Email sent to {to_address}")
 
     ClientMessage.objects.create(
         customer=customer,
-        channel=channel,
+        channel="email",
         direction=ClientMessage.DIRECTION_SENT,
         subject=subject,
         body=body,

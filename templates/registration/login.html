@@ -17,6 +17,8 @@
       <h2 style="margin:0 0 6px;font-size:28px;letter-spacing:-.02em;">Sign in</h2>
       <p style="margin:0 0 16px;color:var(--muted);">Don’t have an account? <a href="{% url 'signup' %}" style="color:var(--text)">Start free trial</a></p>
 
+      {% include "registration/_social_buttons.html" with divider_text="or sign in with username" %}
+
       {% if form.errors %}
       <div style="margin-bottom:12px;padding:10px;border:1px solid #7f1d1d;background:#450a0a;color:#fecaca;border-radius:10px;font-size:14px;">Invalid username or password. Please try again.</div>
       {% endif %}

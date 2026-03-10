@@ -23,6 +23,8 @@
       <h2 style="margin:0 0 6px;font-size:28px;letter-spacing:-.02em;">Create account</h2>
       <p style="margin:0 0 16px;color:var(--muted);">We'll set up your workspace and route you to subscription selection next.</p>
 
+      {% include "registration/_social_buttons.html" with divider_text="or create account with email" %}
+
       {% if form.non_field_errors %}
       <div style="margin-bottom:12px;padding:10px;border:1px solid #7f1d1d;background:#450a0a;color:#fecaca;border-radius:10px;font-size:14px;">{{ form.non_field_errors }}</div>
       {% endif %}

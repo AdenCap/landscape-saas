@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Field Capture{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Field Capture</h1>
+    <p>Quick notes and photos from a site visit. You can complete the full quote later.</p>
+</div>
+
+<div class="card" style="max-width: 640px;">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div style="margin-bottom: var(--space-4);">
+            <label for="id_customer" style="display: block; font-weight: 600; margin-bottom: 6px;">Customer</label>
+            <select name="customer" id="id_customer" required style="width: 100%; padding: 12px; font-size: 16px;">
+                <option value="">Select a customer...</option>
+                {% for c in form.fields.customer.queryset %}
+                <option value="{{ c.id }}" {% if form.initial.customer == c.id or form.customer.value|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+            {% if form.errors.customer %}
+            <p style="color: #ef4444; font-size: 13px; margin-top: 4px;">{{ form.errors.customer.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div style="margin-bottom: var(--space-4);">
+            <label for="id_title" style="display: block; font-weight: 600; margin-bottom: 6px;">Job Description</label>
+            {{ form.title }}
+            {% if form.errors.title %}
+            <p style="color: #ef4444; font-size: 13px; margin-top: 4px;">{{ form.errors.title.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div style="margin-bottom: var(--space-4);">
+            <label for="id_site_visit_date" style="display: block; font-weight: 600; margin-bottom: 6px;">Visit Date</label>
+            {{ form.site_visit_date }}
+            {% if form.errors.site_visit_date %}
+            <p style="color: #ef4444; font-size: 13px; margin-top: 4px;">{{ form.errors.site_visit_date.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div style="margin-bottom: var(--space-4);">
+            <label for="id_site_visit_notes" style="display: block; font-weight: 600; margin-bottom: 6px;">Site Notes</label>
+            {{ form.site_visit_notes }}
+            <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Internal notes only. Not shown on the estimate sent to the client.</p>
+            {% if form.errors.site_visit_notes %}
+            <p style="color: #ef4444; font-size: 13px; margin-top: 4px;">{{ form.errors.site_visit_notes.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div style="margin-bottom: var(--space-6);">
+            <label style="display: block; font-weight: 600; margin-bottom: 6px;">Photos</label>
+            <input type="file" name="photos" multiple accept="image/*" capture="environment"
+                   style="width: 100%; padding: 12px; font-size: 16px; border: 2px dashed var(--border); border-radius: var(--radius-md); cursor: pointer;">
+            <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Take photos or select from gallery. JPEG, PNG, WebP, HEIC accepted. Max 10 MB each.</p>
+        </div>
+
+        <div style="display: flex; gap: var(--space-3); flex-wrap: wrap;">
+            <button type="submit" class="btn btn-primary" style="min-height: 48px; padding: 12px 32px; font-size: 16px; font-weight: 600;">
+                Save to Queue
+            </button>
+            <a href="{% url 'billing:estimate_queue' %}" class="btn btn-secondary" style="min-height: 48px; padding: 12px 24px; font-size: 16px;">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

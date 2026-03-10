@@ -15,7 +15,7 @@ from accounts.decorators import role_required
 from accounts.utils import get_business
 from accounts.models import User
 from businesses.models import Business
-from jobs.models import Job, JobServiceItem, Crew
+from jobs.models import Job, JobServiceItem, Crew, JobIssue
 from billing.models import Invoice, Estimate
 from customers.models import ClientMessage, Customer
 from subscription.models import StripeWebhookEvent
@@ -579,17 +579,12 @@ def owner_dashboard(request):
     costs_this_month = receipts_this_month + labor_this_month
     profit_this_month = revenue_this_month - costs_this_month
 
-    # --- Client messages: latest only (read-only on dashboard), unread count ---
+    # --- Client emails: latest sent, read-only on dashboard ---
     client_messages = list(
         ClientMessage.objects.filter(customer__business=business)
         .select_related("customer")
         .order_by("-created_at")[:20]
     )
-    unread_messages_count = ClientMessage.objects.filter(
-        customer__business=business,
-        direction=ClientMessage.DIRECTION_RECEIVED,
-        is_read=False,
-    ).count()
 
     # --- Payroll balance: total to pay at next pay date (hours in current period × hourly rate) ---
     payroll_balance = None
@@ -678,6 +673,14 @@ def owner_dashboard(request):
     total_review_contacts = sum(review_stats.values())
     review_stats["review_conversion_pct"] = round((review_stats["review_completed"] / total_review_contacts) * 100, 1) if total_review_contacts else 0
 
+    # --- Quote queue: draft estimates with no line items ---
+    queue_count = (
+        Estimate.objects.filter(business=business, status="draft")
+        .annotate(line_count=Count("line_items"))
+        .filter(line_count=0)
+        .count()
+    )
+
     crew_user_count = User.objects.filter(business=business, role="crew", is_active=True).count()
     solo_plan_overage = business.subscription_plan_tier == "solo" and crew_user_count > 1
 
@@ -692,7 +695,7 @@ def owner_dashboard(request):
         changes_feed.append({"time": inv_time, "text": f"Invoice #{inv.id} ({inv.status}) · {inv.customer.name}"})
     recent_messages = ClientMessage.objects.filter(customer__business=business, created_at__gte=day_start).select_related("customer").order_by("-created_at")[:6]
     for msg in recent_messages:
-        changes_feed.append({"time": timezone.localtime(msg.created_at), "text": f"{msg.get_direction_display()} {msg.get_channel_display()} · {msg.customer.name}"})
+        changes_feed.append({"time": timezone.localtime(msg.created_at), "text": f"Email sent · {msg.customer.name}"})
     changes_feed = sorted(changes_feed, key=lambda x: x["time"], reverse=True)[:10]
 
     context = {
@@ -713,11 +716,11 @@ def owner_dashboard(request):
         "month_start": month_start,
         "month_end": month_end,
         "client_messages": client_messages,
-        "unread_messages_count": unread_messages_count,
         "payroll_balance": payroll_balance,
         "next_pay_date": next_pay_date,
         "pay_frequency_label": pay_frequency_label,
         "changes_feed": changes_feed,
+        "queue_count": queue_count,
         "crew_user_count": crew_user_count,
         "solo_plan_overage": solo_plan_overage,
         **review_stats,
@@ -891,4 +894,83 @@ def crew_day_detail(request, user_id):
         "jobs": jobs,
         "completed": completed,
         "total": total,
+    })
+
+
+# ── Morning Brief ────────────────────────────────────────────────────
+@role_required("owner", "manager")
+def morning_brief(request):
+    business = get_business(request)
+    if not business:
+        return redirect("owner_dashboard")
+
+    today = timezone.localdate()
+
+    # 1. Today's schedule
+    todays_jobs = (
+        Job.objects.filter(
+            property__customer__business=business,
+            scheduled_date=today,
+            status__in=["scheduled", "in_progress"],
+        )
+        .select_related("property__customer", "assigned_to", "assigned_crew")
+        .order_by("scheduled_time", "id")
+    )
+
+    # 2. Quote queue — draft estimates with 0 line items
+    queue = (
+        Estimate.objects.filter(business=business, status="draft")
+        .annotate(line_count=Count("line_items"))
+        .filter(line_count=0)
+        .select_related("customer")
+        .order_by("-created_at")
+    )
+
+    # 3. Overdue invoices
+    overdue_invoices = (
+        Invoice.objects.filter(
+            business=business,
+            status="sent",
+            due_date__lt=today,
+        )
+        .select_related("customer")
+        .order_by("due_date")
+    )
+
+    # 4. Open issues
+    open_issues = (
+        JobIssue.objects.filter(
+            status="open",
+            job__property__customer__business=business,
+        )
+        .select_related("job__property__customer", "reported_by")
+        .order_by("-created_at")[:10]
+    )
+
+    # 5. Estimates needing follow-up (sent but past valid_until)
+    followup_estimates = (
+        Estimate.objects.filter(
+            business=business,
+            status="sent",
+            valid_until__lt=today,
+        )
+        .select_related("customer")
+        .order_by("valid_until")
+    )
+
+    return render(request, "dashboard/morning_brief.html", {
+        "today": today,
+        "todays_jobs": todays_jobs,
+        "todays_jobs_count": todays_jobs.count(),
+        "queue": queue,
+        "queue_count": queue.count(),
+        "overdue_invoices": overdue_invoices,
+        "overdue_count": overdue_invoices.count(),
+        "overdue_total": overdue_invoices.aggregate(
+            total=Coalesce(Sum("total"), Decimal("0.00"))
+        )["total"],
+        "open_issues": open_issues,
+        "issues_count": open_issues.count(),
+        "followup_estimates": followup_estimates,
+        "followup_count": followup_estimates.count(),
     })

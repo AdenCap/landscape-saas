@@ -2017,3 +2017,103 @@ def property_fertilizer_history(request, property_id):
         "total_charged": total_charged,
         "total_profit": total_profit,
     })
+
+
+# ── Estimate Queue / Field Capture ──────────────────────────────────────
+
+
+@role_required("owner", "manager")
+@require_http_methods(["GET", "POST"])
+def field_capture(request):
+    """Quick mobile form: capture customer, title, notes, and photos during a site visit."""
+    from .forms import FieldCaptureForm
+
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    if request.method == "POST":
+        form = FieldCaptureForm(request.POST, business=business)
+        if form.is_valid():
+            estimate = form.save(commit=False)
+            estimate.business = business
+            estimate.status = "draft"
+            estimate.save()
+
+            # Handle multi-photo upload
+            ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+            MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
+            files = request.FILES.getlist("photos")
+            added = 0
+            for i, uploaded in enumerate(files):
+                if uploaded.content_type not in ALLOWED_IMAGE_TYPES:
+                    messages.warning(request, f"Skipped {uploaded.name}: invalid file type.")
+                    continue
+                if uploaded.size > MAX_UPLOAD_SIZE:
+                    messages.warning(request, f"Skipped {uploaded.name}: file too large (max 10 MB).")
+                    continue
+                EstimateImage.objects.create(
+                    estimate=estimate,
+                    image=uploaded,
+                    caption="",
+                    order=i,
+                )
+                added += 1
+
+            photo_msg = f" with {added} photo{'s' if added != 1 else ''}" if added else ""
+            messages.success(request, f"Field capture saved for {estimate.customer.name}{photo_msg}.")
+            return redirect("billing:estimate_queue")
+    else:
+        initial = {"site_visit_date": timezone.localdate()}
+        form = FieldCaptureForm(business=business, initial=initial)
+        customer_id = request.GET.get("customer")
+        if customer_id:
+            try:
+                cust = Customer.objects.get(id=customer_id, business=business)
+                form.initial["customer"] = cust.id
+            except (Customer.DoesNotExist, ValueError):
+                pass
+
+    return render(request, "billing/field_capture.html", {"form": form})
+
+
+@role_required("owner", "manager")
+def estimate_queue(request):
+    """List draft estimates with zero line items — quotes that need completing."""
+    from django.db.models import Count
+
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    queue = (
+        Estimate.objects.filter(business=business, status="draft")
+        .annotate(line_count=Count("line_items"))
+        .filter(line_count=0)
+        .select_related("customer")
+        .prefetch_related("images")
+        .order_by("-created_at")
+    )
+
+    return render(request, "billing/estimate_queue.html", {
+        "queue": queue,
+        "today": timezone.localdate(),
+    })
+
+
+@role_required("owner", "manager")
+@require_POST
+def estimate_queue_discard(request, estimate_id):
+    """Delete a draft estimate from the queue."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    estimate = get_object_or_404(Estimate, id=estimate_id, business=business, status="draft")
+    customer_name = estimate.customer.name
+    estimate.delete()
+    messages.success(request, f"Discarded draft for {customer_name}.")
+    return redirect("billing:estimate_queue")

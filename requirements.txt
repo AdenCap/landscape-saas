@@ -17,3 +17,4 @@ qrcode>=7.0
 vercel_blob>=0.4.0
 stripe>=8.0
 sentry-sdk>=2.0
+django-allauth[socialaccount]>=65.0

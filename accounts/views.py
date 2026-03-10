@@ -21,6 +21,7 @@ from accounts.forms import (
     EmployeePaymentForm,
     SignUpForm,
     SendNotificationForm,
+    SocialSignupCompleteForm,
 )
 from accounts.models import EmployeePayment, Notification
 from businesses.models import Business
@@ -101,6 +102,38 @@ def signup(request):
         "form": form,
         "business_type": business_type,
         "business_type_label": type_label,
+    })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def social_signup_complete(request):
+    """After social signup, collect business name and type to create a Business."""
+    if request.user.business:
+        return redirect("/subscription/status/")
+
+    if not request.session.get("social_signup_pending"):
+        return redirect("/")
+
+    if request.method == "POST":
+        form = SocialSignupCompleteForm(request.POST)
+        if form.is_valid():
+            business = Business.objects.create(
+                name=form.cleaned_data["business_name"],
+                business_type=form.cleaned_data["business_type"],
+            )
+            request.user.business = business
+            request.user.role = "owner"
+            request.user.save(update_fields=["business", "role"])
+            request.session.pop("social_signup_pending", None)
+            messages.success(request, f"Welcome! Your business '{business.name}' is set up.")
+            return redirect("/subscription/status/")
+    else:
+        form = SocialSignupCompleteForm()
+
+    return render(request, "registration/social_signup_complete.html", {
+        "form": form,
+        "business_types": BUSINESS_TYPE_INFO,
     })
 
 

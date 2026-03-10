@@ -39,6 +39,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/db-check/", db_check),
     path("accounts/", include("accounts.auth_urls")),
+    path("accounts/social/", include("allauth.urls")),
 
     # Platform admin: list businesses and enter any dashboard
     path("platform/", platform_home, name="platform_home"),

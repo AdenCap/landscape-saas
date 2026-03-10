@@ -6,6 +6,34 @@ from .models import Estimate, EstimateLineItem, EstimateImage, Invoice, InvoiceL
 from customers.models import Customer
 
 
+class FieldCaptureForm(forms.ModelForm):
+    """Quick mobile form for capturing estimate info during a site visit."""
+    class Meta:
+        model = Estimate
+        fields = ['customer', 'title', 'site_visit_date', 'site_visit_notes']
+        widgets = {
+            'site_visit_date': forms.DateInput(attrs={'type': 'date'}),
+            'site_visit_notes': forms.Textarea(attrs={
+                'rows': 5,
+                'placeholder': 'Measurements, conditions, access notes, special requirements...',
+            }),
+            'title': forms.TextInput(attrs={
+                'placeholder': 'e.g. Spring cleanup, Mulch install, Lawn treatment',
+            }),
+        }
+        labels = {
+            'site_visit_date': 'Visit Date',
+            'site_visit_notes': 'Site Notes',
+            'title': 'Job Description',
+        }
+
+    def __init__(self, *args, **kwargs):
+        business = kwargs.pop('business', None)
+        super().__init__(*args, **kwargs)
+        if business:
+            self.fields['customer'].queryset = Customer.objects.filter(business=business).order_by('name')
+
+
 class EstimateForm(forms.ModelForm):
     class Meta:
         model = Estimate

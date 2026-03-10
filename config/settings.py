@@ -84,9 +84,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
 
     'django_otp',
     'django_otp.plugins.otp_totp',
+
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.apple',
 
     'accounts',
     'businesses',
@@ -107,6 +114,8 @@ INSTALLED_APPS = [
     'checklists',
     'inspections',
 ]
+
+SITE_ID = 1
 
 # Stripe: platform subscription (business pays you) + Connect (businesses accept invoice payments)
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
@@ -133,6 +142,7 @@ _middleware += [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
     'django_otp.middleware.OTPMiddleware',
     'subscription.middleware.SubscriptionRequiredMiddleware',
     'businesses.middleware.TimezoneMiddleware',
@@ -159,6 +169,7 @@ TEMPLATES = [
                 'messaging.context_processors.messaging_unread_count',
                 'businesses.context_processors.terminology',
                 'businesses.context_processors.navigation',
+                'billing.context_processors.estimate_queue_count',
             ],
         },
     },
@@ -343,6 +354,43 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 # Two-factor auth (optional): pip install django-otp qrcode, then add apps & OTPMiddleware
 # OTP_LOGIN_URL = '/accounts/verify/'
 # OTP_TOTP_ISSUER = 'Tradevo'
+
+# ── Authentication backends ─────────────────────────────────────────────
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# ── Social auth (django-allauth) ────────────────────────────────────────
+ACCOUNT_USER_MODEL_USERNAME_FIELD = "username"
+ACCOUNT_LOGIN_METHODS = {"username"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_ADAPTER = "accounts.adapters.AccountAdapter"
+SOCIALACCOUNT_ADAPTER = "accounts.adapters.SocialAccountAdapter"
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_STORE_TOKENS = False
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+        "APP": {
+            "client_id": os.environ.get("GOOGLE_OAUTH_CLIENT_ID", ""),
+            "secret": os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", ""),
+        },
+    },
+    "apple": {
+        "APP": {
+            "client_id": os.environ.get("APPLE_CLIENT_ID", ""),
+            "secret": os.environ.get("APPLE_CLIENT_SECRET", ""),
+            "key": os.environ.get("APPLE_KEY_ID", ""),
+            "certificate_key": os.environ.get("APPLE_PRIVATE_KEY", ""),
+        },
+        "SCOPE": ["name", "email"],
+    },
+}
 
 # Email - each business configures Gmail in Settings; fallback for non-email use
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

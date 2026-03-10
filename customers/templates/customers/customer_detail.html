@@ -28,7 +28,6 @@
         {% if customer.email %}
         <form method="post" action="{% url 'customer_send_message' customer.id %}" style="display: inline;">
           {% csrf_token %}
-          <input type="hidden" name="channel" value="email">
           <input type="hidden" name="subject" value="Your Customer Portal Access - {{ business.name }}">
           <input type="hidden" name="body" value="Hi {{ customer.name }},
 
@@ -120,39 +119,33 @@ Thank you for choosing {{ business.name }}!">
   </div>
 
   <div class="card card-communication">
-    <h2 class="card-title">Communication</h2>
-    <p class="card-subtitle">Send a message and view all correspondence in one place.</p>
+    <h2 class="card-title">Email</h2>
+    <p class="card-subtitle">Send an email and view all correspondence.</p>
     <form method="post" action="{% url 'customer_send_message' customer.id %}" class="send-message-form">
       {% csrf_token %}
       <div class="form-group">
-        <label for="id_channel">Send via</label>
-        {{ send_message_form.channel }}
-      </div>
-      <div class="form-group form-group-subject">
-        <label for="id_subject">Subject <span class="muted">(email only)</span></label>
+        <label for="id_subject">Subject</label>
         {{ send_message_form.subject }}
       </div>
       <div class="form-group">
         <label for="id_body">Message</label>
         {{ send_message_form.body }}
       </div>
-      <button type="submit" class="btn btn-primary">Send message</button>
+      <button type="submit" class="btn btn-primary">Send email</button>
     </form>
-    <h3 class="comm-history-title">Message history</h3>
+    <h3 class="comm-history-title">Email history</h3>
     <div id="message-history" class="message-history">
       {% for msg in client_messages %}
-      <div class="message-row message-{{ msg.direction }} message-{{ msg.channel }}">
+      <div class="message-row message-{{ msg.direction }}">
         <div class="message-meta">
           <span class="message-date">{{ msg.created_at|date:"M j, Y g:i A" }}</span>
-          <span class="message-channel">{{ msg.get_channel_display }}</span>
-          <span class="message-direction badge badge-{{ msg.direction }}">{{ msg.get_direction_display }}</span>
           {% if msg.to_address %}<span class="message-to">→ {{ msg.to_address }}</span>{% endif %}
         </div>
         {% if msg.subject %}<div class="message-subject">{{ msg.subject }}</div>{% endif %}
         <div class="message-body">{{ msg.body|truncatewords:40 }}</div>
       </div>
       {% empty %}
-      <p class="no-messages">No messages yet. Send an email or text above to start the log.</p>
+      <p class="no-messages">No emails sent yet. Compose one above to get started.</p>
       {% endfor %}
     </div>
   </div>

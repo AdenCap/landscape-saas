@@ -61,6 +61,15 @@
       <a href="{% url 'job_list' %}" class="btn btn-secondary btn-sm">Jobs</a>
     </div>
   </div>
+  <div class="kpi-card card {% if queue_count %}kpi-card-overdue{% endif %}">
+    <div class="kpi-label">Quote queue</div>
+    <div class="kpi-value">{{ queue_count }}</div>
+    <div class="kpi-sub">Drafts needing line items</div>
+    <div class="kpi-actions">
+      <a href="{% url 'billing:estimate_queue' %}" class="btn btn-secondary btn-sm">View Queue</a>
+      <a href="{% url 'billing:field_capture' %}" class="btn btn-secondary btn-sm">Field Capture</a>
+    </div>
+  </div>
   <div class="kpi-card card kpi-card-work-completed">
     <div class="kpi-label">Work completed this month</div>
     <div class="kpi-value">${{ work_completed_this_month }}</div>
@@ -117,31 +126,26 @@
 </div>
 
 <div class="dashboard-section card">
-  <h2 class="card-title">
-    Client messages
-    {% if unread_messages_count %}<span class="unread-badge">{{ unread_messages_count }} unread</span>{% endif %}
-  </h2>
-  <p class="card-subtitle">Latest messages — reply from the client profile</p>
+  <h2 class="card-title">Email log</h2>
+  <p class="card-subtitle">Recent emails sent to clients</p>
 
   {% if client_messages %}
   <div class="message-list">
     {% for msg in client_messages %}
-    <div class="message-row message-{{ msg.direction }}{% if msg.direction == 'received' and not msg.is_read %} message-unread{% endif %}">
+    <div class="message-row message-sent">
       <div class="message-meta">
-        <a href="{% url 'customer_detail' msg.customer.id %}#message-history" class="link-primary message-client">{{ msg.customer.name }}</a>
+        <a href="{% url 'customer_detail' msg.customer.id %}" class="link-primary message-client">{{ msg.customer.name }}</a>
         <span class="message-date">{{ msg.created_at|date:"M j, Y g:i A" }}</span>
-        <span class="message-channel">{{ msg.get_channel_display }}</span>
-        <span class="badge badge-{{ msg.direction }}">{{ msg.get_direction_display }}</span>
-        {% if msg.to_address %}<span class="message-to">{{ msg.to_address }}</span>{% endif %}
+        {% if msg.to_address %}<span class="message-to">→ {{ msg.to_address }}</span>{% endif %}
       </div>
       {% if msg.subject %}<div class="message-subject">{{ msg.subject }}</div>{% endif %}
       <div class="message-body">{{ msg.body|truncatewords:40 }}</div>
-      <a href="{% url 'customer_detail' msg.customer.id %}#message-history" class="btn btn-secondary btn-sm">View client</a>
+      <a href="{% url 'customer_detail' msg.customer.id %}" class="btn btn-secondary btn-sm">View client</a>
     </div>
     {% endfor %}
   </div>
   {% else %}
-  <p class="no-messages">No messages yet.</p>
+  <p class="no-messages">No emails sent yet.</p>
   {% endif %}
 </div>
 
@@ -171,19 +175,12 @@
   .change-feed li { color: var(--text-muted); }
   .change-time { color: var(--text); font-weight: 600; margin-right: 8px; }
   .message-list { display: flex; flex-direction: column; gap: 16px; }
-  .message-row { padding: 16px; border-radius: 10px; border-left: 4px solid var(--border); background: rgba(38, 38, 38, 0.5); }
-  .message-row.message-sent { border-left-color: var(--primary); }
-  .message-row.message-received { border-left-color: #3b82f6; }
+  .message-row { padding: 16px; border-radius: 10px; border-left: 4px solid var(--primary); background: rgba(38, 38, 38, 0.5); }
   .message-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
   .message-client { font-weight: 600; }
   .message-subject { font-weight: 600; margin-bottom: 6px; }
   .message-body { font-size: 14px; white-space: pre-wrap; word-break: break-word; color: var(--text); margin-bottom: 10px; }
   .no-messages { color: var(--text-muted); font-style: italic; margin: 0; }
-  .badge-sent { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .badge-received { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; }
-  .unread-badge { display: inline-block; margin-left: 10px; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; background: #3b82f6; color: #fff; }
-  .message-row.message-unread { background: rgba(59, 130, 246, 0.12); border-left-color: #3b82f6; }
   @media (min-width: 769px) {
     .page-header h1 { font-size: 30px; }
     .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }

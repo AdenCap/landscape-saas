@@ -2,16 +2,13 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>Client messaging</h1>
-  <p>View and manage all client messages in one place</p>
-  {% if unread_messages_count %}
-  <p class="unread-notice"><strong>{{ unread_messages_count }} unread</strong> message{{ unread_messages_count|pluralize }}</p>
-  {% endif %}
+  <h1>Email Log</h1>
+  <p>All emails sent to clients</p>
 </div>
 
 <div class="card messages-toolbar-card">
   <form method="get" action="{% url 'client_messages_list' %}" class="search-form">
-    <input type="search" name="q" value="{{ messages_search_q }}" placeholder="Search by client name, message content..." class="form-control search-input">
+    <input type="search" name="q" value="{{ messages_search_q }}" placeholder="Search by client name, subject, content..." class="form-control search-input">
     <button type="submit" class="btn btn-primary">Search</button>
     {% if messages_search_q %}
     <a href="{% url 'client_messages_list' %}" class="btn btn-secondary">Clear</a>
@@ -20,7 +17,7 @@
 </div>
 
 <div class="card send-new-card">
-  <h2 class="card-title">Send new message</h2>
+  <h2 class="card-title">Send new email</h2>
   <form method="post" action="" id="send-new-form" class="send-message-form" data-send-url="{% url 'customer_send_message' 999 %}">
     {% csrf_token %}
     <input type="hidden" name="next" value="{% url 'client_messages_list' %}">
@@ -34,45 +31,38 @@
       </select>
     </div>
     <div class="form-row">
-      <label for="id_channel">Channel</label>
-      {{ send_message_form.channel }}
-    </div>
-    <div class="form-row form-row-subject">
-      <label for="id_subject">Subject (email only)</label>
-      {{ send_message_form.subject }}
+      <label for="id_subject">Subject</label>
+      <input type="text" name="subject" id="id_subject" class="form-control" placeholder="Subject" maxlength="255">
     </div>
     <div class="form-row">
       <label for="id_body">Message</label>
-      {{ send_message_form.body }}
+      <textarea name="body" id="id_body" class="form-control" rows="4" placeholder="Your message..." required></textarea>
     </div>
-    <button type="submit" class="btn btn-primary">Send</button>
+    <button type="submit" class="btn btn-primary">Send email</button>
   </form>
 </div>
 
 <div class="card messages-list-card">
-  <h2 class="card-title">All messages</h2>
+  <h2 class="card-title">All emails</h2>
   {% if client_messages %}
   <div class="message-list">
     {% for msg in client_messages %}
-    <div class="message-row message-{{ msg.direction }}{% if msg.direction == 'received' and not msg.is_read %} message-unread{% endif %}">
+    <div class="message-row message-sent">
       <div class="message-meta">
-        <a href="{% url 'customer_detail' msg.customer.id %}#message-history" class="link-primary message-client">{{ msg.customer.name }}</a>
+        <a href="{% url 'customer_detail' msg.customer.id %}" class="link-primary message-client">{{ msg.customer.name }}</a>
         <span class="message-date">{{ msg.created_at|date:"M j, Y g:i A" }}</span>
-        <span class="message-channel">{{ msg.get_channel_display }}</span>
-        <span class="badge badge-{{ msg.direction }}">{{ msg.get_direction_display }}</span>
-        {% if msg.to_address %}<span class="message-to">{{ msg.to_address }}</span>{% endif %}
+        {% if msg.to_address %}<span class="message-to">→ {{ msg.to_address }}</span>{% endif %}
       </div>
       {% if msg.subject %}<div class="message-subject">{{ msg.subject }}</div>{% endif %}
       <div class="message-body">{{ msg.body|truncatewords:50 }}</div>
       <div class="message-actions">
         <button type="button" class="btn btn-secondary btn-sm reply-toggle">Reply</button>
-        <a href="{% url 'customer_detail' msg.customer.id %}#message-history" class="btn btn-secondary btn-sm">View client</a>
+        <a href="{% url 'customer_detail' msg.customer.id %}" class="btn btn-secondary btn-sm">View client</a>
       </div>
       <div class="reply-form-wrap" id="reply-wrap-{{ msg.id }}" hidden>
         <form method="post" action="{% url 'customer_send_message' msg.customer.id %}" class="reply-form">
           {% csrf_token %}
           <input type="hidden" name="next" value="{% url 'client_messages_list' %}">
-          <input type="hidden" name="channel" value="email">
           <input type="hidden" name="subject" value="Re: {{ msg.subject|truncatechars:240|default:'' }}">
           <label for="reply-body-{{ msg.id }}">Reply to {{ msg.customer.name }}</label>
           <textarea name="body" id="reply-body-{{ msg.id }}" rows="3" class="form-control" placeholder="Your reply..." required></textarea>
@@ -84,7 +74,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <p class="no-messages">No messages yet. Use “Send new message” above or go to a client profile to send an email or text.</p>
+  <p class="no-messages">No emails sent yet. Use "Send new email" above or go to a client profile to send one.</p>
   {% endif %}
 </div>
 
@@ -117,7 +107,6 @@
 </script>
 
 <style>
-  .unread-notice { margin-top: 4px; color: #3b82f6; font-size: 14px; }
   .messages-toolbar-card { margin-bottom: 20px; }
   .search-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .search-input { min-width: 260px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); }
@@ -125,12 +114,8 @@
   .send-message-form .form-row { margin-bottom: 12px; }
   .send-message-form .form-row label { display: block; font-size: 13px; margin-bottom: 4px; color: var(--text-muted); }
   .send-message-form .form-control, .send-message-form .form-select { width: 100%; max-width: 400px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); }
-  .form-row-subject .form-control { max-width: 100%; }
   .message-list { display: flex; flex-direction: column; gap: 16px; }
-  .message-row { padding: 16px; border-radius: 10px; border-left: 4px solid var(--border); background: rgba(38, 38, 38, 0.5); }
-  .message-row.message-sent { border-left-color: var(--primary); }
-  .message-row.message-received { border-left-color: #3b82f6; }
-  .message-row.message-unread { background: rgba(59, 130, 246, 0.12); border-left-color: #3b82f6; }
+  .message-row { padding: 16px; border-radius: 10px; border-left: 4px solid var(--primary); background: rgba(38, 38, 38, 0.5); }
   .message-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
   .message-client { font-weight: 600; }
   .message-subject { font-weight: 600; margin-bottom: 6px; }
@@ -141,8 +126,5 @@
   .reply-form textarea { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); margin-bottom: 8px; }
   .reply-form .btn { margin-right: 8px; }
   .no-messages { color: var(--text-muted); font-style: italic; margin: 0; }
-  .badge-sent { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .badge-received { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; }
 </style>
 {% endblock %}
