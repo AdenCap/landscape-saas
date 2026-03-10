@@ -928,11 +928,15 @@ def resend_invoice(request, invoice_id):
 @role_required("owner", "manager")
 def estimate_list(request):
     from datetime import timedelta
-    
+    from django.db.models import Count
+
     business = _get_business(request)
     if not business:
         messages.error(request, "You must be associated with a business.")
         return redirect("/")
+
+    tab = request.GET.get("tab", "estimates")
+
     estimates = Estimate.objects.filter(business=business).select_related("customer").order_by("-created_at")
 
     status_filter = request.GET.get("status") or "pending"
@@ -950,10 +954,24 @@ def estimate_list(request):
         created_at__lt=stale_cutoff,
     ).select_related("customer").order_by("created_at")[:6]
 
+    # Quote queue: draft estimates with zero line items
+    queue = (
+        Estimate.objects.filter(business=business, status="draft")
+        .annotate(line_count=Count("line_items"))
+        .filter(line_count=0)
+        .select_related("customer")
+        .prefetch_related("images")
+        .order_by("-created_at")
+    )
+
     return render(request, "billing/estimate_list.html", {
         "estimates": estimates,
         "status_filter": status_filter,
         "stuck_quotes": stuck_quotes,
+        "tab": tab,
+        "queue": queue,
+        "queue_count": queue.count(),
+        "today": timezone.localdate(),
     })
 
 
@@ -2080,27 +2098,8 @@ def field_capture(request):
 
 @role_required("owner", "manager")
 def estimate_queue(request):
-    """List draft estimates with zero line items — quotes that need completing."""
-    from django.db.models import Count
-
-    business = _get_business(request)
-    if not business:
-        messages.error(request, "You must be associated with a business.")
-        return redirect("/")
-
-    queue = (
-        Estimate.objects.filter(business=business, status="draft")
-        .annotate(line_count=Count("line_items"))
-        .filter(line_count=0)
-        .select_related("customer")
-        .prefetch_related("images")
-        .order_by("-created_at")
-    )
-
-    return render(request, "billing/estimate_queue.html", {
-        "queue": queue,
-        "today": timezone.localdate(),
-    })
+    """Redirect to the combined estimates page with queue tab active."""
+    return redirect("/billing/estimates/?tab=queue")
 
 
 @role_required("owner", "manager")
@@ -2116,4 +2115,4 @@ def estimate_queue_discard(request, estimate_id):
     customer_name = estimate.customer.name
     estimate.delete()
     messages.success(request, f"Discarded draft for {customer_name}.")
-    return redirect("billing:estimate_queue")
+    return redirect("/billing/estimates/?tab=queue")

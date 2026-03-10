@@ -9,21 +9,92 @@
       <p class="estimate-page-subtitle">Create and send professional quotes to customers</p>
     </div>
     <div class="estimate-header-actions">
+      {% if tab == "queue" %}
+      <a href="{% url 'billing:field_capture' %}" class="btn btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        New Field Capture
+      </a>
+      {% else %}
       <a href="/settings/" class="btn btn-secondary">Settings</a>
       <a href="{% url 'billing:estimate_create' %}" class="btn btn-primary">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         New estimate
       </a>
+      {% endif %}
     </div>
   </header>
 
   <div class="billing-tabs" style="margin-bottom: 16px;">
-    <a href="{% url 'billing:estimate_list' %}" class="billing-tab {% if '/billing/estimates' in request.path and '/estimator' not in request.path %}active{% endif %}">Estimates</a>
+    <a href="{% url 'billing:estimate_list' %}" class="billing-tab {% if tab == 'estimates' %}active{% endif %}">Estimates</a>
+    <a href="{% url 'billing:estimate_list' %}?tab=queue" class="billing-tab {% if tab == 'queue' %}active{% endif %}">
+      Quote Queue{% if queue_count %} <span class="queue-badge">{{ queue_count }}</span>{% endif %}
+    </a>
     <a href="{% url 'estimator_index' %}" class="billing-tab {% if '/estimator' in request.path %}active{% endif %}">Estimator Tools</a>
     <a href="{% url 'billing:fertilizer_products_list' %}" class="billing-tab {% if '/fertilizer-products' in request.path %}active{% endif %}">Fertilizer Products</a>
     <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="billing-tab {% if '/templates/estimate' in request.path %}active{% endif %}">Estimate template editor</a>
   </div>
 
+  {% if tab == "queue" %}
+  {# ── Quote Queue ─────────────────────────────────────────────── #}
+  {% if queue %}
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    {% for item in queue %}
+    <div class="card queue-card">
+      <div class="queue-card-info">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <strong style="font-size:17px;">{{ item.customer.name }}</strong>
+          {% if item.created_at.date == today %}
+          <span class="queue-tag queue-tag-today">Today</span>
+          {% else %}
+          <span class="queue-tag queue-tag-age">{{ item.created_at|timesince }} ago</span>
+          {% endif %}
+        </div>
+        <p style="margin:0 0 6px;color:var(--text-secondary);">{{ item.title }}</p>
+        {% if item.site_visit_date %}
+        <p style="margin:0 0 6px;font-size:14px;color:var(--text-muted);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Site visit: {{ item.site_visit_date|date:"M j, Y" }}
+        </p>
+        {% endif %}
+        {% if item.site_visit_notes %}
+        <p style="margin:0 0 6px;font-size:14px;color:var(--text-muted);">{{ item.site_visit_notes|truncatewords:30 }}</p>
+        {% endif %}
+        {% if item.images.count > 0 %}
+        <p style="margin:0;font-size:13px;color:var(--text-muted);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          {{ item.images.count }} photo{{ item.images.count|pluralize }}
+        </p>
+        {% endif %}
+      </div>
+      <div class="queue-card-actions">
+        <a href="{% url 'billing:estimate_edit' item.id %}" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;padding:10px 18px;font-weight:600;min-height:40px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Complete Quote
+        </a>
+        <form method="post" action="{% url 'billing:estimate_queue_discard' item.id %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-secondary" style="padding:10px 14px;min-height:40px;color:var(--text-muted);" onclick="return confirm('Discard this draft for {{ item.customer.name }}?')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:48px 24px;">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="margin:0 auto 16px;display:block;"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+    <h3 style="margin:0 0 8px;">No quotes waiting</h3>
+    <p style="color:var(--text-muted);margin:0 0 20px;">Start a field capture when you visit a client to add items here.</p>
+    <a href="{% url 'billing:field_capture' %}" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;font-weight:600;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      New Field Capture
+    </a>
+  </div>
+  {% endif %}
+
+  {% else %}
+  {# ── Estimates List ──────────────────────────────────────────── #}
   <div class="estimate-filters">
     <a href="?status=pending" class="filter-pill {% if status_filter == 'pending' %}active{% endif %}">Pending</a>
     <a href="?status=accepted" class="filter-pill {% if status_filter == 'accepted' %}active{% endif %}">Accepted</a>
@@ -33,7 +104,7 @@
   {% if stuck_quotes %}
   <div class="card" style="padding:14px; margin-bottom:14px;">
     <h3 style="margin:0 0 8px; font-size:16px;">Stuck quote nudges</h3>
-    <p style="margin:0 0 10px; color:var(--text-muted); font-size:14px;">These quotes have been idle for 5+ days. Suggested text: “Just checking in — want me to lock this in for next week?”</p>
+    <p style="margin:0 0 10px; color:var(--text-muted); font-size:14px;">These quotes have been idle for 5+ days. Suggested text: "Just checking in — want me to lock this in for next week?"</p>
     <div style="display:grid; gap:8px;">
       {% for q in stuck_quotes %}
       <div style="display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; border:1px solid var(--border); border-radius:10px; padding:10px;">
@@ -90,6 +161,7 @@
     </div>
     {% endif %}
   </div>
+  {% endif %}
 </div>
 
 <style>
@@ -119,7 +191,9 @@
   .billing-tabs::-webkit-scrollbar { height: 6px; }
   .billing-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
   .billing-tab {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 9px 18px;
     font-size: 15px;
     font-weight: 500;
@@ -129,9 +203,23 @@
     background: var(--surface);
     border: 1px solid var(--border);
     transition: all 0.15s ease;
+    white-space: nowrap;
   }
   .billing-tab:hover { color: var(--text); border-color: var(--text-muted); transform: translateY(-1px); }
   .billing-tab.active { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+  .queue-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 10px;
+    background: var(--primary);
+    color: var(--bg);
+  }
 
   .estimate-filters {
     display: flex;
@@ -175,13 +263,18 @@
   .estimate-table .col-actions .btn-sm { margin-left: 6px; }
   .estimate-table .col-actions .btn-sm:first-child { margin-left: 0; }
 
-  .estimate-empty {
-    text-align: center;
-    padding: 48px 24px;
+  .queue-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
   }
-  .estimate-empty-title { font-size: 20px; font-weight: 600; margin: 0 0 8px 0; }
-  .estimate-empty-text { color: var(--text-muted); margin: 0 0 20px 0; font-size: 16px; }
-  .estimate-empty .btn { margin-top: 4px; }
+  .queue-card-info { flex: 1; min-width: 240px; }
+  .queue-card-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .queue-tag { font-size: 12px; padding: 2px 8px; border-radius: 6px; }
+  .queue-tag-today { background: rgba(59,130,246,0.2); color: #93c5fd; }
+  .queue-tag-age { background: rgba(234,179,8,0.2); color: #fde047; }
 
   .badge-draft { background: rgba(163, 163, 163, 0.2); color: #a3a3a3; }
   .badge-sent { background: rgba(234, 179, 8, 0.2); color: #fde047; }
@@ -200,6 +293,9 @@
     .estimate-filters { overflow-x: auto; padding-bottom: 2px; }
     .filter-pill { white-space: nowrap; }
     .estimate-table th, .estimate-table td { padding: 12px 10px; font-size: 14px; }
+    .queue-card { gap: 12px; }
+    .queue-card-actions { width: 100%; }
+    .queue-card-actions .btn { flex: 1; justify-content: center; }
   }
 </style>
 {% endblock %}

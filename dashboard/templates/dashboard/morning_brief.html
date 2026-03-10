@@ -46,7 +46,7 @@
       Quotes to complete
       {% if queue_count %}<span class="brief-badge brief-badge-warn">{{ queue_count }}</span>{% else %}<span class="brief-badge">0</span>{% endif %}
     </div>
-    <a href="{% url 'billing:estimate_queue' %}" class="btn btn-secondary btn-sm">View Queue</a>
+    <a href="/billing/estimates/?tab=queue" class="btn btn-secondary btn-sm">View Queue</a>
   </div>
   {% if queue %}
   <div class="brief-table">
