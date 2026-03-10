@@ -177,6 +177,44 @@
   </div>
 </div>
 
+<!-- Site Photos -->
+<div class="card" style="margin-bottom: 20px;">
+  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+    Site Photos ({{ site_photos|length }})
+    <a href="{% url 'upload_job_photo' job.id %}" class="btn btn-secondary btn-sm">Add Photo</a>
+  </h2>
+  {% if site_photos %}
+  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+    <button type="button" class="btn btn-sm photo-filter-btn active" data-cat="all" onclick="filterPhotos('all', this)">All</button>
+    <button type="button" class="btn btn-sm photo-filter-btn" data-cat="before" onclick="filterPhotos('before', this)">Before</button>
+    <button type="button" class="btn btn-sm photo-filter-btn" data-cat="during" onclick="filterPhotos('during', this)">During</button>
+    <button type="button" class="btn btn-sm photo-filter-btn" data-cat="after" onclick="filterPhotos('after', this)">After</button>
+    <button type="button" class="btn btn-sm photo-filter-btn" data-cat="issue" onclick="filterPhotos('issue', this)">Issue</button>
+  </div>
+  <div class="site-photos-grid" style="display: flex; flex-wrap: wrap; gap: 12px;">
+    {% for p in site_photos %}
+    <div class="site-photo-item" data-category="{{ p.category }}" style="position: relative; display: inline-block;">
+      <a href="{{ p.image.url }}" target="_blank" rel="noopener" style="display: block;">
+        <img src="{{ p.image.url }}" alt="{{ p.get_category_display }}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border);">
+      </a>
+      <span style="position:absolute; top:4px; left:4px; background:rgba(0,0,0,.6); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; text-transform:uppercase;">{{ p.get_category_display }}</span>
+      {% if request.user.role == "owner" or request.user.role == "manager" %}
+      <form method="post" action="{% url 'delete_job_photo' job.id p.id %}" style="position:absolute; top:4px; right:4px;" onsubmit="return confirm('Delete this photo?')">
+        {% csrf_token %}
+        <button type="submit" style="background:rgba(0,0,0,.6); color:#fff; border:none; border-radius:50%; width:22px; height:22px; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
+      </form>
+      {% endif %}
+      {% if p.caption %}
+      <div style="font-size:11px; color:var(--text-muted); margin-top:4px; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ p.caption }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="margin: 0; color: var(--text-muted);">No site photos yet.</p>
+  {% endif %}
+</div>
+
 <div class="card" style="margin-bottom: 20px;">
   <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
     Completion photos
@@ -361,5 +399,18 @@
 
   loadNotes();
 })();
+
+// --- Site photo category filter ---
+window.filterPhotos = function(cat, btn) {
+  document.querySelectorAll('.photo-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  document.querySelectorAll('.site-photo-item').forEach(function(el) {
+    el.style.display = (cat === 'all' || el.dataset.category === cat) ? '' : 'none';
+  });
+};
 </script>
+<style>
+  .photo-filter-btn { background: var(--surface-alt); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; }
+  .photo-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+</style>
 {% endblock %}

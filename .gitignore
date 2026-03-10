@@ -5,6 +5,7 @@ __pycache__/
 
 # Virtual environment (do not commit - causes build issues on deploy)
 venv/
+venv_mac/
 venv_windows/
 vevn/
 .venv/

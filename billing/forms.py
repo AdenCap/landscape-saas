@@ -9,10 +9,16 @@ from customers.models import Customer
 class EstimateForm(forms.ModelForm):
     class Meta:
         model = Estimate
-        fields = ['customer', 'title', 'valid_until', 'notes']
+        fields = ['customer', 'title', 'valid_until', 'notes', 'site_visit_date', 'site_visit_notes']
         widgets = {
             'valid_until': forms.DateInput(attrs={'type': 'date'}),
             'notes': forms.Textarea(attrs={'rows': 3}),
+            'site_visit_date': forms.DateInput(attrs={'type': 'date'}),
+            'site_visit_notes': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Measurements, conditions, access notes, special requirements...'}),
+        }
+        labels = {
+            'site_visit_date': 'Site Visit Date',
+            'site_visit_notes': 'Site Visit Notes',
         }
 
     def __init__(self, *args, **kwargs):

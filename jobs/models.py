@@ -239,6 +239,35 @@ class JobCompletionPhoto(models.Model):
         ordering = ["-captured_at"]
 
 
+class JobPhoto(models.Model):
+    """Site photo for a job. Categorized as before/during/after/issue/general. Visible to all crew on the job."""
+    CATEGORY_CHOICES = [
+        ('before', 'Before'),
+        ('during', 'During'),
+        ('after', 'After'),
+        ('issue', 'Issue'),
+        ('general', 'General'),
+    ]
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="site_photos")
+    image = models.ImageField(upload_to="job_photos/%Y/%m/")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='general')
+    caption = models.CharField(max_length=255, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_job_photos",
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+
+    def __str__(self):
+        return f"{self.get_category_display()} photo for Job #{self.job_id}"
+
+
 class JobAssignmentLog(models.Model):
     """Audit: who changed job assignment (assigned_to / assigned_crew) and when."""
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="assignment_logs")

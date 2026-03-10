@@ -32,6 +32,8 @@ urlpatterns = [
     path('<int:job_id>/complete/', views.complete_job, name='complete_job'),
     path('<int:job_id>/report-issue/', views.report_issue, name='report_issue'),
     path('<int:job_id>/upload-completion-photo/', views.upload_completion_photo, name='upload_completion_photo'),
+    path('<int:job_id>/photos/upload/', views.upload_job_photo, name='upload_job_photo'),
+    path('<int:job_id>/photos/<int:photo_id>/delete/', views.delete_job_photo, name='delete_job_photo'),
     path('issues/<int:issue_id>/resolve/', views.resolve_issue, name='resolve_issue'),
 
     path("<int:job_id>/", views.job_detail, name="job_detail"),

@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.core import signing
 from django.core.mail import EmailMultiAlternatives
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
@@ -174,7 +175,7 @@ def customer_create(request):
             messages.success(request, f"Client '{customer.name}' added successfully.")
             next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
             if next_url == "estimate_and_select":
-                return redirect("billing:estimate_create" + "?customer=" + str(customer.id))
+                return redirect(reverse("billing:estimate_create") + "?customer=" + str(customer.id))
             safe_next = _safe_next(request, next_url)
             if safe_next:
                 return redirect(safe_next)
@@ -627,6 +628,7 @@ def customer_portal(request, token):
         "jobs": jobs,
         "invoices": invoices,
         "properties": properties,
+        "token": token,
     })
 
 
@@ -808,4 +810,62 @@ def public_booking(request, token):
     return render(request, "customers/public_booking.html", {
         "business": business,
         "services": services,
+    })
+
+
+@role_required("owner", "manager")
+def property_photo_gallery(request, customer_id, property_id):
+    """Aggregated photo gallery for a property: site photos + completion photos from all jobs."""
+    business = _get_business(request)
+    if not business:
+        return redirect("dashboard")
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+    prop = get_object_or_404(Property, id=property_id, customer=customer)
+
+    from jobs.models import JobPhoto, JobCompletionPhoto
+    from itertools import chain
+
+    category_filter = request.GET.get("category", "")
+
+    site_photos = JobPhoto.objects.filter(job__property=prop).select_related("uploaded_by", "job").order_by("-uploaded_at")
+    if category_filter:
+        site_photos = site_photos.filter(category=category_filter)
+
+    completion_photos = JobCompletionPhoto.objects.filter(job__property=prop).select_related("uploaded_by", "job").order_by("-captured_at")
+
+    # Build unified list
+    photos = []
+    for p in site_photos:
+        photos.append({
+            "url": p.image.url,
+            "category": p.get_category_display(),
+            "category_key": p.category,
+            "caption": p.caption,
+            "date": p.uploaded_at,
+            "job_date": p.job.scheduled_date,
+            "job_id": p.job_id,
+            "uploaded_by": p.uploaded_by.get_full_name() or p.uploaded_by.username if p.uploaded_by else "Unknown",
+            "type": "site",
+        })
+    if not category_filter:
+        for p in completion_photos:
+            photos.append({
+                "url": p.image.url,
+                "category": "Completion",
+                "category_key": "completion",
+                "caption": "",
+                "date": p.captured_at,
+                "job_date": p.job.scheduled_date,
+                "job_id": p.job_id,
+                "uploaded_by": p.uploaded_by.get_full_name() or p.uploaded_by.username if p.uploaded_by else "Unknown",
+                "type": "completion",
+            })
+
+    photos.sort(key=lambda x: x["date"], reverse=True)
+
+    return render(request, "customers/property_photo_gallery.html", {
+        "customer": customer,
+        "property": prop,
+        "photos": photos,
+        "category_filter": category_filter,
     })

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Photos: {{ property.address }}</h1>
+  <p><a href="{% url 'customer_detail' customer.id %}">{{ customer.name }}</a></p>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+    <a href="{% url 'property_photo_gallery' customer.id property.id %}" class="btn btn-sm {% if not category_filter %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
+    <a href="?category=before" class="btn btn-sm {% if category_filter == 'before' %}btn-primary{% else %}btn-secondary{% endif %}">Before</a>
+    <a href="?category=during" class="btn btn-sm {% if category_filter == 'during' %}btn-primary{% else %}btn-secondary{% endif %}">During</a>
+    <a href="?category=after" class="btn btn-sm {% if category_filter == 'after' %}btn-primary{% else %}btn-secondary{% endif %}">After</a>
+    <a href="?category=issue" class="btn btn-sm {% if category_filter == 'issue' %}btn-primary{% else %}btn-secondary{% endif %}">Issue</a>
+    <a href="?category=general" class="btn btn-sm {% if category_filter == 'general' %}btn-primary{% else %}btn-secondary{% endif %}">General</a>
+  </div>
+
+  {% if photos %}
+  <div class="gallery-grid">
+    {% for p in photos %}
+    <div class="gallery-item">
+      <a href="{{ p.url }}" target="_blank" rel="noopener">
+        <img src="{{ p.url }}" alt="{{ p.category }}" loading="lazy">
+      </a>
+      <span class="gallery-badge gallery-badge-{{ p.category_key }}">{{ p.category }}</span>
+      <div class="gallery-meta">
+        {% if p.caption %}<div class="gallery-caption">{{ p.caption }}</div>{% endif %}
+        <div class="gallery-info">
+          {{ p.uploaded_by }} &middot; {{ p.date|date:"M j, Y" }}
+          {% if p.job_date %}&middot; Job {{ p.job_date|date:"M j" }}{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color: var(--text-muted);">No photos found{% if category_filter %} for this category{% endif %}.</p>
+  {% endif %}
+</div>
+
+<style>
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 768px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .gallery-grid { grid-template-columns: 1fr; } }
+  .gallery-item {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface-alt);
+  }
+  .gallery-item img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    display: block;
+  }
+  .gallery-badge {
+    position: absolute; top: 8px; left: 8px;
+    background: rgba(0,0,0,.65); color: #fff;
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 4px;
+  }
+  .gallery-meta { padding: 8px 10px; }
+  .gallery-caption { font-size: 13px; color: var(--text); margin-bottom: 4px; }
+  .gallery-info { font-size: 11px; color: var(--text-muted); }
+</style>
+{% endblock %}

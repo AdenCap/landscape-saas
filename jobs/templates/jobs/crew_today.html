@@ -35,7 +35,8 @@
   {% endif %}
   <div class="job-links">
     <a href="{% url 'report_issue' job.id %}" class="btn btn-secondary btn-sm job-link-btn">Report issue</a>
-    <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-secondary btn-sm job-link-btn">Photo</a>
+    <a href="{% url 'upload_job_photo' job.id %}" class="btn btn-secondary btn-sm job-link-btn">Site Photos{% if job.site_photo_count %} ({{ job.site_photo_count }}){% endif %}</a>
+    <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-secondary btn-sm job-link-btn">Completion</a>
     {% if job.property.address %}
     <a href="https://www.google.com/maps/search/?api=1&query={{ job.property.address|urlencode }}" 
        target="_blank" 

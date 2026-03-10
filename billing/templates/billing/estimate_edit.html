@@ -41,6 +41,25 @@
       </div>
     </section>
 
+    <section class="card estimate-edit-section">
+      <h2 class="section-title">Site Visit Notes</h2>
+      <p class="section-hint">Internal notes from the site visit. These notes are <strong>NOT</strong> shown on the estimate sent to the client.</p>
+      <div class="form-row">
+        <div class="form-group" style="flex: 0 0 200px;">
+          <label>{{ form.site_visit_date.label }}</label>
+          {{ form.site_visit_date }}
+          {{ form.site_visit_date.errors }}
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label>{{ form.site_visit_notes.label }}</label>
+          {{ form.site_visit_notes }}
+          {{ form.site_visit_notes.errors }}
+        </div>
+      </div>
+    </section>
+
     {% if doc_template and doc_template.custom_fields %}
     <section class="card estimate-edit-section">
       <h2 class="section-title">Additional information</h2>

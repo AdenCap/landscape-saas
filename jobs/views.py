@@ -16,7 +16,7 @@ from accounts.utils import get_business
 from accounts.models import Notification
 from billing.services import create_draft_invoice_for_job
 from billing.monthly import generate_monthly_invoice_for_customer
-from .models import Job, JobServiceItem, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobAssignmentLog, Meeting, JobNote, PropertyNote
+from .models import Job, JobServiceItem, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobPhoto, JobAssignmentLog, Meeting, JobNote, PropertyNote
 from customers.models import Property
 from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset, ReportIssueForm, MeetingForm
 from pricing.utils import get_effective_rate
@@ -785,10 +785,13 @@ def crew_quick_view(request):
 @role_required("owner", "manager", "crew")
 def crew_today_view(request):
     from time_tracking.models import TimeEntry
+    from django.db.models import Count
 
     today = timezone.now().date()
 
-    jobs = Job.objects.filter(scheduled_date=today).select_related("property", "assigned_to", "assigned_crew")
+    jobs = Job.objects.filter(scheduled_date=today).select_related("property", "assigned_to", "assigned_crew").annotate(
+        site_photo_count=Count("site_photos"),
+    )
 
     if request.user.role == "crew":
         from django.db.models import Q
@@ -1099,6 +1102,54 @@ def add_property_note(request, job_id):
         "created_at": note.created_at.isoformat(),
         "property_address": job.property.address,
     })
+
+
+@role_required("owner", "manager", "crew")
+def upload_job_photo(request, job_id):
+    """Upload a site photo for a job (before/during/after/issue/general)."""
+    ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+    MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
+
+    job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id)
+    if request.user.role == "crew" and not _user_can_access_job(request.user, job):
+        messages.error(request, "You don't have access to this job.")
+        return redirect("crew_today")
+    if request.method == "POST":
+        image = request.FILES.get("photo") or request.FILES.get("image")
+        if not image:
+            messages.error(request, "Please select a photo to upload.")
+            return render(request, "jobs/upload_job_photo.html", {"job": job})
+        if image.content_type not in ALLOWED_IMAGE_TYPES:
+            messages.error(request, "Invalid file type. Please upload a JPEG, PNG, or WebP image.")
+            return render(request, "jobs/upload_job_photo.html", {"job": job})
+        if image.size > MAX_UPLOAD_SIZE:
+            messages.error(request, "File too large. Maximum size is 10 MB.")
+            return render(request, "jobs/upload_job_photo.html", {"job": job})
+        category = request.POST.get("category", "general")
+        if category not in dict(JobPhoto.CATEGORY_CHOICES):
+            category = "general"
+        caption = (request.POST.get("caption") or "").strip()[:255]
+        JobPhoto.objects.create(
+            job=job, image=image, category=category,
+            caption=caption, uploaded_by=request.user,
+        )
+        messages.success(request, "Site photo uploaded.")
+        if request.user.role in ("owner", "manager"):
+            return redirect("job_detail", job_id=job_id)
+        return redirect("crew_today")
+    return render(request, "jobs/upload_job_photo.html", {"job": job})
+
+
+@require_POST
+@role_required("owner", "manager")
+def delete_job_photo(request, job_id, photo_id):
+    """Delete a site photo (owner/manager only)."""
+    job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id)
+    photo = get_object_or_404(JobPhoto, id=photo_id, job=job)
+    photo.image.delete(save=False)
+    photo.delete()
+    messages.success(request, "Photo deleted.")
+    return redirect("job_detail", job_id=job_id)
 
 
 @require_GET
@@ -1505,6 +1556,7 @@ def job_detail(request, job_id):
 
     job_issues = list(job.issues.all())
     job_completion_photos = list(job.completion_photos.all())
+    site_photos = list(job.site_photos.select_related("uploaded_by").all())
 
     return render(request, "jobs/job_detail.html", {
         "job": job,
@@ -1519,6 +1571,7 @@ def job_detail(request, job_id):
         "today_iso": today_iso,
         "job_issues": job_issues,
         "job_completion_photos": job_completion_photos,
+        "site_photos": site_photos,
     })
 
 

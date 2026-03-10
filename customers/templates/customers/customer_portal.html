@@ -208,7 +208,7 @@
             <div class="invoice-card">
                 <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: var(--space-4);">
                     <div>
-                        <strong>Invoice #{{ invoice.invoice_number }}</strong>
+                        <strong>Invoice #{{ invoice.id }}</strong>
                         <p style="margin: var(--space-1) 0 0 0; color: var(--text-secondary);">
                             {{ invoice.issue_date|date:"F j, Y" }} • ${{ invoice.total|floatformat:2 }}
                         </p>
@@ -218,7 +218,7 @@
                             {{ invoice.get_status_display }}
                         </span>
                         {% if invoice.status != 'paid' %}
-                        <a href="{% url 'billing:invoice_pay' invoice.id invoice.payment_token %}" class="btn-portal">Pay Now</a>
+                        <a href="{% url 'billing:invoice_pay_page' invoice.id invoice.payment_token %}" class="btn-portal">Pay Now</a>
                         {% endif %}
                     </div>
                 </div>

@@ -269,6 +269,16 @@ class Estimate(models.Model):
     valid_until = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
 
+    site_visit_notes = models.TextField(
+        blank=True,
+        help_text="Internal notes from site visit. Not shown on client estimate.",
+    )
+    site_visit_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date of the site visit.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     sent_at = models.DateTimeField(null=True, blank=True)
