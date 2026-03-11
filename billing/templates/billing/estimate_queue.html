@@ -22,7 +22,7 @@
                 <strong style="font-size: 17px;">{{ item.customer.name }}</strong>
                 {% with days=today|timesince:item.created_at %}
                 {% if item.created_at.date == today %}
-                <span style="font-size: 12px; background: rgba(59,130,246,0.2); color: #93c5fd; padding: 2px 8px; border-radius: 6px;">Today</span>
+                <span style="font-size: 12px; background: rgba(16,185,129,0.2); color: #6ee7b7; padding: 2px 8px; border-radius: 6px;">Today</span>
                 {% else %}
                 <span style="font-size: 12px; background: rgba(234,179,8,0.2); color: #fde047; padding: 2px 8px; border-radius: 6px;">{{ days }} ago</span>
                 {% endif %}

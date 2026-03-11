@@ -1,5 +1,5 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}Complete your account — Tradevo{% endblock %}
+{% block title %}Complete your account — FieldLgx{% endblock %}
 
 {% block content %}
 <section class="section" style="padding-top:34px;">
@@ -43,11 +43,11 @@
 </section>
 <style>
 .auth-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text);transition:border-color .2s ease,box-shadow .2s ease;outline:none}
-.auth-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.auth-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(16,185,129,.15)}
 .auth-input:hover:not(:focus){border-color:var(--text-muted)}
 .type-card{transition:all .2s ease;border:1px solid var(--border)}
-.type-card:hover{border-color:var(--primary);transform:translateY(-2px);box-shadow:0 8px 24px rgba(59,130,246,.15)}
-.type-card:has(input:checked){border-color:var(--primary);background:rgba(59,130,246,.08)}
+.type-card:hover{border-color:var(--primary);transform:translateY(-2px);box-shadow:0 8px 24px rgba(16,185,129,.15)}
+.type-card:has(input:checked){border-color:var(--primary);background:rgba(16,185,129,.08)}
 @media(max-width:640px){div[style*='grid-template-columns:repeat(3,1fr)']{grid-template-columns:1fr 1fr!important}}
 </style>
 <script>
@@ -55,10 +55,10 @@ document.querySelectorAll('.type-card').forEach(card=>{
   card.addEventListener('click',()=>{
     document.querySelectorAll('.type-card').forEach(c=>{c.style.borderColor='';c.style.background='';});
     card.style.borderColor='var(--primary)';
-    card.style.background='rgba(59,130,246,.08)';
+    card.style.background='rgba(16,185,129,.08)';
     card.querySelector('input[type=radio]').checked=true;
   });
-  if(card.querySelector('input:checked')){card.style.borderColor='var(--primary)';card.style.background='rgba(59,130,246,.08)';}
+  if(card.querySelector('input:checked')){card.style.borderColor='var(--primary)';card.style.background='rgba(16,185,129,.08)';}
 });
 </script>
 {% endblock %}

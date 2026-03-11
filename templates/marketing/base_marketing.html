@@ -4,11 +4,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}Tradevo{% endblock %}</title>
-  <meta name="description" content="{% block meta_description %}Tradevo helps home service teams run scheduling, jobs, routes, clients, invoicing, estimates, and financials from one platform.{% endblock %}">
+  <title>{% block title %}FieldLgx{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}FieldLgx helps landscaping teams run scheduling, jobs, routes, clients, invoicing, estimates, and financials from one platform.{% endblock %}">
   <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}">
-  <meta property="og:title" content="{% block og_title %}Tradevo — Field Service Operating System{% endblock %}">
-  <meta property="og:description" content="{% block og_description %}Run your home service business with one modern operating system.{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}FieldLgx — Landscaping Business Software{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Run your landscaping business with one modern operating system.{% endblock %}">
   <meta property="og:type" content="website">
   <meta property="og:image" content="{% block og_image %}{% static 'img/icon-512.png' %}{% endblock %}">
   <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=2.0">
@@ -50,7 +50,7 @@
 <body>
   <div class="progress"></div>
   <header class="nav">
-    <a class="brand" href="/" style="background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">TRADEVO</a>
+    <a class="brand" href="/" style="background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">FIELDLGX</a>
     <nav class="links">
       <a class="hide-sm" href="/features/">Features</a>
       <a class="hide-sm" href="/automation/">Automation</a>
@@ -63,7 +63,7 @@
   {% block content %}{% endblock %}
 
   <footer class="footer">
-    <div class="shell">© {% now "Y" %} Tradevo · Built for home service businesses · <a href="/terms/" style="color:inherit">Terms</a> · <a href="/privacy/" style="color:inherit">Privacy</a></div>
+    <div class="shell">© {% now "Y" %} FieldLgx · Built for landscaping businesses · <a href="/terms/" style="color:inherit">Terms</a> · <a href="/privacy/" style="color:inherit">Privacy</a></div>
   </footer>
 
   <script>

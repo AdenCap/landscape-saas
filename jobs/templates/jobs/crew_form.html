@@ -19,10 +19,10 @@
     <div class="field">
       <label for="id_color">Color (for calendar & routes)</label>
       <div style="display: flex; align-items: center; gap: 12px;">
-        <input type="color" id="id_color_picker" value="{{ form.color.value|default:'#3b82f6' }}" style="width: 56px; height: 40px; padding: 4px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border);">
-        <input type="text" id="id_color" name="color" value="{{ form.color.value|default:'#3b82f6' }}" placeholder="#3b82f6" style="width: 110px; padding: 8px 12px; font-family: monospace; border-radius: 8px; border: 1px solid var(--border);" maxlength="7" aria-label="Hex color">
+        <input type="color" id="id_color_picker" value="{{ form.color.value|default:'#10b981' }}" style="width: 56px; height: 40px; padding: 4px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border);">
+        <input type="text" id="id_color" name="color" value="{{ form.color.value|default:'#10b981' }}" placeholder="#10b981" style="width: 110px; padding: 8px 12px; font-family: monospace; border-radius: 8px; border: 1px solid var(--border);" maxlength="7" aria-label="Hex color">
       </div>
-      <span class="help-text">Pick or type hex (e.g. #3b82f6)</span>{{ form.color.errors }}
+      <span class="help-text">Pick or type hex (e.g. #10b981)</span>{{ form.color.errors }}
     </div>
   </div>
   <div class="field">

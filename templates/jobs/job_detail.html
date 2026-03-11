@@ -292,7 +292,7 @@
   .material-row { display: flex; gap: 12px; flex-wrap: wrap; }
   .material-row .field { min-width: 120px; }
   .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
-  .badge-scheduled { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
+  .badge-scheduled { background: rgba(16, 185, 129, 0.25); color: #6ee7b7; }
   .badge-inprogress { background: rgba(234, 179, 8, 0.25); color: #fde047; }
   .badge-completed { background: rgba(34, 197, 94, 0.25); color: #86efac; }
   .badge-skipped { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
@@ -363,7 +363,7 @@
           var time = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
           var badge = n.type === 'property'
             ? '<span style="font-size:10px;font-weight:600;text-transform:uppercase;padding:1px 5px;border-radius:3px;background:rgba(168,85,247,0.2);color:#c4b5fd;margin-right:4px;">property</span>'
-            : '<span style="font-size:10px;font-weight:600;text-transform:uppercase;padding:1px 5px;border-radius:3px;background:rgba(59,130,246,0.2);color:#93c5fd;margin-right:4px;">job</span>';
+            : '<span style="font-size:10px;font-weight:600;text-transform:uppercase;padding:1px 5px;border-radius:3px;background:rgba(16,185,129,0.2);color:#6ee7b7;margin-right:4px;">job</span>';
           html += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px;">';
           html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;">' + badge + escHtml(n.author) + ' · ' + time + '</div>';
           html += '<div style="color:var(--text);line-height:1.4;">' + escHtml(n.text) + '</div>';

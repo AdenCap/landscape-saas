@@ -191,7 +191,7 @@ def get_or_create_service_item(connection):
     accounts = acc_result.get("QueryResponse", {}).get("Account", [])
     income_ref = {"value": str(accounts[0]["Id"])} if accounts else {"value": "1"}
     payload = {
-        "Name": "Tradevo Service",
+        "Name": "FieldLgx Service",
         "Type": "Service",
         "IncomeAccountRef": income_ref,
     }

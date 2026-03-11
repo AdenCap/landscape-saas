@@ -5,7 +5,7 @@
     // Apply saved theme before paint to prevent flash
     (function(){var t=localStorage.getItem('fo-theme')||'system';document.documentElement.setAttribute('data-theme',t);})();
   </script>
-  <title>{% block title %}Tradevo{% endblock %}</title>
+  <title>{% block title %}FieldLgx{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0a0a0a" id="theme-color-meta">
   {% load static %}
@@ -73,7 +73,7 @@
     }
     .sidebar-create-item .nav-icon { margin-right: 10px; }
     .btn-sm { padding: 6px 12px; font-size: 13px; }
-    .platform-banner { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; margin-bottom: 16px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 10px; color: #93c5fd; }
+    .platform-banner { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; margin-bottom: 16px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 10px; color: #6ee7b7; }
 
     .sidebar {
       width: 260px;
@@ -172,7 +172,7 @@
       flex-direction: column;
       min-width: 0;
       background:
-        radial-gradient(900px 320px at 80% -20%, rgba(59,130,246,.14), transparent 60%),
+        radial-gradient(900px 320px at 80% -20%, rgba(16,185,129,.14), transparent 60%),
         radial-gradient(700px 260px at 0% -10%, rgba(255,255,255,.06), transparent 65%),
         var(--surface-alt);
     }
@@ -242,7 +242,7 @@
     .data-table th, .data-table td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border); }
     .data-table th { font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); }
     .data-table tbody tr { transition: background .14s ease; }
-    .data-table tbody tr:hover { background: rgba(59,130,246,.08); }
+    .data-table tbody tr:hover { background: rgba(16,185,129,.08); }
     .data-table .num { text-align: right; }
 
     .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -263,7 +263,7 @@
     }
     input:focus, select:focus, textarea:focus {
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
       background: var(--bg-surface);
     }
     input::placeholder, textarea::placeholder { color: var(--text-muted); }
@@ -512,7 +512,7 @@
     <aside class="sidebar">
       <a href="/" class="sidebar-brand" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
         <img src="{% static 'img/logo-icon.svg' %}" alt="" width="32" height="32">
-        <span>Tradevo</span>
+        <span>FIELDLGX</span>
       </a>
 
       {% if user.role != "crew" %}
@@ -664,7 +664,7 @@
     <header class="topbar-mobile">
       <a href="/" class="brand" style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
         <img src="{% static 'img/logo-icon.svg' %}" alt="" width="28" height="28">
-        <span>Tradevo</span>
+        <span>FIELDLGX</span>
       </a>
       <button type="button" class="menu-btn" id="mobile-menu-btn" aria-label="Open menu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>

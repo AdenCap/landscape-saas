@@ -1,15 +1,15 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}Tradevo — Business Management for Home Service Contractors{% endblock %}
-{% block meta_description %}Tradevo is the all-in-one platform for HVAC, plumbing, electrical, cleaning, and landscaping businesses. Schedule jobs, dispatch teams, send invoices, and track everything from one place.{% endblock %}
+{% block title %}FieldLgx — Software for Landscaping & Lawn Care Businesses{% endblock %}
+{% block meta_description %}FieldLgx is the all-in-one platform for landscaping and lawn care businesses. Schedule crews, optimize routes, send invoices, manage properties, and grow your business from one place.{% endblock %}
 
 {% block extra_css %}
 <style>
   /* Hero */
   .hero { padding: var(--space-32) 0 var(--space-24); border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }
-  .hero::before { content: ""; position: absolute; width: 700px; height: 700px; border-radius: 50%; background: radial-gradient(circle, rgba(59,130,246,0.07), transparent 70%); top: -250px; right: -150px; pointer-events: none; }
+  .hero::before { content: ""; position: absolute; width: 700px; height: 700px; border-radius: 50%; background: radial-gradient(circle, rgba(16,185,129,0.07), transparent 70%); top: -250px; right: -150px; pointer-events: none; }
   .hero-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: var(--space-16); align-items: center; }
   .hero-badge { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-radius: var(--radius-full); background: var(--glass); border: 1px solid var(--border); font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: var(--space-4); font-weight: 500; }
-  .hero-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 10px rgba(34,197,94,0.5); }
+  .hero-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px rgba(16,185,129,0.5); }
   .hero h1 { font-size: var(--h1); line-height: var(--line-height-tight); letter-spacing: var(--letter-spacing-tight); margin: 0 0 var(--space-6); background: linear-gradient(180deg, var(--text) 0%, var(--text-secondary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .hero-desc { font-size: var(--text-lg); line-height: var(--line-height-relaxed); color: var(--text-secondary); max-width: 560px; margin: 0 0 var(--space-8); }
   .hero-cta { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
@@ -39,7 +39,7 @@
   .mini-job { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.02); font-size: 12px; }
   .mini-job-addr { color: var(--text); font-weight: 500; }
   .mini-job-badge { font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight: 600; }
-  .mini-job-badge.sched { background: rgba(59,130,246,0.2); color: #93c5fd; }
+  .mini-job-badge.sched { background: rgba(16,185,129,0.2); color: #6ee7b7; }
   .mini-job-badge.prog { background: rgba(234,179,8,0.2); color: #fde047; }
   .mini-job-badge.done { background: rgba(34,197,94,0.2); color: #86efac; }
 
@@ -48,7 +48,7 @@
   .s-features { padding: var(--space-24) 0; border-bottom: 1px solid var(--border); }
   .s-how { padding: var(--space-24) 0; border-bottom: 1px solid var(--border); }
   .s-pricing { padding: var(--space-24) 0; border-bottom: 1px solid var(--border); }
-  .s-cta { padding: var(--space-32) 0 var(--space-24); background: radial-gradient(800px 400px at 50% 0%, rgba(59,130,246,0.06), transparent 70%); }
+  .s-cta { padding: var(--space-32) 0 var(--space-24); background: radial-gradient(800px 400px at 50% 0%, rgba(16,185,129,0.06), transparent 70%); }
   .section-title { font-size: var(--h2); line-height: var(--line-height-tight); letter-spacing: var(--letter-spacing-tight); margin: 0 0 var(--space-4); color: var(--text); text-align: center; }
   .section-lead { color: var(--text-secondary); font-size: var(--text-base); line-height: var(--line-height-relaxed); max-width: 640px; margin: 0 auto var(--space-10); text-align: center; }
 
@@ -64,31 +64,31 @@
   /* Feature cards */
   .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
   .feat-card { padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--gradient-surface); text-decoration: none; color: inherit; display: block; transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
-  .feat-card:hover { border-color: var(--primary); transform: translateY(-3px); box-shadow: var(--shadow-lg), 0 0 24px rgba(59,130,246,0.1); }
-  .feat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: var(--space-4); background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.15); }
+  .feat-card:hover { border-color: var(--primary); transform: translateY(-3px); box-shadow: var(--shadow-lg), 0 0 24px rgba(16,185,129,0.1); }
+  .feat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: var(--space-4); background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.15); }
   .feat-icon svg { width: 20px; height: 20px; color: var(--primary); }
   .feat-card h3 { font-size: var(--text-base); font-weight: 600; margin: 0 0 var(--space-2); color: var(--text); }
   .feat-card p { margin: 0; color: var(--text-secondary); font-size: var(--text-sm); line-height: var(--line-height-relaxed); }
 
   /* Built-for section */
-  .s-built { padding: var(--space-24) 0; border-bottom: 1px solid var(--border); background: radial-gradient(600px 300px at 50% 100%, rgba(34,197,94,0.05), transparent 70%); }
+  .s-built { padding: var(--space-24) 0; border-bottom: 1px solid var(--border); background: radial-gradient(600px 300px at 50% 100%, rgba(16,185,129,0.05), transparent 70%); }
   .built-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); }
   .built-tag { padding: var(--space-2) var(--space-5); border-radius: var(--radius-full); border: 1px solid var(--border); background: var(--gradient-surface); font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500; transition: all 0.2s ease; }
-  .built-tag:hover { border-color: #22c55e; color: #22c55e; }
-  .built-tag svg { width: 14px; height: 14px; display: inline-block; vertical-align: -2px; margin-right: 6px; color: #22c55e; }
+  .built-tag:hover { border-color: #10b981; color: #10b981; }
+  .built-tag svg { width: 14px; height: 14px; display: inline-block; vertical-align: -2px; margin-right: 6px; color: #10b981; }
 
   /* How it works */
   .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
   .how-card { padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--gradient-surface); text-align: center; }
-  .how-num { display: inline-flex; width: 36px; height: 36px; border-radius: 50%; background: rgba(59,130,246,0.1); border: 1px solid var(--primary); align-items: center; justify-content: center; font-weight: 700; margin-bottom: var(--space-4); color: var(--primary); font-size: var(--text-sm); }
+  .how-num { display: inline-flex; width: 36px; height: 36px; border-radius: 50%; background: rgba(16,185,129,0.1); border: 1px solid var(--primary); align-items: center; justify-content: center; font-weight: 700; margin-bottom: var(--space-4); color: var(--primary); font-size: var(--text-sm); }
   .how-card h3 { font-size: var(--text-base); font-weight: 600; margin: 0 0 var(--space-2); }
   .how-card p { margin: 0; color: var(--text-secondary); font-size: var(--text-sm); line-height: var(--line-height-relaxed); }
 
   /* Pricing */
   .price-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-6); max-width: 800px; margin: 0 auto; }
   .price-card { padding: var(--space-8); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--gradient-surface); }
-  .price-card.featured { border-color: var(--primary); background: linear-gradient(180deg, rgba(59,130,246,0.06) 0%, var(--gradient-surface) 100%); box-shadow: var(--shadow-lg), 0 0 40px rgba(59,130,246,0.1); position: relative; }
-  .price-card.featured::before { content: "Most Popular"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 4px 16px; background: linear-gradient(135deg, #3b82f6, #2563eb); border-radius: var(--radius-full); font-size: 11px; font-weight: 700; color: #fff; letter-spacing: 0.03em; text-transform: uppercase; }
+  .price-card.featured { border-color: var(--primary); background: linear-gradient(180deg, rgba(16,185,129,0.06) 0%, var(--gradient-surface) 100%); box-shadow: var(--shadow-lg), 0 0 40px rgba(16,185,129,0.1); position: relative; }
+  .price-card.featured::before { content: "Most Popular"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 4px 16px; background: linear-gradient(135deg, #10b981, #059669); border-radius: var(--radius-full); font-size: 11px; font-weight: 700; color: #fff; letter-spacing: 0.03em; text-transform: uppercase; }
   .price-card h3 { font-size: var(--h3); font-weight: 700; margin: 0 0 var(--space-3); }
   .price-amount { font-size: clamp(32px, 4vw, 44px); font-weight: 800; letter-spacing: var(--letter-spacing-tight); margin: 0 0 var(--space-1); }
   .price-period { font-size: var(--text-sm); color: var(--text-muted); margin: 0 0 var(--space-4); }
@@ -125,9 +125,9 @@
   <div class="shell">
     <div class="hero-grid" data-r>
       <div>
-        <span class="hero-badge">Built for home service businesses</span>
-        <h1>Schedule, dispatch, invoice — all from one place</h1>
-        <p class="hero-desc">Tradevo replaces the spreadsheets, texts, and disconnected tools. Schedule your team, dispatch service calls, track equipment, and invoice clients — all from one platform built for your trade.</p>
+        <span class="hero-badge">Built for landscaping & lawn care</span>
+        <h1>Run your landscaping business from one platform</h1>
+        <p class="hero-desc">FieldLgx replaces the spreadsheets, group texts, and disconnected tools. Schedule crews, optimize routes, manage properties, and invoice clients — all from one place built for landscapers.</p>
         <div class="hero-cta">
           <a class="btn btn-primary" href="/accounts/signup/" data-cta="hero-trial">Start Free Trial</a>
           <a class="btn btn-secondary" href="/features/" data-cta="hero-features">See All Features</a>
@@ -139,7 +139,7 @@
           <span class="app-preview-dot"></span>
           <span class="app-preview-dot"></span>
           <span class="app-preview-dot"></span>
-          <span class="app-preview-url">tradevo.com/dashboard</span>
+          <span class="app-preview-url">fieldlgx.com/dashboard</span>
         </div>
         <div class="app-preview-body">
           <div class="mini-dash">
@@ -152,7 +152,7 @@
               <p class="mini-stat-value jobs">12</p>
             </div>
             <div class="mini-stat">
-              <p class="mini-stat-label">Crew Active</p>
+              <p class="mini-stat-label">Crews Active</p>
               <p class="mini-stat-value crew">4</p>
             </div>
             <div class="mini-stat">
@@ -188,7 +188,7 @@
 <section class="s-pain">
   <div class="shell" data-r>
     <h2 class="section-title">Sound familiar?</h2>
-    <p class="section-lead">Most service business owners juggle too many tools and still lose track of jobs and money.</p>
+    <p class="section-lead">Most landscaping business owners juggle too many tools and still lose track of jobs and money.</p>
     <div class="pain-grid">
       <div class="pain-card">
         <div class="pain-icon">
@@ -202,14 +202,14 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         </div>
         <h3>Invoices go out late</h3>
-        <p>You finish the work on Friday but don't bill until the following week. That delay costs you thousands each year.</p>
+        <p>You finish the job on Friday but don't bill until the following week. That delay costs you thousands each season.</p>
       </div>
       <div class="pain-card">
         <div class="pain-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </div>
-        <h3>Crew has no visibility</h3>
-        <p>Your team doesn't know what's next until you text them. They can't see the schedule, add notes, or mark jobs done.</p>
+        <h3>Crews have no visibility</h3>
+        <p>Your crew doesn't know what's next until you text them. They can't see the schedule, the route, or mark jobs done from the field.</p>
       </div>
     </div>
   </div>
@@ -219,7 +219,7 @@
 <section class="s-features">
   <div class="shell" data-r>
     <h2 class="section-title">One platform, everything connected</h2>
-    <p class="section-lead">Schedule a job in the calendar, assign it to a crew, and invoice the client when it's done — no copy-pasting between apps.</p>
+    <p class="section-lead">Schedule a job, assign it to a crew, optimize the route, and invoice when it's done — no more copy-pasting between apps.</p>
     <div class="feat-grid">
       <a href="/features/calendar/" class="feat-card">
         <div class="feat-icon">
@@ -232,15 +232,22 @@
         <div class="feat-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         </div>
-        <h3>Daily Routes</h3>
-        <p>See today's stops in order, open each address in Google Maps, and reorder on the fly.</p>
+        <h3>Route Optimization</h3>
+        <p>See today's stops in order, minimize drive time between properties, and open each address in Maps with one tap.</p>
       </a>
       <a href="/features/jobs/" class="feat-card">
         <div class="feat-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         </div>
         <h3>Job Tracking</h3>
-        <p>Crew starts a job, adds notes, uploads a completion photo, and marks it done — all from their phone.</p>
+        <p>Crew starts a job, adds notes, uploads a completion photo, and marks it done — all from their phone in the field.</p>
+      </a>
+      <a href="/features/estimator/" class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <h3>Property Estimator</h3>
+        <p>Measure properties with satellite imagery and generate accurate estimates. Quote lawn care, mulch, and fertilization in minutes.</p>
       </a>
       <a href="/features/invoices/" class="feat-card">
         <div class="feat-icon">
@@ -253,29 +260,29 @@
         <div class="feat-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         </div>
-        <h3>Client CRM</h3>
-        <p>Every client in one place — properties, job history, invoices, notes, and messaging. Quick-search from the field or office.</p>
-      </a>
-      <a href="/features/employee-management/" class="feat-card">
-        <div class="feat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <h3>Crew & Employee Management</h3>
-        <p>Time clock, timesheets, payroll tracking, and role-based permissions. Owners, managers, and crew each see what they need.</p>
+        <h3>Client & Property CRM</h3>
+        <p>Every client and property in one place — job history, invoices, notes, and messaging. Quick-search from the field or office.</p>
       </a>
       <a href="/features/" class="feat-card">
         <div class="feat-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         </div>
         <h3>Recurring Jobs</h3>
-        <p>Set up weekly visits, bi-weekly service calls, or custom schedules. Jobs auto-generate so nothing falls through the cracks on recurring work.</p>
+        <p>Set up weekly mowing, bi-weekly maintenance, or custom schedules. Jobs auto-generate so nothing falls through the cracks.</p>
       </a>
       <a href="/features/" class="feat-card">
         <div class="feat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         </div>
-        <h3>Team Messaging</h3>
-        <p>Built-in chat for direct messages, crew conversations, and owner broadcasts. Keep your team coordinated without juggling personal texts.</p>
+        <h3>Fertilization Tracking</h3>
+        <p>Track application schedules, products, and compliance for lawn treatment programs. Keep your fertilization revenue growing year-round.</p>
+      </a>
+      <a href="/features/employee-management/" class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h3>Crew Management</h3>
+        <p>Time clock, timesheets, payroll tracking, and role-based permissions. Owners, managers, and crew each see what they need.</p>
       </a>
     </div>
     <div class="text-center" style="margin-top: var(--space-8);">
@@ -287,14 +294,14 @@
 <!-- BUILT FOR -->
 <section class="s-built">
   <div class="shell" data-r>
-    <h2 class="section-title">Purpose-built for home service businesses</h2>
-    <p class="section-lead">Not a generic tool stretched to fit. Tradevo is designed from the ground up for the way service businesses actually work — dispatching, equipment tracking, inspections, and same-day invoicing.</p>
+    <h2 class="section-title">Purpose-built for landscaping businesses</h2>
+    <p class="section-lead">Not a generic tool stretched to fit. FieldLgx is designed from the ground up for the way landscaping companies actually work — route planning, crew coordination, property management, and seasonal billing.</p>
     <div class="built-tags">
-      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>HVAC</span>
-      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.9C15.5 4.9 17 3.5 19 2c1 2 2 4.5 1 8-1 3.5-2 6-5 8.5"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>Plumbing</span>
-      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"/><path d="M23 13v-2"/><line x1="10" y1="12" x2="10" y2="12.01"/></svg>Electrical</span>
-      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Cleaning</span>
-      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Landscaping</span>
+      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Lawn Care</span>
+      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Full-Service Landscaping</span>
+      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Fertilization & Weed Control</span>
+      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"/><path d="M23 13v-2"/><line x1="10" y1="12" x2="10" y2="12.01"/></svg>Hardscaping</span>
+      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Snow Removal</span>
     </div>
   </div>
 </section>
@@ -312,13 +319,13 @@
       </div>
       <div class="how-card">
         <div class="how-num">2</div>
-        <h3>Add clients and jobs</h3>
-        <p>Enter your clients and properties. Schedule recurring or one-time jobs on the calendar.</p>
+        <h3>Add clients and properties</h3>
+        <p>Enter your clients and service properties. Schedule recurring or one-time jobs on the calendar.</p>
       </div>
       <div class="how-card">
         <div class="how-num">3</div>
-        <h3>Dispatch, complete, invoice</h3>
-        <p>Crew sees daily routes on their phone. When the job is done, invoice the client and get paid.</p>
+        <h3>Route, complete, invoice</h3>
+        <p>Crews see daily routes on their phone. When the job is done, invoice the client and get paid.</p>
       </div>
     </div>
   </div>
@@ -336,7 +343,7 @@
         <p class="price-period">per month</p>
         <ul class="price-list">
           <li>Calendar scheduling</li>
-          <li>Client management</li>
+          <li>Client & property management</li>
           <li>Invoices and estimates</li>
           <li>Daily routes</li>
           <li>Perfect for owner-operators</li>
@@ -350,8 +357,9 @@
           <li>Everything in Solo Starter</li>
           <li>Crew management and time clock</li>
           <li>Payroll and timesheets</li>
+          <li>Property estimator with satellite imagery</li>
+          <li>Fertilization tracking</li>
           <li>Financials and reporting</li>
-          <li>Pricebook, equipment & inspections</li>
           <li>Automation (reminders, follow-ups, reviews)</li>
           <li>QuickBooks and Stripe integrations</li>
         </ul>
@@ -369,7 +377,7 @@
   <div class="shell" data-r>
     <div class="cta-box">
       <h2>Ready to stop juggling spreadsheets?</h2>
-      <p>Join hundreds of home service businesses that run their entire operation from Tradevo. Start your free trial — no credit card required.</p>
+      <p>Join landscaping businesses running their entire operation from FieldLgx. Start your free trial — no credit card required.</p>
       <div style="display: flex; gap: var(--space-4); justify-content: center; flex-wrap: wrap;">
         <a class="btn btn-primary" href="/accounts/signup/" data-cta="final-trial" style="font-size: var(--text-base); padding: var(--space-4) var(--space-6);">Start Your Free Trial</a>
         <a class="btn btn-secondary" href="/features/" style="font-size: var(--text-base); padding: var(--space-4) var(--space-6);">Explore Features</a>

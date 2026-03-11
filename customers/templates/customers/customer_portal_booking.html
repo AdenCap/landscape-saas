@@ -113,7 +113,7 @@
         {% if messages %}
         <div style="margin-bottom: var(--space-4);">
             {% for message in messages %}
-            <div style="padding: var(--space-3); background: {% if message.tags == 'error' %}#ef4444{% elif message.tags == 'success' %}#22c55e{% else %}#3b82f6{% endif %}; color: white; border-radius: var(--radius-md); margin-bottom: var(--space-2);">
+            <div style="padding: var(--space-3); background: {% if message.tags == 'error' %}#ef4444{% elif message.tags == 'success' %}#22c55e{% else %}#10b981{% endif %}; color: white; border-radius: var(--radius-md); margin-bottom: var(--space-2);">
                 {{ message }}
             </div>
             {% endfor %}

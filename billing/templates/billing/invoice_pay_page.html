@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { --primary: #3b82f6; --primary-hover: #2563eb; --surface: #171717; --surface-alt: #0a0a0a; --border: #262626; --text: #fafafa; --text-muted: #a3a3a3; --radius: 12px; }
+    :root { --primary: #10b981; --primary-hover: #059669; --surface: #171717; --surface-alt: #0a0a0a; --border: #262626; --text: #fafafa; --text-muted: #a3a3a3; --radius: 12px; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: 'Inter', -apple-system, sans-serif; background: var(--surface-alt); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
     .pay-card { max-width: 460px; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; }
@@ -15,7 +15,7 @@
     .pay-logo { width: 36px; height: 36px; border-radius: 8px; }
     .pay-header-text h1 { margin: 0; font-size: 18px; font-weight: 700; }
     .pay-header-text p { margin: 2px 0 0; color: var(--text-muted); font-size: 13px; }
-    .pay-total { font-size: 40px; font-weight: 700; background: linear-gradient(135deg, #60a5fa, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 24px; }
+    .pay-total { font-size: 40px; font-weight: 700; background: linear-gradient(135deg, #34d399, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 24px; }
     .line-items { margin-bottom: 24px; border-top: 1px solid var(--border); }
     .line-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
     .line-item-name { color: var(--text-muted); }
@@ -24,7 +24,7 @@
     .pay-methods { margin-bottom: 24px; }
     .pay-methods h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin: 0 0 10px 0; font-weight: 600; }
     .pay-method { display: block; width: 100%; padding: 14px 18px; margin-bottom: 8px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); text-decoration: none; font-weight: 600; font-size: 14px; text-align: center; transition: border-color 0.15s, background 0.15s, transform 0.15s; cursor: pointer; font-family: inherit; }
-    .pay-method:hover { border-color: var(--primary); background: rgba(59, 130, 246, 0.08); transform: translateY(-1px); }
+    .pay-method:hover { border-color: var(--primary); background: rgba(16, 185, 129, 0.08); transform: translateY(-1px); }
     .pay-method-card { background: var(--primary); color: #fff; border-color: var(--primary); }
     .pay-method-card:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: #fff; }
     .pay-method.zelle { pointer-events: none; cursor: default; }
@@ -106,7 +106,7 @@
       {% endif %}
     {% endif %}
 
-    <div class="powered-by">Powered by Tradevo</div>
+    <div class="powered-by">Powered by FieldLgx</div>
   </div>
 </body>
 </html>

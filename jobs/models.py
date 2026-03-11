@@ -11,7 +11,7 @@ from decimal import Decimal
 from pricing.models import ServiceTemplate
 
 DEFAULT_COLORS = [
-    '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
+    '#10b981', '#22c55e', '#f59e0b', '#ef4444',
     '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
 ]
 
@@ -34,7 +34,7 @@ class Crew(models.Model):
         related_name='crew_memberships',
         limit_choices_to={'role': 'crew'}
     )
-    color = models.CharField(max_length=7, default='#3b82f6', help_text='Hex color for calendar/route display')
+    color = models.CharField(max_length=7, default='#10b981', help_text='Hex color for calendar/route display')
 
     class Meta:
         ordering = ['name']
@@ -93,7 +93,7 @@ class Job(models.Model):
         max_length=7,
         blank=True,
         null=True,
-        help_text="Override color for calendar (hex e.g. #3b82f6). Leave empty to use crew/employee default.",
+        help_text="Override color for calendar (hex e.g. #10b981). Leave empty to use crew/employee default.",
     )
 
     # Cost tracking for profit (COGS)

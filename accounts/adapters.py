@@ -1,5 +1,5 @@
 """
-Custom allauth adapters for Tradevo.
+Custom allauth adapters for FieldLgx.
 Handles the Business-creation requirement for new social signups
 and routes social logins through the existing 2FA post-login check.
 """

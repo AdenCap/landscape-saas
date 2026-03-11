@@ -353,7 +353,7 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 
 # Two-factor auth (optional): pip install django-otp qrcode, then add apps & OTPMiddleware
 # OTP_LOGIN_URL = '/accounts/verify/'
-# OTP_TOTP_ISSUER = 'Tradevo'
+# OTP_TOTP_ISSUER = 'FieldLgx'
 
 # ── Authentication backends ─────────────────────────────────────────────
 AUTHENTICATION_BACKENDS = [
@@ -403,7 +403,7 @@ GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 # Usage limits to prevent overages (10,000 free requests per month, then charged)
 GOOGLE_MAPS_MONTHLY_LIMIT = int(os.environ.get("GOOGLE_MAPS_MONTHLY_LIMIT", "10000"))
 GOOGLE_MAPS_DAILY_LIMIT = int(os.environ.get("GOOGLE_MAPS_DAILY_LIMIT", "0"))  # 0 = no daily limit
-DEFAULT_FROM_EMAIL = "Tradevo <noreply@fieldops.local>"
+DEFAULT_FROM_EMAIL = "FieldLgx <noreply@fieldops.local>"
 
 # Cache: used by django-ratelimit and general app caching.
 # In production set REDIS_URL (or CACHE_URL) to use Redis.

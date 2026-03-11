@@ -541,7 +541,7 @@
       <div class="panel-card">
         <div class="panel-card-header">
           <h2>Subscription</h2>
-          <p>Manage your Tradevo plan and billing.</p>
+          <p>Manage your FieldLgx plan and billing.</p>
         </div>
         <div class="panel-card-body">
           <a href="{% url 'subscription:status' %}" class="btn btn-secondary">Manage subscription</a>
@@ -633,7 +633,7 @@
     border-bottom: 2px solid transparent; transition: all 0.15s ease;
   }
   .settings-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
-  .settings-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(59,130,246,0.06); }
+  .settings-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(16,185,129,0.06); }
   .settings-tab svg { opacity: 0.6; flex-shrink: 0; }
   .settings-tab.active svg { opacity: 1; color: var(--primary); }
 
@@ -664,7 +664,7 @@
     transition: border-color 0.15s ease;
   }
   .field input:focus, .field textarea:focus, .field select:focus {
-    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16,185,129,0.12);
   }
   .field textarea { min-height: 56px; resize: vertical; }
   .field select { cursor: pointer; }
@@ -733,7 +733,7 @@
 (function() {
   var tabs = document.querySelectorAll('.settings-tab');
   var panels = document.querySelectorAll('.settings-panel');
-  var storageKey = 'tradevo_settings_tab';
+  var storageKey = 'fieldlgx_settings_tab';
 
   function activate(tabId) {
     tabs.forEach(function(t) {

@@ -23,7 +23,7 @@ from pricing.utils import get_effective_rate
 from accounts.models import User
 
 CREW_COLORS = [
-    '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
+    '#10b981', '#22c55e', '#f59e0b', '#ef4444',
     '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
 ]
 UNASSIGNED_COLOR = '#94a3b8'

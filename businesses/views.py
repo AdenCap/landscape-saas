@@ -96,8 +96,8 @@ def test_gmail_connection(request):
 
     try:
         msg = EmailMessage(
-            subject="Tradevo – Gmail test",
-            body="This is a test email from Tradevo. Your Gmail connection is working.",
+            subject="FieldLgx – Gmail test",
+            body="This is a test email from FieldLgx. Your Gmail connection is working.",
             from_email=business.get_from_email() or business.email_smtp_user,
             to=[to_email],
             connection=connection,

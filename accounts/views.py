@@ -45,11 +45,6 @@ class LoginView(AuthLoginView):
 
 BUSINESS_TYPE_INFO = [
     ("landscaping", "Landscaping", "\U0001F33F", "Lawn care, mowing, landscaping, irrigation"),
-    ("hvac", "HVAC", "\U00002744\uFE0F", "Heating, ventilation, air conditioning"),
-    ("plumbing", "Plumbing", "\U0001F6BF", "Residential & commercial plumbing"),
-    ("electrical", "Electrical", "\U000026A1", "Electrical installation & repair"),
-    ("cleaning", "Cleaning", "\U00002728", "Residential & commercial cleaning"),
-    ("general", "Other", "\U0001F527", "General home service business"),
 ]
 
 
@@ -59,22 +54,8 @@ def signup(request):
     if request.user.is_authenticated:
         return redirect("/")
 
-    step = request.GET.get("step", "1")
-
-    # Step 1: select business type
-    if step == "1" or (step != "2" and "signup_business_type" not in request.session):
-        selected_type = request.GET.get("type")
-        if selected_type and selected_type in dict(Business.BUSINESS_TYPE_CHOICES):
-            request.session["signup_business_type"] = selected_type
-        else:
-            selected_type = request.session.get("signup_business_type")
-        return render(request, "registration/select_business_type.html", {
-            "business_types": BUSINESS_TYPE_INFO,
-            "selected_type": selected_type,
-        })
-
-    # Step 2: business details + account creation
-    business_type = request.session.get("signup_business_type", "landscaping")
+    # Single business type — skip selection, go straight to account creation
+    business_type = "landscaping"
 
     if request.method == "POST":
         form = SignUpForm(request.POST, business_type=business_type)

@@ -13,38 +13,15 @@ class Business(models.Model):
     # ── Business type & vertical ──────────────────────────────────────
     BUSINESS_TYPE_CHOICES = [
         ("landscaping", "Landscaping & Lawn Care"),
-        ("hvac", "HVAC"),
-        ("plumbing", "Plumbing"),
-        ("electrical", "Electrical"),
-        ("cleaning", "Cleaning"),
-        ("general", "Other Home Service"),
     ]
 
     BUSINESS_SUBTYPE_CHOICES = [
         ("lawn_care", "Lawn Care Only"),
         ("full_service", "Full-Service Landscaping"),
-        ("residential_hvac", "Residential HVAC"),
-        ("commercial_hvac", "Commercial HVAC"),
-        ("both_hvac", "Residential & Commercial HVAC"),
-        ("residential_plumbing", "Residential Plumbing"),
-        ("commercial_plumbing", "Commercial Plumbing"),
-        ("both_plumbing", "Residential & Commercial Plumbing"),
-        ("residential_electrical", "Residential Electrical"),
-        ("commercial_electrical", "Commercial Electrical"),
-        ("both_electrical", "Residential & Commercial Electrical"),
-        ("residential_cleaning", "Residential Cleaning"),
-        ("commercial_cleaning", "Commercial Cleaning"),
-        ("both_cleaning", "Residential & Commercial Cleaning"),
-        ("general", "General"),
     ]
 
     MODULE_DEFAULTS = {
         "landscaping": ["fertilization", "property_estimator", "growing_season", "checklists"],
-        "hvac": ["pricebook", "equipment", "service_agreements", "inspections", "checklists"],
-        "plumbing": ["pricebook", "equipment", "service_agreements", "inspections", "checklists"],
-        "electrical": ["pricebook", "equipment", "service_agreements", "inspections", "checklists"],
-        "cleaning": ["checklists", "service_agreements"],
-        "general": ["checklists"],
     }
 
     business_type = models.CharField(

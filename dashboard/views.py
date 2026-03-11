@@ -182,7 +182,7 @@ def owner_onboarding(request):
         {
             "key": "smtp",
             "label": "Connect email",
-            "hint": f"Set up SMTP so Tradevo can send {terms['estimate'].lower()}s and invoices on your behalf.",
+            "hint": f"Set up SMTP so FieldLgx can send {terms['estimate'].lower()}s and invoices on your behalf.",
             "done": smtp_connected,
             "action_url": "/settings/",
             "action_label": "Connect Email",
