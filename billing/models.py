@@ -263,6 +263,13 @@ class Estimate(models.Model):
         on_delete=models.CASCADE,
         related_name='estimates'
     )
+    property = models.ForeignKey(
+        'customers.Property',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='estimates_at_property',
+    )
 
     title = models.CharField(max_length=255, default='Tradevo Service Estimate')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')

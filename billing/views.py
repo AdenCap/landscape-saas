@@ -7,7 +7,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib import messages
 from django.core.mail import EmailMultiAlternatives
-from django.http import FileResponse
+from django.http import FileResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import reverse
@@ -17,7 +17,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.decorators import role_required
 from accounts.utils import get_business as _get_business
-from customers.models import Customer, ClientMessage
+from customers.models import Customer, ClientMessage, Property
 
 
 def _email_template_vars(s, **kwargs):
@@ -1050,6 +1050,22 @@ def leads_followups(request):
 
 
 @role_required("owner", "manager")
+def api_customer_properties(request, customer_id):
+    """Return JSON list of properties for a customer (AJAX endpoint)."""
+    business = _get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    try:
+        customer = Customer.objects.get(id=customer_id, business=business)
+    except Customer.DoesNotExist:
+        return JsonResponse({"error": "Customer not found"}, status=404)
+    props = Property.objects.filter(customer=customer).order_by('address')
+    return JsonResponse({
+        "properties": [{"id": p.id, "address": p.address} for p in props]
+    })
+
+
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def estimate_create(request):
     business = _get_business(request)
@@ -1075,6 +1091,12 @@ def estimate_create(request):
             try:
                 cust = Customer.objects.get(id=customer_id, business=business)
                 form.initial["customer"] = cust
+                # Auto-select property if customer has exactly one
+                props = Property.objects.filter(customer=cust)
+                if props.count() == 1:
+                    form.initial["property"] = props.first()
+                # Update the property queryset so Django renders options
+                form.fields['property'].queryset = props
             except (Customer.DoesNotExist, ValueError):
                 pass
 
@@ -2090,6 +2112,11 @@ def field_capture(request):
             try:
                 cust = Customer.objects.get(id=customer_id, business=business)
                 form.initial["customer"] = cust.id
+                # Auto-select property if customer has exactly one
+                props = Property.objects.filter(customer=cust)
+                if props.count() == 1:
+                    form.initial["property"] = props.first().id
+                form.fields['property'].queryset = props
             except (Customer.DoesNotExist, ValueError):
                 pass
 

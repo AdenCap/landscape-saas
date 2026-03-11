@@ -2,68 +2,454 @@
 {% block title %}Field Capture{% endblock %}
 
 {% block content %}
-<div class="page-header">
+<div class="fc-page">
+  <div class="fc-header">
     <h1>Field Capture</h1>
-    <p>Quick notes and photos from a site visit. You can complete the full quote later.</p>
+    <p>Quick notes &amp; photos from a site visit. Complete the full quote later.</p>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="fc-form">
+    {% csrf_token %}
+
+    <!-- Step 1: Who -->
+    <section class="fc-section">
+      <div class="fc-section-label"><span class="fc-step">1</span> Who is this for?</div>
+      <div class="fc-field">
+        <select name="customer" id="id_customer" required>
+          <option value="">Select a customer...</option>
+          {% for c in form.fields.customer.queryset %}
+          <option value="{{ c.id }}" {% if form.initial.customer == c.id or form.customer.value|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        {% if form.errors.customer %}
+        <p class="fc-error">{{ form.errors.customer.0 }}</p>
+        {% endif %}
+        <a href="{% url 'customer_create' %}?next=estimate_and_select" class="fc-add-link">+ New client</a>
+      </div>
+      <div class="fc-field" id="property-group" style="display: none;">
+        <select name="property" id="id_property">
+          <option value="">-- Select property --</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Step 2: What -->
+    <section class="fc-section">
+      <div class="fc-section-label"><span class="fc-step">2</span> What's the job?</div>
+      <div class="fc-field">
+        {{ form.title }}
+        {% if form.errors.title %}
+        <p class="fc-error">{{ form.errors.title.0 }}</p>
+        {% endif %}
+      </div>
+      <div class="fc-field">
+        <label for="id_site_visit_date">Visit date</label>
+        {{ form.site_visit_date }}
+      </div>
+    </section>
+
+    <!-- Step 3: Photos -->
+    <section class="fc-section">
+      <div class="fc-section-label"><span class="fc-step">3</span> Take photos</div>
+
+      <div class="fc-photo-zone" id="photoZone">
+        <div class="fc-photo-buttons">
+          <button type="button" class="fc-btn-camera" id="btnCamera" title="Open camera">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <span>Camera</span>
+          </button>
+          <button type="button" class="fc-btn-gallery" id="btnGallery" title="Choose from gallery">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span>Gallery</span>
+          </button>
+        </div>
+        <!-- Hidden file inputs -->
+        <input type="file" name="photos" id="cameraInput" accept="image/*" capture="environment" multiple style="display:none;">
+        <input type="file" name="photos" id="galleryInput" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple style="display:none;">
+
+        <div class="fc-photo-grid" id="photoGrid"></div>
+        <p class="fc-photo-count" id="photoCount"></p>
+      </div>
+    </section>
+
+    <!-- Step 4: Notes -->
+    <section class="fc-section">
+      <div class="fc-section-label"><span class="fc-step">4</span> Site notes <span class="fc-optional">(optional)</span></div>
+      <div class="fc-field">
+        {{ form.site_visit_notes }}
+        <p class="fc-hint">Internal only — not shown to the client.</p>
+      </div>
+    </section>
+
+    <!-- Actions -->
+    <div class="fc-actions">
+      <button type="submit" class="fc-submit" id="submitBtn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Save to Queue
+      </button>
+      <a href="/billing/estimates/?tab=queue" class="fc-cancel">Cancel</a>
+    </div>
+  </form>
 </div>
 
-<div class="card" style="max-width: 640px;">
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
+<style>
+  .fc-page { max-width: 600px; }
 
-        <div style="margin-bottom: var(--space-4);">
-            <label for="id_customer" style="display: block; font-weight: 600; margin-bottom: 6px;">Customer</label>
-            <select name="customer" id="id_customer" required style="width: 100%; padding: 12px; font-size: 16px;">
-                <option value="">Select a customer...</option>
-                {% for c in form.fields.customer.queryset %}
-                <option value="{{ c.id }}" {% if form.initial.customer == c.id or form.customer.value|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
-                {% endfor %}
-            </select>
-            {% if form.errors.customer %}
-            <p style="color: #ef4444; font-size: 13px; margin-top: 4px;">{{ form.errors.customer.0 }}</p>
-            {% endif %}
-        </div>
+  .fc-header { margin-bottom: 24px; }
+  .fc-header h1 { margin: 0 0 4px; font-size: 26px; font-weight: 700; }
+  .fc-header p { margin: 0; color: var(--text-muted); font-size: 15px; }
 
-        <div style="margin-bottom: var(--space-4);">
-            <label for="id_title" style="display: block; font-weight: 600; margin-bottom: 6px;">Job Description</label>
-            {{ form.title }}
-            {% if form.errors.title %}
-            <p style="color: #ef4444; font-size: 13px; margin-top: 4px;">{{ form.errors.title.0 }}</p>
-            {% endif %}
-        </div>
+  .fc-form { display: flex; flex-direction: column; gap: 8px; }
 
-        <div style="margin-bottom: var(--space-4);">
-            <label for="id_site_visit_date" style="display: block; font-weight: 600; margin-bottom: 6px;">Visit Date</label>
-            {{ form.site_visit_date }}
-            {% if form.errors.site_visit_date %}
-            <p style="color: #ef4444; font-size: 13px; margin-top: 4px;">{{ form.errors.site_visit_date.0 }}</p>
-            {% endif %}
-        </div>
+  .fc-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
 
-        <div style="margin-bottom: var(--space-4);">
-            <label for="id_site_visit_notes" style="display: block; font-weight: 600; margin-bottom: 6px;">Site Notes</label>
-            {{ form.site_visit_notes }}
-            <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Internal notes only. Not shown on the estimate sent to the client.</p>
-            {% if form.errors.site_visit_notes %}
-            <p style="color: #ef4444; font-size: 13px; margin-top: 4px;">{{ form.errors.site_visit_notes.0 }}</p>
-            {% endif %}
-        </div>
+  .fc-section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 14px;
+    color: var(--text);
+  }
+  .fc-step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .fc-optional {
+    font-weight: 400;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
 
-        <div style="margin-bottom: var(--space-6);">
-            <label style="display: block; font-weight: 600; margin-bottom: 6px;">Photos</label>
-            <input type="file" name="photos" multiple accept="image/*" capture="environment"
-                   style="width: 100%; padding: 12px; font-size: 16px; border: 2px dashed var(--border); border-radius: var(--radius-md); cursor: pointer;">
-            <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Take photos or select from gallery. JPEG, PNG, WebP, HEIC accepted. Max 10 MB each.</p>
-        </div>
+  .fc-field { margin-bottom: 12px; }
+  .fc-field:last-child { margin-bottom: 0; }
+  .fc-field label {
+    display: block;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 6px;
+    color: var(--text-muted);
+  }
+  .fc-field select,
+  .fc-field input[type="text"],
+  .fc-field input[type="date"],
+  .fc-field textarea {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-alt);
+    color: var(--text);
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .fc-field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px;
+  }
+  .fc-field select:focus,
+  .fc-field input:focus,
+  .fc-field textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  }
+  .fc-field textarea { min-height: 100px; resize: vertical; }
 
-        <div style="display: flex; gap: var(--space-3); flex-wrap: wrap;">
-            <button type="submit" class="btn btn-primary" style="min-height: 48px; padding: 12px 32px; font-size: 16px; font-weight: 600;">
-                Save to Queue
-            </button>
-            <a href="/billing/estimates/?tab=queue" class="btn btn-secondary" style="min-height: 48px; padding: 12px 24px; font-size: 16px;">
-                Cancel
-            </a>
-        </div>
-    </form>
-</div>
+  .fc-error { color: #ef4444; font-size: 13px; margin-top: 4px; }
+  .fc-hint { color: var(--text-muted); font-size: 13px; margin-top: 6px; }
+  .fc-add-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary);
+  }
+  .fc-add-link:hover { text-decoration: underline; }
+
+  /* Photo zone */
+  .fc-photo-zone { }
+  .fc-photo-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .fc-btn-camera,
+  .fc-btn-gallery {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 20px 12px;
+    border-radius: 12px;
+    border: 2px dashed var(--border);
+    background: var(--surface-alt);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .fc-btn-camera:hover,
+  .fc-btn-gallery:hover {
+    border-color: var(--primary);
+    background: rgba(99,102,241,0.06);
+  }
+  .fc-btn-camera:active,
+  .fc-btn-gallery:active {
+    transform: scale(0.97);
+  }
+  .fc-btn-camera svg,
+  .fc-btn-gallery svg {
+    opacity: 0.7;
+  }
+
+  /* Photo grid */
+  .fc-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .fc-photo-grid:empty { margin-top: 0; }
+  .fc-photo-thumb {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+  }
+  .fc-photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .fc-photo-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0,0,0,0.65);
+    color: #fff;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .fc-photo-remove:hover { background: #ef4444; }
+
+  .fc-photo-count {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    text-align: center;
+  }
+  .fc-photo-count:empty { display: none; }
+
+  /* Actions */
+  .fc-actions {
+    display: flex;
+    gap: 12px;
+    padding-top: 4px;
+  }
+  .fc-submit {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 52px;
+    padding: 14px 24px;
+    font-size: 17px;
+    font-weight: 700;
+    font-family: inherit;
+    color: #fff;
+    background: var(--primary);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .fc-submit:hover { background: var(--primary-hover); }
+  .fc-submit:active { transform: scale(0.98); }
+  .fc-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 52px;
+    padding: 14px 20px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-decoration: none;
+  }
+  .fc-cancel:hover { border-color: var(--border-hover); color: var(--text); }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+  // --- Property dynamic loading ---
+  var customerSelect = document.getElementById('id_customer');
+  var propertySelect = document.getElementById('id_property');
+  var propertyGroup = document.getElementById('property-group');
+
+  function clearPropertySelect() {
+    while (propertySelect.options.length > 0) propertySelect.remove(0);
+    var emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '-- Select property --';
+    propertySelect.appendChild(emptyOpt);
+  }
+
+  function loadProperties(customerId) {
+    if (!customerId) {
+      propertyGroup.style.display = 'none';
+      clearPropertySelect();
+      return;
+    }
+    fetch('/billing/api/customer-properties/' + customerId + '/')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        clearPropertySelect();
+        if (data.properties && data.properties.length > 0) {
+          data.properties.forEach(function(p) {
+            var opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.address;
+            propertySelect.appendChild(opt);
+          });
+          propertyGroup.style.display = 'block';
+          if (data.properties.length === 1) {
+            propertySelect.value = data.properties[0].id;
+          }
+        } else {
+          propertyGroup.style.display = 'none';
+        }
+      });
+  }
+
+  if (customerSelect) {
+    customerSelect.addEventListener('change', function() {
+      loadProperties(this.value);
+    });
+    if (customerSelect.value) {
+      loadProperties(customerSelect.value);
+    }
+  }
+
+  // --- Photo handling ---
+  var cameraInput = document.getElementById('cameraInput');
+  var galleryInput = document.getElementById('galleryInput');
+  var btnCamera = document.getElementById('btnCamera');
+  var btnGallery = document.getElementById('btnGallery');
+  var photoGrid = document.getElementById('photoGrid');
+  var photoCount = document.getElementById('photoCount');
+  var collectedFiles = [];  // DataTransfer to hold all files
+
+  btnCamera.addEventListener('click', function() { cameraInput.click(); });
+  btnGallery.addEventListener('click', function() { galleryInput.click(); });
+
+  function addFiles(fileList) {
+    for (var i = 0; i < fileList.length; i++) {
+      var file = fileList[i];
+      if (!file.type.startsWith('image/')) continue;
+      if (file.size > 10 * 1024 * 1024) continue; // 10 MB limit
+      collectedFiles.push(file);
+      renderThumb(file, collectedFiles.length - 1);
+    }
+    updateCount();
+    syncFileInputs();
+  }
+
+  function renderThumb(file, index) {
+    var div = document.createElement('div');
+    div.className = 'fc-photo-thumb';
+    div.dataset.index = index;
+
+    var img = document.createElement('img');
+    img.alt = 'Photo preview';
+    var reader = new FileReader();
+    reader.onload = function(e) { img.src = e.target.result; };
+    reader.readAsDataURL(file);
+
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'fc-photo-remove';
+    removeBtn.textContent = '\u00D7';
+    removeBtn.addEventListener('click', function() {
+      collectedFiles.splice(index, 1);
+      rebuildGrid();
+    });
+
+    div.appendChild(img);
+    div.appendChild(removeBtn);
+    photoGrid.appendChild(div);
+  }
+
+  function rebuildGrid() {
+    while (photoGrid.firstChild) photoGrid.removeChild(photoGrid.firstChild);
+    collectedFiles.forEach(function(file, i) {
+      renderThumb(file, i);
+    });
+    updateCount();
+    syncFileInputs();
+  }
+
+  function updateCount() {
+    var n = collectedFiles.length;
+    photoCount.textContent = n > 0 ? n + ' photo' + (n !== 1 ? 's' : '') + ' ready to upload' : '';
+  }
+
+  function syncFileInputs() {
+    // Build a fresh DataTransfer and assign to a hidden input
+    var dt = new DataTransfer();
+    collectedFiles.forEach(function(f) { dt.items.add(f); });
+    // Use the camera input as the carrier (name="photos")
+    cameraInput.files = dt.files;
+    // Clear gallery so we don't double-submit
+    galleryInput.name = '';
+  }
+
+  cameraInput.addEventListener('change', function() {
+    if (this.files.length) addFiles(this.files);
+  });
+  galleryInput.addEventListener('change', function() {
+    if (this.files.length) addFiles(this.files);
+  });
+
+});
+</script>
 {% endblock %}

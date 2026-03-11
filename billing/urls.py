@@ -38,6 +38,9 @@ urlpatterns = [
     path("templates/", views.document_templates_list, name="document_templates_list"),
     path("templates/<str:doc_type>/", views.document_template_edit, name="document_template_edit"),
     
+    # API endpoints
+    path("api/customer-properties/<int:customer_id>/", views.api_customer_properties, name="api_customer_properties"),
+
     # Fertilizer Products
     path("fertilizer-products/", views.fertilizer_products_list, name="fertilizer_products_list"),
     path("fertilizer-products/create/", views.fertilizer_product_create, name="fertilizer_product_create"),

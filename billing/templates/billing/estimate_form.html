@@ -23,6 +23,12 @@
         {{ form.customer.errors }}
         <a href="{% url 'customer_create' %}?next=estimate_and_select" class="form-add-link">+ Add new client</a>
       </div>
+      <div class="form-group" id="property-group" style="display: none;">
+        <label for="id_property">Property</label>
+        <select name="property" id="id_property">
+          <option value="">-- Select property --</option>
+        </select>
+      </div>
       <div class="form-group">
         <label for="id_title">Title</label>
         {{ form.title }}
@@ -100,4 +106,56 @@
   }
   .form-actions .btn-primary { flex-shrink: 0; }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var customerSelect = document.getElementById('id_customer');
+  var propertySelect = document.getElementById('id_property');
+  var propertyGroup = document.getElementById('property-group');
+  if (!customerSelect || !propertySelect) return;
+
+  function clearPropertySelect() {
+    while (propertySelect.options.length > 0) propertySelect.remove(0);
+    var emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '-- Select property --';
+    propertySelect.appendChild(emptyOpt);
+  }
+
+  function loadProperties(customerId) {
+    if (!customerId) {
+      propertyGroup.style.display = 'none';
+      clearPropertySelect();
+      return;
+    }
+    fetch('/billing/api/customer-properties/' + customerId + '/')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        clearPropertySelect();
+        if (data.properties && data.properties.length > 0) {
+          data.properties.forEach(function(p) {
+            var opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.address;
+            propertySelect.appendChild(opt);
+          });
+          propertyGroup.style.display = 'block';
+          if (data.properties.length === 1) {
+            propertySelect.value = data.properties[0].id;
+          }
+        } else {
+          propertyGroup.style.display = 'none';
+        }
+      });
+  }
+
+  customerSelect.addEventListener('change', function() {
+    loadProperties(this.value);
+  });
+
+  if (customerSelect.value) {
+    loadProperties(customerSelect.value);
+  }
+});
+</script>
 {% endblock %}

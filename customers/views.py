@@ -165,6 +165,12 @@ def customer_create(request):
             customer = form.save(commit=False)
             customer.business = business
             customer.save()
+            # Auto-create a property from the customer's address
+            if customer.address_line1:
+                Property.objects.create(
+                    customer=customer,
+                    address=customer.full_address,
+                )
             messages.success(request, f"Client '{customer.name}' added successfully.")
             next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
             if next_url == "estimate_and_select":
@@ -250,6 +256,12 @@ def customer_import(request):
                         continue
 
                     customer.save()
+                    # Auto-create a property from the imported address
+                    if customer.address_line1:
+                        Property.objects.create(
+                            customer=customer,
+                            address=customer.full_address,
+                        )
                     created += 1
             except Exception as e:
                 messages.error(request, f"Error reading CSV: {e}")

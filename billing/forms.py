@@ -3,14 +3,14 @@ from django.forms import BaseInlineFormSet, inlineformset_factory
 from decimal import Decimal, ROUND_CEILING
 
 from .models import Estimate, EstimateLineItem, EstimateImage, Invoice, InvoiceLineItem, DocumentTemplate
-from customers.models import Customer
+from customers.models import Customer, Property
 
 
 class FieldCaptureForm(forms.ModelForm):
     """Quick mobile form for capturing estimate info during a site visit."""
     class Meta:
         model = Estimate
-        fields = ['customer', 'title', 'site_visit_date', 'site_visit_notes']
+        fields = ['customer', 'property', 'title', 'site_visit_date', 'site_visit_notes']
         widgets = {
             'site_visit_date': forms.DateInput(attrs={'type': 'date'}),
             'site_visit_notes': forms.Textarea(attrs={
@@ -25,6 +25,7 @@ class FieldCaptureForm(forms.ModelForm):
             'site_visit_date': 'Visit Date',
             'site_visit_notes': 'Site Notes',
             'title': 'Job Description',
+            'property': 'Property',
         }
 
     def __init__(self, *args, **kwargs):
@@ -32,12 +33,26 @@ class FieldCaptureForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if business:
             self.fields['customer'].queryset = Customer.objects.filter(business=business).order_by('name')
+        self.fields['property'].required = False
+        self.fields['property'].empty_label = '-- Select property --'
+        if self.data.get('customer'):
+            try:
+                self.fields['property'].queryset = Property.objects.filter(customer_id=int(self.data['customer']))
+            except (ValueError, TypeError):
+                self.fields['property'].queryset = Property.objects.none()
+        elif self.initial.get('customer'):
+            cid = self.initial['customer']
+            if hasattr(cid, 'pk'):
+                cid = cid.pk
+            self.fields['property'].queryset = Property.objects.filter(customer_id=cid)
+        else:
+            self.fields['property'].queryset = Property.objects.none()
 
 
 class EstimateForm(forms.ModelForm):
     class Meta:
         model = Estimate
-        fields = ['customer', 'title', 'valid_until', 'notes', 'site_visit_date', 'site_visit_notes']
+        fields = ['customer', 'property', 'title', 'valid_until', 'notes', 'site_visit_date', 'site_visit_notes']
         widgets = {
             'valid_until': forms.DateInput(attrs={'type': 'date'}),
             'notes': forms.Textarea(attrs={'rows': 3}),
@@ -47,6 +62,7 @@ class EstimateForm(forms.ModelForm):
         labels = {
             'site_visit_date': 'Site Visit Date',
             'site_visit_notes': 'Site Visit Notes',
+            'property': 'Property',
         }
 
     def __init__(self, *args, **kwargs):
@@ -54,6 +70,22 @@ class EstimateForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if business:
             self.fields['customer'].queryset = Customer.objects.filter(business=business).order_by('name')
+        self.fields['property'].required = False
+        self.fields['property'].empty_label = '-- Select property --'
+        if self.instance and self.instance.pk and self.instance.customer_id:
+            self.fields['property'].queryset = Property.objects.filter(customer=self.instance.customer)
+        elif self.data.get('customer'):
+            try:
+                self.fields['property'].queryset = Property.objects.filter(customer_id=int(self.data['customer']))
+            except (ValueError, TypeError):
+                self.fields['property'].queryset = Property.objects.none()
+        elif self.initial.get('customer'):
+            cid = self.initial['customer']
+            if hasattr(cid, 'pk'):
+                cid = cid.pk
+            self.fields['property'].queryset = Property.objects.filter(customer_id=cid)
+        else:
+            self.fields['property'].queryset = Property.objects.none()
 
 
 class InvoiceLineItemForm(forms.ModelForm):
