@@ -1,18 +1,57 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="pin-grad" x1="256" y1="48" x2="256" y2="460" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#4ade80"/>
-      <stop offset="100%" stop-color="#22c55e"/>
+    <linearGradient id="fieldlgxGreen" x1="512" y1="180" x2="512" y2="874" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4ADE80"/>
+      <stop offset="100%" stop-color="#22C55E"/>
     </linearGradient>
   </defs>
-  <!-- Map pin body -->
-  <path d="M256 48c-92 0-168 72-168 164 0 56 24 102 58 140l110 148 110-148c34-38 58-84 58-140 0-92-76-164-168-164z" fill="url(#pin-grad)"/>
-  <!-- House roof chevron cutout -->
-  <path d="M256 148l-138 98 18 22L256 180l120 88 18-22z" fill="#0a0a0a"/>
-  <!-- Chimney -->
-  <rect x="330" y="172" width="22" height="52" rx="2" fill="#0a0a0a"/>
-  <!-- Diamond body cutout -->
-  <path d="M256 222l-100 100 100 100 100-100z" fill="#0a0a0a"/>
-  <!-- Small window (green tint) -->
-  <rect x="232" y="298" width="48" height="48" rx="5" fill="#4ade80" opacity="0.35"/>
+
+  <rect width="1024" height="1024" fill="#0A0A0A"/>
+
+  <!-- Pin / broad home-services mark -->
+  <path d="M512 180
+           C650 180 775 286 775 455
+           C775 514 762 566 736 620
+           L563 874
+           C539 909 485 909 461 874
+           L288 620
+           C262 566 249 514 249 455
+           C249 286 374 180 512 180Z"
+        fill="url(#fieldlgxGreen)"/>
+
+  <!-- House roof / negative space -->
+  <path d="M258 523
+           L509 271
+           L621 383
+           L621 332
+           L666 332
+           L666 427
+           L775 536
+           L742 569
+           L510 337
+           L291 556
+           Z"
+        fill="#0A0A0A"/>
+
+  <!-- Inner chevron / negative space -->
+  <path d="M332 589
+           L510 411
+           L672 573
+           L639 606
+           L510 477
+           L365 622
+           Z"
+        fill="#0A0A0A"/>
+
+  <!-- House body / diamond negative space -->
+  <path d="M390 621
+           L510 501
+           L630 621
+           L510 741
+           Z"
+        fill="#0A0A0A"/>
+
+  <!-- Window -->
+  <rect x="482" y="556" width="52" height="52" rx="6" fill="url(#fieldlgxGreen)"/>
 </svg>
