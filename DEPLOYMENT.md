@@ -1,4 +1,4 @@
-# Deploying Field Ops to the Internet
+# Deploying FieldLgx to the Internet
 
 This guide covers publishing your Django app so anyone can sign up and use it.
 
@@ -36,8 +36,8 @@ Before going live:
 1. **Set environment variables** (never commit these):
    - `DJANGO_SECRET_KEY` — e.g. `python -c "import secrets; print(secrets.token_urlsafe(50))"`
    - `DJANGO_DEBUG=0`
-   - `ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com` (or the host your platform gives you, e.g. `yourapp.railway.app`)
-   - `CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com` (same as above with `https://`)
+   - `ALLOWED_HOSTS=fieldlgx.com,www.fieldlgx.com` (or the host your platform gives you, e.g. `yourapp.railway.app`)
+   - `CSRF_TRUSTED_ORIGINS=https://fieldlgx.com,https://www.fieldlgx.com` (same as above with `https://`)
 
 2. **Database**  
    - For small/medium use, SQLite is fine; ensure the app has a **persistent volume** so `db.sqlite3` isn’t lost on redeploy (Railway/Render/Fly all support this).  

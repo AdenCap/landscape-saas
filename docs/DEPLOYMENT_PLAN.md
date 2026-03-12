@@ -23,8 +23,8 @@ Use this path when you have (or will have) a **VPS** and a **domain**. Replace `
 3. **Get your VPS IP** from your provider (DigitalOcean, Linode, Hetzner, Vultr, etc.) after creating the droplet/server.
 
 4. **Point your domain to the VPS**
-   - At your domain registrar (or DNS provider), add an **A record**: host `@` (or `yourdomain.com`) → `YOUR_VPS_IP`.
-   - Add another A record for `www` → `YOUR_VPS_IP` if you want `www.yourdomain.com`.
+   - At your domain registrar (or DNS provider), add an **A record**: host `@` (or `fieldlgx.com`) → `YOUR_VPS_IP`.
+   - Add another A record for `www` → `YOUR_VPS_IP` if you want `www.fieldlgx.com`.
    - Wait a few minutes (up to 48 hours in rare cases) for DNS to propagate.
 
 ### B. On the VPS (first time)
@@ -249,7 +249,7 @@ Use this path when you have (or will have) a **VPS** and a **domain**. Replace `
 |---|------|--------|
 | 4.1 | Point domain to server | Create A (and optionally AAAA) records for your domain to the VPS IP. |
 | 4.2 | Temporary Nginx config | Proxy HTTP to Gunicorn (e.g. `proxy_pass http://127.0.0.1:8000`) so Certbot can reach the app. |
-| 4.3 | Get SSL certificate | `sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com`. |
+| 4.3 | Get SSL certificate | `sudo certbot --nginx -d fieldlgx.com -d www.fieldlgx.com`. |
 | 4.4 | Run app with Gunicorn | Test: `gunicorn config.wsgi:application --bind 127.0.0.1:8000`. Then add a systemd unit so it runs on boot and restarts on failure. |
 | 4.5 | Final Nginx config | Serve `/static/` and `/media/` from disk; proxy everything else to Gunicorn. Redirect HTTP → HTTPS. Reload Nginx. |
 
@@ -260,10 +260,10 @@ Use this path when you have (or will have) a **VPS** and a **domain**. Replace `
 | # | Task | Notes |
 |---|------|--------|
 | 5.1 | Restart app and Nginx | `sudo systemctl restart landscape` (or your service name), `sudo systemctl reload nginx`. |
-| 5.2 | Visit the site over HTTPS | Open `https://yourdomain.com`; confirm no certificate warnings. |
+| 5.2 | Visit the site over HTTPS | Open `https://fieldlgx.com`; confirm no certificate warnings. |
 | 5.3 | Sign up / log in | Create a new account or log in as superuser; confirm login and redirects work. |
 | 5.4 | Quick test of main flows | Dashboard, create a job, calendar, time clock, billing (if configured), settings. Note any errors or missing env vars (e.g. QuickBooks, Maps, Mapbox). |
-| 5.5 | Check admin | Log in to `https://yourdomain.com/admin/` with the superuser account. |
+| 5.5 | Check admin | Log in to `https://fieldlgx.com/admin/` with the superuser account. |
 
 ---
 

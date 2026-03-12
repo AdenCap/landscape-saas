@@ -1,5 +1,5 @@
 """
-Custom storage backends. VercelBlobStorage is used when BLOB_READ_WRITE_TOKEN is set (e.g. on Vercel with Blob store "fieldops-blob").
+Custom storage backends. VercelBlobStorage is used when BLOB_READ_WRITE_TOKEN is set (e.g. on Vercel with Blob store "fieldlgx-blob").
 """
 import os
 from urllib.parse import urlparse
@@ -10,7 +10,7 @@ from django.core.files.storage import Storage
 
 class VercelBlobStorage(Storage):
     """
-    Store uploaded files in Vercel Blob (fieldops-blob or any store linked via BLOB_READ_WRITE_TOKEN).
+    Store uploaded files in Vercel Blob (fieldlgx-blob or any store linked via BLOB_READ_WRITE_TOKEN).
     The token is set automatically when you add the Blob store to your Vercel project.
     """
     def __init__(self, **kwargs):

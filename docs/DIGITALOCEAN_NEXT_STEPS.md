@@ -121,7 +121,7 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8080
 1. **In DigitalOcean:**
    - App → Settings → Domains
    - Click "Add Domain"
-   - Enter your domain (e.g., `fieldops.com`)
+   - Enter your domain (e.g., `fieldlgx.com`)
 
 2. **Update DNS:**
    - DigitalOcean will show you DNS records to add
@@ -130,8 +130,8 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8080
 
 3. **Update Environment Variables:**
    - After domain is active, update:
-     - `ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com`
-     - `CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com`
+     - `ALLOWED_HOSTS=fieldlgx.com,www.fieldlgx.com`
+     - `CSRF_TRUSTED_ORIGINS=https://fieldlgx.com,https://www.fieldlgx.com`
    - Redeploy
 
 ---

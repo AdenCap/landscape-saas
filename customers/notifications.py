@@ -149,7 +149,7 @@ def notify_customer(customer, event_type, context_overrides=None, business=None,
             connection = business.get_smtp_connection()
             if connection:
                 from_email = business.get_from_email() or getattr(
-                    settings, "DEFAULT_FROM_EMAIL", "noreply@example.com"
+                    settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com"
                 )
                 subject_map = {
                     "job_scheduled": f"Your service is scheduled — {business.name}",

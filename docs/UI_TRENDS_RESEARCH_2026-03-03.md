@@ -1,4 +1,4 @@
-# UI/UX Trend Research — Field Ops (2026-03-03)
+# UI/UX Trend Research — FieldLgx (2026-03-03)
 
 ## Sources sampled
 - Web trend roundups (B2B SaaS and dashboard UX)
@@ -26,7 +26,7 @@
 6. **Predictable pricing messaging is a differentiator**
    - Transparent pricing and low surprise costs reduce buyer hesitation.
 
-## Recommended design direction for Field Ops
+## Recommended design direction for FieldLgx
 
 - Keep premium visual tone (strong hierarchy, clean spacing, subtle depth)
 - Lean into operator outcomes (time saved, faster collections, clearer dispatch)

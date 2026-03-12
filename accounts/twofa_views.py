@@ -16,7 +16,7 @@ from accounts.decorators import role_required
 from accounts.models import TrustedDevice
 
 # Cookie name and max age for "trusted device" (2FA only on new devices)
-TRUSTED_DEVICE_COOKIE = "fieldops_trusted"
+TRUSTED_DEVICE_COOKIE = "fieldlgx_trusted"
 TRUSTED_DEVICE_MAX_AGE = 90 * 24 * 60 * 60  # 90 days
 
 

@@ -1,4 +1,4 @@
-# Modern Design Trends (AI Era) Applied to Field Ops
+# Modern Design Trends (AI Era) Applied to FieldLgx
 
 Date: 2026-03-03
 

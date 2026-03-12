@@ -1,4 +1,4 @@
-# ProFieldOps — DigitalOcean + Supabase Production Runbook
+# FieldLgx — DigitalOcean + Supabase Production Runbook
 
 ## 1) Supabase
 1. Create project.
@@ -10,8 +10,8 @@
 Required:
 - DJANGO_SECRET_KEY
 - DJANGO_DEBUG=0
-- ALLOWED_HOSTS=profieldops.com,www.profieldops.com,<app>.ondigitalocean.app
-- CSRF_TRUSTED_ORIGINS=https://profieldops.com,https://www.profieldops.com,https://<app>.ondigitalocean.app
+- ALLOWED_HOSTS=fieldlgx.com,www.fieldlgx.com,<app>.ondigitalocean.app
+- CSRF_TRUSTED_ORIGINS=https://fieldlgx.com,https://www.fieldlgx.com,https://<app>.ondigitalocean.app
 - PG_URL=postgresql://...
 - STRIPE_SECRET_KEY
 - STRIPE_PUBLISHABLE_KEY
@@ -32,11 +32,11 @@ Recommended:
   - celery worker service
 
 ## 4) DNS
-- Point `profieldops.com` and `www` to App Platform app.
+- Point `fieldlgx.com` and `www` to App Platform app.
 - Enable managed TLS in DO.
 
 ## 5) Stripe
-- Webhook endpoint: `https://profieldops.com/webhooks/stripe/`
+- Webhook endpoint: `https://fieldlgx.com/webhooks/stripe/`
 - Verify events delivered and no 5xx loops.
 
 ## 6) Smoke tests

@@ -1,6 +1,6 @@
 # Stripe Integration Setup Guide
 
-This guide covers setting up Stripe Billing (subscriptions) and Stripe Connect (invoice payments) for the Field Ops platform.
+This guide covers setting up Stripe Billing (subscriptions) and Stripe Connect (invoice payments) for the FieldLgx platform.
 
 ## Overview
 
@@ -46,7 +46,7 @@ STRIPE_CONNECT_APPLICATION_FEE_PERCENT=0  # Set to 0 for no fee (current default
 
 1. Go to Developers → Webhooks
 2. Click "Add endpoint"
-3. Set endpoint URL to: `https://yourdomain.com/webhooks/stripe/`
+3. Set endpoint URL to: `https://fieldlgx.com/webhooks/stripe/`
 4. Select events to listen for:
    - `checkout.session.completed`
    - `customer.subscription.created`

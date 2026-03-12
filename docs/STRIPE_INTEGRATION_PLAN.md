@@ -8,7 +8,7 @@ This document describes the two payment flows and how they are implemented.
 
 ### A. Platform subscription (Business → You)
 
-- **What:** Each business (company) pays a recurring subscription to you for access to Field Ops.
+- **What:** Each business (company) pays a recurring subscription to you for access to FieldLgx.
 - **Flow:** Business signs up → after signup or first login they are prompted to subscribe (or have a trial). They pay via Stripe Checkout (subscription). Recurring charges go to **your** Stripe account.
 - **Access control:** Only businesses with an active (or trialing) subscription can use the app. Others are redirected to the subscription page.
 
@@ -44,9 +44,9 @@ This document describes the two payment flows and how they are implemented.
 
 ## 4. Stripe Dashboard Setup
 
-1. **Products & prices** – Create a product “Field Ops” with a recurring price (e.g. monthly/yearly). Copy the Price ID(s) into settings or env.
+1. **Products & prices** – Create a product “FieldLgx” with a recurring price (e.g. monthly/yearly). Copy the Price ID(s) into settings or env.
 2. **Connect** – Enable Stripe Connect (Express or Standard). Note: Express is simpler for businesses (they get a Stripe-hosted onboarding).
-3. **Webhooks** – Add endpoint `https://yourdomain.com/webhooks/stripe/`, events: `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `checkout.session.completed`, `account.updated` (for Connect). Use the same endpoint for both subscription and Connect events.
+3. **Webhooks** – Add endpoint `https://fieldlgx.com/webhooks/stripe/`, events: `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `checkout.session.completed`, `account.updated` (for Connect). Use the same endpoint for both subscription and Connect events.
 
 ---
 

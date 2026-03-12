@@ -145,7 +145,7 @@ class Command(BaseCommand):
                     msg = EmailMultiAlternatives(
                         subject=subject,
                         body=text_body,
-                        from_email=business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com"),
+                        from_email=business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com"),
                         to=[customer.email],
                         reply_to=[business.contact_email] if business.contact_email else None,
                         connection=connection,

@@ -1,6 +1,6 @@
 # Production Readiness Checklist
 
-This guide covers everything you need to make Field Ops publicly available and ready for customers to pay for subscriptions.
+This guide covers everything you need to make FieldLgx publicly available and ready for customers to pay for subscriptions.
 
 ## 🚨 Critical: Must-Have Before Launch
 
@@ -29,7 +29,7 @@ This guide covers everything you need to make Field Ops publicly available and r
 
 4. **Set Up Webhooks:**
    - Go to Developers → Webhooks → Add endpoint
-   - URL: `https://yourdomain.com/webhooks/stripe/`
+   - URL: `https://fieldlgx.com/webhooks/stripe/`
    - Select events:
      - `checkout.session.completed`
      - `customer.subscription.created`
@@ -67,8 +67,8 @@ This guide covers everything you need to make Field Ops publicly available and r
 # Django Core
 DJANGO_SECRET_KEY=<generate-strong-key>
 DJANGO_DEBUG=0
-ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
-CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+ALLOWED_HOSTS=fieldlgx.com,www.fieldlgx.com
+CSRF_TRUSTED_ORIGINS=https://fieldlgx.com,https://www.fieldlgx.com
 
 # Database (if using PostgreSQL)
 DATABASE_URL=postgresql://user:pass@host:port/dbname
@@ -110,8 +110,8 @@ python manage.py migrate
 2. **Point DNS** to your hosting platform
 3. **Enable HTTPS** (most platforms do this automatically)
 4. **Update environment variables:**
-   - `ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com`
-   - `CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com`
+   - `ALLOWED_HOSTS=fieldlgx.com,www.fieldlgx.com`
+   - `CSRF_TRUSTED_ORIGINS=https://fieldlgx.com,https://www.fieldlgx.com`
 
 ---
 
@@ -137,7 +137,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'apikey'  # for SendGrid
 EMAIL_HOST_PASSWORD = 'your-api-key'
-DEFAULT_FROM_EMAIL = 'Field Ops <noreply@yourdomain.com>'
+DEFAULT_FROM_EMAIL = 'FieldLgx <noreply@fieldlgx.com>'
 ```
 
 **Note:** Companies can still use Gmail in Settings, but platform-level email is better for notifications.
@@ -329,7 +329,7 @@ DEFAULT_FROM_EMAIL = 'Field Ops <noreply@yourdomain.com>'
 **Set up customer support:**
 
 1. **Support Email:**
-   - Create support@yourdomain.com
+   - Create support@fieldlgx.com
    - Set up email forwarding
    - Respond within 24 hours
 

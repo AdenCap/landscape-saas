@@ -1,6 +1,6 @@
-# Field Ops — iOS & Android App Publishing Guide
+# FieldLgx — iOS & Android App Publishing Guide
 
-This guide walks you through building and publishing the Field Ops native app wrapper using Capacitor. The native app is a thin WebView shell that loads your live Django site — no separate frontend build step needed.
+This guide walks you through building and publishing the FieldLgx native app wrapper using Capacitor. The native app is a thin WebView shell that loads your live Django site — no separate frontend build step needed.
 
 ---
 
@@ -45,7 +45,7 @@ Edit `capacitor.config.ts` and replace the placeholder URL:
 
 ```ts
 server: {
-  url: 'https://your-actual-domain.com',  // Your live Field Ops URL
+  url: 'https://your-actual-domain.com',  // Your live FieldLgx URL
   cleartext: false,
 },
 ```
@@ -120,9 +120,9 @@ This opens Android Studio. Then:
 1. Go to https://appstoreconnect.apple.com
 2. Click **My Apps** → **+** → **New App**
 3. Fill in:
-   - **Name:** Field Ops
-   - **Bundle ID:** com.fieldops.app
-   - **SKU:** fieldops-001
+   - **Name:** FieldLgx
+   - **Bundle ID:** com.fieldlgx.app
+   - **SKU:** fieldlgx-001
    - **Primary Language:** English
 
 ### 5b. Prepare Store Listing
@@ -131,7 +131,7 @@ You need:
   - Take screenshots in Xcode Simulator: Window → Screenshot
   - Show: Dashboard, Job list, Invoice, Calendar
 - **App Icon:** 1024x1024 PNG (no transparency, no rounded corners)
-- **Description:** ~150 words about what Field Ops does
+- **Description:** ~150 words about what FieldLgx does
 - **Keywords:** lawn care, landscaping, field service, invoicing, scheduling
 - **Support URL:** Your website
 - **Privacy Policy URL:** Required — create a simple one at your domain
@@ -167,9 +167,9 @@ In Android Studio:
 1. **Build** → **Generate Signed Bundle / APK**
 2. Choose **Android App Bundle** (AAB) — required by Google Play
 3. Create a new keystore:
-   - **Key store path:** `native/fieldops-release.keystore`
+   - **Key store path:** `native/fieldlgx-release.keystore`
    - **Password:** Choose a strong password (save this!)
-   - **Key alias:** fieldops
+   - **Key alias:** fieldlgx
    - **Validity:** 25 years
 4. Select **release** build variant
 5. Click **Finish** — output is at `android/app/release/app-release.aab`
@@ -179,7 +179,7 @@ In Android Studio:
 ### 6b. Google Play Console Setup
 1. Go to https://play.google.com/console
 2. **Create app** → Fill in:
-   - **App name:** Field Ops
+   - **App name:** FieldLgx
    - **Default language:** English
    - **App type:** App
    - **Free or paid:** Free
@@ -220,7 +220,7 @@ The `@capacitor/push-notifications` plugin is already included. To enable:
 3. Send push notifications from your Django backend using `firebase-admin` or `apns2`
 
 ### Deep Links
-To handle URLs like `fieldops://jobs/123`:
+To handle URLs like `fieldlgx://jobs/123`:
 1. Add URL scheme in Xcode (iOS) and AndroidManifest.xml
 2. Configure Capacitor's App plugin to handle deep links
 

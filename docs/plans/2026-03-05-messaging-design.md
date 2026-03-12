@@ -5,7 +5,7 @@
 
 ## Overview
 
-Add real-time in-app messaging to Field Ops so employees within a business can communicate. Messaging is role-based: owner/managers can message anyone and broadcast; crew members can message within their own crews.
+Add real-time in-app messaging to FieldLgx so employees within a business can communicate. Messaging is role-based: owner/managers can message anyone and broadcast; crew members can message within their own crews.
 
 ## Architecture
 

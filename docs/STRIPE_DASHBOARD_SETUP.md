@@ -1,6 +1,6 @@
 # Stripe Dashboard Setup – Step-by-Step
 
-This guide walks you through everything to do in the Stripe Dashboard and how to connect it to your Field Ops platform.
+This guide walks you through everything to do in the Stripe Dashboard and how to connect it to your FieldLgx platform.
 
 ---
 
@@ -26,13 +26,13 @@ Never commit these to git; put them in `.env` or your host’s environment varia
 
 ## Part 2: Create the platform subscription product (businesses pay you)
 
-This is the recurring plan each business pays to use Field Ops.
+This is the recurring plan each business pays to use FieldLgx.
 
 1. In the Dashboard go to **Product catalog** → **Products**.
 2. Click **+ Add product**.
 3. Fill in:
-   - **Name:** e.g. `Field Ops – Monthly` (or “Annual” if you add a yearly option).
-   - **Description:** optional, e.g. “Access to Field Ops for your business.”
+   - **Name:** e.g. `FieldLgx – Monthly` (or “Annual” if you add a yearly option).
+   - **Description:** optional, e.g. “Access to FieldLgx for your business.”
    - **Pricing:**
      - Choose **Standard pricing**.
      - **Price:** e.g. `29.00` USD (or whatever you want).
@@ -52,7 +52,7 @@ Your app receives events at one endpoint; Stripe signs them so you can verify th
 1. Go to **Developers** → **Webhooks**.
 2. Click **Add endpoint**.
 3. **Endpoint URL:**  
-   - Production: `https://yourdomain.com/webhooks/stripe/`  
+   - Production: `https://fieldlgx.com/webhooks/stripe/`  
    - Local dev (e.g. ngrok): `https://your-ngrok-subdomain.ngrok.io/webhooks/stripe/`  
    Trailing slash must match what Django uses.
 4. **Events to send:** click **Select events** and add:

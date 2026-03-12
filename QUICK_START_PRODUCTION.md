@@ -12,7 +12,7 @@
    - Copy Price ID
 4. Set up webhook:
    - Developers → Webhooks → Add endpoint
-   - URL: `https://yourdomain.com/webhooks/stripe/`
+   - URL: `https://fieldlgx.com/webhooks/stripe/`
    - Select events: `checkout.session.completed`, `customer.subscription.*`, `invoice.paid`, `account.updated`
    - Copy signing secret
 
@@ -37,8 +37,8 @@ Add these in your hosting platform's dashboard:
 # Required
 DJANGO_SECRET_KEY=<generate-with-python-command-below>
 DJANGO_DEBUG=0
-ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
-CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+ALLOWED_HOSTS=fieldlgx.com,www.fieldlgx.com
+CSRF_TRUSTED_ORIGINS=https://fieldlgx.com,https://www.fieldlgx.com
 
 # Stripe (REQUIRED for payments)
 STRIPE_SECRET_KEY=sk_live_...

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Field Ops Calendar — Premium JS
+   FieldLgx Calendar — Premium JS
    FullCalendar 6, touch drag, rain push, modal transitions
    ========================================================================== */
 
@@ -16,8 +16,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // ── Mobile-aware view persistence ──
   var isMobile = window.matchMedia('(max-width: 768px)').matches;
-  var STORAGE_VIEW = isMobile ? 'fieldops_calendar_view_mobile' : 'fieldops_calendar_view';
-  var STORAGE_DATE = 'fieldops_calendar_date';
+  var STORAGE_VIEW = isMobile ? 'fieldlgx_calendar_view_mobile' : 'fieldlgx_calendar_view';
+  var STORAGE_DATE = 'fieldlgx_calendar_date';
 
   var defaultView = isMobile ? 'listWeek' : 'dayGridMonth';
   var savedView = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_VIEW)) || null;

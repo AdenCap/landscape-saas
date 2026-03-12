@@ -109,8 +109,8 @@ Add (replace with your real values):
 # Required for production
 DJANGO_SECRET_KEY=your-generated-secret-key-here
 DJANGO_DEBUG=0
-ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
-CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+ALLOWED_HOSTS=fieldlgx.com,www.fieldlgx.com
+CSRF_TRUSTED_ORIGINS=https://fieldlgx.com,https://www.fieldlgx.com
 
 # If using PostgreSQL (recommended)
 DATABASE_URL=postgresql://dbuser:dbpassword@localhost:5432/landscape_db
@@ -120,7 +120,7 @@ DATABASE_URL=postgresql://dbuser:dbpassword@localhost:5432/landscape_db
 # GOOGLE_MAPS_API_KEY=...
 # QUICKBOOKS_CLIENT_ID=...
 # QUICKBOOKS_CLIENT_SECRET=...
-# QUICKBOOKS_REDIRECT_URI=https://yourdomain.com/quickbooks/callback/
+# QUICKBOOKS_REDIRECT_URI=https://fieldlgx.com/quickbooks/callback/
 ```
 
 Secure the file:
@@ -147,8 +147,8 @@ You must set:
 |----------|---------|--------|
 | `DJANGO_SECRET_KEY` | (50+ char random) | **Required**; generate with `secrets.token_urlsafe(50)` |
 | `DJANGO_DEBUG` | `0` | **Required** in production |
-| `ALLOWED_HOSTS` | `yourdomain.com,www.yourdomain.com` | Comma-separated, no spaces |
-| `CSRF_TRUSTED_ORIGINS` | `https://yourdomain.com,https://www.yourdomain.com` | Must use `https://` |
+| `ALLOWED_HOSTS` | `fieldlgx.com,www.fieldlgx.com` | Comma-separated, no spaces |
+| `CSRF_TRUSTED_ORIGINS` | `https://fieldlgx.com,https://www.fieldlgx.com` | Must use `https://` |
 
 ---
 
@@ -198,7 +198,7 @@ Use Certbot so the site is served over HTTPS.
 
 ### 5.1 Point your domain to the server
 
-Create an A record (and optionally AAAA for IPv6) for `yourdomain.com` and `www.yourdomain.com` to your server’s IP.
+Create an A record (and optionally AAAA for IPv6) for `fieldlgx.com` and `www.fieldlgx.com` to your server’s IP.
 
 ### 5.2 Get the certificate
 
@@ -208,12 +208,12 @@ Create an A record (and optionally AAAA for IPv6) for `yourdomain.com` and `www.
 sudo nano /etc/nginx/sites-available/landscape
 ```
 
-Paste (replace `yourdomain.com`):
+Paste (replace `fieldlgx.com`):
 
 ```nginx
 server {
     listen 80;
-    server_name yourdomain.com www.yourdomain.com;
+    server_name fieldlgx.com www.fieldlgx.com;
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
@@ -233,7 +233,7 @@ sudo nginx -t && sudo systemctl reload nginx
 Then run Certbot:
 
 ```bash
-sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+sudo certbot --nginx -d fieldlgx.com -d www.fieldlgx.com
 ```
 
 Certbot will adjust the Nginx config to use HTTPS and redirect HTTP → HTTPS.
@@ -268,7 +268,7 @@ set -a && source .env && set +a
 gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 2
 ```
 
-Visit `http://yourdomain.com` (or via Nginx proxy); then stop with Ctrl+C.
+Visit `http://fieldlgx.com` (or via Nginx proxy); then stop with Ctrl+C.
 
 ### 6.2 systemd unit (so the app runs on boot and restarts on failure)
 
@@ -315,17 +315,17 @@ Update the Nginx site so it proxies to Gunicorn and serves static files (after C
 # Redirect HTTP to HTTPS
 server {
     listen 80;
-    server_name yourdomain.com www.yourdomain.com;
+    server_name fieldlgx.com www.fieldlgx.com;
     return 301 https://$server_name$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name yourdomain.com www.yourdomain.com;
+    server_name fieldlgx.com www.fieldlgx.com;
 
     # Certbot manages these paths
-    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/fieldlgx.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/fieldlgx.com/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 

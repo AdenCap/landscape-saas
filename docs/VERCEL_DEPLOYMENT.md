@@ -29,7 +29,7 @@ This project is set up to run on **Vercel** as a serverless Django app. You get 
    | `CSRF_TRUSTED_ORIGINS` | Yes for forms/login | Your app URL(s) with `https://`, e.g. `https://your-project.vercel.app` or `https://yourapp.com` |
    | `DATABASE_URL` | Yes | `postgresql://user:pass@host:5432/dbname` from your Postgres provider |
 
-   **Vercel Blob (fieldops-blob):** If you added a Vercel Blob store (e.g. named `fieldops-blob`), Vercel sets `BLOB_READ_WRITE_TOKEN` automatically. The app uses it to store uploads (job photos, receipts, estimate images, etc.) in Blob instead of the ephemeral filesystem. No extra env var needed.
+   **Vercel Blob (fieldlgx-blob):** If you added a Vercel Blob store (e.g. named `fieldlgx-blob`), Vercel sets `BLOB_READ_WRITE_TOKEN` automatically. The app uses it to store uploads (job photos, receipts, estimate images, etc.) in Blob instead of the ephemeral filesystem. No extra env var needed.
 
    Optional (same as other deploys): `QUICKBOOKS_*`, `MAPBOX_ACCESS_TOKEN`, `GOOGLE_MAPS_API_KEY`, etc.
 
@@ -121,7 +121,7 @@ If the deployment builds but you get **404: NOT_FOUND**, or you **don’t see `a
 
 - **Cold starts** — The first request after idle can be slower (a few seconds) while the serverless function starts.
 - **Execution time** — Hobby: 10s, Pro: 60s per request. Long-running tasks (e.g. big reports) may need to be offloaded to a background worker elsewhere.
-- **Media uploads** — The serverless filesystem is read-only at runtime. **Add the Vercel Blob store** (e.g. `fieldops-blob`) to your project; Vercel will set `BLOB_READ_WRITE_TOKEN`. The app is configured to use Vercel Blob for all file uploads when that token is present, so job photos, receipts, estimate images, and logos will persist.
+- **Media uploads** — The serverless filesystem is read-only at runtime. **Add the Vercel Blob store** (e.g. `fieldlgx-blob`) to your project; Vercel will set `BLOB_READ_WRITE_TOKEN`. The app is configured to use Vercel Blob for all file uploads when that token is present, so job photos, receipts, estimate images, and logos will persist.
 - **Bundle size** — Heavy dependencies (e.g. `opencv`, `numpy`, `pytesseract`) can push the function over Vercel’s limit. If the build or deploy fails with size errors, consider moving heavy work to an external service or trimming dependencies for the Vercel build.
 - **Static files** — `vercel.json` routes `/static/*` to the `staticfiles` directory created by `collectstatic`. WhiteNoise is still in the app as a fallback.
 
@@ -131,8 +131,8 @@ If the deployment builds but you get **404: NOT_FOUND**, or you **don’t see `a
 
 In the Vercel project: **Settings → Domains** → add your domain and follow DNS instructions. Then set:
 
-- `ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com`
-- `CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com`
+- `ALLOWED_HOSTS=fieldlgx.com,www.fieldlgx.com`
+- `CSRF_TRUSTED_ORIGINS=https://fieldlgx.com,https://www.fieldlgx.com`
 
 ---
 
@@ -145,4 +145,4 @@ In the Vercel project: **Settings → Domains** → add your domain and follow D
 - [ ] Superuser created (CLI or one-off) so you can use `/admin/`
 - [ ] (Optional) Custom domain and env vars updated
 - [ ] **Supabase:** `DATABASE_URL` set in Vercel (Settings → Environment Variables) to the Supabase **Session mode** URI (port 6543), with `[YOUR-PASSWORD]` replaced. Then redeploy. See **Connect Supabase to Vercel** above if the DB isn’t connecting.
-- [ ] (Recommended) Vercel Blob store (e.g. **fieldops-blob**) added to the project so uploads persist; `BLOB_READ_WRITE_TOKEN` is set automatically
+- [ ] (Recommended) Vercel Blob store (e.g. **fieldlgx-blob**) added to the project so uploads persist; `BLOB_READ_WRITE_TOKEN` is set automatically

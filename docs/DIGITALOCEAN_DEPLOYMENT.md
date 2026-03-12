@@ -1,6 +1,6 @@
 # Deploying to DigitalOcean App Platform
 
-This guide covers deploying Field Ops to DigitalOcean App Platform and configuring environment variables.
+This guide covers deploying FieldLgx to DigitalOcean App Platform and configuring environment variables.
 
 ## Step 1: Create App on DigitalOcean
 
@@ -15,7 +15,7 @@ This guide covers deploying Field Ops to DigitalOcean App Platform and configuri
    - Choose branch (usually `main`)
 
 3. **Configure App:**
-   - **Name:** field-ops (or your choice)
+   - **Name:** fieldlgx (or your choice)
    - **Region:** Choose closest to your users
    - **Plan:** Basic ($12/month) or Professional
 
@@ -60,13 +60,13 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8080
 
    ```
    Key: ALLOWED_HOSTS
-   Value: yourdomain.com,www.yourdomain.com
+   Value: fieldlgx.com,www.fieldlgx.com
    Scope: Run Time
    ```
 
    ```
    Key: CSRF_TRUSTED_ORIGINS
-   Value: https://yourdomain.com,https://www.yourdomain.com
+   Value: https://fieldlgx.com,https://www.fieldlgx.com
    Scope: Run Time
    ```
 
@@ -119,13 +119,13 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8080
 1. **In App Settings:**
    - Go to "Domains" tab
    - Click "Add Domain"
-   - Enter your domain (e.g., `yourdomain.com`)
+   - Enter your domain (e.g., `fieldlgx.com`)
    - Follow DNS instructions to point your domain
 
 2. **Update Environment Variables:**
    - After domain is connected, update:
-     - `ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com`
-     - `CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com`
+     - `ALLOWED_HOSTS=fieldlgx.com,www.fieldlgx.com`
+     - `CSRF_TRUSTED_ORIGINS=https://fieldlgx.com,https://www.fieldlgx.com`
 
 ## Step 6: Deploy
 
@@ -149,12 +149,12 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8080
 **After deployment, configure Stripe webhook:**
 
 1. **Get Your Webhook URL:**
-   - Your app URL: `https://yourdomain.com`
-   - Webhook endpoint: `https://yourdomain.com/webhooks/stripe/`
+   - Your app URL: `https://fieldlgx.com`
+   - Webhook endpoint: `https://fieldlgx.com/webhooks/stripe/`
 
 2. **In Stripe Dashboard:**
    - Go to Developers → Webhooks
-   - Add endpoint: `https://yourdomain.com/webhooks/stripe/`
+   - Add endpoint: `https://fieldlgx.com/webhooks/stripe/`
    - Select events (see STRIPE_SETUP.md)
    - Copy signing secret
 

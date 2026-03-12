@@ -93,7 +93,7 @@ class Command(BaseCommand):
                     continue
 
                 pay_url = _build_pay_url(invoice)
-                from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldops.local")
+                from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com")
                 subject = f"Payment reminder: Invoice #{invoice.id} from {business.name}"
                 body_text = (
                     f"Hi {invoice.customer.name},\n\n"

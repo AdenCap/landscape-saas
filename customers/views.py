@@ -522,7 +522,7 @@ def customer_send_message(request, customer_id):
             "Connect your Gmail in Settings to send emails. Go to Settings and add your Gmail address and App Password.",
         )
         return _send_message_redirect(request, customer.id)
-    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com")
+    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com")
     reply_to = [business.contact_email] if business.contact_email else None
     msg = EmailMultiAlternatives(
         subject or f"Message from {business.name}",

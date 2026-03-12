@@ -859,7 +859,7 @@ def resend_invoice(request, invoice_id):
             reverse("billing:invoice_pay_page", args=[invoice.id, invoice.payment_token])
         )
 
-    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldops.local")
+    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com")
     reply_to = [business.contact_email] if business.contact_email else None
     subject = (
         _email_template_vars(
@@ -1597,7 +1597,7 @@ def estimate_send(request, estimate_id):
         "accent_color": accent_color,
     })
 
-    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldops.local")
+    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com")
     reply_to = [business.contact_email] if business.contact_email else None
     plain_body = intro + "\n\nView and accept your estimate: " + (view_url or "") + "\n\n" + closing + "\n\n" + business.name
     msg = EmailMultiAlternatives(
@@ -1696,7 +1696,7 @@ def estimate_send_followup(request, estimate_id):
         "accent_color": accent_color,
     })
 
-    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldops.local")
+    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com")
     reply_to = [business.contact_email] if business.contact_email else None
     plain_body = intro + "\n\nView your estimate: " + view_url
     msg = EmailMultiAlternatives(

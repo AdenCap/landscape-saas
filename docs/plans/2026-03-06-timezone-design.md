@@ -2,7 +2,7 @@
 
 ## Problem
 
-All times in Field Ops display in UTC. A crew in Dallas clocking in at 7:00 AM Central sees 12:00 PM on screen. This affects clock in/out, calendar events, job schedules, meeting times, timesheets, and payroll cutoffs.
+All times in FieldLgx display in UTC. A crew in Dallas clocking in at 7:00 AM Central sees 12:00 PM on screen. This affects clock in/out, calendar events, job schedules, meeting times, timesheets, and payroll cutoffs.
 
 ## Decision
 

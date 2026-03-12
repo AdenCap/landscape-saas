@@ -42,8 +42,8 @@ Your software already has:
 ```bash
 DJANGO_SECRET_KEY=<generate-strong-key>
 DJANGO_DEBUG=0
-ALLOWED_HOSTS=yourdomain.com
-CSRF_TRUSTED_ORIGINS=https://yourdomain.com
+ALLOWED_HOSTS=fieldlgx.com
+CSRF_TRUSTED_ORIGINS=https://fieldlgx.com
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_SUBSCRIPTION_PRICE_ID=price_...
