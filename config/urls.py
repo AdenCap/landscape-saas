@@ -19,6 +19,7 @@ from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import RedirectView
 
 admin.site.site_header = "FieldLgx Admin"
 admin.site.site_title = "FieldLgx"
@@ -36,6 +37,7 @@ from config.marketing_views import (
 from config.db_check import db_check
 
 urlpatterns = [
+    path("favicon.ico", RedirectView.as_view(url="/static/img/favicon.ico", permanent=True)),
     path("admin/", admin.site.urls),
     path("api/db-check/", db_check),
     path("accounts/", include("accounts.auth_urls")),
