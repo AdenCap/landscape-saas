@@ -1,18 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <linearGradient id="pin-grad" x1="256" y1="40" x2="256" y2="472" gradientUnits="userSpaceOnUse">
+    <linearGradient id="pin-grad" x1="256" y1="48" x2="256" y2="460" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#4ade80"/>
       <stop offset="100%" stop-color="#22c55e"/>
     </linearGradient>
   </defs>
-  <!-- Map pin body: circle top + pointed bottom -->
-  <path d="M256 42c-99 0-164 65-164 152 0 48 18 88 46 122l118 154 118-154c28-34 46-74 46-122 0-87-65-152-164-152z" fill="url(#pin-grad)"/>
-  <!-- House roof (dark cutout) -->
-  <path d="M256 120l-120 96h32v80h176v-80h32L256 120z" fill="#0a0a0a"/>
-  <!-- Window (dark cutout inside house) -->
-  <rect x="232" y="232" width="48" height="48" rx="4" fill="#0a0a0a"/>
+  <!-- Map pin body -->
+  <path d="M256 48c-92 0-168 72-168 164 0 56 24 102 58 140l110 148 110-148c34-38 58-84 58-140 0-92-76-164-168-164z" fill="url(#pin-grad)"/>
+  <!-- House roof chevron cutout -->
+  <path d="M256 148l-138 98 18 22L256 180l120 88 18-22z" fill="#0a0a0a"/>
   <!-- Chimney -->
-  <rect x="316" y="152" width="28" height="48" rx="4" fill="#0a0a0a"/>
-  <!-- Window inner glow -->
-  <rect x="240" y="240" width="32" height="32" rx="3" fill="url(#pin-grad)" opacity="0.35"/>
+  <rect x="330" y="172" width="22" height="52" rx="2" fill="#0a0a0a"/>
+  <!-- Diamond body cutout -->
+  <path d="M256 222l-100 100 100 100 100-100z" fill="#0a0a0a"/>
+  <!-- Small window (green tint) -->
+  <rect x="232" y="298" width="48" height="48" rx="5" fill="#4ade80" opacity="0.35"/>
 </svg>
