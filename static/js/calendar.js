@@ -119,6 +119,7 @@ document.addEventListener('DOMContentLoaded', function () {
     eventDurationEditable: isOwner,
     longPressDelay: 300,
     height: 'auto',
+    dayMaxEvents: isMobile ? 3 : 5,  // Show "+N more" link instead of overflowing
 
     // ── Event source ──
     events: function(info, successCallback, failureCallback) {
@@ -163,13 +164,15 @@ document.addEventListener('DOMContentLoaded', function () {
       var isCompleted = props.status === 'completed';
       var isMeeting = props.type === 'meeting';
       var isListView = arg.view.type.indexOf('list') === 0;
+      var isMonthView = arg.view.type === 'dayGridMonth';
+      var isTimeGrid = arg.view.type.indexOf('timeGrid') === 0;
 
       if (isCompleted) container.classList.add('cal-event--completed');
       if (isMeeting) container.classList.add('cal-event--meeting');
       if (isListView) container.classList.add('cal-event-card--list');
 
       // Time badge (month + list views, timed events)
-      if (arg.event.start && !arg.event.allDay && (arg.view.type === 'dayGridMonth' || isListView)) {
+      if (arg.event.start && !arg.event.allDay && (isMonthView || isListView)) {
         var timeBadge = document.createElement('span');
         timeBadge.className = 'cal-event-time';
         timeBadge.textContent = formatTimeShort(arg.event.start);
@@ -186,13 +189,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var content = document.createElement('div');
       content.className = 'cal-event-content';
 
-      // Customer name
-      var name = document.createElement('span');
-      name.className = 'cal-event-name';
-      name.textContent = props.customer || arg.event.title;
-      content.appendChild(name);
-
-      // Service abbreviation pill
+      // Service name — full name, not abbreviation
       if (!isMeeting && props.serviceAbbr) {
         var svcBadge = document.createElement('span');
         svcBadge.className = 'cal-event-svc';
@@ -200,12 +197,34 @@ document.addEventListener('DOMContentLoaded', function () {
         content.appendChild(svcBadge);
       }
 
-      // Address (secondary)
+      // Customer name
+      var name = document.createElement('span');
+      name.className = 'cal-event-name';
+      name.textContent = props.customer || arg.event.title;
+      content.appendChild(name);
+
+      // Address (secondary line)
       if (!isMeeting && arg.event.title) {
         var addr = document.createElement('span');
         addr.className = 'cal-event-addr';
         addr.textContent = arg.event.title.replace(/^✓\s*/, '');
         content.appendChild(addr);
+      }
+
+      // Crew / assignee name — critical info for field workers
+      if (props.crew && props.crew !== 'Unassigned') {
+        var crewEl = document.createElement('span');
+        crewEl.className = 'cal-event-crew';
+        crewEl.textContent = props.crew;
+        content.appendChild(crewEl);
+      }
+
+      // Recurring indicator
+      if (props.recurring) {
+        var recurEl = document.createElement('span');
+        recurEl.className = 'cal-event-recur';
+        recurEl.textContent = '\u21BB' + (props.frequency ? ' ' + props.frequency : '');
+        content.appendChild(recurEl);
       }
 
       container.appendChild(content);
@@ -280,10 +299,18 @@ document.addEventListener('DOMContentLoaded', function () {
       if (bg) info.el.style.backgroundColor = bg;
       if (border) info.el.style.borderColor = border;
       var p = info.event.extendedProps || {};
+      // Rich tooltip with all job details for quick glance
       if (p.type === 'meeting') {
         info.el.title = (p.customer ? p.customer + ' — ' : '') + (info.event.title || 'Meeting');
       } else {
-        info.el.title = [p.customer, p.services, p.crew, p.status].filter(Boolean).join(' — ');
+        var parts = [];
+        if (p.services) parts.push(p.services);
+        if (p.customer) parts.push(p.customer);
+        if (info.event.title) parts.push(info.event.title.replace(/^✓\s*/, ''));
+        if (p.crew && p.crew !== 'Unassigned') parts.push('Crew: ' + p.crew);
+        if (p.status) parts.push('Status: ' + p.status);
+        if (p.recurring && p.frequency) parts.push('Recurring: ' + p.frequency);
+        info.el.title = parts.join('\n');
       }
     },
 
