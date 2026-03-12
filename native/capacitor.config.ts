@@ -1,12 +1,11 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.fieldops.app',
-  appName: 'Field Ops',
-  // Point to your live production URL instead of a local build
+  appId: 'com.fieldlgx.app',
+  appName: 'FieldLgx',
   server: {
-    url: 'https://your-production-domain.com',  // TODO: Replace with your actual domain
-    cleartext: false,                             // HTTPS only
+    url: 'https://fieldlgx.com',
+    cleartext: false,
   },
   // Web directory (placeholder — not used when server.url is set)
   webDir: 'www',

@@ -57,8 +57,8 @@
         <div class="field color-field">
           <label for="id_color">Calendar color</label>
           <div style="display: flex; align-items: center; gap: 12px;">
-            <input type="color" id="id_color_picker" value="{{ form.color.value|default:'#10b981' }}" style="width: 48px; height: 36px; padding: 2px; border-radius: 6px; cursor: pointer; border: 1px solid var(--border);">
-            <input type="text" id="id_color" name="color" value="{{ form.color.value|default:'' }}" placeholder="#10b981" maxlength="7" style="width: 100px; padding: 8px; font-family: monospace;">
+            <input type="color" id="id_color_picker" value="{{ form.color.value|default:'#22c55e' }}" style="width: 48px; height: 36px; padding: 2px; border-radius: 6px; cursor: pointer; border: 1px solid var(--border);">
+            <input type="text" id="id_color" name="color" value="{{ form.color.value|default:'' }}" placeholder="#22c55e" maxlength="7" style="width: 100px; padding: 8px; font-family: monospace;">
           </div>
           <span class="help-text">Hex color for calendar & routes</span>{{ form.color.errors }}
         </div>

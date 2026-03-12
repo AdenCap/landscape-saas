@@ -78,7 +78,7 @@
             font-size: var(--text-sm);
             font-weight: 500;
         }
-        .job-status.scheduled { background: #10b981; color: white; }
+        .job-status.scheduled { background: #22c55e; color: white; }
         .job-status.in_progress { background: #f59e0b; color: white; }
         .job-status.completed { background: #22c55e; color: white; }
         .job-status.skipped { background: #6b7280; color: white; }
@@ -122,7 +122,7 @@
         {% if messages %}
         <div style="margin-bottom: var(--space-4);">
             {% for message in messages %}
-            <div style="padding: var(--space-3); background: {% if message.tags == 'error' %}#ef4444{% elif message.tags == 'success' %}#22c55e{% else %}#10b981{% endif %}; color: white; border-radius: var(--radius-md); margin-bottom: var(--space-2);">
+            <div style="padding: var(--space-3); background: {% if message.tags == 'error' %}#ef4444{% elif message.tags == 'success' %}#22c55e{% else %}#22c55e{% endif %}; color: white; border-radius: var(--radius-md); margin-bottom: var(--space-2);">
                 {{ message }}
             </div>
             {% endfor %}

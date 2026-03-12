@@ -146,7 +146,7 @@ def em_crew_detail(request, crew_id):
     return JsonResponse({
         "id": crew.id,
         "name": crew.name,
-        "color": crew.color or "#10b981",
+        "color": crew.color or "#22c55e",
         "crew_leader": crew.crew_leader_id,
         "members": list(crew.members.values_list("id", flat=True)),
     })

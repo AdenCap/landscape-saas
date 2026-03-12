@@ -8,7 +8,7 @@
   --fc-border-color: var(--border);
   --fc-bg-color: var(--bg-surface);
   --fc-highlight-color: var(--primary-light);
-  --fc-today-bg-color: rgba(16, 185, 129, 0.05);
+  --fc-today-bg-color: rgba(34, 197, 94, 0.05);
   --fc-now-indicator-color: var(--primary);
   --fc-neutral-bg-color: var(--bg-elevated);
   --fc-list-event-hover-bg-color: var(--bg-surface-hover);
@@ -54,7 +54,7 @@
 }
 
 .fc .fc-button:focus {
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
 }
 
 .fc .fc-button-primary:not(:disabled).fc-button-active,
@@ -121,7 +121,7 @@
 }
 
 .fc .fc-day-today {
-  background: rgba(16, 185, 129, 0.04) !important;
+  background: rgba(34, 197, 94, 0.04) !important;
 }
 
 .fc .fc-day-other .fc-daygrid-day-number {
@@ -150,7 +150,7 @@
 }
 
 .fc-timegrid .fc-day-today {
-  background: rgba(16, 185, 129, 0.03) !important;
+  background: rgba(34, 197, 94, 0.03) !important;
 }
 
 /* ── Now Indicator ── */
@@ -697,7 +697,7 @@
   background: var(--bg-surface) !important;
   border: 2px solid var(--primary) !important;
   border-radius: var(--radius-sm) !important;
-  box-shadow: 0 12px 32px rgba(16, 185, 129, 0.25), var(--shadow-lg) !important;
+  box-shadow: 0 12px 32px rgba(34, 197, 94, 0.25), var(--shadow-lg) !important;
 }
 
 body.is-dragging {
@@ -717,7 +717,7 @@ body.is-dragging * {
 }
 
 .drop-target-hover {
-  background: rgba(16, 185, 129, 0.1) !important;
+  background: rgba(34, 197, 94, 0.1) !important;
   transition: background var(--motion-fast) var(--motion-ease);
 }
 
@@ -752,21 +752,21 @@ body.is-dragging * {
   width: 5px !important;
   height: 5px !important;
   border-radius: 50%;
-  background: #10b981;
+  background: #22c55e;
   display: inline-block;
   margin-left: 1px;
 }
 
 /* Rain day cell tint */
 .rain-day-cell {
-  background: rgba(16, 185, 129, 0.04) !important;
+  background: rgba(34, 197, 94, 0.04) !important;
 }
 
 .rain-push-btn {
   font-size: 10px;
   font-weight: 600;
   color: var(--primary);
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(34, 197, 94, 0.1);
   border: none;
   border-radius: 4px;
   padding: 2px 6px;
@@ -776,7 +776,7 @@ body.is-dragging * {
 }
 
 .rain-push-btn:hover {
-  background: rgba(16, 185, 129, 0.2);
+  background: rgba(34, 197, 94, 0.2);
 }
 
 /* ==========================================================================
@@ -805,7 +805,7 @@ body.is-dragging * {
 
 .fc-day-today .day-job-count {
   color: var(--primary);
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(34, 197, 94, 0.12);
 }
 
 /* ==========================================================================

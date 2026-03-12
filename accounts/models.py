@@ -39,7 +39,7 @@ class User(AbstractUser):
         max_length=7,
         blank=True,
         default='',
-        help_text='Hex color for calendar/route (e.g. #10b981). Owner can customize.'
+        help_text='Hex color for calendar/route (e.g. #22c55e). Owner can customize.'
     )
     
     is_platform_admin = models.BooleanField(

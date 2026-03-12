@@ -1,11 +1,11 @@
 {
-  "name": "field-ops-native",
+  "name": "fieldlgx-native",
   "version": "1.0.0",
-  "description": "Field Ops native iOS/Android wrapper using Capacitor",
+  "description": "FieldLgx native iOS/Android wrapper using Capacitor",
   "private": true,
   "scripts": {
     "build": "echo 'No build step needed — Capacitor points to live URL'",
-    "cap:init": "npx cap init 'Field Ops' com.fieldops.app --web-dir=www",
+    "cap:init": "npx cap init 'FieldLgx' com.fieldlgx.app --web-dir=www",
     "cap:add:ios": "npx cap add ios",
     "cap:add:android": "npx cap add android",
     "cap:sync": "npx cap sync",
@@ -13,13 +13,16 @@
     "cap:open:android": "npx cap open android"
   },
   "dependencies": {
-    "@capacitor/core": "^6.0.0",
-    "@capacitor/ios": "^6.0.0",
     "@capacitor/android": "^6.0.0",
     "@capacitor/cli": "^6.0.0",
-    "@capacitor/status-bar": "^6.0.0",
-    "@capacitor/splash-screen": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
+    "@capacitor/keyboard": "^6.0.0",
     "@capacitor/push-notifications": "^6.0.0",
-    "@capacitor/keyboard": "^6.0.0"
+    "@capacitor/splash-screen": "^6.0.0",
+    "@capacitor/status-bar": "^6.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }

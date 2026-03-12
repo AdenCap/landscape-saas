@@ -21,6 +21,6 @@ class CrewForm(forms.ModelForm):
             self.fields['members'].widget = forms.CheckboxSelectMultiple()
         # Ensure color defaults to valid hex if empty
         if self.instance and not self.instance.color:
-            self.initial['color'] = '#10b981'
+            self.initial['color'] = '#22c55e'
         elif not self.initial.get('color'):
-            self.initial['color'] = '#10b981'
+            self.initial['color'] = '#22c55e'

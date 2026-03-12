@@ -68,7 +68,7 @@
 }
 
 .fert-tab.active .tab-badge {
-  background: rgba(16, 185, 129, 0.25);
+  background: rgba(34, 197, 94, 0.25);
   color: var(--primary);
 }
 
@@ -212,7 +212,7 @@
 }
 
 .status-enrolled {
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(34, 197, 94, 0.15);
   color: #6ee7b7;
 }
 
@@ -242,7 +242,7 @@
 }
 
 .status-scheduled {
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(34, 197, 94, 0.15);
   color: #6ee7b7;
 }
 
@@ -348,8 +348,8 @@
 }
 
 [data-theme="light"] .status-enrolled {
-  background: rgba(16, 185, 129, 0.12);
-  color: #059669;
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
 }
 
 [data-theme="light"] .status-in_progress {
@@ -378,8 +378,8 @@
 }
 
 [data-theme="light"] .status-scheduled {
-  background: rgba(16, 185, 129, 0.12);
-  color: #059669;
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
 }
 
 [data-theme="light"] .status-skipped {
@@ -416,8 +416,8 @@
     color: #16a34a;
   }
   [data-theme="system"] .status-enrolled {
-    background: rgba(16, 185, 129, 0.12);
-    color: #059669;
+    background: rgba(34, 197, 94, 0.12);
+    color: #16a34a;
   }
   [data-theme="system"] .status-in_progress {
     background: rgba(234, 179, 8, 0.12);
@@ -437,8 +437,8 @@
     color: var(--text-muted);
   }
   [data-theme="system"] .status-scheduled {
-    background: rgba(16, 185, 129, 0.12);
-    color: #059669;
+    background: rgba(34, 197, 94, 0.12);
+    color: #16a34a;
   }
   [data-theme="system"] .status-skipped {
     background: rgba(249, 115, 22, 0.12);
