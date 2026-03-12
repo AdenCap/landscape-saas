@@ -517,14 +517,30 @@ document.addEventListener('DOMContentLoaded', function () {
             crewSel.appendChild(opt);
           });
 
-          // Employee select
+          // Employee multi-select checkboxes
+          var empList = document.getElementById('modal-employee-list');
           var empSel = document.getElementById('modal-employee');
+          var assignedEmpIds = job.assigned_employee_ids || [];
           empSel.innerHTML = '<option value="">— Unassigned —</option>';
+          empList.innerHTML = '';
           (data.employees || []).forEach(function(e) {
+            // Legacy hidden select
             var opt = document.createElement('option');
             opt.value = e.id; opt.textContent = e.name;
             if (job.assigned_to_id === e.id) opt.selected = true;
             empSel.appendChild(opt);
+            // Checkbox UI
+            var label = document.createElement('label');
+            label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = e.id;
+            cb.name = 'modal_emp_cb';
+            cb.checked = assignedEmpIds.indexOf(e.id) !== -1;
+            cb.style.cssText = 'width:16px;height:16px;accent-color:var(--primary,#22c55e);cursor:pointer;';
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(e.name));
+            empList.appendChild(label);
           });
 
           // Color picker
@@ -621,8 +637,19 @@ document.addEventListener('DOMContentLoaded', function () {
   // ── Modal field handlers ──
   var crewSel = document.getElementById('modal-crew');
   var empSel = document.getElementById('modal-employee');
-  if (crewSel) crewSel.addEventListener('change', function() { if (this.value && empSel) empSel.value = ''; });
-  if (empSel) empSel.addEventListener('change', function() { if (this.value && crewSel) crewSel.value = ''; });
+  if (crewSel) crewSel.addEventListener('change', function() {
+    if (this.value) {
+      if (empSel) empSel.value = '';
+      // Uncheck all employee checkboxes when crew is selected
+      document.querySelectorAll('input[name="modal_emp_cb"]').forEach(function(cb) { cb.checked = false; });
+    }
+  });
+  // When employee checkbox is checked, clear crew selection
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.name === 'modal_emp_cb' && e.target.checked && crewSel) {
+      crewSel.value = '';
+    }
+  });
 
   var colorPicker = document.getElementById('modal-color-picker');
   var colorInput = document.getElementById('modal-color');
@@ -702,9 +729,14 @@ document.addEventListener('DOMContentLoaded', function () {
   if (saveBtn) saveBtn.addEventListener('click', function() {
     var jobId = document.getElementById('job-modal').dataset.jobId;
     if (!jobId) return;
+    // Collect multi-employee checkboxes
+    var empCheckboxes = document.querySelectorAll('input[name="modal_emp_cb"]:checked');
+    var selectedEmpIds = [];
+    empCheckboxes.forEach(function(cb) { selectedEmpIds.push(parseInt(cb.value, 10)); });
     var payload = {
       assigned_crew_id: crewSel && crewSel.value ? parseInt(crewSel.value, 10) : null,
-      assigned_to_id: empSel && empSel.value ? parseInt(empSel.value, 10) : null,
+      assigned_to_id: selectedEmpIds.length ? selectedEmpIds[0] : (empSel && empSel.value ? parseInt(empSel.value, 10) : null),
+      assigned_employee_ids: selectedEmpIds.length ? selectedEmpIds : undefined,
       notes: document.getElementById('modal-notes').value,
       scheduled_time: document.getElementById('modal-time').value || null,
       customer_email: document.getElementById('modal-customer-email').value,

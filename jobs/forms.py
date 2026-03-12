@@ -53,7 +53,14 @@ class CreateJobForm(forms.Form):
     assigned_to = forms.ModelChoiceField(
         queryset=User.objects.none(),
         required=False,
-        label="Employee",
+        label="Primary Employee",
+    )
+    assigned_employees = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        label="Employees",
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'employee-checkbox-list'}),
+        help_text="Select one or more employees for this job",
     )
     color = forms.CharField(
         required=False,
@@ -101,9 +108,11 @@ class CreateJobForm(forms.Form):
             # Property queryset set in clean; initial empty for client-first flow
             self.fields["property"].queryset = Property.objects.none()
             self.fields["assigned_crew"].queryset = Crew.objects.filter(business=business).order_by("name")
-            self.fields["assigned_to"].queryset = User.objects.filter(
+            emp_qs = User.objects.filter(
                 business=business, role__in=["crew", "owner"]
             ).order_by("first_name", "username")
+            self.fields["assigned_to"].queryset = emp_qs
+            self.fields["assigned_employees"].queryset = emp_qs
 
         # On POST: restrict property to selected customer's properties
         if args and hasattr(args[0], "get"):

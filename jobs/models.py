@@ -71,7 +71,7 @@ class Job(models.Model):
         null=True,
         blank=True,
         related_name='jobs',
-        help_text='Assign to individual employee'
+        help_text='Primary employee (kept for backward compatibility)'
     )
     assigned_crew = models.ForeignKey(
         Crew,
@@ -80,6 +80,12 @@ class Job(models.Model):
         blank=True,
         related_name='jobs',
         help_text='Or assign to a crew'
+    )
+    assigned_employees = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name='multi_assigned_jobs',
+        help_text='All assigned employees (supports multiple). Primary + additional.'
     )
 
     notes = models.TextField(blank=True)

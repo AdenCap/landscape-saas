@@ -170,10 +170,13 @@
   border: none;
   border-left: 3px solid;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
   transition: transform var(--motion-fast) var(--motion-ease),
               box-shadow var(--motion-fast) var(--motion-ease);
+  /* Dark semi-transparent overlay for readability on bright crew colors */
+  background-image: linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.25));
+  background-blend-mode: multiply;
 }
 
 .fc .fc-event:hover {
@@ -252,11 +255,13 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 4px;
-  min-height: 18px;
+  padding: 3px 6px;
+  min-height: 22px;
   overflow: hidden;
   position: relative;
-  line-height: 1.3;
+  line-height: 1.35;
+  /* Dark overlay for consistent text readability on any crew color */
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5), 0 0px 4px rgba(0,0,0,0.3);
 }
 
 .cal-event-dot {
@@ -276,41 +281,45 @@
 }
 
 .cal-event-name {
-  font-weight: 600;
-  font-size: 11px;
+  font-weight: 700;
+  font-size: 12px;
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
 
 .cal-event-svc {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  background: rgba(255,255,255,0.15);
-  color: rgba(255,255,255,0.85);
-  padding: 1px 4px;
+  background: rgba(0,0,0,0.25);
+  color: #fff;
+  padding: 2px 5px;
   border-radius: 3px;
   flex-shrink: 0;
   text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
 .cal-event-addr {
-  font-size: 10px;
-  color: rgba(255,255,255,0.6);
+  font-size: 11px;
+  color: rgba(255,255,255,0.85);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   width: 100%;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
 .cal-event-time {
-  font-size: 9px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.7);
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
   flex-shrink: 0;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
 .cal-event-check {
@@ -1204,33 +1213,54 @@ body.is-dragging * {
     min-height: 40px;
     padding: 6px 8px;
     gap: 8px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.65), 0 0 6px rgba(0,0,0,0.3);
   }
 
   .cal-event-name {
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
+    color: #fff;
+    /* Allow wrapping on mobile so names aren't cut off */
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.3;
   }
 
   .cal-event-time {
     font-size: 12px;
+    font-weight: 700;
+    color: #fff;
   }
 
   .cal-event-svc {
-    font-size: 10px;
+    font-size: 11px;
     padding: 2px 6px;
+    background: rgba(0,0,0,0.3);
+    color: #fff;
   }
 
   .cal-event-addr {
     font-size: 12px;
+    color: rgba(255,255,255,0.9);
+    /* Allow wrapping on mobile for full address */
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.3;
   }
 
   .cal-event-crew {
     font-size: 12px;
+    color: #fff;
   }
 
   .cal-event-dot {
     width: 8px;
     height: 8px;
+  }
+
+  /* Ensure event content wraps on mobile */
+  .cal-event-content {
+    gap: 3px;
   }
 
   .cal-event-check {

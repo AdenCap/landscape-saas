@@ -195,8 +195,11 @@
             </select>
           </div>
           <div class="form-group">
-            <label for="modal-employee">Employee</label>
-            <select id="modal-employee">
+            <label>Employees</label>
+            <div id="modal-employee-list" class="modal-employee-checkboxes" style="max-height:160px;overflow-y:auto;padding:6px;background:var(--bg-surface-hover);border-radius:8px;border:1px solid var(--border);"></div>
+            <span class="form-help" style="font-size:11px;color:var(--text-muted);">Select one or more employees</span>
+            <!-- Keep hidden select for backward compat -->
+            <select id="modal-employee" style="display:none;">
               <option value="">— Unassigned —</option>
             </select>
           </div>

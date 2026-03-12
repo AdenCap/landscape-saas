@@ -1,19 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
-  <!-- Field Ops: Abstract geometric mark — stacked angular planes suggesting layered operations -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <linearGradient id="g1" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#60a5fa"/>
-      <stop offset="100%" stop-color="#3b82f6"/>
-    </linearGradient>
-    <linearGradient id="g2" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#3b82f6"/>
-      <stop offset="100%" stop-color="#2563eb"/>
+    <linearGradient id="pin-grad" x1="256" y1="40" x2="256" y2="472" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#22c55e"/>
     </linearGradient>
   </defs>
-  <!-- Back plane -->
-  <path d="M8 14l16-8 16 8v4L24 26 8 18v-4z" fill="url(#g1)" opacity="0.5"/>
-  <!-- Middle plane -->
-  <path d="M8 22l16-8 16 8v4L24 34 8 26v-4z" fill="url(#g1)" opacity="0.75"/>
-  <!-- Front plane -->
-  <path d="M8 30l16-8 16 8v4L24 42 8 34v-4z" fill="url(#g2)"/>
+  <!-- Map pin body: circle top + pointed bottom -->
+  <path d="M256 42c-99 0-164 65-164 152 0 48 18 88 46 122l118 154 118-154c28-34 46-74 46-122 0-87-65-152-164-152z" fill="url(#pin-grad)"/>
+  <!-- House roof (dark cutout) -->
+  <path d="M256 120l-120 96h32v80h176v-80h32L256 120z" fill="#0a0a0a"/>
+  <!-- Window (dark cutout inside house) -->
+  <rect x="232" y="232" width="48" height="48" rx="4" fill="#0a0a0a"/>
+  <!-- Chimney -->
+  <rect x="316" y="152" width="28" height="48" rx="4" fill="#0a0a0a"/>
+  <!-- Window inner glow -->
+  <rect x="240" y="240" width="32" height="32" rx="3" fill="url(#pin-grad)" opacity="0.35"/>
 </svg>

@@ -263,7 +263,7 @@ def calendar_events(request):
     jobs = Job.objects.select_related(
         'property', 'property__customer', 'assigned_to', 'assigned_crew',
         'recurring_job'
-    ).prefetch_related('service_items__service').filter(scheduled_date__isnull=False)
+    ).prefetch_related('service_items__service', 'assigned_employees').filter(scheduled_date__isnull=False)
 
     business = get_business(request) if request.user.is_authenticated else None
     if business:
@@ -274,6 +274,7 @@ def calendar_events(request):
         user = request.user
         jobs = jobs.filter(
             Q(assigned_to=user) |
+            Q(assigned_employees=user) |
             Q(assigned_crew__members=user) |
             Q(assigned_crew__crew_leader=user)
         ).distinct()
@@ -293,7 +294,9 @@ def calendar_events(request):
     if employee_ids:
         eids = [int(x) for x in employee_ids.split(",") if x.strip().isdigit()]
         if eids:
-            jobs = jobs.filter(assigned_to_id__in=eids)
+            jobs = jobs.filter(
+                Q(assigned_to_id__in=eids) | Q(assigned_employees__id__in=eids)
+            ).distinct()
 
     search = (request.GET.get("search") or "").strip()
     if search:
@@ -327,7 +330,14 @@ def calendar_events(request):
         if job.assigned_crew:
             assignee_name = job.assigned_crew.name
         elif job.assigned_to:
-            assignee_name = job.assigned_to.get_full_name() or job.assigned_to.username
+            # Check for multiple assigned employees
+            all_employees = list(job.assigned_employees.all())
+            if len(all_employees) > 1:
+                assignee_name = ", ".join(
+                    (e.get_full_name() or e.username) for e in all_employees
+                )
+            else:
+                assignee_name = job.assigned_to.get_full_name() or job.assigned_to.username
         else:
             assignee_name = 'Unassigned'
 
@@ -470,6 +480,7 @@ def calendar_job_data(request, job_id):
             "images": images,
             "assigned_crew_id": job.assigned_crew_id if is_owner else None,
             "assigned_to_id": job.assigned_to_id if is_owner else None,
+            "assigned_employee_ids": list(job.assigned_employees.values_list('id', flat=True)) if is_owner else [],
             "color": job.color or "",
             "has_unbilled_items": job.service_items.filter(billed_at__isnull=True).exists() if is_owner else False,
             "has_services": job.service_items.exists(),
@@ -525,10 +536,22 @@ def calendar_job_update(request, job_id):
         vid = data["assigned_to_id"]
         if vid is None or vid == "":
             job.assigned_to = None
+            job.assigned_employees.clear()
         else:
             user = User.objects.filter(business=business, role__in=["crew", "owner"], id=vid).first()
             job.assigned_to = user
             job.assigned_crew = None  # clear crew when employee selected
+            # Add to M2M if not already there
+            if user and not job.assigned_employees.filter(id=user.id).exists():
+                job.assigned_employees.add(user)
+    if "assigned_employee_ids" in data:
+        eids = data["assigned_employee_ids"]
+        if isinstance(eids, list):
+            employees = User.objects.filter(business=business, role__in=["crew", "owner"], id__in=eids)
+            job.assigned_employees.set(employees)
+            if employees.exists():
+                job.assigned_to = employees.first()
+                job.assigned_crew = None
     if "notes" in data:
         job.notes = (data["notes"] or "")[:2000]
     if "scheduled_time" in data:
@@ -1192,6 +1215,8 @@ def create_job(request):
         messages.error(request, "You must be associated with a business to create jobs.")
         return redirect("owner_dashboard")
 
+    estimate_id = None  # shared across GET / POST so render context always has it
+
     if request.method == "POST":
         form = CreateJobForm(request.POST, business=business)
         ServiceFormSet = get_job_service_formset(business)
@@ -1201,10 +1226,15 @@ def create_job(request):
             atype = form.cleaned_data.get("assignee_type")
             assigned_to = None
             assigned_crew = None
+            assigned_employees_list = []
             if atype == "crew":
                 assigned_crew = form.cleaned_data.get("assigned_crew")
             elif atype == "employee":
+                assigned_employees_list = list(form.cleaned_data.get("assigned_employees") or [])
                 assigned_to = form.cleaned_data.get("assigned_to")
+                # If multi-select used but no primary, use first selected
+                if not assigned_to and assigned_employees_list:
+                    assigned_to = assigned_employees_list[0]
 
             sched_date = form.cleaned_data.get("scheduled_date")
             sched_time = form.cleaned_data.get("scheduled_time") if sched_date else None
@@ -1259,7 +1289,13 @@ def create_job(request):
                 color=color_val if color_val else None,
                 recurring_job=recurring_job,
             )
-            assignee = assigned_crew.name if assigned_crew else (assigned_to.get_full_name() or assigned_to.username if assigned_to else "Unassigned")
+            # Set M2M employees (after job is saved)
+            if assigned_employees_list:
+                job.assigned_employees.set(assigned_employees_list)
+            elif assigned_to:
+                job.assigned_employees.set([assigned_to])
+            assignee_names = ", ".join(e.get_full_name() or e.username for e in assigned_employees_list) if assigned_employees_list else None
+            assignee = assigned_crew.name if assigned_crew else (assignee_names or (assigned_to.get_full_name() or assigned_to.username if assigned_to else "Unassigned"))
             JobAssignmentLog.objects.create(job=job, user=request.user, details=f"Job created; assigned to {assignee}")
             for form_data in formset:
                 if form_data.cleaned_data.get("service"):
@@ -1349,11 +1385,14 @@ def create_job(request):
             }
             for c in Customer.objects.filter(business=business).prefetch_related("properties").order_by("name")
         ]
-        accepted_estimates = [
-            {"id": e.id, "title": e.title, "total": e.base_total(), "customer_id": e.customer_id, "customer_name": e.customer.name}
-            for e in Estimate.objects.filter(business=business, status="accepted")
-            .select_related("customer").order_by("-accepted_at", "-id")[:20]
-        ]
+        try:
+            accepted_estimates = [
+                {"id": e.id, "title": e.title, "total": e.base_total(), "customer_id": e.customer_id, "customer_name": e.customer.name}
+                for e in Estimate.objects.filter(business=business, status="accepted")
+                .select_related("customer").order_by("-accepted_at", "-id")[:20]
+            ]
+        except Exception:
+            accepted_estimates = []
     return render(request, "jobs/job_create.html", {
         "form": form,
         "formset": formset,
