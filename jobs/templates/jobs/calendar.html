@@ -102,14 +102,24 @@
   </div>
 </div>
 
-<!-- Crew legend -->
+<!-- Status legend -->
 <div class="crew-legend-bar">
-  {% for item in crew_legend %}
-  <span class="legend-item"><span class="legend-dot" style="background: {{ item.color }};"></span>{{ item.name }}</span>
-  {% endfor %}
-  <span class="legend-note">✓ completed</span>
+  <span class="legend-item"><span class="legend-dot" style="background: #3b82f6;"></span>Scheduled</span>
+  <span class="legend-item"><span class="legend-dot" style="background: #f59e0b;"></span>In Progress</span>
+  <span class="legend-item"><span class="legend-dot" style="background: #22c55e;"></span>Completed</span>
+  <span class="legend-item"><span class="legend-dot" style="background: #6b7280;"></span>Skipped</span>
   {% if user.role == "owner" or user.role == "manager" %}
   <span class="legend-item"><span class="legend-dot" style="background: #7c3aed;"></span>Meetings</span>
+  {% endif %}
+  {% if crew_legend|length > 2 %}
+  <select id="legend-crew-filter" class="legend-crew-filter">
+    <option value="">All Crews</option>
+    {% for item in crew_legend %}
+    {% if item.name != "Unassigned" %}
+    <option value="{{ item.name }}">{{ item.name }}</option>
+    {% endif %}
+    {% endfor %}
+  </select>
   {% endif %}
 </div>
 
@@ -206,12 +216,24 @@
         </div>
         <div class="form-group modal-color-row">
           <label>Job color</label>
+          <div class="color-swatches" id="modal-color-swatches">
+            <button type="button" class="color-swatch" data-color="#3b82f6" style="background:#3b82f6" title="Blue"></button>
+            <button type="button" class="color-swatch" data-color="#22c55e" style="background:#22c55e" title="Green"></button>
+            <button type="button" class="color-swatch" data-color="#f59e0b" style="background:#f59e0b" title="Amber"></button>
+            <button type="button" class="color-swatch" data-color="#ef4444" style="background:#ef4444" title="Red"></button>
+            <button type="button" class="color-swatch" data-color="#8b5cf6" style="background:#8b5cf6" title="Purple"></button>
+            <button type="button" class="color-swatch" data-color="#ec4899" style="background:#ec4899" title="Pink"></button>
+            <button type="button" class="color-swatch" data-color="#06b6d4" style="background:#06b6d4" title="Cyan"></button>
+            <button type="button" class="color-swatch" data-color="#f97316" style="background:#f97316" title="Orange"></button>
+            <button type="button" class="color-swatch" data-color="#84cc16" style="background:#84cc16" title="Lime"></button>
+            <button type="button" class="color-swatch" data-color="#6b7280" style="background:#6b7280" title="Gray"></button>
+          </div>
           <div class="color-picker-row">
             <input type="color" id="modal-color-picker" value="#22c55e">
-            <input type="text" id="modal-color" placeholder="Use crew default" maxlength="7" class="color-hex-input" aria-label="Hex color">
-            <button type="button" id="modal-color-clear" class="btn btn-secondary btn-sm">Default</button>
+            <input type="text" id="modal-color" placeholder="Auto (status color)" maxlength="7" class="color-hex-input" aria-label="Hex color">
+            <button type="button" id="modal-color-clear" class="btn btn-secondary btn-sm">Auto</button>
           </div>
-          <p class="help-text">Override color for this job, or leave empty for crew/employee default.</p>
+          <p class="help-text">Pick a color or leave as Auto to use status-based coloring.</p>
         </div>
         <div class="form-group">
           <label>Client</label>

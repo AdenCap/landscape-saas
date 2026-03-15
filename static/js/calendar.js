@@ -14,12 +14,13 @@ document.addEventListener('DOMContentLoaded', function () {
   var isOwner = typeof IS_OWNER !== 'undefined' ? IS_OWNER : false;
   var weatherData = typeof WEATHER_DATA !== 'undefined' ? WEATHER_DATA : {};
 
-  // ── Mobile-aware view persistence ──
+  // ── Device-aware view persistence ──
   var isMobile = window.matchMedia('(max-width: 768px)').matches;
-  var STORAGE_VIEW = isMobile ? 'fieldlgx_calendar_view_mobile' : 'fieldlgx_calendar_view';
+  var isTablet = window.matchMedia('(min-width: 769px) and (max-width: 1024px)').matches;
+  var STORAGE_VIEW = isMobile ? 'fieldlgx_calendar_view_mobile' : (isTablet ? 'fieldlgx_calendar_view_tablet' : 'fieldlgx_calendar_view');
   var STORAGE_DATE = 'fieldlgx_calendar_date';
 
-  var defaultView = isMobile ? 'listWeek' : 'dayGridMonth';
+  var defaultView = isMobile ? 'listWeek' : (isTablet ? 'timeGridWeek' : 'dayGridMonth');
   var savedView = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_VIEW)) || null;
   var initialView = savedView || defaultView;
 
@@ -454,10 +455,16 @@ document.addEventListener('DOMContentLoaded', function () {
   function openModal(id) {
     var overlay = document.getElementById(id);
     if (overlay) overlay.classList.add('active');
+    document.body.classList.add('modal-open');
   }
   function closeModal(id) {
     var overlay = document.getElementById(id);
     if (overlay) overlay.classList.remove('active');
+    // Only remove scroll lock if no other modals are active
+    var anyActive = document.querySelectorAll('.modal-overlay.active');
+    if (!anyActive || anyActive.length === 0) {
+      document.body.classList.remove('modal-open');
+    }
   }
 
   // Close on backdrop click
@@ -570,17 +577,22 @@ document.addEventListener('DOMContentLoaded', function () {
             empList.appendChild(label);
           });
 
-          // Color picker
+          // Color picker + swatches
           var colorVal = (job.color || '').trim();
           var colorPicker = document.getElementById('modal-color-picker');
           var colorInput = document.getElementById('modal-color');
+          // Reset all swatches
+          document.querySelectorAll('.color-swatch').forEach(function(s) { s.classList.remove('active'); });
           if (colorVal) {
             colorInput.value = colorVal;
             var hex = colorVal.length === 4 ? '#' + colorVal[1]+colorVal[1]+colorVal[2]+colorVal[2]+colorVal[3]+colorVal[3] : colorVal;
             colorPicker.value = hex;
+            // Highlight matching swatch
+            var matchSwatch = document.querySelector('.color-swatch[data-color="' + colorVal.toLowerCase() + '"]');
+            if (matchSwatch) matchSwatch.classList.add('active');
           } else {
             colorInput.value = '';
-            colorInput.placeholder = 'Use crew/employee default';
+            colorInput.placeholder = 'Auto (status color)';
             colorPicker.value = '#94a3b8';
           }
 
@@ -690,8 +702,21 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   var colorClear = document.getElementById('modal-color-clear');
   if (colorClear) colorClear.addEventListener('click', function() {
-    if (colorInput) { colorInput.value = ''; colorInput.placeholder = 'Use crew/employee default'; }
+    if (colorInput) { colorInput.value = ''; colorInput.placeholder = 'Auto (status color)'; }
     if (colorPicker) colorPicker.value = '#94a3b8';
+    // Clear active swatch
+    document.querySelectorAll('.color-swatch').forEach(function(s) { s.classList.remove('active'); });
+  });
+
+  // Color swatches
+  document.querySelectorAll('.color-swatch').forEach(function(swatch) {
+    swatch.addEventListener('click', function() {
+      var color = this.getAttribute('data-color');
+      if (colorInput) colorInput.value = color;
+      if (colorPicker) colorPicker.value = color;
+      document.querySelectorAll('.color-swatch').forEach(function(s) { s.classList.remove('active'); });
+      this.classList.add('active');
+    });
   });
 
   // ── Quick actions ──
@@ -1166,5 +1191,105 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('.rain-modal-close').forEach(function(btn) {
     btn.addEventListener('click', function() { closeModal('rain-modal'); });
   });
+
+  // ══════════════════════════════════════════════════════════════
+  // Phase 2: Mobile Optimizations
+  // ══════════════════════════════════════════════════════════════
+
+  // ── 2a. Swipe Navigation (mobile only) ──
+  if (isMobile && calEl) {
+    var touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+    calEl.addEventListener('touchstart', function(e) {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchStartTime = Date.now();
+      }
+    }, { passive: true });
+    calEl.addEventListener('touchend', function(e) {
+      if (e.changedTouches.length !== 1) return;
+      var dx = e.changedTouches[0].clientX - touchStartX;
+      var dy = e.changedTouches[0].clientY - touchStartY;
+      var dt = Date.now() - touchStartTime;
+      // Only trigger on fast horizontal swipes (not vertical scrolling)
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 400) {
+        if (dx > 0) {
+          calendar.prev();
+        } else {
+          calendar.next();
+        }
+      }
+    }, { passive: true });
+  }
+
+  // ── 2c. Collapsible Filter Bar (mobile) ──
+  if (isMobile) {
+    var toolbar = document.querySelector('.calendar-toolbar');
+    if (toolbar) {
+      var filterGroups = toolbar.querySelectorAll('.calendar-toolbar-filters, .calendar-toolbar-right');
+      var hasFilters = filterGroups.length > 0;
+      if (hasFilters) {
+        // Create toggle button
+        var filterToggle = document.createElement('button');
+        filterToggle.className = 'btn btn-secondary btn-sm calendar-filter-toggle';
+        filterToggle.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg> Filters';
+        filterToggle.style.cssText = 'margin: 0 auto; display: flex; align-items: center; gap: 6px;';
+
+        // Hide filter groups initially
+        filterGroups.forEach(function(fg) {
+          fg.style.display = 'none';
+          fg.classList.add('mobile-filter-collapsible');
+        });
+
+        // Insert toggle before first filter group
+        toolbar.insertBefore(filterToggle, filterGroups[0]);
+
+        filterToggle.addEventListener('click', function() {
+          var expanded = filterToggle.classList.toggle('active');
+          filterGroups.forEach(function(fg) {
+            fg.style.display = expanded ? '' : 'none';
+          });
+        });
+      }
+    }
+  }
+
+  // ── 2e. Sticky Date Header ──
+  if (isMobile) {
+    var dateNav = document.querySelector('.calendar-date-nav');
+    if (dateNav) {
+      dateNav.style.position = 'sticky';
+      dateNav.style.top = '0';
+      dateNav.style.zIndex = '100';
+      dateNav.style.background = 'var(--bg)';
+      dateNav.style.paddingTop = '8px';
+      dateNav.style.paddingBottom = '8px';
+    }
+  }
+
+  // ── Legend crew filter ──
+  var legendCrewFilter = document.getElementById('legend-crew-filter');
+  if (legendCrewFilter) {
+    legendCrewFilter.addEventListener('change', function() {
+      var crewName = this.value;
+      // Use the existing crew filter select to trigger a refetch
+      var crewSelect = document.getElementById('filter-crews');
+      if (crewSelect) {
+        // Find crew option matching the name
+        var opts = crewSelect.querySelectorAll('option');
+        var found = false;
+        opts.forEach(function(opt) {
+          if (opt.textContent.trim() === crewName) {
+            crewSelect.value = opt.value;
+            found = true;
+          }
+        });
+        if (!found) crewSelect.value = '';
+        crewSelect.dispatchEvent(new Event('change'));
+      } else {
+        calendar.refetchEvents();
+      }
+    });
+  }
 
 });

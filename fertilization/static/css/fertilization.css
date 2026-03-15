@@ -137,7 +137,7 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
-  z-index: var(--z-modal);
+  z-index: 1100;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -308,9 +308,12 @@
     align-items: flex-end;
   }
 
+  .fert-tabs { flex-wrap: nowrap; gap: 2px; }
+
   .fert-tab {
-    padding: 8px 12px;
+    padding: 10px 14px;
     font-size: 13px;
+    min-height: 44px;
   }
 
   .fert-tab [data-lucide],
@@ -326,6 +329,16 @@
   .panel-header h2 {
     font-size: 18px;
   }
+
+  .panel-header .btn { min-height: 44px; width: 100%; justify-content: center; }
+
+  .fert-modal-footer { flex-direction: column; }
+  .fert-modal-footer .btn { width: 100%; min-height: 44px; justify-content: center; }
+
+  .calc-card { padding: var(--space-4); }
+  .calc-card .form-control,
+  .calc-card select,
+  .calc-card input { font-size: 16px; min-height: 44px; }
 }
 
 @media (max-width: 1024px) {

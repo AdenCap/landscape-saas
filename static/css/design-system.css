@@ -200,6 +200,7 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 body {
@@ -435,9 +436,9 @@ a:hover {
 @media (max-width: 768px) {
   .toast-container {
     top: auto;
-    bottom: 72px;
-    right: 12px;
-    left: 12px;
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+    left: 16px;
     max-width: none;
   }
 }
@@ -1120,6 +1121,46 @@ a:hover {
   /* Stack action buttons */
   .quick-actions { flex-direction: column; }
   .quick-actions .btn { width: 100%; justify-content: center; }
+}
+
+/* ──────────────────────────────────────────
+   TABLET OPTIMIZATION (iPad / 769-1024px)
+   ────────────────────────────────────────── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Two-column grid layouts instead of 3 */
+  .grid-3, .stats-grid, .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Cards: medium padding */
+  .card { padding: var(--space-5); }
+
+  /* Tables: show more columns than mobile, scroll for extras */
+  .data-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .data-table th:first-child,
+  .data-table td:first-child { position: sticky; left: 0; z-index: 1; background: var(--bg-surface); }
+
+  /* Slightly smaller touch targets */
+  .btn { min-height: 40px; }
+  .form-control { min-height: 40px; }
+
+  /* Page headers: slightly tighter */
+  .page-header h1 { font-size: 26px; }
+
+  /* Form rows: keep 2-column layout */
+  .form-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* Body scroll lock when modals/overlays are open */
+body.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  touch-action: none;
 }
 
 /* Touch devices: remove hover transforms that feel janky */

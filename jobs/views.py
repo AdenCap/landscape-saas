@@ -28,6 +28,15 @@ CREW_COLORS = [
 ]
 UNASSIGNED_COLOR = '#94a3b8'
 
+# Status-based calendar colors (default when no custom color set)
+STATUS_COLORS = {
+    'scheduled': '#3b82f6',    # Blue
+    'in_progress': '#f59e0b',  # Amber
+    'completed': '#22c55e',    # Green
+    'skipped': '#6b7280',      # Gray
+    'cancelled': '#6b7280',    # Gray
+}
+
 
 def _get_crew_legend(business):
     """Return list of {name, color} for calendar legend. Crews and employees with custom colors."""
@@ -243,9 +252,16 @@ def calendar_view(request):
 
 
 def _color_for_assignee(job, crew_colors, user_colors):
-    """Get color for job - custom override, crew, or employee."""
+    """Get color for job: custom override > status-based default.
+    Crew/employee colors are still used as the crew dot indicator."""
     if job.color and job.color.strip():
         return job.color.strip()
+    # Default: use status-based coloring
+    return STATUS_COLORS.get(job.status, STATUS_COLORS.get('scheduled', '#3b82f6'))
+
+
+def _crew_color_for_job(job, crew_colors, user_colors):
+    """Get crew/employee color for the dot indicator on event cards."""
     if job.assigned_crew_id:
         return crew_colors.get(job.assigned_crew_id) or (job.assigned_crew.color if job.assigned_crew else None) or UNASSIGNED_COLOR
     if job.assigned_to_id:
@@ -316,16 +332,9 @@ def calendar_events(request):
     events = []
     for job in jobs:
         base_color = _color_for_assignee(job, crew_colors, user_colors)
+        crew_dot_color = _crew_color_for_job(job, crew_colors, user_colors)
         is_completed = job.status == 'completed'
-        if is_completed:
-            bc = (base_color or '#94a3b8').lstrip('#')
-            if len(bc) >= 6:
-                r, g, b = int(bc[0:2], 16), int(bc[2:4], 16), int(bc[4:6], 16)
-                bg = f'rgba({r},{g},{b},0.35)'
-            else:
-                bg = UNASSIGNED_COLOR
-        else:
-            bg = base_color or UNASSIGNED_COLOR
+        bg = base_color or STATUS_COLORS.get('scheduled', '#3b82f6')
 
         if job.assigned_crew:
             assignee_name = job.assigned_crew.name
@@ -361,11 +370,11 @@ def calendar_events(request):
                 "start": start_str,
                 "end": end_str,
                 "backgroundColor": bg,
-                "borderColor": base_color or UNASSIGNED_COLOR,
+                "borderColor": bg,
                 "extendedProps": {
                     "status": job.status, "crew": assignee_name, "jobId": job.id,
                     "customer": customer_name, "services": services_str,
-                    "crewColor": base_color or UNASSIGNED_COLOR,
+                    "crewColor": crew_dot_color,
                     "serviceAbbr": service_names[0] if service_names else "",
                     "recurring": bool(job.recurring_job_id),
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
@@ -378,11 +387,11 @@ def calendar_events(request):
                 "start": job.scheduled_date.isoformat(),
                 "allDay": True,
                 "backgroundColor": bg,
-                "borderColor": base_color or UNASSIGNED_COLOR,
+                "borderColor": bg,
                 "extendedProps": {
                     "status": job.status, "crew": assignee_name, "jobId": job.id,
                     "customer": customer_name, "services": services_str,
-                    "crewColor": base_color or UNASSIGNED_COLOR,
+                    "crewColor": crew_dot_color,
                     "serviceAbbr": service_names[0] if service_names else "",
                     "recurring": bool(job.recurring_job_id),
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
@@ -610,20 +619,11 @@ def calendar_job_update(request, job_id):
     else:
         assignee_name = "Unassigned"
     color = _color_for_assignee(job, crew_colors, user_colors)
-    is_completed = job.status == "completed"
-    if is_completed and color:
-        bc = color.lstrip("#")
-        if len(bc) >= 6:
-            r, g, b = int(bc[0:2], 16), int(bc[2:4], 16), int(bc[4:6], 16)
-            bg = f"rgba({r},{g},{b},0.35)"
-        else:
-            bg = UNASSIGNED_COLOR
-    else:
-        bg = color or UNASSIGNED_COLOR
+    bg = color or STATUS_COLORS.get('scheduled', '#3b82f6')
     return JsonResponse({
         "status": "ok",
         "backgroundColor": bg,
-        "borderColor": color or UNASSIGNED_COLOR,
+        "borderColor": bg,
         "crew": assignee_name,
     })
 

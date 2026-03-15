@@ -63,6 +63,10 @@
 .data-table tbody tr:nth-child(5){animation-delay:160ms}
 .data-table tbody tr:nth-child(n+6){animation-delay:200ms}
 @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media (max-width: 768px) {
+  .page-header .btn { min-height: 44px; flex: 1; justify-content: center; }
+  .page-header > div:last-child { width: 100%; }
+}
 </style>
 {% endblock %}
 

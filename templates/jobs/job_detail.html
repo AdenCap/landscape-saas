@@ -94,11 +94,11 @@
     {% csrf_token %}
     <div class="field">
       <label for="id_labor_cost">Labor cost ($)</label>
-      <input type="number" name="labor_cost" id="id_labor_cost" step="0.01" min="0" value="{{ job.labor_cost|default:0 }}" style="width: 100px;">
+      <input type="number" name="labor_cost" id="id_labor_cost" step="0.01" min="0" value="{{ job.labor_cost|default:0 }}" class="form-control" style="max-width: 120px;">
     </div>
     <div class="field">
       <label for="id_material_cost">Material cost ($)</label>
-      <input type="number" name="material_cost" id="id_material_cost" step="0.01" min="0" value="{{ job.material_cost|default:0 }}" style="width: 100px;">
+      <input type="number" name="material_cost" id="id_material_cost" step="0.01" min="0" value="{{ job.material_cost|default:0 }}" class="form-control" style="max-width: 120px;">
     </div>
     <button type="submit" class="btn btn-secondary btn-sm">Save costs</button>
   </form>
@@ -145,7 +145,7 @@
       {% if issue.status == "open" %}
       <form method="post" action="{% url 'resolve_issue' issue.id %}" style="display: inline; margin-left: 8px;">
         {% csrf_token %}
-        <input type="text" name="resolution_notes" placeholder="Resolution notes" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); width: 200px;">
+        <input type="text" name="resolution_notes" placeholder="Resolution notes" class="form-control" style="max-width: 240px;">
         <button type="submit" class="btn btn-primary btn-sm">Resolve</button>
       </form>
       {% else %}
@@ -167,11 +167,11 @@
   </div>
   <div style="display: flex; flex-direction: column; gap: 10px;">
     <div style="display: flex; gap: 8px; align-items: flex-end;">
-      <textarea id="add-job-note" rows="2" placeholder="Add a job note…" style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text); font-size:13px; resize:none;"></textarea>
+      <textarea id="add-job-note" rows="2" placeholder="Add a job note…" class="form-control" style="flex:1; resize:none;"></textarea>
       <button type="button" class="btn btn-primary btn-sm" onclick="addNote('job')">Add job note</button>
     </div>
     <div style="display: flex; gap: 8px; align-items: flex-end;">
-      <textarea id="add-prop-note" rows="2" placeholder="Add a property note (visible on all jobs at this address)…" style="flex:1; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text); font-size:13px; resize:none;"></textarea>
+      <textarea id="add-prop-note" rows="2" placeholder="Add a property note (visible on all jobs at this address)…" class="form-control" style="flex:1; resize:none;"></textarea>
       <button type="button" class="btn btn-secondary btn-sm" onclick="addNote('property')">Add property note</button>
     </div>
   </div>

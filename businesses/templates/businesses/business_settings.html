@@ -720,10 +720,13 @@
   @media (max-width: 768px) {
     .settings-page { padding: 0 4px; }
     .settings-header h1 { font-size: 22px; }
-    .settings-tab { padding: 8px 12px; font-size: 12px; }
+    .settings-tab { padding: 12px 14px; font-size: 13px; min-height: 44px; }
     .settings-tab svg { display: none; }
     .panel-card-header, .panel-card-body { padding-left: 16px; padding-right: 16px; }
     .field-row, .field-row-3 { flex-direction: column; gap: 0; }
+    .field input, .field select, .field textarea { font-size: 16px; min-height: 44px; }
+    .settings-save-bar { flex-direction: column; gap: 8px; }
+    .settings-save-bar .btn { width: 100%; justify-content: center; }
   }
 </style>
 {% endblock %}

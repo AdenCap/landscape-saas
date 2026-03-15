@@ -989,7 +989,7 @@ body.is-dragging * {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1100;
   padding: 20px;
   opacity: 0;
   visibility: hidden;
@@ -1230,6 +1230,66 @@ body.is-dragging * {
 }
 
 /* ==========================================================================
+   Tablet Responsive (iPad / 769-1024px)
+   ========================================================================== */
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .calendar-layout {
+    flex-direction: row;
+  }
+
+  .calendar-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Unscheduled panel as narrower sidebar on tablet */
+  .unscheduled-panel {
+    width: 260px !important;
+    min-width: 260px;
+  }
+
+  /* Toolbar: keep inline but compact */
+  .calendar-toolbar {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .calendar-toolbar select {
+    min-width: 100px;
+  }
+
+  /* Legend: compact */
+  .crew-legend-bar {
+    padding: 8px 14px;
+    gap: 10px;
+    font-size: 12px;
+  }
+
+  /* Event cards: show more info than mobile */
+  .cal-event-card {
+    min-height: 36px;
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .cal-event-name {
+    font-size: 13px;
+  }
+
+  /* Month view: show 4 events max */
+  .fc .fc-dayGridMonth-view .fc-daygrid-day-events {
+    max-height: 120px;
+  }
+
+  /* Modal: centered, not full-width */
+  .modal-card {
+    max-width: 560px;
+    border-radius: 16px;
+  }
+}
+
+/* ==========================================================================
    Mobile Responsive
    ========================================================================== */
 
@@ -1390,6 +1450,54 @@ body.is-dragging * {
     display: none;
   }
 
+  /* Collapsible filter bar */
+  .calendar-filter-toggle {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .calendar-filter-toggle.active {
+    background: var(--primary-light);
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+
+  .mobile-filter-collapsible {
+    animation: slideDown 0.2s ease;
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; max-height: 0; overflow: hidden; }
+    to { opacity: 1; max-height: 200px; }
+  }
+
+  /* Legend compact on mobile */
+  .crew-legend-bar {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .legend-crew-filter {
+    width: 100%;
+    min-height: 36px;
+    margin-left: 0;
+    margin-top: 4px;
+  }
+
+  /* Color swatches mobile sizing */
+  .color-swatches {
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .color-swatch {
+    width: 36px;
+    height: 36px;
+  }
+
   /* Unscheduled panel → bottom sheet */
   .unscheduled-panel {
     position: fixed;
@@ -1400,11 +1508,11 @@ body.is-dragging * {
     margin: 0;
     border-radius: 20px 20px 0 0;
     max-height: 70vh;
-    z-index: 999;
+    z-index: 150;
     transform: translateY(100%);
     transition: transform var(--motion-slow) var(--motion-ease);
     box-shadow: var(--shadow-xl);
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   }
 
   .unscheduled-panel::before {
@@ -1428,7 +1536,7 @@ body.is-dragging * {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
-    z-index: 998;
+    z-index: 149;
     opacity: 0;
     pointer-events: none;
     transition: opacity var(--motion-base) var(--motion-ease);
@@ -1445,7 +1553,7 @@ body.is-dragging * {
     align-items: center;
     justify-content: center;
     position: fixed;
-    bottom: 20px;
+    bottom: 90px;
     right: 20px;
     width: 52px;
     height: 52px;
@@ -1454,7 +1562,7 @@ body.is-dragging * {
     border: none;
     border-radius: var(--radius-full);
     box-shadow: var(--shadow-lg), 0 0 20px var(--primary-glow);
-    z-index: 997;
+    z-index: 148;
     cursor: pointer;
     transition: transform var(--motion-base) var(--motion-ease);
   }
@@ -1550,6 +1658,47 @@ body.is-dragging * {
   border: 1px solid var(--border);
   background: var(--bg-surface-hover);
   color: var(--text);
+}
+
+/* Color swatches for job color picker */
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  padding: 0;
+  outline: none;
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.color-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--primary);
+  transform: scale(1.1);
+}
+
+/* Legend crew filter dropdown */
+.legend-crew-filter {
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  cursor: pointer;
+  margin-left: 8px;
 }
 
 .help-text {

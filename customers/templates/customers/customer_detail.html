@@ -227,7 +227,7 @@ Thank you for choosing {{ business.name }}!">
 </div>
 
 <style>
-  .crm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+  .crm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 20px; }
   .card-full { grid-column: 1 / -1; }
   .contact-dl { margin: 0; }
   .contact-dl dt { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
@@ -260,5 +260,15 @@ Thank you for choosing {{ business.name }}!">
   .message-subject { font-weight: 600; margin-bottom: 4px; }
   .message-body { font-size: 14px; white-space: pre-wrap; word-break: break-word; }
   .no-messages { color: var(--text-muted); font-style: italic; margin: 0; }
+
+  @media (max-width: 768px) {
+    .crm-grid { grid-template-columns: 1fr; gap: 14px; }
+    .property-row, .contract-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .property-row > div:last-child, .contract-row > div:last-child { width: 100%; }
+    .property-row .btn, .contract-row .btn { min-height: 44px; flex: 1; justify-content: center; }
+    .send-message-form .form-control, .send-message-form .form-select { max-width: 100%; font-size: 16px; min-height: 44px; }
+    .send-message-form .btn { width: 100%; min-height: 44px; justify-content: center; }
+    .card-title { font-size: 16px; flex-wrap: wrap; gap: 8px; }
+  }
 </style>
 {% endblock %}

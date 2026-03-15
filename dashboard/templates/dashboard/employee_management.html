@@ -639,7 +639,7 @@
 .pending-title svg { color: #fde047; }
 
 /* --- Modal --- */
-.em-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; animation: emFadeIn .15s ease; }
+.em-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); z-index: 1100; display: flex; align-items: center; justify-content: center; padding: 20px; animation: emFadeIn .15s ease; }
 .em-modal-overlay[hidden] { display: none !important; }
 .em-modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 560px; max-height: 85vh; display: flex; flex-direction: column; animation: emSlideUp .2s ease; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 .em-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
@@ -673,13 +673,27 @@
 .calc-helper { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
 
 /* --- Mobile --- */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .emp-tab svg { display: none; }
-  .emp-tab { padding: 8px 12px; font-size: 13px; }
+  .emp-tab { padding: 10px 14px; font-size: 13px; min-height: 44px; }
+  .emp-mgmt-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; gap: 6px; padding-bottom: 2px; }
   .modal-form-grid .field-row,
   .modal-form-grid .field-row-3 { grid-template-columns: 1fr; }
-  .em-modal-card { max-width: 100%; border-radius: 16px 16px 0 0; align-self: flex-end; max-height: 90vh; }
+  .modal-form-grid .field input,
+  .modal-form-grid .field select { font-size: 16px; min-height: 44px; padding: 10px 14px; }
+  .em-modal-card { width: calc(100% - 32px); max-width: 100%; border-radius: 16px 16px 0 0; align-self: flex-end; max-height: 90vh; }
+  .em-modal-overlay { padding: 0; align-items: flex-end; }
+  .em-modal-footer { flex-direction: column; }
+  .em-modal-footer .btn { width: 100%; min-height: 44px; justify-content: center; }
   .section-header { flex-direction: column; }
+  .header-actions { width: 100%; }
+  .header-actions .btn { flex: 1; min-height: 44px; justify-content: center; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .kpi-card .kpi-value { font-size: 22px; }
+  .select-sm { max-width: 100%; min-height: 44px; font-size: 16px; }
+  .dropdown-menu { position: fixed; left: 16px; right: 16px; bottom: 0; top: auto; border-radius: 16px 16px 0 0; min-width: auto; z-index: 1100; }
+  .dropdown-menu button { padding: 14px 18px; font-size: 15px; min-height: 44px; }
+  .btn-icon { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
 }
 </style>
 
@@ -754,13 +768,15 @@
       }
 
       modal.hidden = false;
+      document.body.classList.add('modal-open');
       var firstInput = modalBody.querySelector('input:not([type=hidden]):not([type=color]),select');
       if (firstInput) setTimeout(function() { firstInput.focus(); }, 50);
     },
 
     close: function() {
       modal.hidden = true;
-      modalBody.innerHTML = '';
+      document.body.classList.remove('modal-open');
+      while (modalBody.firstChild) modalBody.removeChild(modalBody.firstChild);
     },
 
     submit: function(e) {
