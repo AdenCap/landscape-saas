@@ -350,11 +350,29 @@ def customer_edit(request, customer_id):
         return redirect("/")
 
     customer = get_object_or_404(Customer, id=customer_id, business=business)
+    old_address = customer.full_address
 
     if request.method == "POST":
         form = CustomerForm(request.POST, instance=customer)
         if form.is_valid():
-            form.save()
+            customer = form.save()
+            new_address = customer.full_address
+
+            # Sync the primary property when the address changes
+            if customer.address_line1 and new_address != old_address:
+                primary_prop = customer.properties.first()
+                if primary_prop:
+                    # Update the existing property if its address matched the old one
+                    if primary_prop.address == old_address or primary_prop.address == "—":
+                        primary_prop.address = new_address
+                        primary_prop.save(update_fields=["address"])
+                else:
+                    # Customer didn't have a property yet — create one
+                    Property.objects.create(
+                        customer=customer,
+                        address=new_address,
+                    )
+
             messages.success(request, f"Client '{customer.name}' updated.")
             return redirect("customer_detail", customer_id=customer.id)
     else:

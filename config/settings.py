@@ -284,6 +284,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 10},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -292,6 +293,20 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+# ── Password hashing ─────────────────────────────────────────────────────
+# Argon2 is the winner of the Password Hashing Competition and recommended
+# by OWASP. PBKDF2 kept as fallback so existing hashes still verify.
+# Install: pip install argon2-cffi
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+]
+
+# ── Password reset token expiry ──────────────────────────────────────────
+# Tokens expire after 1 hour (default Django is 3 days — far too long).
+PASSWORD_RESET_TIMEOUT = int(os.environ.get("PASSWORD_RESET_TIMEOUT", 3600))
 
 
 # Internationalization
@@ -344,12 +359,18 @@ LOGIN_REDIRECT_URL = '/accounts/post-login/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # Session: stay logged in until inactive for this long. Each request extends the expiry.
-# Default 2 weeks; set SESSION_COOKIE_AGE_SECONDS in .env to override (e.g. 2592000 for 30 days).
-SESSION_COOKIE_AGE = int(os.environ.get("SESSION_COOKIE_AGE_SECONDS", 60 * 60 * 24 * 14))  # 14 days
+# Default 7 days; set SESSION_COOKIE_AGE_SECONDS in .env to override.
+SESSION_COOKIE_AGE = int(os.environ.get("SESSION_COOKIE_AGE_SECONDS", 60 * 60 * 24 * 7))  # 7 days
 SESSION_SAVE_EVERY_REQUEST = True  # extend session on every request (inactivity = no requests for SESSION_COOKIE_AGE)
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # keep logged in after closing browser
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
+
+# ── Account lockout settings ─────────────────────────────────────────────
+# After MAX_LOGIN_ATTEMPTS failures within the window, lock the account for LOCKOUT_DURATION seconds.
+MAX_LOGIN_ATTEMPTS = int(os.environ.get("MAX_LOGIN_ATTEMPTS", 5))
+LOGIN_ATTEMPT_WINDOW = int(os.environ.get("LOGIN_ATTEMPT_WINDOW", 900))   # 15 minutes
+ACCOUNT_LOCKOUT_DURATION = int(os.environ.get("ACCOUNT_LOCKOUT_DURATION", 900))  # 15 minutes
 
 # Two-factor auth (optional): pip install django-otp qrcode, then add apps & OTPMiddleware
 # OTP_LOGIN_URL = '/accounts/verify/'
@@ -365,7 +386,9 @@ AUTHENTICATION_BACKENDS = [
 ACCOUNT_USER_MODEL_USERNAME_FIELD = "username"
 ACCOUNT_LOGIN_METHODS = {"username"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
-ACCOUNT_EMAIL_VERIFICATION = "none"
+# "optional" sends verification email but doesn't block login.
+# In production with a real EMAIL_BACKEND, set to "mandatory" via env var.
+ACCOUNT_EMAIL_VERIFICATION = os.environ.get("ACCOUNT_EMAIL_VERIFICATION", "optional")
 ACCOUNT_ADAPTER = "accounts.adapters.AccountAdapter"
 SOCIALACCOUNT_ADAPTER = "accounts.adapters.SocialAccountAdapter"
 SOCIALACCOUNT_AUTO_SIGNUP = True
@@ -453,6 +476,7 @@ LOGGING = {
     "loggers": {
         "django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
         "subscription": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "accounts.security": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
 

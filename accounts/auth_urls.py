@@ -8,9 +8,10 @@ from accounts.ratelimit import ratelimit
 
 # Rate limit sensitive auth endpoints (per IP)
 _password_reset_view = ratelimit(key="ip", rate="5/m", method="POST", block=True)(auth_views.PasswordResetView.as_view())
+_signup_view = ratelimit(key="ip", rate="5/m", method="POST", block=True)(signup)
 
 urlpatterns = [
-    path("signup/", signup, name="signup"),
+    path("signup/", _signup_view, name="signup"),
     path("social/complete/", social_signup_complete, name="social_signup_complete"),
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(next_page="/accounts/login/"), name="logout"),

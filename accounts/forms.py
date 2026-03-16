@@ -127,16 +127,29 @@ class EmployeeCreateForm(UserCreationForm):
 
 
 class EmployeePasswordForm(forms.Form):
-    """Form for owner to set/reset employee password."""
+    """Form for owner to set/reset employee password.
+    Runs the new password through Django's AUTH_PASSWORD_VALIDATORS
+    (Argon2, min 10 chars, common password check, numeric check).
+    """
     new_password1 = forms.CharField(
         label='New password',
         widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
-        min_length=8,
     )
     new_password2 = forms.CharField(
         label='Confirm new password',
         widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
     )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._user = user  # Optional: pass the target user for similarity checks
+
+    def clean_new_password1(self):
+        password = self.cleaned_data.get('new_password1')
+        if password:
+            from django.contrib.auth.password_validation import validate_password
+            validate_password(password, user=self._user)
+        return password
 
     def clean(self):
         cleaned_data = super().clean()

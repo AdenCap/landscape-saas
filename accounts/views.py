@@ -1,3 +1,4 @@
+import logging
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -5,13 +6,14 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.views import LoginView as AuthLoginView
+from django.core.cache import cache
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.decorators import role_required
-from accounts.ratelimit import ratelimit
+from accounts.ratelimit import ratelimit, _get_client_ip
 from accounts.utils import get_business as _get_business
 from django.utils import timezone as tz
 from accounts.forms import (
@@ -23,16 +25,121 @@ from accounts.forms import (
     SendNotificationForm,
     SocialSignupCompleteForm,
 )
-from accounts.models import EmployeePayment, Notification
+from accounts.models import AuditLog, EmployeePayment, Notification
 from businesses.models import Business
 from jobs.models import Crew
 
 User = get_user_model()
+security_logger = logging.getLogger("accounts.security")
+
+
+# ── Account lockout helpers ──────────────────────────────────────────────
+def _lockout_cache_key(username):
+    """Cache key for tracking failed login attempts by username."""
+    return f"login_lockout:{username.lower()}"
+
+
+def _is_locked_out(username):
+    """Check whether this account is currently locked due to too many failed attempts."""
+    data = cache.get(_lockout_cache_key(username))
+    if not data:
+        return False
+    import time
+    if data.get("locked_until", 0) > time.time():
+        return True
+    return False
+
+
+def _record_failed_attempt(username, ip_address):
+    """Record a failed login attempt; lock the account if threshold is exceeded."""
+    import time
+    key = _lockout_cache_key(username)
+    max_attempts = getattr(settings, "MAX_LOGIN_ATTEMPTS", 5)
+    window = getattr(settings, "LOGIN_ATTEMPT_WINDOW", 900)
+    lockout_duration = getattr(settings, "ACCOUNT_LOCKOUT_DURATION", 900)
+
+    data = cache.get(key) or {"attempts": [], "locked_until": 0}
+    now = time.time()
+    # Prune old attempts outside the window
+    data["attempts"] = [t for t in data["attempts"] if t > now - window]
+    data["attempts"].append(now)
+
+    if len(data["attempts"]) >= max_attempts:
+        data["locked_until"] = now + lockout_duration
+        security_logger.warning(
+            "Account locked username=%s ip=%s attempts=%d lockout_seconds=%d",
+            username, ip_address, len(data["attempts"]), lockout_duration,
+        )
+
+    cache.set(key, data, timeout=max(window, lockout_duration) + 60)
+
+
+def _clear_failed_attempts(username):
+    """Clear failed attempt counter after a successful login."""
+    cache.delete(_lockout_cache_key(username))
+
+
+# ── Audit log helper ────────────────────────────────────────────────────
+def _log_auth_event(user, action, ip_address, details=""):
+    """Write a login/login_failed event to the AuditLog."""
+    try:
+        AuditLog.objects.create(
+            user=user,
+            action=action,
+            ip_address=ip_address,
+            details=details,
+        )
+    except Exception:
+        # Never let audit logging break the login flow
+        security_logger.exception("Failed to write audit log for action=%s", action)
 
 
 @method_decorator(ratelimit(key="ip", rate="10/m", method="POST", block=True), name="dispatch")
 class LoginView(AuthLoginView):
-    """After password login, always send to post-login check (2FA on new device); preserve next."""
+    """
+    Secure login view with:
+    - IP-based rate limiting (10/min)
+    - Account lockout after N failed attempts
+    - Audit logging of successes and failures
+    - 2FA post-login check
+    """
+
+    def post(self, request, *args, **kwargs):
+        username = request.POST.get("username", "").strip()
+        ip = _get_client_ip(request)
+
+        # Check lockout before wasting cycles on authentication
+        if username and _is_locked_out(username):
+            security_logger.warning("Login attempt on locked account username=%s ip=%s", username, ip)
+            form = self.get_form()
+            form.add_error(None, "This account is temporarily locked due to too many failed attempts. Try again in 15 minutes.")
+            return self.form_invalid(form)
+
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """Successful login: clear lockout counter, log event."""
+        user = form.get_user()
+        ip = _get_client_ip(self.request)
+        _clear_failed_attempts(user.username)
+        _log_auth_event(user, "login", ip, f"Successful login for {user.username}")
+        security_logger.info("Login success username=%s ip=%s", user.username, ip)
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        """Failed login: record attempt, log event."""
+        username = self.request.POST.get("username", "").strip()
+        ip = _get_client_ip(self.request)
+        if username:
+            _record_failed_attempt(username, ip)
+            # Try to find user for audit log (may not exist)
+            try:
+                user = User.objects.get(username=username)
+                _log_auth_event(user, "login_failed", ip, f"Failed login for {username}")
+            except User.DoesNotExist:
+                _log_auth_event(None, "login_failed", ip, f"Failed login for unknown user '{username}'")
+            security_logger.warning("Login failed username=%s ip=%s", username, ip)
+        return super().form_invalid(form)
 
     def get_success_url(self):
         # Always go through post-login check; pass through intended destination
@@ -307,7 +414,7 @@ def employee_password(request, user_id):
     employee = get_object_or_404(User, id=user_id, business=business)
 
     if request.method == "POST":
-        form = EmployeePasswordForm(request.POST)
+        form = EmployeePasswordForm(request.POST, user=employee)
         if form.is_valid():
             new_password = form.cleaned_data["new_password1"]
             employee.set_password(new_password)
@@ -315,7 +422,7 @@ def employee_password(request, user_id):
             messages.success(request, f"Password updated for {employee.get_full_name() or employee.username}.")
             return redirect("employee_edit", user_id=employee.id)
     else:
-        form = EmployeePasswordForm()
+        form = EmployeePasswordForm(user=employee)
 
     return render(request, "accounts/employee_password.html", {
         "form": form,
