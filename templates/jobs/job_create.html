@@ -194,19 +194,50 @@
     var customerId = document.getElementById('id_customer').value;
     var propSel = document.getElementById('id_property');
     var currentVal = propSel.value;
-    propSel.innerHTML = '<option value="">---------</option>';
-    propSel.disabled = !customerId;
-    if (customerId) {
-      var cust = customersWithProperties.find(function(c) { return String(c.id) === String(customerId); });
-      if (cust && cust.properties && cust.properties.length) {
-        cust.properties.forEach(function(p) {
-          var opt = document.createElement('option');
-          opt.value = p.id;
-          opt.textContent = p.address;
-          propSel.appendChild(opt);
-        });
-        propSel.value = currentVal || (cust.properties.length === 1 ? cust.properties[0].id : '');
+
+    // Clear all existing options using safe DOM methods (no innerHTML)
+    while (propSel.options.length > 0) {
+      propSel.remove(0);
+    }
+
+    if (!customerId) {
+      // No customer selected — show placeholder and disable
+      var placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '\u2014 Select a client first \u2014';
+      propSel.appendChild(placeholder);
+      propSel.disabled = true;
+      return;
+    }
+
+    // Customer selected — enable and populate
+    propSel.disabled = false;
+
+    var cust = customersWithProperties.find(function(c) { return String(c.id) === String(customerId); });
+    if (cust && cust.properties && cust.properties.length) {
+      if (cust.properties.length > 1) {
+        var blank = document.createElement('option');
+        blank.value = '';
+        blank.textContent = '\u2014 Choose a property \u2014';
+        propSel.appendChild(blank);
       }
+      cust.properties.forEach(function(p) {
+        var opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.address;
+        propSel.appendChild(opt);
+      });
+      // Auto-select if only one property, or restore previous selection
+      if (cust.properties.length === 1) {
+        propSel.value = cust.properties[0].id;
+      } else if (currentVal) {
+        propSel.value = currentVal;
+      }
+    } else {
+      var noProps = document.createElement('option');
+      noProps.value = '';
+      noProps.textContent = '\u2014 No properties \u2014 add one in Client profile';
+      propSel.appendChild(noProps);
     }
   }
 
@@ -273,21 +304,46 @@
     var container = document.getElementById('service-rows');
     var totalInput = document.getElementById('id_form-TOTAL_FORMS');
     var n = parseInt(totalInput.value, 10);
+    var inputStyle = 'width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;';
+
     var row = document.createElement('div');
     row.className = 'form-row form-row-service';
-    row.innerHTML =
-      '<div class="form-group flex-2">' +
-      '<label>Service</label>' +
-      '<input type="text" name="form-' + n + '-service_name" maxlength="120" placeholder="Type service name..." list="services-datalist" id="id_form-' + n + '-service_name" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">' +
-      '</div>' +
-      '<div class="form-group flex-1">' +
-      '<label>Qty</label>' +
-      '<input type="number" name="form-' + n + '-quantity" step="0.01" value="1.00" min="0.01" id="id_form-' + n + '-quantity" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">' +
-      '</div>' +
-      '<div class="form-group flex-1">' +
-      '<label>Price</label>' +
-      '<input type="number" name="form-' + n + '-unit_price" step="0.01" min="0" placeholder="Optional" id="id_form-' + n + '-unit_price" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">' +
-      '</div>';
+
+    // Service name group
+    var g1 = document.createElement('div');
+    g1.className = 'form-group flex-2';
+    var l1 = document.createElement('label');
+    l1.textContent = 'Service';
+    var i1 = document.createElement('input');
+    i1.type = 'text'; i1.name = 'form-' + n + '-service_name';
+    i1.maxLength = 120; i1.placeholder = 'Type service name...';
+    i1.setAttribute('list', 'services-datalist');
+    i1.id = 'id_form-' + n + '-service_name'; i1.style.cssText = inputStyle;
+    g1.appendChild(l1); g1.appendChild(i1);
+
+    // Quantity group
+    var g2 = document.createElement('div');
+    g2.className = 'form-group flex-1';
+    var l2 = document.createElement('label');
+    l2.textContent = 'Qty';
+    var i2 = document.createElement('input');
+    i2.type = 'number'; i2.name = 'form-' + n + '-quantity';
+    i2.step = '0.01'; i2.value = '1.00'; i2.min = '0.01';
+    i2.id = 'id_form-' + n + '-quantity'; i2.style.cssText = inputStyle;
+    g2.appendChild(l2); g2.appendChild(i2);
+
+    // Price group
+    var g3 = document.createElement('div');
+    g3.className = 'form-group flex-1';
+    var l3 = document.createElement('label');
+    l3.textContent = 'Price';
+    var i3 = document.createElement('input');
+    i3.type = 'number'; i3.name = 'form-' + n + '-unit_price';
+    i3.step = '0.01'; i3.min = '0'; i3.placeholder = 'Optional';
+    i3.id = 'id_form-' + n + '-unit_price'; i3.style.cssText = inputStyle;
+    g3.appendChild(l3); g3.appendChild(i3);
+
+    row.appendChild(g1); row.appendChild(g2); row.appendChild(g3);
     container.appendChild(row);
     totalInput.value = n + 1;
   });

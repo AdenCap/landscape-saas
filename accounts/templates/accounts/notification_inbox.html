@@ -8,9 +8,14 @@
     <h1>Notifications</h1>
     <p>Messages from your manager or business owner.</p>
   </div>
-  {% if unread_count > 0 %}
-  <button type="button" class="btn btn-secondary" id="mark-all-read">Mark all as read</button>
-  {% endif %}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button type="button" class="btn btn-primary" id="btn-open-new-chat" onclick="openChatNewMessage()">
+      <i data-lucide="message-circle-plus" style="width:16px;height:16px;"></i> Start a Chat
+    </button>
+    {% if unread_count > 0 %}
+    <button type="button" class="btn btn-secondary" id="mark-all-read">Mark all as read</button>
+    {% endif %}
+  </div>
 </div>
 
 <div class="card">
@@ -40,6 +45,23 @@
 <style>
   .notification-item:last-child { border-bottom: none; }
 </style>
+<script>
+function openChatNewMessage() {
+  // Open the floating chat panel
+  var panel = document.getElementById('chat-panel');
+  var fab = document.getElementById('chat-fab');
+  var overlay = document.getElementById('chat-overlay');
+  if (panel) {
+    panel.classList.add('open');
+    if (overlay) overlay.classList.add('active');
+    // Click the new message button to go directly to the user picker
+    var newMsgBtn = document.getElementById('btn-new-message');
+    if (newMsgBtn) {
+      setTimeout(function() { newMsgBtn.click(); }, 150);
+    }
+  }
+}
+</script>
 {% if unread_count > 0 %}
 <script>
 (function() {

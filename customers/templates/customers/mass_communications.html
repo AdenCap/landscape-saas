@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block title %}Mass Communications – FieldLgx{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Mass Communications</h1>
+  <p>Send text messages and emails to your clients. Filter by service type to target the right audience.</p>
+</div>
+
+<div class="mass-comm-grid">
+  <!-- Left: Compose -->
+  <div class="card mass-compose">
+    <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;letter-spacing:-.02em;">Compose Message</h2>
+
+    <form method="post" action="{% url 'mass_communications' %}" id="mass-comm-form">
+      {% csrf_token %}
+
+      <!-- Channel -->
+      <div class="mc-field">
+        <label class="mc-label">Send via</label>
+        <div class="mc-channel-picker">
+          <label class="mc-channel {% if not sms_configured %}mc-channel-disabled{% endif %}">
+            <input type="radio" name="channel" value="sms" {% if not sms_configured %}disabled{% endif %}>
+            <i data-lucide="smartphone" style="width:16px;height:16px;"></i>
+            <span>Text (SMS)</span>
+          </label>
+          <label class="mc-channel">
+            <input type="radio" name="channel" value="email" {% if not email_configured %}disabled{% endif %} {% if not email_configured %}class="mc-channel-disabled"{% endif %}>
+            <i data-lucide="mail" style="width:16px;height:16px;"></i>
+            <span>Email</span>
+          </label>
+          <label class="mc-channel">
+            <input type="radio" name="channel" value="both" checked>
+            <i data-lucide="send" style="width:16px;height:16px;"></i>
+            <span>Both</span>
+          </label>
+        </div>
+        {% if not sms_configured %}
+        <p class="mc-hint" style="color:#fca5a5;">SMS not configured. <a href="{% url 'business_settings' %}">Add Twilio in Settings</a></p>
+        {% endif %}
+        {% if not email_configured %}
+        <p class="mc-hint" style="color:#fca5a5;">Email not configured. <a href="{% url 'business_settings' %}">Add Gmail in Settings</a></p>
+        {% endif %}
+      </div>
+
+      <!-- Subject (for email) -->
+      <div class="mc-field" id="subject-field">
+        <label class="mc-label" for="mc-subject">Subject <span style="color:var(--text-muted);font-weight:400;">(email only)</span></label>
+        <input type="text" id="mc-subject" name="subject" placeholder="e.g. Schedule update for this week" class="mc-input">
+      </div>
+
+      <!-- Message -->
+      <div class="mc-field">
+        <label class="mc-label" for="mc-body">Message</label>
+        <textarea id="mc-body" name="body" rows="5" required placeholder="Type your message here..." class="mc-input mc-textarea"></textarea>
+        <div class="mc-char-count">
+          <span id="char-count">0</span> / 160 characters
+          <span id="sms-segments" style="margin-left:8px;color:var(--text-muted);">(1 SMS segment)</span>
+        </div>
+      </div>
+
+      <!-- Hidden recipient IDs -->
+      <div id="recipient-inputs"></div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;" id="send-btn" disabled>
+        <i data-lucide="send" style="width:16px;height:16px;"></i>
+        Send to <span id="send-count">0</span> clients
+      </button>
+    </form>
+  </div>
+
+  <!-- Right: Recipients -->
+  <div class="card mass-recipients">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+      <h2 style="margin:0;font-size:20px;font-weight:700;letter-spacing:-.02em;">Recipients</h2>
+      <span class="mc-badge" id="recipient-badge">{{ total_count }} clients</span>
+    </div>
+
+    <!-- Service Filter -->
+    <div class="mc-field" style="margin-bottom:16px;">
+      <label class="mc-label">Filter by service</label>
+      <div class="mc-filter-chips" id="service-filter">
+        <a href="{% url 'mass_communications' %}" class="mc-chip {% if not selected_service %}mc-chip-active{% endif %}">All Clients</a>
+        {% for svc in services %}
+        <a href="{% url 'mass_communications' %}?service={{ svc.id }}" class="mc-chip {% if selected_service == svc.id|stringformat:'d' %}mc-chip-active{% endif %}">{{ svc.name }}</a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Select All -->
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:500;">
+        <input type="checkbox" id="select-all" checked>
+        Select all ({{ total_count }})
+      </label>
+    </div>
+
+    <!-- Customer List -->
+    <div class="mc-customer-list" id="customer-list">
+      {% for c in customers %}
+      <label class="mc-customer-row" data-id="{{ c.id }}">
+        <input type="checkbox" name="client" value="{{ c.id }}" checked class="customer-cb">
+        <div class="mc-customer-info">
+          <strong>{{ c.name }}</strong>
+          <span>
+            {% if c.phone %}<i data-lucide="smartphone" style="width:12px;height:12px;"></i> {{ c.phone }}{% endif %}
+            {% if c.phone and c.email %} · {% endif %}
+            {% if c.email %}<i data-lucide="mail" style="width:12px;height:12px;"></i> {{ c.email }}{% endif %}
+            {% if not c.phone and not c.email %}<span style="color:#fca5a5;">No contact info</span>{% endif %}
+          </span>
+        </div>
+        {% if c.communication_preference %}
+        <span class="mc-pref-badge">{{ c.get_communication_preference_display }}</span>
+        {% endif %}
+      </label>
+      {% empty %}
+      <div style="padding:24px;text-align:center;color:var(--text-muted);">
+        <p>No clients match this filter.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<style>
+.mass-comm-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4, 16px);
+  align-items: start;
+}
+.mass-compose { padding: 24px; }
+.mass-recipients { padding: 24px; }
+
+/* Fields */
+.mc-field { margin-bottom: 16px; }
+.mc-label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.mc-hint { font-size: 13px; margin-top: 4px; }
+.mc-input {
+  width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface, rgba(255,255,255,0.03)); color: var(--text); font-size: 15px;
+  transition: border-color .2s ease, box-shadow .2s ease; outline: none;
+}
+.mc-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(34,197,94,.12); }
+.mc-textarea { resize: vertical; font-family: inherit; min-height: 120px; }
+
+/* Channel picker */
+.mc-channel-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+.mc-channel {
+  display: flex; align-items: center; gap: 6px; padding: 10px 16px;
+  border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
+  font-size: 14px; font-weight: 500; transition: all .15s ease; flex: 1; justify-content: center;
+}
+.mc-channel:has(input:checked) {
+  border-color: var(--primary); background: rgba(34,197,94,.1); color: var(--primary);
+}
+.mc-channel input { display: none; }
+.mc-channel-disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Character count */
+.mc-char-count { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+/* Badge */
+.mc-badge {
+  display: inline-flex; align-items: center; padding: 4px 12px;
+  background: rgba(34,197,94,.15); color: #86efac; border-radius: 999px;
+  font-size: 13px; font-weight: 600;
+}
+
+/* Filter chips */
+.mc-filter-chips {
+  display: flex; gap: 6px; flex-wrap: wrap; overflow-x: auto;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px;
+}
+.mc-filter-chips::-webkit-scrollbar { display: none; }
+.mc-chip {
+  display: inline-flex; padding: 7px 14px; border-radius: 20px; font-size: 13px;
+  font-weight: 500; text-decoration: none; white-space: nowrap;
+  color: var(--text-muted); background: var(--surface, rgba(255,255,255,.04));
+  border: 1px solid var(--border); transition: all .15s ease;
+}
+.mc-chip:hover { color: var(--text); border-color: var(--text-muted); transform: translateY(-1px); }
+.mc-chip-active { border-color: var(--primary); color: var(--primary); background: rgba(34,197,94,.1); }
+
+/* Customer list */
+.mc-customer-list { max-height: 480px; overflow-y: auto; }
+.mc-customer-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 0;
+  border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s ease;
+}
+.mc-customer-row:last-child { border-bottom: none; }
+.mc-customer-row:hover { background: rgba(255,255,255,.02); }
+.mc-customer-info { flex: 1; min-width: 0; }
+.mc-customer-info strong { display: block; font-size: 14px; }
+.mc-customer-info span { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
+.mc-pref-badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  background: rgba(255,255,255,.06); color: var(--text-muted); white-space: nowrap;
+}
+
+/* Light theme */
+[data-theme="light"] .mc-badge { background: rgba(34,197,94,.12); color: #16a34a; }
+[data-theme="light"] .mc-customer-row:hover { background: rgba(0,0,0,.02); }
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] .mc-badge { background: rgba(34,197,94,.12); color: #16a34a; }
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .mass-comm-grid { grid-template-columns: 1fr; }
+  .mass-compose, .mass-recipients { padding: 16px; }
+}
+@media (max-width: 768px) {
+  .mc-channel { min-height: 44px; padding: 10px 14px; }
+  .mc-input { font-size: 16px; min-height: 44px; }
+  .mc-chip { min-height: 44px; padding: 10px 16px; }
+  .mc-customer-row { padding: 12px 0; min-height: 44px; }
+  #send-btn { min-height: 44px; }
+}
+</style>
+
+<script>
+(function() {
+  // Sync checkboxes to hidden form inputs and update count
+  var customerCbs = document.querySelectorAll('.customer-cb');
+  var selectAll = document.getElementById('select-all');
+  var recipientInputs = document.getElementById('recipient-inputs');
+  var sendCount = document.getElementById('send-count');
+  var sendBtn = document.getElementById('send-btn');
+  var recipientBadge = document.getElementById('recipient-badge');
+
+  function syncRecipients() {
+    // Clear existing hidden inputs
+    while (recipientInputs.firstChild) recipientInputs.removeChild(recipientInputs.firstChild);
+    var count = 0;
+    customerCbs.forEach(function(cb) {
+      if (cb.checked) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'recipients';
+        input.value = cb.value;
+        recipientInputs.appendChild(input);
+        count++;
+      }
+    });
+    sendCount.textContent = count;
+    sendBtn.disabled = count === 0;
+    recipientBadge.textContent = count + ' client' + (count !== 1 ? 's' : '') + ' selected';
+  }
+
+  // Select all
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      customerCbs.forEach(function(cb) { cb.checked = selectAll.checked; });
+      syncRecipients();
+    });
+  }
+
+  // Individual checkboxes
+  customerCbs.forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      if (!cb.checked && selectAll) selectAll.checked = false;
+      syncRecipients();
+    });
+  });
+
+  // Character count for SMS
+  var body = document.getElementById('mc-body');
+  var charCount = document.getElementById('char-count');
+  var smsSegments = document.getElementById('sms-segments');
+  if (body) {
+    body.addEventListener('input', function() {
+      var len = body.value.length;
+      charCount.textContent = len;
+      var segs = len <= 160 ? 1 : Math.ceil(len / 153);
+      smsSegments.textContent = '(' + segs + ' SMS segment' + (segs !== 1 ? 's' : '') + ')';
+      if (len > 160) {
+        charCount.style.color = '#fde047';
+      } else {
+        charCount.style.color = '';
+      }
+    });
+  }
+
+  // Toggle subject field visibility based on channel
+  var channelRadios = document.querySelectorAll('input[name="channel"]');
+  var subjectField = document.getElementById('subject-field');
+  channelRadios.forEach(function(r) {
+    r.addEventListener('change', function() {
+      if (r.value === 'sms') {
+        subjectField.style.display = 'none';
+      } else {
+        subjectField.style.display = '';
+      }
+    });
+  });
+
+  // Confirm before sending
+  var form = document.getElementById('mass-comm-form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      var count = sendCount.textContent;
+      if (!confirm('Send this message to ' + count + ' client(s)? This action cannot be undone.')) {
+        e.preventDefault();
+      }
+    });
+  }
+
+  // Init
+  syncRecipients();
+})();
+</script>
+{% endblock %}
+
+{% block context_panel %}
+<aside class="context-panel">
+  <h3>Tips</h3>
+  <div class="context-panel-body">
+    <div class="context-chip">SMS messages over 160 characters will be sent as multiple segments.</div>
+    <div class="context-chip">Clients' communication preferences are respected — a client set to "Email only" won't receive texts.</div>
+    <a href="{% url 'customer_list' %}" class="btn btn-secondary btn-sm">Manage Clients</a>
+    <a href="{% url 'client_messages_list' %}" class="btn btn-secondary btn-sm">View Email Log</a>
+  </div>
+</aside>
+{% endblock %}

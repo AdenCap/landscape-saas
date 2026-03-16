@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     path("", views.customer_list, name="customer_list"),
     path("messages/", views.client_messages_list, name="client_messages_list"),
+    path("mass-communications/", views.mass_communications, name="mass_communications"),
     path("add/", views.customer_create, name="customer_create"),
     path("import/", views.customer_import, name="customer_import"),
     path("import/template/", views.customer_import_template, name="customer_import_template"),

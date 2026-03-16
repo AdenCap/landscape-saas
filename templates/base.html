@@ -584,9 +584,13 @@
             <i data-lucide="users" class="nav-icon"></i>
             Clients
           </a>
-          <a href="{% url 'client_messages_list' %}" class="btn btn-nav {% if '/clients/messages' in request.path %}active{% endif %}">
+          <a href="{% url 'client_messages_list' %}" class="btn btn-nav {% if '/clients/messages' in request.path and '/mass' not in request.path %}active{% endif %}">
             <i data-lucide="mail" class="nav-icon"></i>
             Email Log
+          </a>
+          <a href="{% url 'mass_communications' %}" class="btn btn-nav {% if '/mass-communications' in request.path %}active{% endif %}">
+            <i data-lucide="megaphone" class="nav-icon"></i>
+            Mass Comms
           </a>
           <a href="/billing/" class="btn btn-nav {% if '/billing' in request.path and 'estimates' not in request.path %}active{% endif %}">
             <i data-lucide="file-plus-2" class="nav-icon"></i>
@@ -728,6 +732,7 @@
             <a href="{% url 'morning_brief' %}"><i data-lucide="sunrise" class="nav-icon"></i>Morning Brief</a>
             <a href="/jobs/calendar/"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendar</a>
             <a href="{% url 'client_messages_list' %}"><i data-lucide="mail" class="nav-icon"></i>Email Log</a>
+            <a href="{% url 'mass_communications' %}"><i data-lucide="megaphone" class="nav-icon"></i>Mass Comms</a>
             <a href="/billing/"><i data-lucide="file-plus-2" class="nav-icon"></i>Invoices</a>
             <a href="/billing/estimates/"><i data-lucide="file-text" class="nav-icon"></i>Estimates{% if estimate_queue_count > 0 %} <span class="bottom-nav-count">{{ estimate_queue_count }}</span>{% endif %}</a>
             {% if show_fertilization %}

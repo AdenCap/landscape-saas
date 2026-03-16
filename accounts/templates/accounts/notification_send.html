@@ -8,7 +8,12 @@
     <h1>Send notification</h1>
     <p>Send a message to selected employees and/or crews.</p>
   </div>
-  <a href="{% url 'notification_inbox' %}" class="btn btn-secondary">View my notifications</a>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button type="button" class="btn btn-secondary" onclick="openChatNewMessage()">
+      <i data-lucide="message-circle-plus" style="width:16px;height:16px;"></i> Start a Chat
+    </button>
+    <a href="{% url 'notification_inbox' %}" class="btn btn-secondary">View my notifications</a>
+  </div>
 </div>
 
 <div class="card" style="max-width: 640px;">
@@ -67,6 +72,20 @@
   </form>
 </div>
 
+<script>
+function openChatNewMessage() {
+  var panel = document.getElementById('chat-panel');
+  var overlay = document.getElementById('chat-overlay');
+  if (panel) {
+    panel.classList.add('open');
+    if (overlay) overlay.classList.add('active');
+    var newMsgBtn = document.getElementById('btn-new-message');
+    if (newMsgBtn) {
+      setTimeout(function() { newMsgBtn.click(); }, 150);
+    }
+  }
+}
+</script>
 <script>
 (function() {
   var sendToAll = document.getElementById('id_send_to_all');

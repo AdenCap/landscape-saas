@@ -4,7 +4,7 @@
 {% block content %}
 <section class="section" style="padding-top:34px;">
   <div class="shell" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;">
-    <div class="card" data-r style="padding:22px;">
+    <div class="card login-features" data-r style="padding:22px;">
       <h1 style="font-size:38px;line-height:1.02;letter-spacing:-.03em;margin:0 0 10px;">Welcome back.</h1>
       <p class="lead" style="margin-bottom:14px;">Sign in to continue running dispatch, crews, clients, and billing from one control center.</p>
       <div style="display:grid;gap:10px;">
@@ -16,8 +16,6 @@
     <div class="card" data-r style="padding:22px;">
       <h2 style="margin:0 0 6px;font-size:28px;letter-spacing:-.02em;">Sign in</h2>
       <p style="margin:0 0 16px;color:var(--muted);">Don’t have an account? <a href="{% url 'signup' %}" style="color:var(--text)">Start free trial</a></p>
-
-      {% include "registration/_social_buttons.html" with divider_text="or sign in with username" %}
 
       {% if form.errors %}
       <div style="margin-bottom:12px;padding:10px;border:1px solid #7f1d1d;background:#450a0a;color:#fecaca;border-radius:10px;font-size:14px;">Invalid username or password. Please try again.</div>
@@ -37,6 +35,8 @@
         </div>
         <button class="btn btn-primary" type="submit" style="width:100%;">Sign in</button>
       </form>
+
+      {% include "registration/_social_buttons.html" with divider_text="or continue with" %}
     </div>
   </div>
 </section>
@@ -44,6 +44,9 @@
 .auth-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text);transition:border-color .2s ease,box-shadow .2s ease;outline:none}
 .auth-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(34,197,94,.15)}
 .auth-input:hover:not(:focus){border-color:var(--text-muted)}
-@media(max-width:900px){.shell[style*='grid-template-columns:1fr 1fr']{grid-template-columns:1fr!important}}
+@media(max-width:900px){
+  .shell[style*='grid-template-columns:1fr 1fr']{grid-template-columns:1fr!important}
+  .login-features{display:none!important}
+}
 </style>
 {% endblock %}

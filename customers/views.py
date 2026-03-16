@@ -551,6 +551,183 @@ def customer_send_message(request, customer_id):
     return _send_message_redirect(request, customer.id)
 
 
+@role_required("owner", "manager")
+@require_http_methods(["GET", "POST"])
+def mass_communications(request):
+    """Mass SMS and email to clients, with service-based filtering."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    from pricing.models import ServiceTemplate
+    from jobs.models import JobServiceItem, RecurringJob
+
+    services = ServiceTemplate.objects.filter(business=business, active=True).order_by("name")
+    customers = Customer.objects.filter(business=business).order_by("name")
+
+    if request.method == "GET":
+        # Check if filtering by service
+        service_id = request.GET.get("service")
+        filtered_customers = customers
+
+        if service_id:
+            try:
+                service_id = int(service_id)
+                # Find customers who have had jobs with this service OR have recurring jobs with it
+                job_customer_ids = (
+                    JobServiceItem.objects.filter(
+                        service_id=service_id,
+                        job__property__customer__business=business,
+                    )
+                    .values_list("job__property__customer_id", flat=True)
+                    .distinct()
+                )
+                recurring_customer_ids = (
+                    RecurringJob.objects.filter(
+                        property__customer__business=business,
+                        active=True,
+                        service_snapshot__contains=[{"service_id": service_id}],
+                    )
+                    .values_list("property__customer_id", flat=True)
+                    .distinct()
+                )
+                # JSONField contains is tricky, fall back to Python filter for recurring
+                # but job-based filter is the primary one
+                all_ids = set(job_customer_ids)
+
+                # For recurring jobs, check service_snapshot manually since JSONField contains
+                # doesn't work well with nested list structures
+                for rj in RecurringJob.objects.filter(
+                    property__customer__business=business, active=True
+                ):
+                    for svc in (rj.service_snapshot or []):
+                        if svc.get("service_id") == service_id:
+                            all_ids.add(rj.property.customer_id)
+                            break
+
+                filtered_customers = customers.filter(id__in=all_ids)
+            except (ValueError, TypeError):
+                pass
+
+        return render(request, "customers/mass_communications.html", {
+            "services": services,
+            "customers": filtered_customers,
+            "all_customers": customers,
+            "selected_service": request.GET.get("service", ""),
+            "total_count": filtered_customers.count(),
+            "sms_configured": bool(business.twilio_account_sid and business.twilio_auth_token and business.twilio_from_number),
+            "email_configured": bool(business.email_smtp_user and business.email_smtp_password),
+        })
+
+    # POST — send the messages
+    channel = request.POST.get("channel", "both")  # sms, email, both
+    subject = request.POST.get("subject", "").strip()
+    body = request.POST.get("body", "").strip()
+    recipient_ids = request.POST.getlist("recipients")
+
+    if not body:
+        messages.error(request, "Message body is required.")
+        return redirect("mass_communications")
+
+    if not recipient_ids:
+        messages.error(request, "Select at least one recipient.")
+        return redirect("mass_communications")
+
+    selected_customers = Customer.objects.filter(
+        id__in=recipient_ids, business=business
+    )
+
+    sms_count = 0
+    sms_fail = 0
+    email_count = 0
+    email_fail = 0
+
+    # Send SMS
+    if channel in ("sms", "both"):
+        if not (business.twilio_account_sid and business.twilio_auth_token and business.twilio_from_number):
+            messages.warning(request, "Twilio SMS is not configured. Go to Settings to add your Twilio credentials.")
+        else:
+            from messaging.sms import send_sms
+            for customer in selected_customers:
+                if not customer.phone:
+                    continue
+                # Respect communication preference
+                pref = customer.communication_preference
+                if pref and pref not in ("sms", "both", ""):
+                    continue
+                log = send_sms(business, customer.phone, body, purpose="mass_communication")
+                if log.status == "sent":
+                    sms_count += 1
+                    ClientMessage.objects.create(
+                        customer=customer,
+                        channel=ClientMessage.CHANNEL_SMS,
+                        direction=ClientMessage.DIRECTION_SENT,
+                        subject=subject or "Mass Text",
+                        body=body,
+                        to_address=customer.phone,
+                        created_by=request.user,
+                    )
+                else:
+                    sms_fail += 1
+
+    # Send Email
+    if channel in ("email", "both"):
+        connection = business.get_smtp_connection()
+        if not connection:
+            messages.warning(request, "Email (Gmail SMTP) is not configured. Go to Settings to add your Gmail credentials.")
+        else:
+            from_email = business.get_from_email() or settings.DEFAULT_FROM_EMAIL
+            reply_to = [business.contact_email] if business.contact_email else None
+            for customer in selected_customers:
+                if not customer.email:
+                    continue
+                # Respect communication preference
+                pref = customer.communication_preference
+                if pref and pref not in ("email", "both", ""):
+                    continue
+                msg = EmailMultiAlternatives(
+                    subject or f"Message from {business.name}",
+                    body,
+                    from_email,
+                    [customer.email],
+                    reply_to=reply_to,
+                    connection=connection,
+                )
+                try:
+                    msg.send()
+                    email_count += 1
+                    ClientMessage.objects.create(
+                        customer=customer,
+                        channel=ClientMessage.CHANNEL_EMAIL,
+                        direction=ClientMessage.DIRECTION_SENT,
+                        subject=subject or f"Message from {business.name}",
+                        body=body,
+                        to_address=customer.email,
+                        created_by=request.user,
+                    )
+                except Exception:
+                    email_fail += 1
+
+    # Build result message
+    parts = []
+    if sms_count:
+        parts.append(f"{sms_count} text{'s' if sms_count != 1 else ''} sent")
+    if email_count:
+        parts.append(f"{email_count} email{'s' if email_count != 1 else ''} sent")
+    if sms_fail:
+        parts.append(f"{sms_fail} text{'s' if sms_fail != 1 else ''} failed")
+    if email_fail:
+        parts.append(f"{email_fail} email{'s' if email_fail != 1 else ''} failed")
+
+    if parts:
+        messages.success(request, " · ".join(parts))
+    else:
+        messages.warning(request, "No messages were sent. Check that recipients have phone numbers or email addresses.")
+
+    return redirect("mass_communications")
+
+
 def make_review_action_token(customer_id, action):
     return signing.dumps({"customer_id": customer_id, "action": action}, salt="customers.review")
 
