@@ -57,6 +57,13 @@ else:
 _csrf_origins = os.environ.get("CSRF_TRUSTED_ORIGINS", "").strip()
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()] if _csrf_origins else []
 
+# ── Security headers (always applied) ─────────────────────────────────────
+# These are safe in dev and critical in prod; always enforce.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
+
 # Production security hardening (only when DEBUG is False)
 if not DEBUG:
     SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "1").lower() in ("1", "true", "yes")
@@ -67,13 +74,14 @@ if not DEBUG:
     CSRF_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     CSRF_COOKIE_SAMESITE = "Lax"
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    X_FRAME_OPTIONS = "DENY"
-    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
-    SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
     SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+    # Ensure SECRET_KEY is strong enough for production
+    if len(SECRET_KEY) < 50:
+        import sys
+        print("[SECURITY] WARNING: DJANGO_SECRET_KEY is shorter than 50 characters. Use a strong random key.", file=sys.stderr)
 
 # Application definition
 
@@ -144,6 +152,8 @@ _middleware += [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'allauth.account.middleware.AccountMiddleware',
     'django_otp.middleware.OTPMiddleware',
+    'accounts.security_middleware.SecurityLoggingMiddleware',
+    'accounts.security_middleware.GlobalRateLimitMiddleware',
     'subscription.middleware.SubscriptionRequiredMiddleware',
     'businesses.middleware.TimezoneMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -352,6 +362,11 @@ SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "").strip()
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# ── Upload size limits (abuse prevention) ─────────────────────────────────
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB max POST body
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024   # 10 MB max file in memory
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 500               # prevent hash collision DoS
+
 AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = '/accounts/login/'
 # After password login we hit this view; it redirects to 2FA verify only on new devices
@@ -461,13 +476,20 @@ LOGGING = {
     "formatters": {
         "structured": {
             "format": "%(asctime)s level=%(levelname)s logger=%(name)s module=%(module)s message=%(message)s"
-        }
+        },
+        "security": {
+            "format": "%(asctime)s [SECURITY] level=%(levelname)s logger=%(name)s %(message)s"
+        },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "structured",
-        }
+        },
+        "security_console": {
+            "class": "logging.StreamHandler",
+            "formatter": "security",
+        },
     },
     "root": {
         "handlers": ["console"],
@@ -475,8 +497,12 @@ LOGGING = {
     },
     "loggers": {
         "django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "django.security": {"handlers": ["security_console"], "level": "WARNING", "propagate": False},
+        "django.request": {"handlers": ["security_console"], "level": "WARNING", "propagate": False},
         "subscription": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
-        "accounts.security": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        # Security loggers — auth events, rate limiting, anomalies
+        "accounts.security": {"handlers": ["security_console"], "level": "INFO", "propagate": False},
+        "security.requests": {"handlers": ["security_console"], "level": "INFO", "propagate": False},
     },
 }
 

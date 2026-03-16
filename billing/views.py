@@ -50,8 +50,13 @@ from .forms import (
     _compute_mulch,
 )
 
+@role_required("owner", "manager")
 def invoice_list_view(request):
-    invoices = Invoice.objects.all().order_by('-issue_date')
+    """Legacy invoice list view — redirects to the proper filtered endpoint."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    invoices = Invoice.objects.filter(business=business).order_by('-issue_date')[:100]
     return render(request, 'billing/invoice_list.html', {
         'invoices': invoices
     })

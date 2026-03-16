@@ -13,6 +13,7 @@ from django.db.models import Count, Sum, Q
 from django.utils import timezone
 
 from accounts.decorators import role_required
+from accounts.ratelimit import ratelimit
 from accounts.utils import get_business as _get_business
 from billing.models import Invoice
 from jobs.models import Job
@@ -899,6 +900,7 @@ def customer_portal_cancel(request, token, job_id):
 
 # ── Public booking (no auth required) ────────────────────────────────
 
+@ratelimit(key="ip", rate="10/m", method="POST", block=True)
 @require_http_methods(["GET", "POST"])
 def public_booking(request, token):
     """Public booking page — prospects can request a service without an account."""

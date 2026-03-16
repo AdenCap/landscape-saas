@@ -871,7 +871,10 @@ def employee_management(request):
 @role_required("owner", "manager")
 def crew_day_detail(request, user_id):
     User = get_user_model()
-    crew_user = get_object_or_404(User, id=user_id, role="crew")
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    crew_user = get_object_or_404(User, id=user_id, role="crew", business=business)
 
     # optional ?date=YYYY-MM-DD
     date_str = request.GET.get("date")

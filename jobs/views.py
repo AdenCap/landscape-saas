@@ -777,13 +777,12 @@ def daily_route_view(request):
 @require_POST
 @role_required("owner", "manager")
 def update_route_order(request):
-    business = get_business(request) if request.user.is_authenticated else None
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "Forbidden"}, status=403)
     data = json.loads(request.body)
     for item in data:
-        qs = Job.objects.filter(id=item["id"])
-        if business:
-            qs = qs.filter(property__customer__business=business)
-        qs.update(route_order=item["order"])
+        Job.objects.filter(id=item["id"], property__customer__business=business).update(route_order=item["order"])
     return JsonResponse({"status": "ok"})
 
 
@@ -860,7 +859,10 @@ def _user_can_access_job(user, job):
 @require_POST
 @role_required("owner", "manager", "crew")
 def start_job(request, job_id):
-    job = get_object_or_404(Job.objects.select_related("assigned_crew"), id=job_id)
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    job = get_object_or_404(Job.objects.select_related("assigned_crew"), id=job_id, property__customer__business=business)
 
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
         return redirect("crew_today")
@@ -874,9 +876,12 @@ def start_job(request, job_id):
 @role_required("owner", "manager", "crew")
 def notify_en_route(request, job_id):
     """1-tap: mark job in_progress + notify customer crew is on the way."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "Forbidden"}, status=403) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else redirect("/")
     job = get_object_or_404(
         Job.objects.select_related("assigned_crew", "property", "property__customer"),
-        id=job_id,
+        id=job_id, property__customer__business=business,
     )
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -912,7 +917,10 @@ def notify_en_route(request, job_id):
 @require_POST
 @role_required("owner", "manager", "crew")
 def complete_job(request, job_id):
-    job = get_object_or_404(Job.objects.select_related("assigned_crew", "property", "property__customer"), id=job_id)
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "Forbidden"}, status=403) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else redirect("/")
+    job = get_object_or_404(Job.objects.select_related("assigned_crew", "property", "property__customer"), id=job_id, property__customer__business=business)
 
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -994,7 +1002,10 @@ def complete_job(request, job_id):
 @role_required("owner", "manager", "crew")
 def report_issue(request, job_id):
     """Crew or owner reports an issue on a job (type, description, optional photo)."""
-    job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id)
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id, property__customer__business=business)
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
         messages.error(request, "You don't have access to this job.")
         return redirect("crew_today")
@@ -1039,9 +1050,11 @@ def report_issue(request, job_id):
 @role_required("owner", "manager")
 def resolve_issue(request, issue_id):
     """Owner marks an issue as resolved with notes."""
-    issue = get_object_or_404(JobIssue, id=issue_id)
-    business = getattr(issue.job.property.customer, "business", None)
-    if not business or request.user.business_id != business.id:
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    issue = get_object_or_404(JobIssue, id=issue_id, job__property__customer__business=business)
+    if request.user.business_id != business.id:
         messages.error(request, "Not allowed.")
         return redirect("job_detail", job_id=issue.job_id)
     issue.status = "resolved"
@@ -1059,7 +1072,10 @@ def upload_completion_photo(request, job_id):
     ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
     MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 
-    job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id)
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id, property__customer__business=business)
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
         messages.error(request, "You don't have access to this job.")
         return redirect("crew_today")
@@ -1133,7 +1149,10 @@ def upload_job_photo(request, job_id):
     ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
     MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 
-    job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id)
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id, property__customer__business=business)
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
         messages.error(request, "You don't have access to this job.")
         return redirect("crew_today")
@@ -1167,7 +1186,10 @@ def upload_job_photo(request, job_id):
 @role_required("owner", "manager")
 def delete_job_photo(request, job_id, photo_id):
     """Delete a site photo (owner/manager only)."""
-    job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id)
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    job = get_object_or_404(Job.objects.select_related("property", "property__customer"), id=job_id, property__customer__business=business)
     photo = get_object_or_404(JobPhoto, id=photo_id, job=job)
     photo.image.delete(save=False)
     photo.delete()
@@ -1506,7 +1528,10 @@ def meeting_delete(request, meeting_id):
 @role_required("owner", "manager")
 def job_billing_options(request, job_id):
     """After job completion: choose to send invoice now or add to monthly."""
-    job = get_object_or_404(Job, id=job_id)
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
     if job.status != "completed":
         return redirect("job_detail", job_id=job_id)
 
@@ -1520,7 +1545,10 @@ def job_billing_options(request, job_id):
 @role_required("owner", "manager")
 def job_bill_now(request, job_id):
     """Create and send invoice immediately for completed job."""
-    job = get_object_or_404(Job, id=job_id)
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "Forbidden"}, status=403) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else redirect("/")
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
     if job.status != "completed":
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return JsonResponse({"error": "Only completed jobs can be invoiced."}, status=400)
@@ -1547,7 +1575,10 @@ def job_bill_now(request, job_id):
 @role_required("owner", "manager")
 def job_add_to_monthly(request, job_id):
     """Add completed job to customer's monthly invoice."""
-    job = get_object_or_404(Job, id=job_id)
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "Forbidden"}, status=403) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else redirect("/")
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
     if job.status != "completed":
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return JsonResponse({"error": "Only completed jobs can be added to monthly."}, status=400)
@@ -1569,15 +1600,13 @@ def job_add_to_monthly(request, job_id):
 
 @role_required("owner", "manager")
 def job_detail(request, job_id):
+    business = get_business(request)
+    if not business:
+        return redirect("/")
     job = get_object_or_404(
         Job.objects.prefetch_related("issues__photos", "completion_photos", "issues__reported_by"),
-        id=job_id,
+        id=job_id, property__customer__business=business,
     )
-
-    # figure out business (adjust if your Property model stores business differently)
-    business = getattr(job.property, "business", None)
-    if business is None and hasattr(job.property, "customer") and hasattr(job.property.customer, "business"):
-        business = job.property.customer.business
 
     form = AddJobServiceItemForm(business=business)
 
@@ -1617,11 +1646,10 @@ def job_detail(request, job_id):
 @require_POST
 @role_required("owner", "manager")
 def add_job_service_item(request, job_id):
-    job = get_object_or_404(Job, id=job_id)
-
-    business = getattr(job.property, "business", None)
-    if business is None and hasattr(job.property, "customer") and hasattr(job.property.customer, "business"):
-        business = job.property.customer.business
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
 
     form = AddJobServiceItemForm(request.POST, business=business)
     if not form.is_valid():
@@ -1650,7 +1678,10 @@ def add_job_service_item(request, job_id):
 @require_POST
 @role_required("owner", "manager")
 def remove_job_service_item(request, job_id, item_id):
-    job = get_object_or_404(Job, id=job_id)
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
     JobServiceItem.objects.filter(id=item_id, job=job).delete()
     return redirect("job_detail", job_id=job.id)
 
@@ -1660,7 +1691,10 @@ def remove_job_service_item(request, job_id, item_id):
 def job_update_costs(request, job_id):
     """Update labor_cost and material_cost for profit tracking."""
     from decimal import Decimal
-    job = get_object_or_404(Job, id=job_id)
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
     try:
         labor = request.POST.get("labor_cost")
         material = request.POST.get("material_cost")
