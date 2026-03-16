@@ -16,162 +16,264 @@
   </div>
 </div>
 
-<div class="crm-grid">
-  <div class="card">
-    <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-      Contact
-      {% if portal_url %}
-      <div style="display: flex; gap: 8px;">
-        <a href="{{ portal_url }}" target="_blank" class="btn btn-secondary btn-sm">
-          <i data-lucide="external-link" style="width: 14px; height: 14px;"></i> View Portal
-        </a>
-        {% if customer.email %}
-        <form method="post" action="{% url 'customer_send_message' customer.id %}" style="display: inline;">
-          {% csrf_token %}
-          <input type="hidden" name="subject" value="Your Customer Portal Access - {{ business.name }}">
-          <input type="hidden" name="body" value="Hi {{ customer.name }},
+<!-- CRM Tabs -->
+<div class="crm-tabs">
+  <button class="crm-tab active" data-tab="overview">
+    <i data-lucide="user" style="width: 16px; height: 16px;"></i> Overview
+  </button>
+  <button class="crm-tab" data-tab="communication">
+    <i data-lucide="message-square" style="width: 16px; height: 16px;"></i> Communication
+  </button>
+  <button class="crm-tab" data-tab="services">
+    <i data-lucide="clipboard-list" style="width: 16px; height: 16px;"></i> Services
+  </button>
+  <button class="crm-tab" data-tab="billing">
+    <i data-lucide="receipt" style="width: 16px; height: 16px;"></i> Billing
+  </button>
+</div>
+
+<!-- ── Overview Tab ─────────────────────────────────────────────────── -->
+<div class="crm-tab-content active" id="tab-overview">
+  <div class="crm-grid">
+    <div class="card">
+      <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+        Contact
+        {% if portal_url %}
+        <div style="display: flex; gap: 8px;">
+          <a href="{{ portal_url }}" target="_blank" class="btn btn-secondary btn-sm">
+            <i data-lucide="external-link" style="width: 14px; height: 14px;"></i> View Portal
+          </a>
+          {% if customer.email %}
+          <form method="post" action="{% url 'customer_send_message' customer.id %}" style="display: inline;">
+            {% csrf_token %}
+            <input type="hidden" name="subject" value="Your Customer Portal Access - {{ business.name }}">
+            <input type="hidden" name="body" value="Hi {{ customer.name }},
 
 You can now access your customer portal to:
-• Book and reschedule services
-• View service history
-• Pay invoices online
-• Track technician arrival times
+- Book and reschedule services
+- View service history
+- Pay invoices online
+- Track technician arrival times
 
 Access your portal here: {{ portal_url }}
 
 Thank you for choosing {{ business.name }}!">
-          <button type="submit" class="btn btn-primary btn-sm">
-            <i data-lucide="mail" style="width: 14px; height: 14px;"></i> Email Portal Link
-          </button>
-        </form>
-        {% endif %}
-      </div>
-      {% endif %}
-    </h2>
-    <dl class="contact-dl">
-      {% if customer.phone %}
-      <dt>Phone</dt>
-      <dd><a href="tel:{{ customer.phone }}">{{ customer.phone }}</a></dd>
-      {% endif %}
-      {% if customer.alt_phone %}
-      <dt>Alt. Phone</dt>
-      <dd><a href="tel:{{ customer.alt_phone }}">{{ customer.alt_phone }}</a></dd>
-      {% endif %}
-      {% if customer.email %}
-      <dt>Email</dt>
-      <dd><a href="mailto:{{ customer.email }}">{{ customer.email }}</a></dd>
-      {% endif %}
-      {% if customer.full_address != "—" %}
-      <dt>Address</dt>
-      <dd>{{ customer.full_address }}</dd>
-      {% endif %}
-      {% if customer.communication_preference %}
-      <dt>Preferred contact</dt>
-      <dd>{{ customer.get_communication_preference_display }}</dd>
-      {% endif %}
-      <dt>Invoicing</dt>
-      <dd>
-        {{ customer.get_invoice_frequency_display|default:"Ask each time" }}
-        {% if customer.invoice_frequency == "monthly" and customer.monthly_invoice_send_day %}
-          — Invoice to be sent on day {{ customer.monthly_invoice_send_day }} of each month
-        {% elif customer.invoice_frequency == "monthly" %}
-          — Send manually (no day set)
-        {% endif %}
-        {% if customer.invoice_due_days is not None %}
-          — Invoices due in {{ customer.invoice_due_days }} days (Net {{ customer.invoice_due_days }})
-        {% endif %}
-      </dd>
-      {% if not customer.phone and not customer.email and customer.full_address == "—" %}
-      <dd>No contact info. <a href="{% url 'customer_edit' customer.id %}" class="link-primary">Add</a></dd>
-      {% endif %}
-    </dl>
-    {% if customer.notes %}
-    <div class="notes-box">
-      <strong>Notes</strong>
-      <p>{{ customer.notes }}</p>
-    </div>
-    {% endif %}
-  </div>
-
-  <div class="card">
-    <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-      Properties
-      <a href="{% url 'property_add' customer.id %}" class="btn btn-primary btn-sm">+ Add</a>
-    </h2>
-    {% for prop in properties %}
-    <div class="property-row">
-      <div>
-        <strong>{{ prop.address }}</strong>
-        {% if prop.gate_code %}<span class="badge badge-muted">Gate: {{ prop.gate_code }}</span>{% endif %}
-        {% if prop.has_dog %}<span class="badge badge-warning">Dog</span>{% endif %}
-        {% if prop.notes %}<p class="prop-notes">{{ prop.notes }}</p>{% endif %}
-      </div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        {% if show_fertilization %}<a href="{% url 'billing:property_fertilizer_history' prop.id %}" class="btn btn-secondary btn-sm">Fertilizer History</a>{% endif %}
-        {% if show_property_estimator %}<a href="{% url 'estimator_new' prop.id %}" class="btn btn-secondary btn-sm">Property Estimator</a>{% endif %}
-        <a href="{% url 'property_photo_gallery' customer.id prop.id %}" class="btn btn-secondary btn-sm">Photos</a>
-        <a href="{% url 'property_edit' customer.id prop.id %}" class="btn btn-secondary btn-sm">Edit</a>
-      </div>
-    </div>
-    {% empty %}
-    <p>No properties. <a href="{% url 'property_add' customer.id %}" class="link-primary">Add one</a> to schedule jobs.</p>
-    {% endfor %}
-  </div>
-
-  <div class="card card-communication">
-    <h2 class="card-title">Email</h2>
-    <p class="card-subtitle">Send an email and view all correspondence.</p>
-    <form method="post" action="{% url 'customer_send_message' customer.id %}" class="send-message-form">
-      {% csrf_token %}
-      <div class="form-group">
-        <label for="id_subject">Subject</label>
-        {{ send_message_form.subject }}
-      </div>
-      <div class="form-group">
-        <label for="id_body">Message</label>
-        {{ send_message_form.body }}
-      </div>
-      <button type="submit" class="btn btn-primary">Send email</button>
-    </form>
-    <h3 class="comm-history-title">Email history</h3>
-    <div id="message-history" class="message-history">
-      {% for msg in client_messages %}
-      <div class="message-row message-{{ msg.direction }}">
-        <div class="message-meta">
-          <span class="message-date">{{ msg.created_at|date:"M j, Y g:i A" }}</span>
-          {% if msg.to_address %}<span class="message-to">→ {{ msg.to_address }}</span>{% endif %}
+            <button type="submit" class="btn btn-primary btn-sm">
+              <i data-lucide="mail" style="width: 14px; height: 14px;"></i> Email Portal Link
+            </button>
+          </form>
+          {% endif %}
         </div>
-        {% if msg.subject %}<div class="message-subject">{{ msg.subject }}</div>{% endif %}
-        <div class="message-body">{{ msg.body|truncatewords:40 }}</div>
+        {% endif %}
+      </h2>
+      <dl class="contact-dl">
+        {% if customer.phone %}
+        <dt>Phone</dt>
+        <dd><a href="tel:{{ customer.phone }}">{{ customer.phone }}</a></dd>
+        {% endif %}
+        {% if customer.alt_phone %}
+        <dt>Alt. Phone</dt>
+        <dd><a href="tel:{{ customer.alt_phone }}">{{ customer.alt_phone }}</a></dd>
+        {% endif %}
+        {% if customer.email %}
+        <dt>Email</dt>
+        <dd><a href="mailto:{{ customer.email }}">{{ customer.email }}</a></dd>
+        {% endif %}
+        {% if customer.full_address != "—" %}
+        <dt>Address</dt>
+        <dd>{{ customer.full_address }}</dd>
+        {% endif %}
+        {% if customer.communication_preference %}
+        <dt>Preferred contact</dt>
+        <dd>{{ customer.get_communication_preference_display }}</dd>
+        {% endif %}
+        <dt>Invoicing</dt>
+        <dd>
+          {{ customer.get_invoice_frequency_display|default:"Ask each time" }}
+          {% if customer.invoice_frequency == "monthly" and customer.monthly_invoice_send_day %}
+            — Invoice to be sent on day {{ customer.monthly_invoice_send_day }} of each month
+          {% elif customer.invoice_frequency == "monthly" %}
+            — Send manually (no day set)
+          {% endif %}
+          {% if customer.invoice_due_days is not None %}
+            — Invoices due in {{ customer.invoice_due_days }} days (Net {{ customer.invoice_due_days }})
+          {% endif %}
+        </dd>
+        {% if not customer.phone and not customer.email and customer.full_address == "—" %}
+        <dd>No contact info. <a href="{% url 'customer_edit' customer.id %}" class="link-primary">Add</a></dd>
+        {% endif %}
+      </dl>
+      {% if customer.notes %}
+      <div class="notes-box">
+        <strong>Notes</strong>
+        <p>{{ customer.notes }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+        Properties
+        <a href="{% url 'property_add' customer.id %}" class="btn btn-primary btn-sm">+ Add</a>
+      </h2>
+      {% for prop in properties %}
+      <div class="property-row">
+        <div>
+          <strong>{{ prop.address }}</strong>
+          {% if prop.gate_code %}<span class="badge badge-muted">Gate: {{ prop.gate_code }}</span>{% endif %}
+          {% if prop.has_dog %}<span class="badge badge-warning">Dog</span>{% endif %}
+          {% if prop.notes %}<p class="prop-notes">{{ prop.notes }}</p>{% endif %}
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          {% if show_fertilization %}<a href="{% url 'billing:property_fertilizer_history' prop.id %}" class="btn btn-secondary btn-sm">Fertilizer History</a>{% endif %}
+          {% if show_property_estimator %}<a href="{% url 'estimator_new' prop.id %}" class="btn btn-secondary btn-sm">Property Estimator</a>{% endif %}
+          <a href="{% url 'property_photo_gallery' customer.id prop.id %}" class="btn btn-secondary btn-sm">Photos</a>
+          <a href="{% url 'property_edit' customer.id prop.id %}" class="btn btn-secondary btn-sm">Edit</a>
+        </div>
       </div>
       {% empty %}
-      <p class="no-messages">No emails sent yet. Compose one above to get started.</p>
+      <p>No properties. <a href="{% url 'property_add' customer.id %}" class="link-primary">Add one</a> to schedule jobs.</p>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+        Contracts
+        <a href="{% url 'contract_add' customer.id %}" class="btn btn-primary btn-sm">+ Add</a>
+      </h2>
+      {% for c in contracts %}
+      <div class="contract-row">
+        <div>
+          <strong>{{ c.get_contract_type_display }}</strong>
+          <span class="badge badge-{{ c.status }}">{{ c.status|title }}</span>
+          {% if c.amount %} · ${{ c.amount }}{% endif %}
+          {% if c.start_date %} · {{ c.start_date }}{% endif %}
+          {% if c.end_date %}–{{ c.end_date }}{% endif %}
+        </div>
+        <a href="{% url 'contract_edit' customer.id c.id %}" class="btn btn-secondary btn-sm">Edit</a>
+      </div>
+      {% empty %}
+      <p>No contracts. <a href="{% url 'contract_add' customer.id %}" class="link-primary">Add one</a></p>
       {% endfor %}
     </div>
   </div>
+</div>
 
-  <div class="card">
-    <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-      Contracts
-    <a href="{% url 'contract_add' customer.id %}" class="btn btn-primary btn-sm">+ Add</a>
-    </h2>
-    {% for c in contracts %}
-    <div class="contract-row">
-      <div>
-        <strong>{{ c.get_contract_type_display }}</strong>
-        <span class="badge badge-{{ c.status }}">{{ c.status|title }}</span>
-        {% if c.amount %} · ${{ c.amount }}{% endif %}
-        {% if c.start_date %} · {{ c.start_date }}{% endif %}
-        {% if c.end_date %}–{{ c.end_date }}{% endif %}
+<!-- ── Communication Tab ───────────────────────────────────────────── -->
+<div class="crm-tab-content" id="tab-communication">
+  <div class="comm-grid">
+    <!-- Compose panel -->
+    <div class="card">
+      <h2 class="card-title">Send Message</h2>
+
+      <!-- Channel sub-tabs within communication -->
+      <div class="comm-channel-tabs">
+        <button class="comm-channel-tab active" data-channel="email">
+          <i data-lucide="mail" style="width: 15px; height: 15px;"></i> Email
+        </button>
+        <button class="comm-channel-tab" data-channel="sms">
+          <i data-lucide="smartphone" style="width: 15px; height: 15px;"></i> Text
+        </button>
       </div>
-      <a href="{% url 'contract_edit' customer.id c.id %}" class="btn btn-secondary btn-sm">Edit</a>
-    </div>
-    {% empty %}
-    <p>No contracts. <a href="{% url 'contract_add' customer.id %}" class="link-primary">Add one</a></p>
-    {% endfor %}
-  </div>
 
-  <div class="card card-full">
+      <!-- Email compose form -->
+      <div class="comm-channel-content active" id="channel-email">
+        {% if customer.email %}
+        <form method="post" action="{% url 'customer_send_message' customer.id %}" class="send-message-form">
+          {% csrf_token %}
+          <div class="form-group">
+            <label for="id_subject">Subject</label>
+            {{ send_message_form.subject }}
+          </div>
+          <div class="form-group">
+            <label for="id_body">Message</label>
+            {{ send_message_form.body }}
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+              <i data-lucide="send" style="width: 15px; height: 15px;"></i> Send email
+            </button>
+            <span class="send-to-label">to {{ customer.email }}</span>
+          </div>
+        </form>
+        {% else %}
+        <div class="empty-state-inline">
+          <i data-lucide="mail-x" style="width: 24px; height: 24px; color: var(--text-muted);"></i>
+          <p>No email address on file. <a href="{% url 'customer_edit' customer.id %}" class="link-primary">Add one</a> to send emails.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- SMS compose form -->
+      <div class="comm-channel-content" id="channel-sms">
+        {% if sms_configured %}
+          {% if customer.phone %}
+          <form method="post" action="{% url 'customer_send_sms' customer.id %}" class="send-message-form">
+            {% csrf_token %}
+            <div class="form-group">
+              <label for="id_sms_body">Message</label>
+              <textarea name="sms_body" id="id_sms_body" rows="3" class="form-control" placeholder="Type your text message..." maxlength="1600"></textarea>
+              <span class="char-hint">SMS messages over 160 characters may be split into multiple texts</span>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">
+                <i data-lucide="send" style="width: 15px; height: 15px;"></i> Send text
+              </button>
+              <span class="send-to-label">to {{ customer.phone }}</span>
+            </div>
+          </form>
+          {% else %}
+          <div class="empty-state-inline">
+            <i data-lucide="phone-off" style="width: 24px; height: 24px; color: var(--text-muted);"></i>
+            <p>No phone number on file. <a href="{% url 'customer_edit' customer.id %}" class="link-primary">Add one</a> to send texts.</p>
+          </div>
+          {% endif %}
+        {% else %}
+        <div class="empty-state-inline">
+          <i data-lucide="smartphone" style="width: 24px; height: 24px; color: var(--text-muted);"></i>
+          <p>SMS is not configured. Add your Twilio credentials in <a href="{% url 'business_settings' %}" class="link-primary">Settings</a> to send text messages.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Message history -->
+    <div class="card">
+      <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+        Message History
+        <div class="history-filter-tabs">
+          <button class="history-filter active" data-filter="all">All</button>
+          <button class="history-filter" data-filter="email">Email</button>
+          <button class="history-filter" data-filter="sms">Text</button>
+        </div>
+      </h2>
+
+      <div id="message-history" class="message-history">
+        {% for msg in client_messages %}
+        <div class="message-row message-{{ msg.direction }} message-channel-{{ msg.channel }}">
+          <div class="message-meta">
+            <span class="message-channel-badge channel-{{ msg.channel }}">{{ msg.get_channel_display }}</span>
+            <span class="message-date">{{ msg.created_at|date:"M j, Y g:i A" }}</span>
+            {% if msg.direction == "sent" %}<span class="message-direction">Sent</span>{% else %}<span class="message-direction">Received</span>{% endif %}
+            {% if msg.to_address %}<span class="message-to">→ {{ msg.to_address }}</span>{% endif %}
+          </div>
+          {% if msg.subject %}<div class="message-subject">{{ msg.subject }}</div>{% endif %}
+          <div class="message-body">{{ msg.body|truncatewords:40 }}</div>
+        </div>
+        {% empty %}
+        <div class="empty-state-inline">
+          <i data-lucide="message-circle" style="width: 24px; height: 24px; color: var(--text-muted);"></i>
+          <p>No messages yet. Send an email or text above to get started.</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Services Tab ─────────────────────────────────────────────────── -->
+<div class="crm-tab-content" id="tab-services">
+  <div class="card">
     <h2 class="card-title">Past Services</h2>
     <table class="data-table">
       <thead>
@@ -194,8 +296,11 @@ Thank you for choosing {{ business.name }}!">
       </tbody>
     </table>
   </div>
+</div>
 
-  <div class="card card-full">
+<!-- ── Billing Tab ──────────────────────────────────────────────────── -->
+<div class="crm-tab-content" id="tab-billing">
+  <div class="card">
     <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
       Invoices
       <a href="{% url 'billing:estimate_create' %}?customer={{ customer.id }}" class="btn btn-primary btn-sm">+ Create Estimate</a>
@@ -227,48 +332,305 @@ Thank you for choosing {{ business.name }}!">
 </div>
 
 <style>
-  .crm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 20px; }
-  .card-full { grid-column: 1 / -1; }
+  /* ── CRM Tab Navigation ────────────────────────────────────────── */
+  .crm-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 20px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .crm-tabs::-webkit-scrollbar { display: none; }
+
+  .crm-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .crm-tab:hover { color: var(--text); }
+  .crm-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+
+  .crm-tab-content {
+    display: none;
+  }
+  .crm-tab-content.active {
+    display: block;
+  }
+
+  /* ── Grid layouts ──────────────────────────────────────────────── */
+  .crm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+    gap: 20px;
+  }
+
+  .comm-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* ── Contact styles ────────────────────────────────────────────── */
   .contact-dl { margin: 0; }
   .contact-dl dt { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
   .contact-dl dd { margin: 2px 0 0 0; }
   .contact-dl dd a { color: var(--primary); }
   .notes-box { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
-  .property-row, .contract-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+
+  /* ── Property / Contract rows ──────────────────────────────────── */
+  .property-row, .contract-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
   .property-row:last-child, .contract-row:last-child { border-bottom: none; }
   .prop-notes { margin: 4px 0 0 0; font-size: 13px; color: var(--text-muted); }
+
+  /* ── Badges ────────────────────────────────────────────────────── */
   .badge-muted { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
   .badge-warning { background: rgba(234, 179, 8, 0.25); color: #fde047; }
   .badge-active { background: rgba(34, 197, 94, 0.25); color: #86efac; }
   .badge-pending { background: rgba(34, 197, 94, 0.25); color: #6ee7b7; }
   .badge-expired, .badge-cancelled { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
   .badge-void { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
-  .card-communication { grid-column: 1 / -1; }
-  .card-subtitle { color: var(--text-muted); font-size: 14px; margin: -4px 0 16px 0; }
-  .send-message-form { margin-bottom: 24px; }
+
+  /* ── Communication channel sub-tabs ────────────────────────────── */
+  .comm-channel-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .comm-channel-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 14px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .comm-channel-tab:hover { color: var(--text); }
+  .comm-channel-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+
+  .comm-channel-content { display: none; }
+  .comm-channel-content.active { display: block; }
+
+  /* ── Message compose form ──────────────────────────────────────── */
   .send-message-form .form-group { margin-bottom: 12px; }
-  .send-message-form .form-group label { display: block; font-size: 13px; margin-bottom: 4px; color: var(--text-muted); }
-  .send-message-form .form-control, .send-message-form .form-select { width: 100%; max-width: 400px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
-  .form-group-subject .form-control { max-width: 100%; }
-  .comm-history-title { font-size: 16px; margin: 0 0 12px 0; }
-  .message-history { display: flex; flex-direction: column; gap: 12px; }
-  .message-row { padding: 12px; border-radius: 8px; border-left: 3px solid var(--border); background: rgba(38, 38, 38, 0.5); }
+  .send-message-form .form-group label {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 4px;
+    color: var(--text-muted);
+  }
+  .send-message-form .form-control,
+  .send-message-form .form-select {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  .form-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .send-to-label {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .char-hint {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .empty-state-inline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 0;
+  }
+  .empty-state-inline p { margin: 0; color: var(--text-muted); font-size: 14px; }
+
+  /* ── Message history ───────────────────────────────────────────── */
+  .history-filter-tabs {
+    display: flex;
+    gap: 4px;
+  }
+  .history-filter {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .history-filter:hover { color: var(--text); border-color: var(--text-muted); }
+  .history-filter.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+
+  .message-history {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 600px;
+    overflow-y: auto;
+  }
+  .message-row {
+    padding: 12px;
+    border-radius: 8px;
+    border-left: 3px solid var(--border);
+    background: rgba(38, 38, 38, 0.5);
+  }
   .message-row.message-sent { border-left-color: var(--primary); }
   .message-row.message-received { border-left-color: #22c55e; }
-  .message-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
-  .message-channel { text-transform: uppercase; }
+  .message-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .message-channel-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .channel-email {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+  }
+  .channel-sms {
+    background: rgba(34, 197, 94, 0.2);
+    color: #86efac;
+  }
+  .message-direction {
+    font-style: italic;
+  }
   .message-subject { font-weight: 600; margin-bottom: 4px; }
   .message-body { font-size: 14px; white-space: pre-wrap; word-break: break-word; }
-  .no-messages { color: var(--text-muted); font-style: italic; margin: 0; }
 
+  /* ── Responsive ────────────────────────────────────────────────── */
   @media (max-width: 768px) {
     .crm-grid { grid-template-columns: 1fr; gap: 14px; }
+    .comm-grid { grid-template-columns: 1fr; gap: 14px; }
     .property-row, .contract-row { flex-direction: column; align-items: flex-start; gap: 10px; }
     .property-row > div:last-child, .contract-row > div:last-child { width: 100%; }
     .property-row .btn, .contract-row .btn { min-height: 44px; flex: 1; justify-content: center; }
-    .send-message-form .form-control, .send-message-form .form-select { max-width: 100%; font-size: 16px; min-height: 44px; }
+    .send-message-form .form-control,
+    .send-message-form .form-select { font-size: 16px; min-height: 44px; }
     .send-message-form .btn { width: 100%; min-height: 44px; justify-content: center; }
+    .form-actions { flex-direction: column; align-items: stretch; }
     .card-title { font-size: 16px; flex-wrap: wrap; gap: 8px; }
+    .crm-tab { padding: 10px 12px; font-size: 13px; }
+    .history-filter-tabs { gap: 2px; }
+    .history-filter { padding: 4px 8px; font-size: 11px; }
   }
 </style>
+
+<script>
+  // ── CRM Tab switching ──────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function() {
+    // Main CRM tabs
+    document.querySelectorAll('.crm-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        var target = this.dataset.tab;
+        // Update tab buttons
+        document.querySelectorAll('.crm-tab').forEach(function(t) { t.classList.remove('active'); });
+        this.classList.add('active');
+        // Update tab content
+        document.querySelectorAll('.crm-tab-content').forEach(function(c) { c.classList.remove('active'); });
+        document.getElementById('tab-' + target).classList.add('active');
+        // Remember active tab
+        try { sessionStorage.setItem('crm_active_tab', target); } catch(e) {}
+      });
+    });
+
+    // Restore last active tab
+    try {
+      var saved = sessionStorage.getItem('crm_active_tab');
+      if (saved) {
+        var btn = document.querySelector('.crm-tab[data-tab="' + saved + '"]');
+        if (btn) btn.click();
+      }
+    } catch(e) {}
+
+    // Communication channel sub-tabs (email / sms)
+    document.querySelectorAll('.comm-channel-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        var channel = this.dataset.channel;
+        document.querySelectorAll('.comm-channel-tab').forEach(function(t) { t.classList.remove('active'); });
+        this.classList.add('active');
+        document.querySelectorAll('.comm-channel-content').forEach(function(c) { c.classList.remove('active'); });
+        document.getElementById('channel-' + channel).classList.add('active');
+      });
+    });
+
+    // Message history filter (all / email / sms)
+    document.querySelectorAll('.history-filter').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var filter = this.dataset.filter;
+        document.querySelectorAll('.history-filter').forEach(function(b) { b.classList.remove('active'); });
+        this.classList.add('active');
+
+        document.querySelectorAll('.message-row').forEach(function(row) {
+          if (filter === 'all') {
+            row.style.display = '';
+          } else if (filter === 'email') {
+            row.style.display = row.classList.contains('message-channel-email') ? '' : 'none';
+          } else if (filter === 'sms') {
+            row.style.display = row.classList.contains('message-channel-sms') ? '' : 'none';
+          }
+        });
+      });
+    });
+  });
+</script>
 {% endblock %}

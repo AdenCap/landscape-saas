@@ -123,13 +123,6 @@ class CreateJobForm(forms.Form):
                 ).order_by("address")
 
 
-    def clean_scheduled_date(self):
-        from django.utils import timezone
-        date = self.cleaned_data.get("scheduled_date")
-        if date and date < timezone.localdate():
-            raise forms.ValidationError("Scheduled date cannot be in the past.")
-        return date
-
     def clean_property(self):
         customer = self.cleaned_data.get("customer")
         property_obj = self.cleaned_data.get("property")

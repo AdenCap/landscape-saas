@@ -133,16 +133,31 @@ def customer_detail(request, customer_id):
     
     portal_url = request.build_absolute_uri(f"/clients/portal/{customer.portal_access_token}/") if customer.portal_access_token else None
 
+    # SMS configuration check
+    sms_configured = bool(
+        getattr(settings, "TWILIO_ACCOUNT_SID", "")
+        and getattr(settings, "TWILIO_AUTH_TOKEN", "")
+        and getattr(settings, "TWILIO_FROM_NUMBER", "")
+    )
+
+    # Separate messages by channel for tabs
+    email_messages = customer.messages.filter(channel=ClientMessage.CHANNEL_EMAIL)[:50]
+    sms_messages = customer.messages.filter(channel=ClientMessage.CHANNEL_SMS)[:50]
+
     return render(request, "customers/customer_detail.html", {
         "customer": customer,
+        "business": business,
         "properties": properties,
         "past_jobs": past_jobs,
         "contracts": contracts,
         "invoices": invoices,
         "total_revenue": total_revenue,
         "client_messages": client_messages,
+        "email_messages": email_messages,
+        "sms_messages": sms_messages,
         "send_message_form": send_message_form,
         "portal_url": portal_url,
+        "sms_configured": sms_configured,
     })
 
 
@@ -568,6 +583,45 @@ def customer_send_message(request, customer_id):
         created_by=request.user,
     )
     return _send_message_redirect(request, customer.id)
+
+
+@require_POST
+@role_required("owner", "manager")
+def customer_send_sms(request, customer_id):
+    """Send an SMS to the client and log it under their profile."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+    body = (request.POST.get("sms_body") or "").strip()
+    if not body:
+        messages.error(request, "Message body is required.")
+        return _send_message_redirect(request, customer_id)
+
+    to_phone = customer.phone
+    if not to_phone:
+        messages.error(request, "This client has no phone number. Add one in Edit Client.")
+        return _send_message_redirect(request, customer_id)
+
+    from messaging.sms import send_sms
+    log = send_sms(business, to_phone, body, purpose="notification")
+    if log.status == "sent":
+        messages.success(request, f"Text sent to {to_phone}")
+        ClientMessage.objects.create(
+            customer=customer,
+            channel=ClientMessage.CHANNEL_SMS,
+            direction=ClientMessage.DIRECTION_SENT,
+            subject="",
+            body=body,
+            to_address=to_phone,
+            created_by=request.user,
+        )
+    else:
+        error_detail = log.error_message or "Unknown error"
+        messages.error(request, f"Failed to send text: {error_detail}")
+    return _send_message_redirect(request, customer_id)
 
 
 @role_required("owner", "manager")

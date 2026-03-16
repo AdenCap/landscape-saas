@@ -12,6 +12,7 @@ urlpatterns = [
     path("<int:customer_id>/", views.customer_detail, name="customer_detail"),
     path("<int:customer_id>/edit/", views.customer_edit, name="customer_edit"),
     path("<int:customer_id>/message/", views.customer_send_message, name="customer_send_message"),
+    path("<int:customer_id>/sms/", views.customer_send_sms, name="customer_send_sms"),
     path("<int:customer_id>/properties/add/", views.property_add, name="property_add"),
     path("<int:customer_id>/properties/<int:property_id>/edit/", views.property_edit, name="property_edit"),
     path("<int:customer_id>/contracts/add/", views.contract_add, name="contract_add"),
