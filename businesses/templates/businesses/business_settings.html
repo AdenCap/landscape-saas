@@ -477,25 +477,25 @@
       <div class="panel-card">
         <div class="panel-card-header">
           <h2>Notification Templates</h2>
-          <p>Customize the messages clients receive. Variables like {{ "{{customer_name}}" }} are replaced automatically.</p>
+          <p>Customize the messages clients receive. Variables like <code>{% templatetag openvariable %}customer_name{% templatetag closevariable %}</code> are replaced automatically.</p>
         </div>
         <div class="panel-card-body">
           <div class="field">
             <label for="{{ form.template_job_scheduled.id_for_label }}">Job scheduled message</label>
             {{ form.template_job_scheduled }}
-            <p class="field-help">{{ "{{customer_name}} {{service_list}} {{business_name}} {{scheduled_date}} {{scheduled_time}}" }}</p>
+            <p class="field-help">{% templatetag openvariable %}customer_name{% templatetag closevariable %} {% templatetag openvariable %}service_list{% templatetag closevariable %} {% templatetag openvariable %}business_name{% templatetag closevariable %} {% templatetag openvariable %}scheduled_date{% templatetag closevariable %} {% templatetag openvariable %}scheduled_time{% templatetag closevariable %}</p>
             {{ form.template_job_scheduled.errors }}
           </div>
           <div class="field">
             <label for="{{ form.template_crew_en_route.id_for_label }}">Crew en-route message</label>
             {{ form.template_crew_en_route }}
-            <p class="field-help">{{ "{{customer_name}} {{service_list}} {{business_name}} {{crew_name}}" }}</p>
+            <p class="field-help">{% templatetag openvariable %}customer_name{% templatetag closevariable %} {% templatetag openvariable %}service_list{% templatetag closevariable %} {% templatetag openvariable %}business_name{% templatetag closevariable %} {% templatetag openvariable %}crew_name{% templatetag closevariable %}</p>
             {{ form.template_crew_en_route.errors }}
           </div>
           <div class="field">
             <label for="{{ form.template_job_completed.id_for_label }}">Job completed message</label>
             {{ form.template_job_completed }}
-            <p class="field-help">{{ "{{customer_name}} {{service_list}} {{business_name}}" }}</p>
+            <p class="field-help">{% templatetag openvariable %}customer_name{% templatetag closevariable %} {% templatetag openvariable %}service_list{% templatetag closevariable %} {% templatetag openvariable %}business_name{% templatetag closevariable %}</p>
             {{ form.template_job_completed.errors }}
           </div>
         </div>
