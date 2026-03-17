@@ -6,6 +6,8 @@
   <p>All emails sent to clients</p>
 </div>
 
+{% include "customers/_crm_tabs.html" %}
+
 <div class="card messages-toolbar-card">
   <form method="get" action="{% url 'client_messages_list' %}" class="search-form">
     <input type="search" name="q" value="{{ messages_search_q }}" placeholder="Search by client name, subject, content..." class="form-control search-input">

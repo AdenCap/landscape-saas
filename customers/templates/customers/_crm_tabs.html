@@ -1,0 +1,39 @@
+<nav class="crm-tabs">
+  <a href="{% url 'customer_list' %}" class="crm-tab {% if request.path == '/clients/' %}active{% endif %}">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Clients
+  </a>
+  <a href="{% url 'client_messages_list' %}" class="crm-tab {% if '/clients/messages' in request.path %}active{% endif %}">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+    Email Log
+  </a>
+  <a href="{% url 'mass_communications' %}" class="crm-tab {% if '/mass-communications' in request.path %}active{% endif %}">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Mass Comms
+  </a>
+</nav>
+
+<style>
+  .crm-tabs {
+    display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px;
+    border-bottom: 1px solid var(--border); margin-bottom: 20px;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .crm-tabs::-webkit-scrollbar { display: none; }
+  .crm-tab {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 16px; border: none; background: none;
+    color: var(--text-muted); font-size: 13px; font-weight: 500;
+    cursor: pointer; white-space: nowrap; border-radius: 8px 8px 0 0;
+    border-bottom: 2px solid transparent; transition: all 0.15s ease;
+    text-decoration: none;
+  }
+  .crm-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); text-decoration: none; }
+  .crm-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(34,197,94,0.06); }
+  .crm-tab svg { opacity: 0.6; flex-shrink: 0; }
+  .crm-tab.active svg { opacity: 1; color: var(--primary); }
+  @media (max-width: 768px) {
+    .crm-tab { padding: 12px 14px; font-size: 13px; min-height: 44px; }
+    .crm-tab svg { display: none; }
+  }
+</style>

@@ -9,6 +9,8 @@
   <a href="{% url 'customer_create' %}" class="btn btn-primary">+ Add Customer</a>
 </div>
 
+{% include "customers/_crm_tabs.html" %}
+
 <form method="get" class="card search-row" style="margin-bottom:12px;">
   <input type="search" name="q" value="{{ search }}" placeholder="Search customers by name, phone, email, address..." class="search-input">
   <button type="submit" class="btn btn-secondary">Search</button>
