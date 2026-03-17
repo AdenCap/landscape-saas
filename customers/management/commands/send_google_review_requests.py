@@ -1,7 +1,6 @@
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
 from django.core.management.base import BaseCommand
 from django.db.models import Exists, OuterRef
 from django.urls import reverse
@@ -9,6 +8,7 @@ from django.utils import timezone
 
 from billing.models import InvoiceAuditLog
 from businesses.models import Business
+from businesses.email_sender import send_business_email, is_email_configured
 from customers.models import ClientMessage, Customer
 from customers.sms import send_sms as _send_twilio_sms
 from customers.views import make_review_action_token
@@ -65,8 +65,8 @@ class Command(BaseCommand):
             return
 
         for business in Business.objects.filter(google_review_requests_enabled=True).exclude(google_review_link=""):
-            connection = business.get_smtp_connection()
-            if not connection and not dry_run:
+            email_configured = is_email_configured(business)
+            if not email_configured and not dry_run:
                 continue
 
             max_attempts = max(1, int(business.google_review_max_attempts or 2))
@@ -141,21 +141,20 @@ class Command(BaseCommand):
                     continue
 
                 sent_via_any = False
-                if customer.email and connection:
-                    msg = EmailMultiAlternatives(
+                if customer.email and email_configured:
+                    reply_to = [business.contact_email] if business.contact_email else None
+                    ok, detail = send_business_email(
+                        business=business,
+                        to=customer.email,
                         subject=subject,
-                        body=text_body,
-                        from_email=business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com"),
-                        to=[customer.email],
-                        reply_to=[business.contact_email] if business.contact_email else None,
-                        connection=connection,
+                        body_text=text_body,
+                        body_html=html_body,
+                        reply_to=reply_to,
                     )
-                    msg.attach_alternative(html_body, "text/html")
-                    try:
-                        msg.send()
+                    if ok:
                         sent_via_any = True
-                    except Exception as exc:
-                        self.stderr.write(self.style.ERROR(f"Failed email to {customer.email}: {exc}"))
+                    else:
+                        self.stderr.write(self.style.ERROR(f"Failed email to {customer.email}: {detail}"))
 
                 if business.google_review_sms_enabled and customer.phone:
                     ok, info = _send_twilio_sms(customer.phone, sms_body, business=business)

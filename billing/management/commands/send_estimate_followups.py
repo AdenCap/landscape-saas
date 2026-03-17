@@ -15,6 +15,7 @@ from django.conf import settings
 
 from billing.models import Estimate
 from businesses.models import Business
+from businesses.email_sender import send_business_email, is_email_configured
 
 
 def _parse_days_csv(s, fallback="3,7,14"):
@@ -59,8 +60,7 @@ class Command(BaseCommand):
                 customer__email__isnull=False,
             ).exclude(customer__email="").select_related("customer")
 
-            connection = business.get_smtp_connection()
-            if not connection:
+            if not is_email_configured(business):
                 continue
 
             for estimate in estimates:
@@ -105,32 +105,30 @@ class Command(BaseCommand):
                 )
 
                 subject = f"Reminder: {estimate.title} - {business.name}"
-                from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com")
                 reply_to = [business.contact_email] if business.contact_email else None
+                plain_body = f"Friendly reminder about your estimate from {business.name}."
 
-                from django.core.mail import EmailMultiAlternatives
-                msg = EmailMultiAlternatives(
-                    subject,
-                    f"Friendly reminder about your estimate from {business.name}.",
-                    from_email,
-                    [estimate.customer.email],
-                    reply_to=reply_to,
-                    connection=connection,
-                )
-                msg.attach_alternative(html_content, "text/html")
-
+                # Try to attach PDF
+                attachments = []
                 try:
                     from billing.views import _build_estimate_pdf
-                    from io import BytesIO
                     pdf_bytes = _build_estimate_pdf(estimate, business)
-                    msg.attach(f"estimate_{estimate.id}.pdf", pdf_bytes, "application/pdf")
+                    attachments = [{"filename": f"estimate_{estimate.id}.pdf", "content": pdf_bytes, "mimetype": "application/pdf"}]
                 except Exception as e:
                     self.stderr.write(f"  PDF error: {e}")
 
-                try:
-                    msg.send()
+                ok, detail = send_business_email(
+                    business=business,
+                    to=estimate.customer.email,
+                    subject=subject,
+                    body_text=plain_body,
+                    body_html=html_content,
+                    reply_to=reply_to,
+                    attachments=attachments if attachments else None,
+                )
+                if ok:
                     estimate.last_follow_up_at = now
                     estimate.save(update_fields=["last_follow_up_at"])
                     self.stdout.write(self.style.SUCCESS(f"  Sent to {estimate.customer.email}"))
-                except Exception as e:
-                    self.stderr.write(self.style.ERROR(f"  Send failed: {e}"))
+                else:
+                    self.stderr.write(self.style.ERROR(f"  Send failed: {detail}"))

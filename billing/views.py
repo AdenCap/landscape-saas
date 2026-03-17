@@ -849,11 +849,11 @@ def resend_invoice(request, invoice_id):
         messages.error(request, f"{invoice.customer.name} has no email address. Add one in Clients.")
         return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
-    connection = business.get_smtp_connection()
-    if not connection:
+    from businesses.email_sender import send_business_email, is_email_configured
+    if not is_email_configured(business):
         messages.error(
             request,
-            "Connect your Gmail in Settings to send invoices. Add your Gmail address and App Password.",
+            "Connect your Gmail in Settings to send invoices. Sign in with Google or add your Gmail App Password.",
         )
         return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
@@ -864,7 +864,6 @@ def resend_invoice(request, invoice_id):
             reverse("billing:invoice_pay_page", args=[invoice.id, invoice.payment_token])
         )
 
-    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com")
     reply_to = [business.contact_email] if business.contact_email else None
     subject = (
         _email_template_vars(
@@ -906,24 +905,22 @@ def resend_invoice(request, invoice_id):
         "accent_color": accent_color,
     })
 
-    msg = EmailMultiAlternatives(
-        subject,
-        body_text,
-        from_email,
-        [invoice.customer.email],
-        reply_to=reply_to,
-        connection=connection,
-    )
-    msg.attach_alternative(html_content, "text/html")
-
     pdf_bytes = _build_invoice_pdf(invoice, request)
-    msg.attach(f"Invoice_{invoice.id}.pdf", pdf_bytes, "application/pdf")
+    attachments = [{"filename": f"Invoice_{invoice.id}.pdf", "content": pdf_bytes, "mimetype": "application/pdf"}]
 
-    try:
-        msg.send()
+    ok, detail = send_business_email(
+        business=business,
+        to=invoice.customer.email,
+        subject=subject,
+        body_text=body_text,
+        body_html=html_content,
+        reply_to=reply_to,
+        attachments=attachments,
+    )
+    if ok:
         messages.success(request, f"Invoice #{invoice.id} resent to {invoice.customer.email}.")
-    except Exception as e:
-        messages.error(request, f"Could not send email: {e}")
+    else:
+        messages.error(request, f"Could not send email: {detail}")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
@@ -1557,11 +1554,11 @@ def estimate_send(request, estimate_id):
         reverse("billing:estimate_client_view", args=[estimate.id, estimate.view_token])
     )
 
-    connection = business.get_smtp_connection()
-    if not connection:
+    from businesses.email_sender import send_business_email, is_email_configured
+    if not is_email_configured(business):
         messages.error(
             request,
-            "Connect your Gmail in Settings to send estimates. Go to Settings and add your Gmail address and App Password.",
+            "Connect your Gmail in Settings to send estimates. Sign in with Google or add your Gmail App Password.",
         )
         return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
@@ -1602,24 +1599,21 @@ def estimate_send(request, estimate_id):
         "accent_color": accent_color,
     })
 
-    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com")
-    reply_to = [business.contact_email] if business.contact_email else None
     plain_body = intro + "\n\nView and accept your estimate: " + (view_url or "") + "\n\n" + closing + "\n\n" + business.name
-    msg = EmailMultiAlternatives(
-        subject,
-        plain_body,
-        from_email,
-        [customer.email],
-        reply_to=reply_to,
-        connection=connection,
-    )
-    msg.attach_alternative(html_content, "text/html")
-
     pdf_bytes = _build_estimate_pdf(estimate, business)
-    msg.attach(f"estimate_{estimate.id}.pdf", pdf_bytes, "application/pdf")
+    reply_to = [business.contact_email] if business.contact_email else None
+    attachments = [{"filename": f"estimate_{estimate.id}.pdf", "content": pdf_bytes, "mimetype": "application/pdf"}]
 
-    try:
-        msg.send()
+    ok, detail = send_business_email(
+        business=business,
+        to=customer.email,
+        subject=subject,
+        body_text=plain_body,
+        body_html=html_content,
+        reply_to=reply_to,
+        attachments=attachments,
+    )
+    if ok:
         estimate.status = "sent"
         estimate.sent_at = timezone.now()
         estimate.save(update_fields=["status", "sent_at"])
@@ -1628,13 +1622,13 @@ def estimate_send(request, estimate_id):
             channel=ClientMessage.CHANNEL_EMAIL,
             direction=ClientMessage.DIRECTION_SENT,
             subject=subject,
-            body=f"Estimate «{estimate.title}» sent to client. View estimate #{estimate.id} in Billing.",
+            body=f"Estimate \u00ab{estimate.title}\u00bb sent to client. View estimate #{estimate.id} in Billing.",
             to_address=customer.email,
             created_by=request.user,
         )
         messages.success(request, f"Estimate sent to {customer.email}")
-    except Exception as e:
-        messages.error(request, f"Failed to send: {str(e)}")
+    else:
+        messages.error(request, f"Failed to send: {detail}")
 
     return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
@@ -1667,9 +1661,9 @@ def estimate_send_followup(request, estimate_id):
         reverse("billing:estimate_client_view", args=[estimate.id, estimate.view_token])
     )
 
-    connection = business.get_smtp_connection()
-    if not connection:
-        messages.error(request, "Connect your Gmail in Settings to send follow-ups.")
+    from businesses.email_sender import send_business_email, is_email_configured
+    if not is_email_configured(business):
+        messages.error(request, "Connect your Gmail in Settings to send follow-ups. Sign in with Google or add your Gmail App Password.")
         return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
     logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
@@ -1680,7 +1674,7 @@ def estimate_send_followup(request, estimate_id):
             customer_name=customer.name,
             business_name=business.name,
         )
-        or f"Reminder: {estimate.title} – {business.name}"
+        or f"Reminder: {estimate.title} \u2013 {business.name}"
     )
     intro = _email_template_vars(
         (business.estimate_followup_email_intro or "").strip()
@@ -1701,24 +1695,21 @@ def estimate_send_followup(request, estimate_id):
         "accent_color": accent_color,
     })
 
-    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com")
     reply_to = [business.contact_email] if business.contact_email else None
     plain_body = intro + "\n\nView your estimate: " + view_url
-    msg = EmailMultiAlternatives(
-        subject,
-        plain_body,
-        from_email,
-        [customer.email],
-        reply_to=reply_to,
-        connection=connection,
-    )
-    msg.attach_alternative(html_content, "text/html")
-
     pdf_bytes = _build_estimate_pdf(estimate, business)
-    msg.attach(f"estimate_{estimate.id}.pdf", pdf_bytes, "application/pdf")
+    attachments = [{"filename": f"estimate_{estimate.id}.pdf", "content": pdf_bytes, "mimetype": "application/pdf"}]
 
-    try:
-        msg.send()
+    ok, detail = send_business_email(
+        business=business,
+        to=customer.email,
+        subject=subject,
+        body_text=plain_body,
+        body_html=html_content,
+        reply_to=reply_to,
+        attachments=attachments,
+    )
+    if ok:
         estimate.last_follow_up_at = timezone.now()
         estimate.save(update_fields=["last_follow_up_at"])
         ClientMessage.objects.create(
@@ -1726,13 +1717,13 @@ def estimate_send_followup(request, estimate_id):
             channel=ClientMessage.CHANNEL_EMAIL,
             direction=ClientMessage.DIRECTION_SENT,
             subject=subject,
-            body=f"Estimate follow-up «{estimate.title}» sent to client.",
+            body=f"Estimate follow-up \u00ab{estimate.title}\u00bb sent to client.",
             to_address=customer.email,
             created_by=request.user,
         )
         messages.success(request, f"Follow-up sent to {customer.email}")
-    except Exception as e:
-        messages.error(request, f"Failed to send: {str(e)}")
+    else:
+        messages.error(request, f"Failed to send: {detail}")
 
     return redirect("billing:estimate_detail", estimate_id=estimate.id)
 

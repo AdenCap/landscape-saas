@@ -146,11 +146,8 @@ def notify_customer(customer, event_type, context_overrides=None, business=None,
     if send_email:
         email_addr = customer.email or ""
         if email_addr:
-            connection = business.get_smtp_connection()
-            if connection:
-                from_email = business.get_from_email() or getattr(
-                    settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com"
-                )
+            from businesses.email_sender import send_business_email, is_email_configured
+            if is_email_configured(business):
                 subject_map = {
                     "job_scheduled": f"Your service is scheduled — {business.name}",
                     "crew_en_route": f"Your crew is on the way — {business.name}",
@@ -175,17 +172,15 @@ def notify_customer(customer, event_type, context_overrides=None, business=None,
                                     f'alt="Completion photo"></p>'
                                 )
 
-                msg = EmailMultiAlternatives(
+                ok, detail = send_business_email(
+                    business=business,
+                    to=email_addr,
                     subject=subject,
-                    body=body,
-                    from_email=from_email,
-                    to=[email_addr],
+                    body_text=body,
+                    body_html=html_body,
                     reply_to=reply_to,
-                    connection=connection,
                 )
-                msg.attach_alternative(html_body, "text/html")
-                try:
-                    msg.send()
+                if ok:
                     sent_any = True
                     ClientMessage.objects.create(
                         customer=customer,
@@ -196,7 +191,7 @@ def notify_customer(customer, event_type, context_overrides=None, business=None,
                         to_address=email_addr,
                     )
                     logger.info("Sent %s email to %s (%s)", event_type, customer.name, email_addr)
-                except Exception as exc:
-                    logger.error("Failed %s email to %s: %s", event_type, customer.name, exc)
+                else:
+                    logger.error("Failed %s email to %s: %s", event_type, customer.name, detail)
 
     return sent_any

@@ -1,0 +1,181 @@
+"""
+Unified email sending for the platform.
+
+Tries Gmail OAuth first (zero-config for users who sign in with Google),
+then falls back to SMTP App Password if OAuth is unavailable.
+
+Usage:
+    from businesses.email_sender import send_business_email, get_email_connection
+
+    # Simple: send a single email (handles OAuth vs SMTP internally)
+    ok, detail = send_business_email(
+        business=business,
+        to="client@example.com",
+        subject="Your invoice",
+        body_text="Plain text version",
+        body_html="<p>HTML version</p>",
+    )
+
+    # Advanced: get a connection object for batch sending (SMTP-style)
+    connection = get_email_connection(business)
+"""
+import logging
+
+from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
+
+logger = logging.getLogger(__name__)
+
+
+def _get_business_owner(business):
+    """Return the owner User for this business, or None."""
+    try:
+        return business.users.filter(role="owner").first()
+    except Exception:
+        return None
+
+
+def _is_oauth_available(business):
+    """Check if Gmail OAuth is available for this business's owner."""
+    from .gmail_oauth import gmail_oauth_available
+    owner = _get_business_owner(business)
+    if not owner:
+        return False
+    return gmail_oauth_available(owner)
+
+
+def _send_via_oauth(business, to, subject, body_text, body_html=None,
+                    reply_to=None, attachments=None):
+    """
+    Attempt to send via Gmail OAuth API.
+    Returns (True, detail) on success, (False, detail) on failure.
+    """
+    from .gmail_oauth import send_email_oauth
+
+    owner = _get_business_owner(business)
+    if not owner:
+        return False, "No owner found for business"
+
+    from_email = business.get_from_email() or getattr(
+        settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com"
+    )
+
+    return send_email_oauth(
+        user=owner,
+        from_email=from_email,
+        to_email=to,
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        reply_to=reply_to,
+        attachments=attachments,
+    )
+
+
+def _send_via_smtp(business, to, subject, body_text, body_html=None,
+                   reply_to=None, attachments=None):
+    """
+    Send via SMTP (App Password).
+    Returns (True, detail) on success, (False, detail) on failure.
+    """
+    connection = business.get_smtp_connection()
+    if not connection:
+        return False, "SMTP not configured"
+
+    from_email = business.get_from_email() or getattr(
+        settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com"
+    )
+
+    if isinstance(reply_to, str):
+        reply_to = [reply_to]
+
+    to_list = [to] if isinstance(to, str) else list(to)
+
+    msg = EmailMultiAlternatives(
+        subject=subject,
+        body=body_text,
+        from_email=from_email,
+        to=to_list,
+        reply_to=reply_to,
+        connection=connection,
+    )
+    if body_html:
+        msg.attach_alternative(body_html, "text/html")
+
+    if attachments:
+        for att in attachments:
+            msg.attach(
+                att.get("filename", "attachment"),
+                att.get("content", b""),
+                att.get("mimetype", "application/octet-stream"),
+            )
+
+    try:
+        msg.send()
+        return True, "sent_smtp"
+    except Exception as exc:
+        logger.error("SMTP send failed: %s", exc)
+        return False, str(exc)
+
+
+def send_business_email(business, to, subject, body_text, body_html=None,
+                        reply_to=None, attachments=None):
+    """
+    Send an email from this business. Tries OAuth first, falls back to SMTP.
+
+    Args:
+        business: Business instance
+        to: recipient email (str) or list of emails
+        subject: email subject line
+        body_text: plain-text body
+        body_html: optional HTML body
+        reply_to: optional reply-to address (str or list)
+        attachments: optional list of dicts with keys:
+            - filename (str)
+            - content (bytes)
+            - mimetype (str, optional, default "application/octet-stream")
+
+    Returns:
+        (success: bool, detail: str)
+        detail is "sent_oauth", "sent_smtp", or an error message.
+    """
+    # Try OAuth first
+    if _is_oauth_available(business):
+        ok, detail = _send_via_oauth(
+            business, to, subject, body_text, body_html, reply_to, attachments
+        )
+        if ok:
+            return True, "sent_oauth"
+        logger.warning("OAuth send failed (%s), falling back to SMTP", detail)
+
+    # Fall back to SMTP
+    return _send_via_smtp(
+        business, to, subject, body_text, body_html, reply_to, attachments
+    )
+
+
+def get_email_connection(business):
+    """
+    Return an email connection for this business (SMTP-style).
+
+    For batch sends that use Django's EmailMultiAlternatives directly
+    (e.g. mass communications), this returns the SMTP connection.
+    OAuth is used at the individual send level via send_business_email().
+
+    Returns:
+        Django email backend connection, or None if not configured.
+    """
+    # For now, batch sending still uses SMTP connection
+    # Individual sends via send_business_email() will prefer OAuth
+    return business.get_smtp_connection()
+
+
+def is_email_configured(business):
+    """
+    Check if email sending is available for this business
+    (either via OAuth or SMTP App Password).
+    """
+    if _is_oauth_available(business):
+        return True
+    conn = business.get_smtp_connection()
+    return conn is not None

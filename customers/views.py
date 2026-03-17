@@ -549,27 +549,23 @@ def customer_send_message(request, customer_id):
     if not to_address:
         messages.error(request, "This client has no email address. Add one in Edit Client.")
         return _send_message_redirect(request, customer.id)
-    connection = business.get_smtp_connection()
-    if not connection:
+    from businesses.email_sender import send_business_email, is_email_configured
+    if not is_email_configured(business):
         messages.error(
             request,
-            "Connect your Gmail in Settings to send emails. Go to Settings and add your Gmail address and App Password.",
+            "Connect your Gmail in Settings to send emails. Sign in with Google or add your Gmail App Password.",
         )
         return _send_message_redirect(request, customer.id)
-    from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com")
     reply_to = [business.contact_email] if business.contact_email else None
-    msg = EmailMultiAlternatives(
-        subject or f"Message from {business.name}",
-        body,
-        from_email,
-        [to_address],
+    ok, detail = send_business_email(
+        business=business,
+        to=to_address,
+        subject=subject or f"Message from {business.name}",
+        body_text=body,
         reply_to=reply_to,
-        connection=connection,
     )
-    try:
-        msg.send()
-    except Exception as e:
-        messages.error(request, f"Failed to send email: {str(e)}")
+    if not ok:
+        messages.error(request, f"Failed to send email: {detail}")
         return _send_message_redirect(request, customer.id)
     messages.success(request, f"Email sent to {to_address}")
 
@@ -746,11 +742,10 @@ def mass_communications(request):
 
     # Send Email
     if channel in ("email", "both"):
-        connection = business.get_smtp_connection()
-        if not connection:
-            messages.warning(request, "Email (Gmail SMTP) is not configured. Go to Settings to add your Gmail credentials.")
+        from businesses.email_sender import send_business_email, is_email_configured
+        if not is_email_configured(business):
+            messages.warning(request, "Email is not configured. Sign in with Google or add your Gmail App Password in Settings.")
         else:
-            from_email = business.get_from_email() or settings.DEFAULT_FROM_EMAIL
             reply_to = [business.contact_email] if business.contact_email else None
             for customer in selected_customers:
                 if not customer.email:
@@ -759,16 +754,14 @@ def mass_communications(request):
                 pref = customer.communication_preference
                 if pref and pref not in ("email", "both", ""):
                     continue
-                msg = EmailMultiAlternatives(
-                    subject or f"Message from {business.name}",
-                    body,
-                    from_email,
-                    [customer.email],
+                ok, _detail = send_business_email(
+                    business=business,
+                    to=customer.email,
+                    subject=subject or f"Message from {business.name}",
+                    body_text=body,
                     reply_to=reply_to,
-                    connection=connection,
                 )
-                try:
-                    msg.send()
+                if ok:
                     email_count += 1
                     ClientMessage.objects.create(
                         customer=customer,
@@ -779,7 +772,7 @@ def mass_communications(request):
                         to_address=customer.email,
                         created_by=request.user,
                     )
-                except Exception:
+                else:
                     email_fail += 1
 
     # Build result message

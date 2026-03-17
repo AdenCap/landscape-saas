@@ -58,6 +58,18 @@ def business_settings(request):
     # Check if Stripe Connect is enabled at platform level
     from django.conf import settings
     stripe_connect_enabled = bool(getattr(settings, "STRIPE_SECRET_KEY", None))
+    # Gmail OAuth status
+    gmail_oauth_connected = business.gmail_oauth_available
+    gmail_oauth_email = None
+    if gmail_oauth_connected:
+        try:
+            from allauth.socialaccount.models import SocialAccount
+            sa = SocialAccount.objects.filter(user=request.user, provider="google").first()
+            if sa and sa.extra_data:
+                gmail_oauth_email = sa.extra_data.get("email", "")
+        except Exception:
+            pass
+
     return render(request, "businesses/business_settings.html", {
         "form": form,
         "business": business,
@@ -66,6 +78,8 @@ def business_settings(request):
         "trusted_devices": trusted_devices,
         "stripe_connect_fee_percent": fee_percent,
         "stripe_connect_enabled": stripe_connect_enabled,
+        "gmail_oauth_connected": gmail_oauth_connected,
+        "gmail_oauth_email": gmail_oauth_email,
     })
 
 
@@ -78,11 +92,11 @@ def test_gmail_connection(request):
         messages.error(request, "You must be associated with a business.")
         return redirect("/")
 
-    connection = business.get_smtp_connection()
-    if not connection:
+    from .email_sender import send_business_email, is_email_configured
+    if not is_email_configured(business):
         messages.error(
             request,
-            "Gmail is not connected. Enter your Gmail address and App Password above and save, then try again.",
+            "Gmail is not connected. Sign in with Google or enter your Gmail App Password above, then try again.",
         )
         return redirect("business_settings")
 
@@ -94,16 +108,15 @@ def test_gmail_connection(request):
     if isinstance(to_email, str) and "<" in to_email and ">" in to_email:
         to_email = to_email.split("<")[1].split(">")[0].strip()
 
-    try:
-        msg = EmailMessage(
-            subject="FieldLgx – Gmail test",
-            body="This is a test email from FieldLgx. Your Gmail connection is working.",
-            from_email=business.get_from_email() or business.email_smtp_user,
-            to=[to_email],
-            connection=connection,
-        )
-        msg.send()
-        messages.success(request, f"Test email sent to {to_email}. Check your inbox.")
-    except Exception as e:
-        messages.error(request, f"Could not send test email: {str(e)}. Check your Gmail and App Password.")
+    ok, detail = send_business_email(
+        business=business,
+        to=to_email,
+        subject="FieldLgx \u2013 Gmail test",
+        body_text="This is a test email from FieldLgx. Your Gmail connection is working.",
+    )
+    if ok:
+        method = "OAuth" if detail == "sent_oauth" else "SMTP"
+        messages.success(request, f"Test email sent to {to_email} via {method}. Check your inbox.")
+    else:
+        messages.error(request, f"Could not send test email: {detail}. Check your Gmail settings.")
     return redirect("business_settings")

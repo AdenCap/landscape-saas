@@ -408,12 +408,16 @@ ACCOUNT_ADAPTER = "accounts.adapters.AccountAdapter"
 SOCIALACCOUNT_ADAPTER = "accounts.adapters.SocialAccountAdapter"
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_LOGIN_ON_GET = True
-SOCIALACCOUNT_STORE_TOKENS = False
+SOCIALACCOUNT_STORE_TOKENS = True
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
-        "SCOPE": ["profile", "email"],
-        "AUTH_PARAMS": {"access_type": "online"},
+        "SCOPE": [
+            "profile",
+            "email",
+            "https://www.googleapis.com/auth/gmail.send",
+        ],
+        "AUTH_PARAMS": {"access_type": "offline", "prompt": "consent"},
         "APP": {
             "client_id": os.environ.get("GOOGLE_OAUTH_CLIENT_ID", ""),
             "secret": os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", ""),

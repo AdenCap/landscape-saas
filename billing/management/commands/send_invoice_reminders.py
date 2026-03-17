@@ -10,13 +10,13 @@ days overdue matches one of those, and no reminder sent in the last 6 days.
 """
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.conf import settings
 
 from billing.models import Invoice
 from businesses.models import Business
+from businesses.email_sender import send_business_email, is_email_configured
 
 
 def _parse_reminder_days(s):
@@ -58,9 +58,8 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f"Business {business.name}: owner approval gate enabled, skipping (use --force)"))
                 continue
             reminder_days = _parse_reminder_days(getattr(business, "invoice_reminder_days", "") or "7,14,21")
-            connection = business.get_smtp_connection()
-            if not connection:
-                self.stdout.write(self.style.WARNING(f"Business {business.name}: no SMTP, skipping reminders"))
+            if not is_email_configured(business):
+                self.stdout.write(self.style.WARNING(f"Business {business.name}: no email configured, skipping reminders"))
                 continue
 
             invoices = (
@@ -93,7 +92,6 @@ class Command(BaseCommand):
                     continue
 
                 pay_url = _build_pay_url(invoice)
-                from_email = business.get_from_email() or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@fieldlgx.com")
                 subject = f"Payment reminder: Invoice #{invoice.id} from {business.name}"
                 body_text = (
                     f"Hi {invoice.customer.name},\n\n"
@@ -108,20 +106,17 @@ class Command(BaseCommand):
                     {"invoice": invoice, "business": business, "pay_url": pay_url, "days_overdue": days_overdue},
                 )
 
-                msg = EmailMultiAlternatives(
-                    subject,
-                    body_text,
-                    from_email,
-                    [invoice.customer.email],
-                    connection=connection,
+                ok, detail = send_business_email(
+                    business=business,
+                    to=invoice.customer.email,
+                    subject=subject,
+                    body_text=body_text,
+                    body_html=html_content,
                 )
-                msg.attach_alternative(html_content, "text/html")
-
-                try:
-                    msg.send()
+                if ok:
                     invoice.last_reminder_at = timezone.now()
                     invoice.save(update_fields=["last_reminder_at"])
-                except Exception as e:
-                    self.stdout.write(self.style.ERROR(f"Failed to send reminder for invoice #{invoice.id}: {e}"))
+                else:
+                    self.stdout.write(self.style.ERROR(f"Failed to send reminder for invoice #{invoice.id}: {detail}"))
 
         self.stdout.write(self.style.SUCCESS("Done."))

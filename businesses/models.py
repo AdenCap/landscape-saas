@@ -176,6 +176,22 @@ class Business(models.Model):
             use_tls=True,
         )
 
+    @property
+    def gmail_oauth_available(self):
+        """Check if the business owner has Gmail OAuth tokens for sending."""
+        from .gmail_oauth import gmail_oauth_available
+        owner = self.users.filter(role="owner").first()
+        if not owner:
+            return False
+        return gmail_oauth_available(owner)
+
+    @property
+    def is_email_configured(self):
+        """True if email can be sent (via OAuth or SMTP App Password)."""
+        if self.gmail_oauth_available:
+            return True
+        return bool(self.email_smtp_user and self.email_smtp_password)
+
     AUTO_INVOICE_CHOICES = [
     ('auto', 'Automatically create invoices'),
     ('manual', 'Manually create invoices'),
