@@ -412,12 +412,11 @@ SOCIALACCOUNT_STORE_TOKENS = True
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
-        "SCOPE": [
-            "profile",
-            "email",
-            "https://www.googleapis.com/auth/gmail.send",
-        ],
-        "AUTH_PARAMS": {"access_type": "offline", "prompt": "consent"},
+        # gmail.send is NOT included here — it's requested separately via the
+        # "Connect Gmail" button in Settings so sign-in doesn't trigger the
+        # "Google hasn't verified this app" warning for all users.
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "offline"},
         "APP": {
             "client_id": os.environ.get("GOOGLE_OAUTH_CLIENT_ID", ""),
             "secret": os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", ""),
