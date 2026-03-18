@@ -266,8 +266,8 @@
       <tr>
         <td>{{ i.service.name }}</td>
         <td class="num">{{ i.quantity }} {{ i.unit }}</td>
-        <td class="num">${{ i.unit_price }}</td>
-        <td class="num">${{ i.line_total }}</td>
+        <td class="num">${{ i.unit_price|floatformat:2 }}</td>
+        <td class="num">${{ i.line_total|floatformat:2 }}</td>
         <td>
           <form method="post" action="{% url 'remove_job_service_item' job.id i.id %}" style="display: inline;">
             {% csrf_token %}

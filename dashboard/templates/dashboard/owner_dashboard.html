@@ -26,7 +26,7 @@
   </div>
   <div class="kpi-card card kpi-card-overdue">
     <div class="kpi-label">Invoices overdue</div>
-    <div class="kpi-value {% if invoices_overdue_count %}kpi-alert{% endif %}">{{ invoices_overdue_count }} — ${{ invoices_overdue_total }}</div>
+    <div class="kpi-value {% if invoices_overdue_count %}kpi-alert{% endif %}">{{ invoices_overdue_count }} — ${{ invoices_overdue_total|floatformat:2 }}</div>
     <div class="kpi-sub">Past due date, unpaid</div>
     <div class="kpi-aging">
       <div class="kpi-aging-row"><span>0–30 days</span><span>${{ overdue_0_30.total|floatformat:2 }} ({{ overdue_0_30.count }})</span></div>

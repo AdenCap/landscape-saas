@@ -37,7 +37,7 @@
       <li class="list-card">
         <div>
           <strong>Invoice #{{ invoice.id }}</strong>
-          <p>${{ invoice.total }}</p>
+          <p>${{ invoice.total|floatformat:2 }}</p>
         </div>
         <a href="/billing/{{ invoice.id }}/" class="btn btn-primary btn-sm">Review</a>
       </li>

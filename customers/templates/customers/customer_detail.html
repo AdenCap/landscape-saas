@@ -146,7 +146,7 @@ Thank you for choosing {{ business.name }}!">
         <div>
           <strong>{{ c.get_contract_type_display }}</strong>
           <span class="badge badge-{{ c.status }}">{{ c.status|title }}</span>
-          {% if c.amount %} · ${{ c.amount }}{% endif %}
+          {% if c.amount %} · ${{ c.amount|floatformat:2 }}{% endif %}
           {% if c.start_date %} · {{ c.start_date }}{% endif %}
           {% if c.end_date %}–{{ c.end_date }}{% endif %}
         </div>
@@ -320,7 +320,7 @@ Thank you for choosing {{ business.name }}!">
         <tr>
           <td><a href="{% url 'billing:invoice_detail' inv.id %}" class="link-primary">#{{ inv.id }}</a></td>
           <td>{{ inv.issue_date }}</td>
-          <td class="num">${{ inv.total }}</td>
+          <td class="num">${{ inv.total|floatformat:2 }}</td>
           <td><span class="badge badge-{{ inv.status|lower }}">{{ inv.status }}</span></td>
         </tr>
         {% empty %}

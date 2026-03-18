@@ -136,11 +136,11 @@
           <td class="num">{{ enr.property.lawn_square_feet|default:"--" }}</td>
           <td class="num">
             {% if enr.pricing_method == 'per_application' and enr.price_per_application %}
-              ${{ enr.price_per_application }}/app
+              ${{ enr.price_per_application|floatformat:2 }}/app
             {% elif enr.pricing_method == 'annual_flat' and enr.annual_price %}
-              ${{ enr.annual_price }}/yr
+              ${{ enr.annual_price|floatformat:2 }}/yr
             {% elif enr.pricing_method == 'per_sqft' and enr.price_per_sqft %}
-              ${{ enr.price_per_sqft }}/sqft
+              ${{ enr.price_per_sqft|floatformat:4 }}/sqft
             {% else %}
               --
             {% endif %}

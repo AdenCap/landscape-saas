@@ -80,7 +80,7 @@
           {% if emp.email %}{{ emp.email }}{% endif %}
           {% if not emp.phone and not emp.email %}—{% endif %}
         </td>
-        <td class="num">{% if emp.hourly_rate %}${{ emp.hourly_rate }}/hr{% else %}—{% endif %}</td>
+        <td class="num">{% if emp.hourly_rate %}${{ emp.hourly_rate|floatformat:2 }}/hr{% else %}—{% endif %}</td>
         <td>
           {% if emp.is_active %}
           <span class="badge badge-success">Active</span>
@@ -128,12 +128,12 @@
   <div class="kpi-grid">
     <div class="kpi-card card">
       <div class="kpi-label">This Week's Labor Cost</div>
-      <div class="kpi-value">${{ total_week_cost }}</div>
+      <div class="kpi-value">${{ total_week_cost|floatformat:2 }}</div>
       <div class="kpi-sub">{{ week_start }} → {{ week_end }}</div>
     </div>
     <div class="kpi-card card">
       <div class="kpi-label">This Year's Labor Cost</div>
-      <div class="kpi-value">${{ total_year_cost }}</div>
+      <div class="kpi-value">${{ total_year_cost|floatformat:2 }}</div>
       <div class="kpi-sub">{{ year_start }} → {{ year_end }}</div>
     </div>
   </div>
@@ -157,11 +157,11 @@
           <span class="expand-icon">▶</span>
           {{ stat.user.get_full_name|default:stat.user.username }}
         </td>
-        <td class="num">${{ stat.hourly_rate }}/hr</td>
+        <td class="num">${{ stat.hourly_rate|floatformat:2 }}/hr</td>
         <td class="num">{{ stat.week_display }}</td>
-        <td class="num">${{ stat.week_cost }}</td>
+        <td class="num">${{ stat.week_cost|floatformat:2 }}</td>
         <td class="num">{{ stat.year_display }}</td>
-        <td class="num">${{ stat.year_cost }}</td>
+        <td class="num">${{ stat.year_cost|floatformat:2 }}</td>
       </tr>
       <tr class="time-entries-detail" data-user="{{ stat.user.id }}" hidden>
         <td colspan="6">
