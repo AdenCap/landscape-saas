@@ -19,13 +19,15 @@ from django.utils import timezone as tz
 from accounts.forms import (
     EmployeeForm,
     EmployeeCreateForm,
+    EmployeeInviteForm,
     EmployeePasswordForm,
     EmployeePaymentForm,
+    InviteSetPasswordForm,
     SignUpForm,
     SendNotificationForm,
     SocialSignupCompleteForm,
 )
-from accounts.models import AuditLog, EmployeePayment, Notification
+from accounts.models import AuditLog, EmployeeInvite, EmployeePayment, Notification
 from businesses.models import Business
 from jobs.models import Crew
 
@@ -225,6 +227,63 @@ def social_signup_complete(request):
     })
 
 
+@require_http_methods(["GET", "POST"])
+def invite_accept(request, token):
+    """Employee clicks invite link to join a business."""
+    invite = get_object_or_404(EmployeeInvite, token=token)
+
+    if invite.accepted:
+        messages.info(request, "This invite has already been used.")
+        return redirect("login")
+
+    if invite.is_expired:
+        messages.error(request, "This invite link has expired. Ask your employer for a new one.")
+        return redirect("login")
+
+    user = invite.user
+
+    # If the employee is already logged in with the right account, just accept
+    if request.user.is_authenticated:
+        if request.user == user or request.user.email.lower() == invite.email.lower():
+            # Link the logged-in user to the business
+            if not request.user.business:
+                request.user.business = invite.business
+                request.user.role = invite.role
+                request.user.save(update_fields=["business", "role"])
+            invite.accepted = True
+            invite.save(update_fields=["accepted"])
+            messages.success(request, f"Welcome to {invite.business.name}!")
+            return redirect("/")
+        else:
+            # Logged in as wrong user
+            messages.warning(request, "You're signed in as a different account. Please sign out first.")
+            return redirect("login")
+
+    # Store invite token in session for the social auth adapter to pick up
+    request.session["invite_token"] = token
+
+    if request.method == "POST":
+        # Setting a password
+        pw_form = InviteSetPasswordForm(request.POST, user=user)
+        if pw_form.is_valid():
+            user.set_password(pw_form.cleaned_data["password1"])
+            user.save(update_fields=["password"])
+            invite.accepted = True
+            invite.save(update_fields=["accepted"])
+            request.session.pop("invite_token", None)
+            login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+            messages.success(request, f"Welcome to {invite.business.name}! You're all set.")
+            return redirect("/")
+    else:
+        pw_form = InviteSetPasswordForm(user=user)
+
+    return render(request, "registration/invite_accept.html", {
+        "invite": invite,
+        "pw_form": pw_form,
+        "user_obj": user,
+    })
+
+
 @role_required("owner", "manager")
 def employee_list(request):
     """List all employees (users in the owner's business)."""
@@ -239,22 +298,64 @@ def employee_list(request):
 
 @role_required("owner", "manager")
 def employee_add(request):
-    """Add a new employee with login credentials."""
+    """Add a new employee via invite link — no password required."""
     business = _get_business(request)
     if not business:
         messages.error(request, "You must be associated with a business to add employees.")
         return redirect("/")
 
     if request.method == "POST":
-        form = EmployeeCreateForm(request.POST)
+        form = EmployeeInviteForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=False)
-            user.business = business
+            email = form.cleaned_data["email"]
+
+            # Check if a user with this email already exists in this business
+            existing = User.objects.filter(email__iexact=email, business=business).first()
+            if existing:
+                messages.error(request, f"An employee with email {email} already exists.")
+                return render(request, "accounts/employee_form.html", {
+                    "form": form, "title": "Add Employee", "is_create": True,
+                })
+
+            # Generate unique username from email
+            base = email.split("@")[0].lower()
+            base = "".join(c for c in base if c.isalnum() or c == "_") or "user"
+            username = base
+            counter = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base}{counter}"
+                counter += 1
+
+            # Create user with unusable password
+            user = User(
+                username=username,
+                email=email,
+                first_name=form.cleaned_data["first_name"],
+                last_name=form.cleaned_data["last_name"],
+                role=form.cleaned_data["role"],
+                business=business,
+            )
+            if form.cleaned_data.get("hourly_rate"):
+                user.hourly_rate = form.cleaned_data["hourly_rate"]
+            user.set_unusable_password()
             user.save()
-            messages.success(request, f"Employee '{user.get_full_name() or user.username}' added successfully.")
+
+            # Create invite
+            invite = EmployeeInvite.objects.create(
+                business=business,
+                user=user,
+                email=email,
+                role=form.cleaned_data["role"],
+            )
+
+            invite_url = request.build_absolute_uri(f"/accounts/invite/{invite.token}/")
+            messages.success(
+                request,
+                f"Employee '{user.get_full_name()}' created. Share their invite link so they can set up login."
+            )
             return redirect("employee_edit", user_id=user.id)
     else:
-        form = EmployeeCreateForm()
+        form = EmployeeInviteForm()
 
     return render(request, "accounts/employee_form.html", {
         "form": form,
@@ -287,6 +388,12 @@ def employee_edit(request, user_id):
     total_paid = sum(p.amount for p in payments)
     default_paid_date = tz.localdate().isoformat()
 
+    # Check for pending invite link
+    pending_invite = EmployeeInvite.objects.filter(user=employee, accepted=False).first()
+    invite_url = None
+    if pending_invite and pending_invite.is_valid:
+        invite_url = request.build_absolute_uri(f"/accounts/invite/{pending_invite.token}/")
+
     return render(request, "accounts/employee_form.html", {
         "form": form,
         "employee": employee,
@@ -295,6 +402,7 @@ def employee_edit(request, user_id):
         "payments": payments,
         "total_paid": total_paid,
         "default_paid_date": default_paid_date,
+        "invite_url": invite_url,
     })
 
 

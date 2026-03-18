@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
   <h1>{{ title }}</h1>
-  <p>{% if employee %}Editing {{ employee.get_full_name|default:employee.username }}{% else %}Add a new employee with app login credentials{% endif %}</p>
+  <p>{% if employee %}Editing {{ employee.get_full_name|default:employee.username }}{% else %}Add a new employee — they'll get an invite link to set up login{% endif %}</p>
 </div>
 
 <div class="form-grid">
@@ -15,15 +15,6 @@
       <div class="alert alert-error">{{ form.non_field_errors }}</div>
       {% endif %}
 
-      {% if is_create %}
-      <div class="form-section">
-        <h3>Login</h3>
-        <div class="field">{{ form.username.label_tag }}{{ form.username }}{{ form.username.errors }}</div>
-        <div class="field">{{ form.password1.label_tag }}{{ form.password1 }}{{ form.password1.errors }}</div>
-        <div class="field">{{ form.password2.label_tag }}{{ form.password2 }}{{ form.password2.errors }}</div>
-      </div>
-      {% endif %}
-
       <div class="form-section">
         <h3>Name & Contact</h3>
         <div class="form-row">
@@ -32,10 +23,13 @@
         </div>
         <div class="form-row">
           <div class="field">{{ form.email.label_tag }}{{ form.email }}{{ form.email.errors }}</div>
+          {% if form.phone %}
           <div class="field">{{ form.phone.label_tag }}{{ form.phone }}{{ form.phone.errors }}</div>
+          {% endif %}
         </div>
       </div>
 
+      {% if not is_create %}
       <div class="form-section">
         <h3>Address</h3>
         <div class="field">{{ form.address_line1.label_tag }}{{ form.address_line1 }}{{ form.address_line1.errors }}</div>
@@ -46,6 +40,7 @@
           <div class="field">{{ form.postal_code.label_tag }}{{ form.postal_code }}{{ form.postal_code.errors }}</div>
         </div>
       </div>
+      {% endif %}
 
       <div class="form-section">
         <h3>Role & Pay</h3>
@@ -67,12 +62,8 @@
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Save</button>
-        {% if employee %}
-        <a href="{% url 'employee_list' %}" class="btn btn-secondary">Back to list</a>
-        {% else %}
-        <a href="{% url 'employee_list' %}" class="btn btn-secondary">Cancel</a>
-        {% endif %}
+        <button type="submit" class="btn btn-primary">{% if is_create %}Create & get invite link{% else %}Save{% endif %}</button>
+        <a href="{% url 'employee_list' %}" class="btn btn-secondary">{% if employee %}Back to list{% else %}Cancel{% endif %}</a>
       </div>
     </form>
   </div>
@@ -80,8 +71,19 @@
   {% if employee and not is_create %}
   <div class="card">
     <h2 class="card-title">Login</h2>
+    {% if invite_url %}
+    <div class="invite-banner">
+      <p style="margin:0 0 8px;font-size:14px;font-weight:500;">Invite link (not yet accepted)</p>
+      <p style="margin:0 0 10px;font-size:13px;color:var(--text-muted);">Share this link so {{ employee.first_name|default:"this employee" }} can sign in with Google or set a password.</p>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="invite-link" value="{{ invite_url }}" readonly style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;background:var(--surface-alt);color:var(--text);">
+        <button type="button" class="btn btn-primary" onclick="copyInvite()" id="copy-btn" style="white-space:nowrap;">Copy link</button>
+      </div>
+    </div>
+    {% else %}
     <p class="muted">Username: <strong>{{ employee.username }}</strong></p>
-    <a href="{% url 'employee_password' employee.id %}" class="btn btn-secondary">Change password</a>
+    {% endif %}
+    <a href="{% url 'employee_password' employee.id %}" class="btn btn-secondary" style="margin-top:12px;">Change password</a>
   </div>
 
   <div class="card payment-card">
@@ -143,6 +145,7 @@
   .checkbox-field input { width: auto; }
   .form-actions { display: flex; gap: 10px; margin-top: 24px; }
   .muted { color: var(--text-muted); font-size: 14px; }
+  .invite-banner { padding: 16px; border-radius: 10px; border: 1px solid var(--primary); background: rgba(34,197,94,.06); margin-bottom: 14px; }
   .payment-card { margin-top: 20px; }
   .payment-card .section-desc { color: var(--text-muted); font-size: 14px; margin: -4px 0 16px 0; }
   .payment-form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
@@ -152,6 +155,15 @@
   .payment-table { margin-top: 16px; }
 </style>
 <script>
+function copyInvite() {
+  var input = document.getElementById('invite-link');
+  var btn = document.getElementById('copy-btn');
+  if (!input) return;
+  navigator.clipboard.writeText(input.value).then(function() {
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy link'; }, 2000);
+  });
+}
 (function() {
   var picker = document.getElementById('id_color_picker');
   var text = document.getElementById('id_color');

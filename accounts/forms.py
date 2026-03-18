@@ -97,6 +97,56 @@ class SocialSignupCompleteForm(forms.Form):
     )
 
 
+class EmployeeInviteForm(forms.Form):
+    """Lightweight form for creating an employee via invite (no password)."""
+    first_name = forms.CharField(max_length=150, required=True)
+    last_name = forms.CharField(max_length=150, required=True)
+    email = forms.EmailField(required=True)
+    role = forms.ChoiceField(
+        choices=[('manager', 'Manager'), ('crew', 'Crew')],
+        initial='crew',
+    )
+    hourly_rate = forms.DecimalField(
+        max_digits=8, decimal_places=2, required=False,
+        widget=forms.NumberInput(attrs={'step': '0.01', 'min': '0'}),
+    )
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        return email
+
+
+class InviteSetPasswordForm(forms.Form):
+    """Form for an invited employee to set their password."""
+    password1 = forms.CharField(
+        label='Password',
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password', 'placeholder': 'Create a password'}),
+    )
+    password2 = forms.CharField(
+        label='Confirm password',
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password', 'placeholder': 'Confirm your password'}),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._user = user
+
+    def clean_password1(self):
+        password = self.cleaned_data.get('password1')
+        if password:
+            from django.contrib.auth.password_validation import validate_password
+            validate_password(password, user=self._user)
+        return password
+
+    def clean(self):
+        cleaned_data = super().clean()
+        p1 = cleaned_data.get('password1')
+        p2 = cleaned_data.get('password2')
+        if p1 and p2 and p1 != p2:
+            raise forms.ValidationError("Passwords don't match.")
+        return cleaned_data
+
+
 class EmployeeForm(forms.ModelForm):
     """Form for editing employee profile (name, contact, address, role, pay)."""
     class Meta:

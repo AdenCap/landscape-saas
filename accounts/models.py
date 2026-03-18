@@ -1,6 +1,9 @@
+import secrets
+
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 from businesses.models import Business
 
 
@@ -58,6 +61,53 @@ class User(AbstractUser):
             f"{self.city}, {self.state} {self.postal_code}".strip(", ") if (self.city or self.state or self.postal_code) else None,
         ]
         return ", ".join(p for p in parts if p) or ""
+
+
+class EmployeeInvite(models.Model):
+    """Invite token that lets an employee join a business via link."""
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.CASCADE,
+        related_name="employee_invites",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="invites",
+        null=True,
+        blank=True,
+        help_text="The User account created for this invite.",
+    )
+    email = models.EmailField()
+    role = models.CharField(
+        max_length=10,
+        choices=User.ROLE_CHOICES,
+        default="crew",
+    )
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    accepted = models.BooleanField(default=False)
+
+    INVITE_EXPIRY_DAYS = 7
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Invite for {self.email} → {self.business.name}"
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            self.token = secrets.token_urlsafe(32)
+        super().save(*args, **kwargs)
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.created_at + timezone.timedelta(days=self.INVITE_EXPIRY_DAYS)
+
+    @property
+    def is_valid(self):
+        return not self.accepted and not self.is_expired
 
 
 class EmployeePayment(models.Model):
