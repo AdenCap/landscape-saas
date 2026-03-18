@@ -17,9 +17,9 @@
 <div class="kpi-grid">
   <div class="kpi-card card kpi-card-revenue">
     <div class="kpi-label">Revenue this month</div>
-    <div class="kpi-value">${{ revenue_this_month }}</div>
+    <div class="kpi-value">${{ revenue_this_month|floatformat:2 }}</div>
     <div class="kpi-sub">{{ month_start }} → {{ month_end }}</div>
-    <div class="kpi-secondary">This year: ${{ revenue_this_year }}</div>
+    <div class="kpi-secondary">This year: ${{ revenue_this_year|floatformat:2 }}</div>
     <div class="kpi-actions">
       <a href="{% url 'financials:dashboard' %}" class="btn btn-secondary btn-sm">Financials</a>
     </div>
@@ -39,7 +39,7 @@
   </div>
   <div class="kpi-card card">
     <div class="kpi-label">Outstanding (sent, unpaid)</div>
-    <div class="kpi-value">${{ ar_outstanding }}</div>
+    <div class="kpi-value">${{ ar_outstanding|floatformat:2 }}</div>
     <div class="kpi-sub">Awaiting payment</div>
     <div class="kpi-actions">
       <a href="/billing/" class="btn btn-secondary btn-sm">Invoices</a>
@@ -47,7 +47,7 @@
   </div>
   <div class="kpi-card card">
     <div class="kpi-label">Profit (this month)</div>
-    <div class="kpi-value kpi-profit">${{ profit_this_month }}</div>
+    <div class="kpi-value kpi-profit">${{ profit_this_month|floatformat:2 }}</div>
     <div class="kpi-sub">Revenue − costs</div>
     <div class="kpi-actions">
       <a href="{% url 'financials:dashboard' %}" class="btn btn-secondary btn-sm">Financials</a>
@@ -72,7 +72,7 @@
   </div>
   <div class="kpi-card card kpi-card-work-completed">
     <div class="kpi-label">Work completed this month</div>
-    <div class="kpi-value">${{ work_completed_this_month }}</div>
+    <div class="kpi-value">${{ work_completed_this_month|floatformat:2 }}</div>
     <div class="kpi-sub">Value of completed jobs (not payments received)</div>
     <div class="kpi-actions">
       <a href="{% url 'job_list' %}" class="btn btn-secondary btn-sm">Jobs</a>
