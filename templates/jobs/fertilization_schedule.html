@@ -7,17 +7,17 @@
 </div>
 
 <div class="quick-actions" style="margin-bottom: 24px;">
-  <a href="{% url 'job_list' %}" class="btn btn-secondary">← Jobs</a>
+  <a href="{% url 'job_list' %}" class="btn btn-secondary">&larr; Jobs</a>
   <a href="{% url 'create_job' %}" class="btn btn-secondary">Create job</a>
 </div>
 
 {% if not properties %}
 <div class="card" style="max-width: 560px;">
-  <p class="muted">No fertilization programs set yet. On each <strong>property</strong> (edit from the client’s page), set <strong>Fertilization services per year</strong> (e.g. 4). Then return here to generate the schedule.</p>
+  <p class="muted">No fertilization programs set yet. On each <strong>property</strong> (edit from the client's page), set <strong>Fertilization services per year</strong> (e.g. 4). Then return here to generate the schedule.</p>
 </div>
 {% else %}
-<div class="card" style="max-width: 900px;">
-  <p class="muted" style="margin-bottom: 16px;">Suggested dates are spread across your growing season (month {{ start_month }}–{{ end_month }}). Same number of applications = same dates so you can run all fertilizations together.</p>
+<div class="card" style="max-width: 1100px;">
+  <p class="muted" style="margin-bottom: 16px;">Suggested dates are spread across your growing season (month {{ start_month }}&ndash;{{ end_month }}). Same number of applications = same dates so you can run all fertilizations together.</p>
 
   <form method="get" style="margin-bottom: 20px; display: flex; gap: 12px; align-items: center;">
     <label for="year">Year</label>
@@ -29,7 +29,8 @@
     <thead>
       <tr>
         <th>Client / Property</th>
-        <th>Applications/year</th>
+        <th class="num">Yard sq ft</th>
+        <th>Apps/year</th>
         <th>Suggested dates ({{ year }})</th>
       </tr>
     </thead>
@@ -37,12 +38,13 @@
       {% for row in rows %}
       <tr>
         <td><strong>{{ row.property.customer.name }}</strong><br><span class="muted">{{ row.property.address }}</span></td>
+        <td class="num">{% if row.property.yard_sqft %}{{ row.property.yard_sqft|floatformat:0 }}{% else %}<span class="muted">&mdash;</span>{% endif %}</td>
         <td>{{ row.property.fertilization_services_per_year }}</td>
         <td>
           {% for d in row.dates %}
             {{ d|date:"M j" }}{% if not forloop.last %}, {% endif %}
           {% empty %}
-            —
+            &mdash;
           {% endfor %}
         </td>
       </tr>
@@ -50,13 +52,60 @@
     </tbody>
   </table>
 
+  {% if daily_needs %}
+  <div style="margin-bottom: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
+    <h2 style="font-size: 16px; margin: 0 0 6px 0;">Daily product needs</h2>
+    <p class="muted" style="margin: 0 0 16px 0;">Total lawn sq ft per application day. Enter your product's coverage rate to see how many bags you need.</p>
+
+    <div class="product-calc" style="margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+      <div>
+        <label for="coverage_rate" style="display: block; font-size: 13px; margin-bottom: 4px; color: var(--text-muted);">Product covers (sq ft per bag)</label>
+        <input type="number" id="coverage_rate" min="1" placeholder="e.g. 5000" style="width: 140px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+      </div>
+      <div>
+        <label for="bag_weight" style="display: block; font-size: 13px; margin-bottom: 4px; color: var(--text-muted);">Bag weight (lbs)</label>
+        <input type="number" id="bag_weight" min="1" placeholder="e.g. 50" style="width: 100px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="calcBags()">Calculate</button>
+    </div>
+
+    <table class="data-table" style="width: 100%;">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th class="num">Properties</th>
+          <th class="num">Total sq ft</th>
+          <th class="num bags-col" style="display: none;">Bags needed</th>
+          <th class="num lbs-col" style="display: none;">Total lbs</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for day_date, info in daily_needs %}
+        <tr>
+          <td>{{ day_date|date:"M j, Y" }}</td>
+          <td class="num">{{ info.property_count }}</td>
+          <td class="num">
+            {{ info.total_sqft|floatformat:0 }}
+            {% if info.missing_sqft %}<br><span class="muted" style="font-size: 12px;">{{ info.missing_sqft }} missing sq ft</span>{% endif %}
+          </td>
+          <td class="num bags-col" style="display: none;" data-sqft="{{ info.total_sqft }}">—</td>
+          <td class="num lbs-col" style="display: none;" data-sqft="{{ info.total_sqft }}">—</td>
+          <td>{% if info.missing_sqft %}<span class="badge badge-warning" style="font-size: 11px;">incomplete</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
   <form method="post" style="padding-top: 20px; border-top: 1px solid var(--border);">
     {% csrf_token %}
     <input type="hidden" name="year" value="{{ year }}">
     <div class="form-group" style="margin-bottom: 16px;">
       <label for="service_id">Service to use for created jobs</label>
       <select name="service_id" id="service_id" required style="max-width: 280px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);">
-        <option value="">— Select service (e.g. Fertilization) —</option>
+        <option value="">&mdash; Select service (e.g. Fertilization) &mdash;</option>
         {% for s in services %}
         <option value="{{ s.id }}">{{ s.name }}</option>
         {% endfor %}
@@ -66,4 +115,33 @@
   </form>
 </div>
 {% endif %}
+
+<script>
+function calcBags() {
+  var coverage = parseFloat(document.getElementById('coverage_rate').value);
+  var bagWeight = parseFloat(document.getElementById('bag_weight').value);
+  if (!coverage || coverage <= 0) { alert('Enter the sq ft per bag your product covers.'); return; }
+
+  // Show the bags and lbs columns
+  document.querySelectorAll('.bags-col').forEach(function(el) { el.style.display = ''; });
+  if (bagWeight && bagWeight > 0) {
+    document.querySelectorAll('.lbs-col').forEach(function(el) { el.style.display = ''; });
+  }
+
+  document.querySelectorAll('td.bags-col').forEach(function(td) {
+    var sqft = parseFloat(td.getAttribute('data-sqft')) || 0;
+    var bags = Math.ceil(sqft / coverage);
+    td.textContent = bags;
+  });
+
+  if (bagWeight && bagWeight > 0) {
+    document.querySelectorAll('td.lbs-col').forEach(function(td) {
+      var sqft = parseFloat(td.getAttribute('data-sqft')) || 0;
+      var bags = Math.ceil(sqft / coverage);
+      var lbs = bags * bagWeight;
+      td.textContent = lbs + ' lbs';
+    });
+  }
+}
+</script>
 {% endblock %}

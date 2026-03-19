@@ -120,8 +120,10 @@ Thank you for choosing {{ business.name }}!">
       <div class="property-row">
         <div>
           <strong>{{ prop.address }}</strong>
+          {% if prop.yard_sqft %}<span class="badge badge-info">{{ prop.yard_sqft|floatformat:0 }} sq ft</span>{% endif %}
           {% if prop.gate_code %}<span class="badge badge-muted">Gate: {{ prop.gate_code }}</span>{% endif %}
           {% if prop.has_dog %}<span class="badge badge-warning">Dog</span>{% endif %}
+          {% if prop.fertilization_services_per_year %}<span class="badge badge-success">Fert: {{ prop.fertilization_services_per_year }}x/yr</span>{% endif %}
           {% if prop.notes %}<p class="prop-notes">{{ prop.notes }}</p>{% endif %}
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -408,6 +410,8 @@ Thank you for choosing {{ business.name }}!">
   /* ── Badges ────────────────────────────────────────────────────── */
   .badge-muted { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
   .badge-warning { background: rgba(234, 179, 8, 0.25); color: #fde047; }
+  .badge-info { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
+  .badge-success { background: rgba(34, 197, 94, 0.20); color: #86efac; }
   .badge-active { background: rgba(34, 197, 94, 0.25); color: #86efac; }
   .badge-pending { background: rgba(34, 197, 94, 0.25); color: #6ee7b7; }
   .badge-expired, .badge-cancelled { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }

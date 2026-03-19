@@ -177,12 +177,14 @@ class CustomerForm(forms.ModelForm):
 class PropertyForm(forms.ModelForm):
     class Meta:
         model = Property
-        fields = ['address', 'notes', 'gate_code', 'has_dog', 'fertilization_services_per_year']
+        fields = ['address', 'notes', 'gate_code', 'has_dog', 'yard_sqft', 'fertilization_services_per_year']
         widgets = {
             'notes': forms.Textarea(attrs={'rows': 2}),
+            'yard_sqft': forms.NumberInput(attrs={'min': 1, 'placeholder': 'e.g. 5000'}),
             'fertilization_services_per_year': forms.NumberInput(attrs={'min': 1, 'max': 12, 'placeholder': 'e.g. 4'}),
         }
         help_texts = {
+            'yard_sqft': 'Lawn square footage. Used to auto-calculate fertilizer quantities and pricing.',
             'fertilization_services_per_year': 'For fertilization programs: number of applications per year. Enables smart scheduling with other fertilization clients.',
         }
 

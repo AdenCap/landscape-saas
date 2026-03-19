@@ -15,6 +15,16 @@
       {{ form.has_dog }}{{ form.has_dog.label_tag }}{{ form.has_dog.errors }}
     </div>
     <div class="field">{{ form.notes.label_tag }}{{ form.notes }}{{ form.notes.errors }}</div>
+
+    <hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;">
+    <h3 style="font-size: 15px; margin: 0 0 14px 0;">Lawn &amp; Fertilization</h3>
+
+    <div class="field">
+      {{ form.yard_sqft.label_tag }}
+      {{ form.yard_sqft }}
+      {% if form.yard_sqft.help_text %}<p class="help">{{ form.yard_sqft.help_text }}</p>{% endif %}
+      {{ form.yard_sqft.errors }}
+    </div>
     <div class="field">
       {{ form.fertilization_services_per_year.label_tag }}
       {{ form.fertilization_services_per_year }}

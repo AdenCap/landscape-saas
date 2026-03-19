@@ -176,9 +176,14 @@ class Property(models.Model):
     gate_code = models.CharField(max_length=50, blank=True)
     has_dog = models.BooleanField(default=False)
 
-    lawn_square_feet = models.PositiveIntegerField(
-        null=True, blank=True,
-        help_text="Total lawn area in square feet. Used for fertilization calculations and auto-pricing."
+    # Yard / lot square footage — used for fertilization product quantity
+    # calculations and per-sqft pricing. Optional because not every client
+    # needs lawn services.
+    yard_sqft = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Yard sq ft",
+        help_text="Lawn square footage. Used to auto-calculate fertilizer quantities and per-sqft pricing.",
     )
 
     # Fertilization / seasonal program: number of applications per year (e.g. 4). Used for "schedule fertilization" to suggest dates and group with other clients.

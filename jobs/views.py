@@ -1814,6 +1814,23 @@ def fertilization_schedule(request):
 
     services = list(ServiceTemplate.objects.filter(business=business, active=True).order_by("name"))
     rows = [{"property": p, "dates": dates_by_n.get(p.fertilization_services_per_year, [])} for p in properties]
+
+    # ------------------------------------------------------------------
+    # Daily product-needs summary: for each date, sum up the total sqft
+    # so the user knows how many pounds of product to buy.
+    # ------------------------------------------------------------------
+    daily_needs = {}  # date -> {total_sqft, property_count, properties_missing_sqft}
+    for p in properties:
+        for d in dates_by_n.get(p.fertilization_services_per_year, []):
+            if d not in daily_needs:
+                daily_needs[d] = {"total_sqft": 0, "property_count": 0, "missing_sqft": 0}
+            daily_needs[d]["property_count"] += 1
+            if p.yard_sqft:
+                daily_needs[d]["total_sqft"] += p.yard_sqft
+            else:
+                daily_needs[d]["missing_sqft"] += 1
+    daily_needs_sorted = sorted(daily_needs.items())
+
     return render(request, "jobs/fertilization_schedule.html", {
         "properties": properties,
         "rows": rows,
@@ -1823,6 +1840,7 @@ def fertilization_schedule(request):
         "services": services,
         "start_month": start_m,
         "end_month": end_m,
+        "daily_needs": daily_needs_sorted,
     })
 
 # Real-time tracking API endpoints
@@ -1831,27 +1849,27 @@ def fertilization_schedule(request):
 def update_job_location(request, job_id):
     """Update technician location and ETA for a job (for customer tracking)."""
     job = get_object_or_404(Job, id=job_id)
-    
+
     # Verify user has access (assigned to job or is owner)
     business = get_business(request)
     if not business or job.property.customer.business != business:
         return JsonResponse({"error": "Unauthorized"}, status=403)
-    
+
     if job.assigned_to != request.user and job.assigned_crew and request.user not in job.assigned_crew.members.all() and request.user.role != 'owner':
         return JsonResponse({"error": "Not assigned to this job"}, status=403)
-    
+
     try:
         latitude = float(request.POST.get('latitude', 0))
         longitude = float(request.POST.get('longitude', 0))
         eta_minutes = int(request.POST.get('eta_minutes', 0))
-        
+
         job.technician_latitude = latitude
         job.technician_longitude = longitude
         if eta_minutes > 0:
             job.estimated_arrival_time = timezone.now() + timedelta(minutes=eta_minutes)
         job.technician_location_updated_at = timezone.now()
         job.save(update_fields=['technician_latitude', 'technician_longitude', 'estimated_arrival_time', 'technician_location_updated_at'])
-        
+
         return JsonResponse({"success": True, "eta": job.estimated_arrival_time.isoformat() if job.estimated_arrival_time else None})
     except (ValueError, TypeError) as e:
         return JsonResponse({"error": str(e)}, status=400)
@@ -1864,13 +1882,13 @@ def get_job_tracking(request, job_id):
     business = get_business(request)
     if not business:
         return JsonResponse({"error": "No business"}, status=403)
-    
+
     job = get_object_or_404(Job, id=job_id)
-    
+
     # Verify job belongs to business
     if job.property.customer.business != business:
         return JsonResponse({"error": "Unauthorized"}, status=403)
-    
+
     data = {
         "status": job.status,
         "has_location": bool(job.technician_latitude and job.technician_longitude),
@@ -1881,5 +1899,5 @@ def get_job_tracking(request, job_id):
         "assigned_to": job.assigned_to.get_full_name() if job.assigned_to else None,
         "assigned_crew": job.assigned_crew.name if job.assigned_crew else None,
     }
-    
+
     return JsonResponse(data)
