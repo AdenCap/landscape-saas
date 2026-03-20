@@ -186,6 +186,14 @@ class Property(models.Model):
         help_text="Lawn square footage. Used to auto-calculate fertilizer quantities and per-sqft pricing.",
     )
 
+    # Saved polygon coordinates from the satellite measurement tool.
+    # Stored as JSON: [[{lat, lng}, ...], ...] — one list per polygon.
+    lawn_polygons = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Saved polygon coordinates from satellite measurement tool.",
+    )
+
     # Fertilization / seasonal program: number of applications per year (e.g. 4). Used for "schedule fertilization" to suggest dates and group with other clients.
     fertilization_services_per_year = models.PositiveSmallIntegerField(
         null=True,

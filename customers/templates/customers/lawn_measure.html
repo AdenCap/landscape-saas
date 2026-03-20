@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+  <div>
+    <h1>Measure Lawn</h1>
+    <p>{{ property.address }} &mdash; {{ customer.name }}</p>
+  </div>
+  <a href="{% url 'customer_detail' customer.id %}" class="btn btn-secondary">&larr; Back</a>
+</div>
+
+{% if not google_maps_key %}
+{# ── No API key fallback ─────────────────────────────────────── #}
+<div class="card" style="max-width: 600px;">
+  <h2 style="font-size: 16px; margin: 0 0 10px 0;">Google Maps API key required</h2>
+  <p class="muted">To use satellite lawn measurement, add your Google Maps API key:</p>
+  <ol style="margin: 12px 0; padding-left: 20px; color: var(--text-muted); font-size: 14px; line-height: 1.8;">
+    <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="link-primary">Google Cloud Console</a></li>
+    <li>Create or select a project</li>
+    <li>Enable <strong>Maps JavaScript API</strong></li>
+    <li>Create an API key</li>
+    <li>Add <code>GOOGLE_MAPS_API_KEY=your-key-here</code> to your <code>.env</code> file</li>
+    <li>Restart the server</li>
+  </ol>
+  <p class="muted" style="font-size: 13px;">Google offers $200/month free credit (~28,000 map loads). For a small landscaping business this is effectively free.</p>
+</div>
+
+{% elif not lat or not lng %}
+{# ── Geocoding failed fallback ───────────────────────────────── #}
+<div class="card" style="max-width: 600px;">
+  <h2 style="font-size: 16px; margin: 0 0 10px 0;">Could not locate property</h2>
+  <p class="muted">We couldn't find coordinates for <strong>{{ property.address }}</strong>. Please make sure the address is complete (including city, state, zip) and try again.</p>
+  <a href="{% url 'property_edit' customer.id property.id %}" class="btn btn-primary" style="margin-top: 12px;">Edit Property Address</a>
+</div>
+
+{% else %}
+{# ── Main measurement interface ──────────────────────────────── #}
+<div class="measure-container">
+  {# ── Toolbar ─────────────────────────────────────────────────── #}
+  <div class="measure-toolbar">
+    <div class="toolbar-left">
+      <button type="button" class="btn btn-primary btn-sm" id="btn-draw" title="Draw a polygon around the lawn area">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/></svg>
+        Draw polygon
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-delete" disabled title="Select a polygon then click to delete it">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        Delete
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-clear" title="Remove all polygons">Clear all</button>
+    </div>
+    <div class="toolbar-right">
+      <div class="area-readout">
+        <span class="area-label">Total area</span>
+        <span class="area-value" id="total-area">{% if property.yard_sqft %}{{ property.yard_sqft|floatformat:0 }}{% else %}0{% endif %} sq ft</span>
+      </div>
+    </div>
+  </div>
+
+  {# ── Map ─────────────────────────────────────────────────────── #}
+  <div id="map" style="width: 100%; height: 65vh; min-height: 450px; border-radius: 10px; border: 1px solid var(--border);"></div>
+
+  {# ── Polygon count + save ────────────────────────────────────── #}
+  <div class="measure-footer">
+    <div class="muted" style="font-size: 13px;">
+      <span id="polygon-count">0</span> polygon(s) drawn
+      <span class="muted" style="margin-left: 12px;">Tip: draw separate polygons for front &amp; back yard</span>
+    </div>
+    <form method="post" id="save-form">
+      {% csrf_token %}
+      <input type="hidden" name="yard_sqft" id="input-sqft" value="{{ property.yard_sqft|default:'0' }}">
+      <input type="hidden" name="lawn_polygons" id="input-polygons" value="">
+      <button type="submit" class="btn btn-primary" id="btn-save">
+        Save measurement
+      </button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<style>
+.measure-container { max-width: 1200px; }
+.measure-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 10px; margin-bottom: 12px;
+}
+.toolbar-left { display: flex; gap: 8px; flex-wrap: wrap; }
+.area-readout {
+  display: flex; flex-direction: column; align-items: flex-end;
+}
+.area-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.area-value { font-size: 22px; font-weight: 700; color: var(--primary); }
+.measure-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 12px; flex-wrap: wrap; gap: 12px;
+}
+/* Polygon style overrides for dark theme */
+#map .gm-style { border-radius: 10px; }
+</style>
+
+{% if google_maps_key and lat and lng %}
+<script>
+var polygons = [];
+var selectedPolygon = null;
+var map, drawingManager;
+var savedPolygons = {{ saved_polygons_json|safe }};
+
+function initMap() {
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: { lat: {{ lat }}, lng: {{ lng }} },
+    zoom: 20,
+    mapTypeId: 'hybrid',
+    tilt: 0,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: true,
+  });
+
+  drawingManager = new google.maps.drawing.DrawingManager({
+    drawingMode: null,
+    drawingControl: false,
+    polygonOptions: {
+      fillColor: '#22c55e',
+      fillOpacity: 0.35,
+      strokeColor: '#22c55e',
+      strokeWeight: 2,
+      editable: true,
+      draggable: true,
+      zIndex: 1,
+    },
+  });
+  drawingManager.setMap(map);
+
+  google.maps.event.addListener(drawingManager, 'overlaycomplete', function(event) {
+    if (event.type === 'polygon') {
+      var polygon = event.overlay;
+      drawingManager.setDrawingMode(null);
+      addPolygon(polygon);
+    }
+  });
+
+  // Load saved polygons
+  if (savedPolygons && savedPolygons.length > 0) {
+    savedPolygons.forEach(function(coords) {
+      var path = coords.map(function(c) { return new google.maps.LatLng(c.lat, c.lng); });
+      var polygon = new google.maps.Polygon({
+        paths: path,
+        fillColor: '#22c55e',
+        fillOpacity: 0.35,
+        strokeColor: '#22c55e',
+        strokeWeight: 2,
+        editable: true,
+        draggable: true,
+        zIndex: 1,
+        map: map,
+      });
+      addPolygon(polygon);
+    });
+  }
+
+  // Drop a marker on the property address
+  new google.maps.Marker({
+    position: { lat: {{ lat }}, lng: {{ lng }} },
+    map: map,
+    title: '{{ property.address|escapejs }}',
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 6,
+      fillColor: '#f59e0b',
+      fillOpacity: 1,
+      strokeColor: '#fff',
+      strokeWeight: 2,
+    },
+  });
+}
+
+function addPolygon(polygon) {
+  polygons.push(polygon);
+
+  // Click to select/deselect
+  google.maps.event.addListener(polygon, 'click', function() {
+    selectPolygon(polygon);
+  });
+
+  // Recalculate on path edit
+  var path = polygon.getPath();
+  google.maps.event.addListener(path, 'set_at', updateArea);
+  google.maps.event.addListener(path, 'insert_at', updateArea);
+  google.maps.event.addListener(path, 'remove_at', updateArea);
+  google.maps.event.addListener(polygon, 'dragend', updateArea);
+
+  selectPolygon(null);
+  updateArea();
+}
+
+function selectPolygon(polygon) {
+  // Deselect previous
+  if (selectedPolygon) {
+    selectedPolygon.setOptions({ strokeColor: '#22c55e', strokeWeight: 2 });
+  }
+  selectedPolygon = polygon;
+  if (polygon) {
+    polygon.setOptions({ strokeColor: '#f59e0b', strokeWeight: 3 });
+    document.getElementById('btn-delete').disabled = false;
+  } else {
+    document.getElementById('btn-delete').disabled = true;
+  }
+}
+
+function updateArea() {
+  var totalSqM = 0;
+  polygons.forEach(function(p) {
+    totalSqM += google.maps.geometry.spherical.computeArea(p.getPath());
+  });
+  var totalSqFt = Math.round(totalSqM * 10.7639);
+  document.getElementById('total-area').textContent = totalSqFt.toLocaleString() + ' sq ft';
+  document.getElementById('input-sqft').value = totalSqFt;
+  document.getElementById('polygon-count').textContent = polygons.length;
+}
+
+function serializePolygons() {
+  return JSON.stringify(polygons.map(function(p) {
+    var path = p.getPath();
+    var coords = [];
+    for (var i = 0; i < path.getLength(); i++) {
+      var pt = path.getAt(i);
+      coords.push({ lat: pt.lat(), lng: pt.lng() });
+    }
+    return coords;
+  }));
+}
+
+// Toolbar buttons
+document.getElementById('btn-draw').addEventListener('click', function() {
+  drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+  selectPolygon(null);
+});
+
+document.getElementById('btn-delete').addEventListener('click', function() {
+  if (selectedPolygon) {
+    selectedPolygon.setMap(null);
+    polygons = polygons.filter(function(p) { return p !== selectedPolygon; });
+    selectedPolygon = null;
+    document.getElementById('btn-delete').disabled = true;
+    updateArea();
+  }
+});
+
+document.getElementById('btn-clear').addEventListener('click', function() {
+  if (polygons.length === 0) return;
+  if (!confirm('Remove all polygons?')) return;
+  polygons.forEach(function(p) { p.setMap(null); });
+  polygons = [];
+  selectedPolygon = null;
+  document.getElementById('btn-delete').disabled = true;
+  updateArea();
+});
+
+// Serialize polygons on save
+document.getElementById('save-form').addEventListener('submit', function() {
+  document.getElementById('input-polygons').value = serializePolygons();
+});
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_key }}&libraries=drawing,geometry&callback=initMap" async defer></script>
+{% endif %}
+{% endblock %}

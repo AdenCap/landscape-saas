@@ -459,6 +459,67 @@ def property_edit(request, customer_id, property_id):
 
 @role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
+def property_measure_lawn(request, customer_id, property_id):
+    """Interactive satellite map for measuring lawn square footage via polygon drawing."""
+    import json
+    from decimal import Decimal
+
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+    prop = get_object_or_404(Property, id=property_id, customer=customer)
+
+    google_maps_key = getattr(settings, "GOOGLE_MAPS_API_KEY", "") or ""
+
+    # Auto-geocode if lat/lng missing
+    lat, lng = None, None
+    if prop.latitude is not None and prop.longitude is not None:
+        lat, lng = float(prop.latitude), float(prop.longitude)
+    elif prop.address and not lat:
+        try:
+            from property_estimator.views import _geocode_address
+            coords = _geocode_address(prop.address)
+            if coords:
+                lat, lng = coords
+                prop.latitude = Decimal(str(lat))
+                prop.longitude = Decimal(str(lng))
+                prop.save(update_fields=["latitude", "longitude"])
+        except Exception:
+            pass
+
+    if request.method == "POST":
+        try:
+            sqft = int(request.POST.get("yard_sqft", 0))
+        except (ValueError, TypeError):
+            sqft = 0
+        polygons_json = request.POST.get("lawn_polygons", "")
+        try:
+            polygons_data = json.loads(polygons_json) if polygons_json else None
+        except json.JSONDecodeError:
+            polygons_data = None
+
+        if sqft > 0:
+            prop.yard_sqft = sqft
+        prop.lawn_polygons = polygons_data
+        prop.save(update_fields=["yard_sqft", "lawn_polygons"])
+        messages.success(request, f"Lawn measurement saved — {sqft:,} sq ft.")
+        return redirect("customer_detail", customer_id=customer.id)
+
+    return render(request, "customers/lawn_measure.html", {
+        "customer": customer,
+        "property": prop,
+        "lat": lat,
+        "lng": lng,
+        "google_maps_key": google_maps_key,
+        "saved_polygons_json": json.dumps(prop.lawn_polygons) if prop.lawn_polygons else "null",
+    })
+
+
+@role_required("owner", "manager")
+@require_http_methods(["GET", "POST"])
 def contract_add(request, customer_id):
     business = _get_business(request)
     if not business:

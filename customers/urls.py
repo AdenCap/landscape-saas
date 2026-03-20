@@ -15,6 +15,7 @@ urlpatterns = [
     path("<int:customer_id>/sms/", views.customer_send_sms, name="customer_send_sms"),
     path("<int:customer_id>/properties/add/", views.property_add, name="property_add"),
     path("<int:customer_id>/properties/<int:property_id>/edit/", views.property_edit, name="property_edit"),
+    path("<int:customer_id>/properties/<int:property_id>/measure-lawn/", views.property_measure_lawn, name="property_measure_lawn"),
     path("<int:customer_id>/contracts/add/", views.contract_add, name="contract_add"),
     path("<int:customer_id>/contracts/<int:contract_id>/edit/", views.contract_edit, name="contract_edit"),
     path("<int:customer_id>/properties/<int:property_id>/photos/", views.property_photo_gallery, name="property_photo_gallery"),
