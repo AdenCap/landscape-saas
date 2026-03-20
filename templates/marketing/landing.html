@@ -1,120 +1,783 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}FieldLgx — Software for Landscaping & Lawn Care Businesses{% endblock %}
-{% block meta_description %}FieldLgx is the all-in-one platform for landscaping and lawn care businesses. Schedule crews, optimize routes, send invoices, manage properties, and grow your business from one place.{% endblock %}
+{% block title %}FieldLgx — Landscaping Business Software | Scheduling, Invoicing & CRM{% endblock %}
+{% block meta_description %}FieldLgx is all-in-one software for landscaping and lawn care businesses. Drag-and-drop scheduling, daily route planning, invoicing, estimates, crew management, fertilization tracking, and client CRM — from one platform.{% endblock %}
+{% block og_title %}FieldLgx — Landscaping Business Software | Scheduling, Invoicing & CRM{% endblock %}
+{% block og_description %}All-in-one software for landscaping businesses. Schedule crews, plan routes, send invoices, manage clients, and track fertilization programs from one platform.{% endblock %}
 
 {% block extra_css %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "FieldLgx",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "description": "All-in-one landscaping business software for scheduling, invoicing, route planning, crew management, fertilization tracking, estimates, and client CRM.",
+  "offers": [
+    {
+      "@type": "Offer",
+      "name": "Solo Starter",
+      "price": "{{ pricing.solo_price }}",
+      "priceCurrency": "USD",
+      "priceValidUntil": "2026-12-31",
+      "availability": "https://schema.org/InStock"
+    },
+    {
+      "@type": "Offer",
+      "name": "Pro All-Access",
+      "price": "{{ pricing.pro_price }}",
+      "priceCurrency": "USD",
+      "priceValidUntil": "2026-12-31",
+      "availability": "https://schema.org/InStock"
+    }
+  ],
+  "featureList": [
+    "Drag-and-Drop Calendar Scheduling",
+    "Daily Route Planning",
+    "Job Tracking with Completion Photos",
+    "Invoicing and Estimates",
+    "Property Estimator with Satellite Imagery",
+    "Client and Property CRM",
+    "Fertilization Program Management",
+    "Crew and Time Tracking",
+    "Financials and Reporting",
+    "Equipment and Fleet Tracking",
+    "Service Agreements",
+    "Checklists and Inspections",
+    "QuickBooks Integration",
+    "Stripe Payment Processing"
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is FieldLgx?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "FieldLgx is all-in-one business software built specifically for landscaping and lawn care companies. It handles scheduling, daily route planning, invoicing, estimates, crew management, fertilization programs, client CRM, and financial tracking from one platform."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How much does FieldLgx cost?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "FieldLgx offers two plans: Solo Starter at ${{ pricing.solo_price }}/month for owner-operators, and Pro All-Access at ${{ pricing.pro_price }}/month for growing businesses with crews. Both plans include a free trial with no credit card required."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does FieldLgx work on mobile devices?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, FieldLgx is fully mobile-optimized so your crews can clock in, view daily routes, complete jobs, upload photos, and track time from their phones in the field."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does FieldLgx integrate with QuickBooks and Stripe?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, FieldLgx integrates with QuickBooks for accounting sync and Stripe for online payment processing. Customers can also pay via Venmo, Zelle, or Cash App links on invoices."
+      }
+    }
+  ]
+}
+</script>
 <style>
-  /* Hero */
-  .hero { padding: var(--space-32) 0 var(--space-24); border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }
-  .hero::before { content: ""; position: absolute; width: 700px; height: 700px; border-radius: 50%; background: radial-gradient(circle, rgba(34,197,94,0.07), transparent 70%); top: -250px; right: -150px; pointer-events: none; }
-  .hero-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: var(--space-16); align-items: center; }
-  .hero-badge { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-radius: var(--radius-full); background: var(--glass); border: 1px solid var(--border); font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: var(--space-4); font-weight: 500; }
-  .hero-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 10px rgba(34,197,94,0.5); }
-  .hero h1 { font-size: var(--h1); line-height: var(--line-height-tight); letter-spacing: var(--letter-spacing-tight); margin: 0 0 var(--space-6); background: linear-gradient(180deg, var(--text) 0%, var(--text-secondary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  .hero-desc { font-size: var(--text-lg); line-height: var(--line-height-relaxed); color: var(--text-secondary); max-width: 560px; margin: 0 0 var(--space-8); }
-  .hero-cta { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
-  .hero-cta .btn-primary { position: relative; overflow: hidden; }
-  .hero-cta .btn-primary::before { content: ""; position: absolute; top: 0; left: -100%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent); animation: shimmer 3s ease-in-out infinite; pointer-events: none; }
+  /* ═══════════════════════════════════════════
+     TERMINAL-INSPIRED LANDING PAGE
+     Bold typography, immersive sections, scroll reveals
+     ═══════════════════════════════════════════ */
+
+  /* ---------- Hero ---------- */
+  .hero {
+    padding: clamp(100px, 14vh, 180px) 0 clamp(80px, 10vh, 140px);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    width: 1000px;
+    height: 1000px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(34,197,94,0.08), transparent 65%);
+    top: -400px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border-radius: var(--radius-full);
+    background: var(--glass);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 32px;
+    letter-spacing: 0.02em;
+  }
+  .hero-eyebrow::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 12px rgba(34,197,94,0.6);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 12px rgba(34,197,94,0.6); }
+    50% { opacity: 0.7; box-shadow: 0 0 20px rgba(34,197,94,0.9); }
+  }
+  .hero-headline {
+    font-size: clamp(48px, 6.5vw, 96px);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+    font-weight: 800;
+    margin: 0 0 32px;
+    max-width: 1000px;
+  }
+  .hero-headline .accent {
+    background: linear-gradient(135deg, #22c55e, #4ade80);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-sub {
+    font-size: clamp(18px, 2vw, 24px);
+    line-height: 1.5;
+    color: var(--text-secondary);
+    max-width: 640px;
+    margin: 0 0 40px;
+    font-weight: 400;
+  }
+  .hero-actions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .hero-actions .btn-primary {
+    font-size: 16px;
+    padding: 14px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-actions .btn-primary::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+    animation: shimmer 3s ease-in-out infinite;
+    pointer-events: none;
+  }
   @keyframes shimmer { 0% { left: -100%; } 50%,100% { left: 150%; } }
-  .hero-note { font-size: var(--text-sm); color: var(--text-muted); margin: 0; }
+  .hero-actions .btn-secondary {
+    font-size: 16px;
+    padding: 14px 32px;
+  }
+  .hero-note {
+    font-size: 14px;
+    color: var(--text-muted);
+  }
 
-  /* App preview */
-  .app-preview { border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg-surface, #111); box-shadow: var(--shadow-xl); overflow: hidden; }
-  .app-preview-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
-  .app-preview-dot { width: 8px; height: 8px; border-radius: 50%; }
-  .app-preview-dot:nth-child(1) { background: #ef4444; }
-  .app-preview-dot:nth-child(2) { background: #eab308; }
-  .app-preview-dot:nth-child(3) { background: #22c55e; }
-  .app-preview-url { margin-left: 12px; font-size: 11px; color: var(--text-muted); background: rgba(255,255,255,0.04); padding: 4px 12px; border-radius: 6px; flex: 1; }
-  .app-preview-body { padding: 16px; }
-  .mini-dash { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-  .mini-stat { padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,0.02); }
-  .mini-stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 4px; }
-  .mini-stat-value { font-size: 20px; font-weight: 700; margin: 0; }
-  .mini-stat-value.revenue { color: #4ade80; }
-  .mini-stat-value.jobs { color: var(--primary); }
-  .mini-stat-value.crew { color: #a78bfa; }
-  .mini-stat-value.invoices { color: #facc15; }
-  .mini-jobs { display: flex; flex-direction: column; gap: 6px; }
-  .mini-job { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.02); font-size: 12px; }
-  .mini-job-addr { color: var(--text); font-weight: 500; }
-  .mini-job-badge { font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight: 600; }
-  .mini-job-badge.sched { background: rgba(34,197,94,0.2); color: #6ee7b7; }
-  .mini-job-badge.prog { background: rgba(234,179,8,0.2); color: #fde047; }
-  .mini-job-badge.done { background: rgba(34,197,94,0.2); color: #86efac; }
+  /* ---------- Scroll word reveal ---------- */
+  .reveal-word {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s cubic-bezier(0,0,0.2,1), transform 0.5s cubic-bezier(0,0,0.2,1);
+  }
+  .reveal-word.on {
+    opacity: 1;
+    transform: translateY(0);
+  }
 
-  /* Sections */
-  .s-pain { padding: var(--space-24) 0; border-bottom: 1px solid var(--border); }
-  .s-features { padding: var(--space-24) 0; border-bottom: 1px solid var(--border); }
-  .s-how { padding: var(--space-24) 0; border-bottom: 1px solid var(--border); }
-  .s-pricing { padding: var(--space-24) 0; border-bottom: 1px solid var(--border); }
-  .s-cta { padding: var(--space-32) 0 var(--space-24); background: radial-gradient(800px 400px at 50% 0%, rgba(34,197,94,0.06), transparent 70%); }
-  .section-title { font-size: var(--h2); line-height: var(--line-height-tight); letter-spacing: var(--letter-spacing-tight); margin: 0 0 var(--space-4); color: var(--text); text-align: center; }
-  .section-lead { color: var(--text-secondary); font-size: var(--text-base); line-height: var(--line-height-relaxed); max-width: 640px; margin: 0 auto var(--space-10); text-align: center; }
+  /* ---------- Marquee / social proof ---------- */
+  .proof-strip {
+    padding: 48px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .proof-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+    flex-wrap: wrap;
+  }
+  .proof-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .proof-item svg { width: 18px; height: 18px; color: var(--primary); flex-shrink: 0; }
 
-  /* Pain cards */
-  .pain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
-  .pain-card { padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--gradient-surface); transition: all 0.2s ease; }
-  .pain-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: var(--shadow-md); }
-  .pain-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: var(--space-4); background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.15); }
-  .pain-icon svg { width: 18px; height: 18px; color: #f87171; }
-  .pain-card h3 { font-size: var(--text-base); font-weight: 600; margin: 0 0 var(--space-2); }
-  .pain-card p { margin: 0; color: var(--text-secondary); font-size: var(--text-sm); line-height: var(--line-height-relaxed); }
+  /* ---------- Problem statement ---------- */
+  .s-problem {
+    padding: clamp(80px, 10vh, 140px) 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .problem-text {
+    font-size: clamp(28px, 3.8vw, 56px);
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    font-weight: 700;
+    max-width: 1000px;
+    color: var(--text-muted);
+  }
+  .problem-text .highlight {
+    color: var(--text);
+  }
 
-  /* Feature cards */
-  .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
-  .feat-card { padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--gradient-surface); text-decoration: none; color: inherit; display: block; transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
-  .feat-card:hover { border-color: var(--primary); transform: translateY(-3px); box-shadow: var(--shadow-lg), 0 0 24px rgba(34,197,94,0.1); }
-  .feat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: var(--space-4); background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.15); }
-  .feat-icon svg { width: 20px; height: 20px; color: var(--primary); }
-  .feat-card h3 { font-size: var(--text-base); font-weight: 600; margin: 0 0 var(--space-2); color: var(--text); }
-  .feat-card p { margin: 0; color: var(--text-secondary); font-size: var(--text-sm); line-height: var(--line-height-relaxed); }
+  /* ---------- Feature accordion ---------- */
+  .s-features {
+    padding: clamp(80px, 10vh, 140px) 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .feat-header {
+    margin-bottom: 64px;
+  }
+  .feat-header h2 {
+    font-size: clamp(36px, 5vw, 72px);
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+    font-weight: 800;
+    margin: 0 0 20px;
+  }
+  .feat-header p {
+    font-size: clamp(16px, 1.6vw, 20px);
+    color: var(--text-secondary);
+    max-width: 560px;
+    line-height: 1.6;
+  }
+  .feat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .feat-item {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 0 24px;
+    padding: 36px 0;
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  .feat-item:last-child {
+    border-bottom: 1px solid var(--border);
+  }
+  .feat-item:hover {
+    background: rgba(34,197,94,0.02);
+  }
+  .feat-num {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+    padding-top: 4px;
+  }
+  .feat-content h3 {
+    font-size: clamp(20px, 2.5vw, 32px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .feat-content h3 .feat-arrow {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    color: var(--text-muted);
+    transition: transform 0.3s ease, color 0.3s ease;
+  }
+  .feat-item.open .feat-arrow {
+    transform: rotate(45deg);
+    color: var(--primary);
+  }
+  .feat-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease;
+    opacity: 0;
+  }
+  .feat-item.open .feat-body {
+    max-height: 200px;
+    opacity: 1;
+  }
+  .feat-body p {
+    margin: 16px 0 0;
+    font-size: clamp(15px, 1.4vw, 18px);
+    color: var(--text-secondary);
+    line-height: 1.65;
+    max-width: 640px;
+  }
 
-  /* Built-for section */
-  .s-built { padding: var(--space-24) 0; border-bottom: 1px solid var(--border); background: radial-gradient(600px 300px at 50% 100%, rgba(34,197,94,0.05), transparent 70%); }
-  .built-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); }
-  .built-tag { padding: var(--space-2) var(--space-5); border-radius: var(--radius-full); border: 1px solid var(--border); background: var(--gradient-surface); font-size: var(--text-sm); color: var(--text-secondary); font-weight: 500; transition: all 0.2s ease; }
-  .built-tag:hover { border-color: #22c55e; color: #22c55e; }
-  .built-tag svg { width: 14px; height: 14px; display: inline-block; vertical-align: -2px; margin-right: 6px; color: #22c55e; }
+  /* ---------- App preview ---------- */
+  .s-preview {
+    padding: clamp(80px, 10vh, 140px) 0;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .s-preview::before {
+    content: "";
+    position: absolute;
+    width: 800px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(34,197,94,0.06), transparent 65%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .preview-label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .preview-heading {
+    font-size: clamp(28px, 3.5vw, 48px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin: 0 0 48px;
+    max-width: 700px;
+  }
+  .app-mock {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-xl), 0 0 80px rgba(34,197,94,0.06);
+    overflow: hidden;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .app-mock-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.015);
+  }
+  .app-mock-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .app-mock-dot:nth-child(1) { background: #ef4444; }
+  .app-mock-dot:nth-child(2) { background: #eab308; }
+  .app-mock-dot:nth-child(3) { background: #22c55e; }
+  .app-mock-url {
+    margin-left: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.04);
+    padding: 5px 14px;
+    border-radius: 6px;
+    flex: 1;
+    font-family: var(--font-family);
+  }
+  .app-mock-body {
+    padding: 24px;
+  }
+  .mock-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .mock-stat {
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+  .mock-stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 6px;
+  }
+  .mock-stat-value {
+    font-size: 24px;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+  .v-revenue { color: #4ade80; }
+  .v-jobs { color: var(--primary); }
+  .v-crew { color: #a78bfa; }
+  .v-invoices { color: #facc15; }
+  .mock-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .mock-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    font-size: 13px;
+  }
+  .mock-row-addr { font-weight: 500; }
+  .mock-row-time { color: var(--text-muted); font-size: 12px; }
+  .mock-badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .mock-badge.done { background: rgba(34,197,94,0.15); color: #86efac; }
+  .mock-badge.prog { background: rgba(234,179,8,0.15); color: #fde047; }
+  .mock-badge.sched { background: rgba(34,197,94,0.1); color: #6ee7b7; }
 
-  /* How it works */
-  .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
-  .how-card { padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--gradient-surface); text-align: center; }
-  .how-num { display: inline-flex; width: 36px; height: 36px; border-radius: 50%; background: rgba(34,197,94,0.1); border: 1px solid var(--primary); align-items: center; justify-content: center; font-weight: 700; margin-bottom: var(--space-4); color: var(--primary); font-size: var(--text-sm); }
-  .how-card h3 { font-size: var(--text-base); font-weight: 600; margin: 0 0 var(--space-2); }
-  .how-card p { margin: 0; color: var(--text-secondary); font-size: var(--text-sm); line-height: var(--line-height-relaxed); }
+  /* ---------- Quote / testimonial ---------- */
+  .s-quote {
+    padding: clamp(80px, 10vh, 140px) 0;
+    border-bottom: 1px solid var(--border);
+    background: radial-gradient(600px 300px at 50% 100%, rgba(34,197,94,0.04), transparent 70%);
+  }
+  .quote-text {
+    font-size: clamp(24px, 3.2vw, 44px);
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    max-width: 900px;
+    margin: 0 0 32px;
+    font-style: italic;
+    color: var(--text-secondary);
+  }
+  .quote-text .em {
+    color: var(--text);
+    font-style: normal;
+  }
+  .quote-attr {
+    font-size: 15px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .quote-attr strong {
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
 
-  /* Pricing */
-  .price-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-6); max-width: 800px; margin: 0 auto; }
-  .price-card { padding: var(--space-8); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--gradient-surface); }
-  .price-card.featured { border-color: var(--primary); background: linear-gradient(180deg, rgba(34,197,94,0.06) 0%, var(--gradient-surface) 100%); box-shadow: var(--shadow-lg), 0 0 40px rgba(34,197,94,0.1); position: relative; }
-  .price-card.featured::before { content: "Most Popular"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 4px 16px; background: linear-gradient(135deg, #22c55e, #16a34a); border-radius: var(--radius-full); font-size: 11px; font-weight: 700; color: #fff; letter-spacing: 0.03em; text-transform: uppercase; }
-  .price-card h3 { font-size: var(--h3); font-weight: 700; margin: 0 0 var(--space-3); }
-  .price-amount { font-size: clamp(32px, 4vw, 44px); font-weight: 800; letter-spacing: var(--letter-spacing-tight); margin: 0 0 var(--space-1); }
-  .price-period { font-size: var(--text-sm); color: var(--text-muted); margin: 0 0 var(--space-4); }
-  .price-list { list-style: none; padding: 0; margin: 0; }
-  .price-list li { padding: var(--space-2) 0; color: var(--text-secondary); font-size: var(--text-sm); padding-left: var(--space-5); position: relative; }
-  .price-list li::before { content: "\2713"; position: absolute; left: 0; color: var(--primary); font-weight: 700; }
+  /* ---------- Built for ---------- */
+  .s-built {
+    padding: clamp(80px, 10vh, 140px) 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .built-label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .built-heading {
+    font-size: clamp(28px, 3.5vw, 48px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin: 0 0 48px;
+    max-width: 600px;
+  }
+  .built-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .built-card {
+    padding: 28px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--gradient-surface);
+    transition: border-color 0.25s ease, transform 0.25s ease;
+  }
+  .built-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-3px);
+  }
+  .built-card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(34,197,94,0.08);
+    border: 1px solid rgba(34,197,94,0.15);
+    margin-bottom: 16px;
+  }
+  .built-card-icon svg { width: 20px; height: 20px; color: var(--primary); }
+  .built-card h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 8px;
+  }
+  .built-card p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
 
-  /* Final CTA */
-  .cta-box { border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-16) var(--space-8); text-align: center; background: var(--gradient-surface); max-width: 800px; margin: 0 auto; position: relative; overflow: hidden; }
-  .cta-box::before { content: ""; position: absolute; top: 0; left: -100%; width: 200%; height: 1px; background: linear-gradient(90deg, transparent, var(--primary), transparent); animation: scanLine 4s ease-in-out infinite; }
-  @keyframes scanLine { 0% { left: -100%; } 100% { left: 100%; } }
-  .cta-box h2 { font-size: var(--h2); line-height: var(--line-height-tight); letter-spacing: var(--letter-spacing-tight); margin: 0 0 var(--space-4); }
-  .cta-box p { font-size: var(--text-lg); color: var(--text-secondary); line-height: var(--line-height-relaxed); margin: 0 auto var(--space-8); max-width: 560px; }
+  /* ---------- How it works ---------- */
+  .s-how {
+    padding: clamp(80px, 10vh, 140px) 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .how-label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .how-heading {
+    font-size: clamp(28px, 3.5vw, 48px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin: 0 0 64px;
+  }
+  .how-steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+  }
+  .how-step {
+    position: relative;
+  }
+  .how-step-num {
+    font-size: 64px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    color: rgba(34,197,94,0.12);
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+  .how-step h4 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 12px;
+  }
+  .how-step p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
 
+  /* ---------- Pricing ---------- */
+  .s-pricing {
+    padding: clamp(80px, 10vh, 140px) 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .pricing-label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .pricing-heading {
+    font-size: clamp(28px, 3.5vw, 48px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin: 0 0 12px;
+  }
+  .pricing-sub {
+    font-size: clamp(16px, 1.6vw, 20px);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0 0 64px;
+    max-width: 480px;
+  }
+  .price-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    max-width: 800px;
+  }
+  .price-card {
+    padding: 40px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--gradient-surface);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .price-card:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-md);
+    transform: none;
+  }
+  .price-card.featured {
+    border-color: var(--primary);
+    background: linear-gradient(180deg, rgba(34,197,94,0.05) 0%, transparent 100%);
+    box-shadow: var(--shadow-lg), 0 0 60px rgba(34,197,94,0.08);
+    position: relative;
+  }
+  .price-card.featured::before {
+    content: "Most Popular";
+    position: absolute;
+    top: -12px;
+    left: 32px;
+    padding: 4px 16px;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .price-card-name {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 16px;
+  }
+  .price-amount {
+    font-size: clamp(40px, 5vw, 56px);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin: 0 0 4px;
+  }
+  .price-period {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0 0 24px;
+  }
+  .price-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 28px;
+  }
+  .price-list li {
+    padding: 8px 0;
+    padding-left: 24px;
+    position: relative;
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .price-list li::before {
+    content: "\2713";
+    position: absolute;
+    left: 0;
+    color: var(--primary);
+    font-weight: 700;
+  }
+
+  /* ---------- Final CTA ---------- */
+  .s-cta {
+    padding: clamp(100px, 14vh, 200px) 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .s-cta::before {
+    content: "";
+    position: absolute;
+    width: 1200px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(34,197,94,0.07), transparent 65%);
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .cta-headline {
+    font-size: clamp(36px, 5vw, 72px);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    margin: 0 0 24px;
+    max-width: 800px;
+  }
+  .cta-sub {
+    font-size: clamp(16px, 1.6vw, 20px);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-width: 560px;
+    margin: 0 0 40px;
+  }
+  .cta-actions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .cta-actions .btn-primary {
+    font-size: 16px;
+    padding: 16px 36px;
+  }
+  .cta-actions .btn-secondary {
+    font-size: 16px;
+    padding: 16px 36px;
+  }
+
+  /* ---------- Responsive ---------- */
   @media (max-width: 1024px) {
-    .hero-grid { grid-template-columns: 1fr; }
-    .app-preview { max-width: 520px; }
+    .mock-grid { grid-template-columns: repeat(2, 1fr); }
+    .built-grid { grid-template-columns: repeat(2, 1fr); }
   }
   @media (max-width: 768px) {
-    .hero { padding: var(--space-20) 0 var(--space-16); }
-    .hero h1 { font-size: var(--h2); }
-    .hero-desc { font-size: var(--text-base); }
-    .pain-grid, .feat-grid, .how-grid, .price-grid { grid-template-columns: 1fr; }
-    .built-tags { gap: var(--space-2); }
-    .built-tag { font-size: var(--text-xs); padding: var(--space-2) var(--space-4); }
-    .mini-dash { grid-template-columns: 1fr 1fr; }
+    .hero { padding: 80px 0 60px; }
+    .hero-headline { font-size: clamp(36px, 9vw, 52px); }
+    .hero-actions { flex-direction: column; align-items: stretch; }
+    .hero-actions .btn { text-align: center; }
+    .problem-text { font-size: clamp(22px, 6vw, 36px); }
+    .feat-item { grid-template-columns: 40px 1fr; gap: 0 16px; padding: 24px 0; }
+    .feat-header h2 { font-size: clamp(28px, 8vw, 44px); }
+    .mock-grid { grid-template-columns: 1fr 1fr; }
+    .mock-row-time { display: none; }
+    .built-grid, .how-steps, .price-grid { grid-template-columns: 1fr; }
+    .price-card { padding: 28px; }
+    .quote-text { font-size: clamp(20px, 5vw, 32px); }
+    .s-problem, .s-features, .s-preview, .s-quote, .s-built, .s-how, .s-pricing, .s-cta {
+      padding: 64px 0;
+    }
   }
 </style>
 {% endblock %}
@@ -122,210 +785,317 @@
 {% block content %}
 <!-- HERO -->
 <section class="hero">
+  <div class="shell" data-r>
+    <span class="hero-eyebrow">Built for landscaping & lawn care</span>
+    <h1 class="hero-headline" data-reveal>
+      Run your entire<br>operation from<br><span class="accent">one platform.</span>
+    </h1>
+    <p class="hero-sub">FieldLgx replaces the spreadsheets, group texts, and disconnected tools. Schedule, route, invoice, and grow — from the office or the truck.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="/accounts/signup/" data-cta="hero-trial">Start Free Trial</a>
+      <a class="btn btn-secondary" href="/features/" data-cta="hero-features">See All Features</a>
+    </div>
+    <p class="hero-note">No credit card required. Free trial on every plan.</p>
+  </div>
+</section>
+
+<!-- SOCIAL PROOF STRIP -->
+<div class="proof-strip">
   <div class="shell">
-    <div class="hero-grid" data-r>
-      <div>
-        <span class="hero-badge">Built for landscaping & lawn care</span>
-        <h1>Run your landscaping business from one platform</h1>
-        <p class="hero-desc">FieldLgx replaces the spreadsheets, group texts, and disconnected tools. Schedule crews, optimize routes, manage properties, and invoice clients — all from one place built for landscapers.</p>
-        <div class="hero-cta">
-          <a class="btn btn-primary" href="/accounts/signup/" data-cta="hero-trial">Start Free Trial</a>
-          <a class="btn btn-secondary" href="/features/" data-cta="hero-features">See All Features</a>
-        </div>
-        <p class="hero-note">No credit card required. Try Solo Starter or Pro All-Access free.</p>
-      </div>
-      <div class="app-preview" data-r>
-        <div class="app-preview-bar">
-          <span class="app-preview-dot"></span>
-          <span class="app-preview-dot"></span>
-          <span class="app-preview-dot"></span>
-          <span class="app-preview-url">fieldlgx.com/dashboard</span>
-        </div>
-        <div class="app-preview-body">
-          <div class="mini-dash">
-            <div class="mini-stat">
-              <p class="mini-stat-label">Today's Revenue</p>
-              <p class="mini-stat-value revenue">$2,340</p>
-            </div>
-            <div class="mini-stat">
-              <p class="mini-stat-label">Jobs Today</p>
-              <p class="mini-stat-value jobs">12</p>
-            </div>
-            <div class="mini-stat">
-              <p class="mini-stat-label">Crews Active</p>
-              <p class="mini-stat-value crew">4</p>
-            </div>
-            <div class="mini-stat">
-              <p class="mini-stat-label">Invoices Sent</p>
-              <p class="mini-stat-value invoices">8</p>
-            </div>
-          </div>
-          <div class="mini-jobs">
-            <div class="mini-job">
-              <span class="mini-job-addr">142 Oak Ridge Dr</span>
-              <span class="mini-job-badge done">Completed</span>
-            </div>
-            <div class="mini-job">
-              <span class="mini-job-addr">87 Maple Ln</span>
-              <span class="mini-job-badge prog">In Progress</span>
-            </div>
-            <div class="mini-job">
-              <span class="mini-job-addr">305 Cedar Blvd</span>
-              <span class="mini-job-badge sched">Scheduled</span>
-            </div>
-            <div class="mini-job">
-              <span class="mini-job-addr">19 Birch Ct</span>
-              <span class="mini-job-badge sched">Scheduled</span>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div class="proof-row" data-r>
+      <span class="proof-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        SSL Encrypted
+      </span>
+      <span class="proof-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Scheduling + Routing
+      </span>
+      <span class="proof-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Invoicing + Payments
+      </span>
+      <span class="proof-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Crew Management
+      </span>
+      <span class="proof-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Satellite Estimator
+      </span>
     </div>
   </div>
-</section>
+</div>
 
-<!-- PAIN POINTS -->
-<section class="s-pain">
+<!-- PROBLEM STATEMENT -->
+<section class="s-problem">
   <div class="shell" data-r>
-    <h2 class="section-title">Sound familiar?</h2>
-    <p class="section-lead">Most landscaping business owners juggle too many tools and still lose track of jobs and money.</p>
-    <div class="pain-grid">
-      <div class="pain-card">
-        <div class="pain-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        </div>
-        <h3>Jobs fall through the cracks</h3>
-        <p>When your schedule lives in texts and spreadsheets, something always gets missed. Clients notice before you do.</p>
-      </div>
-      <div class="pain-card">
-        <div class="pain-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        </div>
-        <h3>Invoices go out late</h3>
-        <p>You finish the job on Friday but don't bill until the following week. That delay costs you thousands each season.</p>
-      </div>
-      <div class="pain-card">
-        <div class="pain-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <h3>Crews have no visibility</h3>
-        <p>Your crew doesn't know what's next until you text them. They can't see the schedule, the route, or mark jobs done from the field.</p>
-      </div>
-    </div>
+    <p class="problem-text" data-reveal>
+      You started a landscaping business to work outside, not to <span class="highlight">drown in spreadsheets.</span> But every season it's the same — <span class="highlight">missed jobs, late invoices,</span> crews texting for directions, and no clear picture of whether you're actually <span class="highlight">making money.</span>
+    </p>
   </div>
 </section>
 
-<!-- FEATURES -->
+<!-- FEATURE ACCORDION -->
 <section class="s-features">
+  <div class="shell">
+    <div class="feat-header" data-r>
+      <h2>Everything<br>connected.</h2>
+      <p>Schedule a job, assign it to a crew, build the route, and invoice when it's done. No more copy-pasting between apps.</p>
+    </div>
+    <div class="feat-list" data-r>
+      <div class="feat-item open" data-accordion>
+        <span class="feat-num">01</span>
+        <div class="feat-content">
+          <h3>
+            Drag-and-Drop Calendar
+            <svg class="feat-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </h3>
+          <div class="feat-body">
+            <p>Schedule and reschedule jobs with drag-and-drop. Day, week, and month views with crew filtering. Recurring jobs auto-generate so nothing falls through the cracks.</p>
+          </div>
+        </div>
+      </div>
+      <div class="feat-item" data-accordion>
+        <span class="feat-num">02</span>
+        <div class="feat-content">
+          <h3>
+            Daily Routes
+            <svg class="feat-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </h3>
+          <div class="feat-body">
+            <p>Build daily route sheets for every crew. Reorder stops with drag-and-drop, then open each address in Google Maps with one tap. Crews know exactly where to go next.</p>
+          </div>
+        </div>
+      </div>
+      <div class="feat-item" data-accordion>
+        <span class="feat-num">03</span>
+        <div class="feat-content">
+          <h3>
+            Job Tracking
+            <svg class="feat-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </h3>
+          <div class="feat-body">
+            <p>Crew starts a job, adds notes, uploads a completion photo, and marks it done — all from their phone in the field. You see it all in real time.</p>
+          </div>
+        </div>
+      </div>
+      <div class="feat-item" data-accordion>
+        <span class="feat-num">04</span>
+        <div class="feat-content">
+          <h3>
+            Invoicing & Estimates
+            <svg class="feat-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </h3>
+          <div class="feat-body">
+            <p>Create invoices from completed jobs, email them with one click, and accept payment via Stripe, Venmo, Zelle, or Cash App. Estimates convert to jobs when approved.</p>
+          </div>
+        </div>
+      </div>
+      <div class="feat-item" data-accordion>
+        <span class="feat-num">05</span>
+        <div class="feat-content">
+          <h3>
+            Property Estimator
+            <svg class="feat-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </h3>
+          <div class="feat-body">
+            <p>Measure properties with satellite imagery. Generate accurate estimates for lawn care, mulch, fertilization, and landscaping in minutes, not hours.</p>
+          </div>
+        </div>
+      </div>
+      <div class="feat-item" data-accordion>
+        <span class="feat-num">06</span>
+        <div class="feat-content">
+          <h3>
+            Client & Property CRM
+            <svg class="feat-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </h3>
+          <div class="feat-body">
+            <p>Every client and property in one place — job history, invoices, notes, and messaging. Search from the field or office in seconds.</p>
+          </div>
+        </div>
+      </div>
+      <div class="feat-item" data-accordion>
+        <span class="feat-num">07</span>
+        <div class="feat-content">
+          <h3>
+            Fertilization Programs
+            <svg class="feat-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </h3>
+          <div class="feat-body">
+            <p>Track application schedules, products, and compliance for lawn treatment programs. Enroll customers, manage rounds, and grow recurring revenue year-round.</p>
+          </div>
+        </div>
+      </div>
+      <div class="feat-item" data-accordion>
+        <span class="feat-num">08</span>
+        <div class="feat-content">
+          <h3>
+            Crew & Time Tracking
+            <svg class="feat-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </h3>
+          <div class="feat-body">
+            <p>GPS time clock, timesheets, payroll tracking, and role-based permissions. Owners, managers, and crew each see exactly what they need.</p>
+          </div>
+        </div>
+      </div>
+      <div class="feat-item" data-accordion>
+        <span class="feat-num">09</span>
+        <div class="feat-content">
+          <h3>
+            Financials & Reporting
+            <svg class="feat-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </h3>
+          <div class="feat-body">
+            <p>Revenue breakdown, expense tracking, receipt uploads with auto-parsing, and job profitability. Know exactly where your money goes every season.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- APP PREVIEW -->
+<section class="s-preview">
+  <div class="shell">
+    <p class="preview-label" data-r>The Dashboard</p>
+    <h2 class="preview-heading" data-r>Your entire day,<br>at a glance.</h2>
+    <div class="app-mock" data-r>
+      <div class="app-mock-bar">
+        <span class="app-mock-dot"></span>
+        <span class="app-mock-dot"></span>
+        <span class="app-mock-dot"></span>
+        <span class="app-mock-url">fieldlgx.com/dashboard</span>
+      </div>
+      <div class="app-mock-body">
+        <div class="mock-grid">
+          <div class="mock-stat">
+            <p class="mock-stat-label">Today's Revenue</p>
+            <p class="mock-stat-value v-revenue">$2,340</p>
+          </div>
+          <div class="mock-stat">
+            <p class="mock-stat-label">Jobs Today</p>
+            <p class="mock-stat-value v-jobs">12</p>
+          </div>
+          <div class="mock-stat">
+            <p class="mock-stat-label">Crews Active</p>
+            <p class="mock-stat-value v-crew">4</p>
+          </div>
+          <div class="mock-stat">
+            <p class="mock-stat-label">Invoices Sent</p>
+            <p class="mock-stat-value v-invoices">8</p>
+          </div>
+        </div>
+        <div class="mock-rows">
+          <div class="mock-row">
+            <span class="mock-row-addr">142 Oak Ridge Dr</span>
+            <span class="mock-row-time">8:00 AM</span>
+            <span class="mock-badge done">Completed</span>
+          </div>
+          <div class="mock-row">
+            <span class="mock-row-addr">87 Maple Ln</span>
+            <span class="mock-row-time">10:30 AM</span>
+            <span class="mock-badge prog">In Progress</span>
+          </div>
+          <div class="mock-row">
+            <span class="mock-row-addr">305 Cedar Blvd</span>
+            <span class="mock-row-time">1:00 PM</span>
+            <span class="mock-badge sched">Scheduled</span>
+          </div>
+          <div class="mock-row">
+            <span class="mock-row-addr">19 Birch Ct</span>
+            <span class="mock-row-time">3:00 PM</span>
+            <span class="mock-badge sched">Scheduled</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUOTE -->
+<section class="s-quote">
   <div class="shell" data-r>
-    <h2 class="section-title">One platform, everything connected</h2>
-    <p class="section-lead">Schedule a job, assign it to a crew, optimize the route, and invoice when it's done — no more copy-pasting between apps.</p>
-    <div class="feat-grid">
-      <a href="/features/calendar/" class="feat-card">
-        <div class="feat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        </div>
-        <h3>Drag-and-Drop Calendar</h3>
-        <p>Schedule and reschedule jobs with drag-and-drop. Day, week, and month views with crew filtering built in.</p>
-      </a>
-      <a href="/features/daily-routes/" class="feat-card">
-        <div class="feat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        </div>
-        <h3>Route Optimization</h3>
-        <p>See today's stops in order, minimize drive time between properties, and open each address in Maps with one tap.</p>
-      </a>
-      <a href="/features/jobs/" class="feat-card">
-        <div class="feat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        </div>
-        <h3>Job Tracking</h3>
-        <p>Crew starts a job, adds notes, uploads a completion photo, and marks it done — all from their phone in the field.</p>
-      </a>
-      <a href="/features/estimator/" class="feat-card">
-        <div class="feat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        </div>
-        <h3>Property Estimator</h3>
-        <p>Measure properties with satellite imagery and generate accurate estimates. Quote lawn care, mulch, and fertilization in minutes.</p>
-      </a>
-      <a href="/features/invoices/" class="feat-card">
-        <div class="feat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-        </div>
-        <h3>Invoices & Estimates</h3>
-        <p>Create invoices from completed jobs, email them with one click, and accept payment via Stripe, Venmo, Zelle, or Cash App.</p>
-      </a>
-      <a href="/features/clients/" class="feat-card">
-        <div class="feat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        </div>
-        <h3>Client & Property CRM</h3>
-        <p>Every client and property in one place — job history, invoices, notes, and messaging. Quick-search from the field or office.</p>
-      </a>
-      <a href="/features/" class="feat-card">
-        <div class="feat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        </div>
-        <h3>Recurring Jobs</h3>
-        <p>Set up weekly mowing, bi-weekly maintenance, or custom schedules. Jobs auto-generate so nothing falls through the cracks.</p>
-      </a>
-      <a href="/features/" class="feat-card">
-        <div class="feat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        </div>
-        <h3>Fertilization Tracking</h3>
-        <p>Track application schedules, products, and compliance for lawn treatment programs. Keep your fertilization revenue growing year-round.</p>
-      </a>
-      <a href="/features/employee-management/" class="feat-card">
-        <div class="feat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <h3>Crew Management</h3>
-        <p>Time clock, timesheets, payroll tracking, and role-based permissions. Owners, managers, and crew each see what they need.</p>
-      </a>
-    </div>
-    <div class="text-center" style="margin-top: var(--space-8);">
-      <a href="/features/" class="btn btn-secondary" data-cta="all-features">View all features</a>
-    </div>
+    <p class="quote-text">
+      <span class="em">The best software</span> for landscaping companies isn't a generic project manager with a green skin. It's a tool <span class="em">built from day one</span> for route planning, crew coordination, property management, and seasonal billing.
+    </p>
+    <p class="quote-attr"><strong>FieldLgx</strong> — Purpose-built for the green industry</p>
   </div>
 </section>
 
 <!-- BUILT FOR -->
 <section class="s-built">
-  <div class="shell" data-r>
-    <h2 class="section-title">Purpose-built for landscaping businesses</h2>
-    <p class="section-lead">Not a generic tool stretched to fit. FieldLgx is designed from the ground up for the way landscaping companies actually work — route planning, crew coordination, property management, and seasonal billing.</p>
-    <div class="built-tags">
-      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Lawn Care</span>
-      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Full-Service Landscaping</span>
-      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Fertilization & Weed Control</span>
-      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"/><path d="M23 13v-2"/><line x1="10" y1="12" x2="10" y2="12.01"/></svg>Hardscaping</span>
-      <span class="built-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Snow Removal</span>
+  <div class="shell">
+    <p class="built-label" data-r>Who It's For</p>
+    <h2 class="built-heading" data-r>Every service type,<br>one platform.</h2>
+    <div class="built-grid" data-r>
+      <div class="built-card">
+        <div class="built-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h4>Lawn Maintenance</h4>
+        <p>Weekly mowing, edging, and blowing. Recurring schedules that auto-generate jobs and invoices every cycle.</p>
+      </div>
+      <div class="built-card">
+        <div class="built-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h4>Full-Service Landscaping</h4>
+        <p>Design, install, and maintain. Track complex multi-day projects, materials, and crew assignments in one place.</p>
+      </div>
+      <div class="built-card">
+        <div class="built-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </div>
+        <h4>Fertilization & Weed Control</h4>
+        <p>Build multi-round programs, track products and rates, and enroll customers into recurring treatment plans.</p>
+      </div>
+      <div class="built-card">
+        <div class="built-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"/><path d="M23 13v-2"/><line x1="10" y1="12" x2="10" y2="12.01"/></svg>
+        </div>
+        <h4>Equipment & Fleet Tracking</h4>
+        <p>Log every mower, trailer, and truck. Track warranties, maintenance schedules, and service history so nothing breaks mid-season.</p>
+      </div>
+      <div class="built-card">
+        <div class="built-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <h4>Service Agreements</h4>
+        <p>Create seasonal contracts, lock in recurring revenue, and auto-generate jobs for each service visit defined in the agreement.</p>
+      </div>
+      <div class="built-card">
+        <div class="built-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <h4>Checklists & Inspections</h4>
+        <p>Build quality checklists for every job type. Crews complete inspections on-site, ensuring consistent service and accountability.</p>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- HOW IT WORKS -->
 <section class="s-how">
-  <div class="shell" data-r>
-    <h2 class="section-title">Up and running in minutes</h2>
-    <p class="section-lead">No training sessions or week-long setup. Import your clients and start scheduling today.</p>
-    <div class="how-grid">
-      <div class="how-card">
-        <div class="how-num">1</div>
-        <h3>Create your account</h3>
-        <p>Sign up, name your business, and invite your crew. Takes about two minutes.</p>
+  <div class="shell">
+    <p class="how-label" data-r>Getting Started</p>
+    <h2 class="how-heading" data-r>Up and running<br>in minutes.</h2>
+    <div class="how-steps" data-r>
+      <div class="how-step">
+        <div class="how-step-num">01</div>
+        <h4>Create your account</h4>
+        <p>Sign up, name your business, and invite your crew. Takes about two minutes. No IT department required.</p>
       </div>
-      <div class="how-card">
-        <div class="how-num">2</div>
-        <h3>Add clients and properties</h3>
-        <p>Enter your clients and service properties. Schedule recurring or one-time jobs on the calendar.</p>
+      <div class="how-step">
+        <div class="how-step-num">02</div>
+        <h4>Add clients and properties</h4>
+        <p>Enter your clients and service properties. Schedule recurring or one-time jobs on the drag-and-drop calendar.</p>
       </div>
-      <div class="how-card">
-        <div class="how-num">3</div>
-        <h3>Route, complete, invoice</h3>
-        <p>Crews see daily routes on their phone. When the job is done, invoice the client and get paid.</p>
+      <div class="how-step">
+        <div class="how-step-num">03</div>
+        <h4>Route, complete, invoice</h4>
+        <p>Crews see daily routes on their phone. When the job is done, invoice the client and get paid — same day.</p>
       </div>
     </div>
   </div>
@@ -333,41 +1103,43 @@
 
 <!-- PRICING -->
 <section class="s-pricing">
-  <div class="shell" data-r>
-    <h2 class="section-title">Simple pricing</h2>
-    <p class="section-lead">Start with a free trial. Upgrade when you're ready.</p>
-    <div class="price-grid">
+  <div class="shell">
+    <p class="pricing-label" data-r>Pricing</p>
+    <h2 class="pricing-heading" data-r>Simple, transparent pricing.</h2>
+    <p class="pricing-sub" data-r>Start with a free trial. Upgrade when you're ready. No contracts, no surprises.</p>
+    <div class="price-grid" data-r>
       <div class="price-card">
-        <h3>Solo Starter</h3>
+        <h3 class="price-card-name">Solo Starter</h3>
         <div class="price-amount">${{ pricing.solo_price }}</div>
         <p class="price-period">per month</p>
         <ul class="price-list">
           <li>Calendar scheduling</li>
           <li>Client & property management</li>
           <li>Invoices and estimates</li>
-          <li>Daily routes</li>
+          <li>Daily route planning</li>
           <li>Perfect for owner-operators</li>
         </ul>
+        <a class="btn btn-secondary w-full" href="/accounts/signup/" data-cta="pricing-solo" style="justify-content: center;">Start Free Trial</a>
       </div>
       <div class="price-card featured">
-        <h3>Pro All-Access</h3>
+        <h3 class="price-card-name">Pro All-Access</h3>
         <div class="price-amount">${{ pricing.pro_price }}</div>
         <p class="price-period">per month</p>
         <ul class="price-list">
           <li>Everything in Solo Starter</li>
-          <li>Crew management and time clock</li>
+          <li>Crew management & time clock</li>
           <li>Payroll and timesheets</li>
           <li>Property estimator with satellite imagery</li>
           <li>Fertilization tracking</li>
           <li>Financials and reporting</li>
-          <li>Automation (reminders, follow-ups, reviews)</li>
+          <li>Automation (reminders, follow-ups)</li>
           <li>QuickBooks and Stripe integrations</li>
         </ul>
+        <a class="btn btn-primary w-full" href="/accounts/signup/" data-cta="pricing-pro" style="justify-content: center;">Start Free Trial</a>
       </div>
     </div>
-    <div class="text-center" style="margin-top: var(--space-8);">
-      <a class="btn btn-primary" href="/accounts/signup/" data-cta="pricing-trial">Start Free Trial</a>
-      <a class="btn btn-secondary" href="/pricing/" data-cta="full-pricing" style="margin-left: var(--space-4);">See Full Pricing</a>
+    <div style="margin-top: 32px;">
+      <a href="/pricing/" class="btn btn-ghost" data-cta="full-pricing" style="color: var(--text-muted);">See full pricing details &rarr;</a>
     </div>
   </div>
 </section>
@@ -375,13 +1147,11 @@
 <!-- FINAL CTA -->
 <section class="s-cta">
   <div class="shell" data-r>
-    <div class="cta-box">
-      <h2>Ready to stop juggling spreadsheets?</h2>
-      <p>Join landscaping businesses running their entire operation from FieldLgx. Start your free trial — no credit card required.</p>
-      <div style="display: flex; gap: var(--space-4); justify-content: center; flex-wrap: wrap;">
-        <a class="btn btn-primary" href="/accounts/signup/" data-cta="final-trial" style="font-size: var(--text-base); padding: var(--space-4) var(--space-6);">Start Your Free Trial</a>
-        <a class="btn btn-secondary" href="/features/" style="font-size: var(--text-base); padding: var(--space-4) var(--space-6);">Explore Features</a>
-      </div>
+    <h2 class="cta-headline">Stop juggling.<br>Start <span class="accent">growing.</span></h2>
+    <p class="cta-sub">Join landscaping businesses running their entire operation from FieldLgx. Start your free trial today — no credit card required.</p>
+    <div class="cta-actions">
+      <a class="btn btn-primary" href="/accounts/signup/" data-cta="final-trial">Start Your Free Trial</a>
+      <a class="btn btn-secondary" href="/features/" data-cta="final-features">Explore Features</a>
     </div>
   </div>
 </section>
@@ -391,7 +1161,62 @@
 <script>
 (() => {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduce) return;
+
+  /* Word-by-word reveal animation */
+  document.querySelectorAll('[data-reveal]').forEach(el => {
+    const children = el.childNodes;
+    const fragment = document.createDocumentFragment();
+    let wordIndex = 0;
+
+    function processNode(node, parent) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const words = node.textContent.split(/(\s+)/);
+        words.forEach(word => {
+          if (/^\s+$/.test(word)) {
+            parent.appendChild(document.createTextNode(word));
+          } else if (word.length > 0) {
+            const span = document.createElement('span');
+            span.className = 'reveal-word' + (reduce ? ' on' : '');
+            span.style.transitionDelay = reduce ? '0ms' : (wordIndex * 40) + 'ms';
+            span.textContent = word;
+            parent.appendChild(span);
+            wordIndex++;
+          }
+        });
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const clone = node.cloneNode(false);
+        Array.from(node.childNodes).forEach(child => processNode(child, clone));
+        parent.appendChild(clone);
+      }
+    }
+
+    Array.from(children).forEach(child => processNode(child, fragment));
+    el.textContent = '';
+    el.appendChild(fragment);
+  });
+
+  if (!reduce && 'IntersectionObserver' in window) {
+    const revealIO = new IntersectionObserver((entries) => {
+      entries.forEach(en => {
+        if (en.isIntersecting) {
+          en.target.querySelectorAll('.reveal-word').forEach(w => w.classList.add('on'));
+          revealIO.unobserve(en.target);
+        }
+      });
+    }, { threshold: 0.2 });
+    document.querySelectorAll('[data-reveal]').forEach(el => revealIO.observe(el));
+  }
+
+  /* Feature accordion */
+  document.querySelectorAll('[data-accordion]').forEach(item => {
+    item.addEventListener('click', () => {
+      const wasOpen = item.classList.contains('open');
+      document.querySelectorAll('[data-accordion]').forEach(i => i.classList.remove('open'));
+      if (!wasOpen) item.classList.add('open');
+    });
+  });
+
+  /* Analytics: section views + scroll depth */
   const pushedDepth = {25: false, 50: false, 75: false, 100: false};
   const sections = [...document.querySelectorAll('section')];
   const seen = new WeakSet();
@@ -402,7 +1227,7 @@
         if (en.isIntersecting && !seen.has(en.target)) {
           seen.add(en.target);
           const h = en.target.querySelector('h2, h1');
-          push({event: 'pfo_section_view', section: h ? h.textContent.trim() : 'section'});
+          push({event: 'pfo_section_view', section: h ? h.textContent.trim().substring(0, 60) : 'section'});
         }
       });
     }, {threshold: 0.3});
