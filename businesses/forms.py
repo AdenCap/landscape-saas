@@ -152,10 +152,21 @@ class BusinessSettingsForm(forms.ModelForm):
                 self.fields["email_smtp_password"].widget.attrs["placeholder"] = "•••••••• (saved)"
 
     def save(self, commit=True):
+        # Capture the existing password BEFORE super().save() overwrites it with
+        # the empty submitted value (PasswordInput sends "" when left blank).
+        existing_password = (
+            self.instance.email_smtp_password
+            if self.instance and self.instance.pk
+            else ""
+        )
         obj = super().save(commit=False)
         password = self.cleaned_data.get("email_smtp_password")
         if password:
+            # New password entered — encrypt and store it
             obj.email_smtp_password = encrypt_password(password)
+        else:
+            # Field left blank — preserve the existing encrypted password
+            obj.email_smtp_password = existing_password
         if commit:
             obj.save()
         return obj

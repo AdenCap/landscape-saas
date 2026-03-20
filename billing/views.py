@@ -852,7 +852,13 @@ def resend_invoice(request, invoice_id):
     from businesses.email_sender import send_business_email, is_email_configured, email_diagnostic
     if not is_email_configured(business):
         diag = email_diagnostic(business)
-        messages.error(request, diag["message"])
+        if "Gmail permission not granted" in diag.get("oauth_status", ""):
+            msg = "Gmail is linked but needs send permission. Go to Settings → Email and click 'Connect Gmail' to grant access."
+        elif "App Password is missing" in diag.get("smtp_status", ""):
+            msg = "Gmail address is saved but the App Password is missing. Go to Settings → Email and re-enter your App Password."
+        else:
+            msg = "Email isn't set up yet. Go to Settings → Email tab and connect Gmail or enter your App Password."
+        messages.error(request, msg)
         return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
     invoice.recompute_totals()
