@@ -97,7 +97,7 @@
     <div class="estimate-transfer" style="margin-bottom: 20px; padding: 12px; background: var(--surface-alt, #f8fafc); border-radius: 8px; border: 1px solid var(--border, #e2e8f0);">
       <label style="font-size: 13px; font-weight: 500; color: var(--text-muted); display: block; margin-bottom: 8px;">Transfer from accepted estimate</label>
       <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <select id="estimate-select" style="flex: 1; min-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+        <select id="estimate-select" style="flex: 1; width: 100%; min-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
           <option value="">— Select an estimate —</option>
           {% for est in accepted_estimates %}
           <option value="{{ est.id }}" data-customer="{{ est.customer_id }}" {% if loaded_estimate_id and loaded_estimate_id|stringformat:"s" == est.id|stringformat:"s" %}selected{% endif %}>#{{ est.id }} {{ est.title }} — ${{ est.total|floatformat:2 }} ({{ est.customer_name }})</option>
@@ -136,7 +136,7 @@
     </div>
     <button type="button" id="add-service-row" class="btn-add-service" title="Add another service">+ Add service</button>
 
-    <div style="margin-top: 28px; display: flex; gap: 12px;">
+    <div style="margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap;">
       <button type="submit" class="btn btn-primary">Create Job</button>
       <a href="/" class="btn btn-secondary">Cancel</a>
     </div>
@@ -166,6 +166,12 @@
   @media (max-width: 768px) {
     .job-create-datetime-row { grid-template-columns: 1fr; gap: 0; }
     .job-create-datetime-row .form-group { margin-bottom: var(--space-5); }
+    .form-group input, .form-group select, .form-group textarea { font-size: 16px; min-height: 44px; }
+    .form-row-service { flex-wrap: wrap; }
+    .form-row-service .flex-1 { max-width: none; flex: 1 1 80px; }
+    .form-row-service .flex-2 { flex: 1 1 100%; }
+    .btn { min-height: 44px; }
+    .quick-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   }
   .assignee-type-radio { list-style: none; padding: 0; margin: 0; display: flex; gap: 16px; flex-wrap: wrap; }
   .assignee-type-radio li { display: flex; align-items: center; gap: 6px; }

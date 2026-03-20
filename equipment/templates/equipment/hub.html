@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Equipment Tracker</h1>
+  <p>Track customer equipment, warranties, and service history</p>
+</div>
+
+{% if equipment_list %}
+<div class="card" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Equipment</th>
+        <th>Customer</th>
+        <th>Location</th>
+        <th>Warranty</th>
+        <th>Last Service</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for eq in equipment_list %}
+      <tr>
+        <td>
+          <strong>{{ eq.get_equipment_type_display }}</strong>
+          {% if eq.make or eq.model_name %}
+            <span style="color: var(--text-muted); font-size: 13px; display: block;">
+              {{ eq.make }}{% if eq.make and eq.model_name %} &middot; {% endif %}{{ eq.model_name }}
+            </span>
+          {% endif %}
+          {% if eq.serial_number %}
+            <span style="color: var(--text-muted); font-size: 12px; display: block;">SN: {{ eq.serial_number }}</span>
+          {% endif %}
+        </td>
+        <td>{{ eq.customer.name }}</td>
+        <td>
+          {% if eq.service_property %}{{ eq.service_property.address }}{% endif %}
+          {% if eq.location_in_property %}
+            <span style="color: var(--text-muted); font-size: 13px; display: block;">{{ eq.location_in_property }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if eq.warranty_expiry %}
+            {% if eq.warranty_active %}
+              <span style="color: var(--primary);">Active</span>
+              <span style="color: var(--text-muted); font-size: 12px; display: block;">Until {{ eq.warranty_expiry }}</span>
+            {% else %}
+              <span style="color: var(--text-muted);">Expired {{ eq.warranty_expiry }}</span>
+            {% endif %}
+          {% else %}
+            <span style="color: var(--text-muted);">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if eq.last_service_date %}
+            {{ eq.last_service_date }}
+          {% else %}
+            <span style="color: var(--text-muted);">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if eq.is_active %}
+            <span style="color: var(--primary);">Active</span>
+          {% else %}
+            <span style="color: var(--text-muted);">Inactive</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <p style="text-align: center; padding: 40px; color: var(--text-muted);">
+    No equipment tracked yet. Equipment records will appear here once added to customer profiles.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

@@ -20,7 +20,7 @@
       {% endfor %}
     </select>
     <input type="number" name="year" value="{{ year }}" placeholder="Year" min="2020" max="2030"
-      style="width: 90px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px;">
+      style="width: 100%; max-width: 90px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px;">
     <button type="submit" class="btn btn-secondary btn-sm">Apply</button>
     {% if category or year or job_id %}
     <a href="{% url 'financials:receipt_list' %}" class="btn btn-secondary btn-sm">Clear</a>
@@ -33,6 +33,7 @@
 </div>
 
 <div class="card">
+  <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
   <table class="data-table">
     <thead>
       <tr>
@@ -57,6 +58,7 @@
           {% else %}—{% endif %}
         </td>
         <td style="white-space: nowrap;">
+          <a href="{% url 'financials:receipt_edit' r.id %}" class="btn btn-secondary btn-sm">Edit</a>
           {% if r.file %}<a href="{% url 'financials:receipt_download' r.id %}" class="btn btn-secondary btn-sm">Download</a>{% endif %}
           <form method="post" action="{% url 'financials:receipt_delete' r.id %}" style="display: inline;" onsubmit="return confirm('Delete this receipt?');">
             {% csrf_token %}
@@ -69,6 +71,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 
 <style>
@@ -80,5 +83,10 @@
   .data-table tbody tr:nth-child(4){animation-delay:120ms}
   .data-table tbody tr:nth-child(n+5){animation-delay:160ms}
   @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  @media (max-width: 768px) {
+    .card form[method="get"] select,
+    .card form[method="get"] input[type="number"] { font-size: 16px; min-height: 44px; max-width: 100%; width: 100%; }
+    .card form[method="get"] .btn { min-height: 44px; }
+  }
 </style>
 {% endblock %}

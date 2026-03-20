@@ -199,8 +199,10 @@ class InvoiceLineItem(models.Model):
 
     @property
     def line_total(self):
-        if self.material_cost or self.labor_cost:
-            return self.material_cost + self.labor_cost
+        mc = self.material_cost or Decimal("0")
+        lc = self.labor_cost or Decimal("0")
+        if mc or lc:
+            return mc + lc
         return self.quantity * self.unit_price
 
     def save(self, *args, **kwargs):
@@ -380,8 +382,10 @@ class EstimateLineItem(models.Model):
     def line_total(self):
         if self.total_override is not None:
             return self.total_override
-        if self.material_cost or self.labor_cost:
-            return self.material_cost + self.labor_cost
+        mc = self.material_cost or Decimal("0")
+        lc = self.labor_cost or Decimal("0")
+        if mc or lc:
+            return mc + lc
         return self.quantity * self.unit_price
 
 

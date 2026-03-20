@@ -867,6 +867,10 @@ def start_job(request, job_id):
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
         return redirect("crew_today")
 
+    if job.status not in ("scheduled",):
+        messages.warning(request, "This job cannot be started (already in progress, completed, or skipped).")
+        return redirect("crew_today")
+
     job.status = "in_progress"
     job.save()
     return redirect("crew_today")
@@ -1510,6 +1514,7 @@ def meeting_edit(request, meeting_id):
     return render(request, "jobs/meeting_form.html", {"form": form, "meeting": meeting})
 
 
+@require_POST
 @role_required("owner", "manager")
 def meeting_delete(request, meeting_id):
     """Delete a meeting."""

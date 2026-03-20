@@ -12,7 +12,7 @@
 {% if is_owner and employees %}
 <div class="card" style="margin-bottom: 20px;">
   <label for="employee-select" class="form-label">Employee</label>
-  <select id="employee-select" class="form-control" style="max-width: 280px;" onchange="window.location.href='?user_id=' + this.value;">
+  <select id="employee-select" class="form-control" style="width: 100%; max-width: 280px;" onchange="window.location.href='?user_id=' + this.value;">
     {% for emp in employees %}
     <option value="{{ emp.id }}" {% if selected_user and selected_user.id == emp.id %}selected{% endif %}>
       {{ emp.get_full_name|default:emp.username }}
@@ -24,6 +24,7 @@
 
 <div class="card">
   <h2 class="card-title">{% if selected_user %}{{ selected_user.get_full_name|default:selected_user.username }}{% else %}Schedule{% endif %}</h2>
+  <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
   <table class="data-table">
     <thead>
       <tr>
@@ -44,6 +45,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 
 {% if not selected_user and is_owner %}

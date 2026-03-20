@@ -31,5 +31,9 @@
   .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
   .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 14px; }
   .form-error { color: #f87171; font-size: 13px; margin-top: 4px; }
+  @media (max-width: 768px) {
+    .form-group input, .form-group select, .form-group textarea { font-size: 16px; min-height: 44px; }
+    .btn { min-height: 44px; }
+  }
 </style>
 {% endblock %}

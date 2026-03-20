@@ -9,7 +9,7 @@
   <span style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
     <a href="{% url 'time_off_create' %}" class="btn btn-primary">+ Request time off</a>
     {% if is_owner and employees %}
-    <select class="form-control" style="max-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text);" onchange="if(this.value) window.location.href='{% url 'time_off_create' %}?user_id=' + this.value;">
+    <select class="form-control" style="width: 100%; max-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text);" onchange="if(this.value) window.location.href='{% url 'time_off_create' %}?user_id=' + this.value;">
       <option value="">Request for employee…</option>
       {% for emp in employees %}
       <option value="{{ emp.id }}">{{ emp.get_full_name|default:emp.username }}</option>
@@ -20,6 +20,7 @@
 </div>
 
 <div class="card">
+  <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
   <table class="data-table">
     <thead>
       <tr>
@@ -74,6 +75,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 
 <p style="margin-top: 16px;">
@@ -84,5 +86,9 @@
   .badge-success { background: rgba(34, 197, 94, 0.25); color: #86efac; }
   .badge-danger { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
   .badge-warning { background: rgba(234, 179, 8, 0.25); color: #fde047; }
+  @media (max-width: 768px) {
+    .btn { min-height: 44px; }
+    select.form-control { font-size: 16px; min-height: 44px; }
+  }
 </style>
 {% endblock %}

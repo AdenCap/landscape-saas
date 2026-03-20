@@ -327,6 +327,11 @@ a:hover {
   transform: translateY(-2px);
 }
 
+/* Cards with data tables: no lift on hover (table rows have their own hover) */
+.card:has(.data-table):hover {
+  transform: none;
+}
+
 /* Containers */
 .shell {
   max-width: 1200px;
@@ -592,6 +597,38 @@ a:hover {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
 }
+
+/* Status badges — used across invoice, estimate, agreement, and job status */
+.status-active, .status-paid, .status-completed { color: #86efac; }
+.status-draft, .status-scheduled { color: var(--text-muted); }
+.status-sent, .status-in-progress { color: #93c5fd; }
+.status-overdue, .status-expired { color: #fca5a5; }
+.status-void, .status-cancelled, .status-skipped { color: var(--text-disabled); text-decoration: line-through; }
+
+/* Empty state pattern */
+.empty-state {
+  text-align: center;
+  padding: var(--space-12) var(--space-6);
+  color: var(--text-muted);
+}
+.empty-state svg { margin-bottom: var(--space-4); opacity: 0.4; }
+.empty-state p { font-size: var(--text-base); margin-bottom: var(--space-3); }
+.empty-state a { color: var(--primary); font-weight: 500; }
+
+/* Row entrance animation — apply to data table bodies */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.data-table tbody tr {
+  animation: fadeSlideUp var(--motion-slow) var(--motion-ease-out) both;
+}
+.data-table tbody tr:nth-child(1) { animation-delay: 0ms; }
+.data-table tbody tr:nth-child(2) { animation-delay: 30ms; }
+.data-table tbody tr:nth-child(3) { animation-delay: 60ms; }
+.data-table tbody tr:nth-child(4) { animation-delay: 90ms; }
+.data-table tbody tr:nth-child(5) { animation-delay: 120ms; }
+.data-table tbody tr:nth-child(n+6) { animation-delay: 150ms; }
 
 /* ──────────────────────────────────────────
    FORM CONTROLS — Consistent, animated

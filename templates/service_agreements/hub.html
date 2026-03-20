@@ -9,6 +9,7 @@
 
 <div class="card" data-r style="padding:22px;">
   {% if agreements %}
+  <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
   <table class="data-table">
     <thead>
       <tr>
@@ -35,6 +36,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
   <p style="color:var(--muted);text-align:center;padding:40px 0;">No service agreements yet. Create your first maintenance plan.</p>
   {% endif %}

@@ -427,6 +427,30 @@ def job_add_material_cost(request, job_id):
 
 
 @role_required("owner")
+@require_http_methods(["GET", "POST"])
+def receipt_edit(request, receipt_id):
+    """Edit an existing receipt."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    receipt = get_object_or_404(Receipt, id=receipt_id, business=business)
+    if request.method == "POST":
+        form = ReceiptForm(request.POST, request.FILES, instance=receipt, business=business)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Receipt updated.")
+            return redirect("financials:receipt_list")
+    else:
+        form = ReceiptForm(instance=receipt, business=business)
+    return render(request, "financials/receipt_upload.html", {
+        "form": form,
+        "editing": True,
+        "receipt": receipt,
+    })
+
+
+@role_required("owner")
 def receipt_download(request, receipt_id):
     """Serve the receipt file for view/download."""
     business = _get_business(request)

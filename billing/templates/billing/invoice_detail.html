@@ -235,7 +235,7 @@
   .party-label { margin: 0 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
   .party-name { margin: 0 0 8px 0; font-size: 16px; font-weight: 600; }
   .party-detail { margin: 0 0 4px 0; font-size: 14px; color: var(--text-muted); }
-  .invoice-table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .invoice-table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .invoice-table { width: 100%; border-collapse: collapse; }
   .invoice-table th { text-align: left; padding: 16px 20px; background: var(--surface-alt); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; }
   .invoice-table td { padding: 16px 20px; border-bottom: 1px solid var(--border); }
@@ -265,6 +265,19 @@
   .invoice-custom-fields-form label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
   .invoice-custom-fields-form .form-control { width: 100%; padding: 8px 12px; font-size: 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
   .invoice-custom-fields-form button { margin-top: 8px; }
+  @media (max-width: 768px) {
+    .invoice-actions { flex-direction: column; align-items: stretch; }
+    .invoice-actions .btn { min-height: 44px; justify-content: center; text-align: center; }
+    .invoice-actions form { display: block; width: 100%; }
+    .invoice-actions form .btn { width: 100%; }
+    .dates-edit-form input[type="date"] { font-size: 16px; min-height: 44px; }
+    .pay-link-input { font-size: 16px; min-height: 44px; }
+    .pay-link-wrap { flex-direction: column; }
+    .pay-link-wrap .btn { min-height: 44px; width: 100%; justify-content: center; }
+    .invoice-meta-bar { gap: 16px; padding: 16px; }
+    .invoice-parties { grid-template-columns: 1fr; gap: 16px; }
+    .invoice-custom-fields-form .form-control { font-size: 16px; min-height: 44px; }
+  }
 </style>
 <script>
 (function() {

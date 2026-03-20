@@ -849,12 +849,10 @@ def resend_invoice(request, invoice_id):
         messages.error(request, f"{invoice.customer.name} has no email address. Add one in Clients.")
         return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
-    from businesses.email_sender import send_business_email, is_email_configured
+    from businesses.email_sender import send_business_email, is_email_configured, email_diagnostic
     if not is_email_configured(business):
-        messages.error(
-            request,
-            "Connect your Gmail in Settings to send invoices. Sign in with Google or add your Gmail App Password.",
-        )
+        diag = email_diagnostic(business)
+        messages.error(request, diag["message"])
         return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
     invoice.recompute_totals()
@@ -1554,12 +1552,10 @@ def estimate_send(request, estimate_id):
         reverse("billing:estimate_client_view", args=[estimate.id, estimate.view_token])
     )
 
-    from businesses.email_sender import send_business_email, is_email_configured
+    from businesses.email_sender import send_business_email, is_email_configured, email_diagnostic
     if not is_email_configured(business):
-        messages.error(
-            request,
-            "Connect your Gmail in Settings to send estimates. Sign in with Google or add your Gmail App Password.",
-        )
+        diag = email_diagnostic(business)
+        messages.error(request, diag["message"])
         return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
     logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
@@ -1661,9 +1657,10 @@ def estimate_send_followup(request, estimate_id):
         reverse("billing:estimate_client_view", args=[estimate.id, estimate.view_token])
     )
 
-    from businesses.email_sender import send_business_email, is_email_configured
+    from businesses.email_sender import send_business_email, is_email_configured, email_diagnostic
     if not is_email_configured(business):
-        messages.error(request, "Connect your Gmail in Settings to send follow-ups. Sign in with Google or add your Gmail App Password.")
+        diag = email_diagnostic(business)
+        messages.error(request, diag["message"])
         return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
     logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
@@ -1734,7 +1731,7 @@ def estimate_client_view(request, estimate_id, token):
         Estimate.objects.select_related("business", "customer"),
         id=estimate_id,
         view_token=token,
-        status="sent",
+        status__in=["sent", "accepted"],
     )
     base_items = list(estimate.line_items.filter(is_addon=False))
     optional_items = list(estimate.line_items.filter(is_addon=True))

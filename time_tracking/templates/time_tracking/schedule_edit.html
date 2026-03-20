@@ -10,6 +10,7 @@
   <form method="post" action="">
     {% csrf_token %}
     {{ formset.management_form }}
+    <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
     <table class="data-table">
       <thead>
         <tr>
@@ -31,6 +32,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
     <div style="margin-top: 20px;">
       <button type="submit" class="btn btn-primary">Save schedule</button>
       <a href="{% url 'time_schedule' %}" class="btn btn-secondary" style="margin-left: 8px;">Cancel</a>
@@ -41,4 +43,10 @@
 <p style="margin-top: 16px;">
   <a href="{% url 'time_schedule' %}" class="link-primary">← Back to Schedule</a>
 </p>
+<style>
+@media (max-width: 768px) {
+  .data-table input, .data-table select { font-size: 16px; min-height: 44px; }
+  .btn { min-height: 44px; }
+}
+</style>
 {% endblock %}

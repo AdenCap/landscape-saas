@@ -290,6 +290,61 @@
   margin-bottom: var(--space-4);
 }
 
+/* ── Product Checkboxes in Round Editor ──────────────────── */
+.round-products-wrap {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.product-check-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle, #333);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.product-check-label:hover {
+  background: rgba(255,255,255,0.04);
+}
+.product-check-label:has(input:checked) {
+  background: rgba(34,197,94,0.08);
+  border-color: rgba(34,197,94,0.3);
+}
+.product-check-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.product-check-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.product-check-npk {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Round Row Responsive ───────────────────────────────── */
+.fert-round-row .form-group input,
+.fert-round-row .form-group select,
+.fert-round-row .form-group textarea {
+  transition: border-color 0.15s ease;
+}
+.fert-round-row .form-group input:focus,
+.fert-round-row .form-group select:focus,
+.fert-round-row .form-group textarea:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(34,197,94,0.15);
+}
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 767px) {
   .calc-grid {
@@ -339,6 +394,20 @@
   .calc-card .form-control,
   .calc-card select,
   .calc-card input { font-size: 16px; min-height: 44px; }
+
+  /* Product checkboxes: single column on mobile */
+  .round-products-wrap { grid-template-columns: 1fr; }
+  .product-check-label { min-height: 44px; }
+
+  /* Round row fields stack on mobile */
+  .fert-round-row > div:first-child {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .fert-round-row .form-group { flex: 1 1 100% !important; min-width: 0 !important; }
+  .fert-round-row .form-group input,
+  .fert-round-row .form-group select,
+  .fert-round-row .form-group textarea { font-size: 16px; min-height: 44px; }
 }
 
 @media (max-width: 1024px) {

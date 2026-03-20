@@ -660,11 +660,18 @@ FertHub._roundRowHtml = function(programId, r) {
   r = r || {};
   var rid = r.id || 'new_' + Date.now();
   var prodChecks = '';
-  FertHub._products.forEach(function(p) {
-    var checked = r.product_ids && r.product_ids.indexOf(p.id) !== -1 ? ' checked' : '';
-    prodChecks += '<label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:13px;">' +
-      '<input type="checkbox" class="round-product-cb" value="' + p.id + '"' + checked + '> ' + p.name + '</label>';
-  });
+  if (FertHub._products.length === 0) {
+    prodChecks = '<p style="color:var(--text-muted);font-size:13px;margin:4px 0;">No products yet. <a href="/billing/fertilizer-products/add/" style="color:var(--primary);">Add your first product</a></p>';
+  } else {
+    FertHub._products.forEach(function(p) {
+      var checked = r.product_ids && r.product_ids.indexOf(p.id) !== -1 ? ' checked' : '';
+      prodChecks += '<label class="product-check-label">' +
+        '<input type="checkbox" class="round-product-cb" value="' + p.id + '"' + checked + '>' +
+        '<span class="product-check-info"><span class="product-check-name">' + p.name + '</span>' +
+        (p.npk ? '<span class="product-check-npk">' + p.npk + '</span>' : '') +
+        '</span></label>';
+    });
+  }
   return '<div class="fert-round-row" data-round-id="' + rid + '" style="border:1px solid var(--border-subtle,#333);border-radius:8px;padding:12px;margin-bottom:8px;">' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">' +
     '<div class="form-group" style="flex:0 0 60px;margin-bottom:0;"><label class="form-label" style="font-size:12px;">Round #</label>' +
@@ -679,7 +686,7 @@ FertHub._roundRowHtml = function(programId, r) {
     '<input type="number" step="0.1" class="form-control round-rate" value="' + (r.default_rate_override || '') + '" style="padding:4px 6px;"></div>' +
     '</div>' +
     '<div class="form-group" style="margin:8px 0 0;"><label class="form-label" style="font-size:12px;">Products</label>' +
-    '<div class="round-products-wrap" style="display:flex;flex-wrap:wrap;">' + prodChecks + '</div></div>' +
+    '<div class="round-products-wrap">' + prodChecks + '</div></div>' +
     '<div class="form-group" style="margin:4px 0 0;"><label class="form-label" style="font-size:12px;">Crew Instructions</label>' +
     '<textarea class="form-control round-instructions" rows="2" style="padding:4px 6px;">' + (r.crew_instructions || '') + '</textarea></div>' +
     '<div style="text-align:right;margin-top:4px;">' +

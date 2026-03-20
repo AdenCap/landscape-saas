@@ -91,7 +91,7 @@ def hub(request):
             'id': p.id,
             'address': p.address,
             'customer_name': p.customer.name,
-            'lawn_sqft': p.lawn_square_feet,
+            'lawn_sqft': p.yard_sqft,
         }
         for p in properties
     ])

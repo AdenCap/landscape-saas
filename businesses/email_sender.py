@@ -179,3 +179,62 @@ def is_email_configured(business):
         return True
     conn = business.get_smtp_connection()
     return conn is not None
+
+
+def email_diagnostic(business):
+    """
+    Return a human-readable diagnostic of the email configuration.
+    Useful for showing actionable error messages when sending fails.
+
+    Returns:
+        dict with keys: configured (bool), oauth_status (str), smtp_status (str), message (str)
+    """
+    owner = _get_business_owner(business)
+    oauth_ok = False
+    oauth_status = "Not connected"
+    smtp_ok = False
+    smtp_status = "Not configured"
+
+    # Check OAuth
+    if owner:
+        try:
+            from allauth.socialaccount.models import SocialAccount
+            has_google = SocialAccount.objects.filter(user=owner, provider="google").exists()
+            if has_google:
+                from .gmail_oauth import gmail_oauth_available
+                if gmail_oauth_available(owner):
+                    oauth_ok = True
+                    oauth_status = "Connected"
+                else:
+                    oauth_status = "Google account linked but Gmail permission not granted. Reconnect Gmail in Settings."
+            else:
+                oauth_status = "No Google account linked"
+        except Exception:
+            oauth_status = "Could not check"
+
+    # Check SMTP
+    if business.email_smtp_user:
+        if business.email_smtp_password:
+            smtp_ok = True
+            smtp_status = f"Configured ({business.email_smtp_user})"
+        else:
+            smtp_status = f"Gmail address set ({business.email_smtp_user}) but App Password is missing"
+    else:
+        smtp_status = "Not configured"
+
+    configured = oauth_ok or smtp_ok
+
+    if configured:
+        method = "Gmail OAuth" if oauth_ok else "SMTP App Password"
+        message = f"Email is configured via {method}."
+    else:
+        message = "Email is not set up. Go to Settings and either connect your Gmail account or enter a Gmail App Password."
+
+    return {
+        "configured": configured,
+        "oauth_ok": oauth_ok,
+        "oauth_status": oauth_status,
+        "smtp_ok": smtp_ok,
+        "smtp_status": smtp_status,
+        "message": message,
+    }

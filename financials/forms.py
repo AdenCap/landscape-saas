@@ -66,6 +66,10 @@ class ReceiptForm(forms.ModelForm):
     def __init__(self, *args, business=None, initial_job=None, for_job=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["file"].required = False
+        # Default receipt_date to today so the required field isn't empty
+        from django.utils import timezone
+        if not self.initial.get("receipt_date") and not self.data.get("receipt_date"):
+            self.initial["receipt_date"] = timezone.now().date().isoformat()
         if for_job is not None:
             # Upload from job page: hide job field, view will set it
             self.fields.pop("job", None)

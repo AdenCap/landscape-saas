@@ -47,7 +47,12 @@
       border-top: 1px solid var(--border);
       margin-top: 4px;
     }
-    .toolbar-filter-select { min-width: 110px; flex-shrink: 0; }
+    .toolbar-filter-select { min-width: 110px; flex-shrink: 0; font-size: 16px; min-height: 44px; }
+    .calendar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .calendar-actions .btn { min-height: 44px; }
+    .toolbar-date-input, .toolbar-search-input { font-size: 16px; min-height: 44px; }
+    .modal-body input, .modal-body select, .modal-body textarea { font-size: 16px; min-height: 44px; }
+    .modal-footer .btn, .modal-actions .btn { min-height: 44px; }
   }
 </style>
 {% endblock %}

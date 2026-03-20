@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Pricebook</h1>
+  <p>Manage your service and parts pricing catalog</p>
+</div>
+
+{% if items %}
+<div class="card" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Category</th>
+        <th>Price</th>
+        <th>Cost</th>
+        <th>Margin</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>
+          <strong>{{ item.name }}</strong>
+          {% if item.sku %}
+            <span style="color: var(--text-muted); font-size: 12px; display: block;">SKU: {{ item.sku }}</span>
+          {% endif %}
+          {% if item.description %}
+            <span style="color: var(--text-muted); font-size: 13px; display: block;">{{ item.description|truncatewords:12 }}</span>
+          {% endif %}
+        </td>
+        <td>{{ item.category.name|default:"—" }}</td>
+        <td>
+          {% if item.flat_rate_price != None %}
+            ${{ item.flat_rate_price|floatformat:2 }}
+          {% else %}
+            <span style="color: var(--text-muted);">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if item.material_cost != None %}
+            ${{ item.material_cost|floatformat:2 }}
+          {% else %}
+            <span style="color: var(--text-muted);">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if item.margin != None %}
+            ${{ item.margin|floatformat:2 }}
+          {% else %}
+            <span style="color: var(--text-muted);">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if item.is_active %}
+            <span style="color: var(--primary);">Active</span>
+          {% else %}
+            <span style="color: var(--text-muted);">Inactive</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <p style="text-align: center; padding: 40px; color: var(--text-muted);">
+    No pricebook items yet. Add services and parts with pricing to build your catalog.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

@@ -2,9 +2,11 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>{% if job %}Upload receipt for job{% else %}Upload receipt{% endif %}</h1>
-  <p>
-    {% if job %}
+  <h1>{% if editing %}Edit receipt{% elif job %}Upload receipt for job{% else %}Upload receipt{% endif %}</h1>
+  <p class="muted">
+    {% if editing %}
+    Update this receipt's details.
+    {% elif job %}
     Linking this receipt to <strong>{{ job.property.address }}</strong> ({{ job.scheduled_date }}) for material costs and taxes.
     {% else %}
     Add a receipt to your financials. Optionally link it to a job for material cost tracking.
@@ -13,57 +15,75 @@
 </div>
 
 <div class="card" style="max-width: 560px;">
-  <form method="post" enctype="multipart/form-data">
+  <form method="post" enctype="multipart/form-data" id="receipt-form">
     {% csrf_token %}
-    {% if form.non_field_errors %}
-    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+
+    {# ── Top-level form errors ──────────────────────────────── #}
+    {% if form.errors %}
+    <div class="form-error-banner">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      {% if form.non_field_errors %}
+        {{ form.non_field_errors.0 }}
+      {% else %}
+        Please fix the errors highlighted below.
+      {% endif %}
+    </div>
     {% endif %}
+
     <div class="form-section">
-      <div class="field">
+      <div class="field{% if form.file.errors %} field-error{% endif %}">
         <label for="id_file">{{ form.file.label }}</label>
         {{ form.file }}
         <p class="help">PDF or image. Use <strong>Parse receipt</strong> to auto-fill date, vendor, and amount from an image.</p>
         <button type="button" id="parse-receipt-btn" class="btn btn-secondary btn-sm" style="margin-top: 6px;">Parse receipt (auto-fill)</button>
-        {{ form.file.errors }}
+        {% if form.file.errors %}<p class="field-error-msg">{{ form.file.errors.0 }}</p>{% endif %}
       </div>
-      <div class="field">
-        <label for="id_receipt_date">{{ form.receipt_date.label }} *</label>
+
+      <div class="field{% if form.receipt_date.errors %} field-error{% endif %}">
+        <label for="id_receipt_date">{{ form.receipt_date.label }} <span class="required">*</span></label>
         {{ form.receipt_date }}
-        {{ form.receipt_date.errors }}
+        {% if form.receipt_date.errors %}<p class="field-error-msg">{{ form.receipt_date.errors.0 }}</p>{% endif %}
       </div>
+
       <div class="form-row">
-        <div class="field">
+        <div class="field{% if form.amount.errors %} field-error{% endif %}">
           <label for="id_amount">{{ form.amount.label }}</label>
           {{ form.amount }}
-          {{ form.amount.errors }}
+          {% if form.amount.errors %}<p class="field-error-msg">{{ form.amount.errors.0 }}</p>{% endif %}
         </div>
-        <div class="field">
+        <div class="field{% if form.category.errors %} field-error{% endif %}">
           <label for="id_category">{{ form.category.label }}</label>
           {{ form.category }}
-          {{ form.category.errors }}
+          {% if form.category.errors %}<p class="field-error-msg">{{ form.category.errors.0 }}</p>{% endif %}
         </div>
       </div>
-      <div class="field">
+
+      <div class="field{% if form.vendor.errors %} field-error{% endif %}">
         <label for="id_vendor">{{ form.vendor.label }}</label>
         {{ form.vendor }}
-        {{ form.vendor.errors }}
+        {% if form.vendor.errors %}<p class="field-error-msg">{{ form.vendor.errors.0 }}</p>{% endif %}
       </div>
-      <div class="field">
+
+      <div class="field{% if form.description.errors %} field-error{% endif %}">
         <label for="id_description">{{ form.description.label }}</label>
         {{ form.description }}
-        {{ form.description.errors }}
+        {% if form.description.errors %}<p class="field-error-msg">{{ form.description.errors.0 }}</p>{% endif %}
       </div>
+
       {% if form.job %}
-      <div class="field">
+      <div class="field{% if form.job.errors %} field-error{% endif %}">
         <label for="id_job">{{ form.job.label }}</label>
         {{ form.job }}
-        {{ form.job.errors }}
+        {% if form.job.errors %}<p class="field-error-msg">{{ form.job.errors.0 }}</p>{% endif %}
       </div>
       {% endif %}
     </div>
+
     <div class="form-actions">
-      <button type="submit" class="btn btn-primary">Upload</button>
-      {% if job %}
+      <button type="submit" class="btn btn-primary">{% if editing %}Save Changes{% else %}Upload{% endif %}</button>
+      {% if editing %}
+      <a href="{% url 'financials:receipt_list' %}" class="btn btn-secondary">Cancel</a>
+      {% elif job %}
       <a href="{% url 'job_detail' job.id %}" class="btn btn-secondary">Cancel</a>
       {% else %}
       <a href="{% url 'financials:receipt_list' %}" class="btn btn-secondary">Cancel</a>
@@ -76,24 +96,64 @@
   .form-section { margin-bottom: 20px; }
   .field { margin-bottom: 16px; }
   .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
-  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 14px; }
+  .field label .required { color: #f87171; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface-alt);
+    color: var(--text); font-size: 14px;
+    transition: border-color 0.15s ease;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--primary); outline: none;
+    box-shadow: 0 0 0 3px rgba(34,197,94,0.15);
+  }
   .field .help { font-size: 12px; color: var(--text-muted); margin: 4px 0 0 0; }
-  .field ul { color: #fca5a5; font-size: 13px; margin: 4px 0 0 0; }
+
+  /* Error states */
+  .form-error-banner {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; margin-bottom: 16px;
+    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px; color: #fca5a5; font-size: 14px; font-weight: 500;
+  }
+  .form-error-banner svg { flex-shrink: 0; color: #f87171; }
+  .field-error input, .field-error select, .field-error textarea {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.15);
+  }
+  .field-error-msg {
+    color: #fca5a5; font-size: 13px; margin: 4px 0 0 0; font-weight: 500;
+  }
+
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .form-actions { display: flex; gap: 10px; margin-top: 24px; }
+  .form-actions { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+
+  @media (max-width: 480px) {
+    .form-row { grid-template-columns: 1fr; }
+    .form-actions { flex-direction: column; }
+    .form-actions .btn { width: 100%; text-align: center; min-height: 44px; }
+  }
 </style>
+
 <script>
 (function() {
-  var form = document.querySelector('form[enctype="multipart/form-data"]');
+  var form = document.getElementById('receipt-form');
   var fileInput = document.getElementById('id_file');
   var parseBtn = document.getElementById('parse-receipt-btn');
   if (!form || !fileInput || !parseBtn) return;
+
   parseBtn.addEventListener('click', function() {
-    if (!fileInput.files || !fileInput.files[0]) { alert('Select a receipt image first (JPEG, PNG, GIF, or WebP).'); return; }
+    if (!fileInput.files || !fileInput.files[0]) {
+      alert('Select a receipt image first (JPEG, PNG, GIF, or WebP).');
+      return;
+    }
     var file = fileInput.files[0];
-    if ((file.type || '').indexOf('image/') !== 0) { alert('Only image files can be parsed.'); return; }
+    if ((file.type || '').indexOf('image/') !== 0) {
+      alert('Only image files can be parsed.');
+      return;
+    }
     parseBtn.disabled = true;
-    parseBtn.textContent = 'Parsing…';
+    parseBtn.textContent = 'Parsing\u2026';
     var fd = new FormData();
     fd.append('file', file);
     fd.append('csrfmiddlewaretoken', form.querySelector('[name=csrfmiddlewaretoken]').value);
@@ -101,12 +161,18 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.error) { alert(data.error); return; }
-        var d = document.getElementById('id_receipt_date'); if (d && data.receipt_date) d.value = data.receipt_date;
-        var a = document.getElementById('id_amount'); if (a && data.amount) a.value = data.amount;
-        var v = document.getElementById('id_vendor'); if (v && data.vendor) v.value = data.vendor;
+        var d = document.getElementById('id_receipt_date');
+        if (d && data.receipt_date) d.value = data.receipt_date;
+        var a = document.getElementById('id_amount');
+        if (a && data.amount) a.value = data.amount;
+        var v = document.getElementById('id_vendor');
+        if (v && data.vendor) v.value = data.vendor;
       })
       .catch(function() { alert('Could not parse receipt.'); })
-      .then(function() { parseBtn.disabled = false; parseBtn.textContent = 'Parse receipt (auto-fill)'; });
+      .finally(function() {
+        parseBtn.disabled = false;
+        parseBtn.textContent = 'Parse receipt (auto-fill)';
+      });
   });
 })();
 </script>

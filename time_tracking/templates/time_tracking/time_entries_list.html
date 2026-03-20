@@ -13,7 +13,7 @@
   <form method="get" action="{% url 'time_entries_list' %}" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
     <div class="form-group" style="margin-bottom: 0;">
       <label for="employee_id" style="font-size: 13px;">Employee</label>
-      <select name="employee_id" id="employee_id" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); min-width: 180px;">
+      <select name="employee_id" id="employee_id" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); width: 100%; max-width: 280px; min-width: 180px;">
         <option value="">All employees</option>
         {% for emp in employees %}
         <option value="{{ emp.id }}" {% if selected_employee and selected_employee.id == emp.id %}selected{% endif %}>{{ emp.get_full_name|default:emp.username }}</option>
@@ -34,6 +34,7 @@
 
 {% if entries %}
 <div class="card">
+  <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
   <table class="data-table">
     <thead>
       <tr>
@@ -64,6 +65,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   <p style="margin: 12px 0 0; font-size: 13px; color: var(--text-muted);">Showing up to 200 entries. Use filters to narrow by employee or date range.</p>
 </div>
 {% else %}
@@ -84,5 +86,9 @@
 .data-table tbody tr:nth-child(4){animation-delay:120ms}
 .data-table tbody tr:nth-child(n+5){animation-delay:160ms}
 @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media (max-width: 768px) {
+  .form-group select, .form-group input { font-size: 16px; min-height: 44px; }
+  .btn { min-height: 44px; }
+}
 </style>
 {% endblock %}

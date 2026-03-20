@@ -3,10 +3,10 @@
 {% block content %}
 <div class="page-header">
   <h1>Fertilization schedule</h1>
-  <p>Properties with a fertilization program are grouped so clients with the same number of applications get the same dates—optimizing routes and efficiency.</p>
+  <p class="muted">Properties with a fertilization program are grouped so clients with the same number of applications get the same dates—optimizing routes and efficiency.</p>
 </div>
 
-<div class="quick-actions" style="margin-bottom: 24px;">
+<div class="quick-actions" style="margin-bottom: 24px; display: flex; flex-wrap: wrap; gap: 8px;">
   <a href="{% url 'job_list' %}" class="btn btn-secondary">&larr; Jobs</a>
   <a href="{% url 'create_job' %}" class="btn btn-secondary">Create job</a>
 </div>
@@ -19,83 +19,87 @@
 <div class="card" style="max-width: 1100px;">
   <p class="muted" style="margin-bottom: 16px;">Suggested dates are spread across your growing season (month {{ start_month }}&ndash;{{ end_month }}). Same number of applications = same dates so you can run all fertilizations together.</p>
 
-  <form method="get" style="margin-bottom: 20px; display: flex; gap: 12px; align-items: center;">
+  <form method="get" class="fert-year-form">
     <label for="year">Year</label>
-    <input type="number" name="year" id="year" value="{{ year }}" min="{{ year }}" max="{{ year|add:2 }}" style="width: 80px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+    <input type="number" name="year" id="year" value="{{ year }}" min="{{ year }}" max="{{ year|add:2 }}">
     <button type="submit" class="btn btn-secondary btn-sm">Update</button>
   </form>
 
-  <table class="data-table" style="width: 100%; margin-bottom: 24px;">
-    <thead>
-      <tr>
-        <th>Client / Property</th>
-        <th class="num">Yard sq ft</th>
-        <th>Apps/year</th>
-        <th>Suggested dates ({{ year }})</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in rows %}
-      <tr>
-        <td><strong>{{ row.property.customer.name }}</strong><br><span class="muted">{{ row.property.address }}</span></td>
-        <td class="num">{% if row.property.yard_sqft %}{{ row.property.yard_sqft|floatformat:0 }}{% else %}<span class="muted">&mdash;</span>{% endif %}</td>
-        <td>{{ row.property.fertilization_services_per_year }}</td>
-        <td>
-          {% for d in row.dates %}
-            {{ d|date:"M j" }}{% if not forloop.last %}, {% endif %}
-          {% empty %}
-            &mdash;
-          {% endfor %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+    <table class="data-table" style="width: 100%; margin-bottom: 24px;">
+      <thead>
+        <tr>
+          <th>Client / Property</th>
+          <th class="num">Yard sq ft</th>
+          <th>Apps/year</th>
+          <th>Suggested dates ({{ year }})</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><strong>{{ row.property.customer.name }}</strong><br><span class="muted">{{ row.property.address }}</span></td>
+          <td class="num">{% if row.property.yard_sqft %}{{ row.property.yard_sqft|floatformat:0 }}{% else %}<span class="muted">&mdash;</span>{% endif %}</td>
+          <td>{{ row.property.fertilization_services_per_year }}</td>
+          <td>
+            {% for d in row.dates %}
+              {{ d|date:"M j" }}{% if not forloop.last %}, {% endif %}
+            {% empty %}
+              &mdash;
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
   {% if daily_needs %}
   <div style="margin-bottom: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
     <h2 style="font-size: 16px; margin: 0 0 6px 0;">Daily product needs</h2>
     <p class="muted" style="margin: 0 0 16px 0;">Total lawn sq ft per application day. Enter your product's coverage rate to see how many bags you need.</p>
 
-    <div class="product-calc" style="margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
-      <div>
-        <label for="coverage_rate" style="display: block; font-size: 13px; margin-bottom: 4px; color: var(--text-muted);">Product covers (sq ft per bag)</label>
-        <input type="number" id="coverage_rate" min="1" placeholder="e.g. 5000" style="width: 140px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+    <div class="fert-calc-row">
+      <div class="fert-calc-field">
+        <label for="coverage_rate">Product covers (sq ft per bag)</label>
+        <input type="number" id="coverage_rate" min="1" placeholder="e.g. 5000">
       </div>
-      <div>
-        <label for="bag_weight" style="display: block; font-size: 13px; margin-bottom: 4px; color: var(--text-muted);">Bag weight (lbs)</label>
-        <input type="number" id="bag_weight" min="1" placeholder="e.g. 50" style="width: 100px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+      <div class="fert-calc-field">
+        <label for="bag_weight">Bag weight (lbs)</label>
+        <input type="number" id="bag_weight" min="1" placeholder="e.g. 50">
       </div>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="calcBags()">Calculate</button>
+      <button type="button" class="btn btn-secondary btn-sm fert-calc-btn" onclick="calcBags()">Calculate</button>
     </div>
 
-    <table class="data-table" style="width: 100%;">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th class="num">Properties</th>
-          <th class="num">Total sq ft</th>
-          <th class="num bags-col" style="display: none;">Bags needed</th>
-          <th class="num lbs-col" style="display: none;">Total lbs</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for day_date, info in daily_needs %}
-        <tr>
-          <td>{{ day_date|date:"M j, Y" }}</td>
-          <td class="num">{{ info.property_count }}</td>
-          <td class="num">
-            {{ info.total_sqft|floatformat:0 }}
-            {% if info.missing_sqft %}<br><span class="muted" style="font-size: 12px;">{{ info.missing_sqft }} missing sq ft</span>{% endif %}
-          </td>
-          <td class="num bags-col" style="display: none;" data-sqft="{{ info.total_sqft }}">—</td>
-          <td class="num lbs-col" style="display: none;" data-sqft="{{ info.total_sqft }}">—</td>
-          <td>{% if info.missing_sqft %}<span class="badge badge-warning" style="font-size: 11px;">incomplete</span>{% endif %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+      <table class="data-table" style="width: 100%;">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="num">Properties</th>
+            <th class="num">Total sq ft</th>
+            <th class="num bags-col" style="display: none;">Bags needed</th>
+            <th class="num lbs-col" style="display: none;">Total lbs</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for day_date, info in daily_needs %}
+          <tr>
+            <td>{{ day_date|date:"M j, Y" }}</td>
+            <td class="num">{{ info.property_count }}</td>
+            <td class="num">
+              {{ info.total_sqft|floatformat:0 }}
+              {% if info.missing_sqft %}<br><span class="muted" style="font-size: 12px;">{{ info.missing_sqft }} missing sq ft</span>{% endif %}
+            </td>
+            <td class="num bags-col" style="display: none;" data-sqft="{{ info.total_sqft }}">—</td>
+            <td class="num lbs-col" style="display: none;" data-sqft="{{ info.total_sqft }}">—</td>
+            <td>{% if info.missing_sqft %}<span class="badge badge-warning" style="font-size: 11px;">incomplete</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
   {% endif %}
 
@@ -104,7 +108,7 @@
     <input type="hidden" name="year" value="{{ year }}">
     <div class="form-group" style="margin-bottom: 16px;">
       <label for="service_id">Service to use for created jobs</label>
-      <select name="service_id" id="service_id" required style="max-width: 280px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);">
+      <select name="service_id" id="service_id" required class="fert-service-select">
         <option value="">&mdash; Select service (e.g. Fertilization) &mdash;</option>
         {% for s in services %}
         <option value="{{ s.id }}">{{ s.name }}</option>
@@ -116,13 +120,56 @@
 </div>
 {% endif %}
 
+<style>
+.fert-year-form {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.fert-year-form label { font-size: 14px; font-weight: 500; }
+.fert-year-form input {
+  width: 100%; max-width: 80px;
+  padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface-alt); color: var(--text); font-size: 14px;
+}
+.fert-calc-row {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+  margin-bottom: 16px;
+}
+.fert-calc-field { flex: 0 1 auto; }
+.fert-calc-field label {
+  display: block; font-size: 13px; margin-bottom: 4px; color: var(--text-muted);
+}
+.fert-calc-field input {
+  width: 100%; max-width: 140px;
+  padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface-alt); color: var(--text); font-size: 14px;
+}
+.fert-service-select {
+  width: 100%; max-width: 320px;
+  padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface-alt); color: var(--text); font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .fert-year-form { flex-direction: row; }
+  .fert-year-form input { max-width: 90px; min-height: 44px; font-size: 16px; }
+  .fert-year-form .btn { min-height: 44px; }
+
+  .fert-calc-row { flex-direction: column; align-items: stretch; }
+  .fert-calc-field { flex: 1 1 100%; }
+  .fert-calc-field input { max-width: 100%; min-height: 44px; font-size: 16px; }
+  .fert-calc-btn { width: 100%; min-height: 44px; }
+
+  .fert-service-select { max-width: 100%; min-height: 44px; font-size: 16px; }
+}
+</style>
+
 <script>
 function calcBags() {
   var coverage = parseFloat(document.getElementById('coverage_rate').value);
   var bagWeight = parseFloat(document.getElementById('bag_weight').value);
   if (!coverage || coverage <= 0) { alert('Enter the sq ft per bag your product covers.'); return; }
 
-  // Show the bags and lbs columns
   document.querySelectorAll('.bags-col').forEach(function(el) { el.style.display = ''; });
   if (bagWeight && bagWeight > 0) {
     document.querySelectorAll('.lbs-col').forEach(function(el) { el.style.display = ''; });

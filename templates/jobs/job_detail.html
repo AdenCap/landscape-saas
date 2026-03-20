@@ -10,7 +10,7 @@
   <a href="/jobs/calendar/" class="btn btn-secondary">← Back to Calendar</a>
   <a href="/" class="btn btn-secondary">Dashboard</a>
   {% if job.property.address %}
-  <div style="display: inline-flex; gap: 8px; margin-left: auto;">
+  <div style="display: inline-flex; gap: 8px; margin-left: auto; flex-wrap: wrap;">
     <a href="https://www.google.com/maps/search/?api=1&query={{ job.property.address|urlencode }}" 
        target="_blank" 
        class="btn btn-secondary btn-sm"
@@ -81,7 +81,7 @@
         </div>
       </div>
     </div>
-    <div class="form-actions" style="margin-top: 16px;">
+    <div class="form-actions" style="margin-top: 16px; flex-wrap: wrap;">
       <button type="submit" class="btn btn-primary">Add material cost</button>
     </div>
   </form>
@@ -94,11 +94,11 @@
     {% csrf_token %}
     <div class="field">
       <label for="id_labor_cost">Labor cost ($)</label>
-      <input type="number" name="labor_cost" id="id_labor_cost" step="0.01" min="0" value="{{ job.labor_cost|default:0 }}" class="form-control" style="max-width: 120px;">
+      <input type="number" name="labor_cost" id="id_labor_cost" step="0.01" min="0" value="{{ job.labor_cost|default:0 }}" class="form-control" style="width: 100%; max-width: 120px;">
     </div>
     <div class="field">
       <label for="id_material_cost">Material cost ($)</label>
-      <input type="number" name="material_cost" id="id_material_cost" step="0.01" min="0" value="{{ job.material_cost|default:0 }}" class="form-control" style="max-width: 120px;">
+      <input type="number" name="material_cost" id="id_material_cost" step="0.01" min="0" value="{{ job.material_cost|default:0 }}" class="form-control" style="width: 100%; max-width: 120px;">
     </div>
     <button type="submit" class="btn btn-secondary btn-sm">Save costs</button>
   </form>
@@ -145,7 +145,7 @@
       {% if issue.status == "open" %}
       <form method="post" action="{% url 'resolve_issue' issue.id %}" style="display: inline; margin-left: 8px;">
         {% csrf_token %}
-        <input type="text" name="resolution_notes" placeholder="Resolution notes" class="form-control" style="max-width: 240px;">
+        <input type="text" name="resolution_notes" placeholder="Resolution notes" class="form-control" style="width: 100%; max-width: 240px;">
         <button type="submit" class="btn btn-primary btn-sm">Resolve</button>
       </form>
       {% else %}
@@ -251,6 +251,7 @@
 
 <div class="card">
   <h2 class="card-title">Job items</h2>
+  <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
   <table class="data-table">
     <thead>
       <tr>
@@ -280,6 +281,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 
 <style>
@@ -298,6 +300,17 @@
   .badge-skipped { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
   .badge-open { background: rgba(234, 179, 8, 0.25); color: #fde047; }
   .badge-resolved { background: rgba(34, 197, 94, 0.25); color: #86efac; }
+  @media (max-width: 768px) {
+    .material-cost-fields input,
+    .material-cost-fields select,
+    .form-group input,
+    .form-group select,
+    .form-control { font-size: 16px; min-height: 44px; }
+    .form-actions { display: flex; flex-wrap: wrap; }
+    .form-actions .btn { min-height: 44px; }
+    .btn-sm { min-height: 44px; padding: 10px 14px; }
+    .quick-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  }
 </style>
 
 <script>

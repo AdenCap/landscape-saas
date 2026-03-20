@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Service Agreements</h1>
+  <p>Manage maintenance plans, warranties, and service contracts</p>
+</div>
+
+{% if agreements %}
+<div class="card" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Agreement</th>
+        <th>Customer</th>
+        <th>Type</th>
+        <th>Billing</th>
+        <th>Visits</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ag in agreements %}
+      <tr>
+        <td>
+          <strong>{{ ag.name }}</strong>
+          <span style="color: var(--text-muted); font-size: 13px; display: block;">
+            {{ ag.start_date }}{% if ag.end_date %} — {{ ag.end_date }}{% endif %}
+          </span>
+        </td>
+        <td>{{ ag.customer.name }}</td>
+        <td>{{ ag.get_agreement_type_display }}</td>
+        <td>
+          ${{ ag.price|floatformat:2 }}
+          <span style="color: var(--text-muted); font-size: 12px;">/{{ ag.get_billing_frequency_display|lower }}</span>
+        </td>
+        <td>
+          {% if ag.visits_included %}
+            {{ ag.visits_used }}/{{ ag.visits_included }}
+            {% if ag.visits_remaining == 0 %}
+              <span style="color: #f87171; font-size: 12px;">(used up)</span>
+            {% endif %}
+          {% else %}
+            <span style="color: var(--text-muted);">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if ag.status == "active" %}
+            <span style="color: var(--primary);">Active</span>
+          {% elif ag.status == "draft" %}
+            <span style="color: var(--text-muted);">Draft</span>
+          {% elif ag.status == "expired" %}
+            <span style="color: #f59e0b;">Expired</span>
+          {% else %}
+            <span style="color: var(--text-muted);">Cancelled</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <p style="text-align: center; padding: 40px; color: var(--text-muted);">
+    No service agreements yet. Create maintenance plans and service contracts to manage recurring customer relationships.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

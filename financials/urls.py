@@ -16,6 +16,7 @@ urlpatterns = [
     path("upload/", views.receipt_upload, name="receipt_upload"),
     path("upload/job/<int:job_id>/", views.receipt_upload, name="receipt_upload_for_job"),
     path("job/<int:job_id>/add-material-cost/", views.job_add_material_cost, name="job_add_material_cost"),
+    path("<int:receipt_id>/edit/", views.receipt_edit, name="receipt_edit"),
     path("<int:receipt_id>/download/", views.receipt_download, name="receipt_download"),
     path("<int:receipt_id>/delete/", views.receipt_delete, name="receipt_delete"),
 ]

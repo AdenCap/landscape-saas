@@ -278,6 +278,7 @@ Thank you for choosing {{ business.name }}!">
 <div class="crm-tab-content" id="tab-services">
   <div class="card">
     <h2 class="card-title">Past Services</h2>
+    <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
     <table class="data-table">
       <thead>
         <tr>
@@ -298,6 +299,7 @@ Thank you for choosing {{ business.name }}!">
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 
@@ -309,6 +311,7 @@ Thank you for choosing {{ business.name }}!">
       <a href="{% url 'billing:estimate_create' %}?customer={{ customer.id }}" class="btn btn-primary btn-sm">+ Create Estimate</a>
     </h2>
     <p class="kpi-sub">Total paid: <strong>${{ total_revenue }}</strong></p>
+    <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
     <table class="data-table">
       <thead>
         <tr>
@@ -331,6 +334,7 @@ Thank you for choosing {{ business.name }}!">
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 
@@ -469,6 +473,7 @@ Thank you for choosing {{ business.name }}!">
 
   .form-actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
   }

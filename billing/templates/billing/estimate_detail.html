@@ -153,6 +153,7 @@
   {% if fertilizer_applications %}
   <div class="card" style="margin-top: 24px;">
     <h2 class="card-title">Fertilizer Application & Profit Analysis</h2>
+    <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
     <table class="data-table">
       <thead>
         <tr>
@@ -228,6 +229,7 @@
         </tr>
       </tfoot>
     </table>
+    </div>
   </div>
   {% endif %}
 </div>
@@ -269,7 +271,7 @@
   .estimate-preview-images { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
   .estimate-preview-img img { max-width: 280px; max-height: 200px; border-radius: 10px; border: 1px solid var(--border); display: block; }
   .estimate-preview-img-caption { margin: 6px 0 0 0; font-size: 14px; color: var(--text-muted); }
-  .estimate-preview-table-wrap { overflow-x: auto; margin-bottom: 20px; }
+  .estimate-preview-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 20px; }
   .estimate-preview-table th { padding: 14px 16px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
   .estimate-preview-table td { padding: 14px 16px; border-top: 1px solid var(--border); font-size: 16px; }
   .estimate-preview-table .row-addon { background: var(--surface-alt); }
@@ -294,5 +296,11 @@
   .badge-sent { background: rgba(234, 179, 8, 0.2); color: #fde047; }
   .badge-accepted { background: rgba(34, 197, 94, 0.2); color: #86efac; }
   .badge-declined { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+  @media (max-width: 768px) {
+    .estimate-detail-actions { width: 100%; }
+    .estimate-detail-actions .btn { min-height: 44px; flex: 1; justify-content: center; text-align: center; }
+    .estimate-detail-heading h1 { font-size: 22px; }
+    .estimate-preview-card { padding: 16px; }
+  }
 </style>
 {% endblock %}
