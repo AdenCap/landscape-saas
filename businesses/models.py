@@ -503,7 +503,7 @@ class Business(models.Model):
 
     def get_default_modules(self):
         """Return default module list for this business type."""
-        return self.MODULE_DEFAULTS.get(self.business_type, self.MODULE_DEFAULTS["general"])
+        return self.MODULE_DEFAULTS.get(self.business_type, [])
 
     def save(self, *args, **kwargs):
         # Auto-populate enabled_modules from business_type if empty
