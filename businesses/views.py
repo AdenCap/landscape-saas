@@ -85,6 +85,24 @@ def business_settings(request):
 
 @require_POST
 @role_required("owner")
+def disconnect_gmail(request):
+    """Remove the stored Gmail OAuth token so the owner can reconnect with a different account."""
+    try:
+        from allauth.socialaccount.models import SocialAccount, SocialToken
+        sa = SocialAccount.objects.filter(user=request.user, provider="google").first()
+        if sa:
+            SocialToken.objects.filter(account=sa).delete()
+            sa.delete()
+            messages.success(request, "Gmail disconnected. You can now connect a different Gmail account.")
+        else:
+            messages.info(request, "No Gmail account was connected.")
+    except Exception as exc:
+        messages.error(request, f"Could not disconnect Gmail: {exc}")
+    return redirect("business_settings")
+
+
+@require_POST
+@role_required("owner")
 def test_gmail_connection(request):
     """Send a test email to verify Gmail (Settings) is configured correctly."""
     business = _get_business(request)
