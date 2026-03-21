@@ -139,6 +139,8 @@ def send_business_email(business, to, subject, body_text, body_html=None,
         (success: bool, detail: str)
         detail is "sent_oauth", "sent_smtp", or an error message.
     """
+    oauth_error = None
+
     # Try OAuth first
     if _is_oauth_available(business):
         ok, detail = _send_via_oauth(
@@ -146,12 +148,23 @@ def send_business_email(business, to, subject, body_text, body_html=None,
         )
         if ok:
             return True, "sent_oauth"
+        oauth_error = detail
         logger.warning("OAuth send failed (%s), falling back to SMTP", detail)
 
     # Fall back to SMTP
-    return _send_via_smtp(
+    ok, detail = _send_via_smtp(
         business, to, subject, body_text, body_html, reply_to, attachments
     )
+    if ok:
+        return True, detail
+
+    # Both failed — surface the most informative error.
+    # When SMTP simply isn't configured (no App Password set up), the real
+    # problem is the OAuth failure.  Return that error so the user knows
+    # *why* Gmail didn't work instead of seeing a confusing "SMTP not configured".
+    if oauth_error and detail == "SMTP not configured":
+        return False, f"gmail_oauth_error:{oauth_error}"
+    return False, detail
 
 
 def get_email_connection(business):
@@ -168,6 +181,23 @@ def get_email_connection(business):
     # For now, batch sending still uses SMTP connection
     # Individual sends via send_business_email() will prefer OAuth
     return business.get_smtp_connection()
+
+
+def format_send_error(detail):
+    """
+    Convert an internal send-error detail string into a user-friendly message.
+    Handles the 'gmail_oauth_error:...' tag returned when OAuth fails and SMTP
+    is not configured, so the real Gmail error is shown instead of "SMTP not configured".
+    """
+    if detail.startswith("gmail_oauth_error:"):
+        inner = detail[len("gmail_oauth_error:"):]
+        if any(kw in inner.lower() for kw in ("insufficient", "scope", "permission", "forbidden")):
+            return (
+                "Gmail is connected but doesn't have send permission. "
+                "Go to Settings → Email tab and click 'Connect Gmail' to reconnect with send access."
+            )
+        return f"Gmail send failed: {inner}. Go to Settings → Email tab and reconnect Gmail."
+    return f"Could not send email: {detail}"
 
 
 def is_email_configured(business):

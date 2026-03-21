@@ -924,7 +924,8 @@ def resend_invoice(request, invoice_id):
     if ok:
         messages.success(request, f"Invoice #{invoice.id} resent to {invoice.customer.email}.")
     else:
-        messages.error(request, f"Could not send email: {detail}")
+        from businesses.email_sender import format_send_error
+        messages.error(request, format_send_error(detail))
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
@@ -1630,7 +1631,8 @@ def estimate_send(request, estimate_id):
         )
         messages.success(request, f"Estimate sent to {customer.email}")
     else:
-        messages.error(request, f"Failed to send: {detail}")
+        from businesses.email_sender import format_send_error
+        messages.error(request, format_send_error(detail))
 
     return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
@@ -1726,7 +1728,8 @@ def estimate_send_followup(request, estimate_id):
         )
         messages.success(request, f"Follow-up sent to {customer.email}")
     else:
-        messages.error(request, f"Failed to send: {detail}")
+        from businesses.email_sender import format_send_error
+        messages.error(request, format_send_error(detail))
 
     return redirect("billing:estimate_detail", estimate_id=estimate.id)
 

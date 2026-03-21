@@ -626,7 +626,8 @@ def customer_send_message(request, customer_id):
         reply_to=reply_to,
     )
     if not ok:
-        messages.error(request, f"Failed to send email: {detail}")
+        from businesses.email_sender import format_send_error
+        messages.error(request, format_send_error(detail))
         return _send_message_redirect(request, customer.id)
     messages.success(request, f"Email sent to {to_address}")
 

@@ -118,5 +118,6 @@ def test_gmail_connection(request):
         method = "OAuth" if detail == "sent_oauth" else "SMTP"
         messages.success(request, f"Test email sent to {to_email} via {method}. Check your inbox.")
     else:
-        messages.error(request, f"Could not send test email: {detail}. Check your Gmail settings.")
+        from .email_sender import format_send_error
+        messages.error(request, format_send_error(detail))
     return redirect("business_settings")
