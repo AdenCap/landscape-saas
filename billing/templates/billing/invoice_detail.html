@@ -108,13 +108,36 @@
       </div>
     </div>
 
-    {% if invoice.business.venmo_username or invoice.business.zelle_email_or_phone or invoice.business.cashapp_cashtag %}
+    {% if can_accept_stripe %}
     <div class="invoice-payment-handles card">
-      <h3 class="payment-methods-title">How to pay</h3>
-      <p class="payment-handles-desc">You can pay using any of the following:</p>
+      <h3 class="payment-methods-title">Credit card payment</h3>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;">
+        <input type="checkbox" id="card-payment-toggle" {% if invoice.enable_card_payment %}checked{% endif %} style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer;">
+        Accept credit card payment for this invoice
+      </label>
+      <p style="font-size:12px;color:var(--text-muted);margin:6px 0 0 0;">When disabled, customers will only see Venmo, PayPal, Zelle, and Cash App on the pay page.</p>
+    </div>
+    <script>
+    document.getElementById('card-payment-toggle').addEventListener('change', function() {
+      var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+      fetch('{% url "billing:invoice_toggle_card_payment" invoice.id %}', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json', 'X-CSRFToken': csrf ? csrf.value : '{{ csrf_token }}'},
+        body: JSON.stringify({enable: this.checked})
+      });
+    });
+    </script>
+    {% endif %}
+
+    {% if invoice.business.venmo_username or invoice.business.zelle_email_or_phone or invoice.business.cashapp_cashtag or invoice.business.paypal_link %}
+    <div class="invoice-payment-handles card">
+      <h3 class="payment-methods-title">Payment methods shown to customer</h3>
       <div class="payment-methods-list">
         {% if invoice.business.venmo_username %}
         <span class="payment-badge">Venmo: {{ invoice.business.venmo_username }}</span>
+        {% endif %}
+        {% if invoice.business.paypal_link %}
+        <span class="payment-badge">PayPal: {{ invoice.business.paypal_link }}</span>
         {% endif %}
         {% if invoice.business.zelle_email_or_phone %}
         <span class="payment-badge">Zelle: {{ invoice.business.zelle_email_or_phone }}</span>

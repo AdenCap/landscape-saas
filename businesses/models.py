@@ -316,6 +316,11 @@ class Business(models.Model):
         blank=True,
         help_text="Cash App $cashtag (e.g. $YourBusiness). Shown on invoices.",
     )
+    paypal_link = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="PayPal.me link or PayPal email (e.g. paypal.me/YourBusiness). Shown on invoices.",
+    )
 
     # Customizable email content (leave blank to use defaults)
     invoice_email_subject = models.CharField(

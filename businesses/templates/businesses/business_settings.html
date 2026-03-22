@@ -172,6 +172,12 @@
             <p class="field-help">e.g. $YourBusiness</p>
             {{ form.cashapp_cashtag.errors }}
           </div>
+          <div class="field">
+            <label for="{{ form.paypal_link.id_for_label }}">PayPal</label>
+            {{ form.paypal_link }}
+            <p class="field-help">PayPal.me link or PayPal email (e.g. paypal.me/YourBusiness)</p>
+            {{ form.paypal_link.errors }}
+          </div>
         </div>
       </div>
     </div>

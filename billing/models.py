@@ -125,6 +125,11 @@ class Invoice(models.Model):
         help_text="When a payment reminder email was last sent (for automated reminders).",
     )
 
+    enable_card_payment = models.BooleanField(
+        default=True,
+        help_text="Allow credit card payment via Stripe for this invoice. Uncheck to disable card payments.",
+    )
+
     custom_field_values = models.JSONField(
         default=dict,
         blank=True,
@@ -296,6 +301,31 @@ class Estimate(models.Model):
     accepted_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     last_follow_up_at = models.DateTimeField(null=True, blank=True, help_text="When a follow-up email was last sent")
 
+    # ── Deposit ──────────────────────────────────────────────
+    deposit_required = models.BooleanField(
+        default=False,
+        help_text="Require a deposit to accept this estimate.",
+    )
+    DEPOSIT_TYPE_CHOICES = [
+        ("fixed", "Fixed Amount"),
+        ("percent", "Percentage"),
+    ]
+    deposit_type = models.CharField(
+        max_length=10,
+        choices=DEPOSIT_TYPE_CHOICES,
+        default="fixed",
+        blank=True,
+    )
+    deposit_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Fixed dollar amount or percentage value (e.g. 50 for $50 or 50%).",
+    )
+    deposit_paid = models.BooleanField(default=False)
+    deposit_paid_at = models.DateTimeField(null=True, blank=True)
+
     custom_field_values = models.JSONField(
         default=dict,
         blank=True,
@@ -319,6 +349,14 @@ class Estimate(models.Model):
         return sum(
             item.line_total for item in self.line_items.filter(is_addon=True)
         )
+
+    def deposit_dollar_amount(self):
+        """Return the deposit amount in dollars (computed from percentage if needed)."""
+        if not self.deposit_required or not self.deposit_amount:
+            return Decimal("0")
+        if self.deposit_type == "percent":
+            return (self.deposit_amount / Decimal("100")) * Decimal(str(self.base_total()))
+        return self.deposit_amount
 
 
 class EstimateLineItem(models.Model):

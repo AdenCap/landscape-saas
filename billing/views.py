@@ -209,12 +209,14 @@ def invoice_detail(request, invoice_id):
     is_monthly = bool(invoice.job_id is None and invoice.period_start)
     audit_logs = invoice.audit_logs.select_related("user")[:10]
     doc_template = DocumentTemplate.get_default_for_business(invoice.business, "invoice") if invoice.business_id else None
+    can_accept_stripe = getattr(invoice.business, "can_accept_stripe_payments", lambda: False)() if invoice.business else False
     return render(request, "billing/invoice_detail.html", {
         "invoice": invoice,
         "items": items,
         "is_monthly_invoice": is_monthly,
         "audit_logs": audit_logs,
         "doc_template": doc_template,
+        "can_accept_stripe": can_accept_stripe,
     })
 
 
@@ -388,7 +390,18 @@ def invoice_pay_page(request, invoice_id, token):
     if (business.cashapp_cashtag or "").strip():
         tag = (business.cashapp_cashtag or "").strip().lstrip("$")
         cashapp_link = f"https://cash.app/${tag}/{invoice.total}"
+    paypal_link = None
+    if (getattr(business, "paypal_link", "") or "").strip():
+        pl = business.paypal_link.strip()
+        if "@" in pl:
+            paypal_link = f"https://paypal.me/{pl}"
+        elif pl.startswith("http"):
+            paypal_link = pl
+        else:
+            paypal_link = f"https://paypal.me/{pl}"
     can_accept_stripe = getattr(business, "can_accept_stripe_payments", lambda: False)()
+    # Include PayPal in has_payment_methods check
+    has_payment_methods = has_payment_methods or bool(paypal_link)
     line_items = invoice.line_items.all()
     return render(request, "billing/invoice_pay_page.html", {
         "invoice": invoice,
@@ -396,6 +409,7 @@ def invoice_pay_page(request, invoice_id, token):
         "has_payment_methods": has_payment_methods,
         "venmo_link": venmo_link,
         "cashapp_link": cashapp_link,
+        "paypal_link": paypal_link,
         "can_accept_stripe": can_accept_stripe,
         "line_items": line_items,
     })
@@ -416,6 +430,21 @@ def mark_invoice_paid(request, invoice_id):
         _log_invoice_audit(invoice, "paid", request=request)
         messages.success(request, f"Invoice #{invoice.id} marked as paid.")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+
+@require_POST
+@role_required("owner", "manager")
+def invoice_toggle_card_payment(request, invoice_id):
+    """Toggle credit card payment on/off for a specific invoice."""
+    business = _get_business(request)
+    qs = Invoice.objects.filter(id=invoice_id)
+    if business:
+        qs = qs.filter(business=business)
+    invoice = get_object_or_404(qs)
+    data = json.loads(request.body) if request.body else {}
+    invoice.enable_card_payment = bool(data.get("enable", True))
+    invoice.save(update_fields=["enable_card_payment"])
+    return JsonResponse({"status": "ok", "enable_card_payment": invoice.enable_card_payment})
 
 
 # ----- Stripe Connect: business accepts card payments for invoices -----

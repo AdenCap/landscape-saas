@@ -338,7 +338,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Media files (uploads)
-MEDIA_URL = "media/"
+MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # When BLOB_READ_WRITE_TOKEN is set (e.g. Vercel Blob store "fieldlgx-blob"), use Vercel Blob for uploads

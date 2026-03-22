@@ -4,57 +4,98 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
   <title>Reminder: {{ estimate.title }} – {{ business.name }}</title>
+  <!--[if mso]><style>body,table{font-family:Arial,sans-serif!important}</style><![endif]-->
+  <style>
+    body{margin:0;padding:0;background:#050505;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#e5e5e5;-webkit-text-size-adjust:100%}
+    @media only screen and (max-width:600px){
+      .outer{padding:12px 8px!important}
+      .card{border-radius:12px!important}
+      .card-pad{padding:20px 16px!important}
+    }
+  </style>
 </head>
-<body style="margin:0; padding:0; background-color:#0a0a0a; font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:15px; line-height:1.5; color:#fafafa;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#0a0a0a;">
+<body style="margin:0;padding:0;background:#050505;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#050505;">
     <tr>
-      <td align="center" style="padding:32px 16px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px; background-color:#171717; border:1px solid #262626; border-radius:14px; overflow:hidden;">
+      <td class="outer" align="center" style="padding:40px 16px;">
+        <!-- Amber urgency bar -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;">
+          <tr><td style="height:4px;background:linear-gradient(90deg,#f59e0b,#fbbf24);border-radius:4px 4px 0 0;"></td></tr>
+        </table>
+
+        <table role="presentation" class="card" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;background:#141414;border:1px solid #262626;border-top:none;border-radius:0 0 14px 14px;">
+          <!-- Header -->
           <tr>
-            <td style="padding:24px 24px 16px 24px; border-bottom:1px solid #262626;">
-              {% if logo_url %}
-              <img src="{{ logo_url }}" alt="{{ business.name }}" style="max-height:48px; max-width:160px; display:block; margin-bottom:16px;">
-              {% endif %}
-              <h1 style="margin:0; font-size:22px; font-weight:700; color:#fafafa; letter-spacing:-0.02em;">Reminder: {{ estimate.title }}</h1>
-              <p style="margin:10px 0 0 0; font-size:15px; color:#e5e5e5; line-height:1.6;">{% if email_intro %}{{ email_intro|linebreaksbr }}{% else %}Hi {{ customer.name }}, we wanted to follow up on the estimate we sent you from {{ business.name }}.{% endif %}</p>
+            <td class="card-pad" style="padding:28px 32px 20px;">
+              {% if logo_url %}<img src="{{ logo_url }}" alt="{{ business.name }}" style="max-height:44px;max-width:180px;display:block;margin-bottom:16px;">{% endif %}
+              <p style="margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#f59e0b;">Follow-up</p>
+              <h1 style="margin:6px 0 0;font-size:22px;font-weight:700;color:#fafafa;letter-spacing:-0.02em;">{{ estimate.title }}</h1>
+              <p style="margin:12px 0 0;font-size:15px;color:#d4d4d4;line-height:1.6;">{% if email_intro %}{{ email_intro|linebreaksbr }}{% else %}Hi {{ customer.name }}, we wanted to follow up on the estimate we sent you from {{ business.name }}.{% endif %}</p>
             </td>
           </tr>
+
+          <!-- Estimate summary card -->
           <tr>
-            <td style="padding:16px 24px;">
-              <div style="background-color:rgba(234,179,8,0.15); border:1px solid rgba(234,179,8,0.4); border-radius:10px; padding:20px;">
-                <strong style="color:#fafafa;">Estimate #{{ estimate.id }}</strong> – Total: {{ estimate.base_total|currency }}{% if estimate.addons_total > 0 %} <span style="color:#a3a3a3;">(+ optional items available)</span>{% endif %}
-                {% if estimate.valid_until %}<br><span style="color:#a3a3a3;">Valid until {{ estimate.valid_until }}</span>{% endif %}
+            <td class="card-pad" style="padding:0 32px 20px;">
+              <div style="background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.2);border-radius:10px;padding:18px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td>
+                      <p style="margin:0;font-size:14px;font-weight:700;color:#fafafa;">Estimate #{{ estimate.id }}</p>
+                      {% if estimate.valid_until %}<p style="margin:4px 0 0;font-size:13px;color:#f59e0b;">Valid until {{ estimate.valid_until }}</p>{% endif %}
+                    </td>
+                    <td style="text-align:right;vertical-align:top;">
+                      <p style="margin:0;font-size:22px;font-weight:800;color:#fde047;">{{ estimate.base_total|currency }}</p>
+                      {% if estimate.addons_total > 0 %}<p style="margin:2px 0 0;font-size:11px;color:#737373;">+ optional items</p>{% endif %}
+                    </td>
+                  </tr>
+                </table>
               </div>
             </td>
           </tr>
+
+          <!-- CTA -->
           <tr>
-            <td style="padding:8px 24px 24px 24px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.4); border-radius:10px;">
+            <td class="card-pad" style="padding:0 32px 24px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="padding:20px; text-align:center;">
-                    <p style="margin:0 0 12px 0; font-weight:600; color:#fafafa;">View your estimate and respond</p>
-                    <a href="{{ view_url }}" style="display:inline-block; padding:14px 28px; background-color:{{ accent_color|default:'#22c55e' }}; color:#0a0a0a !important; text-decoration:none; font-weight:600; border-radius:10px; font-size:15px;">View Estimate</a>
+                  <td style="background:{{ accent_color|default:'#22c55e' }};border-radius:12px;text-align:center;padding:18px;">
+                    <a href="{{ view_url }}" style="display:inline-block;padding:0;color:#000!important;text-decoration:none;font-weight:700;font-size:16px;">View &amp; Accept Estimate</a>
                   </td>
                 </tr>
               </table>
-              {% if upsells %}
-              <div style="margin:14px 0 0 0; padding:12px; border-radius:10px; border:1px solid rgba(148,163,184,.35); background:rgba(148,163,184,.08);">
-                <p style="margin:0 0 6px 0; font-size:13px; color:#e5e7eb; font-weight:600;">Popular add-ons you can bundle:</p>
-                <ul style="margin:0; padding-left:18px; color:#cbd5e1; font-size:13px;">
-                  {% for item in upsells %}<li style="margin-bottom:4px;">{{ item }}</li>{% endfor %}
-                </ul>
+            </td>
+          </tr>
+
+          <!-- Upsells -->
+          {% if upsells %}
+          <tr>
+            <td class="card-pad" style="padding:0 32px 24px;">
+              <div style="padding:16px;border-radius:10px;border:1px solid #262626;background:#0a0a0a;">
+                <p style="margin:0 0 8px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#737373;">Popular add-ons to consider</p>
+                {% for item in upsells %}
+                <p style="margin:0;padding:6px 0;font-size:14px;color:#a3a3a3;border-bottom:1px solid #1e1e1e;">
+                  <span style="color:{{ accent_color|default:'#22c55e' }};margin-right:6px;">+</span> {{ item }}
+                </p>
+                {% endfor %}
               </div>
-              {% endif %}
-              <p style="margin:16px 0 0 0; font-size:14px; color:#a3a3a3;">
-                If you have any questions, just reply to this email or contact us.
-                {% if business.contact_email or business.contact_phone %}
-                {% if business.contact_email %}{{ business.contact_email }}{% endif %}{% if business.contact_email and business.contact_phone %} · {% endif %}{% if business.contact_phone %}{{ business.contact_phone }}{% endif %}
-                {% endif %}
+            </td>
+          </tr>
+          {% endif %}
+
+          <!-- Footer -->
+          <tr>
+            <td class="card-pad" style="padding:20px 32px;border-top:1px solid #1e1e1e;">
+              <p style="margin:0;font-size:13px;color:#525252;">
+                Questions? Just reply to this email.{% if business.contact_email %} {{ business.contact_email }}{% endif %}{% if business.contact_phone %} &middot; {{ business.contact_phone }}{% endif %}
               </p>
             </td>
           </tr>
         </table>
+
+        <p style="margin:24px 0 0;font-size:11px;color:#404040;text-align:center;">Powered by FieldLgx</p>
       </td>
     </tr>
   </table>

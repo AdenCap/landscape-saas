@@ -900,6 +900,7 @@ def daily_route_view(request):
         "jobs": jobs,
         "jobs_with_colors": jobs_with_colors,
         "date_param": date_param,
+        "google_maps_api_key": getattr(settings, "GOOGLE_MAPS_API_KEY", ""),
     })
 
 

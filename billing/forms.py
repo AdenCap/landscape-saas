@@ -52,17 +52,22 @@ class FieldCaptureForm(forms.ModelForm):
 class EstimateForm(forms.ModelForm):
     class Meta:
         model = Estimate
-        fields = ['customer', 'property', 'title', 'valid_until', 'notes', 'site_visit_date', 'site_visit_notes']
+        fields = ['customer', 'property', 'title', 'valid_until', 'notes', 'site_visit_date', 'site_visit_notes',
+                  'deposit_required', 'deposit_type', 'deposit_amount']
         widgets = {
             'valid_until': forms.DateInput(attrs={'type': 'date'}),
             'notes': forms.Textarea(attrs={'rows': 3}),
             'site_visit_date': forms.DateInput(attrs={'type': 'date'}),
             'site_visit_notes': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Measurements, conditions, access notes, special requirements...'}),
+            'deposit_amount': forms.NumberInput(attrs={'placeholder': 'e.g. 500 or 50', 'step': '0.01', 'min': '0'}),
         }
         labels = {
             'site_visit_date': 'Site Visit Date',
             'site_visit_notes': 'Site Visit Notes',
             'property': 'Property',
+            'deposit_required': 'Require deposit to accept',
+            'deposit_type': 'Deposit type',
+            'deposit_amount': 'Deposit amount',
         }
 
     def __init__(self, *args, **kwargs):

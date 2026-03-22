@@ -10,6 +10,8 @@
   <form method="post">
     {% csrf_token %}
     <div class="field">{{ form.address.label_tag }}{{ form.address }}{{ form.address.errors }}</div>
+    <input type="hidden" name="latitude" id="prop-latitude" value="{{ property.latitude|default:'' }}">
+    <input type="hidden" name="longitude" id="prop-longitude" value="{{ property.longitude|default:'' }}">
     <div class="field">{{ form.gate_code.label_tag }}{{ form.gate_code }}{{ form.gate_code.errors }}</div>
     <div class="field checkbox-field">
       {{ form.has_dog }}{{ form.has_dog.label_tag }}{{ form.has_dog.errors }}
@@ -59,5 +61,39 @@
     .field select { font-size: 16px; min-height: 44px; }
     .form-actions .btn { min-height: 44px; flex: 1; justify-content: center; }
   }
+  .pac-container { z-index: 10000 !important; background: var(--bg-elevated, #1a1a1a) !important; border: 1px solid var(--border, #333) !important; border-radius: 8px !important; box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important; }
+  .pac-item { padding: 10px 14px !important; border-bottom: 1px solid var(--border, #262626) !important; color: var(--text, #fafafa) !important; cursor: pointer !important; font-size: 14px !important; }
+  .pac-item:hover, .pac-item-selected { background: var(--bg-surface-hover, #222) !important; }
+  .pac-item-query { color: var(--text, #fafafa) !important; font-weight: 600 !important; }
+  .pac-matched { font-weight: 700 !important; }
+  .pac-icon { display: none !important; }
 </style>
+{% if google_maps_api_key %}
+<script>
+function initAutocomplete() {
+  var input = document.getElementById('id_address');
+  if (!input) return;
+  var autocomplete = new google.maps.places.Autocomplete(input, {
+    componentRestrictions: { country: 'us' },
+    fields: ['address_components', 'formatted_address', 'geometry'],
+    types: ['address']
+  });
+  autocomplete.addListener('place_changed', function() {
+    var place = autocomplete.getPlace();
+    if (!place.address_components) return;
+    input.value = place.formatted_address || input.value;
+    if (place.geometry && place.geometry.location) {
+      document.getElementById('prop-latitude').value = place.geometry.location.lat();
+      document.getElementById('prop-longitude').value = place.geometry.location.lng();
+    }
+  });
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && document.querySelector('.pac-container:not([style*="display: none"])')) {
+      e.preventDefault();
+    }
+  });
+}
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initAutocomplete" async defer></script>
+{% endif %}
 {% endblock %}

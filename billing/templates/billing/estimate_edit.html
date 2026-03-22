@@ -65,6 +65,54 @@
       </div>
     </section>
 
+    <section class="card estimate-edit-section">
+      <h2 class="section-title">Deposit Requirement</h2>
+      <p class="section-hint">Optionally require a deposit before the customer can accept this estimate.</p>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          {{ form.deposit_required }}
+          {{ form.deposit_required.label }}
+        </label>
+      </div>
+      <div id="deposit-fields" style="{% if not form.deposit_required.value %}display:none;{% endif %}">
+        <div class="form-row" style="gap:16px;">
+          <div class="form-group" style="flex:0 0 180px;">
+            <label>{{ form.deposit_type.label }}</label>
+            {{ form.deposit_type }}
+            {{ form.deposit_type.errors }}
+          </div>
+          <div class="form-group" style="flex:0 0 180px;">
+            <label>{{ form.deposit_amount.label }}</label>
+            {{ form.deposit_amount }}
+            <p class="field-help" id="deposit-help">Enter dollar amount or percentage value</p>
+            {{ form.deposit_amount.errors }}
+          </div>
+        </div>
+      </div>
+    </section>
+    <script>
+    (function(){
+      var chk = document.getElementById('{{ form.deposit_required.id_for_label }}');
+      var fields = document.getElementById('deposit-fields');
+      var typeSelect = document.getElementById('{{ form.deposit_type.id_for_label }}');
+      var helpText = document.getElementById('deposit-help');
+      if (chk && fields) {
+        chk.addEventListener('change', function() {
+          fields.style.display = this.checked ? '' : 'none';
+        });
+      }
+      if (typeSelect && helpText) {
+        function updateHelp() {
+          helpText.textContent = typeSelect.value === 'percent'
+            ? 'Enter percentage (e.g. 50 for 50%)'
+            : 'Enter dollar amount (e.g. 500)';
+        }
+        typeSelect.addEventListener('change', updateHelp);
+        updateHelp();
+      }
+    })();
+    </script>
+
     {% if doc_template and doc_template.custom_fields %}
     <section class="card estimate-edit-section">
       <h2 class="section-title">Additional information</h2>

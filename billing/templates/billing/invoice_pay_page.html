@@ -79,7 +79,7 @@
       </div>
       {% endif %}
 
-      {% if can_accept_stripe %}
+      {% if can_accept_stripe and invoice.enable_card_payment %}
       <div class="pay-methods">
         <h3>Pay with card</h3>
         <form method="post" action="{% url 'billing:create_invoice_checkout' invoice.id invoice.payment_token %}">
@@ -91,9 +91,12 @@
 
       {% if has_payment_methods %}
       <div class="pay-methods">
-        <h3>{% if can_accept_stripe %}Or pay another way{% else %}Payment methods{% endif %}</h3>
+        <h3>{% if can_accept_stripe and invoice.enable_card_payment %}Or pay another way{% else %}Payment methods{% endif %}</h3>
         {% if venmo_link %}
         <a href="{{ venmo_link }}" class="pay-method" target="_blank" rel="noopener">Pay with Venmo ({{ business.venmo_username }})</a>
+        {% endif %}
+        {% if paypal_link %}
+        <a href="{{ paypal_link }}" class="pay-method" target="_blank" rel="noopener">Pay with PayPal</a>
         {% endif %}
         {% if business.zelle_email_or_phone %}
         <div class="pay-method zelle">Zelle: {{ business.zelle_email_or_phone }}</div>
@@ -102,7 +105,7 @@
         <a href="{{ cashapp_link }}" class="pay-method" target="_blank" rel="noopener">Pay with Cash App ({{ business.cashapp_cashtag }})</a>
         {% endif %}
       </div>
-      <p class="pay-note">After paying via Venmo, Zelle, or Cash App, {{ business.name }} will confirm your payment.</p>
+      <p class="pay-note">After paying via Venmo, PayPal, Zelle, or Cash App, {{ business.name }} will confirm your payment.</p>
       {% endif %}
     {% endif %}
 

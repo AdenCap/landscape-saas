@@ -2,14 +2,19 @@
 {% load billing_filters %}
 
 {% block content %}
+<div class="billing-tabs" style="margin-bottom: 18px;">
+  <a href="{% url 'billing:invoice_list' %}" class="billing-tab active">Invoices</a>
+  <a href="{% url 'billing:outstanding_invoices' %}" class="billing-tab">Outstanding</a>
+  <a href="{% url 'billing:monthly_invoice_list' %}" class="billing-tab">Monthly</a>
+  <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="billing-tab">Invoice Template Editor</a>
+</div>
+
 <div class="page-header" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
   <div>
     <h1>Invoicing</h1>
     <p>Track payment state, open balances, and invoice operations.</p>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <a href="{% url 'billing:outstanding_invoices' %}" class="btn btn-secondary">Outstanding</a>
-    <a href="{% url 'billing:monthly_invoice_list' %}" class="btn btn-secondary">Monthly</a>
     <a href="{% url 'billing:invoice_create' %}" class="btn btn-primary">+ Create Invoice</a>
   </div>
 </div>

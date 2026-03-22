@@ -89,5 +89,51 @@
   .form-section .field ul { color: #fca5a5; font-size: 13px; margin: 4px 0 0 0; }
   .form-section .field .help { font-size: 12px; color: var(--text-muted); margin: 6px 0 0 0; }
   .form-actions { display: flex; gap: 10px; margin-top: 24px; }
+  .pac-container { z-index: 10000 !important; background: var(--bg-elevated, #1a1a1a) !important; border: 1px solid var(--border, #333) !important; border-radius: 8px !important; box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important; }
+  .pac-item { padding: 10px 14px !important; border-bottom: 1px solid var(--border, #262626) !important; color: var(--text, #fafafa) !important; cursor: pointer !important; font-size: 14px !important; }
+  .pac-item:hover, .pac-item-selected { background: var(--bg-surface-hover, #222) !important; }
+  .pac-item-query { color: var(--text, #fafafa) !important; font-weight: 600 !important; }
+  .pac-matched { font-weight: 700 !important; }
+  .pac-icon { display: none !important; }
 </style>
+{% if google_maps_api_key %}
+<script>
+function initAutocomplete() {
+  var input = document.getElementById('id_address_line1');
+  if (!input) return;
+  var autocomplete = new google.maps.places.Autocomplete(input, {
+    componentRestrictions: { country: 'us' },
+    fields: ['address_components', 'formatted_address'],
+    types: ['address']
+  });
+  autocomplete.addListener('place_changed', function() {
+    var place = autocomplete.getPlace();
+    if (!place.address_components) return;
+    var street_number = '', route = '', city = '', state = '', zip = '';
+    place.address_components.forEach(function(c) {
+      var t = c.types;
+      if (t.indexOf('street_number') >= 0) street_number = c.long_name;
+      if (t.indexOf('route') >= 0) route = c.long_name;
+      if (t.indexOf('locality') >= 0) city = c.long_name;
+      if (t.indexOf('administrative_area_level_1') >= 0) state = c.short_name;
+      if (t.indexOf('postal_code') >= 0) zip = c.long_name;
+    });
+    input.value = (street_number + ' ' + route).trim();
+    var cityEl = document.getElementById('id_city');
+    var stateEl = document.getElementById('id_state');
+    var zipEl = document.getElementById('id_postal_code');
+    if (cityEl) cityEl.value = city;
+    if (stateEl) stateEl.value = state;
+    if (zipEl) zipEl.value = zip;
+  });
+  // Prevent form submit on Enter when selecting autocomplete
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && document.querySelector('.pac-container:not([style*="display: none"])')) {
+      e.preventDefault();
+    }
+  });
+}
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initAutocomplete" async defer></script>
+{% endif %}
 {% endblock %}

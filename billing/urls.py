@@ -19,6 +19,7 @@ urlpatterns = [
     path("connect/return/", views.connect_return, name="connect_return"),
     path("connect/dashboard/", views.connect_dashboard, name="connect_dashboard"),
     path("<int:invoice_id>/mark-paid/", views.mark_invoice_paid, name="mark_invoice_paid"),
+    path("<int:invoice_id>/toggle-card-payment/", views.invoice_toggle_card_payment, name="invoice_toggle_card_payment"),
     path("estimates/", views.estimate_list, name="estimate_list"),
     path("estimates/field-capture/", views.field_capture, name="field_capture"),
     path("estimates/queue/", views.estimate_queue, name="estimate_queue"),

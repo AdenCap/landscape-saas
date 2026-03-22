@@ -4,103 +4,150 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
   <title>{{ estimate.title }} – {{ business.name }}</title>
-  <!--[if mso]><style type="text/css">body, table { font-family: Arial, sans-serif !important; }</style><![endif]-->
+  <!--[if mso]><style>body,table{font-family:Arial,sans-serif!important}</style><![endif]-->
+  <style>
+    body{margin:0;padding:0;background:#050505;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#e5e5e5;-webkit-text-size-adjust:100%}
+    a{color:{{ accent_color|default:'#22c55e' }}}
+    @media only screen and (max-width:600px){
+      .outer{padding:12px 8px!important}
+      .card{border-radius:12px!important}
+      .card-pad{padding:20px 16px!important}
+    }
+  </style>
 </head>
-<body style="margin:0; padding:0; background-color:#0a0a0a; font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:15px; line-height:1.5; color:#fafafa;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#0a0a0a;">
+<body style="margin:0;padding:0;background:#050505;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#050505;">
     <tr>
-      <td align="center" style="padding:32px 16px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px; background-color:#171717; border:1px solid #262626; border-radius:14px; overflow:hidden;">
+      <td class="outer" align="center" style="padding:40px 16px;">
+        <!-- Main card — no accent bar (softer, inviting feel) -->
+        <table role="presentation" class="card" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;background:#141414;border:1px solid #262626;border-radius:14px;overflow:hidden;">
           <!-- Header -->
           <tr>
-            <td style="padding:24px 24px 16px 24px; border-bottom:1px solid #262626;">
-              {% if logo_url %}
-              <img src="{{ logo_url }}" alt="{{ business.name }}" style="max-height:48px; max-width:160px; display:block; margin-bottom:16px;">
-              {% endif %}
-              <h1 style="margin:0; font-size:22px; font-weight:700; color:#fafafa; letter-spacing:-0.02em;">{{ estimate.title }}</h1>
-              <p style="margin:10px 0 0 0; font-size:14px; color:#a3a3a3;">
-                Estimate #{{ estimate.id }} from {{ business.name }} · Prepared for {{ customer.name }}{% if estimate.valid_until %} · Valid until {{ estimate.valid_until }}{% endif %}
+            <td class="card-pad" style="padding:28px 32px 20px;">
+              {% if logo_url %}<img src="{{ logo_url }}" alt="{{ business.name }}" style="max-height:44px;max-width:180px;display:block;margin-bottom:20px;">{% endif %}
+              <p style="margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:{{ accent_color|default:'#22c55e' }};">Estimate</p>
+              <h1 style="margin:6px 0 0;font-size:22px;font-weight:700;color:#fafafa;letter-spacing:-0.02em;">{{ estimate.title }}</h1>
+              <p style="margin:10px 0 0;font-size:14px;color:#737373;">
+                #{{ estimate.id }} &middot; Prepared for <strong style="color:#a3a3a3;">{{ customer.name }}</strong>{% if estimate.valid_until %} &middot; Valid until {{ estimate.valid_until }}{% endif %}
               </p>
-              {% if email_intro %}
-              <p style="margin:16px 0 0 0; font-size:15px; color:#e5e5e5; line-height:1.6;">{{ email_intro|linebreaksbr }}</p>
-              {% endif %}
             </td>
           </tr>
+
+          {% if email_intro %}
+          <tr>
+            <td class="card-pad" style="padding:0 32px 20px;">
+              <p style="margin:0;font-size:15px;color:#d4d4d4;line-height:1.65;">{{ email_intro|linebreaksbr }}</p>
+            </td>
+          </tr>
+          {% endif %}
+
+          <!-- Images (site photos) -->
           {% if estimate.images.exists %}
           <tr>
-            <td style="padding:16px 24px;">
+            <td class="card-pad" style="padding:0 32px 20px;">
               {% for img in estimate.images.all %}
               <div style="margin-bottom:12px;">
-                {% if request %}<img src="{{ request.scheme }}://{{ request.get_host }}{{ img.image.url }}" alt="{{ img.caption }}" style="max-width:100%; height:auto; border-radius:8px; border:1px solid #262626;">{% endif %}
-                {% if img.caption %}<p style="font-size:13px; color:#a3a3a3; margin:6px 0 0 0;">{{ img.caption }}</p>{% endif %}
+                {% if request %}<img src="{{ request.scheme }}://{{ request.get_host }}{{ img.image.url }}" alt="{{ img.caption }}" style="max-width:100%;height:auto;border-radius:10px;border:1px solid #262626;display:block;">{% endif %}
+                {% if img.caption %}<p style="font-size:12px;color:#737373;margin:6px 0 0;">{{ img.caption }}</p>{% endif %}
               </div>
               {% endfor %}
             </td>
           </tr>
           {% endif %}
+
+          <!-- Divider -->
+          <tr><td style="padding:0 32px;"><div style="height:1px;background:#262626;"></div></td></tr>
+
           <!-- Line items -->
           <tr>
-            <td style="padding:8px 24px 16px 24px;">
+            <td class="card-pad" style="padding:20px 32px;">
+              <p style="margin:0 0 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#525252;">Scope of Work</p>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-                <thead>
-                  <tr>
-                    <th style="text-align:left; padding:12px 0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#a3a3a3; border-bottom:1px solid #262626;">Description</th>
-                    <th style="text-align:right; padding:12px 0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#a3a3a3; border-bottom:1px solid #262626;">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for item in estimate.line_items.all %}
-                  <tr>
-                    <td style="padding:12px 0; border-bottom:1px solid #262626; color:#fafafa;">{{ item.description }}{% if item.is_addon %} <em style="color:#a3a3a3;">(Optional)</em>{% endif %}</td>
-                    <td style="text-align:right; padding:12px 0; border-bottom:1px solid #262626; color:#fafafa;">{{ item.line_total|currency }}</td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
+                {% for item in estimate.line_items.all %}
+                <tr>
+                  <td style="padding:12px 0;border-bottom:1px solid #1e1e1e;color:#e5e5e5;font-size:14px;">
+                    {{ item.description }}{% if item.is_addon %} <span style="display:inline-block;padding:2px 8px;background:rgba(234,179,8,0.12);color:#fde047;font-size:11px;font-weight:600;border-radius:4px;margin-left:6px;">Optional</span>{% endif %}
+                  </td>
+                  <td style="text-align:right;padding:12px 0;border-bottom:1px solid #1e1e1e;color:#e5e5e5;font-size:14px;font-weight:600;white-space:nowrap;">{{ item.line_total|currency }}</td>
+                </tr>
+                {% endfor %}
               </table>
-              <p style="margin:16px 0 0 0; font-size:18px; font-weight:700; text-align:right; border-top:2px solid {{ accent_color|default:'#22c55e' }}; padding-top:12px; color:{{ accent_color|default:'#22c55e' }};">
-                Total: {{ estimate.base_total|currency }}{% if estimate.addons_total > 0 %} <span style="font-size:14px; font-weight:500; color:#a3a3a3;">(+ optional items if selected)</span>{% endif %}
-              </p>
+
+              <!-- Total -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:16px;">
+                <tr>
+                  <td style="text-align:right;">
+                    <p style="margin:0;font-size:20px;font-weight:800;color:{{ accent_color|default:'#22c55e' }};">
+                      Total: {{ estimate.base_total|currency }}{% if estimate.addons_total > 0 %} <span style="font-size:13px;font-weight:500;color:#737373;">(+ add-ons if selected)</span>{% endif %}
+                    </p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
+
+          <!-- Deposit info -->
+          {% if estimate.deposit_required and estimate.deposit_amount %}
+          <tr>
+            <td class="card-pad" style="padding:0 32px 20px;">
+              <div style="background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.2);border-radius:10px;padding:16px;">
+                <p style="margin:0;font-size:14px;font-weight:600;color:#fde047;">
+                  Deposit Required
+                </p>
+                <p style="margin:6px 0 0;font-size:14px;color:#d4d4d4;">
+                  {% if estimate.deposit_type == "percent" %}
+                    A {{ estimate.deposit_amount|floatformat:0 }}% deposit (${{ estimate.deposit_dollar_amount|floatformat:2 }}) is required to accept this estimate.
+                  {% else %}
+                    A ${{ estimate.deposit_amount|floatformat:2 }} deposit is required to accept this estimate.
+                  {% endif %}
+                </p>
+              </div>
+            </td>
+          </tr>
+          {% endif %}
+
+          <!-- View & Accept CTA -->
           {% if view_url %}
           <tr>
-            <td style="padding:8px 24px 24px 24px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.4); border-radius:10px;">
+            <td class="card-pad" style="padding:0 32px 28px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="padding:20px; text-align:center;">
-                    <p style="margin:0 0 12px 0; font-weight:600; color:#fafafa;">View your estimate and select optional items</p>
-                    <a href="{{ view_url }}" style="display:inline-block; padding:14px 28px; background-color:{{ accent_color|default:'#22c55e' }}; color:#0a0a0a !important; text-decoration:none; font-weight:600; border-radius:10px; font-size:15px;">View &amp; Accept Estimate</a>
-                    <p style="margin:12px 0 0 0; font-size:13px; color:#a3a3a3;">On that page you can add any optional items and see your total before accepting.</p>
+                  <td style="background:{{ accent_color|default:'#22c55e' }};border-radius:12px;text-align:center;padding:20px;">
+                    <a href="{{ view_url }}" style="display:inline-block;padding:0;color:#000!important;text-decoration:none;font-weight:700;font-size:16px;">View &amp; Accept Estimate</a>
+                    <p style="margin:10px 0 0;font-size:12px;color:rgba(0,0,0,0.5);">Select optional items and review your total before accepting</p>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
           {% endif %}
+
+          <!-- Notes -->
           {% if estimate.notes %}
           <tr>
-            <td style="padding:8px 24px 24px 24px;">
-              <div style="background-color:#0a0a0a; padding:16px; border-radius:10px; border:1px solid #262626; font-size:14px; color:#a3a3a3;">
-                <strong style="color:#fafafa;">Notes:</strong><br>
-                {{ estimate.notes|linebreaks }}
+            <td class="card-pad" style="padding:0 32px 24px;">
+              <div style="background:#0a0a0a;padding:16px;border-radius:10px;border:1px solid #1e1e1e;">
+                <p style="margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#525252;margin-bottom:8px;">Notes</p>
+                <p style="margin:0;font-size:14px;color:#a3a3a3;line-height:1.6;">{{ estimate.notes|linebreaksbr }}</p>
               </div>
             </td>
           </tr>
           {% endif %}
+
           <!-- Footer -->
           <tr>
-            <td style="padding:20px 24px; border-top:1px solid #262626; font-size:13px; color:#a3a3a3;">
-              {% if email_closing %}<p style="margin:0 0 12px 0; color:#e5e5e5;">{{ email_closing|linebreaksbr }}</p>{% endif %}
-              This estimate was sent by {{ business.name }}.
-              {% if business.contact_email or business.contact_phone %}
-              Contact us: {% if business.contact_email %}{{ business.contact_email }}{% endif %}{% if business.contact_email and business.contact_phone %} · {% endif %}{% if business.contact_phone %}{{ business.contact_phone }}{% endif %}
-              {% else %}
-              Reply to this email with any questions.
-              {% endif %}
+            <td class="card-pad" style="padding:20px 32px;border-top:1px solid #1e1e1e;">
+              {% if email_closing %}<p style="margin:0 0 10px;font-size:14px;color:#d4d4d4;">{{ email_closing|linebreaksbr }}</p>{% endif %}
+              <p style="margin:0;font-size:12px;color:#525252;">
+                Sent by {{ business.name }}{% if business.contact_email %} &middot; {{ business.contact_email }}{% endif %}{% if business.contact_phone %} &middot; {{ business.contact_phone }}{% endif %}
+              </p>
             </td>
           </tr>
         </table>
+
+        <p style="margin:24px 0 0;font-size:11px;color:#404040;text-align:center;">Powered by FieldLgx</p>
       </td>
     </tr>
   </table>

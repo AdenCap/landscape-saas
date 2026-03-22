@@ -198,12 +198,14 @@ def customer_create(request):
     else:
         form = CustomerForm()
 
+    from django.conf import settings as django_settings
     next_param = request.GET.get("next")
     return render(request, "customers/customer_form.html", {
         "form": form,
         "title": "Add New Client",
         "return_to_estimate": next_param in ("estimate", "estimate_and_select"),
         "next_value": next_param,
+        "google_maps_api_key": getattr(django_settings, "GOOGLE_MAPS_API_KEY", ""),
     })
 
 
@@ -394,10 +396,12 @@ def customer_edit(request, customer_id):
     else:
         form = CustomerForm(instance=customer)
 
+    from django.conf import settings as django_settings
     return render(request, "customers/customer_form.html", {
         "form": form,
         "customer": customer,
         "title": "Edit Client",
+        "google_maps_api_key": getattr(django_settings, "GOOGLE_MAPS_API_KEY", ""),
     })
 
 
@@ -416,16 +420,27 @@ def property_add(request, customer_id):
         if form.is_valid():
             prop = form.save(commit=False)
             prop.customer = customer
+            # Save lat/lng from Places autocomplete hidden fields
+            lat = request.POST.get("latitude", "").strip()
+            lng = request.POST.get("longitude", "").strip()
+            if lat and lng:
+                try:
+                    prop.latitude = float(lat)
+                    prop.longitude = float(lng)
+                except (ValueError, TypeError):
+                    pass
             prop.save()
             messages.success(request, f"Property '{prop.address}' added.")
             return redirect("customer_detail", customer_id=customer.id)
     else:
         form = PropertyForm()
 
+    from django.conf import settings as django_settings
     return render(request, "customers/property_form.html", {
         "form": form,
         "customer": customer,
         "title": "Add Property",
+        "google_maps_api_key": getattr(django_settings, "GOOGLE_MAPS_API_KEY", ""),
     })
 
 
@@ -443,17 +458,28 @@ def property_edit(request, customer_id, property_id):
     if request.method == "POST":
         form = PropertyForm(request.POST, instance=prop)
         if form.is_valid():
-            form.save()
+            p = form.save(commit=False)
+            lat = request.POST.get("latitude", "").strip()
+            lng = request.POST.get("longitude", "").strip()
+            if lat and lng:
+                try:
+                    p.latitude = float(lat)
+                    p.longitude = float(lng)
+                except (ValueError, TypeError):
+                    pass
+            p.save()
             messages.success(request, "Property updated.")
             return redirect("customer_detail", customer_id=customer.id)
     else:
         form = PropertyForm(instance=prop)
 
+    from django.conf import settings as django_settings
     return render(request, "customers/property_form.html", {
         "form": form,
         "customer": customer,
         "property": prop,
         "title": "Edit Property",
+        "google_maps_api_key": getattr(django_settings, "GOOGLE_MAPS_API_KEY", ""),
     })
 
 

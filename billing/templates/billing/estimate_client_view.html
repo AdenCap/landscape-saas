@@ -193,9 +193,22 @@
     <div class="doc-footer-custom">{{ doc_template.footer_text|linebreaksbr }}</div>
     {% endif %}
 
+    {% if estimate.deposit_required and estimate.deposit_amount %}
+    <div style="margin-top:20px;padding:18px;border-radius:12px;background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.25);text-align:center;">
+      <p style="margin:0;font-size:15px;font-weight:600;color:#92400e;">Deposit Required</p>
+      <p style="margin:8px 0 0;font-size:14px;color:#78350f;">
+        {% if estimate.deposit_type == "percent" %}
+          A {{ estimate.deposit_amount|floatformat:0 }}% deposit (${{ estimate.deposit_dollar_amount|floatformat:2 }}) is required to accept this estimate.
+        {% else %}
+          A ${{ estimate.deposit_amount|floatformat:2 }} deposit is required to accept this estimate.
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
+
     <form method="post" action="{% url 'billing:estimate_client_accept' estimate.id token %}" class="accept-section">
       {% csrf_token %}
-      <button type="submit" class="btn-accept">Accept Estimate</button>
+      <button type="submit" class="btn-accept">Accept Estimate{% if estimate.deposit_required and estimate.deposit_amount %} &amp; Agree to Deposit{% endif %}</button>
     </form>
   </div>
 

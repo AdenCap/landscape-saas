@@ -46,6 +46,7 @@ class BusinessSettingsForm(forms.ModelForm):
             "venmo_username",
             "zelle_email_or_phone",
             "cashapp_cashtag",
+            "paypal_link",
             "invoice_email_subject",
             "invoice_email_intro",
             "invoice_email_closing",
