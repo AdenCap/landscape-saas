@@ -125,12 +125,15 @@ document.addEventListener('DOMContentLoaded', function () {
     height: 'auto',
     dayMaxEvents: isMobile ? 3 : 5,  // Show "+N more" link instead of overflowing
 
-    // ── Event source (with AbortController to cancel stale fetches) ──
+    // ── Event source (date-range filtered + AbortController) ──
     events: function(info, successCallback, failureCallback) {
-      // Abort any in-flight event fetch
       if (window._calFetchCtrl) window._calFetchCtrl.abort();
       window._calFetchCtrl = new AbortController();
-      var params = [];
+      // Pass visible date range so backend only returns jobs in view
+      var params = [
+        'start=' + formatDateStr(info.start),
+        'end=' + formatDateStr(info.end)
+      ];
       var svc = document.getElementById('filter-services');
       var crew = document.getElementById('filter-crews');
       var emp = document.getElementById('filter-employees');
@@ -139,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (crew && crew.value) params.push('crews=' + encodeURIComponent(crew.value));
       if (emp && emp.value) params.push('employees=' + encodeURIComponent(emp.value));
       if (searchEl && searchEl.value.trim()) params.push('search=' + encodeURIComponent(searchEl.value.trim()));
-      var qs = params.length ? '?' + params.join('&') : '';
+      var qs = '?' + params.join('&');
       fetch('/jobs/calendar/events/' + qs, { signal: window._calFetchCtrl.signal })
         .then(function(r) { return r.json(); })
         .then(successCallback)

@@ -281,6 +281,17 @@ def calendar_events(request):
         'recurring_job'
     ).prefetch_related('service_items__service', 'assigned_employees').filter(scheduled_date__isnull=False)
 
+    # Filter by visible date range (critical for performance)
+    start_date = request.GET.get("start")
+    end_date = request.GET.get("end")
+    if start_date and end_date:
+        try:
+            s = datetime.strptime(start_date, "%Y-%m-%d").date()
+            e = datetime.strptime(end_date, "%Y-%m-%d").date()
+            jobs = jobs.filter(scheduled_date__gte=s, scheduled_date__lte=e)
+        except (ValueError, TypeError):
+            pass
+
     business = get_business(request) if request.user.is_authenticated else None
     if business:
         jobs = jobs.filter(property__customer__business=business)
@@ -406,9 +417,17 @@ def calendar_events(request):
             }
         events.append(evt)
 
-    # Owner-only: add meetings to calendar
+    # Owner-only: add meetings to calendar (filtered by date range)
     if business and getattr(request.user, "role", None) in ("owner", "manager"):
         meetings = Meeting.objects.filter(business=business).select_related("customer").order_by("scheduled_at")
+        if start_date and end_date:
+            try:
+                meetings = meetings.filter(
+                    scheduled_at__date__gte=datetime.strptime(start_date, "%Y-%m-%d").date(),
+                    scheduled_at__date__lte=datetime.strptime(end_date, "%Y-%m-%d").date(),
+                )
+            except (ValueError, TypeError):
+                pass
         if search:
             meetings = meetings.filter(
                 Q(title__icontains=search) | Q(customer__name__icontains=search)
