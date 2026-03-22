@@ -843,11 +843,13 @@ body.is-dragging * {
 }
 
 .rain-push-btn {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--primary);
   background: rgba(34, 197, 94, 0.1);
   border: none;
+  min-height: 28px;
+  padding: 4px 8px;
   border-radius: 4px;
   padding: 2px 6px;
   cursor: pointer;
@@ -1767,8 +1769,8 @@ body.is-dragging * {
 }
 
 .color-mode-btn {
-  padding: 6px 12px;
-  font-size: 11px;
+  padding: 8px 14px;
+  font-size: 12px;
   font-weight: 600;
   font-family: inherit;
   background: var(--bg-surface);
@@ -1777,6 +1779,7 @@ body.is-dragging * {
   cursor: pointer;
   transition: all 150ms ease;
   white-space: nowrap;
+  min-height: 36px;
 }
 
 .color-mode-btn + .color-mode-btn {
@@ -1802,6 +1805,7 @@ body.is-dragging * {
   position: fixed;
   z-index: 1200;
   width: 340px;
+  max-width: calc(100vw - 24px);
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -2005,10 +2009,28 @@ body.is-dragging * {
     border-radius: 20px 20px 0 0 !important;
   }
 
+  .color-mode-toggle {
+    width: 100%;
+    order: 5;
+  }
   .color-mode-btn {
     padding: 10px 14px;
-    font-size: 12px;
-    min-height: 40px;
+    font-size: 13px;
+    min-height: 44px;
+    flex: 1;
+    text-align: center;
+  }
+
+  .quick-create-popover {
+    width: 100% !important;
+    max-width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 85vh;
+    overflow-y: auto;
   }
 
   .qc-field input[type="text"],
@@ -2020,8 +2042,29 @@ body.is-dragging * {
   }
 
   .qc-swatch {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .qc-dropdown-item {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 12px 14px;
+  }
+
+  .qc-close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .qc-footer .btn {
+    min-height: 44px;
+    padding: 12px 20px;
+  }
+
+  .qc-footer {
+    padding: 14px 18px calc(14px + env(safe-area-inset-bottom, 0px));
   }
 }
 

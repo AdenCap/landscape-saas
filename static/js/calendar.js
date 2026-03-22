@@ -125,8 +125,11 @@ document.addEventListener('DOMContentLoaded', function () {
     height: 'auto',
     dayMaxEvents: isMobile ? 3 : 5,  // Show "+N more" link instead of overflowing
 
-    // ── Event source ──
+    // ── Event source (with AbortController to cancel stale fetches) ──
     events: function(info, successCallback, failureCallback) {
+      // Abort any in-flight event fetch
+      if (window._calFetchCtrl) window._calFetchCtrl.abort();
+      window._calFetchCtrl = new AbortController();
       var params = [];
       var svc = document.getElementById('filter-services');
       var crew = document.getElementById('filter-crews');
@@ -137,10 +140,10 @@ document.addEventListener('DOMContentLoaded', function () {
       if (emp && emp.value) params.push('employees=' + encodeURIComponent(emp.value));
       if (searchEl && searchEl.value.trim()) params.push('search=' + encodeURIComponent(searchEl.value.trim()));
       var qs = params.length ? '?' + params.join('&') : '';
-      fetch('/jobs/calendar/events/' + qs)
+      fetch('/jobs/calendar/events/' + qs, { signal: window._calFetchCtrl.signal })
         .then(function(r) { return r.json(); })
         .then(successCallback)
-        .catch(failureCallback);
+        .catch(function(err) { if (err.name !== 'AbortError') failureCallback(err); });
     },
 
     // ── Persist view/date ──
@@ -388,8 +391,9 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     },
 
-    // ── Update job count badges when events change ──
+    // ── Update job count badges + apply color mode when events change ──
     eventsSet: function(events) {
+      // Job count badges
       var counts = {};
       events.forEach(function(evt) {
         if (!evt.start) return;
@@ -402,6 +406,10 @@ document.addEventListener('DOMContentLoaded', function () {
         el.textContent = c > 0 ? c : '';
         el.style.display = c > 0 ? '' : 'none';
       });
+      // Apply color mode after events load (deferred to avoid race)
+      if (typeof _applyColorMode === 'function') {
+        requestAnimationFrame(_applyColorMode);
+      }
     }
   });
   calendar.render();
@@ -1443,6 +1451,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // ── Customer typeahead ──
   var qcSearchEl = document.getElementById('qc-customer-search');
   var qcDrop = document.getElementById('qc-customer-dropdown');
+  var qcSearchAbort = null;
 
   if (qcSearchEl) {
     qcSearchEl.addEventListener('input', function() {
@@ -1450,7 +1459,9 @@ document.addEventListener('DOMContentLoaded', function () {
       var q = this.value.trim();
       if (q.length < 1) { qcDrop.style.display = 'none'; return; }
       qcSearchTimer = setTimeout(function() {
-        fetch('/jobs/calendar/customer-search/?q=' + encodeURIComponent(q))
+        if (qcSearchAbort) qcSearchAbort.abort();
+        qcSearchAbort = new AbortController();
+        fetch('/jobs/calendar/customer-search/?q=' + encodeURIComponent(q), { signal: qcSearchAbort.signal })
           .then(function(r) { return r.json(); })
           .then(function(data) {
             while (qcDrop.firstChild) qcDrop.removeChild(qcDrop.firstChild);
@@ -1473,7 +1484,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             qcDrop.style.display = 'block';
           })
-          .catch(function() { qcDrop.style.display = 'none'; });
+          .catch(function(err) { if (err.name !== 'AbortError') qcDrop.style.display = 'none'; });
       }, 200);
     });
   }
@@ -1485,7 +1496,9 @@ document.addEventListener('DOMContentLoaded', function () {
     nEl.textContent = name;
     nEl.style.display = 'block';
     nEl.style.cursor = 'pointer';
-    nEl.onclick = function() {
+    // Use a named handler so we can replace it cleanly
+    if (nEl._qcHandler) nEl.removeEventListener('click', nEl._qcHandler);
+    nEl._qcHandler = function() {
       document.getElementById('qc-customer-search').style.display = '';
       document.getElementById('qc-customer-search').value = '';
       document.getElementById('qc-customer-search').focus();
@@ -1493,6 +1506,7 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('qc-customer-id').value = '';
       document.getElementById('qc-property-wrap').style.display = 'none';
     };
+    nEl.addEventListener('click', nEl._qcHandler);
     qcDrop.style.display = 'none';
 
     var propSelect = document.getElementById('qc-property-id');
@@ -1597,7 +1611,8 @@ document.addEventListener('DOMContentLoaded', function () {
   var STORAGE_COLOR_MODE = 'fieldlgx_calendar_color_mode';
   var colorMode = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_COLOR_MODE)) || 'status';
 
-  function applyColorMode() {
+  // Global reference for eventsSet callback integration (no setOption chaining needed)
+  window._applyColorMode = function() {
     calendar.getEvents().forEach(function(event) {
       var props = event.extendedProps || {};
       if (props.type === 'meeting') return;
@@ -1613,7 +1628,7 @@ document.addEventListener('DOMContentLoaded', function () {
       event.setProp('backgroundColor', color);
       event.setProp('borderColor', color);
     });
-  }
+  };
 
   var toggleContainer = document.getElementById('color-mode-toggle');
   if (toggleContainer) {
@@ -1628,15 +1643,8 @@ document.addEventListener('DOMContentLoaded', function () {
       toggleContainer.querySelectorAll('.color-mode-btn').forEach(function(b) {
         b.classList.toggle('active', b.dataset.mode === colorMode);
       });
-      applyColorMode();
+      _applyColorMode();
     });
   }
-
-  // Apply color mode after events load
-  var origEventsSet = calendar.getOption('eventsSet');
-  calendar.setOption('eventsSet', function(events) {
-    if (typeof origEventsSet === 'function') origEventsSet(events);
-    setTimeout(applyColorMode, 50);
-  });
 
 });

@@ -351,7 +351,8 @@ def calendar_events(request):
             assignee_name = 'Unassigned'
 
         customer_name = job.property.customer.name if job.property.customer else ""
-        service_names = list({si.service.name for si in job.service_items.select_related('service').all() if si.service})
+        # Use prefetched data — do NOT re-query with select_related here
+        service_names = list({si.service.name for si in job.service_items.all() if si.service})
         services_str = ", ".join(service_names) if service_names else "No services"
 
         title = job.property.address
@@ -377,7 +378,7 @@ def calendar_events(request):
                     "crewColor": crew_dot_color,
                     "statusColor": STATUS_COLORS.get(job.status, '#3b82f6'),
                     "assigneeColor": crew_dot_color,
-                    "jobColorOverride": job.color.strip() if job.color and job.color.strip() else None,
+                    "jobColorOverride": (job.color or "").strip() or None,
                     "serviceAbbr": service_names[0] if service_names else "",
                     "recurring": bool(job.recurring_job_id),
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
@@ -397,7 +398,7 @@ def calendar_events(request):
                     "crewColor": crew_dot_color,
                     "statusColor": STATUS_COLORS.get(job.status, '#3b82f6'),
                     "assigneeColor": crew_dot_color,
-                    "jobColorOverride": job.color.strip() if job.color and job.color.strip() else None,
+                    "jobColorOverride": (job.color or "").strip() or None,
                     "serviceAbbr": service_names[0] if service_names else "",
                     "recurring": bool(job.recurring_job_id),
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
@@ -465,10 +466,10 @@ def calendar_job_data(request, job_id):
         if not can_view:
             return JsonResponse({"error": "You do not have access to this job."}, status=403)
 
-    # Services list (name, quantity, unit)
+    # Services list — use prefetched data, don't re-query
     services = [
         {"name": si.service.name if si.service else "—", "quantity": str(si.quantity), "unit": si.unit or "visit"}
-        for si in job.service_items.select_related('service').all()
+        for si in job.service_items.all()
     ]
 
     # Property images from estimates (Property Estimator)
