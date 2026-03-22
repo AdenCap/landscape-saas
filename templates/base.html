@@ -21,8 +21,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <style>.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:-4px;}</style>
-  <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=5">
-  <link rel="stylesheet" href="{% static 'css/messaging.css' %}?v=5">
+  <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=6">
+  <link rel="stylesheet" href="{% static 'css/messaging.css' %}?v=6">
 
   <style>
     :root {
@@ -81,7 +81,7 @@
     }
     .sidebar-create-item .nav-icon { margin-right: 10px; }
     .btn-sm { padding: 6px 12px; font-size: 13px; }
-    .platform-banner { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; margin-bottom: 16px; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 10px; color: #6ee7b7; }
+    .platform-banner { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; margin-bottom: 16px; background: rgba(169, 255, 172, 0.06); border: none; border-radius: var(--radius-lg); color: var(--primary); font-size: 13px; }
 
     .sidebar {
       width: 240px;
@@ -127,15 +127,16 @@
       width: 100%;
       justify-content: center;
       padding: 12px 16px;
-      background: var(--primary);
-      color: var(--bg);
-      font-weight: 600;
-      font-size: 15px;
-      border-radius: 10px;
+      background: linear-gradient(135deg, #a9ffac, #00fe66);
+      color: #001f06;
+      font-weight: 700;
+      font-size: 14px;
+      border-radius: 1rem;
+      box-shadow: 0 0 20px rgba(169, 255, 172, 0.12);
     }
     .btn-create:hover {
-      background: var(--primary-hover);
-      color: var(--bg);
+      box-shadow: 0 0 40px rgba(169, 255, 172, 0.2);
+      color: #001f06;
     }
     .sidebar-create-dropdown {
       position: absolute;
@@ -143,11 +144,11 @@
       left: 0;
       right: 0;
       margin-top: 6px;
-      padding: 8px;
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      padding: 6px;
+      background: var(--surface-high, #201f1f);
+      border: none;
+      border-radius: var(--radius-xl);
+      box-shadow: 0 0 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
       z-index: 100;
       animation: dropdownIn var(--motion-base) var(--motion-ease-out);
       transform-origin: top center;
@@ -156,16 +157,17 @@
       display: flex;
       align-items: center;
       padding: 10px 14px;
-      border-radius: 8px;
-      color: var(--text);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
       text-decoration: none;
-      font-size: 14px;
+      font-size: 13px;
+      font-weight: 500;
       transition: all var(--motion-fast) var(--motion-ease);
     }
     .sidebar-create-item:hover {
-      background: var(--primary-light);
+      background: rgba(169, 255, 172, 0.06);
       color: var(--primary);
-      transform: translateX(2px);
+      transform: translateX(3px);
     }
     .sidebar-nav {
       display: flex;
@@ -183,8 +185,8 @@
     }
     .sidebar-divider {
       height: 1px;
-      background: var(--border);
-      margin: 16px 0;
+      background: rgba(73, 72, 71, 0.12);
+      margin: 12px 8px;
     }
     .sidebar-footer .btn-nav {
       color: var(--text-muted);
@@ -208,11 +210,10 @@
 
     .topbar {
       display: none;
-      background: var(--bg);
+      background: var(--surface-container, #131313);
       padding: 12px 16px;
       gap: 8px;
       flex-wrap: wrap;
-      border-bottom: 1px solid var(--border);
     }
     .topbar .btn-nav {
       width: auto;
@@ -221,29 +222,29 @@
 
     .content {
       flex: 1;
-      padding: 24px;
-      font-size: 16px;
+      padding: 28px 32px;
+      font-size: var(--text-base);
       animation: fadeIn var(--motion-slow) var(--motion-ease-out);
     }
 
     .page-header {
-      margin-bottom: 24px;
+      margin-bottom: 28px;
     }
-    h1{font-size:var(--h1);line-height:1.02;letter-spacing:-.03em}
-    h2{font-size:var(--h2);line-height:1.04;letter-spacing:-.025em}
-    h3{font-size:var(--h3);line-height:1.1;letter-spacing:-.02em}
-    h4{font-size:var(--h4);line-height:1.15;letter-spacing:-.015em}
+    h1{font-size:var(--h1);line-height:1.02;letter-spacing:-.03em;font-weight:800}
+    h2{font-size:var(--h2);line-height:1.04;letter-spacing:-.025em;font-weight:700}
+    h3{font-size:var(--h3);line-height:1.1;letter-spacing:-.02em;font-weight:700}
+    h4{font-size:var(--h4);line-height:1.15;letter-spacing:-.015em;font-weight:600}
 
     .page-header h1 {
-      font-size: var(--h2);
-      font-weight: 700;
+      font-size: var(--h1);
+      font-weight: 800;
       margin: 0 0 6px 0;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.03em;
     }
     .page-header p {
       margin: 0;
       color: var(--text-muted);
-      font-size: var(--body);
+      font-size: var(--text-sm);
     }
 
     .card {
@@ -312,11 +313,12 @@
     .link-primary:hover { text-decoration: underline; }
 
     .messages { margin-bottom: 20px; }
-    .alert { padding: 14px 18px; border-radius: var(--radius-md); font-size: 13px; font-weight: 600; }
-    .alert-success { background: rgba(46, 125, 50, 0.15); color: var(--primary); border: 1px solid rgba(46, 125, 50, 0.3); }
-    .alert-error { background: rgba(147, 0, 10, 0.15); color: #ffb4ab; border: 1px solid rgba(147, 0, 10, 0.3); }
-    .alert-warning { background: rgba(234, 179, 8, 0.1); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.2); }
-    .alert-info { background: rgba(46, 125, 50, 0.08); color: #cbffc2; border: 1px solid rgba(46, 125, 50, 0.15); }
+    .alert { padding: 14px 18px; border-radius: var(--radius-lg); font-size: 13px; font-weight: 500; border: none; }
+    .alert a { color: inherit; font-weight: 700; }
+    .alert-success { background: rgba(169, 255, 172, 0.06); color: var(--primary); }
+    .alert-error { background: rgba(255, 107, 107, 0.08); color: #ff6b6b; }
+    .alert-warning { background: rgba(195, 244, 0, 0.06); color: var(--accent); }
+    .alert-info { background: rgba(129, 236, 255, 0.06); color: var(--tertiary); }
 
     /* Tablet: narrower sidebar */
     @media (min-width: 769px) and (max-width: 1024px) {

@@ -27,7 +27,7 @@
 <div class="kpi-grid">
   <div class="kpi-card">
     <div class="kpi-top">
-      <span class="kpi-icon" style="background:rgba(136,217,130,0.1);color:var(--primary);"><span class="material-symbols-outlined">payments</span></span>
+      <span class="kpi-icon" style="background:rgba(169,255,172,0.06);color:var(--primary);"><span class="material-symbols-outlined">payments</span></span>
       <span class="kpi-label">Revenue</span>
     </div>
     <div class="kpi-value">${{ revenue_this_month|floatformat:0 }}</div>
@@ -35,7 +35,7 @@
   </div>
   <div class="kpi-card">
     <div class="kpi-top">
-      <span class="kpi-icon" style="background:rgba(136,217,130,0.1);color:var(--primary);"><span class="material-symbols-outlined">trending_up</span></span>
+      <span class="kpi-icon" style="background:rgba(169,255,172,0.06);color:var(--primary);"><span class="material-symbols-outlined">trending_up</span></span>
       <span class="kpi-label">Profit</span>
     </div>
     <div class="kpi-value kpi-profit">${{ profit_this_month|floatformat:0 }}</div>
@@ -43,7 +43,7 @@
   </div>
   <div class="kpi-card">
     <div class="kpi-top">
-      <span class="kpi-icon" style="background:rgba(255,177,199,0.1);color:var(--tertiary);"><span class="material-symbols-outlined">warning</span></span>
+      <span class="kpi-icon" style="background:rgba(255,107,107,0.06);color:var(--tertiary);"><span class="material-symbols-outlined">warning</span></span>
       <span class="kpi-label">Overdue</span>
     </div>
     <div class="kpi-value {% if invoices_overdue_count %}kpi-alert{% endif %}">{{ invoices_overdue_count }}</div>
@@ -51,7 +51,7 @@
   </div>
   <div class="kpi-card">
     <div class="kpi-top">
-      <span class="kpi-icon" style="background:rgba(180,207,149,0.1);color:var(--secondary);"><span class="material-symbols-outlined">calendar_today</span></span>
+      <span class="kpi-icon" style="background:rgba(195,244,0,0.06);color:var(--secondary);"><span class="material-symbols-outlined">calendar_today</span></span>
       <span class="kpi-label">Jobs Today</span>
     </div>
     <div class="kpi-value">{{ jobs_today }}</div>
@@ -221,7 +221,7 @@
   .dash-header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.03em; }
   .dash-date { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
   .dash-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-  .dash-alert { display: flex; align-items: center; gap: 12px; padding: 14px 18px; margin-bottom: 20px; background: rgba(136,217,130,0.06); border: 1px solid rgba(136,217,130,0.15); border-radius: var(--radius-lg); font-size: 13px; }
+  .dash-alert { display: flex; align-items: center; gap: 12px; padding: 14px 18px; margin-bottom: 20px; background: rgba(169,255,172,0.04); border: none; border-radius: var(--radius-xl); font-size: 13px; }
   .dash-alert strong { display: block; color: var(--primary); font-size: 13px; }
   .dash-alert p { margin: 2px 0 0; color: var(--text-muted); font-size: 12px; }
   .dash-alert .btn { flex-shrink: 0; }
