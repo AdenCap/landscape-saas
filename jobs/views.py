@@ -814,16 +814,30 @@ def calendar_quick_create(request):
             job.assigned_employees.add(user)
             job.save(update_fields=["assigned_to"])
 
-    # Create service item with pricing
-    unit, rate = get_effective_rate(prop, service)
-    JobServiceItem.objects.create(
-        job=job,
-        service=service,
-        description=service.name,
-        quantity=1,
-        unit=unit,
-        unit_price=rate,
-    )
+    # Create service items (supports multiple line items)
+    services_list = data.get("services", [])
+    if services_list:
+        for svc_item in services_list:
+            svc_id = svc_item.get("service_id")
+            svc_qty = svc_item.get("quantity", 1)
+            svc_price_override = svc_item.get("unit_price")
+            svc = ServiceTemplate.objects.filter(business=business, id=svc_id, active=True).first()
+            if svc:
+                unit, rate = get_effective_rate(prop, svc)
+                if svc_price_override is not None:
+                    from decimal import Decimal
+                    rate = Decimal(str(svc_price_override))
+                JobServiceItem.objects.create(
+                    job=job, service=svc, description=svc.name,
+                    quantity=svc_qty, unit=unit, unit_price=rate,
+                )
+    else:
+        # Fallback: single service_id
+        unit, rate = get_effective_rate(prop, service)
+        JobServiceItem.objects.create(
+            job=job, service=service, description=service.name,
+            quantity=1, unit=unit, unit_price=rate,
+        )
 
     # Log assignment
     if job.assigned_crew or job.assigned_to:

@@ -1384,19 +1384,12 @@ document.addEventListener('DOMContentLoaded', function () {
       s.classList.toggle('active', s.getAttribute('data-color') === '');
     });
 
-    // Populate services
-    var svcSelect = document.getElementById('qc-service-id');
-    while (svcSelect.firstChild) svcSelect.removeChild(svcSelect.firstChild);
-    var defOpt = document.createElement('option');
-    defOpt.value = '';
-    defOpt.textContent = 'Select a service';
-    svcSelect.appendChild(defOpt);
-    (typeof QC_SERVICES !== 'undefined' ? QC_SERVICES : []).forEach(function(s) {
-      var opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = s.name;
-      svcSelect.appendChild(opt);
-    });
+    // Populate line items (multiple services)
+    var linesContainer = document.getElementById('qc-lines');
+    if (linesContainer) {
+      while (linesContainer.firstChild) linesContainer.removeChild(linesContainer.firstChild);
+      linesContainer.appendChild(qcCreateLineRow());
+    }
 
     // Populate assignment (crews + employees)
     var assignSelect = document.getElementById('qc-assign');
@@ -1467,6 +1460,55 @@ document.addEventListener('DOMContentLoaded', function () {
     qcPopover.style.display = 'block';
     qcOpen = true;
     setTimeout(function() { searchInput.focus(); }, 100);
+  }
+
+  // Create a service line item row for quick-create
+  function qcCreateLineRow() {
+    var row = document.createElement('div');
+    row.className = 'qc-line-row';
+    var sel = document.createElement('select');
+    sel.className = 'qc-line-service';
+    var defOpt = document.createElement('option');
+    defOpt.value = '';
+    defOpt.textContent = 'Service';
+    sel.appendChild(defOpt);
+    (typeof QC_SERVICES !== 'undefined' ? QC_SERVICES : []).forEach(function(s) {
+      var o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = s.name;
+      sel.appendChild(o);
+    });
+    row.appendChild(sel);
+    var qty = document.createElement('input');
+    qty.type = 'number'; qty.className = 'qc-line-qty'; qty.value = '1';
+    qty.min = '0.01'; qty.step = '0.01'; qty.placeholder = 'Qty';
+    qty.style.width = '50px';
+    row.appendChild(qty);
+    var price = document.createElement('input');
+    price.type = 'number'; price.className = 'qc-line-price';
+    price.min = '0'; price.step = '0.01'; price.placeholder = 'Price';
+    price.style.width = '70px';
+    row.appendChild(price);
+    // Remove button (not on first row)
+    var container = document.getElementById('qc-lines');
+    if (container && container.children.length > 0) {
+      var rmBtn = document.createElement('button');
+      rmBtn.type = 'button';
+      rmBtn.className = 'qc-line-remove';
+      rmBtn.textContent = '\u00D7';
+      rmBtn.addEventListener('click', function() { row.remove(); });
+      row.appendChild(rmBtn);
+    }
+    return row;
+  }
+
+  // Add line button
+  var addLineBtn = document.getElementById('qc-add-line');
+  if (addLineBtn) {
+    addLineBtn.addEventListener('click', function() {
+      var container = document.getElementById('qc-lines');
+      if (container) container.appendChild(qcCreateLineRow());
+    });
   }
 
   function closeQuickCreate() {
@@ -1591,20 +1633,34 @@ document.addEventListener('DOMContentLoaded', function () {
     qcSubmitBtn.addEventListener('click', function() {
       var customerId = document.getElementById('qc-customer-id').value;
       var propertyId = document.getElementById('qc-property-id').value;
-      var serviceId = document.getElementById('qc-service-id').value;
       var dateVal = document.getElementById('qc-date').value;
       var timeVal = document.getElementById('qc-time').value;
       var colorVal = document.getElementById('qc-color').value;
       var assignVal = document.getElementById('qc-assign').value;
 
+      // Collect line items
+      var lineRows = document.querySelectorAll('#qc-lines .qc-line-row');
+      var services = [];
+      lineRows.forEach(function(row) {
+        var svcId = row.querySelector('.qc-line-service').value;
+        var qty = parseFloat(row.querySelector('.qc-line-qty').value) || 1;
+        var price = row.querySelector('.qc-line-price').value;
+        if (svcId) {
+          var item = { service_id: parseInt(svcId), quantity: qty };
+          if (price !== '' && price !== null) item.unit_price = parseFloat(price);
+          services.push(item);
+        }
+      });
+
       if (!customerId) { showToast('Select a client', 'error'); return; }
       if (!propertyId) { showToast('Select a property', 'error'); return; }
-      if (!serviceId) { showToast('Select a service', 'error'); return; }
+      if (services.length === 0) { showToast('Add at least one service', 'error'); return; }
 
       var payload = {
         customer_id: parseInt(customerId),
         property_id: parseInt(propertyId),
-        service_id: parseInt(serviceId),
+        service_id: services[0].service_id,
+        services: services,
         scheduled_date: dateVal,
         scheduled_time: timeVal || null,
         color: colorVal || null,

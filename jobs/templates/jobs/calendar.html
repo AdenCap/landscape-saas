@@ -5,6 +5,13 @@
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=10">
 <style>
+  /* Quick-create line items */
+  .qc-line-row { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
+  .qc-line-row select { flex:1; }
+  .qc-line-row input { font-size:12px; }
+  .qc-line-remove { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; padding:0 4px; line-height:1; }
+  .qc-line-remove:hover { color:#ffb4ab; }
+
   /* Full-width calendar — no context panel */
   .workspace-shell { grid-template-columns: minmax(0, 1fr); }
 
@@ -385,8 +392,17 @@
       <select id="qc-property-id"><option value="">Select property</option></select>
     </div>
     <div class="qc-field">
-      <label for="qc-service-id">Service</label>
-      <select id="qc-service-id"><option value="">Select a service</option></select>
+      <label style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Line Items</span>
+        <button type="button" id="qc-add-line" style="background:none;border:none;color:var(--primary);font-size:11px;font-weight:700;cursor:pointer;padding:0;">+ Add</button>
+      </label>
+      <div id="qc-lines">
+        <div class="qc-line-row">
+          <select class="qc-line-service"><option value="">Service</option></select>
+          <input type="number" class="qc-line-qty" value="1" min="0.01" step="0.01" placeholder="Qty" style="width:50px;">
+          <input type="number" class="qc-line-price" min="0" step="0.01" placeholder="Price" style="width:70px;">
+        </div>
+      </div>
     </div>
     <div class="qc-row">
       <div class="qc-field qc-field-half" id="qc-time-wrap">
