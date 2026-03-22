@@ -7,7 +7,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib import messages
 from django.core.mail import EmailMultiAlternatives
-from django.http import FileResponse, JsonResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import reverse
@@ -1939,6 +1939,65 @@ def document_template_edit(request, doc_type):
         "doc_type": doc_type,
         "template_obj": template_obj,
     })
+
+
+@role_required("owner", "manager")
+def email_template_preview(request, doc_type):
+    """Render a preview of the email template with sample data."""
+    if doc_type not in ("invoice", "estimate"):
+        return JsonResponse({"error": "Invalid doc_type"}, status=400)
+    business = _get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    doc_template = DocumentTemplate.get_default_for_business(business, doc_type)
+    accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
+    logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
+
+    if doc_type == "invoice":
+        html = render_to_string("billing/invoice_email.html", {
+            "invoice": type("Inv", (), {
+                "id": 1042, "total": lambda: "170.00", "issue_date": "Mar 21, 2026", "due_date": "Apr 4, 2026",
+                "customer": type("C", (), {"name": "John Smith"})(),
+                "line_items": type("LI", (), {"all": lambda: [
+                    type("I", (), {"description": "Weekly Mowing", "line_total": "85.00"})(),
+                    type("I", (), {"description": "Edging & Blowing", "line_total": "25.00"})(),
+                    type("I", (), {"description": "Bush Trimming", "line_total": "60.00"})(),
+                ]})(),
+            })(),
+            "business": business,
+            "pay_url": "#",
+            "logo_url": logo_url,
+            "email_intro": business.invoice_email_intro or "Hi John, please find your invoice below.",
+            "email_closing": business.invoice_email_closing or "Thank you for your business.",
+            "accent_color": accent_color,
+        })
+    else:
+        html = render_to_string("billing/estimate_email.html", {
+            "estimate": type("Est", (), {
+                "id": 205, "title": "Landscape Renovation Estimate",
+                "valid_until": "Apr 30, 2026",
+                "notes": "Work to begin within 2 weeks of acceptance.",
+                "base_total": lambda: "2,450.00",
+                "addons_total": lambda: 0,
+                "deposit_required": False,
+                "deposit_amount": None,
+                "images": type("Imgs", (), {"exists": lambda: False})(),
+                "line_items": type("LI", (), {"all": lambda: [
+                    type("I", (), {"description": "Lawn Renovation (4,500 sq ft)", "line_total": "1,200.00", "is_addon": False})(),
+                    type("I", (), {"description": "Mulch Installation (12 yards)", "line_total": "850.00", "is_addon": False})(),
+                    type("I", (), {"description": "Shrub Planting (6 plants)", "line_total": "400.00", "is_addon": False})(),
+                ]})(),
+            })(),
+            "customer": type("C", (), {"name": "Sarah Johnson"})(),
+            "business": business,
+            "request": request,
+            "view_url": "#",
+            "logo_url": logo_url,
+            "email_intro": business.estimate_email_intro or "Hi Sarah, here is your estimate for the landscaping project.",
+            "email_closing": business.estimate_email_closing or "We look forward to working with you.",
+            "accent_color": accent_color,
+        })
+    return HttpResponse(html, content_type="text/html")
 
 
 # Fertilizer Product Management

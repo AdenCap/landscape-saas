@@ -38,7 +38,8 @@ urlpatterns = [
     path("estimates/<int:estimate_id>/accept/<str:token>/", views.estimate_client_accept, name="estimate_client_accept"),
     path("templates/", views.document_templates_list, name="document_templates_list"),
     path("templates/<str:doc_type>/", views.document_template_edit, name="document_template_edit"),
-    
+    path("templates/<str:doc_type>/email-preview/", views.email_template_preview, name="email_template_preview"),
+
     # API endpoints
     path("api/customer-properties/<int:customer_id>/", views.api_customer_properties, name="api_customer_properties"),
 
