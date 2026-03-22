@@ -1,214 +1,170 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block content %}
+<!-- Header -->
 <div class="dash-header">
   <div>
-    <h1 style="font-size:clamp(28px,4vw,40px);font-weight:800;letter-spacing:-0.03em;">Operational Command</h1>
-    <p class="dash-date">{{ today|date:"l, F j, Y" }}</p>
+    <p class="dash-greeting">{{ today|date:"l, F j" }}</p>
+    <h1>Dashboard</h1>
   </div>
   <div class="dash-actions">
-    <a href="{% url 'dispatch_command_center' %}" class="btn btn-secondary"><span class="material-symbols-outlined" style="font-size:16px;">hub</span> Command Center</a>
-    <a href="{% url 'calendar' %}" class="btn btn-primary"><span class="material-symbols-outlined" style="font-size:16px;">add</span> New Job</a>
+    <a href="{% url 'calendar' %}" class="btn btn-primary">+ New Job</a>
+    <a href="{% url 'dispatch_command_center' %}" class="btn btn-secondary">Command Center</a>
   </div>
 </div>
 
 {% if solo_plan_overage %}
 <div class="dash-alert">
-  <span class="material-symbols-outlined" style="font-size:18px;">info</span>
-  <div>
-    <strong>Solo Starter usage notice</strong>
-    <p>You have {{ crew_user_count }} active crew users. Consider switching to Pro All-Access.</p>
-  </div>
-  <a href="{% url 'subscription:status' %}" class="btn btn-secondary btn-sm">Review plans</a>
+  <strong>Solo plan notice:</strong> {{ crew_user_count }} crew users active.
+  <a href="{% url 'subscription:status' %}" class="btn btn-secondary btn-sm" style="margin-left:auto;">Upgrade</a>
 </div>
 {% endif %}
 
-<!-- KPI Cards Row -->
-<div class="kpi-grid">
-  <div class="kpi-card">
-    <div class="kpi-top">
-      <span class="kpi-icon" style="background:rgba(169,255,172,0.06);color:var(--primary);"><span class="material-symbols-outlined">payments</span></span>
-      <span class="kpi-label">Revenue</span>
-    </div>
-    <div class="kpi-value">${{ revenue_this_month|floatformat:0 }}</div>
-    <div class="kpi-sub">This month &middot; Year: ${{ revenue_this_year|floatformat:0 }}</div>
+<!-- KPIs -->
+<div class="kpi-row">
+  <div class="kpi">
+    <span class="kpi-label">Revenue this month</span>
+    <span class="kpi-val">${{ revenue_this_month|floatformat:0|intcomma }}</span>
   </div>
-  <div class="kpi-card">
-    <div class="kpi-top">
-      <span class="kpi-icon" style="background:rgba(169,255,172,0.06);color:var(--primary);"><span class="material-symbols-outlined">trending_up</span></span>
-      <span class="kpi-label">Profit</span>
-    </div>
-    <div class="kpi-value kpi-profit">${{ profit_this_month|floatformat:0 }}</div>
-    <div class="kpi-sub">Revenue minus costs</div>
+  <div class="kpi">
+    <span class="kpi-label">Jobs today</span>
+    <span class="kpi-val">{{ jobs_today }}</span>
   </div>
-  <div class="kpi-card">
-    <div class="kpi-top">
-      <span class="kpi-icon" style="background:rgba(255,107,107,0.06);color:var(--tertiary);"><span class="material-symbols-outlined">warning</span></span>
-      <span class="kpi-label">Overdue</span>
-    </div>
-    <div class="kpi-value {% if invoices_overdue_count %}kpi-alert{% endif %}">{{ invoices_overdue_count }}</div>
-    <div class="kpi-sub">${{ invoices_overdue_total|floatformat:0 }} outstanding</div>
+  <div class="kpi">
+    <span class="kpi-label">Outstanding</span>
+    <span class="kpi-val">${{ ar_outstanding|floatformat:0|intcomma }}</span>
   </div>
-  <div class="kpi-card">
-    <div class="kpi-top">
-      <span class="kpi-icon" style="background:rgba(195,244,0,0.06);color:var(--secondary);"><span class="material-symbols-outlined">calendar_today</span></span>
-      <span class="kpi-label">Jobs Today</span>
-    </div>
-    <div class="kpi-value">{{ jobs_today }}</div>
-    <div class="kpi-sub">Scheduled for today</div>
+  <div class="kpi">
+    <span class="kpi-label">Overdue</span>
+    <span class="kpi-val {% if invoices_overdue_count %}kpi-warn{% endif %}">{{ invoices_overdue_count }}</span>
   </div>
 </div>
 
-<!-- Charts Row -->
-<div class="chart-row">
-  <div class="card chart-card">
-    <div class="chart-header">
-      <h3>Revenue Trend</h3>
-      <span class="chart-period">Last 6 months</span>
-    </div>
-    <div style="position:relative;height:220px;"><canvas id="revenue-chart"></canvas></div>
-  </div>
-  <div class="card chart-card chart-card-sm">
-    <div class="chart-header">
-      <h3>Job Status</h3>
-      <span class="chart-period">This month</span>
-    </div>
-    <div style="position:relative;height:220px;"><canvas id="status-chart"></canvas></div>
-  </div>
-</div>
-
-<!-- Second Row: Aging + Quick Links -->
-<div class="dash-grid-2">
+<!-- Charts + Actions -->
+<div class="dash-cols">
+  <!-- Left: Chart -->
   <div class="card">
-    <h3 class="card-section-title"><span class="material-symbols-outlined" style="font-size:18px;color:var(--tertiary);">account_balance</span> Accounts Receivable</h3>
-    <div class="aging-table">
+    <div class="card-head">
+      <h3>Revenue</h3>
+      <span class="card-meta">Last 6 months</span>
+    </div>
+    <div style="position:relative;height:200px;"><canvas id="rev-chart"></canvas></div>
+  </div>
+
+  <!-- Right: Actions -->
+  <div class="card">
+    <div class="card-head">
+      <h3>Needs attention</h3>
+    </div>
+    <div class="action-list">
+      {% if invoices_overdue_count %}
+      <a href="/billing/" class="action-item action-warn">
+        <span class="action-num">{{ invoices_overdue_count }}</span>
+        <span>overdue invoices &middot; ${{ invoices_overdue_total|floatformat:0|intcomma }}</span>
+      </a>
+      {% endif %}
+      {% if queue_count %}
+      <a href="/billing/estimates/?tab=queue" class="action-item">
+        <span class="action-num">{{ queue_count }}</span>
+        <span>quotes in queue</span>
+      </a>
+      {% endif %}
+      <a href="{% url 'daily_route' %}" class="action-item">
+        <span class="action-dot"></span>
+        <span>View today's routes</span>
+      </a>
+      <a href="{% url 'billing:invoice_create' %}" class="action-item">
+        <span class="action-dot"></span>
+        <span>Create invoice</span>
+      </a>
+      <a href="{% url 'billing:estimate_create' %}" class="action-item">
+        <span class="action-dot"></span>
+        <span>Create estimate</span>
+      </a>
+      <a href="/settings/" class="action-item">
+        <span class="action-dot"></span>
+        <span>Settings</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Row: Aging + Stats -->
+<div class="dash-cols">
+  <div class="card">
+    <div class="card-head"><h3>Aging</h3></div>
+    <div class="aging">
       <div class="aging-row">
-        <span class="aging-label">0&ndash;30 days</span>
-        <div class="aging-bar-wrap"><div class="aging-bar" style="width:{{ overdue_0_30_pct|default:40 }}%;background:var(--secondary);"></div></div>
-        <span class="aging-val">${{ overdue_0_30.total|floatformat:0 }} <small>({{ overdue_0_30.count }})</small></span>
+        <span class="aging-label">0–30 days</span>
+        <div class="aging-bar-bg"><div class="aging-bar" style="width:{{ overdue_0_30_pct|default:40 }}%;background:var(--primary);"></div></div>
+        <span class="aging-val">${{ overdue_0_30.total|floatformat:0|intcomma }}</span>
       </div>
       <div class="aging-row">
-        <span class="aging-label">30&ndash;60 days</span>
-        <div class="aging-bar-wrap"><div class="aging-bar" style="width:{{ overdue_30_60_pct|default:25 }}%;background:#f59e0b;"></div></div>
-        <span class="aging-val">${{ overdue_30_60.total|floatformat:0 }} <small>({{ overdue_30_60.count }})</small></span>
+        <span class="aging-label">30–60 days</span>
+        <div class="aging-bar-bg"><div class="aging-bar" style="width:{{ overdue_30_60_pct|default:25 }}%;background:var(--tertiary);"></div></div>
+        <span class="aging-val">${{ overdue_30_60.total|floatformat:0|intcomma }}</span>
       </div>
       <div class="aging-row">
         <span class="aging-label">60+ days</span>
-        <div class="aging-bar-wrap"><div class="aging-bar" style="width:{{ overdue_60_plus_pct|default:15 }}%;background:var(--tertiary);"></div></div>
-        <span class="aging-val">${{ overdue_60_plus.total|floatformat:0 }} <small>({{ overdue_60_plus.count }})</small></span>
+        <div class="aging-bar-bg"><div class="aging-bar" style="width:{{ overdue_60_plus_pct|default:15 }}%;background:#ef4444;"></div></div>
+        <span class="aging-val">${{ overdue_60_plus.total|floatformat:0|intcomma }}</span>
       </div>
-    </div>
-    <div style="margin-top:16px;">
-      <a href="/billing/" class="btn btn-secondary btn-sm">View Invoices</a>
-      <a href="{% url 'billing:outstanding_invoices' %}" class="btn btn-secondary btn-sm">Outstanding</a>
     </div>
   </div>
   <div class="card">
-    <h3 class="card-section-title"><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">bolt</span> Quick Actions</h3>
-    <div class="quick-grid">
-      <a href="{% url 'calendar' %}" class="quick-item"><span class="material-symbols-outlined">calendar_month</span><span>Calendar</span></a>
-      <a href="{% url 'daily_route' %}" class="quick-item"><span class="material-symbols-outlined">route</span><span>Routes</span></a>
-      <a href="{% url 'billing:invoice_create' %}" class="quick-item"><span class="material-symbols-outlined">receipt_long</span><span>Invoice</span></a>
-      <a href="{% url 'billing:estimate_create' %}" class="quick-item"><span class="material-symbols-outlined">request_quote</span><span>Estimate</span></a>
-      <a href="{% url 'customer_list' %}" class="quick-item"><span class="material-symbols-outlined">group</span><span>Clients</span></a>
-      <a href="/settings/" class="quick-item"><span class="material-symbols-outlined">settings</span><span>Settings</span></a>
+    <div class="card-head"><h3>This month</h3></div>
+    <div class="stat-list">
+      <div class="stat-row"><span>Profit</span><span class="stat-val" style="color:var(--primary);">${{ profit_this_month|floatformat:0|intcomma }}</span></div>
+      <div class="stat-row"><span>Work completed</span><span class="stat-val">${{ work_completed_this_month|floatformat:0|intcomma }}</span></div>
+      <div class="stat-row"><span>Year to date</span><span class="stat-val">${{ revenue_this_year|floatformat:0|intcomma }}</span></div>
+      {% if next_pay_date %}
+      <div class="stat-row"><span>Next payroll</span><span class="stat-val" style="color:var(--tertiary);">${{ payroll_balance|floatformat:0|intcomma }}</span></div>
+      {% endif %}
     </div>
   </div>
 </div>
 
 <!-- Activity Feed -->
-<div class="card" style="margin-top:20px;">
-  <h3 class="card-section-title"><span class="material-symbols-outlined" style="font-size:18px;color:var(--secondary);">history</span> Recent Activity</h3>
-  {% if changes_feed %}
-  <div class="activity-feed">
+{% if changes_feed %}
+<div class="card" style="margin-top:16px;">
+  <div class="card-head"><h3>Recent activity</h3></div>
+  <div class="feed">
     {% for item in changes_feed %}
-    <div class="activity-item">
-      <span class="activity-time">{{ item.time|date:"g:i A" }}</span>
-      <span class="activity-text">{{ item.text }}</span>
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <p class="empty-msg">No activity in the last 24 hours.</p>
-  {% endif %}
-</div>
-
-<!-- Email Log -->
-{% if client_messages %}
-<div class="card" style="margin-top:20px;">
-  <h3 class="card-section-title"><span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">mail</span> Recent Emails</h3>
-  <div class="email-list">
-    {% for msg in client_messages %}
-    <div class="email-row">
-      <div class="email-left">
-        <a href="{% url 'customer_detail' msg.customer.id %}" class="email-client">{{ msg.customer.name }}</a>
-        {% if msg.subject %}<span class="email-subject">{{ msg.subject }}</span>{% endif %}
-      </div>
-      <span class="email-date">{{ msg.created_at|date:"M j" }}</span>
+    <div class="feed-item">
+      <span class="feed-time">{{ item.time|date:"g:i A" }}</span>
+      <span>{{ item.text }}</span>
     </div>
     {% endfor %}
   </div>
 </div>
 {% endif %}
 
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-(function() {
-  var gridColor = 'rgba(73, 72, 71, 0.12)';
-  var textColor = '#6b6966';
-
-  // Prevent Chart.js resize loop — disable resize observer animation
+(function(){
   Chart.defaults.animation = false;
   Chart.defaults.responsive = true;
   Chart.defaults.maintainAspectRatio = false;
-
-  // Revenue Chart
-  var ctx1 = document.getElementById('revenue-chart');
-  if (ctx1) {
-    new Chart(ctx1, {
+  var c = document.getElementById('rev-chart');
+  if (c) {
+    new Chart(c, {
       type: 'bar',
       data: {
         labels: {{ monthly_labels|default:"['Oct','Nov','Dec','Jan','Feb','Mar']"|safe }},
         datasets: [{
-          label: 'Revenue',
           data: {{ monthly_revenue|default:"[4200,5100,3800,6200,5500,7100]"|safe }},
-          backgroundColor: 'rgba(74, 222, 128, 0.15)',
+          backgroundColor: 'rgba(74,222,128,0.15)',
           borderColor: '#4ade80',
           borderWidth: 1.5,
-          borderRadius: 4,
+          borderRadius: 3,
         }]
       },
       options: {
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { display: false }, ticks: { color: textColor, font: { family: 'Manrope', size: 11 } } },
-          y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'Manrope', size: 11 }, callback: function(v) { return '$' + (v/1000).toFixed(0) + 'k'; } }, border: { display: false } }
-        }
-      }
-    });
-  }
-
-  // Job Status Donut
-  var ctx2 = document.getElementById('status-chart');
-  if (ctx2) {
-    new Chart(ctx2, {
-      type: 'doughnut',
-      data: {
-        labels: ['Completed', 'In Progress', 'Scheduled', 'Skipped'],
-        datasets: [{
-          data: {{ status_counts|default:"[45, 8, 12, 3]"|safe }},
-          backgroundColor: ['#4ade80', '#fbbf24', '#60a5fa', '#3a3a3a'],
-          borderWidth: 0,
-        }]
-      },
-      options: {
-        cutout: '65%',
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: { color: textColor, font: { family: 'Manrope', size: 11 }, padding: 12, usePointStyle: true, pointStyleWidth: 8 }
-          }
+          x: { grid: { display: false }, ticks: { color: '#666', font: { family: 'Manrope', size: 11 } } },
+          y: { grid: { color: 'rgba(34,34,34,0.5)' }, ticks: { color: '#666', font: { family: 'Manrope', size: 11 }, callback: function(v){return '$'+Math.round(v/1000)+'k';} }, border: { display: false } }
         }
       }
     });
@@ -217,79 +173,60 @@
 </script>
 
 <style>
-  .dash-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
-  .dash-header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.03em; }
-  .dash-date { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
-  .dash-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-  .dash-alert { display: flex; align-items: center; gap: 12px; padding: 14px 18px; margin-bottom: 20px; background: var(--primary-light); border: 1px solid rgba(74,222,128,0.12); border-radius: var(--radius-md); font-size: 13px; }
-  .dash-alert strong { display: block; color: var(--primary); font-size: 13px; }
-  .dash-alert p { margin: 2px 0 0; color: var(--text-muted); font-size: 12px; }
-  .dash-alert .btn { flex-shrink: 0; }
+  .dash-header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:24px; }
+  .dash-header h1 { margin:0; font-weight:800; }
+  .dash-greeting { margin:0 0 2px; font-size:13px; color:var(--text-muted); }
+  .dash-actions { display:flex; gap:8px; }
 
-  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-  .kpi-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; }
-  .kpi-top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-  .kpi-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .kpi-icon .material-symbols-outlined { font-size: 20px; }
-  .kpi-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
-  .kpi-value { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; color: var(--text); }
-  .kpi-value.kpi-profit { color: var(--primary); }
-  .kpi-value.kpi-alert { color: #f87171; }
-  .kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+  .dash-alert { display:flex; align-items:center; gap:8px; padding:10px 16px; margin-bottom:20px; background:var(--primary-light); border:1px solid rgba(74,222,128,0.12); border-radius:var(--radius-md); font-size:13px; color:var(--primary); }
 
-  .chart-row { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
-  .chart-card { padding: 24px; }
-  .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-  .chart-header h3 { margin: 0; font-size: 14px; font-weight: 700; }
-  .chart-period { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); background: var(--bg-surface); padding: 4px 10px; border-radius: var(--radius-sm); }
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+  .kpi { background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; }
+  .kpi-label { display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:8px; }
+  .kpi-val { font-size:28px; font-weight:800; letter-spacing:-0.02em; color:var(--text); }
+  .kpi-val.kpi-warn { color:#f87171; }
 
-  .dash-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .card-section-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin: 0 0 16px; }
+  .dash-cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .card-head h3 { margin:0; font-size:14px; font-weight:700; }
+  .card-meta { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); background:var(--bg-surface); padding:3px 8px; border-radius:var(--radius-sm); }
 
-  .aging-table { display: flex; flex-direction: column; gap: 12px; }
-  .aging-row { display: flex; align-items: center; gap: 12px; }
-  .aging-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); min-width: 80px; }
-  .aging-bar-wrap { flex: 1; height: 8px; background: var(--surface-lowest, #0e0e0e); border-radius: 4px; overflow: hidden; }
-  .aging-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
-  .aging-val { font-size: 12px; font-weight: 700; color: var(--text); min-width: 90px; text-align: right; }
-  .aging-val small { font-weight: 500; color: var(--text-muted); }
+  .action-list { display:flex; flex-direction:column; gap:4px; }
+  .action-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-secondary); text-decoration:none; font-size:13px; transition:background 0.15s; }
+  .action-item:hover { background:var(--bg-surface); color:var(--text); }
+  .action-num { font-size:14px; font-weight:800; color:var(--text); min-width:24px; }
+  .action-warn .action-num { color:#f87171; }
+  .action-dot { width:6px; height:6px; border-radius:50%; background:var(--border-hover); flex-shrink:0; }
+  .action-item:hover .action-dot { background:var(--primary); }
 
-  .quick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .quick-item { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 8px; background: var(--surface-lowest, #0e0e0e); border: 1px solid rgba(64,73,61,0.08); border-radius: var(--radius-md); text-decoration: none; color: var(--text-secondary); font-size: 11px; font-weight: 700; transition: all 0.2s; }
-  .quick-item:hover { background: var(--surface-high, #2a2a2a); color: var(--primary); border-color: rgba(136,217,130,0.2); }
-  .quick-item .material-symbols-outlined { font-size: 22px; }
+  .aging { display:flex; flex-direction:column; gap:14px; }
+  .aging-row { display:flex; align-items:center; gap:12px; }
+  .aging-label { font-size:12px; font-weight:600; color:var(--text-secondary); min-width:72px; }
+  .aging-bar-bg { flex:1; height:6px; background:var(--bg-surface); border-radius:3px; overflow:hidden; }
+  .aging-bar { height:100%; border-radius:3px; }
+  .aging-val { font-size:12px; font-weight:700; color:var(--text); min-width:60px; text-align:right; }
 
-  .activity-feed { display: flex; flex-direction: column; }
-  .activity-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(64,73,61,0.08); font-size: 13px; }
-  .activity-item:last-child { border-bottom: none; }
-  .activity-time { font-weight: 700; color: var(--text); min-width: 70px; font-size: 12px; }
-  .activity-text { color: var(--text-secondary); }
+  .stat-list { display:flex; flex-direction:column; gap:0; }
+  .stat-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--text-secondary); }
+  .stat-row:last-child { border-bottom:none; }
+  .stat-val { font-weight:700; color:var(--text); }
 
-  .email-list { display: flex; flex-direction: column; }
-  .email-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(64,73,61,0.08); }
-  .email-row:last-child { border-bottom: none; }
-  .email-left { display: flex; flex-direction: column; gap: 2px; }
-  .email-client { font-size: 13px; font-weight: 700; color: var(--primary); text-decoration: none; }
-  .email-client:hover { text-decoration: underline; }
-  .email-subject { font-size: 12px; color: var(--text-muted); }
-  .email-date { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+  .feed { display:flex; flex-direction:column; }
+  .feed-item { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--text-secondary); }
+  .feed-item:last-child { border-bottom:none; }
+  .feed-time { font-weight:700; color:var(--text); min-width:65px; font-size:12px; }
 
-  .empty-msg { color: var(--text-muted); font-size: 13px; margin: 0; }
-
-  @media (max-width: 1024px) {
-    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-    .chart-row { grid-template-columns: 1fr; }
-    .dash-grid-2 { grid-template-columns: 1fr; }
+  @media (max-width:1024px) {
+    .kpi-row { grid-template-columns:repeat(2,1fr); }
+    .dash-cols { grid-template-columns:1fr; }
   }
-  @media (max-width: 768px) {
-    .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-    .kpi-card { padding: 16px; }
-    .kpi-value { font-size: 22px; }
-    .dash-header { flex-direction: column; }
-    .dash-actions { width: 100%; }
-    .dash-actions .btn { flex: 1; min-height: 44px; justify-content: center; }
-    .quick-grid { grid-template-columns: repeat(3, 1fr); }
-    .quick-item { padding: 14px 6px; }
+  @media (max-width:768px) {
+    .kpi-row { grid-template-columns:1fr 1fr; gap:8px; }
+    .kpi { padding:16px; }
+    .kpi-val { font-size:22px; }
+    .dash-header { flex-direction:column; align-items:stretch; }
+    .dash-actions { width:100%; }
+    .dash-actions .btn { flex:1; justify-content:center; min-height:44px; }
   }
 </style>
 {% endblock %}
