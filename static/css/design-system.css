@@ -1,59 +1,58 @@
 /*
- * FieldLgx Design System — "Digital Architect of Nature"
- * Deep obsidian surfaces, bioluminescent accents, glassmorphism
- * No-Line Rule: boundaries defined by surface shifts, not borders
+ * FieldLgx Design System
+ * Monotone black + bright green accents
+ * Clean, minimal, professional
  */
 
 :root {
-  /* Deep Obsidian Surface Stack (tonal layering, no borders) */
-  --bg: #0e0e0e;
-  --bg-elevated: #141414;
-  --bg-surface: #1a1a1a;
-  --bg-surface-hover: #222222;
+  /* Monotone black surface stack */
+  --bg: #0a0a0a;
+  --bg-elevated: #111111;
+  --bg-surface: #161616;
+  --bg-surface-hover: #1e1e1e;
 
-  --surface-lowest: #000000;
-  --surface-low: #0e0e0e;
-  --surface-container: #131313;
-  --surface-high: #201f1f;
-  --surface-highest: #262626;
-  --surface-bright: #2e2e2e;
-  --surface-variant: #1a1a1a;
+  --surface-lowest: #050505;
+  --surface-low: #0a0a0a;
+  --surface-container: #111111;
+  --surface-high: #1a1a1a;
+  --surface-highest: #222222;
+  --surface-bright: #2a2a2a;
+  --surface-variant: #161616;
 
-  /* Ghost borders only — 15% opacity outline-variant */
-  --border: rgba(73, 72, 71, 0.15);
-  --border-hover: rgba(73, 72, 71, 0.4);
-  --border-focus: #a9ffac;
+  /* Subtle borders — visible but quiet */
+  --border: #222222;
+  --border-hover: #333333;
+  --border-focus: #4ade80;
 
-  /* Text — never pure white for body text */
-  --text: #e8e6e3;
-  --text-secondary: #a3a19d;
-  --text-muted: #6b6966;
-  --text-disabled: #3d3c3a;
+  /* Text — clean gray scale */
+  --text: #ececec;
+  --text-secondary: #999999;
+  --text-muted: #666666;
+  --text-disabled: #3a3a3a;
 
-  /* Primary — Electric Lime / Bioluminescent Green */
-  --primary: #a9ffac;
-  --primary-hover: #00fe66;
-  --primary-light: rgba(169, 255, 172, 0.06);
-  --primary-glow: rgba(169, 255, 172, 0.08);
-  --primary-container: #00fe66;
-  --on-primary: #001f06;
+  /* Primary — bright green, not neon */
+  --primary: #4ade80;
+  --primary-hover: #22c55e;
+  --primary-light: rgba(74, 222, 128, 0.08);
+  --primary-glow: rgba(74, 222, 128, 0.15);
+  --primary-container: #22c55e;
+  --on-primary: #052e16;
 
-  /* Secondary — Acid Lime for data highlights */
-  --accent: #c3f400;
-  --accent-subtle: rgba(195, 244, 0, 0.08);
+  --accent: #4ade80;
+  --accent-subtle: rgba(74, 222, 128, 0.06);
 
-  /* Tertiary — Cyan/Blueprint for technical elements */
-  --secondary: #c3f400;
-  --secondary-container: #2a3300;
-  --tertiary: #81ecff;
-  --tertiary-container: #003d4d;
+  /* Keep it monotone — green shades only */
+  --secondary: #86efac;
+  --secondary-container: #14532d;
+  --tertiary: #fbbf24;
+  --tertiary-container: #713f12;
 
-  /* Glassmorphism */
-  --glass: rgba(26, 26, 26, 0.4);
-  --glass-strong: rgba(26, 26, 26, 0.6);
-  --glass-border: rgba(73, 72, 71, 0.15);
+  /* Glass */
+  --glass: rgba(17, 17, 17, 0.6);
+  --glass-strong: rgba(17, 17, 17, 0.8);
+  --glass-border: #222222;
 
-  /* Spacing — generous, editorial */
+  /* Spacing */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -68,9 +67,9 @@
   --space-24: 96px;
   --space-32: 128px;
 
-  /* Typography — Manrope display + Space Grotesk data */
+  /* Typography */
   --font-family: 'Manrope', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-mono: 'Space Grotesk', 'SF Mono', 'Consolas', monospace;
+  --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 
   --text-xs: 11px;
   --text-sm: 13px;
@@ -78,8 +77,8 @@
   --text-lg: 16px;
   --text-xl: 20px;
 
-  --h1: clamp(28px, 4vw, 40px);
-  --h2: clamp(22px, 3vw, 28px);
+  --h1: clamp(26px, 3.5vw, 34px);
+  --h2: clamp(20px, 2.8vw, 26px);
   --h3: clamp(16px, 2vw, 20px);
   --h4: clamp(14px, 1.8vw, 16px);
   --h5: clamp(13px, 1.5vw, 14px);
@@ -88,36 +87,36 @@
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.6;
 
-  --letter-spacing-tight: -0.03em;
+  --letter-spacing-tight: -0.02em;
   --letter-spacing-normal: -0.006em;
 
-  /* Border Radius — luxury rounded (1.5rem for cards) */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  /* Border Radius — clean */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 
-  /* Shadows — bioluminescent glow, no muddy drop shadows */
-  --shadow-sm: 0 0 20px rgba(169, 255, 172, 0.03);
-  --shadow-md: 0 0 40px rgba(169, 255, 172, 0.05);
-  --shadow-lg: 0 0 60px rgba(169, 255, 172, 0.08);
-  --shadow-xl: 0 0 100px rgba(169, 255, 172, 0.08);
-  --shadow-glow: 0 0 30px rgba(169, 255, 172, 0.12);
+  /* Shadows — subtle, standard */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 20px rgba(74, 222, 128, 0.1);
 
-  /* Motion — smooth, oiled, 300ms Ease-Out-Expo */
-  --motion-fast: 150ms;
-  --motion-base: 250ms;
+  /* Motion */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
   --motion-slow: 300ms;
-  --motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
   --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Gradients — signature primary gradient */
-  --gradient-primary: linear-gradient(135deg, #a9ffac, #00fe66);
+  /* No gradient on primary — solid green */
+  --gradient-primary: var(--primary);
   --gradient-bg: var(--bg);
   --gradient-surface: var(--surface-container);
 
-  /* Z-index scale */
+  /* Z-index */
   --z-base: 1;
   --z-dropdown: 100;
   --z-sticky: 200;
@@ -127,43 +126,40 @@
 
 /* Light Theme */
 [data-theme="light"] {
-  --bg: #f8f8f6;
+  --bg: #fafafa;
   --bg-elevated: #ffffff;
-  --bg-surface: #f0efed;
-  --bg-surface-hover: #e5e4e2;
+  --bg-surface: #f5f5f5;
+  --bg-surface-hover: #eeeeee;
 
   --surface-lowest: #ffffff;
-  --surface-low: #f8f8f6;
-  --surface-container: #f0efed;
-  --surface-high: #e5e4e2;
-  --surface-highest: #d8d7d5;
-  --surface-bright: #f8f8f6;
+  --surface-low: #fafafa;
+  --surface-container: #f5f5f5;
+  --surface-high: #eeeeee;
+  --surface-highest: #e0e0e0;
+  --surface-bright: #fafafa;
 
-  --border: rgba(0, 0, 0, 0.08);
-  --border-hover: rgba(0, 0, 0, 0.15);
-  --border-focus: #00c853;
+  --border: #e0e0e0;
+  --border-hover: #cccccc;
+  --border-focus: #22c55e;
 
-  --text: #1a1a1a;
-  --text-secondary: #555;
-  --text-muted: #999;
-  --text-disabled: #ccc;
+  --text: #111111;
+  --text-secondary: #555555;
+  --text-muted: #999999;
+  --text-disabled: #cccccc;
 
-  --primary: #00c853;
-  --primary-hover: #00a846;
-  --primary-light: rgba(0, 200, 83, 0.06);
-  --primary-glow: rgba(0, 200, 83, 0.1);
-  --primary-container: #00fe66;
-  --on-primary: #001f06;
+  --primary: #22c55e;
+  --primary-hover: #16a34a;
+  --primary-light: rgba(34, 197, 94, 0.06);
+  --primary-glow: rgba(34, 197, 94, 0.1);
+  --on-primary: #ffffff;
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
-  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.1);
-  --shadow-glow: 0 0 12px var(--primary-glow);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12);
+  --shadow-glow: none;
 
-  --gradient-primary: linear-gradient(135deg, #00c853, #00fe66);
-  --gradient-bg: var(--bg);
-  --gradient-surface: var(--bg-surface);
+  --gradient-primary: var(--primary);
 }
 
 /* System preference: auto-apply light when user prefers it and no explicit theme set */
@@ -250,28 +246,26 @@ a:hover {
 }
 
 .btn-primary {
-  background: var(--gradient-primary);
+  background: var(--primary);
   color: var(--on-primary);
   border-color: transparent;
-  box-shadow: 0 0 20px rgba(169, 255, 172, 0.15);
-  font-weight: 700;
 }
 
 .btn-primary:hover {
-  box-shadow: 0 0 40px rgba(169, 255, 172, 0.25);
+  background: var(--primary-hover);
   color: var(--on-primary);
 }
 
 .btn-secondary {
-  background: transparent;
+  background: var(--surface-highest);
   color: var(--text-secondary);
-  border-color: rgba(73, 72, 71, 0.15);
+  border-color: var(--border);
 }
 
 .btn-secondary:hover {
-  border-color: rgba(73, 72, 71, 0.4);
+  border-color: var(--border-hover);
   color: var(--text);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-bright);
 }
 
 .btn-ghost {
@@ -290,19 +284,16 @@ a:hover {
   font-size: var(--text-xs);
 }
 
-/* Cards — borderless glass, tonal surface, beveled edge */
+/* Cards — clean dark surface with subtle border */
 .card {
-  background: var(--surface-high, #201f1f);
-  border: none;
-  border-radius: var(--radius-xl);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: var(--space-6);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), var(--shadow-sm);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 
 .card:hover {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--shadow-md);
+  border-color: var(--border-hover);
 }
 
 /* Containers */
