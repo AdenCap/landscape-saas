@@ -178,6 +178,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var isTimeGrid = arg.view.type.indexOf('timeGrid') === 0;
 
       if (isCompleted) container.classList.add('cal-event--completed');
+      if (props.status === 'in_progress') container.classList.add('cal-event--inprogress');
       if (isMeeting) container.classList.add('cal-event--meeting');
       if (isListView) container.classList.add('cal-event-card--list');
 
