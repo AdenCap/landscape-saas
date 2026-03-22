@@ -213,12 +213,45 @@ document.addEventListener('DOMContentLoaded', function () {
       name.textContent = props.customer || arg.event.title;
       content.appendChild(name);
 
-      // Address (secondary line)
+      // Address (secondary line) — tappable for navigation
       if (!isMeeting && arg.event.title) {
+        var rawAddr = arg.event.title.replace(/^✓\s*/, '');
         var addr = document.createElement('span');
         addr.className = 'cal-event-addr';
-        addr.textContent = arg.event.title.replace(/^✓\s*/, '');
+        addr.textContent = rawAddr;
         content.appendChild(addr);
+
+        // Navigation link (small icon, stops event click propagation)
+        var navLink = document.createElement('a');
+        navLink.className = 'cal-event-nav';
+        navLink.title = 'Navigate to ' + rawAddr;
+        navLink.setAttribute('aria-label', 'Open in maps');
+        // iOS → Apple Maps, everything else → Google Maps
+        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        navLink.href = isIOS
+          ? 'https://maps.apple.com/?daddr=' + encodeURIComponent(rawAddr)
+          : 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(rawAddr);
+        navLink.target = '_blank';
+        navLink.rel = 'noopener';
+        navLink.addEventListener('click', function(e) { e.stopPropagation(); }); // Don't open modal
+        // Map pin icon (inline SVG via DOM)
+        var navSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        navSvg.setAttribute('width', '14');
+        navSvg.setAttribute('height', '14');
+        navSvg.setAttribute('viewBox', '0 0 24 24');
+        navSvg.setAttribute('fill', 'none');
+        navSvg.setAttribute('stroke', 'currentColor');
+        navSvg.setAttribute('stroke-width', '2');
+        var path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path1.setAttribute('d', 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z');
+        var circle1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle1.setAttribute('cx', '12');
+        circle1.setAttribute('cy', '10');
+        circle1.setAttribute('r', '3');
+        navSvg.appendChild(path1);
+        navSvg.appendChild(circle1);
+        navLink.appendChild(navSvg);
+        content.appendChild(navLink);
       }
 
       // Crew / assignee name — critical info for field workers
