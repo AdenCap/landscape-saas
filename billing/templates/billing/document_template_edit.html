@@ -7,12 +7,20 @@
     <p class="doc-template-edit-subtitle">Live preview updates as you type so you can see exactly what changes.</p>
   </header>
 
+  {% if doc_type == 'invoice' %}
   <div class="billing-tabs" style="margin-bottom: 18px;">
-    <a href="{% url 'billing:invoice_list' %}" class="billing-tab {% if doc_type == 'invoice' %}active{% endif %}">Invoices</a>
-    <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="billing-tab {% if doc_type == 'invoice' %}active{% endif %}">Invoice template editor</a>
-    <a href="{% url 'billing:estimate_list' %}" class="billing-tab {% if doc_type == 'estimate' %}active{% endif %}">Estimates</a>
-    <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="billing-tab {% if doc_type == 'estimate' %}active{% endif %}">Estimate template editor</a>
+    <a href="{% url 'billing:invoice_list' %}" class="billing-tab">Invoices</a>
+    <a href="{% url 'billing:outstanding_invoices' %}" class="billing-tab">Outstanding</a>
+    <a href="{% url 'billing:monthly_invoice_list' %}" class="billing-tab">Monthly</a>
+    <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="billing-tab active">Invoice Template Editor</a>
   </div>
+  {% else %}
+  <div class="billing-tabs" style="margin-bottom: 18px;">
+    <a href="{% url 'billing:estimate_list' %}" class="billing-tab">Estimates</a>
+    <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="billing-tab active">Estimate Template Editor</a>
+    <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="billing-tab">Invoice Template Editor</a>
+  </div>
+  {% endif %}
 
   <div class="editor-layout">
     <form method="post" class="doc-template-edit-form">
