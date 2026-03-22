@@ -62,16 +62,17 @@
 {% block content %}
 <div class="calendar-page-header">
   <div class="calendar-header-main">
-    <h1>Calendar</h1>
-    <p class="calendar-subtitle">Drag to reschedule · Click to edit crew, client, notes</p>
+    <h1 style="font-family:var(--font-headline,'Manrope');font-size:clamp(24px,3vw,36px);font-weight:800;letter-spacing:-0.02em;text-transform:uppercase;">Scheduling &amp; Dispatch</h1>
+    <p class="calendar-subtitle" style="color:var(--text-muted);font-size:13px;">Click dates to create · Drag to reschedule · Scroll to navigate</p>
   </div>
   <div class="calendar-actions">
     {% if user.role == "owner" or user.role == "manager" %}
-    <a href="{% url 'create_job' %}" class="btn btn-primary">+ Job</a>
-    <a href="{% url 'meeting_create' %}" class="btn btn-secondary">+ Meeting</a>
+    <a href="{% url 'create_job' %}" class="btn btn-primary" style="text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">
+      <span class="material-symbols-outlined" style="font-size:16px;">add</span> New Job
+    </a>
+    <a href="{% url 'meeting_create' %}" class="btn btn-secondary" style="text-transform:uppercase;letter-spacing:0.05em;">Meeting</a>
     {% endif %}
-    <a href="{% url 'daily_route' %}" class="btn btn-secondary">Daily Routes</a>
-    <a href="{% url 'crew_today' %}" class="btn btn-secondary">Crew Today</a>
+    <a href="{% url 'daily_route' %}" class="btn btn-secondary" style="text-transform:uppercase;letter-spacing:0.05em;">Routes</a>
   </div>
 </div>
 
