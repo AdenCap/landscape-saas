@@ -1,56 +1,55 @@
 /*
- * FieldLgx Design System
- * Monotone black + bright green accents
- * Clean, minimal, professional
+ * FieldLgx Design System — Terraform Pro Aesthetic
+ * #9dd850 lime on deep black, Manrope headlines, Inter body
+ * Ghost borders, atmosphere shadows, gradient nav
  */
 
 :root {
-  /* Monotone black surface stack */
-  --bg: #0a0a0a;
-  --bg-elevated: #111111;
-  --bg-surface: #161616;
-  --bg-surface-hover: #1e1e1e;
+  /* Surface hierarchy */
+  --bg: #131313;
+  --bg-elevated: #1c1b1b;
+  --bg-surface: #201f1f;
+  --bg-surface-hover: #2a2a2a;
 
-  --surface-lowest: #050505;
-  --surface-low: #0a0a0a;
-  --surface-container: #111111;
-  --surface-high: #1a1a1a;
-  --surface-highest: #222222;
-  --surface-bright: #2a2a2a;
-  --surface-variant: #161616;
+  --surface-lowest: #0e0e0e;
+  --surface-low: #131313;
+  --surface-container: #201f1f;
+  --surface-high: #2a2a2a;
+  --surface-highest: #353534;
+  --surface-bright: #3a3939;
+  --surface-variant: #353534;
 
-  /* Subtle borders — visible but quiet */
-  --border: #222222;
-  --border-hover: #333333;
-  --border-focus: #4ade80;
+  /* Ghost borders */
+  --border: rgba(66, 72, 68, 0.2);
+  --border-hover: rgba(66, 72, 68, 0.4);
+  --border-focus: #9dd850;
 
-  /* Text — clean gray scale */
-  --text: #ececec;
-  --text-secondary: #999999;
-  --text-muted: #666666;
-  --text-disabled: #3a3a3a;
+  /* Text */
+  --text: #e5e2e1;
+  --text-secondary: #c2c8c2;
+  --text-muted: #8c928d;
+  --text-disabled: #424844;
 
-  /* Primary — bright green, not neon */
-  --primary: #4ade80;
-  --primary-hover: #22c55e;
-  --primary-light: rgba(74, 222, 128, 0.08);
-  --primary-glow: rgba(74, 222, 128, 0.15);
-  --primary-container: #22c55e;
-  --on-primary: #052e16;
+  /* Primary — Terraform lime */
+  --primary: #9dd850;
+  --primary-hover: #b7f569;
+  --primary-light: rgba(157, 216, 80, 0.08);
+  --primary-glow: rgba(157, 216, 80, 0.1);
+  --primary-container: #132400;
+  --on-primary: #1f3700;
 
-  --accent: #4ade80;
-  --accent-subtle: rgba(74, 222, 128, 0.06);
+  --accent: #b7f569;
+  --accent-subtle: rgba(183, 245, 105, 0.06);
 
-  /* Keep it monotone — green shades only */
-  --secondary: #86efac;
-  --secondary-container: #14532d;
-  --tertiary: #fbbf24;
-  --tertiary-container: #713f12;
+  --secondary: #c8c6c5;
+  --secondary-container: #474746;
+  --tertiary: #e2c19b;
+  --tertiary-container: #2e1c03;
 
   /* Glass */
-  --glass: rgba(17, 17, 17, 0.6);
-  --glass-strong: rgba(17, 17, 17, 0.8);
-  --glass-border: #222222;
+  --glass: rgba(19, 19, 19, 0.7);
+  --glass-strong: rgba(19, 19, 19, 0.85);
+  --glass-border: rgba(66, 72, 68, 0.2);
 
   /* Spacing */
   --space-1: 4px;
@@ -67,52 +66,53 @@
   --space-24: 96px;
   --space-32: 128px;
 
-  /* Typography */
-  --font-family: 'Manrope', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  /* Typography — Inter body, Manrope headlines */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-headline: 'Manrope', sans-serif;
+  --font-mono: 'Inter', monospace;
 
-  --text-xs: 11px;
+  --text-xs: 10px;
   --text-sm: 13px;
   --text-base: 14px;
   --text-lg: 16px;
   --text-xl: 20px;
 
-  --h1: clamp(26px, 3.5vw, 34px);
-  --h2: clamp(20px, 2.8vw, 26px);
+  --h1: clamp(28px, 4vw, 40px);
+  --h2: clamp(22px, 3vw, 28px);
   --h3: clamp(16px, 2vw, 20px);
   --h4: clamp(14px, 1.8vw, 16px);
   --h5: clamp(13px, 1.5vw, 14px);
 
-  --line-height-tight: 1.1;
+  --line-height-tight: 0.95;
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.6;
 
   --letter-spacing-tight: -0.02em;
-  --letter-spacing-normal: -0.006em;
+  --letter-spacing-normal: 0;
 
-  /* Border Radius — clean */
-  --radius-sm: 6px;
+  /* Border Radius */
+  --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-full: 9999px;
 
-  /* Shadows — subtle, standard */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 0 20px rgba(74, 222, 128, 0.1);
+  /* Atmosphere shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 48px 96px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(157, 216, 80, 0.1);
 
   /* Motion */
-  --motion-fast: 120ms;
+  --motion-fast: 150ms;
   --motion-base: 200ms;
   --motion-slow: 300ms;
   --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
   --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* No gradient on primary — solid green */
-  --gradient-primary: var(--primary);
+  /* Gradient */
+  --gradient-primary: linear-gradient(135deg, #9dd850, #132400);
   --gradient-bg: var(--bg);
   --gradient-surface: var(--surface-container);
 
@@ -246,26 +246,33 @@ a:hover {
 }
 
 .btn-primary {
-  background: var(--primary);
+  background: var(--gradient-primary);
   color: var(--on-primary);
   border-color: transparent;
+  box-shadow: 0 0 16px rgba(157, 216, 80, 0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
+  box-shadow: 0 0 24px rgba(157, 216, 80, 0.2);
   color: var(--on-primary);
 }
 
 .btn-secondary {
-  background: var(--surface-highest);
-  color: var(--text-secondary);
+  background: var(--surface-container);
+  color: var(--text);
   border-color: var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
 }
 
 .btn-secondary:hover {
+  background: var(--surface-high);
   border-color: var(--border-hover);
   color: var(--text);
-  background: var(--surface-bright);
 }
 
 .btn-ghost {
@@ -284,16 +291,16 @@ a:hover {
   font-size: var(--text-xs);
 }
 
-/* Cards — clean dark surface with subtle border */
+/* Cards — Terraform surface container with ghost border */
 .card {
-  background: var(--bg-elevated);
+  background: var(--surface-container);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
 }
 
 .card:hover {
-  border-color: var(--border-hover);
+  background: var(--surface-high);
 }
 
 /* Containers */
