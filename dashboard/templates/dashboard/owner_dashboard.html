@@ -66,14 +66,14 @@
       <h3>Revenue Trend</h3>
       <span class="chart-period">Last 6 months</span>
     </div>
-    <canvas id="revenue-chart" height="200"></canvas>
+    <div style="position:relative;height:220px;"><canvas id="revenue-chart"></canvas></div>
   </div>
   <div class="card chart-card chart-card-sm">
     <div class="chart-header">
       <h3>Job Status</h3>
       <span class="chart-period">This month</span>
     </div>
-    <canvas id="status-chart" height="200"></canvas>
+    <div style="position:relative;height:220px;"><canvas id="status-chart"></canvas></div>
   </div>
 </div>
 
@@ -158,6 +158,11 @@
   var gridColor = 'rgba(64, 73, 61, 0.15)';
   var textColor = '#8a9485';
 
+  // Prevent Chart.js resize loop — disable resize observer animation
+  Chart.defaults.animation = false;
+  Chart.defaults.responsive = true;
+  Chart.defaults.maintainAspectRatio = false;
+
   // Revenue Chart
   var ctx1 = document.getElementById('revenue-chart');
   if (ctx1) {
@@ -172,12 +177,9 @@
           borderColor: '#88d982',
           borderWidth: 1.5,
           borderRadius: 4,
-          hoverBackgroundColor: 'rgba(136, 217, 130, 0.5)',
         }]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
           x: { grid: { display: false }, ticks: { color: textColor, font: { family: 'Manrope', size: 11 } } },
@@ -198,12 +200,9 @@
           data: {{ status_counts|default:"[45, 8, 12, 3]"|safe }},
           backgroundColor: ['#88d982', '#f59e0b', '#3b82f6', '#52525b'],
           borderWidth: 0,
-          hoverOffset: 6,
         }]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
         cutout: '65%',
         plugins: {
           legend: {
