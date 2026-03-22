@@ -153,8 +153,8 @@
         labels: {{ monthly_labels|default:"['Oct','Nov','Dec','Jan','Feb','Mar']"|safe }},
         datasets: [{
           data: {{ monthly_revenue|default:"[4200,5100,3800,6200,5500,7100]"|safe }},
-          backgroundColor: 'rgba(74,222,128,0.15)',
-          borderColor: '#4ade80',
+          backgroundColor: 'rgba(157,216,80,0.12)',
+          borderColor: '#9dd850',
           borderWidth: 1.5,
           borderRadius: 3,
         }]
@@ -162,8 +162,8 @@
       options: {
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { display: false }, ticks: { color: '#666', font: { family: 'Manrope', size: 11 } } },
-          y: { grid: { color: 'rgba(34,34,34,0.5)' }, ticks: { color: '#666', font: { family: 'Manrope', size: 11 }, callback: function(v){return '$'+Math.round(v/1000)+'k';} }, border: { display: false } }
+          x: { grid: { display: false }, ticks: { color: '#8c928d', font: { family: 'Inter', size: 11 } } },
+          y: { grid: { color: 'rgba(66,72,68,0.15)' }, ticks: { color: '#8c928d', font: { family: 'Inter', size: 11 }, callback: function(v){return '$'+Math.round(v/1000)+'k';} }, border: { display: false } }
         }
       }
     });
@@ -177,21 +177,21 @@
   .dash-greeting { margin:0 0 2px; font-size:13px; color:var(--text-muted); }
   .dash-actions { display:flex; gap:8px; }
 
-  .dash-alert { display:flex; align-items:center; gap:8px; padding:10px 16px; margin-bottom:20px; background:var(--primary-light); border:1px solid rgba(74,222,128,0.12); border-radius:var(--radius-md); font-size:13px; color:var(--primary); }
+  .dash-alert { display:flex; align-items:center; gap:8px; padding:10px 16px; margin-bottom:20px; background:var(--primary-light); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:var(--text-sm); color:var(--primary); }
 
   .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
-  .kpi { background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; }
-  .kpi-label { display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:8px; }
-  .kpi-val { font-size:28px; font-weight:800; letter-spacing:-0.02em; color:var(--text); }
-  .kpi-val.kpi-warn { color:#f87171; }
+  .kpi { background:var(--surface-container); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; }
+  .kpi-label { display:block; font-family:var(--font-family); font-size:var(--text-xs); font-weight:500; text-transform:uppercase; letter-spacing:0.12em; color:var(--text-muted); margin-bottom:10px; }
+  .kpi-val { font-family:var(--font-headline,'Manrope'); font-size:28px; font-weight:800; letter-spacing:-0.02em; color:var(--text); }
+  .kpi-val.kpi-warn { color:#ffb4ab; }
 
   .dash-cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
   .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-  .card-head h3 { margin:0; font-size:14px; font-weight:700; }
-  .card-meta { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); background:var(--bg-surface); padding:3px 8px; border-radius:var(--radius-sm); }
+  .card-head h3 { margin:0; font-family:var(--font-headline,'Manrope'); font-size:16px; font-weight:700; letter-spacing:-0.01em; }
+  .card-meta { font-size:var(--text-xs); font-weight:500; text-transform:uppercase; letter-spacing:0.12em; color:var(--text-muted); background:var(--surface-highest); padding:3px 8px; border-radius:var(--radius-sm); }
 
   .action-list { display:flex; flex-direction:column; gap:4px; }
-  .action-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-secondary); text-decoration:none; font-size:13px; transition:background 0.15s; }
+  .action-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-secondary); text-decoration:none; font-size:var(--text-sm); transition:all 0.2s; }
   .action-item:hover { background:var(--bg-surface); color:var(--text); }
   .action-num { font-size:14px; font-weight:800; color:var(--text); min-width:24px; }
   .action-warn .action-num { color:#f87171; }
