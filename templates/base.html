@@ -222,9 +222,76 @@
       padding: 10px 14px;
     }
 
+    /* Desktop top header bar */
+    .top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: fixed;
+      top: 0;
+      left: 256px;
+      right: 0;
+      height: 56px;
+      padding: 0 24px;
+      background: rgba(19, 19, 19, 0.7);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      z-index: 50;
+      box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+    }
+    .top-header-left { display: flex; align-items: center; gap: 16px; }
+    .top-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-lowest);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 14px;
+      width: 340px;
+    }
+    .top-search-input {
+      background: transparent !important;
+      border: none !important;
+      padding: 0 !important;
+      font-size: 13px !important;
+      color: var(--text) !important;
+      width: 100%;
+      box-shadow: none !important;
+    }
+    .top-search-input::placeholder { color: rgba(140,146,141,0.4) !important; }
+    .top-header-right { display: flex; align-items: center; gap: 8px; }
+    .top-header-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .top-header-icon:hover { background: var(--surface-high); color: var(--text); }
+    .top-header-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 8px;
+      height: 8px;
+      background: var(--primary);
+      border-radius: 50%;
+      border: 2px solid var(--bg);
+    }
+    .top-header-divider { width: 1px; height: 24px; background: var(--border); margin: 0 8px; }
+    .top-header-user { display: flex; flex-direction: column; align-items: flex-end; }
+    .top-header-username { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1; }
+    .top-header-role { font-size: 10px; font-weight: 500; color: var(--primary); text-transform: uppercase; letter-spacing: 0.12em; }
+
     .content {
       flex: 1;
-      padding: 28px 32px;
+      padding: 80px 32px 32px;
       font-size: var(--text-base);
       animation: fadeIn var(--motion-slow) var(--motion-ease-out);
     }
@@ -324,9 +391,11 @@
     @media (min-width: 769px) and (max-width: 1024px) {
       .sidebar { width: 200px; padding: 16px 12px; }
       .main-wrap { margin-left: 200px; }
+      .top-header { left: 200px; }
       .sidebar-brand { font-size: 18px; }
       .sidebar-nav a { padding: 10px 12px; font-size: 12px; }
-      .content { padding: 16px; }
+      .content { padding: 72px 16px 16px; }
+      .top-search { width: 220px; }
     }
 
     /* Mobile: bottom nav + drawer (no cramped topbar) */
@@ -334,7 +403,9 @@
       body { flex-direction: column; padding-bottom: env(safe-area-inset-bottom, 0); }
       .sidebar { display: none; }
       .main-wrap { margin-left: 0; }
+      .top-header { display: none; }
       .topbar { display: none; }
+      .content { padding: 16px 16px 80px; }
       .topbar-mobile {
         display: flex;
         align-items: center;
@@ -698,6 +769,30 @@
         </form>
       </div>
     </aside>
+
+    <!-- Desktop: Top header bar (Terraform Pro glass panel) -->
+    <header class="top-header">
+      <div class="top-header-left">
+        <div class="top-search">
+          <span class="material-symbols-outlined" style="font-size:18px;color:var(--text-muted);">search</span>
+          <input type="text" placeholder="Search clients, jobs, invoices..." class="top-search-input">
+        </div>
+      </div>
+      <div class="top-header-right">
+        <a href="{% url 'notification_inbox' %}" class="top-header-icon" title="Notifications" style="position:relative;">
+          <span class="material-symbols-outlined">notifications</span>
+          {% if notification_unread_count > 0 %}<span class="top-header-badge">{{ notification_unread_count }}</span>{% endif %}
+        </a>
+        <a href="/settings/" class="top-header-icon" title="Settings">
+          <span class="material-symbols-outlined">settings</span>
+        </a>
+        <div class="top-header-divider"></div>
+        <div class="top-header-user">
+          <span class="top-header-username">{{ user.get_full_name|default:user.username }}</span>
+          <span class="top-header-role">{{ user.role|title }}</span>
+        </div>
+      </div>
+    </header>
 
     <!-- Mobile: top bar + bottom nav + drawer -->
     <header class="topbar-mobile">
