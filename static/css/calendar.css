@@ -1745,6 +1745,287 @@ body.is-dragging * {
 }
 
 /* ==========================================================================
+   Selection Highlight (click-and-drag to select time range)
+   ========================================================================== */
+
+.fc .fc-highlight {
+  background: rgba(34, 197, 94, 0.12) !important;
+  border: 2px dashed rgba(34, 197, 94, 0.4);
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   Color Mode Toggle
+   ========================================================================== */
+
+.color-mode-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.color-mode-btn {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  transition: all 150ms ease;
+  white-space: nowrap;
+}
+
+.color-mode-btn + .color-mode-btn {
+  border-left: 1px solid var(--border);
+}
+
+.color-mode-btn.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.color-mode-btn:hover:not(.active) {
+  background: var(--bg-surface-hover);
+  color: var(--text);
+}
+
+/* ==========================================================================
+   Quick-Create Popover (Google Calendar style)
+   ========================================================================== */
+
+.quick-create-popover {
+  display: none;
+  position: fixed;
+  z-index: 1200;
+  width: 340px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03) inset;
+  animation: qcFadeIn 0.15s ease-out;
+  overflow: hidden;
+}
+
+@keyframes qcFadeIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.qc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px 0;
+}
+
+.qc-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.qc-close {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 150ms;
+}
+
+.qc-close:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text);
+}
+
+.qc-body {
+  padding: 14px 18px;
+}
+
+.qc-field {
+  margin-bottom: 12px;
+}
+
+.qc-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 5px;
+}
+
+.qc-field input[type="text"],
+.qc-field input[type="time"],
+.qc-field select {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 150ms;
+}
+
+.qc-field input:focus,
+.qc-field select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+
+.qc-row {
+  display: flex;
+  gap: 12px;
+}
+
+.qc-field-half {
+  flex: 1;
+}
+
+.qc-search-wrap {
+  position: relative;
+}
+
+.qc-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  z-index: 1201;
+  margin-top: 4px;
+}
+
+.qc-dropdown-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  transition: background 100ms;
+}
+
+.qc-dropdown-item:hover {
+  background: var(--bg-surface-hover);
+}
+
+.qc-dropdown-empty {
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.qc-selected-name {
+  display: none;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: rgba(34, 197, 94, 0.06);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.qc-selected-name:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-surface-hover);
+}
+
+.qc-swatches {
+  display: flex;
+  gap: 6px;
+}
+
+.qc-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 150ms;
+  padding: 0;
+  outline: none;
+}
+
+.qc-swatch:hover {
+  transform: scale(1.15);
+}
+
+.qc-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--primary);
+  transform: scale(1.1);
+}
+
+.qc-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.qc-link {
+  font-size: 12px;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.qc-link:hover {
+  text-decoration: underline;
+}
+
+/* Mobile: bottom sheet */
+@media (max-width: 768px) {
+  .quick-create-popover.qc-bottom-sheet {
+    width: 100% !important;
+    max-height: 85vh;
+    overflow-y: auto;
+    border-radius: 20px 20px 0 0 !important;
+  }
+
+  .color-mode-btn {
+    padding: 10px 14px;
+    font-size: 12px;
+    min-height: 40px;
+  }
+
+  .qc-field input[type="text"],
+  .qc-field input[type="time"],
+  .qc-field select {
+    font-size: 16px;
+    min-height: 44px;
+    padding: 12px 14px;
+  }
+
+  .qc-swatch {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* ==========================================================================
    Reduced Motion
    ========================================================================== */
 
@@ -1753,7 +2034,9 @@ body.is-dragging * {
   .fc .fc-view { animation: none; }
   .modal-card,
   .unscheduled-panel,
-  .drag-ghost {
+  .drag-ghost,
+  .quick-create-popover {
     transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

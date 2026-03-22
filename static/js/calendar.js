@@ -119,6 +119,9 @@ document.addEventListener('DOMContentLoaded', function () {
     editable: isOwner,
     eventDurationEditable: isOwner,
     longPressDelay: 300,
+    selectable: isOwner,
+    selectMirror: true,
+    unselectAuto: true,
     height: 'auto',
     dayMaxEvents: isMobile ? 3 : 5,  // Show "+N more" link instead of overflowing
 
@@ -241,14 +244,17 @@ document.addEventListener('DOMContentLoaded', function () {
       return { domNodes: [container] };
     },
 
-    // ── Click date → create job ──
+    // ── Click date → quick-create popover (Google Calendar style) ──
     dateClick: function(info) {
       if (!isOwner) return;
-      var date = info.date;
-      if (!date) return;
-      var dateStr = formatDateStr(date);
-      var timeStr = pad2(date.getHours()) + ':' + pad2(date.getMinutes());
-      window.location.href = '/jobs/create/?date=' + dateStr + '&time=' + timeStr;
+      openQuickCreate(info.date, info.dateStr, info.jsEvent, info.view.type);
+    },
+
+    // ── Drag-select time range → quick-create with time pre-filled ──
+    select: function(info) {
+      if (!isOwner) return;
+      openQuickCreate(info.start, info.startStr, info.jsEvent, info.view.type, info.end);
+      calendar.unselect();
     },
 
     // ── Drag event to reschedule ──
@@ -1291,5 +1297,346 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
+
+  // ══════════════════════════════════════════════════════════════
+  // Quick-Create Popover (Google Calendar click-to-create)
+  // ══════════════════════════════════════════════════════════════
+
+  var qcPopover = document.getElementById('quick-create-popover');
+  var qcOpen = false;
+  var qcSearchTimer = null;
+
+  function openQuickCreate(dateObj, dateStr, mouseEvent, viewType, endDate) {
+    if (!qcPopover) return;
+    var isTimeGrid = viewType && viewType.indexOf('timeGrid') >= 0;
+    var dateOnly = formatDateStr(dateObj);
+
+    document.getElementById('qc-date').value = dateOnly;
+
+    var timeInput = document.getElementById('qc-time');
+    if (isTimeGrid && dateObj.getHours() > 0) {
+      timeInput.value = pad2(dateObj.getHours()) + ':' + pad2(dateObj.getMinutes());
+    } else {
+      timeInput.value = '08:00';
+    }
+
+    // Reset fields
+    var searchInput = document.getElementById('qc-customer-search');
+    searchInput.value = '';
+    searchInput.style.display = '';
+    document.getElementById('qc-customer-id').value = '';
+    var nameEl = document.getElementById('qc-customer-name');
+    nameEl.textContent = '';
+    nameEl.style.display = 'none';
+    document.getElementById('qc-customer-dropdown').style.display = 'none';
+    document.getElementById('qc-property-wrap').style.display = 'none';
+    document.getElementById('qc-color').value = '';
+    qcPopover.querySelectorAll('.qc-swatch').forEach(function(s) {
+      s.classList.toggle('active', s.getAttribute('data-color') === '');
+    });
+
+    // Populate services
+    var svcSelect = document.getElementById('qc-service-id');
+    while (svcSelect.firstChild) svcSelect.removeChild(svcSelect.firstChild);
+    var defOpt = document.createElement('option');
+    defOpt.value = '';
+    defOpt.textContent = 'Select a service';
+    svcSelect.appendChild(defOpt);
+    (typeof QC_SERVICES !== 'undefined' ? QC_SERVICES : []).forEach(function(s) {
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      svcSelect.appendChild(opt);
+    });
+
+    // Populate assignment (crews + employees)
+    var assignSelect = document.getElementById('qc-assign');
+    while (assignSelect.firstChild) assignSelect.removeChild(assignSelect.firstChild);
+    var unOpt = document.createElement('option');
+    unOpt.value = '';
+    unOpt.textContent = 'Unassigned';
+    assignSelect.appendChild(unOpt);
+    var crews = typeof QC_CREWS !== 'undefined' ? QC_CREWS : [];
+    var employees = typeof QC_EMPLOYEES !== 'undefined' ? QC_EMPLOYEES : [];
+    if (crews.length) {
+      var g1 = document.createElement('optgroup');
+      g1.label = 'Crews';
+      crews.forEach(function(c) {
+        var o = document.createElement('option');
+        o.value = 'crew-' + c.id;
+        o.textContent = c.name;
+        g1.appendChild(o);
+      });
+      assignSelect.appendChild(g1);
+    }
+    if (employees.length) {
+      var g2 = document.createElement('optgroup');
+      g2.label = 'Employees';
+      employees.forEach(function(e) {
+        var o = document.createElement('option');
+        o.value = 'emp-' + e.id;
+        o.textContent = e.name;
+        g2.appendChild(o);
+      });
+      assignSelect.appendChild(g2);
+    }
+
+    // "More options" link
+    var moreLink = document.getElementById('qc-more-options');
+    if (moreLink) {
+      moreLink.href = '/jobs/create/?date=' + dateOnly + '&time=' + (timeInput.value || '08:00');
+    }
+
+    // Position near click
+    if (mouseEvent && !isMobile) {
+      var x = mouseEvent.clientX;
+      var y = mouseEvent.clientY;
+      var pw = 360, ph = 480;
+      var vw = window.innerWidth, vh = window.innerHeight;
+      if (x + pw > vw - 20) x = vw - pw - 20;
+      if (x < 20) x = 20;
+      if (y + ph > vh - 20) y = Math.max(20, vh - ph - 20);
+      qcPopover.style.position = 'fixed';
+      qcPopover.style.left = x + 'px';
+      qcPopover.style.top = y + 'px';
+      qcPopover.style.bottom = '';
+      qcPopover.style.right = '';
+      qcPopover.style.width = '';
+      qcPopover.style.borderRadius = '';
+      qcPopover.classList.remove('qc-bottom-sheet');
+    } else {
+      qcPopover.style.position = 'fixed';
+      qcPopover.style.left = '0';
+      qcPopover.style.right = '0';
+      qcPopover.style.bottom = '0';
+      qcPopover.style.top = '';
+      qcPopover.style.width = '100%';
+      qcPopover.style.borderRadius = '20px 20px 0 0';
+      qcPopover.classList.add('qc-bottom-sheet');
+    }
+
+    qcPopover.style.display = 'block';
+    qcOpen = true;
+    setTimeout(function() { searchInput.focus(); }, 100);
+  }
+
+  function closeQuickCreate() {
+    if (!qcPopover) return;
+    qcPopover.style.display = 'none';
+    qcOpen = false;
+  }
+
+  var qcCloseBtn = document.getElementById('qc-close');
+  if (qcCloseBtn) qcCloseBtn.addEventListener('click', closeQuickCreate);
+
+  document.addEventListener('mousedown', function(e) {
+    if (qcOpen && qcPopover && !qcPopover.contains(e.target)) {
+      if (e.target.closest('.fc-daygrid-day, .fc-timegrid-slot, .fc-timegrid-col')) return;
+      closeQuickCreate();
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && qcOpen) closeQuickCreate();
+  });
+
+  // ── Customer typeahead ──
+  var qcSearchEl = document.getElementById('qc-customer-search');
+  var qcDrop = document.getElementById('qc-customer-dropdown');
+
+  if (qcSearchEl) {
+    qcSearchEl.addEventListener('input', function() {
+      clearTimeout(qcSearchTimer);
+      var q = this.value.trim();
+      if (q.length < 1) { qcDrop.style.display = 'none'; return; }
+      qcSearchTimer = setTimeout(function() {
+        fetch('/jobs/calendar/customer-search/?q=' + encodeURIComponent(q))
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            while (qcDrop.firstChild) qcDrop.removeChild(qcDrop.firstChild);
+            if (!data.customers || !data.customers.length) {
+              var empty = document.createElement('div');
+              empty.className = 'qc-dropdown-empty';
+              empty.textContent = 'No clients found';
+              qcDrop.appendChild(empty);
+              qcDrop.style.display = 'block';
+              return;
+            }
+            data.customers.forEach(function(c) {
+              var item = document.createElement('div');
+              item.className = 'qc-dropdown-item';
+              item.textContent = c.name;
+              item.addEventListener('click', function() {
+                qcSelectCustomer(c.id, c.name, c.properties);
+              });
+              qcDrop.appendChild(item);
+            });
+            qcDrop.style.display = 'block';
+          })
+          .catch(function() { qcDrop.style.display = 'none'; });
+      }, 200);
+    });
+  }
+
+  function qcSelectCustomer(id, name, properties) {
+    document.getElementById('qc-customer-id').value = id;
+    document.getElementById('qc-customer-search').style.display = 'none';
+    var nEl = document.getElementById('qc-customer-name');
+    nEl.textContent = name;
+    nEl.style.display = 'block';
+    nEl.style.cursor = 'pointer';
+    nEl.onclick = function() {
+      document.getElementById('qc-customer-search').style.display = '';
+      document.getElementById('qc-customer-search').value = '';
+      document.getElementById('qc-customer-search').focus();
+      nEl.style.display = 'none';
+      document.getElementById('qc-customer-id').value = '';
+      document.getElementById('qc-property-wrap').style.display = 'none';
+    };
+    qcDrop.style.display = 'none';
+
+    var propSelect = document.getElementById('qc-property-id');
+    while (propSelect.firstChild) propSelect.removeChild(propSelect.firstChild);
+    if (properties && properties.length) {
+      if (properties.length === 1) {
+        var o = document.createElement('option');
+        o.value = properties[0].id;
+        o.textContent = properties[0].address;
+        propSelect.appendChild(o);
+      } else {
+        var d = document.createElement('option');
+        d.value = '';
+        d.textContent = 'Select property';
+        propSelect.appendChild(d);
+        properties.forEach(function(p) {
+          var o = document.createElement('option');
+          o.value = p.id;
+          o.textContent = p.address;
+          propSelect.appendChild(o);
+        });
+      }
+      document.getElementById('qc-property-wrap').style.display = '';
+    }
+  }
+
+  // ── Color swatches ──
+  if (qcPopover) {
+    qcPopover.querySelectorAll('.qc-swatch').forEach(function(swatch) {
+      swatch.addEventListener('click', function() {
+        document.getElementById('qc-color').value = this.getAttribute('data-color') || '';
+        qcPopover.querySelectorAll('.qc-swatch').forEach(function(s) { s.classList.remove('active'); });
+        this.classList.add('active');
+      });
+    });
+  }
+
+  // ── Submit: create job via AJAX ──
+  var qcSubmitBtn = document.getElementById('qc-submit');
+  if (qcSubmitBtn) {
+    qcSubmitBtn.addEventListener('click', function() {
+      var customerId = document.getElementById('qc-customer-id').value;
+      var propertyId = document.getElementById('qc-property-id').value;
+      var serviceId = document.getElementById('qc-service-id').value;
+      var dateVal = document.getElementById('qc-date').value;
+      var timeVal = document.getElementById('qc-time').value;
+      var colorVal = document.getElementById('qc-color').value;
+      var assignVal = document.getElementById('qc-assign').value;
+
+      if (!customerId) { showToast('Select a client', 'error'); return; }
+      if (!propertyId) { showToast('Select a property', 'error'); return; }
+      if (!serviceId) { showToast('Select a service', 'error'); return; }
+
+      var payload = {
+        customer_id: parseInt(customerId),
+        property_id: parseInt(propertyId),
+        service_id: parseInt(serviceId),
+        scheduled_date: dateVal,
+        scheduled_time: timeVal || null,
+        color: colorVal || null,
+      };
+
+      if (assignVal && assignVal.indexOf('crew-') === 0) {
+        payload.assigned_crew_id = parseInt(assignVal.replace('crew-', ''));
+      } else if (assignVal && assignVal.indexOf('emp-') === 0) {
+        payload.assigned_to_id = parseInt(assignVal.replace('emp-', ''));
+      }
+
+      qcSubmitBtn.disabled = true;
+      qcSubmitBtn.textContent = 'Creating\u2026';
+
+      fetch('/jobs/calendar/quick-create/', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+        body: JSON.stringify(payload)
+      })
+      .then(function(r) { return r.json().then(function(d) { return {ok:r.ok, data:d}; }); })
+      .then(function(result) {
+        qcSubmitBtn.disabled = false;
+        qcSubmitBtn.textContent = 'Create Job';
+        if (result.ok && result.data.status === 'ok') {
+          closeQuickCreate();
+          calendar.refetchEvents();
+          showToast('Job created');
+        } else {
+          showToast(result.data.error || 'Failed to create job', 'error');
+        }
+      })
+      .catch(function() {
+        qcSubmitBtn.disabled = false;
+        qcSubmitBtn.textContent = 'Create Job';
+        showToast('Network error', 'error');
+      });
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // Color Mode Toggle (By Status vs By Crew/Employee)
+  // ══════════════════════════════════════════════════════════════
+
+  var STORAGE_COLOR_MODE = 'fieldlgx_calendar_color_mode';
+  var colorMode = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_COLOR_MODE)) || 'status';
+
+  function applyColorMode() {
+    calendar.getEvents().forEach(function(event) {
+      var props = event.extendedProps || {};
+      if (props.type === 'meeting') return;
+      var override = props.jobColorOverride;
+      var color;
+      if (override) {
+        color = override;
+      } else if (colorMode === 'assignee') {
+        color = props.assigneeColor || props.crewColor || '#94a3b8';
+      } else {
+        color = props.statusColor || '#3b82f6';
+      }
+      event.setProp('backgroundColor', color);
+      event.setProp('borderColor', color);
+    });
+  }
+
+  var toggleContainer = document.getElementById('color-mode-toggle');
+  if (toggleContainer) {
+    toggleContainer.querySelectorAll('.color-mode-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.mode === colorMode);
+    });
+    toggleContainer.addEventListener('click', function(e) {
+      var btn = e.target.closest('.color-mode-btn');
+      if (!btn) return;
+      colorMode = btn.dataset.mode;
+      try { localStorage.setItem(STORAGE_COLOR_MODE, colorMode); } catch(ex) {}
+      toggleContainer.querySelectorAll('.color-mode-btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.mode === colorMode);
+      });
+      applyColorMode();
+    });
+  }
+
+  // Apply color mode after events load
+  var origEventsSet = calendar.getOption('eventsSet');
+  calendar.setOption('eventsSet', function(events) {
+    if (typeof origEventsSet === 'function') origEventsSet(events);
+    setTimeout(applyColorMode, 50);
+  });
 
 });

@@ -103,6 +103,12 @@
     </select>
   </div>
   <div class="calendar-toolbar-right">
+    {% if user.role == "owner" or user.role == "manager" %}
+    <div class="color-mode-toggle" id="color-mode-toggle" title="Event color mode">
+      <button type="button" class="color-mode-btn active" data-mode="status">By Status</button>
+      <button type="button" class="color-mode-btn" data-mode="assignee">By Crew</button>
+    </div>
+    {% endif %}
     <input type="text" id="calendar-search" class="toolbar-search-input" placeholder="Search jobs…" aria-label="Search jobs">
   </div>
 </div>
@@ -356,6 +362,66 @@
 </div>
 {% endif %}
 
+<!-- Quick-Create Popover (Google Calendar style) -->
+{% if user.role == "owner" or user.role == "manager" %}
+<div id="quick-create-popover" class="quick-create-popover" role="dialog" aria-modal="true" aria-label="Quick create job">
+  <div class="qc-header">
+    <span class="qc-title">New Job</span>
+    <button type="button" class="qc-close" id="qc-close" aria-label="Close">&times;</button>
+  </div>
+  <div class="qc-body">
+    <div class="qc-field">
+      <label for="qc-customer-search">Client</label>
+      <div class="qc-search-wrap">
+        <input type="text" id="qc-customer-search" placeholder="Search clients…" autocomplete="off" spellcheck="false">
+        <div id="qc-customer-dropdown" class="qc-dropdown"></div>
+      </div>
+      <input type="hidden" id="qc-customer-id">
+      <span id="qc-customer-name" class="qc-selected-name"></span>
+    </div>
+    <div class="qc-field" id="qc-property-wrap" style="display:none;">
+      <label for="qc-property-id">Property</label>
+      <select id="qc-property-id"><option value="">Select property</option></select>
+    </div>
+    <div class="qc-field">
+      <label for="qc-service-id">Service</label>
+      <select id="qc-service-id"><option value="">Select a service</option></select>
+    </div>
+    <div class="qc-row">
+      <div class="qc-field qc-field-half" id="qc-time-wrap">
+        <label for="qc-time">Time</label>
+        <input type="time" id="qc-time" value="08:00">
+      </div>
+      <div class="qc-field qc-field-half">
+        <label for="qc-assign">Assign to</label>
+        <select id="qc-assign">
+          <option value="">Unassigned</option>
+        </select>
+      </div>
+    </div>
+    <div class="qc-field">
+      <label>Color</label>
+      <div class="qc-swatches">
+        <button type="button" class="qc-swatch" data-color="" title="Auto" style="background:linear-gradient(135deg,#3b82f6,#22c55e);position:relative;"><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;">A</span></button>
+        <button type="button" class="qc-swatch" data-color="#3b82f6" title="Blue" style="background:#3b82f6;"></button>
+        <button type="button" class="qc-swatch" data-color="#22c55e" title="Green" style="background:#22c55e;"></button>
+        <button type="button" class="qc-swatch" data-color="#f59e0b" title="Amber" style="background:#f59e0b;"></button>
+        <button type="button" class="qc-swatch" data-color="#ef4444" title="Red" style="background:#ef4444;"></button>
+        <button type="button" class="qc-swatch" data-color="#8b5cf6" title="Purple" style="background:#8b5cf6;"></button>
+        <button type="button" class="qc-swatch" data-color="#ec4899" title="Pink" style="background:#ec4899;"></button>
+        <button type="button" class="qc-swatch" data-color="#06b6d4" title="Cyan" style="background:#06b6d4;"></button>
+      </div>
+      <input type="hidden" id="qc-color" value="">
+    </div>
+  </div>
+  <div class="qc-footer">
+    <a id="qc-more-options" href="{% url 'create_job' %}" class="qc-link">More options</a>
+    <button type="button" id="qc-submit" class="btn btn-primary btn-sm">Create Job</button>
+  </div>
+  <input type="hidden" id="qc-date" value="">
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
@@ -374,6 +440,11 @@
     icon: "{{ day.icon }}"
   };
   {% endfor %}
+
+  // Quick-create data (services, crews, employees) from server context
+  var QC_SERVICES = [{% for s in filter_services %}{id:{{ s.id }},name:"{{ s.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
+  var QC_CREWS = [{% for c in filter_crews %}{id:{{ c.id }},name:"{{ c.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
+  var QC_EMPLOYEES = [{% for e in filter_employees %}{id:{{ e.id }},name:"{{ e.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
 </script>
 <script src="{% static 'js/calendar.js' %}"></script>
 {% endblock %}

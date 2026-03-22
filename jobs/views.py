@@ -375,6 +375,9 @@ def calendar_events(request):
                     "status": job.status, "crew": assignee_name, "jobId": job.id,
                     "customer": customer_name, "services": services_str,
                     "crewColor": crew_dot_color,
+                    "statusColor": STATUS_COLORS.get(job.status, '#3b82f6'),
+                    "assigneeColor": crew_dot_color,
+                    "jobColorOverride": job.color.strip() if job.color and job.color.strip() else None,
                     "serviceAbbr": service_names[0] if service_names else "",
                     "recurring": bool(job.recurring_job_id),
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
@@ -392,6 +395,9 @@ def calendar_events(request):
                     "status": job.status, "crew": assignee_name, "jobId": job.id,
                     "customer": customer_name, "services": services_str,
                     "crewColor": crew_dot_color,
+                    "statusColor": STATUS_COLORS.get(job.status, '#3b82f6'),
+                    "assigneeColor": crew_dot_color,
+                    "jobColorOverride": job.color.strip() if job.color and job.color.strip() else None,
                     "serviceAbbr": service_names[0] if service_names else "",
                     "recurring": bool(job.recurring_job_id),
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
@@ -698,6 +704,129 @@ def calendar_bulk_reschedule(request):
         jobs = jobs.filter(id__in=job_ids)
     count = jobs.update(scheduled_date=to_d)
     return JsonResponse({"moved": count, "to_date": to_date})
+
+
+@require_POST
+@role_required("owner", "manager")
+def calendar_quick_create(request):
+    """Create a job from the calendar quick-create popover (Google Calendar style)."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    data = json.loads(request.body) if request.body else {}
+    customer_id = data.get("customer_id")
+    property_id = data.get("property_id")
+    service_id = data.get("service_id")
+    scheduled_date_str = data.get("scheduled_date")
+    scheduled_time_str = data.get("scheduled_time")
+    assigned_crew_id = data.get("assigned_crew_id")
+    assigned_to_id = data.get("assigned_to_id")
+    color = data.get("color")
+    notes = data.get("notes", "")
+
+    if not customer_id or not property_id or not service_id or not scheduled_date_str:
+        return JsonResponse({"error": "Customer, property, service, and date are required"}, status=400)
+
+    from customers.models import Customer
+    customer = Customer.objects.filter(business=business, id=customer_id).first()
+    if not customer:
+        return JsonResponse({"error": "Customer not found"}, status=404)
+    prop = Property.objects.filter(customer=customer, id=property_id).first()
+    if not prop:
+        return JsonResponse({"error": "Property not found"}, status=404)
+    from pricing.models import ServiceTemplate
+    service = ServiceTemplate.objects.filter(business=business, id=service_id, active=True).first()
+    if not service:
+        return JsonResponse({"error": "Service not found"}, status=404)
+
+    try:
+        sched_date = datetime.strptime(scheduled_date_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "Invalid date format"}, status=400)
+
+    sched_time = None
+    if scheduled_time_str and ":" in str(scheduled_time_str):
+        try:
+            from datetime import time as dt_time
+            parts = scheduled_time_str.split(":")
+            sched_time = dt_time(int(parts[0]), int(parts[1]))
+        except (ValueError, TypeError):
+            pass
+
+    # Validate color
+    job_color = None
+    if color and isinstance(color, str):
+        c = color.strip()
+        if not c.startswith("#"):
+            c = "#" + c
+        if len(c) in (4, 7) and all(ch in "#0123456789abcdefABCDEF" for ch in c):
+            job_color = c
+
+    job = Job.objects.create(
+        property=prop,
+        scheduled_date=sched_date,
+        scheduled_time=sched_time,
+        status="scheduled",
+        color=job_color,
+        notes=(notes or "")[:2000],
+    )
+
+    # Assignment
+    if assigned_crew_id:
+        crew = Crew.objects.filter(business=business, id=assigned_crew_id).first()
+        if crew:
+            job.assigned_crew = crew
+            job.save(update_fields=["assigned_crew"])
+    elif assigned_to_id:
+        user = User.objects.filter(business=business, role__in=["crew", "owner"], id=assigned_to_id).first()
+        if user:
+            job.assigned_to = user
+            job.assigned_employees.add(user)
+            job.save(update_fields=["assigned_to"])
+
+    # Create service item with pricing
+    unit, rate = get_effective_rate(prop, service)
+    JobServiceItem.objects.create(
+        job=job,
+        service=service,
+        description=service.name,
+        quantity=1,
+        unit=unit,
+        unit_price=rate,
+    )
+
+    # Log assignment
+    if job.assigned_crew or job.assigned_to:
+        assignee = job.assigned_crew.name if job.assigned_crew else (job.assigned_to.get_full_name() if job.assigned_to else "Unassigned")
+        JobAssignmentLog.objects.create(
+            job=job,
+            user=request.user,
+            details=f"Job created and assigned to {assignee} (from calendar quick-create)",
+        )
+
+    return JsonResponse({"status": "ok", "job_id": job.id})
+
+
+@require_GET
+@role_required("owner", "manager")
+def calendar_customer_search(request):
+    """Search customers for calendar quick-create typeahead."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"customers": []})
+    q = (request.GET.get("q") or "").strip()
+    if len(q) < 1:
+        return JsonResponse({"customers": []})
+    from customers.models import Customer
+    customers = Customer.objects.filter(
+        business=business,
+        name__icontains=q,
+    ).prefetch_related("properties").order_by("name")[:10]
+    out = []
+    for c in customers:
+        props = [{"id": p.id, "address": p.address} for p in c.properties.all()]
+        out.append({"id": c.id, "name": c.name, "properties": props})
+    return JsonResponse({"customers": out})
 
 
 @require_GET
