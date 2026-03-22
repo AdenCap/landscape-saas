@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var STORAGE_VIEW = isMobile ? 'fieldlgx_calendar_view_mobile' : (isTablet ? 'fieldlgx_calendar_view_tablet' : 'fieldlgx_calendar_view');
   var STORAGE_DATE = 'fieldlgx_calendar_date';
 
-  var defaultView = isMobile ? 'listWeek' : (isTablet ? 'timeGridWeek' : 'dayGridMonth');
+  var defaultView = isMobile ? 'listMonth' : (isTablet ? 'timeGridWeek' : 'dayGridMonth');
   var savedView = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_VIEW)) || null;
   var initialView = savedView || defaultView;
 
@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function () {
       left: 'prev,next today',
       center: 'title',
       right: isMobile
-        ? 'listWeek,timeGridDay,dayGridMonth'
+        ? 'listMonth,timeGridDay,dayGridMonth'
         : 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
     },
     initialView: initialView,
@@ -108,7 +108,8 @@ document.addEventListener('DOMContentLoaded', function () {
       dayGridMonth: { buttonText: 'Month' },
       timeGridWeek: { buttonText: 'Week' },
       timeGridDay: { buttonText: 'Day' },
-      listWeek: { buttonText: 'List' }
+      listWeek: { buttonText: 'List' },
+      listMonth: { buttonText: 'Schedule', duration: { months: 1 } }
     },
     slotMinTime: '06:00:00',
     slotMaxTime: '20:00:00',
@@ -1351,6 +1352,8 @@ document.addEventListener('DOMContentLoaded', function () {
   var qcOpen = false;
   var qcSearchTimer = null;
 
+  // Expose to global scope for mobile FAB
+  window.openQuickCreate = openQuickCreate;
   function openQuickCreate(dateObj, dateStr, mouseEvent, viewType, endDate) {
     if (!qcPopover) return;
     var isTimeGrid = viewType && viewType.indexOf('timeGrid') >= 0;

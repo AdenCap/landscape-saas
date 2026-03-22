@@ -1163,30 +1163,95 @@ body.is-dragging * {
    List View Styles
    ========================================================================== */
 
+/* Schedule/List View — Google Calendar style continuous scroll */
 .fc .fc-list-day-cushion {
-  background: var(--bg-elevated);
-  padding: 10px 16px;
-  font-weight: 700;
-  font-size: var(--text-sm);
+  background: var(--surface-container, var(--bg-elevated));
+  padding: 12px 16px;
+  font-weight: 800;
+  font-size: 12px;
   color: var(--text);
+  letter-spacing: -0.01em;
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
 .fc .fc-list-event td {
-  padding: 8px 16px;
-  border-color: var(--border);
+  padding: 12px 16px;
+  border-color: transparent;
+  border-bottom: 1px solid rgba(73, 72, 71, 0.08);
   vertical-align: middle;
 }
 
 .fc .fc-list-event:hover td {
-  background: var(--bg-surface-hover);
+  background: rgba(169, 255, 172, 0.03);
 }
 
-/* ── List view — the most useful view for field workers ── */
+.fc .fc-list-table {
+  border: none;
+}
+
+.fc .fc-list {
+  border: none;
+}
+
+/* ── List view — continuous schedule like Google Calendar ── */
 .cal-event-card--list {
   min-height: 48px;
   padding: 6px 0;
   gap: 10px;
   align-items: flex-start;
+}
+
+/* Mobile schedule view — bigger touch targets, cleaner layout */
+@media (max-width: 768px) {
+  .fc .fc-list-day-cushion {
+    padding: 14px 16px;
+    font-size: 13px;
+    background: var(--surface-container, #131313);
+  }
+
+  .fc .fc-list-event td {
+    padding: 14px 16px;
+    min-height: 52px;
+  }
+
+  .fc .fc-list-event-dot {
+    display: none; /* We use our own crew color dot */
+  }
+
+  .cal-event-card--list {
+    min-height: 52px;
+    padding: 8px 0;
+    gap: 12px;
+  }
+
+  .cal-event-card--list .cal-event-name {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .cal-event-card--list .cal-event-addr {
+    font-size: 13px;
+    display: block !important;
+  }
+
+  .cal-event-card--list .cal-event-crew {
+    font-size: 12px;
+    display: block !important;
+  }
+
+  .cal-event-card--list .cal-event-time {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* Make the nav link icon bigger on mobile schedule */
+  .cal-event-card--list .cal-event-nav {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
 }
 
 .cal-event-card--list .cal-event-content {

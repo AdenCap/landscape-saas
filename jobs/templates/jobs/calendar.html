@@ -422,6 +422,50 @@
 </div>
 {% endif %}
 
+<!-- Mobile FAB for quick job creation (Google Calendar style "+") -->
+{% if user.role == "owner" or user.role == "manager" %}
+<button type="button" class="cal-mobile-fab" id="cal-mobile-fab" aria-label="Create new job">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+<style>
+.cal-mobile-fab {
+  display: none;
+  position: fixed;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-container, #00fe66));
+  color: var(--on-primary, #001f06);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 30px rgba(169, 255, 172, 0.2), 0 4px 16px rgba(0,0,0,0.3);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.cal-mobile-fab:active { transform: scale(0.92); }
+.cal-mobile-fab:hover { box-shadow: 0 0 50px rgba(169, 255, 172, 0.3), 0 8px 24px rgba(0,0,0,0.4); }
+@media (max-width: 768px) {
+  .cal-mobile-fab { display: flex; }
+}
+</style>
+<script>
+document.getElementById('cal-mobile-fab').addEventListener('click', function() {
+  // Open quick-create for today
+  if (typeof openQuickCreate === 'function') {
+    openQuickCreate(new Date(), new Date().toISOString().slice(0,10), null, 'listMonth');
+  } else {
+    // Fallback: navigate to create page
+    window.location.href = '/jobs/create/?date=' + new Date().toISOString().slice(0,10);
+  }
+});
+</script>
+{% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
