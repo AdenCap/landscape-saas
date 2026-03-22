@@ -90,15 +90,15 @@
       <span class="form-help">Gate codes, dog on premises, access instructions, special requests</span>
     </div>
 
-    <h3 style="font-size: 16px; font-weight: 600; margin: 24px 0 16px;">Services</h3>
-    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">Type a service name or choose from existing. Optionally enter a price per unit; otherwise the default rate applies. Services go to the monthly invoice when complete.</p>
+    <h3 style="font-size: 16px; font-weight: 600; margin: 24px 0 8px;">Line Items</h3>
+    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Add services and set pricing. Leave price blank to use the default rate.</p>
 
     {% if accepted_estimates %}
-    <div class="estimate-transfer" style="margin-bottom: 20px; padding: 12px; background: var(--surface-alt, #f8fafc); border-radius: 8px; border: 1px solid var(--border, #e2e8f0);">
-      <label style="font-size: 13px; font-weight: 500; color: var(--text-muted); display: block; margin-bottom: 8px;">Transfer from accepted estimate</label>
+    <div class="estimate-transfer" style="margin-bottom: 20px; padding: 12px; background: var(--bg-surface, #1a1a1a); border-radius: 8px; border: 1px solid var(--border);">
+      <label style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;">Load from estimate</label>
       <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <select id="estimate-select" style="flex: 1; width: 100%; min-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
-          <option value="">— Select an estimate —</option>
+        <select id="estimate-select" style="flex: 1; width: 100%; min-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text); font-size: 14px;">
+          <option value="">Select an estimate</option>
           {% for est in accepted_estimates %}
           <option value="{{ est.id }}" data-customer="{{ est.customer_id }}" {% if loaded_estimate_id and loaded_estimate_id|stringformat:"s" == est.id|stringformat:"s" %}selected{% endif %}>#{{ est.id }} {{ est.title }} — ${{ est.total|floatformat:2 }} ({{ est.customer_name }})</option>
           {% endfor %}
@@ -114,27 +114,48 @@
       {% endfor %}
     </datalist>
 
+    <!-- Line items table header -->
+    <div class="line-items-header">
+      <span class="li-col-service">Service</span>
+      <span class="li-col-qty">Qty</span>
+      <span class="li-col-price">Price</span>
+      <span class="li-col-total">Total</span>
+      <span class="li-col-remove"></span>
+    </div>
+
     {{ formset.management_form }}
     <div id="service-rows">
       {% for f in formset %}
-      <div class="form-row form-row-service">
-        <div class="form-group flex-2">
-          <label>Service</label>
+      <div class="line-item-row" data-row="{{ forloop.counter0 }}">
+        <div class="li-col-service">
           {{ f.service_name }}
           {% if f.service_name.errors %}<span class="form-error">{{ f.service_name.errors.0 }}</span>{% endif %}
         </div>
-        <div class="form-group flex-1">
-          <label>Qty</label>
+        <div class="li-col-qty">
           {{ f.quantity }}
         </div>
-        <div class="form-group flex-1">
-          <label>Price</label>
+        <div class="li-col-price">
           {{ f.unit_price }}
+        </div>
+        <div class="li-col-total">
+          <span class="row-total">$0.00</span>
+        </div>
+        <div class="li-col-remove">
+          {% if not forloop.first %}
+          <button type="button" class="btn-remove-row" title="Remove" aria-label="Remove line item">&times;</button>
+          {% endif %}
         </div>
       </div>
       {% endfor %}
     </div>
-    <button type="button" id="add-service-row" class="btn-add-service" title="Add another service">+ Add service</button>
+
+    <div class="line-items-footer">
+      <button type="button" id="add-service-row" class="btn-add-service" title="Add another line item">+ Add line item</button>
+      <div class="job-total-display">
+        <span class="job-total-label">Estimated Total</span>
+        <span class="job-total-value" id="job-running-total">$0.00</span>
+      </div>
+    </div>
 
     <div style="margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap;">
       <button type="submit" class="btn btn-primary">Create Job</button>
@@ -151,27 +172,128 @@
     margin-bottom: var(--space-5);
   }
   .job-create-datetime-row .form-group { margin-bottom: 0; }
-  .form-row-service { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-end; }
-  .form-row-service .flex-1 { max-width: 100px; }
+  /* Line items table */
+  .line-items-header {
+    display: grid;
+    grid-template-columns: 1fr 80px 100px 90px 36px;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .line-items-header span {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+  .line-item-row {
+    display: grid;
+    grid-template-columns: 1fr 80px 100px 90px 36px;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+  .line-item-row input {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .line-item-row input:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(34,197,94,0.12);
+  }
+  .row-total {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .btn-remove-row {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+  .btn-remove-row:hover {
+    background: rgba(239,68,68,0.12);
+    color: #fca5a5;
+  }
+  .line-items-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
   .btn-add-service {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 14px; margin-top: 8px;
-    background: var(--surface-alt, #f1f5f9); border: 1px dashed var(--border, #cbd5e1);
-    border-radius: 8px; font-size: 14px; color: var(--text-muted, #64748b);
-    cursor: pointer;
+    padding: 8px 14px;
+    background: transparent; border: 1px dashed var(--border);
+    border-radius: 8px; font-size: 13px; color: var(--primary);
+    cursor: pointer; font-weight: 500; font-family: inherit;
+    transition: all 0.15s;
   }
-  .btn-add-service:hover { background: var(--border, #e2e8f0); color: var(--text, #334155); }
-  .flex-2 { flex: 2; }
-  .flex-1 { flex: 1; max-width: 120px; }
+  .btn-add-service:hover { background: rgba(34,197,94,0.06); border-color: var(--primary); }
+  .job-total-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: rgba(34,197,94,0.06);
+    border: 1px solid rgba(34,197,94,0.15);
+    border-radius: 10px;
+  }
+  .job-total-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+  }
+  .job-total-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+  }
   @media (max-width: 768px) {
     .job-create-datetime-row { grid-template-columns: 1fr; gap: 0; }
     .job-create-datetime-row .form-group { margin-bottom: var(--space-5); }
     .form-group input, .form-group select, .form-group textarea { font-size: 16px; min-height: 44px; }
-    .form-row-service { flex-wrap: wrap; }
-    .form-row-service .flex-1 { max-width: none; flex: 1 1 80px; }
-    .form-row-service .flex-2 { flex: 1 1 100%; }
+    .line-items-header { display: none; }
+    .line-item-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      padding: 14px 0;
+      position: relative;
+    }
+    .line-item-row input { font-size: 16px; min-height: 44px; padding: 12px; }
+    .li-col-qty::before { content: 'Qty: '; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+    .li-col-price::before { content: 'Price: '; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+    .li-col-total { text-align: right; }
+    .li-col-remove { position: absolute; top: 14px; right: 0; }
+    .btn-remove-row { width: 44px; height: 44px; }
     .btn { min-height: 44px; }
-    .quick-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .line-items-footer { flex-direction: column; align-items: stretch; }
+    .job-total-display { justify-content: space-between; }
   }
   .assignee-type-radio { list-style: none; padding: 0; margin: 0; display: flex; gap: 16px; flex-wrap: wrap; }
   .assignee-type-radio li { display: flex; align-items: center; gap: 6px; }
@@ -306,52 +428,118 @@
     });
   }
 
+  // ── Line item totals + running total ──
+  function updateRowTotal(row) {
+    var qty = parseFloat(row.querySelector('[name$="-quantity"]').value) || 0;
+    var price = parseFloat(row.querySelector('[name$="-unit_price"]').value) || 0;
+    var totalEl = row.querySelector('.row-total');
+    if (totalEl) {
+      var lineTotal = qty * price;
+      totalEl.textContent = price > 0 ? '$' + lineTotal.toFixed(2) : '\u2014';
+    }
+    updateRunningTotal();
+  }
+
+  function updateRunningTotal() {
+    var total = 0;
+    document.querySelectorAll('.line-item-row').forEach(function(row) {
+      var qty = parseFloat(row.querySelector('[name$="-quantity"]').value) || 0;
+      var price = parseFloat(row.querySelector('[name$="-unit_price"]').value) || 0;
+      total += qty * price;
+    });
+    var el = document.getElementById('job-running-total');
+    if (el) el.textContent = '$' + total.toFixed(2);
+  }
+
+  // Attach listeners to existing rows
+  document.querySelectorAll('.line-item-row').forEach(function(row) {
+    var qtyInput = row.querySelector('[name$="-quantity"]');
+    var priceInput = row.querySelector('[name$="-unit_price"]');
+    if (qtyInput) qtyInput.addEventListener('input', function() { updateRowTotal(row); });
+    if (priceInput) priceInput.addEventListener('input', function() { updateRowTotal(row); });
+    updateRowTotal(row);
+  });
+
+  // Remove row handler (delegated)
+  document.getElementById('service-rows').addEventListener('click', function(e) {
+    var removeBtn = e.target.closest('.btn-remove-row');
+    if (!removeBtn) return;
+    var row = removeBtn.closest('.line-item-row');
+    if (row) {
+      row.remove();
+      updateRunningTotal();
+    }
+  });
+
+  // ── Add new line item row ──
   document.getElementById('add-service-row').addEventListener('click', function() {
     var container = document.getElementById('service-rows');
     var totalInput = document.getElementById('id_form-TOTAL_FORMS');
     var n = parseInt(totalInput.value, 10);
-    var inputStyle = 'width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;';
 
     var row = document.createElement('div');
-    row.className = 'form-row form-row-service';
+    row.className = 'line-item-row';
+    row.setAttribute('data-row', n);
 
-    // Service name group
+    // Service name
     var g1 = document.createElement('div');
-    g1.className = 'form-group flex-2';
-    var l1 = document.createElement('label');
-    l1.textContent = 'Service';
+    g1.className = 'li-col-service';
     var i1 = document.createElement('input');
     i1.type = 'text'; i1.name = 'form-' + n + '-service_name';
-    i1.maxLength = 120; i1.placeholder = 'Type service name...';
+    i1.maxLength = 120; i1.placeholder = 'Service name...';
     i1.setAttribute('list', 'services-datalist');
-    i1.id = 'id_form-' + n + '-service_name'; i1.style.cssText = inputStyle;
-    g1.appendChild(l1); g1.appendChild(i1);
+    i1.id = 'id_form-' + n + '-service_name';
+    g1.appendChild(i1);
 
-    // Quantity group
+    // Quantity
     var g2 = document.createElement('div');
-    g2.className = 'form-group flex-1';
-    var l2 = document.createElement('label');
-    l2.textContent = 'Qty';
+    g2.className = 'li-col-qty';
     var i2 = document.createElement('input');
     i2.type = 'number'; i2.name = 'form-' + n + '-quantity';
     i2.step = '0.01'; i2.value = '1.00'; i2.min = '0.01';
-    i2.id = 'id_form-' + n + '-quantity'; i2.style.cssText = inputStyle;
-    g2.appendChild(l2); g2.appendChild(i2);
+    i2.id = 'id_form-' + n + '-quantity';
+    i2.addEventListener('input', function() { updateRowTotal(row); });
+    g2.appendChild(i2);
 
-    // Price group
+    // Price
     var g3 = document.createElement('div');
-    g3.className = 'form-group flex-1';
-    var l3 = document.createElement('label');
-    l3.textContent = 'Price';
+    g3.className = 'li-col-price';
     var i3 = document.createElement('input');
     i3.type = 'number'; i3.name = 'form-' + n + '-unit_price';
-    i3.step = '0.01'; i3.min = '0'; i3.placeholder = 'Optional';
-    i3.id = 'id_form-' + n + '-unit_price'; i3.style.cssText = inputStyle;
-    g3.appendChild(l3); g3.appendChild(i3);
+    i3.step = '0.01'; i3.min = '0'; i3.placeholder = '0.00';
+    i3.id = 'id_form-' + n + '-unit_price';
+    i3.addEventListener('input', function() { updateRowTotal(row); });
+    g3.appendChild(i3);
 
-    row.appendChild(g1); row.appendChild(g2); row.appendChild(g3);
+    // Line total
+    var g4 = document.createElement('div');
+    g4.className = 'li-col-total';
+    var totalSpan = document.createElement('span');
+    totalSpan.className = 'row-total';
+    totalSpan.textContent = '\u2014';
+    g4.appendChild(totalSpan);
+
+    // Remove button
+    var g5 = document.createElement('div');
+    g5.className = 'li-col-remove';
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-remove-row';
+    removeBtn.title = 'Remove';
+    removeBtn.setAttribute('aria-label', 'Remove line item');
+    removeBtn.textContent = '\u00D7';
+    g5.appendChild(removeBtn);
+
+    row.appendChild(g1);
+    row.appendChild(g2);
+    row.appendChild(g3);
+    row.appendChild(g4);
+    row.appendChild(g5);
     container.appendChild(row);
     totalInput.value = n + 1;
+
+    // Focus the new service name input
+    i1.focus();
   });
 })();
 </script>
