@@ -371,11 +371,19 @@ def calendar_events(request):
             title = '✓ ' + title
 
         # Timed events (week/day view) vs all-day (month view)
+        # Use actual started_at/completed_at for accurate calendar display
         if job.scheduled_time:
             dt = datetime.combine(job.scheduled_date, job.scheduled_time)
+            # If job was actually started, use started_at as the real start
+            if job.started_at:
+                dt = datetime.combine(job.started_at.date(), job.started_at.time())
             start_str = dt.strftime("%Y-%m-%dT%H:%M:%S")
-            end_dt = dt + timedelta(hours=1)
-            end_str = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
+            # If completed, use actual end time; otherwise estimate 1 hour
+            if job.completed_at and job.started_at:
+                end_str = datetime.combine(job.completed_at.date(), job.completed_at.time()).strftime("%Y-%m-%dT%H:%M:%S")
+            else:
+                end_dt = dt + timedelta(hours=1)
+                end_str = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
             evt = {
                 "id": str(job.id),
                 "title": title,
@@ -393,6 +401,8 @@ def calendar_events(request):
                     "serviceAbbr": service_names[0] if service_names else "",
                     "recurring": bool(job.recurring_job_id),
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
+                    "startedAt": job.started_at.isoformat() if job.started_at else None,
+                    "completedAt": job.completed_at.isoformat() if job.completed_at else None,
                 },
             }
         else:
@@ -1022,6 +1032,19 @@ def start_job(request, job_id):
         return redirect("crew_today")
 
     job.status = "in_progress"
+    job.started_at = timezone.now()
+    # Update scheduled_time to actual start time for calendar accuracy
+    job.scheduled_time = timezone.now().time()
+    # Capture GPS if provided
+    lat = request.POST.get("latitude", "").strip()
+    lng = request.POST.get("longitude", "").strip()
+    if lat and lng:
+        try:
+            job.technician_latitude = float(lat)
+            job.technician_longitude = float(lng)
+            job.technician_location_updated_at = timezone.now()
+        except (ValueError, TypeError):
+            pass
     job.save()
     return redirect("crew_today")
 
@@ -1092,7 +1115,19 @@ def complete_job(request, job_id):
     job.status = "completed"
     job.completed_by = request.user
     job.completed_at = timezone.now()
-    job.save(update_fields=["status", "completed_by", "completed_at"])
+    # Capture GPS on completion
+    lat = request.POST.get("latitude", "").strip()
+    lng = request.POST.get("longitude", "").strip()
+    update_fields = ["status", "completed_by", "completed_at"]
+    if lat and lng:
+        try:
+            job.technician_latitude = float(lat)
+            job.technician_longitude = float(lng)
+            job.technician_location_updated_at = timezone.now()
+            update_fields.extend(["technician_latitude", "technician_longitude", "technician_location_updated_at"])
+        except (ValueError, TypeError):
+            pass
+    job.save(update_fields=update_fields)
 
     # Notify client that job is complete
     try:

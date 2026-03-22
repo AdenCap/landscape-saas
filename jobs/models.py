@@ -135,6 +135,11 @@ class Job(models.Model):
         blank=True,
         help_text='When this job was marked as completed'
     )
+    started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When crew started working on this job (set by start_job action)'
+    )
 
     # Completion proof (optional: Business.require_completion_photo)
     # JobCompletionPhoto records stored separately; use job.completion_photos.exists()

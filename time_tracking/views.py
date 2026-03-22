@@ -54,7 +54,17 @@ def clock_view(request):
 @require_POST
 @role_required("owner", "manager", "crew")
 def clock_in(request):
-    TimeEntry.objects.create(user=request.user, clock_in=timezone.now())
+    kwargs = {"user": request.user, "clock_in": timezone.now()}
+    # Capture GPS location if provided
+    lat = request.POST.get("latitude", "").strip()
+    lng = request.POST.get("longitude", "").strip()
+    if lat and lng:
+        try:
+            kwargs["clock_in_latitude"] = float(lat)
+            kwargs["clock_in_longitude"] = float(lng)
+        except (ValueError, TypeError):
+            pass
+    TimeEntry.objects.create(**kwargs)
     messages.success(request, 'Clocked in successfully.')
     return redirect('time_clock')
 
@@ -68,6 +78,15 @@ def clock_out(request):
 
     if entry:
         entry.clock_out = timezone.now()
+        # Capture GPS location on clock out
+        lat = request.POST.get("latitude", "").strip()
+        lng = request.POST.get("longitude", "").strip()
+        if lat and lng:
+            try:
+                entry.clock_out_latitude = float(lat)
+                entry.clock_out_longitude = float(lng)
+            except (ValueError, TypeError):
+                pass
         entry.save()
         messages.success(request, 'Clocked out successfully.')
     else:

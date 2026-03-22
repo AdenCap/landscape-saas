@@ -275,5 +275,80 @@ function escHtml(s) {
   d.textContent = s;
   return d.innerHTML;
 }
+
+// ══════════════════════════════════════════
+// GPS Location Capture + Auto-Update
+// ══════════════════════════════════════════
+
+(function() {
+  var lastLat = null, lastLng = null;
+
+  // Get current position (returns promise-like callback)
+  function getPosition(cb) {
+    if (!navigator.geolocation) { cb(null, null); return; }
+    navigator.geolocation.getCurrentPosition(
+      function(pos) { lastLat = pos.coords.latitude; lastLng = pos.coords.longitude; cb(lastLat, lastLng); },
+      function() { cb(lastLat, lastLng); }, // Use cached position if error
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  }
+
+  // Inject lat/lng hidden fields into all action forms before submission
+  function injectGPS(form, lat, lng) {
+    // Remove old hidden fields if any
+    var oldLat = form.querySelector('input[name="latitude"]');
+    var oldLng = form.querySelector('input[name="longitude"]');
+    if (oldLat) oldLat.remove();
+    if (oldLng) oldLng.remove();
+    if (lat && lng) {
+      var iLat = document.createElement('input');
+      iLat.type = 'hidden'; iLat.name = 'latitude'; iLat.value = lat;
+      form.appendChild(iLat);
+      var iLng = document.createElement('input');
+      iLng.type = 'hidden'; iLng.name = 'longitude'; iLng.value = lng;
+      form.appendChild(iLng);
+    }
+  }
+
+  // Intercept all crew action forms (start, complete, clock in/out, en-route)
+  document.querySelectorAll('form[action*="start/"], form[action*="complete/"], form[action*="clock-in"], form[action*="clock-out"], form[action*="en-route"]').forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var f = this;
+      getPosition(function(lat, lng) {
+        injectGPS(f, lat, lng);
+        f.submit();
+      });
+    });
+  });
+
+  // Auto-update location every 2 minutes while clocked in
+  {% if time_clock_current_entry %}
+  var locationInterval = setInterval(function() {
+    getPosition(function(lat, lng) {
+      if (!lat || !lng) return;
+      // Find any in-progress job and send location update
+      var inProgressForms = document.querySelectorAll('.badge-inprogress');
+      if (inProgressForms.length === 0) return;
+      var jobCard = inProgressForms[0].closest('.job-card');
+      if (!jobCard) return;
+      // Extract job ID from the complete form action URL
+      var completeForm = jobCard.querySelector('form[action*="complete/"]');
+      if (!completeForm) return;
+      var match = completeForm.action.match(/\/(\d+)\/complete/);
+      if (!match) return;
+      var jobId = match[1];
+      fetch('/jobs/' + jobId + '/tracking/update/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+        body: JSON.stringify({ latitude: lat, longitude: lng })
+      }).catch(function() {}); // Silent fail — don't bother user
+    });
+  }, 120000); // Every 2 minutes
+  {% endif %}
+
+  // Request GPS permission on page load (warm up for faster captures)
+  getPosition(function() {});
+})();
 </script>
 {% endblock %}

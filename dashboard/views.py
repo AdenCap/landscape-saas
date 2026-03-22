@@ -383,6 +383,7 @@ def dispatch_command_center(request):
                     assigned_count += 1
                 messages.success(request, f"Auto-assigned {assigned_count} unassigned job(s) to least-loaded crews.")
 
+    from django.conf import settings as django_settings
     return render(request, "dashboard/dispatch_command_center.html", {
         "today": today,
         "delayed_jobs": delayed_jobs,
@@ -391,7 +392,44 @@ def dispatch_command_center(request):
         "overdue_invoices": overdue_invoices,
         "late_risk": late_risk,
         "suggestions": suggestions,
+        "google_maps_api_key": getattr(django_settings, "GOOGLE_MAPS_API_KEY", ""),
     })
+
+
+@role_required("owner", "manager")
+def crew_locations_api(request):
+    """Return current GPS locations of all crew members with active (in_progress) jobs today."""
+    from django.http import JsonResponse
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"crews": []})
+    today = timezone.localdate()
+    active_jobs = Job.objects.filter(
+        property__customer__business=business,
+        scheduled_date=today,
+        status="in_progress",
+        technician_latitude__isnull=False,
+        technician_longitude__isnull=False,
+    ).select_related("property", "property__customer", "assigned_to", "assigned_crew")
+    crews = []
+    for job in active_jobs:
+        name = "Unknown"
+        if job.assigned_crew:
+            name = job.assigned_crew.name
+        elif job.assigned_to:
+            name = job.assigned_to.get_full_name() or job.assigned_to.username
+        crews.append({
+            "jobId": job.id,
+            "name": name,
+            "address": job.property.address,
+            "customer": job.property.customer.name if job.property.customer else "",
+            "lat": float(job.technician_latitude),
+            "lng": float(job.technician_longitude),
+            "updatedAt": job.technician_location_updated_at.isoformat() if job.technician_location_updated_at else None,
+            "status": job.status,
+            "startedAt": job.started_at.isoformat() if job.started_at else None,
+        })
+    return JsonResponse({"crews": crews})
 
 
 @role_required("owner", "manager")

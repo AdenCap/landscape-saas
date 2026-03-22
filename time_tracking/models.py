@@ -105,6 +105,10 @@ class TimeEntry(models.Model):
     )
     clock_in = models.DateTimeField()
     clock_out = models.DateTimeField(null=True, blank=True)
+    clock_in_latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    clock_in_longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    clock_out_latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    clock_out_longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
