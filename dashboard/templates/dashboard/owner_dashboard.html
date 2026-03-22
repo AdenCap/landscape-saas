@@ -1,98 +1,123 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!-- Header -->
 <div class="dash-header">
   <div>
-    <p class="dash-greeting">{{ today|date:"l, F j" }}</p>
-    <h1>Dashboard</h1>
+    <h1 style="font-family:var(--font-headline);font-size:clamp(28px,4vw,36px);font-weight:800;letter-spacing:-0.02em;margin:0;">Executive Overview</h1>
+    <p style="color:var(--text-muted);font-size:13px;margin:4px 0 0;">{{ today|date:"l, F j, Y" }} &middot; Operational snapshot</p>
   </div>
   <div class="dash-actions">
-    <a href="{% url 'calendar' %}" class="btn btn-primary">+ New Job</a>
+    <a href="{% url 'billing:estimate_create' %}" class="btn btn-primary"><span class="material-symbols-outlined" style="font-size:16px;">add</span> New Estimate</a>
     <a href="{% url 'dispatch_command_center' %}" class="btn btn-secondary">Command Center</a>
   </div>
 </div>
 
 {% if solo_plan_overage %}
-<div class="dash-alert">
-  <strong>Solo plan notice:</strong> {{ crew_user_count }} crew users active.
+<div style="display:flex;align-items:center;gap:8px;padding:10px 16px;margin-bottom:20px;background:var(--primary-light);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--primary);">
+  <strong>Solo plan:</strong> {{ crew_user_count }} crew users.
   <a href="{% url 'subscription:status' %}" class="btn btn-secondary btn-sm" style="margin-left:auto;">Upgrade</a>
 </div>
 {% endif %}
 
-<!-- KPIs -->
-<div class="kpi-row">
-  <div class="kpi">
-    <span class="kpi-label">Revenue this month</span>
-    <span class="kpi-val">${{ revenue_this_month|floatformat:0 }}</span>
+<!-- KPI Grid -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-card-bg"></div>
+    <div class="kpi-top-row">
+      <span class="kpi-tag">Monthly Revenue</span>
+      <span class="material-symbols-outlined kpi-icon" style="color:var(--primary);">trending_up</span>
+    </div>
+    <div class="kpi-val-row">
+      <span class="kpi-big">${{ revenue_this_month|floatformat:0 }}</span>
+    </div>
+    <p class="kpi-sub">Year: ${{ revenue_this_year|floatformat:0 }}</p>
   </div>
-  <div class="kpi">
-    <span class="kpi-label">Jobs today</span>
-    <span class="kpi-val">{{ jobs_today }}</span>
+  <div class="kpi-card">
+    <div class="kpi-top-row">
+      <span class="kpi-tag">Active Jobs</span>
+      <span class="material-symbols-outlined kpi-icon" style="color:var(--tertiary);">work_history</span>
+    </div>
+    <div class="kpi-val-row">
+      <span class="kpi-big">{{ jobs_today }}</span>
+      <span class="kpi-badge">Today</span>
+    </div>
+    <p class="kpi-sub">Scheduled for today</p>
   </div>
-  <div class="kpi">
-    <span class="kpi-label">Outstanding</span>
-    <span class="kpi-val">${{ ar_outstanding|floatformat:0 }}</span>
+  <div class="kpi-card">
+    <div class="kpi-top-row">
+      <span class="kpi-tag">Outstanding</span>
+      <span class="material-symbols-outlined kpi-icon" style="color:var(--primary);">account_balance</span>
+    </div>
+    <div class="kpi-val-row">
+      <span class="kpi-big">${{ ar_outstanding|floatformat:0 }}</span>
+    </div>
+    <p class="kpi-sub">Awaiting payment</p>
   </div>
-  <div class="kpi">
-    <span class="kpi-label">Overdue</span>
-    <span class="kpi-val {% if invoices_overdue_count %}kpi-warn{% endif %}">{{ invoices_overdue_count }}</span>
+  <div class="kpi-card">
+    <div class="kpi-top-row">
+      <span class="kpi-tag">Overdue</span>
+      <span class="material-symbols-outlined kpi-icon" style="color:{% if invoices_overdue_count %}#ffb4ab{% else %}var(--text-muted){% endif %};">warning</span>
+    </div>
+    <div class="kpi-val-row">
+      <span class="kpi-big" {% if invoices_overdue_count %}style="color:#ffb4ab;"{% endif %}>{{ invoices_overdue_count }}</span>
+      {% if invoices_overdue_count %}<span class="kpi-badge" style="background:rgba(255,180,171,0.1);color:#ffb4ab;">${{ invoices_overdue_total|floatformat:0 }}</span>{% endif %}
+    </div>
+    <p class="kpi-sub">Past due date</p>
   </div>
 </div>
 
-<!-- Charts + Actions -->
-<div class="dash-cols">
-  <!-- Left: Chart -->
-  <div class="card">
+<!-- Chart + Quick Actions (8/4 Bento Grid) -->
+<div class="bento-row">
+  <div class="card bento-lg">
     <div class="card-head">
-      <h3>Revenue</h3>
+      <div>
+        <h3>Revenue Performance</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin:2px 0 0;">Monthly trend</p>
+      </div>
       <span class="card-meta">Last 6 months</span>
     </div>
-    <div style="position:relative;height:200px;"><canvas id="rev-chart"></canvas></div>
+    <div style="position:relative;height:220px;"><canvas id="rev-chart"></canvas></div>
   </div>
-
-  <!-- Right: Actions -->
-  <div class="card">
-    <div class="card-head">
-      <h3>Needs attention</h3>
+  <div class="card bento-sm">
+    <h3 style="font-family:var(--font-headline);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:var(--text);margin:0 0 16px;">Quick Actions</h3>
+    <div class="qa-list">
+      <a href="{% url 'billing:estimate_create' %}" class="qa-btn qa-primary">
+        <span>New Estimate</span>
+        <span class="material-symbols-outlined" style="font-size:18px;">add_circle</span>
+      </a>
+      <a href="{% url 'calendar' %}" class="qa-btn">
+        <span>Schedule Crew</span>
+        <span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">calendar_month</span>
+      </a>
+      <a href="{% url 'daily_route' %}" class="qa-btn">
+        <span>Daily Routes</span>
+        <span class="material-symbols-outlined" style="font-size:18px;color:var(--tertiary);">route</span>
+      </a>
     </div>
-    <div class="action-list">
+    {% if invoices_overdue_count or queue_count %}
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+      <h5 style="font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:0.15em;color:var(--text-muted);margin:0 0 12px;">Pending</h5>
       {% if invoices_overdue_count %}
-      <a href="/billing/" class="action-item action-warn">
-        <span class="action-num">{{ invoices_overdue_count }}</span>
-        <span>overdue invoices &middot; ${{ invoices_overdue_total|floatformat:0 }}</span>
+      <a href="/billing/" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;text-decoration:none;color:var(--text);font-size:12px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#ffb4ab;flex-shrink:0;margin-top:5px;"></span>
+        <span>{{ invoices_overdue_count }} overdue invoices &middot; ${{ invoices_overdue_total|floatformat:0 }}</span>
       </a>
       {% endif %}
       {% if queue_count %}
-      <a href="/billing/estimates/?tab=queue" class="action-item">
-        <span class="action-num">{{ queue_count }}</span>
-        <span>quotes in queue</span>
+      <a href="/billing/estimates/?tab=queue" style="display:flex;gap:8px;align-items:flex-start;text-decoration:none;color:var(--text);font-size:12px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--tertiary);flex-shrink:0;margin-top:5px;"></span>
+        <span>{{ queue_count }} quotes in queue</span>
       </a>
       {% endif %}
-      <a href="{% url 'daily_route' %}" class="action-item">
-        <span class="action-dot"></span>
-        <span>View today's routes</span>
-      </a>
-      <a href="{% url 'billing:invoice_create' %}" class="action-item">
-        <span class="action-dot"></span>
-        <span>Create invoice</span>
-      </a>
-      <a href="{% url 'billing:estimate_create' %}" class="action-item">
-        <span class="action-dot"></span>
-        <span>Create estimate</span>
-      </a>
-      <a href="/settings/" class="action-item">
-        <span class="action-dot"></span>
-        <span>Settings</span>
-      </a>
     </div>
+    {% endif %}
   </div>
 </div>
 
-<!-- Bottom Row: Aging + Stats -->
-<div class="dash-cols">
+<!-- Aging + Stats -->
+<div class="bento-row">
   <div class="card">
-    <div class="card-head"><h3>Aging</h3></div>
+    <div class="card-head"><h3>Accounts Receivable</h3></div>
     <div class="aging">
       <div class="aging-row">
         <span class="aging-label">0–30 days</span>
@@ -106,13 +131,13 @@
       </div>
       <div class="aging-row">
         <span class="aging-label">60+ days</span>
-        <div class="aging-bar-bg"><div class="aging-bar" style="width:{{ overdue_60_plus_pct|default:15 }}%;background:#ef4444;"></div></div>
+        <div class="aging-bar-bg"><div class="aging-bar" style="width:{{ overdue_60_plus_pct|default:15 }}%;background:#ffb4ab;"></div></div>
         <span class="aging-val">${{ overdue_60_plus.total|floatformat:0 }}</span>
       </div>
     </div>
   </div>
   <div class="card">
-    <div class="card-head"><h3>This month</h3></div>
+    <div class="card-head"><h3>This Month</h3></div>
     <div class="stat-list">
       <div class="stat-row"><span>Profit</span><span class="stat-val" style="color:var(--primary);">${{ profit_this_month|floatformat:0 }}</span></div>
       <div class="stat-row"><span>Work completed</span><span class="stat-val">${{ work_completed_this_month|floatformat:0 }}</span></div>
@@ -124,10 +149,10 @@
   </div>
 </div>
 
-<!-- Activity Feed -->
+<!-- Activity -->
 {% if changes_feed %}
 <div class="card" style="margin-top:16px;">
-  <div class="card-head"><h3>Recent activity</h3></div>
+  <div class="card-head"><h3>Recent Activity</h3></div>
   <div class="feed">
     {% for item in changes_feed %}
     <div class="feed-item">
@@ -153,17 +178,21 @@
         labels: {{ monthly_labels|default:"['Oct','Nov','Dec','Jan','Feb','Mar']"|safe }},
         datasets: [{
           data: {{ monthly_revenue|default:"[4200,5100,3800,6200,5500,7100]"|safe }},
-          backgroundColor: 'rgba(157,216,80,0.12)',
+          backgroundColor: function(ctx) {
+            var i = ctx.dataIndex;
+            var max = ctx.dataset.data.length - 1;
+            return i === max ? 'rgba(157,216,80,0.6)' : 'rgba(157,216,80,0.12)';
+          },
           borderColor: '#9dd850',
-          borderWidth: 1.5,
+          borderWidth: 1,
           borderRadius: 3,
         }]
       },
       options: {
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { display: false }, ticks: { color: '#8c928d', font: { family: 'Inter', size: 11 } } },
-          y: { grid: { color: 'rgba(66,72,68,0.15)' }, ticks: { color: '#8c928d', font: { family: 'Inter', size: 11 }, callback: function(v){return '$'+Math.round(v/1000)+'k';} }, border: { display: false } }
+          x: { grid: { display: false }, ticks: { color: '#8c928d', font: { family: 'Inter', size: 10, weight: 700 }, callback: function(v,i){var l=this.getLabelForValue(v);return l.toUpperCase();} } },
+          y: { grid: { color: 'rgba(66,72,68,0.1)' }, ticks: { color: '#8c928d', font: { family: 'Inter', size: 10 }, callback: function(v){return '$'+Math.round(v/1000)+'k';} }, border: { display: false } }
         }
       }
     });
@@ -172,40 +201,41 @@
 </script>
 
 <style>
-  .dash-header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:24px; }
-  .dash-header h1 { margin:0; font-weight:800; }
-  .dash-greeting { margin:0 0 2px; font-size:13px; color:var(--text-muted); }
+  .dash-header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:28px; }
   .dash-actions { display:flex; gap:8px; }
 
-  .dash-alert { display:flex; align-items:center; gap:8px; padding:10px 16px; margin-bottom:20px; background:var(--primary-light); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:var(--text-sm); color:var(--primary); }
+  .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+  .kpi-card { background:var(--surface-container); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px 24px; position:relative; overflow:hidden; }
+  .kpi-card-bg { position:absolute; top:-16px; right:-16px; width:64px; height:64px; border-radius:50%; background:rgba(157,216,80,0.04); }
+  .kpi-top-row { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; }
+  .kpi-tag { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); }
+  .kpi-icon { font-size:22px; }
+  .kpi-val-row { display:flex; align-items:baseline; gap:8px; }
+  .kpi-big { font-family:var(--font-headline,'Manrope'); font-size:26px; font-weight:800; color:var(--text); letter-spacing:-0.02em; }
+  .kpi-badge { font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(157,216,80,0.1); color:var(--primary); }
+  .kpi-sub { font-size:11px; color:var(--text-muted); margin:4px 0 0; }
 
-  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
-  .kpi { background:var(--surface-container); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; }
-  .kpi-label { display:block; font-family:var(--font-family); font-size:var(--text-xs); font-weight:500; text-transform:uppercase; letter-spacing:0.12em; color:var(--text-muted); margin-bottom:10px; }
-  .kpi-val { font-family:var(--font-headline,'Manrope'); font-size:28px; font-weight:800; letter-spacing:-0.02em; color:var(--text); }
-  .kpi-val.kpi-warn { color:#ffb4ab; }
+  .bento-row { display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:16px; }
+  .bento-lg { grid-column: 1; }
+  .bento-sm { grid-column: 2; }
+  .card-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; }
+  .card-head h3 { font-family:var(--font-headline,'Manrope'); font-size:16px; font-weight:800; margin:0; letter-spacing:-0.01em; }
+  .card-meta { font-size:10px; font-weight:500; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); background:var(--surface-highest); padding:3px 8px; border-radius:4px; }
 
-  .dash-cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
-  .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-  .card-head h3 { margin:0; font-family:var(--font-headline,'Manrope'); font-size:16px; font-weight:700; letter-spacing:-0.01em; }
-  .card-meta { font-size:var(--text-xs); font-weight:500; text-transform:uppercase; letter-spacing:0.12em; color:var(--text-muted); background:var(--surface-highest); padding:3px 8px; border-radius:var(--radius-sm); }
-
-  .action-list { display:flex; flex-direction:column; gap:4px; }
-  .action-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-secondary); text-decoration:none; font-size:var(--text-sm); transition:all 0.2s; }
-  .action-item:hover { background:var(--bg-surface); color:var(--text); }
-  .action-num { font-size:14px; font-weight:800; color:var(--text); min-width:24px; }
-  .action-warn .action-num { color:#f87171; }
-  .action-dot { width:6px; height:6px; border-radius:50%; background:var(--border-hover); flex-shrink:0; }
-  .action-item:hover .action-dot { background:var(--primary); }
+  .qa-list { display:flex; flex-direction:column; gap:8px; }
+  .qa-btn { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--surface-highest); border:1px solid var(--border); border-radius:var(--radius-md); text-decoration:none; color:var(--text); font-size:13px; font-weight:600; transition:all 0.2s; }
+  .qa-btn:hover { background:var(--surface-bright); }
+  .qa-primary { background:var(--primary); color:var(--on-primary); border-color:transparent; }
+  .qa-primary:hover { filter:brightness(1.1); background:var(--primary); color:var(--on-primary); }
 
   .aging { display:flex; flex-direction:column; gap:14px; }
   .aging-row { display:flex; align-items:center; gap:12px; }
   .aging-label { font-size:12px; font-weight:600; color:var(--text-secondary); min-width:72px; }
-  .aging-bar-bg { flex:1; height:6px; background:var(--bg-surface); border-radius:3px; overflow:hidden; }
+  .aging-bar-bg { flex:1; height:6px; background:var(--surface-lowest); border-radius:3px; overflow:hidden; }
   .aging-bar { height:100%; border-radius:3px; }
   .aging-val { font-size:12px; font-weight:700; color:var(--text); min-width:60px; text-align:right; }
 
-  .stat-list { display:flex; flex-direction:column; gap:0; }
+  .stat-list { display:flex; flex-direction:column; }
   .stat-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--text-secondary); }
   .stat-row:last-child { border-bottom:none; }
   .stat-val { font-weight:700; color:var(--text); }
@@ -216,13 +246,14 @@
   .feed-time { font-weight:700; color:var(--text); min-width:65px; font-size:12px; }
 
   @media (max-width:1024px) {
-    .kpi-row { grid-template-columns:repeat(2,1fr); }
-    .dash-cols { grid-template-columns:1fr; }
+    .kpi-grid { grid-template-columns:repeat(2,1fr); }
+    .bento-row { grid-template-columns:1fr; }
+    .bento-lg, .bento-sm { grid-column:auto; }
   }
   @media (max-width:768px) {
-    .kpi-row { grid-template-columns:1fr 1fr; gap:8px; }
-    .kpi { padding:16px; }
-    .kpi-val { font-size:22px; }
+    .kpi-grid { grid-template-columns:1fr 1fr; gap:8px; }
+    .kpi-card { padding:16px; }
+    .kpi-big { font-size:22px; }
     .dash-header { flex-direction:column; align-items:stretch; }
     .dash-actions { width:100%; }
     .dash-actions .btn { flex:1; justify-content:center; min-height:44px; }
