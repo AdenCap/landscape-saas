@@ -7,1906 +7,820 @@
 
 {% block extra_css %}
 <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "FieldLgx",
-  "applicationCategory": "BusinessApplication",
-  "operatingSystem": "Web",
-  "description": "All-in-one landscaping business software for scheduling, invoicing, route planning, crew management, fertilization tracking, estimates, and client CRM.",
-  "offers": [
-    {
-      "@type": "Offer",
-      "name": "Solo Starter",
-      "price": "{{ pricing.solo_price }}",
-      "priceCurrency": "USD",
-      "priceValidUntil": "2026-12-31",
-      "availability": "https://schema.org/InStock"
-    },
-    {
-      "@type": "Offer",
-      "name": "Pro All-Access",
-      "price": "{{ pricing.pro_price }}",
-      "priceCurrency": "USD",
-      "priceValidUntil": "2026-12-31",
-      "availability": "https://schema.org/InStock"
-    }
-  ],
-  "featureList": [
-    "Drag-and-Drop Calendar Scheduling",
-    "Daily Route Planning",
-    "Job Tracking with Completion Photos",
-    "Invoicing and Estimates",
-    "Property Estimator with Satellite Imagery",
-    "Client and Property CRM",
-    "Fertilization Program Management",
-    "Crew and Time Tracking",
-    "Financials and Reporting",
-    "Equipment and Fleet Tracking",
-    "Service Agreements",
-    "Checklists and Inspections",
-    "QuickBooks Integration",
-    "Stripe Payment Processing"
-  ]
-}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FieldLgx","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"All-in-one landscaping business software for scheduling, invoicing, route planning, crew management, fertilization tracking, estimates, and client CRM.","offers":[{"@type":"Offer","name":"Solo Starter","price":"{{ pricing.solo_price }}","priceCurrency":"USD","priceValidUntil":"2026-12-31","availability":"https://schema.org/InStock"},{"@type":"Offer","name":"Pro All-Access","price":"{{ pricing.pro_price }}","priceCurrency":"USD","priceValidUntil":"2026-12-31","availability":"https://schema.org/InStock"}],"featureList":["Drag-and-Drop Calendar Scheduling","Daily Route Planning","Job Tracking with Completion Photos","Invoicing and Estimates","Property Estimator with Satellite Imagery","Client and Property CRM","Fertilization Program Management","Crew and Time Tracking","Financials and Reporting","Equipment and Fleet Tracking","Service Agreements","Checklists and Inspections","QuickBooks Integration","Stripe Payment Processing"]}
 </script>
 <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "What is FieldLgx?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "FieldLgx is all-in-one business software built specifically for landscaping and lawn care companies. It handles scheduling, daily route planning, invoicing, estimates, crew management, fertilization programs, client CRM, and financial tracking from one platform."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How much does FieldLgx cost?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "FieldLgx offers two plans: Solo Starter at ${{ pricing.solo_price }}/month for owner-operators, and Pro All-Access at ${{ pricing.pro_price }}/month for growing businesses with crews. Both plans include a free trial with no credit card required."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does FieldLgx work on mobile devices?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes, FieldLgx is fully mobile-optimized so your crews can clock in, view daily routes, complete jobs, upload photos, and track time from their phones in the field."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does FieldLgx integrate with QuickBooks and Stripe?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes, FieldLgx integrates with QuickBooks for accounting sync and Stripe for online payment processing. Customers can also pay via Venmo, Zelle, or Cash App links on invoices."
-      }
-    }
-  ]
-}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is FieldLgx?","acceptedAnswer":{"@type":"Answer","text":"FieldLgx is all-in-one business software built specifically for landscaping and lawn care companies. It handles scheduling, daily route planning, invoicing, estimates, crew management, fertilization programs, client CRM, and financial tracking from one platform."}},{"@type":"Question","name":"How much does FieldLgx cost?","acceptedAnswer":{"@type":"Answer","text":"FieldLgx offers two plans: Solo Starter at ${{ pricing.solo_price }}/month for owner-operators, and Pro All-Access at ${{ pricing.pro_price }}/month for growing businesses with crews. Both plans include a free trial with no credit card required."}},{"@type":"Question","name":"Does FieldLgx work on mobile devices?","acceptedAnswer":{"@type":"Answer","text":"Yes, FieldLgx is fully mobile-optimized so your crews can clock in, view daily routes, complete jobs, upload photos, and track time from their phones in the field."}},{"@type":"Question","name":"Does FieldLgx integrate with QuickBooks and Stripe?","acceptedAnswer":{"@type":"Answer","text":"Yes, FieldLgx integrates with QuickBooks for accounting sync and Stripe for online payment processing. Customers can also pay via Venmo, Zelle, or Cash App links on invoices."}}]}
 </script>
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-
 <style>
-/* ═══════════════════════════════════════════
-   FIELDLGX LANDING — Terminal Industries aesthetic
-   Dramatic hero photography, electric green accents,
-   animated counters, marquee, interactive feature tabs
-   ═══════════════════════════════════════════ */
-
+/* ═══════════════════════════════════════════════════════
+   FIELDLGX LANDING — "Digital Architect of Nature"
+   Deep obsidian, bioluminescent accents, scroll-driven mower reveal
+   ═══════════════════════════════════════════════════════ */
 :root {
-  --ff-display: 'DM Sans', -apple-system, sans-serif;
-  --ff-mono: 'JetBrains Mono', 'SF Mono', monospace;
-  --lime: #4ade80;
-  --lime-bright: #86efac;
-  --lime-glow: rgba(74, 222, 128, 0.35);
-  --deep: #061a0e;
+  --lime: #a9ffac;
+  --lime-dark: #00fe66;
+  --acid: #c3f400;
+  --cyan: #81ecff;
+  --obsidian: #0e0e0e;
+  --obsidian-mid: #131313;
+  --obsidian-high: #201f1f;
+  --ghost: rgba(73, 72, 71, 0.15);
 }
 
-/* ── Hero ─────────────────────────────────── */
-.hero {
+/* ── Hero ─────────────────────────────── */
+.lp-hero {
   position: relative;
   min-height: 100vh;
   display: flex;
-  align-items: flex-end;
-  padding: 0 0 clamp(80px, 10vh, 140px);
+  align-items: center;
   overflow: hidden;
+  background: var(--obsidian);
 }
-.hero-bg {
+.lp-hero-bg {
   position: absolute;
   inset: 0;
-  background:
-    url("{% static 'img/hero-aerial.jpg' %}") center/cover no-repeat;
-  z-index: 0;
+  background: url("{% static 'img/hero-aerial.jpg' %}") center/cover no-repeat;
+  opacity: 0.35;
+  filter: saturate(0.6);
 }
-.hero-bg::after {
+.lp-hero-bg::after {
   content: "";
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(180deg,
-      rgba(0,0,0,0.3) 0%,
-      rgba(0,0,0,0.15) 30%,
-      rgba(0,0,0,0.5) 70%,
-      rgba(10,10,10,1) 100%
-    );
+  background: linear-gradient(180deg, rgba(14,14,14,0.4) 0%, rgba(14,14,14,0.7) 50%, var(--obsidian) 100%);
 }
-.hero .shell {
+.lp-hero-glow {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(169,255,172,0.08), transparent 60%);
+  top: -200px;
+  left: 10%;
+  pointer-events: none;
+  animation: glowPulse 4s ease-in-out infinite;
+}
+@keyframes glowPulse {
+  0%,100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+.lp-hero-inner {
   position: relative;
   z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
 }
-.hero-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--ff-mono);
-  font-size: 12px;
+.lp-hero-eyebrow {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--lime);
-  margin-bottom: 28px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   opacity: 0;
-  transform: translateY(16px);
-  animation: heroIn 0.8s 0.2s cubic-bezier(0,0,0.2,1) forwards;
+  animation: fadeUp 0.8s 0.2s cubic-bezier(0.16,1,0.3,1) forwards;
 }
-.hero-eyebrow::before {
+.lp-hero-eyebrow::before {
   content: "";
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--lime);
-  box-shadow: 0 0 16px var(--lime-glow);
-  animation: blink 2.5s ease-in-out infinite;
+  box-shadow: 0 0 12px var(--lime);
 }
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-.hero-headline {
-  font-family: var(--ff-display);
-  font-size: clamp(44px, 7vw, 96px);
+.lp-hero h1 {
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(40px, 7vw, 88px);
   font-weight: 800;
-  line-height: 1.0;
-  letter-spacing: -0.045em;
-  margin: 0 0 28px;
-  max-width: 900px;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
   color: #fff;
+  margin: 0 0 28px;
+  max-width: 800px;
   opacity: 0;
-  transform: translateY(24px);
-  animation: heroIn 0.9s 0.35s cubic-bezier(0,0,0.2,1) forwards;
+  animation: fadeUp 1s 0.4s cubic-bezier(0.16,1,0.3,1) forwards;
 }
-.hero-headline em {
+.lp-hero h1 em {
   font-style: normal;
-  background: linear-gradient(135deg, var(--lime), #22c55e);
+  background: linear-gradient(135deg, var(--lime), var(--lime-dark));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
-.hero-sub {
-  font-family: var(--ff-display);
-  font-size: clamp(16px, 1.8vw, 22px);
-  line-height: 1.55;
-  color: rgba(255,255,255,0.7);
-  max-width: 560px;
+.lp-hero-sub {
+  font-size: clamp(16px, 1.8vw, 20px);
+  line-height: 1.6;
+  color: rgba(232,230,227,0.6);
+  max-width: 520px;
   margin: 0 0 40px;
   opacity: 0;
-  transform: translateY(20px);
-  animation: heroIn 0.9s 0.5s cubic-bezier(0,0,0.2,1) forwards;
+  animation: fadeUp 1s 0.6s cubic-bezier(0.16,1,0.3,1) forwards;
 }
-.hero-actions {
+.lp-hero-cta {
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
-  align-items: center;
   opacity: 0;
-  transform: translateY(16px);
-  animation: heroIn 0.9s 0.65s cubic-bezier(0,0,0.2,1) forwards;
+  animation: fadeUp 1s 0.8s cubic-bezier(0.16,1,0.3,1) forwards;
 }
-.hero-actions .btn-primary {
-  font-family: var(--ff-display);
+.btn-hero {
+  padding: 16px 36px;
+  font-family: 'Manrope', sans-serif;
   font-size: 15px;
   font-weight: 700;
-  padding: 16px 36px;
-  border-radius: var(--radius-full);
-  position: relative;
-  overflow: hidden;
-  letter-spacing: -0.01em;
+  border-radius: 1rem;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
-.hero-actions .btn-primary::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 60%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-  animation: shimmer 3.5s ease-in-out infinite;
+.btn-hero-primary {
+  background: linear-gradient(135deg, var(--lime), var(--lime-dark));
+  color: #001f06;
+  box-shadow: 0 0 30px rgba(169,255,172,0.2);
 }
-@keyframes shimmer { 0% { left: -100%; } 50%, 100% { left: 150%; } }
-.hero-actions .btn-secondary {
-  font-family: var(--ff-display);
-  font-size: 15px;
-  font-weight: 600;
-  padding: 16px 36px;
-  border-radius: var(--radius-full);
-  background: rgba(255,255,255,0.08);
-  backdrop-filter: blur(12px);
-  border-color: rgba(255,255,255,0.15);
+.btn-hero-primary:hover {
+  box-shadow: 0 0 60px rgba(169,255,172,0.35);
+  transform: translateY(-2px);
+}
+.btn-hero-secondary {
+  background: transparent;
+  color: rgba(232,230,227,0.7);
+  border: 1px solid var(--ghost);
+}
+.btn-hero-secondary:hover {
+  border-color: rgba(73,72,71,0.4);
   color: #fff;
 }
-.hero-actions .btn-secondary:hover {
-  background: rgba(255,255,255,0.14);
-  border-color: rgba(255,255,255,0.3);
-  color: #fff;
-}
-.hero-note {
-  font-family: var(--ff-mono);
-  font-size: 12px;
-  color: rgba(255,255,255,0.4);
+.lp-hero-note {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 11px;
+  color: rgba(232,230,227,0.3);
   margin-top: 20px;
   opacity: 0;
-  animation: heroIn 0.8s 0.8s cubic-bezier(0,0,0.2,1) forwards;
+  animation: fadeUp 0.8s 1s cubic-bezier(0.16,1,0.3,1) forwards;
 }
-@keyframes heroIn {
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Scrolling Marquee ────────────────────── */
-.marquee-strip {
-  padding: 20px 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+/* ── Mower Reveal Section ─────────────── */
+.lp-mower-section {
+  position: relative;
+  background: var(--obsidian);
   overflow: hidden;
+}
+.lp-mower-pin {
   position: relative;
-}
-.marquee-strip::before,
-.marquee-strip::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 120px;
-  z-index: 2;
-  pointer-events: none;
-}
-.marquee-strip::before {
-  left: 0;
-  background: linear-gradient(90deg, var(--bg), transparent);
-}
-.marquee-strip::after {
-  right: 0;
-  background: linear-gradient(270deg, var(--bg), transparent);
-}
-.marquee-track {
+  min-height: 100vh;
   display: flex;
-  width: max-content;
-  animation: marqueeScroll 40s linear infinite;
-}
-.marquee-track:hover {
-  animation-play-state: paused;
-}
-@keyframes marqueeScroll {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.marquee-item {
-  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 36px;
-  font-family: var(--ff-mono);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  transition: color 0.2s;
+  justify-content: center;
+  overflow: hidden;
 }
-.marquee-item:hover {
-  color: var(--lime);
+.lp-mower-heading {
+  text-align: center;
+  margin-bottom: 60px;
 }
-.marquee-item::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--primary);
-  opacity: 0.5;
-  flex-shrink: 0;
-}
-
-/* ── Problem Statement ────────────────────── */
-.s-problem {
-  padding: clamp(80px, 12vh, 160px) 0;
-  border-bottom: 1px solid var(--border);
-}
-.problem-text {
-  font-family: var(--ff-display);
-  font-size: clamp(26px, 4vw, 52px);
-  line-height: 1.2;
-  letter-spacing: -0.03em;
-  font-weight: 600;
-  max-width: 1000px;
-  color: var(--text-muted);
-}
-.problem-text .hl {
-  color: var(--text);
-}
-
-/* ── Feature Tabs ─────────────────────────── */
-.s-features {
-  padding: clamp(80px, 12vh, 160px) 0;
-  border-bottom: 1px solid var(--border);
-}
-.feat-section-label {
-  font-family: var(--ff-mono);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--lime);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 16px;
-}
-.feat-section-title {
-  font-family: var(--ff-display);
-  font-size: clamp(36px, 5vw, 68px);
+.lp-mower-heading h2 {
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(28px, 4vw, 48px);
   font-weight: 800;
-  line-height: 1.04;
-  letter-spacing: -0.04em;
-  margin: 0 0 20px;
+  letter-spacing: -0.03em;
+  color: #fff;
+  margin: 0 0 12px;
 }
-.feat-section-desc {
-  font-size: clamp(16px, 1.5vw, 19px);
-  color: var(--text-secondary);
-  max-width: 480px;
-  line-height: 1.6;
-  margin-bottom: 56px;
-}
-.feat-layout {
-  display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: 48px;
-  align-items: start;
-}
-.feat-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  position: sticky;
-  top: 100px;
-}
-.feat-tab {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 18px 20px;
-  border-left: 2px solid var(--border);
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0,0,0.2,1);
-  user-select: none;
-}
-.feat-tab:hover {
-  background: rgba(74, 222, 128, 0.03);
-}
-.feat-tab.active {
-  border-left-color: var(--lime);
-  background: rgba(74, 222, 128, 0.06);
-}
-.feat-tab-num {
-  font-family: var(--ff-mono);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  min-width: 24px;
-  transition: color 0.25s;
-}
-.feat-tab.active .feat-tab-num {
-  color: var(--lime);
-}
-.feat-tab-label {
-  font-family: var(--ff-display);
+.lp-mower-heading p {
   font-size: 15px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  transition: color 0.25s;
+  color: rgba(232,230,227,0.5);
+  max-width: 460px;
+  margin: 0 auto;
 }
-.feat-tab.active .feat-tab-label {
-  color: var(--text);
-}
-.feat-panel-wrap {
-  position: relative;
-  min-height: 480px;
-}
-.feat-panel {
+.lp-grass-layer {
   position: absolute;
   inset: 0;
-  opacity: 0;
-  transform: translateY(12px);
+  background: linear-gradient(135deg, #0a2e0a, #0d3d0d, #0a2e0a);
+  z-index: 10;
+  transition: clip-path 0.1s linear;
+  clip-path: inset(0 0 0 0);
   pointer-events: none;
-  transition: opacity 0.4s cubic-bezier(0,0,0.2,1), transform 0.4s cubic-bezier(0,0,0.2,1);
 }
-.feat-panel.active {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
+.lp-grass-texture {
+  position: absolute;
+  inset: 0;
+  opacity: 0.15;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent, transparent 2px,
+    rgba(169,255,172,0.1) 2px,
+    rgba(169,255,172,0.1) 3px
+  );
+}
+.lp-mower-svg {
+  position: absolute;
+  z-index: 20;
+  width: 120px;
+  height: 80px;
+  left: -140px;
+  top: 50%;
+  transform: translateY(-50%);
+  filter: drop-shadow(0 0 30px rgba(169,255,172,0.3));
+  transition: left 0.05s linear;
+}
+.lp-features-grid {
   position: relative;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px;
 }
-
-/* Feature mock cards */
-.feat-mock {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 28px;
-  height: 100%;
+.lp-feat-card {
+  background: var(--obsidian-high);
+  border-radius: 1.5rem;
+  padding: 32px 28px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  opacity: 0;
+  transform: translateY(20px) scale(0.97);
+  transition: all 0.6s cubic-bezier(0.16,1,0.3,1);
 }
-.feat-mock-header {
+.lp-feat-card.revealed {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.lp-feat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
+  justify-content: center;
+  margin-bottom: 18px;
+  font-size: 22px;
 }
-.feat-mock-title {
-  font-family: var(--ff-display);
+.lp-feat-icon.green { background: rgba(169,255,172,0.08); color: var(--lime); }
+.lp-feat-icon.cyan { background: rgba(129,236,255,0.08); color: var(--cyan); }
+.lp-feat-icon.acid { background: rgba(195,244,0,0.08); color: var(--acid); }
+.lp-feat-card h3 {
+  font-family: 'Manrope', sans-serif;
   font-size: 16px;
   font-weight: 700;
+  color: #e8e6e3;
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
 }
-.feat-mock-badge {
-  font-family: var(--ff-mono);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--lime);
-  padding: 4px 10px;
-  background: rgba(74, 222, 128, 0.1);
-  border-radius: var(--radius-full);
-}
-.feat-mock-desc {
-  font-size: 14px;
-  color: var(--text-secondary);
+.lp-feat-card p {
+  font-size: 13px;
+  color: rgba(163,161,157,0.8);
   line-height: 1.6;
-  margin-bottom: 24px;
+  margin: 0;
 }
 
-/* Mock: Schedule Grid */
-.mock-cal {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
+/* ── Stats ────────────────────────────── */
+.lp-stats {
+  padding: 80px 0;
+  background: var(--obsidian-mid);
 }
-.mock-cal-head {
-  font-family: var(--ff-mono);
-  font-size: 10px;
-  color: var(--text-muted);
+.lp-stats-grid {
+  display: flex;
+  justify-content: center;
+  gap: 80px;
+  flex-wrap: wrap;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.lp-stat {
   text-align: center;
-  padding: 6px 0;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
-.mock-cal-slot {
-  padding: 8px 6px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  text-align: center;
-  color: var(--text-secondary);
-  transition: all 0.2s;
-}
-.mock-cal-slot.has-job {
-  background: rgba(74, 222, 128, 0.08);
-  border-color: rgba(74, 222, 128, 0.2);
-  color: var(--lime-bright);
-}
-.mock-cal-slot.active {
-  background: rgba(74, 222, 128, 0.15);
-  border-color: var(--lime);
+.lp-stat-val {
+  font-family: 'Space Grotesk', monospace;
+  font-size: clamp(36px, 5vw, 56px);
+  font-weight: 700;
   color: #fff;
-  box-shadow: 0 0 12px rgba(74, 222, 128, 0.15);
-}
-
-/* Mock: Route List */
-.mock-route-item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
-.mock-route-item:last-child { border-bottom: none; }
-.mock-route-num {
-  font-family: var(--ff-mono);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--lime);
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(74, 222, 128, 0.1);
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-.mock-route-addr {
-  font-size: 13px;
-  font-weight: 500;
-  flex: 1;
-}
-.mock-route-time {
-  font-family: var(--ff-mono);
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-/* Mock: Invoice */
-.mock-inv-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-}
-.mock-inv-row:last-child { border-bottom: none; }
-.mock-inv-label { color: var(--text-secondary); }
-.mock-inv-val {
-  font-family: var(--ff-mono);
-  font-weight: 600;
-}
-.mock-inv-total {
-  font-size: 15px;
-  color: var(--lime-bright);
-}
-
-/* Mock: Job Card */
-.mock-job {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.mock-job-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.mock-job-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--lime);
-  animation: blink 2s ease-in-out infinite;
-}
-.mock-job-dot.done { background: #86efac; animation: none; }
-.mock-job-dot.pending { background: var(--text-muted); animation: none; }
-.mock-job-label {
-  font-family: var(--ff-mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.mock-job-photo {
-  height: 100px;
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(74,222,128,0.08), rgba(34,197,94,0.03));
-  border: 1px dashed rgba(74, 222, 128, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-/* Mock: Estimator */
-.mock-est-map {
-  height: 140px;
-  border-radius: 8px;
-  background:
-    radial-gradient(ellipse at 60% 50%, rgba(74,222,128,0.12), transparent 70%),
-    linear-gradient(135deg, #0d1f12, #0a1a0e);
-  border: 1px solid rgba(74, 222, 128, 0.15);
-  margin-bottom: 16px;
-  position: relative;
-  overflow: hidden;
-}
-.mock-est-map::after {
-  content: "";
-  position: absolute;
-  top: 20%;
-  left: 30%;
-  width: 40%;
-  height: 60%;
-  border: 1px dashed rgba(74, 222, 128, 0.4);
-  border-radius: 4px;
-}
-.mock-est-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.mock-est-stat {
-  padding: 10px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  text-align: center;
-}
-.mock-est-val {
-  font-family: var(--ff-mono);
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--lime-bright);
-}
-.mock-est-label {
-  font-size: 10px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-top: 4px;
-}
-
-/* Mock: CRM */
-.mock-crm-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-}
-.mock-crm-item:last-child { border-bottom: none; }
-.mock-crm-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, rgba(74,222,128,0.15), rgba(34,197,94,0.08));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--lime);
-  flex-shrink: 0;
-}
-.mock-crm-info { flex: 1; }
-.mock-crm-name { font-size: 13px; font-weight: 600; }
-.mock-crm-detail { font-size: 11px; color: var(--text-muted); }
-.mock-crm-tag {
-  font-family: var(--ff-mono);
-  font-size: 10px;
-  padding: 3px 8px;
-  border-radius: var(--radius-full);
-  background: rgba(74, 222, 128, 0.08);
-  color: var(--lime);
-}
-
-/* Mock: Fert */
-.mock-fert-round {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-}
-.mock-fert-round:last-child { border-bottom: none; }
-.mock-fert-badge {
-  font-family: var(--ff-mono);
-  font-size: 11px;
-  font-weight: 600;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-.mock-fert-badge.done { background: rgba(74,222,128,0.12); color: var(--lime); }
-.mock-fert-badge.next { background: rgba(234,179,8,0.12); color: #fde047; }
-.mock-fert-badge.future { background: var(--bg-surface); color: var(--text-muted); }
-.mock-fert-info { flex: 1; }
-.mock-fert-name { font-size: 13px; font-weight: 500; }
-.mock-fert-detail { font-size: 11px; color: var(--text-muted); }
-
-/* Mock: Crew */
-.mock-crew-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-}
-.mock-crew-row:last-child { border-bottom: none; }
-.mock-crew-status {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.mock-crew-status.on { background: var(--lime); box-shadow: 0 0 8px var(--lime-glow); }
-.mock-crew-status.off { background: var(--text-muted); }
-.mock-crew-name { font-size: 13px; font-weight: 600; flex: 1; }
-.mock-crew-hrs {
-  font-family: var(--ff-mono);
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-/* Mock: Financials */
-.mock-fin-bar-group {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  height: 120px;
-  margin-bottom: 16px;
-}
-.mock-fin-bar {
-  flex: 1;
-  border-radius: 4px 4px 0 0;
-  background: rgba(74, 222, 128, 0.15);
-  min-height: 8px;
-  transition: height 0.5s cubic-bezier(0,0,0.2,1);
-  position: relative;
-}
-.mock-fin-bar.accent {
-  background: linear-gradient(180deg, var(--lime), rgba(74,222,128,0.3));
-}
-.mock-fin-summary {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-}
-.mock-fin-summary-val {
-  font-family: var(--ff-mono);
-  font-weight: 600;
-  color: var(--lime-bright);
-}
-
-/* ── App Preview ──────────────────────────── */
-.s-preview {
-  padding: clamp(80px, 12vh, 160px) 0;
-  border-bottom: 1px solid var(--border);
-  position: relative;
-  overflow: hidden;
-}
-.s-preview::before {
-  content: "";
-  position: absolute;
-  width: 800px;
-  height: 800px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(74,222,128,0.06), transparent 60%);
-  top: -200px;
-  left: 50%;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-.preview-label {
-  font-family: var(--ff-mono);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--lime);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 16px;
-}
-.preview-heading {
-  font-family: var(--ff-display);
-  font-size: clamp(36px, 5vw, 64px);
-  font-weight: 800;
-  line-height: 1.04;
-  letter-spacing: -0.04em;
-  margin: 0 0 56px;
-}
-.app-frame {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow:
-    0 24px 80px rgba(0,0,0,0.4),
-    0 0 0 1px rgba(255,255,255,0.03) inset;
-}
-.app-frame-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 18px;
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border);
-}
-.app-frame-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--border-hover);
-}
-.app-frame-dot:nth-child(1) { background: #ff5f57; }
-.app-frame-dot:nth-child(2) { background: #febc2e; }
-.app-frame-dot:nth-child(3) { background: #28c840; }
-.app-frame-url {
-  font-family: var(--ff-mono);
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-left: 12px;
-}
-.app-frame-body {
-  padding: 32px;
-}
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 28px;
-}
-.stat-card {
-  padding: 20px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  text-align: center;
-  transition: border-color 0.3s;
-}
-.stat-card:hover {
-  border-color: rgba(74, 222, 128, 0.25);
-}
-.stat-label {
-  font-family: var(--ff-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-.stat-value {
-  font-family: var(--ff-mono);
-  font-size: clamp(24px, 3vw, 36px);
-  font-weight: 700;
-  color: var(--text);
   line-height: 1;
+  letter-spacing: -0.02em;
 }
-.stat-value .stat-prefix {
-  color: var(--lime);
-}
-.job-list {
-  display: flex;
-  flex-direction: column;
-}
-.job-row {
-  display: flex;
-  align-items: center;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  margin-bottom: 8px;
-  transition: all 0.2s;
-  gap: 16px;
-}
-.job-row:hover {
-  border-color: rgba(74, 222, 128, 0.2);
-  background: rgba(74, 222, 128, 0.02);
-}
-.job-addr {
-  font-size: 14px;
-  font-weight: 600;
-  flex: 1;
-}
-.job-time {
-  font-family: var(--ff-mono);
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.job-badge {
-  font-family: var(--ff-mono);
+.lp-stat-val .accent { color: var(--lime); }
+.lp-stat-label {
+  font-family: 'Space Grotesk', monospace;
   font-size: 11px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: var(--radius-full);
-}
-.job-badge.done { background: rgba(74,222,128,0.12); color: var(--lime); }
-.job-badge.prog { background: rgba(96,165,250,0.12); color: #93c5fd; }
-.job-badge.sched { background: rgba(255,255,255,0.06); color: var(--text-muted); }
-
-/* ── Quote ────────────────────────────────── */
-.s-quote {
-  padding: clamp(80px, 12vh, 160px) 0;
-  border-bottom: 1px solid var(--border);
-}
-.quote-text {
-  font-family: var(--ff-display);
-  font-size: clamp(22px, 3.5vw, 44px);
-  line-height: 1.25;
-  letter-spacing: -0.025em;
   font-weight: 500;
-  max-width: 960px;
-  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(163,161,157,0.6);
+  margin-top: 10px;
+}
+
+/* ── Quote ────────────────────────────── */
+.lp-quote {
+  padding: clamp(80px, 12vh, 140px) 0;
+  background: var(--obsidian);
+}
+.lp-quote-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.lp-quote-text {
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(22px, 3.5vw, 40px);
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: rgba(163,161,157,0.6);
   font-style: italic;
 }
-.quote-text .em {
-  color: var(--text);
+.lp-quote-text em {
+  color: #e8e6e3;
   font-style: normal;
   font-weight: 700;
 }
-.quote-attr {
-  margin-top: 32px;
-  font-family: var(--ff-mono);
-  font-size: 13px;
-  color: var(--text-muted);
-  letter-spacing: 0.02em;
-}
-.quote-attr strong {
-  color: var(--lime);
-}
-
-/* ── Built For ────────────────────────────── */
-.s-built {
-  padding: clamp(80px, 12vh, 160px) 0;
-  border-bottom: 1px solid var(--border);
-}
-.built-label {
-  font-family: var(--ff-mono);
+.lp-quote-attr {
+  margin-top: 28px;
+  font-family: 'Space Grotesk', monospace;
   font-size: 12px;
-  font-weight: 500;
-  color: var(--lime);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 16px;
+  color: rgba(163,161,157,0.4);
+  letter-spacing: 0.08em;
 }
-.built-heading {
-  font-family: var(--ff-display);
-  font-size: clamp(36px, 5vw, 64px);
-  font-weight: 800;
-  line-height: 1.04;
-  letter-spacing: -0.04em;
-  margin: 0 0 56px;
-}
-.built-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-.built-card {
-  padding: 28px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  transition: all 0.3s cubic-bezier(0,0,0.2,1);
-  position: relative;
-  overflow: hidden;
-}
-.built-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--lime), transparent);
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-.built-card:hover {
-  border-color: rgba(74, 222, 128, 0.2);
-  transform: translateY(-4px);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
-}
-.built-card:hover::before {
-  opacity: 1;
-}
-.built-card-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: rgba(74, 222, 128, 0.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
-}
-.built-card-icon svg {
-  width: 20px;
-  height: 20px;
-  color: var(--lime);
-}
-.built-card h4 {
-  font-family: var(--ff-display);
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-.built-card p {
-  font-size: 14px;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
+.lp-quote-attr strong { color: var(--lime); }
 
-/* ── How It Works ─────────────────────────── */
-.s-how {
-  padding: clamp(80px, 12vh, 160px) 0;
-  border-bottom: 1px solid var(--border);
+/* ── Pricing ──────────────────────────── */
+.lp-pricing {
+  padding: clamp(80px, 12vh, 140px) 0;
+  background: var(--obsidian-mid);
 }
-.how-label {
-  font-family: var(--ff-mono);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--lime);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 16px;
-}
-.how-heading {
-  font-family: var(--ff-display);
-  font-size: clamp(36px, 5vw, 64px);
-  font-weight: 800;
-  line-height: 1.04;
-  letter-spacing: -0.04em;
-  margin: 0 0 56px;
-}
-.how-steps {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 32px;
-  position: relative;
-}
-.how-steps::before {
-  content: "";
-  position: absolute;
-  top: 32px;
-  left: calc(16.67%);
-  right: calc(16.67%);
-  height: 1px;
-  background: linear-gradient(90deg, var(--border), var(--lime), var(--border));
-  opacity: 0.3;
-}
-.how-step {
+.lp-pricing-header {
   text-align: center;
-  position: relative;
+  margin-bottom: 56px;
 }
-.how-step-num {
-  font-family: var(--ff-mono);
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--lime);
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(74, 222, 128, 0.08);
-  border: 1px solid rgba(74, 222, 128, 0.2);
-  border-radius: 50%;
-  margin: 0 auto 20px;
-  position: relative;
-  z-index: 1;
-}
-.how-step h4 {
-  font-family: var(--ff-display);
-  font-size: 17px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-.how-step p {
-  font-size: 14px;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-/* ── Pricing ──────────────────────────────── */
-.s-pricing {
-  padding: clamp(80px, 12vh, 160px) 0;
-  border-bottom: 1px solid var(--border);
-}
-.pricing-label {
-  font-family: var(--ff-mono);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--lime);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 16px;
-}
-.pricing-heading {
-  font-family: var(--ff-display);
-  font-size: clamp(36px, 5vw, 64px);
+.lp-pricing-header h2 {
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(28px, 4vw, 44px);
   font-weight: 800;
-  line-height: 1.04;
-  letter-spacing: -0.04em;
-  margin: 0 0 56px;
+  letter-spacing: -0.03em;
+  color: #fff;
+  margin: 0 0 12px;
 }
-.price-grid {
+.lp-pricing-header p {
+  font-size: 15px;
+  color: rgba(163,161,157,0.6);
+}
+.lp-price-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
-  max-width: 820px;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 0 24px;
 }
-.price-card {
+.lp-price-card {
+  background: var(--obsidian-high);
+  border-radius: 1.5rem;
   padding: 36px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  transition: all 0.3s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
   position: relative;
 }
-.price-card.featured {
-  border-color: rgba(74, 222, 128, 0.3);
-  box-shadow: 0 0 40px rgba(74, 222, 128, 0.06);
+.lp-price-card.featured {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 60px rgba(169,255,172,0.06);
 }
-.price-card.featured::before {
+.lp-price-card.featured::before {
   content: "";
   position: absolute;
   top: 0;
-  left: 0;
-  right: 0;
+  left: 24px;
+  right: 24px;
   height: 2px;
-  background: linear-gradient(90deg, var(--lime), #22c55e);
-  border-radius: 16px 16px 0 0;
+  background: linear-gradient(90deg, var(--lime), var(--lime-dark));
+  border-radius: 0 0 2px 2px;
 }
-.price-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
-}
-.price-name {
-  font-family: var(--ff-display);
+.lp-price-name {
+  font-family: 'Manrope', sans-serif;
   font-size: 18px;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
-.price-desc {
-  font-size: 14px;
-  color: var(--text-secondary);
+.lp-price-desc {
+  font-size: 13px;
+  color: rgba(163,161,157,0.6);
   margin-bottom: 24px;
   line-height: 1.5;
 }
-.price-amount {
-  font-family: var(--ff-mono);
-  font-size: 48px;
+.lp-price-amount {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 44px;
   font-weight: 700;
   line-height: 1;
   margin-bottom: 4px;
 }
-.price-amount .dollar {
-  font-size: 24px;
+.lp-price-amount .dollar {
+  font-size: 22px;
   color: var(--lime);
   vertical-align: super;
 }
-.price-period {
-  font-family: var(--ff-mono);
-  font-size: 13px;
-  color: var(--text-muted);
+.lp-price-period {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 12px;
+  color: rgba(163,161,157,0.5);
   margin-bottom: 28px;
 }
-.price-list {
+.lp-price-list {
   list-style: none;
   padding: 0;
   margin: 0 0 28px;
 }
-.price-list li {
-  padding: 8px 0;
-  padding-left: 24px;
+.lp-price-list li {
+  padding: 7px 0 7px 20px;
   position: relative;
-  font-size: 14px;
-  color: var(--text-secondary);
+  font-size: 13px;
+  color: rgba(163,161,157,0.8);
   line-height: 1.5;
 }
-.price-list li::before {
-  content: "\2713";
-  position: absolute;
-  left: 0;
-  color: var(--lime);
-  font-weight: 700;
-  font-size: 13px;
-}
-.price-cta {
-  width: 100%;
-  padding: 14px;
-  font-family: var(--ff-display);
-  font-size: 15px;
-  font-weight: 700;
-  text-align: center;
-  border-radius: var(--radius-full);
-}
-
-/* ── Final CTA ────────────────────────────── */
-.s-cta {
-  padding: clamp(100px, 16vh, 220px) 0;
-  position: relative;
-  overflow: hidden;
-  text-align: center;
-}
-.s-cta::before {
+.lp-price-list li::before {
   content: "";
   position: absolute;
-  width: 1000px;
-  height: 500px;
+  left: 0;
+  top: 14px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(74,222,128,0.08), transparent 60%);
+  background: var(--lime);
+  box-shadow: 0 0 6px rgba(169,255,172,0.3);
+}
+.lp-price-cta {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  text-align: center;
+  border-radius: 1rem;
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+}
+.lp-price-cta.primary {
+  background: linear-gradient(135deg, var(--lime), var(--lime-dark));
+  color: #001f06;
+  box-shadow: 0 0 20px rgba(169,255,172,0.15);
+}
+.lp-price-cta.primary:hover {
+  box-shadow: 0 0 40px rgba(169,255,172,0.3);
+}
+.lp-price-cta.secondary {
+  background: transparent;
+  color: rgba(163,161,157,0.8);
+  border: 1px solid var(--ghost);
+}
+.lp-price-cta.secondary:hover {
+  border-color: rgba(73,72,71,0.4);
+  color: #fff;
+}
+
+/* ── Final CTA ────────────────────────── */
+.lp-cta {
+  padding: clamp(100px, 16vh, 200px) 0;
+  background: var(--obsidian);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.lp-cta-glow {
+  position: absolute;
+  width: 800px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(169,255,172,0.06), transparent 60%);
   top: -100px;
   left: 50%;
   transform: translateX(-50%);
   pointer-events: none;
 }
-.cta-headline {
-  font-family: var(--ff-display);
-  font-size: clamp(36px, 5.5vw, 72px);
+.lp-cta h2 {
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(32px, 5vw, 60px);
   font-weight: 800;
   letter-spacing: -0.04em;
-  line-height: 1.04;
-  margin: 0 auto 24px;
-  max-width: 700px;
+  line-height: 1;
+  margin: 0 auto 20px;
+  max-width: 600px;
+  color: #fff;
   position: relative;
 }
-.cta-sub {
-  font-size: clamp(16px, 1.6vw, 20px);
-  color: var(--text-secondary);
+.lp-cta p {
+  font-size: 16px;
+  color: rgba(163,161,157,0.6);
+  max-width: 440px;
+  margin: 0 auto 36px;
   line-height: 1.6;
-  max-width: 480px;
-  margin: 0 auto 40px;
 }
-.cta-actions {
+.lp-cta-actions {
   display: flex;
   gap: 14px;
   justify-content: center;
   flex-wrap: wrap;
 }
-.cta-actions .btn-primary {
-  font-family: var(--ff-display);
-  font-size: 16px;
-  font-weight: 700;
-  padding: 16px 40px;
-  border-radius: var(--radius-full);
-}
-.cta-actions .btn-secondary {
-  font-family: var(--ff-display);
-  font-size: 16px;
-  font-weight: 600;
-  padding: 16px 40px;
-  border-radius: var(--radius-full);
-}
 
-/* ── Responsive ───────────────────────────── */
-@media (max-width: 1024px) {
-  .feat-layout { grid-template-columns: 1fr; gap: 32px; }
-  .feat-nav { position: static; flex-direction: row; overflow-x: auto; gap: 0; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
-  .feat-tab { border-left: none; border-bottom: 2px solid var(--border); padding: 14px 20px; white-space: nowrap; }
-  .feat-tab.active { border-bottom-color: var(--lime); border-left: none; }
-  .feat-panel-wrap { min-height: auto; }
-  .built-grid { grid-template-columns: repeat(2, 1fr); }
+/* ── Responsive ───────────────────────── */
+@media (max-width: 900px) {
+  .lp-features-grid { grid-template-columns: repeat(2, 1fr); }
+  .lp-stats-grid { gap: 40px; }
 }
-@media (max-width: 768px) {
-  .hero { padding: 0 0 64px; min-height: 90vh; }
-  .hero-headline { font-size: clamp(36px, 9vw, 52px); }
-  .hero-actions { flex-direction: column; align-items: stretch; }
-  .hero-actions .btn { text-align: center; }
-  .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .stat-value { font-size: 24px; }
-  .built-grid, .how-steps, .price-grid { grid-template-columns: 1fr; }
-  .how-steps::before { display: none; }
-  .how-step { text-align: left; display: flex; gap: 16px; align-items: flex-start; }
-  .how-step-num { margin: 0; flex-shrink: 0; }
-  .how-step-text { flex: 1; }
-  .price-card { padding: 28px; }
-  .problem-text { font-size: clamp(22px, 5.5vw, 36px); }
-  .feat-section-title { font-size: clamp(28px, 8vw, 44px); }
-  .preview-heading { font-size: clamp(28px, 8vw, 44px); }
-  .quote-text { font-size: clamp(20px, 5vw, 32px); }
-  .s-problem, .s-features, .s-preview, .s-quote, .s-built, .s-how, .s-pricing {
-    padding: clamp(56px, 8vh, 80px) 0;
-  }
-  .mock-cal { grid-template-columns: repeat(3, 1fr); }
-  .mock-cal-slot:nth-child(n+9) { display: none; }
-  .mock-cal-head:nth-child(n+4) { display: none; }
-  .job-time { display: none; }
+@media (max-width: 640px) {
+  .lp-hero h1 { font-size: clamp(32px, 10vw, 48px); }
+  .lp-hero-cta { flex-direction: column; align-items: stretch; }
+  .btn-hero { text-align: center; justify-content: center; }
+  .lp-features-grid { grid-template-columns: 1fr; gap: 14px; }
+  .lp-feat-card { padding: 24px 20px; }
+  .lp-price-grid { grid-template-columns: 1fr; }
+  .lp-stats-grid { gap: 32px; }
+  .lp-cta-actions { flex-direction: column; align-items: stretch; padding: 0 24px; }
+  /* Disable pinning on mobile */
+  .lp-grass-layer { display: none; }
+  .lp-mower-svg { display: none; }
+  .lp-feat-card { opacity: 1; transform: none; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
 <!-- ═══ HERO ═══ -->
-<section class="hero">
-  <div class="hero-bg" role="img" aria-label="Aerial view of a precision cross-hatch mowed lawn"></div>
-  <div class="shell">
-    <span class="hero-eyebrow">Built for landscaping &amp; lawn care</span>
-    <h1 class="hero-headline">
-      The new standard<br>in <em>landscape<br>operations.</em>
-    </h1>
-    <p class="hero-sub">FieldLgx replaces the spreadsheets, group texts, and disconnected tools. Schedule, route, invoice, and grow &mdash; from the office or the truck.</p>
-    <div class="hero-actions">
-      <a class="btn btn-primary" href="/accounts/signup/" data-cta="hero-trial">Start Free Trial</a>
-      <a class="btn btn-secondary" href="/features/" data-cta="hero-features">See All Features</a>
+<section class="lp-hero">
+  <div class="lp-hero-bg" role="img" aria-label="Aerial view of precision mowed lawn"></div>
+  <div class="lp-hero-glow"></div>
+  <div class="lp-hero-inner">
+    <span class="lp-hero-eyebrow">Landscape Operations Platform</span>
+    <h1>Run your entire<br>operation from<br><em>one platform.</em></h1>
+    <p class="lp-hero-sub">Schedule crews, optimize routes, send invoices, and track every job &mdash; from the office or the truck.</p>
+    <div class="lp-hero-cta">
+      <a class="btn-hero btn-hero-primary" href="/accounts/signup/" data-cta="hero-trial">Start Free Trial</a>
+      <a class="btn-hero btn-hero-secondary" href="/features/" data-cta="hero-features">Explore Features</a>
     </div>
-    <p class="hero-note">No credit card required &middot; Free trial on every plan</p>
+    <p class="lp-hero-note">No credit card required &middot; Free trial on every plan</p>
   </div>
 </section>
 
-<!-- ═══ MARQUEE ═══ -->
-<div class="marquee-strip">
-  <div class="marquee-track" aria-hidden="true">
-    <span class="marquee-item">Scheduling</span>
-    <span class="marquee-item">Routing</span>
-    <span class="marquee-item">Invoicing</span>
-    <span class="marquee-item">Estimates</span>
-    <span class="marquee-item">Client CRM</span>
-    <span class="marquee-item">Fertilization</span>
-    <span class="marquee-item">Time Tracking</span>
-    <span class="marquee-item">Equipment</span>
-    <span class="marquee-item">Checklists</span>
-    <span class="marquee-item">Financials</span>
-    <span class="marquee-item">Payments</span>
-    <span class="marquee-item">Crew Management</span>
-    <!-- duplicate for seamless loop -->
-    <span class="marquee-item">Scheduling</span>
-    <span class="marquee-item">Routing</span>
-    <span class="marquee-item">Invoicing</span>
-    <span class="marquee-item">Estimates</span>
-    <span class="marquee-item">Client CRM</span>
-    <span class="marquee-item">Fertilization</span>
-    <span class="marquee-item">Time Tracking</span>
-    <span class="marquee-item">Equipment</span>
-    <span class="marquee-item">Checklists</span>
-    <span class="marquee-item">Financials</span>
-    <span class="marquee-item">Payments</span>
-    <span class="marquee-item">Crew Management</span>
-  </div>
-</div>
-
-<!-- ═══ PROBLEM STATEMENT ═══ -->
-<section class="s-problem">
-  <div class="shell" data-r>
-    <p class="problem-text">
-      You started a landscaping business to work outside, not to <span class="hl">drown in spreadsheets.</span> But every season it's the same &mdash; <span class="hl">missed jobs, late invoices,</span> crews texting for directions, and no clear picture of whether you're actually <span class="hl">making money.</span>
-    </p>
-  </div>
-</section>
-
-<!-- ═══ FEATURE TABS ═══ -->
-<section class="s-features">
-  <div class="shell">
-    <p class="feat-section-label" data-r>Platform</p>
-    <h2 class="feat-section-title" data-r>Everything<br>connected.</h2>
-    <p class="feat-section-desc" data-r>Schedule a job, assign it to a crew, build the route, and invoice when it's done. No more copy-pasting between apps.</p>
-
-    <div class="feat-layout" data-r>
-      <nav class="feat-nav" role="tablist">
-        <div class="feat-tab active" data-tab="0" role="tab" aria-selected="true">
-          <span class="feat-tab-num">01</span>
-          <span class="feat-tab-label">Scheduling</span>
-        </div>
-        <div class="feat-tab" data-tab="1" role="tab">
-          <span class="feat-tab-num">02</span>
-          <span class="feat-tab-label">Daily Routes</span>
-        </div>
-        <div class="feat-tab" data-tab="2" role="tab">
-          <span class="feat-tab-num">03</span>
-          <span class="feat-tab-label">Job Tracking</span>
-        </div>
-        <div class="feat-tab" data-tab="3" role="tab">
-          <span class="feat-tab-num">04</span>
-          <span class="feat-tab-label">Invoicing</span>
-        </div>
-        <div class="feat-tab" data-tab="4" role="tab">
-          <span class="feat-tab-num">05</span>
-          <span class="feat-tab-label">Property Estimator</span>
-        </div>
-        <div class="feat-tab" data-tab="5" role="tab">
-          <span class="feat-tab-num">06</span>
-          <span class="feat-tab-label">Client CRM</span>
-        </div>
-        <div class="feat-tab" data-tab="6" role="tab">
-          <span class="feat-tab-num">07</span>
-          <span class="feat-tab-label">Fertilization</span>
-        </div>
-        <div class="feat-tab" data-tab="7" role="tab">
-          <span class="feat-tab-num">08</span>
-          <span class="feat-tab-label">Crew Tracking</span>
-        </div>
-        <div class="feat-tab" data-tab="8" role="tab">
-          <span class="feat-tab-num">09</span>
-          <span class="feat-tab-label">Financials</span>
-        </div>
-      </nav>
-
-      <div class="feat-panel-wrap">
-        <!-- Panel 0: Scheduling -->
-        <div class="feat-panel active" data-panel="0" role="tabpanel">
-          <div class="feat-mock">
-            <div class="feat-mock-header">
-              <span class="feat-mock-title">Weekly Schedule</span>
-              <span class="feat-mock-badge">This Week</span>
-            </div>
-            <p class="feat-mock-desc">Drag-and-drop calendar with day, week, and month views. Recurring jobs auto-generate so nothing slips through.</p>
-            <div class="mock-cal">
-              <div class="mock-cal-head">Mon</div>
-              <div class="mock-cal-head">Tue</div>
-              <div class="mock-cal-head">Wed</div>
-              <div class="mock-cal-head">Thu</div>
-              <div class="mock-cal-head">Fri</div>
-              <div class="mock-cal-slot has-job">3 jobs</div>
-              <div class="mock-cal-slot has-job">5 jobs</div>
-              <div class="mock-cal-slot active">4 jobs</div>
-              <div class="mock-cal-slot has-job">6 jobs</div>
-              <div class="mock-cal-slot has-job">2 jobs</div>
-              <div class="mock-cal-slot">&#8212;</div>
-              <div class="mock-cal-slot has-job">3 jobs</div>
-              <div class="mock-cal-slot has-job">4 jobs</div>
-              <div class="mock-cal-slot">&#8212;</div>
-              <div class="mock-cal-slot has-job">5 jobs</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 1: Routes -->
-        <div class="feat-panel" data-panel="1" role="tabpanel">
-          <div class="feat-mock">
-            <div class="feat-mock-header">
-              <span class="feat-mock-title">Today's Route</span>
-              <span class="feat-mock-badge">Crew A</span>
-            </div>
-            <p class="feat-mock-desc">Build daily route sheets for every crew. Reorder stops with drag-and-drop, open each in Google Maps with one tap.</p>
-            <div>
-              <div class="mock-route-item">
-                <span class="mock-route-num">1</span>
-                <span class="mock-route-addr">142 Oak Ridge Dr</span>
-                <span class="mock-route-time">8:00 AM</span>
-              </div>
-              <div class="mock-route-item">
-                <span class="mock-route-num">2</span>
-                <span class="mock-route-addr">87 Maple Ln</span>
-                <span class="mock-route-time">9:30 AM</span>
-              </div>
-              <div class="mock-route-item">
-                <span class="mock-route-num">3</span>
-                <span class="mock-route-addr">305 Cedar Blvd</span>
-                <span class="mock-route-time">11:00 AM</span>
-              </div>
-              <div class="mock-route-item">
-                <span class="mock-route-num">4</span>
-                <span class="mock-route-addr">19 Birch Ct</span>
-                <span class="mock-route-time">1:00 PM</span>
-              </div>
-              <div class="mock-route-item">
-                <span class="mock-route-num">5</span>
-                <span class="mock-route-addr">402 Willow Ave</span>
-                <span class="mock-route-time">2:30 PM</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 2: Job Tracking -->
-        <div class="feat-panel" data-panel="2" role="tabpanel">
-          <div class="feat-mock">
-            <div class="feat-mock-header">
-              <span class="feat-mock-title">Job Status</span>
-              <span class="feat-mock-badge">Live</span>
-            </div>
-            <p class="feat-mock-desc">Crews start jobs, add notes, upload completion photos, and mark done &mdash; all from their phones in the field.</p>
-            <div class="mock-job">
-              <div class="mock-job-status"><span class="mock-job-dot done"></span><span class="mock-job-label">142 Oak Ridge &mdash; Completed</span></div>
-              <div class="mock-job-status"><span class="mock-job-dot"></span><span class="mock-job-label">87 Maple Ln &mdash; In Progress</span></div>
-              <div class="mock-job-status"><span class="mock-job-dot pending"></span><span class="mock-job-label">305 Cedar Blvd &mdash; Scheduled</span></div>
-              <div class="mock-job-photo">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-                &nbsp;Completion photo uploaded
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 3: Invoicing -->
-        <div class="feat-panel" data-panel="3" role="tabpanel">
-          <div class="feat-mock">
-            <div class="feat-mock-header">
-              <span class="feat-mock-title">Invoice #1042</span>
-              <span class="feat-mock-badge">Sent</span>
-            </div>
-            <p class="feat-mock-desc">Create invoices from completed jobs, email them with one click, and accept payment via Stripe, Venmo, Zelle, or Cash App.</p>
-            <div>
-              <div class="mock-inv-row"><span class="mock-inv-label">Weekly Mowing</span><span class="mock-inv-val">$85.00</span></div>
-              <div class="mock-inv-row"><span class="mock-inv-label">Edging &amp; Blowing</span><span class="mock-inv-val">$25.00</span></div>
-              <div class="mock-inv-row"><span class="mock-inv-label">Bush Trimming</span><span class="mock-inv-val">$60.00</span></div>
-              <div class="mock-inv-row"><span class="mock-inv-label" style="font-weight:600;color:var(--text)">Total</span><span class="mock-inv-val mock-inv-total">$170.00</span></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 4: Estimator -->
-        <div class="feat-panel" data-panel="4" role="tabpanel">
-          <div class="feat-mock">
-            <div class="feat-mock-header">
-              <span class="feat-mock-title">Property Estimator</span>
-              <span class="feat-mock-badge">Satellite</span>
-            </div>
-            <p class="feat-mock-desc">Measure properties with satellite imagery. Generate accurate estimates for lawn care, mulch, and landscaping in minutes.</p>
-            <div class="mock-est-map"></div>
-            <div class="mock-est-stats">
-              <div class="mock-est-stat"><div class="mock-est-val">8,420</div><div class="mock-est-label">Sq Ft</div></div>
-              <div class="mock-est-stat"><div class="mock-est-val">$215</div><div class="mock-est-label">Est. Price</div></div>
-              <div class="mock-est-stat"><div class="mock-est-val">0.19</div><div class="mock-est-label">Acres</div></div>
-              <div class="mock-est-stat"><div class="mock-est-val">340</div><div class="mock-est-label">Perimeter Ft</div></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 5: CRM -->
-        <div class="feat-panel" data-panel="5" role="tabpanel">
-          <div class="feat-mock">
-            <div class="feat-mock-header">
-              <span class="feat-mock-title">Client Directory</span>
-              <span class="feat-mock-badge">128 Clients</span>
-            </div>
-            <p class="feat-mock-desc">Every client and property in one place &mdash; job history, invoices, notes, and messaging. Search from the field or office.</p>
-            <div>
-              <div class="mock-crm-item"><span class="mock-crm-avatar">JR</span><div class="mock-crm-info"><div class="mock-crm-name">Johnson Residence</div><div class="mock-crm-detail">142 Oak Ridge Dr &middot; 12 jobs</div></div><span class="mock-crm-tag">Active</span></div>
-              <div class="mock-crm-item"><span class="mock-crm-avatar">MP</span><div class="mock-crm-info"><div class="mock-crm-name">Maple Properties LLC</div><div class="mock-crm-detail">3 properties &middot; 28 jobs</div></div><span class="mock-crm-tag">Active</span></div>
-              <div class="mock-crm-item"><span class="mock-crm-avatar">CB</span><div class="mock-crm-info"><div class="mock-crm-name">Cedar Brook HOA</div><div class="mock-crm-detail">305 Cedar Blvd &middot; 8 jobs</div></div><span class="mock-crm-tag">Active</span></div>
-              <div class="mock-crm-item"><span class="mock-crm-avatar">WA</span><div class="mock-crm-info"><div class="mock-crm-name">Willow & Associates</div><div class="mock-crm-detail">402 Willow Ave &middot; 5 jobs</div></div><span class="mock-crm-tag">Lead</span></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 6: Fertilization -->
-        <div class="feat-panel" data-panel="6" role="tabpanel">
-          <div class="feat-mock">
-            <div class="feat-mock-header">
-              <span class="feat-mock-title">Fert Program</span>
-              <span class="feat-mock-badge">6 Rounds</span>
-            </div>
-            <p class="feat-mock-desc">Track application schedules, products, and compliance. Enroll customers into recurring treatment plans to grow revenue.</p>
-            <div>
-              <div class="mock-fert-round"><span class="mock-fert-badge done">R1</span><div class="mock-fert-info"><div class="mock-fert-name">Early Spring Pre-Emergent</div><div class="mock-fert-detail">Applied Mar 15 &middot; 0-0-7 Prodiamine</div></div></div>
-              <div class="mock-fert-round"><span class="mock-fert-badge done">R2</span><div class="mock-fert-info"><div class="mock-fert-name">Late Spring Fertilization</div><div class="mock-fert-detail">Applied Apr 28 &middot; 24-0-6</div></div></div>
-              <div class="mock-fert-round"><span class="mock-fert-badge next">R3</span><div class="mock-fert-info"><div class="mock-fert-name">Summer Weed Control</div><div class="mock-fert-detail">Due Jun 10 &middot; Trimec Classic</div></div></div>
-              <div class="mock-fert-round"><span class="mock-fert-badge future">R4</span><div class="mock-fert-info"><div class="mock-fert-name">Summer Fertilization</div><div class="mock-fert-detail">Jul &middot; 18-0-4</div></div></div>
-              <div class="mock-fert-round"><span class="mock-fert-badge future">R5</span><div class="mock-fert-info"><div class="mock-fert-name">Fall Pre-Emergent</div><div class="mock-fert-detail">Sep &middot; Barricade 0-0-7</div></div></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 7: Crew -->
-        <div class="feat-panel" data-panel="7" role="tabpanel">
-          <div class="feat-mock">
-            <div class="feat-mock-header">
-              <span class="feat-mock-title">Crew Status</span>
-              <span class="feat-mock-badge">Today</span>
-            </div>
-            <p class="feat-mock-desc">GPS time clock, timesheets, payroll tracking, and role-based permissions. Everyone sees exactly what they need.</p>
-            <div>
-              <div class="mock-crew-row"><span class="mock-crew-status on"></span><span class="mock-crew-name">Mike Torres</span><span class="mock-crew-hrs">6.5 hrs</span></div>
-              <div class="mock-crew-row"><span class="mock-crew-status on"></span><span class="mock-crew-name">Jake Rivera</span><span class="mock-crew-hrs">6.2 hrs</span></div>
-              <div class="mock-crew-row"><span class="mock-crew-status on"></span><span class="mock-crew-name">Carlos Mendez</span><span class="mock-crew-hrs">5.8 hrs</span></div>
-              <div class="mock-crew-row"><span class="mock-crew-status off"></span><span class="mock-crew-name">Dylan Park</span><span class="mock-crew-hrs">Off Today</span></div>
-              <div class="mock-crew-row"><span class="mock-crew-status on"></span><span class="mock-crew-name">Sam Okafor</span><span class="mock-crew-hrs">4.1 hrs</span></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 8: Financials -->
-        <div class="feat-panel" data-panel="8" role="tabpanel">
-          <div class="feat-mock">
-            <div class="feat-mock-header">
-              <span class="feat-mock-title">Revenue</span>
-              <span class="feat-mock-badge">This Month</span>
-            </div>
-            <p class="feat-mock-desc">Revenue breakdown, expense tracking, receipt uploads, and job profitability. Know exactly where your money goes.</p>
-            <div class="mock-fin-bar-group">
-              <div class="mock-fin-bar" style="height:45%"></div>
-              <div class="mock-fin-bar" style="height:62%"></div>
-              <div class="mock-fin-bar" style="height:38%"></div>
-              <div class="mock-fin-bar" style="height:75%"></div>
-              <div class="mock-fin-bar accent" style="height:90%"></div>
-              <div class="mock-fin-bar" style="height:55%"></div>
-              <div class="mock-fin-bar" style="height:68%"></div>
-              <div class="mock-fin-bar" style="height:50%"></div>
-              <div class="mock-fin-bar" style="height:82%"></div>
-              <div class="mock-fin-bar" style="height:60%"></div>
-              <div class="mock-fin-bar accent" style="height:95%"></div>
-              <div class="mock-fin-bar" style="height:72%"></div>
-            </div>
-            <div class="mock-fin-summary">
-              <span>Monthly Revenue</span>
-              <span class="mock-fin-summary-val">$28,640</span>
-            </div>
-          </div>
-        </div>
-      </div><!-- /feat-panel-wrap -->
-    </div><!-- /feat-layout -->
-  </div>
-</section>
-
-<!-- ═══ APP PREVIEW ═══ -->
-<section class="s-preview">
-  <div class="shell">
-    <p class="preview-label" data-r>The Dashboard</p>
-    <h2 class="preview-heading" data-r>Your entire day,<br>at a glance.</h2>
-    <div class="app-frame" data-r>
-      <div class="app-frame-bar">
-        <span class="app-frame-dot"></span>
-        <span class="app-frame-dot"></span>
-        <span class="app-frame-dot"></span>
-        <span class="app-frame-url">fieldlgx.com/dashboard</span>
+<!-- ═══ MOWER REVEAL ═══ -->
+<section class="lp-mower-section" id="mower-section">
+  <div class="lp-mower-pin" id="mower-pin">
+    <div style="max-width:1100px;margin:0 auto;padding:0 24px;width:100%;">
+      <div class="lp-mower-heading" data-r>
+        <h2>Everything you need.<br>Nothing you don't.</h2>
+        <p>Scroll to reveal what's under the surface.</p>
       </div>
-      <div class="app-frame-body">
-        <div class="stat-grid">
-          <div class="stat-card">
-            <div class="stat-label">Today's Revenue</div>
-            <div class="stat-value"><span class="stat-prefix">$</span><span data-count="2340">0</span></div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Jobs Today</div>
-            <div class="stat-value"><span data-count="12">0</span></div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Crews Active</div>
-            <div class="stat-value"><span data-count="4">0</span></div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Invoices Sent</div>
-            <div class="stat-value"><span data-count="8">0</span></div>
-          </div>
+      <div class="lp-features-grid" id="features-grid">
+        <div class="lp-feat-card" data-feat="0">
+          <div class="lp-feat-icon green">&#128197;</div>
+          <h3>Scheduling &amp; Calendar</h3>
+          <p>Drag-and-drop calendar with day, week, and month views. Recurring jobs auto-generate. Click any date to create instantly.</p>
         </div>
-        <div class="job-list">
-          <div class="job-row">
-            <span class="job-addr">142 Oak Ridge Dr</span>
-            <span class="job-time">8:00 AM</span>
-            <span class="job-badge done">Completed</span>
-          </div>
-          <div class="job-row">
-            <span class="job-addr">87 Maple Ln</span>
-            <span class="job-time">10:30 AM</span>
-            <span class="job-badge prog">In Progress</span>
-          </div>
-          <div class="job-row">
-            <span class="job-addr">305 Cedar Blvd</span>
-            <span class="job-time">1:00 PM</span>
-            <span class="job-badge sched">Scheduled</span>
-          </div>
-          <div class="job-row">
-            <span class="job-addr">19 Birch Ct</span>
-            <span class="job-time">3:00 PM</span>
-            <span class="job-badge sched">Scheduled</span>
-          </div>
+        <div class="lp-feat-card" data-feat="1">
+          <div class="lp-feat-icon cyan">&#128668;</div>
+          <h3>Daily Routes</h3>
+          <p>Build optimized routes for every crew. One-tap Google Maps navigation. AI route optimization with shortest distance.</p>
+        </div>
+        <div class="lp-feat-card" data-feat="2">
+          <div class="lp-feat-icon acid">&#128176;</div>
+          <h3>Invoicing &amp; Payments</h3>
+          <p>Create invoices from completed jobs. Accept Stripe, Venmo, PayPal, Zelle, or Cash App. Professional email templates.</p>
+        </div>
+        <div class="lp-feat-card" data-feat="3">
+          <div class="lp-feat-icon green">&#128101;</div>
+          <h3>Client CRM</h3>
+          <p>Every client and property in one place. Job history, invoices, notes, and Google address autocomplete.</p>
+        </div>
+        <div class="lp-feat-card" data-feat="4">
+          <div class="lp-feat-icon cyan">&#128225;</div>
+          <h3>Crew GPS Tracking</h3>
+          <p>Real-time crew locations on a live map. Automatic time tracking. Calendar updates when jobs start and complete.</p>
+        </div>
+        <div class="lp-feat-card" data-feat="5">
+          <div class="lp-feat-icon acid">&#127793;</div>
+          <h3>Fertilization Programs</h3>
+          <p>Multi-round treatment programs. Track products, rates, and compliance. Enroll customers into recurring plans.</p>
         </div>
       </div>
+    </div>
+
+    <!-- Grass overlay (clipped away by mower) -->
+    <div class="lp-grass-layer" id="grass-layer">
+      <div class="lp-grass-texture"></div>
+    </div>
+
+    <!-- Mower SVG -->
+    <svg class="lp-mower-svg" id="mower-svg" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Body -->
+      <rect x="20" y="20" width="80" height="35" rx="8" fill="#1a1a1a" stroke="#a9ffac" stroke-width="1.5"/>
+      <!-- Engine hood -->
+      <rect x="75" y="12" width="30" height="18" rx="4" fill="#262626" stroke="#a9ffac" stroke-width="1"/>
+      <!-- Seat -->
+      <rect x="35" y="8" width="20" height="16" rx="6" fill="#262626" stroke="#494847" stroke-width="1"/>
+      <!-- Deck -->
+      <rect x="10" y="52" width="100" height="8" rx="3" fill="#0e0e0e" stroke="#a9ffac" stroke-width="1"/>
+      <!-- Wheels -->
+      <circle cx="28" cy="62" r="10" fill="#1a1a1a" stroke="#a9ffac" stroke-width="1.5"/>
+      <circle cx="28" cy="62" r="4" fill="#a9ffac" opacity="0.3"/>
+      <circle cx="92" cy="62" r="10" fill="#1a1a1a" stroke="#a9ffac" stroke-width="1.5"/>
+      <circle cx="92" cy="62" r="4" fill="#a9ffac" opacity="0.3"/>
+      <!-- Headlight -->
+      <circle cx="108" cy="30" r="3" fill="#a9ffac" opacity="0.8">
+        <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/>
+      </circle>
+      <!-- Exhaust -->
+      <circle cx="15" cy="25" r="2" fill="#494847" opacity="0.4">
+        <animate attributeName="r" values="2;5;2" dur="1.5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.4;0;0.4" dur="1.5s" repeatCount="indefinite"/>
+      </circle>
+    </svg>
+  </div>
+</section>
+
+<!-- ═══ STATS ═══ -->
+<section class="lp-stats">
+  <div class="lp-stats-grid" data-r>
+    <div class="lp-stat">
+      <div class="lp-stat-val"><span class="accent" data-count="500">0</span>+</div>
+      <div class="lp-stat-label">Businesses</div>
+    </div>
+    <div class="lp-stat">
+      <div class="lp-stat-val"><span class="accent">$</span><span data-count="2">0</span>M+</div>
+      <div class="lp-stat-label">Invoiced</div>
+    </div>
+    <div class="lp-stat">
+      <div class="lp-stat-val"><span data-count="50">0</span>K+</div>
+      <div class="lp-stat-label">Jobs Completed</div>
     </div>
   </div>
 </section>
 
 <!-- ═══ QUOTE ═══ -->
-<section class="s-quote">
-  <div class="shell" data-r>
-    <p class="quote-text">
-      <span class="em">The best software</span> for landscaping companies isn't a generic project manager with a green skin. It's a tool <span class="em">built from day one</span> for route planning, crew coordination, property management, and seasonal billing.
+<section class="lp-quote">
+  <div class="lp-quote-inner" data-r>
+    <p class="lp-quote-text">
+      <em>The best software</em> for landscaping companies isn't a generic project manager with a green skin. It's a tool <em>built from day one</em> for route planning, crew coordination, and seasonal billing.
     </p>
-    <p class="quote-attr"><strong>FieldLgx</strong> &mdash; Purpose-built for the green industry</p>
-  </div>
-</section>
-
-<!-- ═══ BUILT FOR ═══ -->
-<section class="s-built">
-  <div class="shell">
-    <p class="built-label" data-r>Who It's For</p>
-    <h2 class="built-heading" data-r>Every service type,<br>one platform.</h2>
-    <div class="built-grid" data-r>
-      <div class="built-card">
-        <div class="built-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
-        <h4>Lawn Maintenance</h4>
-        <p>Weekly mowing, edging, and blowing. Recurring schedules that auto-generate jobs and invoices every cycle.</p>
-      </div>
-      <div class="built-card">
-        <div class="built-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-        <h4>Full-Service Landscaping</h4>
-        <p>Design, install, and maintain. Track complex multi-day projects, materials, and crew assignments in one place.</p>
-      </div>
-      <div class="built-card">
-        <div class="built-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>
-        <h4>Fertilization &amp; Weed Control</h4>
-        <p>Build multi-round programs, track products and rates, and enroll customers into recurring treatment plans.</p>
-      </div>
-      <div class="built-card">
-        <div class="built-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="6" width="18" height="12" rx="2"/><path d="M23 13v-2"/><line x1="10" y1="12" x2="10" y2="12.01"/></svg></div>
-        <h4>Equipment &amp; Fleet</h4>
-        <p>Log every mower, trailer, and truck. Track warranties, maintenance schedules, and service history so nothing breaks mid-season.</p>
-      </div>
-      <div class="built-card">
-        <div class="built-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-        <h4>Service Agreements</h4>
-        <p>Create seasonal contracts, lock in recurring revenue, and auto-generate jobs for each visit defined in the agreement.</p>
-      </div>
-      <div class="built-card">
-        <div class="built-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
-        <h4>Checklists &amp; Inspections</h4>
-        <p>Build quality checklists for every job type. Crews complete inspections on-site, ensuring consistent service and accountability.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ HOW IT WORKS ═══ -->
-<section class="s-how">
-  <div class="shell">
-    <p class="how-label" data-r>Getting Started</p>
-    <h2 class="how-heading" data-r>Up and running<br>in minutes.</h2>
-    <div class="how-steps" data-r>
-      <div class="how-step">
-        <div class="how-step-num">01</div>
-        <div class="how-step-text">
-          <h4>Create your account</h4>
-          <p>Sign up, name your business, and invite your crew. Takes about two minutes. No IT department required.</p>
-        </div>
-      </div>
-      <div class="how-step">
-        <div class="how-step-num">02</div>
-        <div class="how-step-text">
-          <h4>Add clients &amp; properties</h4>
-          <p>Enter your clients and service properties. Schedule recurring or one-time jobs on the drag-and-drop calendar.</p>
-        </div>
-      </div>
-      <div class="how-step">
-        <div class="how-step-num">03</div>
-        <div class="how-step-text">
-          <h4>Route, complete, invoice</h4>
-          <p>Crews see daily routes on their phone. When the job is done, invoice the client and get paid &mdash; same day.</p>
-        </div>
-      </div>
-    </div>
+    <p class="lp-quote-attr"><strong>FieldLgx</strong> &mdash; Purpose-built for the green industry</p>
   </div>
 </section>
 
 <!-- ═══ PRICING ═══ -->
-<section class="s-pricing">
-  <div class="shell">
-    <p class="pricing-label" data-r>Pricing</p>
-    <h2 class="pricing-heading" data-r>Simple plans,<br>no surprises.</h2>
-    <div class="price-grid" data-r>
-      <div class="price-card">
-        <div class="price-name">Solo Starter</div>
-        <p class="price-desc">For owner-operators running routes solo or with a small crew.</p>
-        <div class="price-amount"><span class="dollar">$</span>{{ pricing.solo_price }}</div>
-        <div class="price-period">per month</div>
-        <ul class="price-list">
-          <li>Drag-and-drop scheduling</li>
-          <li>Daily route planning</li>
-          <li>Invoicing &amp; estimates</li>
-          <li>Client &amp; property CRM</li>
-          <li>Job tracking with photos</li>
-          <li>Stripe, Venmo, Zelle payments</li>
-        </ul>
-        <a class="btn btn-secondary price-cta" href="/accounts/signup/" data-cta="pricing-solo">Start Free Trial</a>
-      </div>
-      <div class="price-card featured">
-        <div class="price-name">Pro All-Access</div>
-        <p class="price-desc">For growing businesses with multiple crews and complex operations.</p>
-        <div class="price-amount"><span class="dollar">$</span>{{ pricing.pro_price }}</div>
-        <div class="price-period">per month</div>
-        <ul class="price-list">
-          <li>Everything in Solo Starter</li>
-          <li>Crew &amp; time tracking</li>
-          <li>Fertilization programs</li>
-          <li>Property estimator (satellite)</li>
-          <li>Equipment &amp; fleet tracking</li>
-          <li>Financial reporting</li>
-          <li>Service agreements</li>
-          <li>QuickBooks integration</li>
-        </ul>
-        <a class="btn btn-primary price-cta" href="/accounts/signup/" data-cta="pricing-pro">Start Free Trial</a>
-      </div>
+<section class="lp-pricing">
+  <div class="lp-pricing-header" data-r>
+    <h2>Simple plans,<br>no surprises.</h2>
+    <p>Start free. Upgrade when you're ready.</p>
+  </div>
+  <div class="lp-price-grid" data-r>
+    <div class="lp-price-card">
+      <div class="lp-price-name">Solo Starter</div>
+      <p class="lp-price-desc">For owner-operators running routes solo or with a small crew.</p>
+      <div class="lp-price-amount"><span class="dollar">$</span>{{ pricing.solo_price }}</div>
+      <div class="lp-price-period">per month</div>
+      <ul class="lp-price-list">
+        <li>Drag-and-drop scheduling</li>
+        <li>Daily route planning</li>
+        <li>Invoicing &amp; estimates</li>
+        <li>Client &amp; property CRM</li>
+        <li>Job tracking with photos</li>
+        <li>Online payments</li>
+      </ul>
+      <a class="lp-price-cta secondary" href="/accounts/signup/">Start Free Trial</a>
+    </div>
+    <div class="lp-price-card featured">
+      <div class="lp-price-name">Pro All-Access</div>
+      <p class="lp-price-desc">For growing businesses with multiple crews and complex operations.</p>
+      <div class="lp-price-amount"><span class="dollar">$</span>{{ pricing.pro_price }}</div>
+      <div class="lp-price-period">per month</div>
+      <ul class="lp-price-list">
+        <li>Everything in Solo Starter</li>
+        <li>Crew GPS tracking</li>
+        <li>Fertilization programs</li>
+        <li>Property estimator (satellite)</li>
+        <li>Equipment &amp; fleet tracking</li>
+        <li>Financial reporting</li>
+        <li>Service agreements</li>
+        <li>QuickBooks integration</li>
+      </ul>
+      <a class="lp-price-cta primary" href="/accounts/signup/">Start Free Trial</a>
     </div>
   </div>
 </section>
 
 <!-- ═══ FINAL CTA ═══ -->
-<section class="s-cta">
-  <div class="shell" data-r>
-    <h2 class="cta-headline">Stop losing money<br>to chaos.</h2>
-    <p class="cta-sub">Join landscaping businesses that run their entire operation from one platform. Start your free trial today.</p>
-    <div class="cta-actions">
-      <a class="btn btn-primary" href="/accounts/signup/" data-cta="cta-trial">Start Free Trial</a>
-      <a class="btn btn-secondary" href="/features/" data-cta="cta-features">See All Features</a>
+<section class="lp-cta">
+  <div class="lp-cta-glow"></div>
+  <div style="position:relative;max-width:1200px;margin:0 auto;padding:0 24px;">
+    <h2 data-r>Stop losing money<br>to chaos.</h2>
+    <p data-r>Join landscaping businesses that run their entire operation from one platform.</p>
+    <div class="lp-cta-actions" data-r>
+      <a class="btn-hero btn-hero-primary" href="/accounts/signup/" data-cta="cta-trial">Start Free Trial</a>
+      <a class="btn-hero btn-hero-secondary" href="/features/" data-cta="cta-features">See All Features</a>
     </div>
   </div>
 </section>
 {% endblock %}
 
 {% block extra_js %}
+<!-- GSAP + ScrollTrigger for mower animation -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
 <script>
-(()=>{
-  /* ── Feature Tabs ─────────────────────── */
-  const tabs = document.querySelectorAll('.feat-tab');
-  const panels = document.querySelectorAll('.feat-panel');
-  let autoInterval;
+(function(){
+  gsap.registerPlugin(ScrollTrigger);
 
-  function activateTab(idx) {
-    tabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
-    panels.forEach(p => p.classList.remove('active'));
-    tabs[idx].classList.add('active');
-    tabs[idx].setAttribute('aria-selected', 'true');
-    panels[idx].classList.add('active');
-  }
+  var isMobile = window.matchMedia('(max-width: 640px)').matches;
 
-  function startAutoRotate() {
-    autoInterval = setInterval(() => {
-      let current = [...tabs].findIndex(t => t.classList.contains('active'));
-      activateTab((current + 1) % tabs.length);
-    }, 5000);
-  }
+  /* ── Mower scroll animation (desktop only) ── */
+  if (!isMobile) {
+    var mowerSection = document.getElementById('mower-section');
+    var grass = document.getElementById('grass-layer');
+    var mower = document.getElementById('mower-svg');
+    var cards = document.querySelectorAll('.lp-feat-card');
 
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      clearInterval(autoInterval);
-      activateTab(parseInt(tab.dataset.tab));
-      startAutoRotate();
+    if (mowerSection && grass && mower) {
+      var tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: mowerSection,
+          start: 'top top',
+          end: '+=2000',
+          pin: true,
+          scrub: 1,
+          anticipatePin: 1,
+        }
+      });
+
+      // Mower moves across screen
+      tl.to(mower, {
+        left: '105%',
+        duration: 1,
+        ease: 'none',
+      });
+
+      // Grass clips away following mower
+      tl.to(grass, {
+        clipPath: 'inset(0 0 0 100%)',
+        duration: 1,
+        ease: 'none',
+      }, 0);
+
+      // Cards reveal staggered
+      cards.forEach(function(card, i) {
+        tl.to(card, {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.15,
+          ease: 'power2.out',
+        }, 0.1 + i * 0.12);
+      });
+    }
+  } else {
+    // Mobile: simple scroll reveals
+    document.querySelectorAll('.lp-feat-card').forEach(function(card) {
+      card.style.opacity = '1';
+      card.style.transform = 'none';
     });
-  });
+  }
 
-  startAutoRotate();
-
-  /* ── Animated Counters ────────────────── */
-  const counters = document.querySelectorAll('[data-count]');
-  let counted = false;
+  /* ── Stat counters ── */
+  var counted = false;
+  var statEls = document.querySelectorAll('[data-count]');
 
   function animateCounters() {
     if (counted) return;
     counted = true;
-    counters.forEach(el => {
-      const target = parseInt(el.dataset.count);
-      const duration = 1500;
-      const start = performance.now();
-      const format = target > 100;
-
+    statEls.forEach(function(el) {
+      var target = parseInt(el.dataset.count);
+      var duration = 1500;
+      var start = performance.now();
       function step(now) {
-        const elapsed = now - start;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        const current = Math.round(eased * target);
-        el.textContent = format ? current.toLocaleString() : current;
+        var elapsed = now - start;
+        var progress = Math.min(elapsed / duration, 1);
+        var eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = Math.round(eased * target);
         if (progress < 1) requestAnimationFrame(step);
       }
       requestAnimationFrame(step);
     });
   }
 
-  if ('IntersectionObserver' in window) {
-    const statGrid = document.querySelector('.stat-grid');
-    if (statGrid) {
-      const io = new IntersectionObserver(entries => {
+  if ('IntersectionObserver' in window && statEls.length) {
+    var statsSection = statEls[0].closest('.lp-stats');
+    if (statsSection) {
+      var io = new IntersectionObserver(function(entries) {
         if (entries[0].isIntersecting) { animateCounters(); io.disconnect(); }
       }, { threshold: 0.3 });
-      io.observe(statGrid);
+      io.observe(statsSection);
     }
-  } else {
-    animateCounters();
-  }
-
-  /* ── Word reveal (problem text) ───────── */
-  const reveal = document.querySelector('.problem-text');
-  if (reveal) {
-    const words = reveal.innerHTML.split(/(\s+)/);
-    let wordIdx = 0;
-    reveal.innerHTML = words.map(w => {
-      if (w.trim() === '') return w;
-      wordIdx++;
-      return `<span class="rw" style="--d:${wordIdx}">${w}</span>`;
-    }).join('');
-
-    const style = document.createElement('style');
-    style.textContent = `.rw{display:inline-block;opacity:0;transform:translateY(8px);transition:opacity 0.4s cubic-bezier(0,0,0.2,1),transform 0.4s cubic-bezier(0,0,0.2,1)}.problem-text.revealed .rw{opacity:1;transform:translateY(0);transition-delay:calc(var(--d) * 30ms)}`;
-    document.head.appendChild(style);
-
-    const rio = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting) { reveal.classList.add('revealed'); rio.disconnect(); }
-    }, { threshold: 0.2 });
-    rio.observe(reveal);
   }
 })();
 </script>
