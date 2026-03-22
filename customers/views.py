@@ -103,23 +103,43 @@ def customer_detail(request, customer_id):
 
     properties = customer.properties.all().prefetch_related('jobs', 'recurring_jobs')
 
-    # Past services = completed jobs across all properties
+    # Past services = completed jobs across all properties (with service details for history)
     past_jobs = (
         Job.objects.filter(property__customer=customer, status='completed')
-        .select_related('property', 'assigned_to')
-        .order_by('-scheduled_date')[:20]
+        .select_related('property', 'assigned_to', 'assigned_crew')
+        .prefetch_related('service_items__service')
+        .order_by('-scheduled_date')[:50]
+    )
+
+    # All jobs (including scheduled/in-progress) for full history
+    all_jobs = (
+        Job.objects.filter(property__customer=customer)
+        .select_related('property', 'assigned_to', 'assigned_crew')
+        .prefetch_related('service_items__service')
+        .order_by('-scheduled_date')[:100]
     )
 
     contracts = customer.contracts.all().order_by('-created_at')
 
     invoices = (
         Invoice.objects.filter(customer=customer)
-        .order_by('-issue_date')[:15]
+        .order_by('-issue_date')[:30]
+    )
+
+    # Estimates for this customer
+    from billing.models import Estimate
+    estimates = (
+        Estimate.objects.filter(customer=customer)
+        .order_by('-created_at')[:20]
     )
 
     total_revenue = Invoice.objects.filter(customer=customer, status='paid').aggregate(
         total=Sum('total')
     )['total'] or 0
+
+    # Feature flags — check if modules are enabled
+    show_fertilization = 'fertilization' in (business.enabled_modules or [])
+    show_property_estimator = True  # Always available
 
     # Mark received messages as read when viewing the client profile
     customer.messages.filter(direction=ClientMessage.DIRECTION_RECEIVED, is_read=False).update(is_read=True)
@@ -149,8 +169,10 @@ def customer_detail(request, customer_id):
         "business": business,
         "properties": properties,
         "past_jobs": past_jobs,
+        "all_jobs": all_jobs,
         "contracts": contracts,
         "invoices": invoices,
+        "estimates": estimates,
         "total_revenue": total_revenue,
         "client_messages": client_messages,
         "email_messages": email_messages,
@@ -158,6 +180,8 @@ def customer_detail(request, customer_id):
         "send_message_form": send_message_form,
         "portal_url": portal_url,
         "sms_configured": sms_configured,
+        "show_fertilization": show_fertilization,
+        "show_property_estimator": show_property_estimator,
     })
 
 
@@ -182,12 +206,27 @@ def customer_create(request):
             customer.business = business
             customer.save()
             # Auto-create a property from the customer's address
+            prop = None
             if customer.address_line1:
-                Property.objects.create(
+                prop = Property.objects.create(
                     customer=customer,
                     address=customer.full_address,
                 )
-            messages.success(request, f"Client '{customer.name}' added successfully.")
+                # Save lat/lng from Google Places autocomplete if provided
+                lat = request.POST.get("latitude", "").strip()
+                lng = request.POST.get("longitude", "").strip()
+                if lat and lng:
+                    try:
+                        prop.latitude = float(lat)
+                        prop.longitude = float(lng)
+                        prop.save(update_fields=["latitude", "longitude"])
+                    except (ValueError, TypeError):
+                        pass
+            if prop:
+                measure_url = reverse("property_measure_lawn", args=[customer.id, prop.id])
+                messages.success(request, f"Client '{customer.name}' added! <a href='{measure_url}' style='text-decoration:underline;font-weight:700;'>Trace the property line</a> (optional)")
+            else:
+                messages.success(request, f"Client '{customer.name}' added successfully.")
             next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
             if next_url == "estimate_and_select":
                 return redirect(reverse("billing:estimate_create") + "?customer=" + str(customer.id))

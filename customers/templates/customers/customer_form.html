@@ -32,6 +32,8 @@
       <h3>Service Address</h3>
       <p class="help" style="margin:-6px 0 12px;">This address is saved as the client's property for scheduling jobs.{% if customer %} You can add more properties from the client profile.{% endif %}</p>
       <div class="field">{{ form.address_line1.label_tag }}{{ form.address_line1 }}{{ form.address_line1.errors }}</div>
+      <input type="hidden" name="latitude" id="customer-latitude" value="">
+      <input type="hidden" name="longitude" id="customer-longitude" value="">
       <div class="field">{{ form.address_line2.label_tag }}{{ form.address_line2 }}{{ form.address_line2.errors }}</div>
       <div class="form-row three">
         <div class="field">{{ form.city.label_tag }}{{ form.city }}{{ form.city.errors }}</div>
@@ -103,7 +105,7 @@ function initAutocomplete() {
   if (!input) return;
   var autocomplete = new google.maps.places.Autocomplete(input, {
     componentRestrictions: { country: 'us' },
-    fields: ['address_components', 'formatted_address'],
+    fields: ['address_components', 'formatted_address', 'geometry'],
     types: ['address']
   });
   autocomplete.addListener('place_changed', function() {
@@ -125,6 +127,13 @@ function initAutocomplete() {
     if (cityEl) cityEl.value = city;
     if (stateEl) stateEl.value = state;
     if (zipEl) zipEl.value = zip;
+    // Save lat/lng for property geocoding
+    if (place.geometry && place.geometry.location) {
+      var latEl = document.getElementById('customer-latitude');
+      var lngEl = document.getElementById('customer-longitude');
+      if (latEl) latEl.value = place.geometry.location.lat();
+      if (lngEl) lngEl.value = place.geometry.location.lng();
+    }
   });
   // Prevent form submit on Enter when selecting autocomplete
   input.addEventListener('keydown', function(e) {

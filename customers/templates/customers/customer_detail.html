@@ -25,7 +25,10 @@
     <i data-lucide="message-square" style="width: 16px; height: 16px;"></i> Communication
   </button>
   <button class="crm-tab" data-tab="services">
-    <i data-lucide="clipboard-list" style="width: 16px; height: 16px;"></i> Services
+    <i data-lucide="clipboard-list" style="width: 16px; height: 16px;"></i> Service History
+  </button>
+  <button class="crm-tab" data-tab="estimates">
+    <i data-lucide="file-text" style="width: 16px; height: 16px;"></i> Estimates
   </button>
   <button class="crm-tab" data-tab="billing">
     <i data-lucide="receipt" style="width: 16px; height: 16px;"></i> Billing
@@ -274,28 +277,102 @@ Thank you for choosing {{ business.name }}!">
   </div>
 </div>
 
-<!-- ── Services Tab ─────────────────────────────────────────────────── -->
+<!-- ── Service History Tab ──────────────────────────────────────────── -->
 <div class="crm-tab-content" id="tab-services">
   <div class="card">
-    <h2 class="card-title">Past Services</h2>
-    <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+    <h2 class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+      Complete Service History
+      <span style="font-size:12px;font-weight:500;color:var(--text-muted);">{{ all_jobs|length }} records</span>
+    </h2>
+    <p style="font-size:13px;color:var(--text-muted);margin:-8px 0 16px;">Every service performed, with details for future reference. Use this to quote repeat work accurately.</p>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
     <table class="data-table">
       <thead>
         <tr>
           <th>Date</th>
+          <th>Services</th>
           <th>Property</th>
           <th>Crew</th>
+          <th>Notes</th>
+          <th class="num">Cost</th>
+          <th>Status</th>
         </tr>
       </thead>
       <tbody>
-        {% for job in past_jobs %}
+        {% for job in all_jobs %}
         <tr>
-          <td>{{ job.scheduled_date }}</td>
-          <td><a href="{% url 'job_detail' job.id %}" class="link-primary">{{ job.property.address }}</a></td>
-          <td>{% if job.assigned_to %}{{ job.assigned_to.username }}{% else %}—{% endif %}</td>
+          <td style="white-space:nowrap;">
+            <a href="{% url 'job_detail' job.id %}" class="link-primary" style="font-weight:600;">{{ job.scheduled_date|date:"M j, Y" }}</a>
+            {% if job.scheduled_time %}<br><span style="font-size:11px;color:var(--text-muted);">{{ job.scheduled_time|time:"g:i A" }}</span>{% endif %}
+          </td>
+          <td>
+            {% for si in job.service_items.all %}
+              <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:rgba(169,255,172,0.08);color:var(--primary);margin:1px 2px;">{{ si.service.name }}</span>
+              {% if si.quantity != 1 %}<span style="font-size:10px;color:var(--text-muted);">&times;{{ si.quantity }}</span>{% endif %}
+            {% empty %}
+              <span style="color:var(--text-muted);font-size:12px;">&mdash;</span>
+            {% endfor %}
+          </td>
+          <td style="font-size:13px;">{{ job.property.address|truncatewords:5 }}</td>
+          <td style="font-size:13px;">
+            {% if job.assigned_crew %}{{ job.assigned_crew.name }}{% elif job.assigned_to %}{{ job.assigned_to.get_full_name|default:job.assigned_to.username }}{% else %}&mdash;{% endif %}
+          </td>
+          <td style="max-width:200px;">
+            {% if job.notes %}<span style="font-size:12px;color:var(--text-secondary);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ job.notes }}">{{ job.notes|truncatewords:8 }}</span>{% else %}<span style="color:var(--text-muted);font-size:12px;">&mdash;</span>{% endif %}
+          </td>
+          <td class="num" style="white-space:nowrap;">
+            {% with total=0 %}
+            {% for si in job.service_items.all %}
+              {% if forloop.first %}<span style="font-weight:600;">${{ si.line_total|floatformat:2 }}</span>{% endif %}
+            {% empty %}
+              <span style="color:var(--text-muted);">&mdash;</span>
+            {% endfor %}
+            {% endwith %}
+          </td>
+          <td>
+            <span class="badge badge-{{ job.status|cut:'_' }}" style="font-size:10px;">{{ job.status }}</span>
+          </td>
         </tr>
         {% empty %}
-        <tr><td colspan="3">No completed services yet.</td></tr>
+        <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">No services recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Estimates Tab ───────────────────────────────────────────────── -->
+<div class="crm-tab-content" id="tab-estimates">
+  <div class="card">
+    <h2 class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+      Estimates &amp; Quotes
+      <a href="{% url 'billing:estimate_create' %}?customer={{ customer.id }}" class="btn btn-primary btn-sm">+ New Estimate</a>
+    </h2>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Title</th>
+          <th>Date</th>
+          <th class="num">Total</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for est in estimates %}
+        <tr>
+          <td><a href="{% url 'billing:estimate_detail' est.id %}" class="link-primary" style="font-weight:600;">#{{ est.id }}</a></td>
+          <td>{{ est.title|truncatewords:6 }}</td>
+          <td>{{ est.created_at|date:"M j, Y" }}</td>
+          <td class="num" style="font-weight:600;">${{ est.total|floatformat:2 }}</td>
+          <td><span class="badge badge-{{ est.status|lower }}" style="font-size:10px;">{{ est.status }}</span></td>
+          <td><a href="{% url 'billing:estimate_detail' est.id %}" class="btn btn-secondary btn-sm">View</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">No estimates yet. <a href="{% url 'billing:estimate_create' %}?customer={{ customer.id }}" class="link-primary">Create one</a></td></tr>
         {% endfor %}
       </tbody>
     </table>
