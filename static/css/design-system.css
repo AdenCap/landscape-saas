@@ -1,55 +1,59 @@
 /*
- * FieldLgx Design System
- * Material Design 3 dark — layered surfaces, Manrope type, warm depth
- * Inspired by premium landscaping CRM (Arboretum aesthetic)
+ * FieldLgx Design System — "Digital Architect of Nature"
+ * Deep obsidian surfaces, bioluminescent accents, glassmorphism
+ * No-Line Rule: boundaries defined by surface shifts, not borders
  */
 
 :root {
-  /* M3 Surface System — layered depth, warm undertone */
-  --bg: #131313;
-  --bg-elevated: #1c1b1b;
-  --bg-surface: #201f1f;
-  --bg-surface-hover: #2a2a2a;
+  /* Deep Obsidian Surface Stack (tonal layering, no borders) */
+  --bg: #0e0e0e;
+  --bg-elevated: #141414;
+  --bg-surface: #1a1a1a;
+  --bg-surface-hover: #222222;
 
-  --surface-lowest: #0e0e0e;
-  --surface-low: #1c1b1b;
-  --surface-container: #201f1f;
-  --surface-high: #2a2a2a;
-  --surface-highest: #353534;
-  --surface-bright: #393939;
+  --surface-lowest: #000000;
+  --surface-low: #0e0e0e;
+  --surface-container: #131313;
+  --surface-high: #201f1f;
+  --surface-highest: #262626;
+  --surface-bright: #2e2e2e;
+  --surface-variant: #1a1a1a;
 
-  --border: #40493d;
-  --border-hover: #8a9485;
-  --border-focus: #88d982;
+  /* Ghost borders only — 15% opacity outline-variant */
+  --border: rgba(73, 72, 71, 0.15);
+  --border-hover: rgba(73, 72, 71, 0.4);
+  --border-focus: #a9ffac;
 
-  --text: #e5e2e1;
-  --text-secondary: #bfcaba;
-  --text-muted: #8a9485;
-  --text-disabled: #52525b;
+  /* Text — never pure white for body text */
+  --text: #e8e6e3;
+  --text-secondary: #a3a19d;
+  --text-muted: #6b6966;
+  --text-disabled: #3d3c3a;
 
-  /* Primary — warm green (Arboretum palette) */
-  --primary: #88d982;
-  --primary-hover: #2e7d32;
-  --primary-light: rgba(136, 217, 130, 0.08);
-  --primary-glow: rgba(46, 125, 50, 0.3);
-  --primary-container: #2e7d32;
-  --on-primary: #003909;
+  /* Primary — Electric Lime / Bioluminescent Green */
+  --primary: #a9ffac;
+  --primary-hover: #00fe66;
+  --primary-light: rgba(169, 255, 172, 0.06);
+  --primary-glow: rgba(169, 255, 172, 0.08);
+  --primary-container: #00fe66;
+  --on-primary: #001f06;
 
-  --accent: #b4cf95;
-  --accent-subtle: rgba(180, 207, 149, 0.1);
+  /* Secondary — Acid Lime for data highlights */
+  --accent: #c3f400;
+  --accent-subtle: rgba(195, 244, 0, 0.08);
 
-  /* Secondary (natural green) + Tertiary (rose) for service coding */
-  --secondary: #b4cf95;
-  --secondary-container: #395022;
-  --tertiary: #ffb1c7;
-  --tertiary-container: #7f2448;
+  /* Tertiary — Cyan/Blueprint for technical elements */
+  --secondary: #c3f400;
+  --secondary-container: #2a3300;
+  --tertiary: #81ecff;
+  --tertiary-container: #003d4d;
 
-  /* Glass — frosted panels */
-  --glass: rgba(53, 53, 52, 0.7);
-  --glass-strong: rgba(53, 53, 52, 0.85);
-  --glass-border: rgba(64, 73, 61, 0.3);
+  /* Glassmorphism */
+  --glass: rgba(26, 26, 26, 0.4);
+  --glass-strong: rgba(26, 26, 26, 0.6);
+  --glass-border: rgba(73, 72, 71, 0.15);
 
-  /* Spacing — balanced 8px base */
+  /* Spacing — generous, editorial */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -64,9 +68,9 @@
   --space-24: 96px;
   --space-32: 128px;
 
-  /* Typography — Manrope for warmth + personality */
-  --font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+  /* Typography — Manrope display + Space Grotesk data */
+  --font-family: 'Manrope', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'Space Grotesk', 'SF Mono', 'Consolas', monospace;
 
   --text-xs: 11px;
   --text-sm: 13px;
@@ -74,44 +78,44 @@
   --text-lg: 16px;
   --text-xl: 20px;
 
-  --h1: clamp(24px, 3vw, 30px);
-  --h2: clamp(20px, 2.5vw, 24px);
+  --h1: clamp(28px, 4vw, 40px);
+  --h2: clamp(22px, 3vw, 28px);
   --h3: clamp(16px, 2vw, 20px);
   --h4: clamp(14px, 1.8vw, 16px);
   --h5: clamp(13px, 1.5vw, 14px);
 
-  --line-height-tight: 1.15;
+  --line-height-tight: 1.1;
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.6;
 
-  --letter-spacing-tight: -0.02em;
+  --letter-spacing-tight: -0.03em;
   --letter-spacing-normal: -0.006em;
 
-  /* Border Radius — M3 style */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  /* Border Radius — luxury rounded (1.5rem for cards) */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
   --radius-full: 9999px;
 
-  /* Shadows — layered depth */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 15px var(--primary-glow);
+  /* Shadows — bioluminescent glow, no muddy drop shadows */
+  --shadow-sm: 0 0 20px rgba(169, 255, 172, 0.03);
+  --shadow-md: 0 0 40px rgba(169, 255, 172, 0.05);
+  --shadow-lg: 0 0 60px rgba(169, 255, 172, 0.08);
+  --shadow-xl: 0 0 100px rgba(169, 255, 172, 0.08);
+  --shadow-glow: 0 0 30px rgba(169, 255, 172, 0.12);
 
-  /* Motion — smooth, organic */
+  /* Motion — smooth, oiled, 300ms Ease-Out-Expo */
   --motion-fast: 150ms;
-  --motion-base: 200ms;
+  --motion-base: 250ms;
   --motion-slow: 300ms;
-  --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
-  --motion-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Gradients */
-  --gradient-primary: linear-gradient(135deg, var(--primary-container), var(--primary));
+  /* Gradients — signature primary gradient */
+  --gradient-primary: linear-gradient(135deg, #a9ffac, #00fe66);
   --gradient-bg: var(--bg);
-  --gradient-surface: var(--bg-surface);
+  --gradient-surface: var(--surface-container);
 
   /* Z-index scale */
   --z-base: 1;
@@ -123,93 +127,49 @@
 
 /* Light Theme */
 [data-theme="light"] {
-  --bg: #fafaf8;
+  --bg: #f8f8f6;
   --bg-elevated: #ffffff;
-  --bg-surface: #f2f1ef;
-  --bg-surface-hover: #e8e6e3;
+  --bg-surface: #f0efed;
+  --bg-surface-hover: #e5e4e2;
 
   --surface-lowest: #ffffff;
-  --surface-low: #f7f5f3;
-  --surface-container: #f2f1ef;
-  --surface-high: #e8e6e3;
-  --surface-highest: #dddbd8;
-  --surface-bright: #fafaf8;
+  --surface-low: #f8f8f6;
+  --surface-container: #f0efed;
+  --surface-high: #e5e4e2;
+  --surface-highest: #d8d7d5;
+  --surface-bright: #f8f8f6;
 
-  --border: #d4d1cc;
-  --border-hover: #b8b5b0;
-  --border-focus: #2e7d32;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-hover: rgba(0, 0, 0, 0.15);
+  --border-focus: #00c853;
 
-  --text: #1c1b1b;
-  --text-secondary: #49473f;
-  --text-muted: #8a8880;
-  --text-disabled: #c4c2bd;
+  --text: #1a1a1a;
+  --text-secondary: #555;
+  --text-muted: #999;
+  --text-disabled: #ccc;
 
-  --primary: #1b6d24;
-  --primary-hover: #145a1d;
-  --primary-light: rgba(27, 109, 36, 0.06);
-  --primary-glow: rgba(27, 109, 36, 0.12);
-  --primary-container: #a3f69c;
-  --on-primary: #ffffff;
+  --primary: #00c853;
+  --primary-hover: #00a846;
+  --primary-light: rgba(0, 200, 83, 0.06);
+  --primary-glow: rgba(0, 200, 83, 0.1);
+  --primary-container: #00fe66;
+  --on-primary: #001f06;
 
-  --accent: #395022;
-  --accent-subtle: rgba(57, 80, 34, 0.08);
-
-  --glass: rgba(0, 0, 0, 0.02);
-  --glass-strong: rgba(0, 0, 0, 0.04);
-  --glass-border: rgba(0, 0, 0, 0.06);
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.07);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.1);
   --shadow-glow: 0 0 12px var(--primary-glow);
 
-  --gradient-primary: linear-gradient(135deg, var(--primary), #2e7d32);
+  --gradient-primary: linear-gradient(135deg, #00c853, #00fe66);
   --gradient-bg: var(--bg);
   --gradient-surface: var(--bg-surface);
 }
 
 /* System preference: auto-apply light when user prefers it and no explicit theme set */
 @media (prefers-color-scheme: light) {
-  [data-theme="system"] {
-    --bg: #fafaf8;
-    --bg-elevated: #ffffff;
-    --bg-surface: #f2f1ef;
-    --bg-surface-hover: #e8e6e3;
-
-    --border: #d4d1cc;
-    --border-hover: #b8b5b0;
-    --border-focus: #2e7d32;
-
-    --text: #1c1b1b;
-    --text-secondary: #49473f;
-    --text-muted: #8a8880;
-    --text-disabled: #c4c2bd;
-
-    --primary: #1b6d24;
-    --primary-hover: #145a1d;
-    --primary-light: rgba(27, 109, 36, 0.06);
-    --primary-glow: rgba(27, 109, 36, 0.12);
-    --primary-container: #a3f69c;
-    --on-primary: #ffffff;
-
-    --accent: #395022;
-    --accent-subtle: rgba(57, 80, 34, 0.08);
-
-    --glass: rgba(0, 0, 0, 0.02);
-    --glass-strong: rgba(0, 0, 0, 0.04);
-    --glass-border: rgba(0, 0, 0, 0.06);
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.07);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
-    --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12);
-    --shadow-glow: 0 0 12px var(--primary-glow);
-
-    --gradient-primary: linear-gradient(135deg, var(--primary), #2e7d32);
-    --gradient-bg: var(--bg);
-    --gradient-surface: var(--bg-surface);
-  }
+  /* System theme inherits dark by default — dark-first app */
+  [data-theme="system"] {}
 }
 
 /* Base Styles */
@@ -232,7 +192,7 @@ body {
   color: var(--text);
   background: var(--bg);
   min-height: 100vh;
-  letter-spacing: -0.01em; /* Manrope reads better with slight tightening */
+  letter-spacing: -0.01em;
 }
 
 /* Typography */
@@ -265,22 +225,22 @@ a:hover {
   color: var(--primary-hover);
 }
 
-/* Buttons — M3 style with gradient primary */
+/* Buttons — gradient primary, ghost-border secondary */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 18px;
+  padding: 10px 20px;
   font-family: var(--font-family);
   font-size: var(--text-sm);
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.3;
-  border-radius: var(--radius-md);
+  border-radius: 1rem;
   border: 1px solid transparent;
   cursor: pointer;
   text-decoration: none;
-  transition: all var(--motion-base) var(--motion-ease);
+  transition: all var(--motion-slow) var(--motion-ease);
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
@@ -293,24 +253,25 @@ a:hover {
   background: var(--gradient-primary);
   color: var(--on-primary);
   border-color: transparent;
-  box-shadow: 0 0 15px var(--primary-glow);
+  box-shadow: 0 0 20px rgba(169, 255, 172, 0.15);
+  font-weight: 700;
 }
 
 .btn-primary:hover {
-  filter: brightness(1.1);
+  box-shadow: 0 0 40px rgba(169, 255, 172, 0.25);
   color: var(--on-primary);
 }
 
 .btn-secondary {
   background: transparent;
   color: var(--text-secondary);
-  border-color: var(--border);
+  border-color: rgba(73, 72, 71, 0.15);
 }
 
 .btn-secondary:hover {
-  background: var(--bg-surface-hover);
-  border-color: var(--border-hover);
+  border-color: rgba(73, 72, 71, 0.4);
   color: var(--text);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .btn-ghost {
@@ -329,17 +290,19 @@ a:hover {
   font-size: var(--text-xs);
 }
 
-/* Cards — M3 surface container with subtle border */
+/* Cards — borderless glass, tonal surface, beveled edge */
 .card {
-  background: var(--surface-low, var(--bg-elevated));
-  border: 1px solid rgba(64, 73, 61, 0.1);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  box-shadow: var(--shadow-sm);
+  background: var(--surface-high, #201f1f);
+  border: none;
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), var(--shadow-sm);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .card:hover {
-  border-color: rgba(64, 73, 61, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--shadow-md);
 }
 
 /* Containers */
