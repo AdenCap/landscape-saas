@@ -3,21 +3,21 @@
    Dark theme overrides for FullCalendar 6 + custom components
    ========================================================================== */
 
-/* ── FullCalendar CSS Variable Overrides (Google Calendar style) ── */
+/* ── FullCalendar CSS Variable Overrides (Terraform Pro) ── */
 .fc {
-  --fc-border-color: var(--border);
-  --fc-bg-color: var(--bg);
-  --fc-highlight-color: var(--primary-light);
-  --fc-today-bg-color: rgba(74, 222, 128, 0.04);
+  --fc-border-color: rgba(66, 72, 68, 0.1);
+  --fc-bg-color: #131313;
+  --fc-highlight-color: rgba(157, 216, 80, 0.06);
+  --fc-today-bg-color: rgba(157, 216, 80, 0.03);
   --fc-now-indicator-color: #ef4444;
-  --fc-neutral-bg-color: var(--bg-elevated);
-  --fc-list-event-hover-bg-color: var(--bg-surface-hover);
-  --fc-page-bg-color: var(--bg);
-  --fc-neutral-text-color: var(--text-secondary);
-  --fc-button-bg-color: var(--bg-elevated);
-  --fc-button-border-color: var(--border);
-  --fc-button-text-color: var(--text);
-  --fc-button-hover-bg-color: var(--bg-surface-hover);
+  --fc-neutral-bg-color: #1c1b1b;
+  --fc-list-event-hover-bg-color: #201f1f;
+  --fc-page-bg-color: #131313;
+  --fc-neutral-text-color: #c2c8c2;
+  --fc-button-bg-color: #2a2a2a;
+  --fc-button-border-color: rgba(66, 72, 68, 0.2);
+  --fc-button-text-color: #e5e2e1;
+  --fc-button-hover-bg-color: #353534;
   --fc-button-hover-border-color: var(--border-hover);
   --fc-button-active-bg-color: var(--primary);
   --fc-button-active-border-color: var(--primary);
@@ -61,9 +61,10 @@
 
 .fc .fc-button-primary:not(:disabled).fc-button-active,
 .fc .fc-button-primary:not(:disabled):active {
-  background: var(--primary) !important;
-  border-color: var(--primary) !important;
-  color: var(--on-primary) !important;
+  background: #9dd850 !important;
+  border-color: #9dd850 !important;
+  color: #1f3700 !important;
+  font-weight: 700;
 }
 
 .fc .fc-today-button {
