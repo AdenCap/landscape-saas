@@ -246,13 +246,26 @@
           </details>
           {% endif %}
           {% if gmail_oauth_connected or business.email_smtp_user and business.email_smtp_password %}
-          </form>
-          <form method="post" action="{% url 'test_gmail_connection' %}" style="margin-top: 4px;">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-secondary btn-sm">Send test email</button>
-          </form>
-          <form method="post" enctype="multipart/form-data" id="settings-form-resume">
-          {% csrf_token %}
+          <div style="margin-top: 8px;">
+            <button type="button" class="btn btn-secondary btn-sm" id="test-email-btn" onclick="testEmail()">Send test email</button>
+          </div>
+          <script>
+          function testEmail() {
+            var btn = document.getElementById('test-email-btn');
+            btn.disabled = true;
+            btn.textContent = 'Sending\u2026';
+            fetch('{% url "test_gmail_connection" %}', {
+              method: 'POST',
+              headers: {'X-CSRFToken': '{{ csrf_token }}'},
+            }).then(function(r) { return r.text(); }).then(function() {
+              btn.textContent = 'Sent!';
+              setTimeout(function() { btn.textContent = 'Send test email'; btn.disabled = false; }, 3000);
+            }).catch(function() {
+              btn.textContent = 'Failed';
+              setTimeout(function() { btn.textContent = 'Send test email'; btn.disabled = false; }, 3000);
+            });
+          }
+          </script>
           {% endif %}
         </div>
       </div>
