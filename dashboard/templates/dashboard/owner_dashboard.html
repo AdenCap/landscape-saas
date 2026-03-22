@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load humanize %}
 
 {% block content %}
 <!-- Header -->
@@ -25,7 +24,7 @@
 <div class="kpi-row">
   <div class="kpi">
     <span class="kpi-label">Revenue this month</span>
-    <span class="kpi-val">${{ revenue_this_month|floatformat:0|intcomma }}</span>
+    <span class="kpi-val">${{ revenue_this_month|floatformat:0 }}</span>
   </div>
   <div class="kpi">
     <span class="kpi-label">Jobs today</span>
@@ -33,7 +32,7 @@
   </div>
   <div class="kpi">
     <span class="kpi-label">Outstanding</span>
-    <span class="kpi-val">${{ ar_outstanding|floatformat:0|intcomma }}</span>
+    <span class="kpi-val">${{ ar_outstanding|floatformat:0 }}</span>
   </div>
   <div class="kpi">
     <span class="kpi-label">Overdue</span>
@@ -61,7 +60,7 @@
       {% if invoices_overdue_count %}
       <a href="/billing/" class="action-item action-warn">
         <span class="action-num">{{ invoices_overdue_count }}</span>
-        <span>overdue invoices &middot; ${{ invoices_overdue_total|floatformat:0|intcomma }}</span>
+        <span>overdue invoices &middot; ${{ invoices_overdue_total|floatformat:0 }}</span>
       </a>
       {% endif %}
       {% if queue_count %}
@@ -98,28 +97,28 @@
       <div class="aging-row">
         <span class="aging-label">0–30 days</span>
         <div class="aging-bar-bg"><div class="aging-bar" style="width:{{ overdue_0_30_pct|default:40 }}%;background:var(--primary);"></div></div>
-        <span class="aging-val">${{ overdue_0_30.total|floatformat:0|intcomma }}</span>
+        <span class="aging-val">${{ overdue_0_30.total|floatformat:0 }}</span>
       </div>
       <div class="aging-row">
         <span class="aging-label">30–60 days</span>
         <div class="aging-bar-bg"><div class="aging-bar" style="width:{{ overdue_30_60_pct|default:25 }}%;background:var(--tertiary);"></div></div>
-        <span class="aging-val">${{ overdue_30_60.total|floatformat:0|intcomma }}</span>
+        <span class="aging-val">${{ overdue_30_60.total|floatformat:0 }}</span>
       </div>
       <div class="aging-row">
         <span class="aging-label">60+ days</span>
         <div class="aging-bar-bg"><div class="aging-bar" style="width:{{ overdue_60_plus_pct|default:15 }}%;background:#ef4444;"></div></div>
-        <span class="aging-val">${{ overdue_60_plus.total|floatformat:0|intcomma }}</span>
+        <span class="aging-val">${{ overdue_60_plus.total|floatformat:0 }}</span>
       </div>
     </div>
   </div>
   <div class="card">
     <div class="card-head"><h3>This month</h3></div>
     <div class="stat-list">
-      <div class="stat-row"><span>Profit</span><span class="stat-val" style="color:var(--primary);">${{ profit_this_month|floatformat:0|intcomma }}</span></div>
-      <div class="stat-row"><span>Work completed</span><span class="stat-val">${{ work_completed_this_month|floatformat:0|intcomma }}</span></div>
-      <div class="stat-row"><span>Year to date</span><span class="stat-val">${{ revenue_this_year|floatformat:0|intcomma }}</span></div>
+      <div class="stat-row"><span>Profit</span><span class="stat-val" style="color:var(--primary);">${{ profit_this_month|floatformat:0 }}</span></div>
+      <div class="stat-row"><span>Work completed</span><span class="stat-val">${{ work_completed_this_month|floatformat:0 }}</span></div>
+      <div class="stat-row"><span>Year to date</span><span class="stat-val">${{ revenue_this_year|floatformat:0 }}</span></div>
       {% if next_pay_date %}
-      <div class="stat-row"><span>Next payroll</span><span class="stat-val" style="color:var(--tertiary);">${{ payroll_balance|floatformat:0|intcomma }}</span></div>
+      <div class="stat-row"><span>Next payroll</span><span class="stat-val" style="color:var(--tertiary);">${{ payroll_balance|floatformat:0 }}</span></div>
       {% endif %}
     </div>
   </div>
