@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var STORAGE_VIEW = isMobile ? 'fieldlgx_calendar_view_mobile' : (isTablet ? 'fieldlgx_calendar_view_tablet' : 'fieldlgx_calendar_view');
   var STORAGE_DATE = 'fieldlgx_calendar_date';
 
-  var defaultView = isMobile ? 'listMonth' : (isTablet ? 'timeGridWeek' : 'dayGridMonth');
+  var defaultView = isMobile ? 'listMonth' : (isTablet ? 'timeGridWeek' : 'timeGridWeek');
   var savedView = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_VIEW)) || null;
   var initialView = savedView || defaultView;
 
@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function () {
       center: 'title',
       right: isMobile
         ? 'listMonth,timeGridDay,dayGridMonth'
-        : 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+        : 'timeGridWeek,timeGridDay,dayGridMonth,listWeek'
     },
     initialView: initialView,
     initialDate: initialDate || undefined,
@@ -112,9 +112,10 @@ document.addEventListener('DOMContentLoaded', function () {
       listMonth: { buttonText: 'Schedule', duration: { months: 1 } }
     },
     slotMinTime: '06:00:00',
-    slotMaxTime: '20:00:00',
+    slotMaxTime: '22:00:00',
     slotDuration: '00:30:00',
-    allDaySlot: true,
+    allDaySlot: false,
+    expandRows: true,
     nowIndicator: true,
     eventDisplay: 'block',
     editable: isOwner,

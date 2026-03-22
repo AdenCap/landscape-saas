@@ -3,18 +3,18 @@
    Dark theme overrides for FullCalendar 6 + custom components
    ========================================================================== */
 
-/* ── FullCalendar CSS Variable Overrides ── */
+/* ── FullCalendar CSS Variable Overrides (Google Calendar style) ── */
 .fc {
   --fc-border-color: var(--border);
-  --fc-bg-color: var(--bg-surface);
+  --fc-bg-color: var(--bg);
   --fc-highlight-color: var(--primary-light);
-  --fc-today-bg-color: rgba(34, 197, 94, 0.05);
-  --fc-now-indicator-color: var(--primary);
+  --fc-today-bg-color: rgba(74, 222, 128, 0.04);
+  --fc-now-indicator-color: #ef4444;
   --fc-neutral-bg-color: var(--bg-elevated);
   --fc-list-event-hover-bg-color: var(--bg-surface-hover);
-  --fc-page-bg-color: var(--bg-surface);
+  --fc-page-bg-color: var(--bg);
   --fc-neutral-text-color: var(--text-secondary);
-  --fc-button-bg-color: var(--bg-surface);
+  --fc-button-bg-color: var(--bg-elevated);
   --fc-button-border-color: var(--border);
   --fc-button-text-color: var(--text);
   --fc-button-hover-bg-color: var(--bg-surface-hover);
@@ -34,49 +34,82 @@
   gap: 12px;
 }
 
+/* Google Calendar-style toolbar */
 .fc .fc-toolbar-title {
-  font-size: var(--text-lg);
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: var(--letter-spacing-tight);
+  letter-spacing: -0.01em;
   color: var(--text);
 }
 
 .fc .fc-button {
-  padding: 7px 14px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
   font-family: var(--font-family);
-  border-radius: var(--radius-sm);
-  transition: all var(--motion-base) var(--motion-ease);
+  border-radius: var(--radius-full);
+  transition: all var(--motion-fast) var(--motion-ease);
   text-transform: none;
   box-shadow: none;
   line-height: 1.4;
+  border-color: var(--border);
 }
 
 .fc .fc-button:focus {
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+  box-shadow: none;
 }
 
 .fc .fc-button-primary:not(:disabled).fc-button-active,
 .fc .fc-button-primary:not(:disabled):active {
   background: var(--primary) !important;
   border-color: var(--primary) !important;
-  color: #fff !important;
+  color: var(--on-primary) !important;
+}
+
+.fc .fc-today-button {
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.fc .fc-today-button:hover {
+  background: var(--primary-light);
 }
 
 .fc .fc-button-group > .fc-button {
   border-radius: 0;
 }
 .fc .fc-button-group > .fc-button:first-child {
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  border-radius: var(--radius-full) 0 0 var(--radius-full);
 }
 .fc .fc-button-group > .fc-button:last-child {
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
 }
 
-/* ── Column Headers ── */
+/* Google Calendar: prev/next arrows */
+.fc .fc-prev-button,
+.fc .fc-next-button {
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+}
+
+.fc .fc-prev-button:hover,
+.fc .fc-next-button:hover {
+  background: var(--bg-surface-hover);
+}
+
+/* ── Column Headers (Google Calendar style) ── */
 .fc .fc-col-header-cell {
-  background: var(--bg-elevated);
+  background: transparent;
   border-color: var(--border);
   padding: 10px 0;
 }
@@ -132,32 +165,101 @@
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* ── Time Grid ── */
+/* ── Time Grid (Google Calendar style) ── */
 .fc .fc-timegrid-slot {
   height: 48px;
-  border-bottom-color: rgba(38, 38, 38, 0.5);
+  border-bottom-color: var(--border);
 }
 
 .fc .fc-timegrid-slot-label {
   font-size: 11px;
   color: var(--text-muted);
-  font-weight: 500;
+  font-weight: 400;
+  padding-right: 12px;
 }
 
 .fc .fc-timegrid-slot-minor {
-  border-top-style: dotted;
-  border-top-color: rgba(38, 38, 38, 0.3);
+  border-top-style: none;
 }
 
 .fc-timegrid .fc-day-today {
-  background: rgba(34, 197, 94, 0.03) !important;
+  background: rgba(74, 222, 128, 0.02) !important;
 }
 
-/* ── Now Indicator ── */
+/* Google Calendar: large date numbers in column headers */
+.fc .fc-col-header-cell {
+  padding: 8px 0 12px;
+  vertical-align: bottom;
+}
+
+.fc .fc-col-header-cell-cushion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+/* Make the day-of-week text small, date number big */
+.fc .fc-timegrid .fc-col-header-cell .fc-col-header-cell-cushion {
+  font-size: 11px;
+}
+
+/* Today's column header gets green highlight */
+.fc .fc-day-today .fc-col-header-cell-cushion {
+  color: var(--primary);
+}
+
+/* ── Now Indicator (Google Calendar uses red) ── */
 .fc .fc-timegrid-now-indicator-line {
-  border-color: var(--primary);
+  border-color: #ef4444;
   border-width: 2px;
-  box-shadow: 0 0 8px var(--primary-glow);
+}
+
+.fc .fc-timegrid-now-indicator-arrow {
+  border-color: #ef4444;
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+}
+
+/* ── Time Grid Events (Google Calendar style blocks) ── */
+.fc .fc-timegrid-event {
+  border-radius: 6px;
+  border: none;
+  border-left: 3px solid;
+  padding: 2px 6px;
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.fc .fc-timegrid-event .fc-event-main {
+  padding: 2px 4px;
+}
+
+.fc .fc-timegrid-event .cal-event-card {
+  gap: 4px;
+}
+
+.fc .fc-timegrid-event .cal-event-name {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.fc .fc-timegrid-event .cal-event-addr {
+  font-size: 11px;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.fc .fc-timegrid-event .cal-event-crew {
+  font-size: 10px;
+  color: rgba(255,255,255,0.7);
 }
 
 .fc .fc-timegrid-now-indicator-arrow {
