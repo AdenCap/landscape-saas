@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>{{ agreement.name }}</h1>
+    <p>{{ agreement.customer.name }} &middot; {{ agreement.get_status_display }} &middot; {{ agreement.visits_included }} visits</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <form method="post" action="{% url 'service_agreements:agreement_delete' agreement.id %}" style="display:inline;" onsubmit="return confirm('Delete this plan? Scheduled jobs will NOT be deleted.');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-secondary" style="color:#ffb4ab;">Delete</button>
+    </form>
+    <a href="{% url 'service_agreements:hub' %}" class="btn btn-secondary">&larr; Back</a>
+  </div>
+</div>
+
+{% if agreement.price %}
+<div style="margin-bottom:16px;font-size:14px;color:var(--text-secondary);">
+  Annual price: <strong style="color:var(--primary);">${{ agreement.price|floatformat:2 }}</strong>
+  {% if agreement.notes %}&middot; {{ agreement.notes }}{% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+  <h3 class="card-title">Scheduled Visits</h3>
+  <div style="overflow-x:auto;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Status</th>
+        <th>Job</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for visit in visits %}
+      <tr>
+        <td style="font-weight:600;">{{ visit.scheduled_date|date:"M j, Y" }}</td>
+        <td>
+          <span class="badge badge-{{ visit.status }}" style="font-size:10px;">{{ visit.get_status_display }}</span>
+        </td>
+        <td>
+          {% if visit.job %}
+          <a href="{% url 'job_detail' visit.job.id %}" class="link-primary">#{{ visit.job.id }} — {{ visit.job.get_status_display }}</a>
+          {% else %}—{% endif %}
+        </td>
+        <td style="font-size:12px;color:var(--text-muted);">{{ visit.notes|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">No visits scheduled.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

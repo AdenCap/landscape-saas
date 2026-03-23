@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>Create Maintenance Plan</h1>
+    <p>Define services with scheduled dates — jobs are auto-created on the calendar.</p>
+  </div>
+  <a href="{% url 'service_agreements:hub' %}" class="btn btn-secondary">&larr; Back</a>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+
+  <!-- Customer & Property -->
+  <div class="card" style="max-width:700px;margin-bottom:16px;">
+    <h3 style="margin:0 0 14px;font-family:var(--font-headline);font-weight:700;">Customer &amp; Property</h3>
+    <div class="sa-field">
+      <label>Customer</label>
+      <select id="sa-customer" onchange="saUpdateProps()">
+        <option value="">Select customer...</option>
+      </select>
+    </div>
+    <div class="sa-field" id="sa-prop-wrap" style="display:none;">
+      <label>Property</label>
+      <select id="sa-property" name="property_id">
+        <option value="">Select property...</option>
+      </select>
+    </div>
+    <input type="hidden" name="customer_id" id="sa-customer-id">
+  </div>
+
+  <!-- Plan Details -->
+  <div class="card" style="max-width:700px;margin-bottom:16px;">
+    <h3 style="margin:0 0 14px;font-family:var(--font-headline);font-weight:700;">Plan Details</h3>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;">
+      <div class="sa-field">
+        <label>Plan Name</label>
+        <input type="text" name="name" placeholder="e.g. Annual Maintenance Plan" required>
+      </div>
+      <div class="sa-field">
+        <label>Annual Price</label>
+        <input type="number" name="price" step="0.01" min="0" placeholder="e.g. 1200.00">
+      </div>
+    </div>
+    <div class="sa-field">
+      <label>Notes</label>
+      <textarea name="notes" rows="2" placeholder="Special instructions, client preferences..."></textarea>
+    </div>
+  </div>
+
+  <!-- Scheduled Services -->
+  <div class="card" style="max-width:700px;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;">Scheduled Services</h3>
+      <button type="button" id="sa-add-visit" class="btn btn-secondary" style="font-size:12px;">+ Add Service</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin:-6px 0 14px;">Each service below will create a job on the calendar automatically.</p>
+
+    <div id="sa-visits"></div>
+  </div>
+
+  <div style="display:flex;gap:10px;max-width:700px;">
+    <button type="submit" class="btn btn-primary">Create Plan &amp; Schedule Jobs</button>
+    <a href="{% url 'service_agreements:hub' %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+
+<script>
+(function() {
+  var customers = {{ customers_json|safe }};
+  var MONTHS = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var container = document.getElementById('sa-visits');
+  var custSel = document.getElementById('sa-customer');
+
+  // Populate customers
+  customers.forEach(function(c) {
+    var o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = c.name;
+    custSel.appendChild(o);
+  });
+
+  window.saUpdateProps = function() {
+    var cid = custSel.value;
+    document.getElementById('sa-customer-id').value = cid;
+    var propSel = document.getElementById('sa-property');
+    while (propSel.options.length > 1) propSel.remove(1);
+    if (!cid) { document.getElementById('sa-prop-wrap').style.display = 'none'; return; }
+    var cust = customers.find(function(c) { return String(c.id) === String(cid); });
+    if (cust) {
+      cust.properties.forEach(function(p) {
+        var o = document.createElement('option');
+        o.value = p.id;
+        o.textContent = p.address + (p.sqft ? ' (' + p.sqft + ' sq ft)' : '');
+        propSel.appendChild(o);
+      });
+      if (cust.properties.length === 1) propSel.selectedIndex = 1;
+    }
+    document.getElementById('sa-prop-wrap').style.display = '';
+  };
+
+  function addVisit(data) {
+    data = data || {};
+    var row = document.createElement('div');
+    row.className = 'sa-visit-row';
+
+    // Service select
+    var f1 = document.createElement('div');
+    f1.className = 'sa-field';
+    var l1 = document.createElement('label');
+    l1.textContent = 'Service';
+    f1.appendChild(l1);
+    var sel = document.createElement('select');
+    sel.name = 'visit_service';
+    var defOpt = document.createElement('option');
+    defOpt.value = '';
+    defOpt.textContent = 'Select...';
+    sel.appendChild(defOpt);
+    {% for svc in services %}
+    var o{{ svc.id }} = document.createElement('option');
+    o{{ svc.id }}.value = '{{ svc.id }}';
+    o{{ svc.id }}.textContent = '{{ svc.name|escapejs }}';
+    sel.appendChild(o{{ svc.id }});
+    {% endfor %}
+    f1.appendChild(sel);
+
+    // Month select
+    var f2 = document.createElement('div');
+    f2.className = 'sa-field';
+    var l2 = document.createElement('label');
+    l2.textContent = 'Month';
+    f2.appendChild(l2);
+    var mSel = document.createElement('select');
+    mSel.name = 'visit_month';
+    for (var m = 1; m <= 12; m++) {
+      var mo = document.createElement('option');
+      mo.value = m;
+      mo.textContent = MONTHS[m];
+      mSel.appendChild(mo);
+    }
+    f2.appendChild(mSel);
+
+    // Day
+    var f3 = document.createElement('div');
+    f3.className = 'sa-field';
+    var l3 = document.createElement('label');
+    l3.textContent = 'Day';
+    f3.appendChild(l3);
+    var dayInput = document.createElement('input');
+    dayInput.type = 'number';
+    dayInput.name = 'visit_day';
+    dayInput.min = '1';
+    dayInput.max = '28';
+    dayInput.value = '15';
+    dayInput.placeholder = '15';
+    f3.appendChild(dayInput);
+
+    // Notes
+    var f4 = document.createElement('div');
+    f4.className = 'sa-field';
+    var l4 = document.createElement('label');
+    l4.textContent = 'Notes';
+    f4.appendChild(l4);
+    var notesInput = document.createElement('input');
+    notesInput.type = 'text';
+    notesInput.name = 'visit_notes';
+    notesInput.placeholder = 'Optional...';
+    f4.appendChild(notesInput);
+
+    // Remove
+    var rmBtn = document.createElement('button');
+    rmBtn.type = 'button';
+    rmBtn.className = 'sa-visit-rm';
+    rmBtn.textContent = '\u00D7';
+    rmBtn.addEventListener('click', function() { row.remove(); });
+
+    var grid = document.createElement('div');
+    grid.className = 'sa-visit-grid';
+    grid.appendChild(f1);
+    grid.appendChild(f2);
+    grid.appendChild(f3);
+    grid.appendChild(f4);
+    grid.appendChild(rmBtn);
+    row.appendChild(grid);
+
+    container.appendChild(row);
+    return row;
+  }
+
+  // Start with 4 common services
+  var defaults = [
+    {name: 'Spring Cleanup', month: 3},
+    {name: 'Mulching', month: 4},
+    {name: 'Bush Trimming', month: 6},
+    {name: 'Fall Cleanup', month: 10},
+  ];
+  defaults.forEach(function() { addVisit(); });
+
+  document.getElementById('sa-add-visit').addEventListener('click', function() {
+    addVisit();
+  });
+})();
+</script>
+
+<style>
+  .sa-field { margin-bottom: 10px; }
+  .sa-field label { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .sa-field input, .sa-field select, .sa-field textarea { width: 100%; }
+
+  .sa-visit-row { background: var(--surface-highest); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; margin-bottom: 8px; }
+  .sa-visit-grid { display: grid; grid-template-columns: 2fr 1fr 60px 2fr 28px; gap: 8px; align-items: end; }
+  .sa-visit-rm { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 0; align-self: end; margin-bottom: 12px; }
+  .sa-visit-rm:hover { color: #ffb4ab; }
+
+  @media (max-width: 768px) {
+    .sa-visit-grid { grid-template-columns: 1fr 1fr; }
+    .sa-visit-rm { grid-column: span 2; text-align: right; }
+    .sa-field input, .sa-field select, .sa-field textarea { font-size: 16px; min-height: 44px; }
+    .card[style*="max-width:700px"] { max-width: 100% !important; }
+  }
+</style>
+{% endblock %}
