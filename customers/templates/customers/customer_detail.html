@@ -8,6 +8,10 @@
   </div>
   <div style="display: flex; gap: 8px; flex-wrap: wrap;">
     <a href="{% url 'customer_edit' customer.id %}" class="btn btn-secondary">Edit Client</a>
+    <form method="post" action="{% url 'customer_delete' customer.id %}" style="display:inline;" onsubmit="return confirm('Delete {{ customer.name }}? This will remove all their properties, jobs, invoices, and data. This cannot be undone.');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-secondary" style="color:#ffb4ab;">Delete</button>
+    </form>
     {% if customer.portal_access_token %}
     <a href="{% url 'customer_portal' customer.portal_access_token %}" target="_blank" class="btn btn-primary">
       <i data-lucide="external-link" style="width: 16px; height: 16px;"></i> View Customer Portal

@@ -433,6 +433,39 @@ def mark_invoice_paid(request, invoice_id):
 
 
 @require_POST
+@role_required("owner", "manager")
+def invoice_delete(request, invoice_id):
+    """Delete an invoice (draft or sent). Paid invoices cannot be deleted."""
+    business = _get_business(request)
+    qs = Invoice.objects.filter(id=invoice_id)
+    if business:
+        qs = qs.filter(business=business)
+    invoice = get_object_or_404(qs)
+    if invoice.status == "paid":
+        messages.error(request, "Paid invoices cannot be deleted. Void it instead.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+    inv_id = invoice.id
+    invoice.delete()
+    messages.success(request, f"Invoice #{inv_id} has been deleted.")
+    return redirect("billing:invoice_list")
+
+
+@require_POST
+@role_required("owner", "manager")
+def estimate_delete(request, estimate_id):
+    """Delete an estimate."""
+    business = _get_business(request)
+    qs = Estimate.objects.filter(id=estimate_id)
+    if business:
+        qs = qs.filter(customer__business=business)
+    estimate = get_object_or_404(qs)
+    est_id = estimate.id
+    estimate.delete()
+    messages.success(request, f"Estimate #{est_id} has been deleted.")
+    return redirect("billing:estimate_list")
+
+
+@require_POST
 def invoice_customer_paid_notify(request, invoice_id, token):
     """Customer clicks 'I Paid' — notifies the business owner to confirm payment."""
     invoice = get_object_or_404(

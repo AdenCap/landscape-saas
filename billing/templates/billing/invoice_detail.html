@@ -222,7 +222,13 @@
         <button type=”submit” class=”btn btn-primary”>Mark as paid</button>
       </form>
       {% endif %}
-      <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">← Back to Invoices</a>
+      {% if invoice.status != "paid" %}
+      <form method="post" action="{% url 'billing:invoice_delete' invoice.id %}" style="display:inline;" onsubmit="return confirm('Delete Invoice #{{ invoice.id }}? This cannot be undone.');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary" style="color:#ffb4ab;">Delete</button>
+      </form>
+      {% endif %}
+      <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">&larr; Back to Invoices</a>
     </div>
   </div>
 </div>

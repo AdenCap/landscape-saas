@@ -29,6 +29,10 @@
         </form>
         {% endif %}
       {% endif %}
+      <form method="post" action="{% url 'billing:estimate_delete' estimate.id %}" style="display:inline;" onsubmit="return confirm('Delete Estimate #{{ estimate.id }}? This cannot be undone.');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary" style="color:#ffb4ab;">Delete</button>
+      </form>
       <a href="{% url 'billing:estimate_list' %}" class="btn btn-secondary">Back to list</a>
     </div>
   </header>

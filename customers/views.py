@@ -445,6 +445,21 @@ def customer_edit(request, customer_id):
 
 
 @role_required("owner", "manager")
+@require_http_methods(["POST"])
+def customer_delete(request, customer_id):
+    """Delete a customer and all associated data."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+    name = customer.name
+    customer.delete()
+    messages.success(request, f"Client '{name}' has been deleted.")
+    return redirect("customer_list")
+
+
+@role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def property_add(request, customer_id):
     business = _get_business(request)

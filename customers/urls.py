@@ -11,6 +11,7 @@ urlpatterns = [
     path("export/", views.customer_export, name="customer_export"),
     path("<int:customer_id>/", views.customer_detail, name="customer_detail"),
     path("<int:customer_id>/edit/", views.customer_edit, name="customer_edit"),
+    path("<int:customer_id>/delete/", views.customer_delete, name="customer_delete"),
     path("<int:customer_id>/message/", views.customer_send_message, name="customer_send_message"),
     path("<int:customer_id>/sms/", views.customer_send_sms, name="customer_send_sms"),
     path("<int:customer_id>/properties/add/", views.property_add, name="property_add"),
