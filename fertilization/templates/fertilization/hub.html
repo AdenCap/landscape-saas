@@ -165,7 +165,7 @@
     <i data-lucide="users" class="empty-state-icon"></i>
     <div class="empty-state-title">No enrollments for {{ current_year }}</div>
     <div class="empty-state-desc">Enroll customers in a fertilization program to schedule rounds and track applications throughout the season.</div>
-    <button type="button" class="btn btn-primary" onclick="FertHub.addEnrollment()">+ Enroll Customer</button>
+    <a href="{% url 'fertilization:enrollment_builder' %}" class="btn btn-primary">+ Enroll Customer</a>
   </div>
   {% endif %}
 </div>
