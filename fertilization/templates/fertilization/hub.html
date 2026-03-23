@@ -182,8 +182,30 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
   </div>
 
   {% if enrollments %}
+  <!-- Search + Filters -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+    <div style="position:relative;flex:1;min-width:200px;max-width:320px;">
+      <span class="material-symbols-outlined" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--text-muted);">search</span>
+      <input type="text" id="fert-search" placeholder="Search client or address..." style="width:100%;padding:9px 12px 9px 34px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;">
+    </div>
+    <select id="fert-filter-program" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;">
+      <option value="">All Programs</option>
+      {% for prog in programs %}
+      <option value="{{ prog.name }}">{{ prog.name }}</option>
+      {% endfor %}
+    </select>
+    <select id="fert-filter-status" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;">
+      <option value="">All Statuses</option>
+      <option value="enrolled">Enrolled</option>
+      <option value="in_progress">In Progress</option>
+      <option value="completed">Completed</option>
+      <option value="cancelled">Cancelled</option>
+    </select>
+    <span id="fert-result-count" style="font-size:12px;color:var(--text-muted);"></span>
+  </div>
+
   <div style="overflow-x:auto;">
-    <table class="data-table">
+    <table class="data-table" id="fert-enrollment-table">
       <thead>
         <tr>
           <th>Property</th>
@@ -198,7 +220,7 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
       </thead>
       <tbody>
         {% for enr in enrollments %}
-        <tr style="cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+        <tr class="fert-enr-row" style="cursor:pointer;" data-customer="{{ enr.property.customer.name|lower }}" data-address="{{ enr.property.address|lower }}" data-program="{{ enr.program.name }}" data-status="{{ enr.status }}" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
           <td>{{ enr.property.address }}</td>
           <td>{{ enr.property.customer.name }}</td>
           <td>{{ enr.program.name }}</td>
@@ -231,7 +253,7 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
             </form>
           </td>
         </tr>
-        <tr style="display:none;">
+        <tr class="fert-enr-detail" style="display:none;">
           <td colspan="8" style="padding:0;">
             <div style="padding:10px 20px 14px;background:var(--surface-highest);border-top:1px solid var(--border);">
               <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Round Schedule</div>
@@ -266,6 +288,50 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
   </div>
   {% endif %}
 </div>
+
+<script>
+(function() {
+  var searchInput = document.getElementById('fert-search');
+  var programFilter = document.getElementById('fert-filter-program');
+  var statusFilter = document.getElementById('fert-filter-status');
+  var countEl = document.getElementById('fert-result-count');
+  if (!searchInput) return;
+
+  function filterEnrollments() {
+    var query = (searchInput.value || '').toLowerCase();
+    var program = programFilter.value;
+    var status = statusFilter.value;
+    var rows = document.querySelectorAll('.fert-enr-row');
+    var visible = 0;
+
+    rows.forEach(function(row) {
+      var detailRow = row.nextElementSibling;
+      var customer = row.dataset.customer || '';
+      var address = row.dataset.address || '';
+      var rowProgram = row.dataset.program || '';
+      var rowStatus = row.dataset.status || '';
+
+      var matchSearch = !query || customer.indexOf(query) >= 0 || address.indexOf(query) >= 0;
+      var matchProgram = !program || rowProgram === program;
+      var matchStatus = !status || rowStatus === status;
+
+      var show = matchSearch && matchProgram && matchStatus;
+      row.style.display = show ? '' : 'none';
+      if (detailRow && detailRow.classList.contains('fert-enr-detail')) {
+        detailRow.style.display = 'none'; // always collapse on filter change
+      }
+      if (show) visible++;
+    });
+
+    countEl.textContent = visible + ' of ' + rows.length;
+  }
+
+  searchInput.addEventListener('input', filterEnrollments);
+  programFilter.addEventListener('change', filterEnrollments);
+  statusFilter.addEventListener('change', filterEnrollments);
+  filterEnrollments();
+})();
+</script>
 
 <!-- ═══════════════════════════════════════════════════════════
      PRODUCTS TAB
