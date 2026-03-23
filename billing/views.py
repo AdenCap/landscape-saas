@@ -433,6 +433,43 @@ def mark_invoice_paid(request, invoice_id):
 
 
 @require_POST
+def invoice_customer_paid_notify(request, invoice_id, token):
+    """Customer clicks 'I Paid' — notifies the business owner to confirm payment."""
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("business", "customer"),
+        id=invoice_id,
+        payment_token=token,
+    )
+    if invoice.status != "sent":
+        return JsonResponse({"status": "already_processed"})
+
+    # Create a notification for the business owner(s)
+    try:
+        from accounts.models import Notification, User
+        owners = User.objects.filter(
+            business=invoice.business,
+            role__in=["owner", "manager"],
+            is_active=True,
+        )
+        system_user = owners.first()
+        if system_user:
+            for owner in owners:
+                Notification.objects.create(
+                    business=invoice.business,
+                    from_user=system_user,
+                    to_user=owner,
+                    message=f"{invoice.customer.name} says they paid ${invoice.total} for Invoice #{invoice.id}. Confirm at /billing/{invoice.id}/",
+                )
+    except Exception:
+        pass
+
+    # Log the customer's claim
+    _log_invoice_audit(invoice, "customer_claimed_paid")
+
+    return JsonResponse({"status": "ok", "message": "Owner notified"})
+
+
+@require_POST
 @role_required("owner", "manager")
 def invoice_toggle_card_payment(request, invoice_id):
     """Toggle credit card payment on/off for a specific invoice."""
