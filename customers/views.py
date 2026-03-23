@@ -174,6 +174,19 @@ def customer_detail(request, customer_id):
     show_fertilization = 'fertilization' in (business.enabled_modules or [])
     show_property_estimator = True  # Always available
 
+    # Service counters — how many times each service has been performed
+    from jobs.models import JobServiceItem
+    from collections import Counter
+    service_counts = Counter()
+    service_items = JobServiceItem.objects.filter(
+        job__property__customer=customer,
+        job__status='completed',
+    ).select_related('service').values_list('service__name', flat=True)
+    for name in service_items:
+        if name:
+            service_counts[name] += 1
+    service_counts = dict(service_counts.most_common(10))  # Top 10 services
+
     # Mark received messages as read when viewing the client profile
     customer.messages.filter(direction=ClientMessage.DIRECTION_RECEIVED, is_read=False).update(is_read=True)
 
@@ -206,6 +219,7 @@ def customer_detail(request, customer_id):
         "contracts": contracts,
         "invoices": invoices,
         "estimates": estimates,
+        "service_counts": service_counts,
         "total_revenue": total_revenue,
         "client_messages": client_messages,
         "email_messages": email_messages,

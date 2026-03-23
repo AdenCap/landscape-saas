@@ -118,6 +118,23 @@ Thank you for choosing {{ business.name }}!">
       {% endif %}
     </div>
 
+    {% if service_counts %}
+    <div class="card" style="margin-bottom:16px;">
+      <h2 class="card-title">Service Tracker</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        {% for svc_name, svc_count in service_counts.items %}
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surface-highest);border:1px solid var(--border);border-radius:var(--radius-md);">
+          <span style="font-size:20px;font-weight:800;color:var(--primary);font-family:var(--font-headline);line-height:1;">{{ svc_count }}</span>
+          <div>
+            <span style="font-size:12px;font-weight:600;color:var(--text);display:block;">{{ svc_name }}</span>
+            <span style="font-size:10px;color:var(--text-muted);">completed</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     <div class="card">
       <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
         Properties
