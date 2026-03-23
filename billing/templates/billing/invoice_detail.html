@@ -199,24 +199,27 @@
       <p class="invoice-send-early-note">Monthly invoice for {{ invoice.period_start|date:"F Y" }}. You can send it early anytime. If you send this and more services are completed later this month, a new invoice will be created for those.</p>
       {% endif %}
       <a href="{% url 'billing:invoice_pdf' invoice.id %}" class="btn btn-primary">Download PDF</a>
-      {% if invoice.status == "draft" %}
-      <a href="{% url 'billing:invoice_edit_line_items' invoice.id %}" class="btn btn-secondary">Edit line items</a>
-      <form method="post" action="{% url 'billing:send_invoice' invoice.id %}" style="display: inline;">
+      {% if invoice.status == “draft” %}
+      <a href=”{% url 'billing:invoice_edit_line_items' invoice.id %}” class=”btn btn-secondary”>Edit line items</a>
+      <form method=”post” action=”{% url 'billing:send_invoice' invoice.id %}” style=”display: inline;”>
         {% csrf_token %}
-        <button type="submit" class="btn btn-primary">Approve &amp; send</button>
+        <button type=”submit” class=”btn btn-primary”>Approve &amp; send</button>
       </form>
-      <span class="invoice-action-hint">After approving, use “Email invoice to customer” to send the email to the customer.</span>
+      <span class=”invoice-action-hint”>After approving, use “Email invoice to customer” to send the email to the customer.</span>
       {% endif %}
-      {% if invoice.status == "sent" or invoice.status == "paid" %}
-      <form method="post" action="{% url 'billing:resend_invoice' invoice.id %}" style="display: inline;">
+      {% if invoice.status == “sent” %}
+      <a href=”{% url 'billing:invoice_edit_line_items' invoice.id %}” class=”btn btn-secondary”>Edit line items</a>
+      {% endif %}
+      {% if invoice.status == “sent” or invoice.status == “paid” %}
+      <form method=”post” action=”{% url 'billing:resend_invoice' invoice.id %}” style=”display: inline;”>
         {% csrf_token %}
-        <button type="submit" class="btn btn-secondary">Email invoice to customer</button>
+        <button type=”submit” class=”btn btn-secondary”>Email invoice to customer</button>
       </form>
       {% endif %}
-      {% if invoice.status == "sent" %}
-      <form method="post" action="{% url 'billing:mark_invoice_paid' invoice.id %}" style="display: inline;">
+      {% if invoice.status == “sent” %}
+      <form method=”post” action=”{% url 'billing:mark_invoice_paid' invoice.id %}” style=”display: inline;”>
         {% csrf_token %}
-        <button type="submit" class="btn btn-primary">Mark as paid</button>
+        <button type=”submit” class=”btn btn-primary”>Mark as paid</button>
       </form>
       {% endif %}
       <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">← Back to Invoices</a>

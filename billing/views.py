@@ -296,15 +296,15 @@ def _log_invoice_audit(invoice, action, request=None, details=None):
 
 @role_required("owner", "manager")
 def invoice_edit_line_items(request, invoice_id):
-    """Owner can add/edit/delete line items on a draft invoice."""
+    """Owner can add/edit/delete line items on draft or sent invoices."""
     business = _get_business(request)
     qs = Invoice.objects.filter(id=invoice_id).prefetch_related("line_items")
     if business:
         qs = qs.filter(business=business)
     invoice = get_object_or_404(qs)
 
-    if invoice.status != "draft":
-        messages.error(request, "Only draft invoices can be edited.")
+    if invoice.status not in ("draft", "sent"):
+        messages.error(request, "Only draft or sent invoices can be edited.")
         return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
     formset = InvoiceLineItemFormSet(request.POST or None, instance=invoice)
