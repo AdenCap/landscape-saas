@@ -8,6 +8,7 @@
 
 <div class="billing-tabs" style="margin-bottom: 16px;">
   <a href="{% url 'job_list' %}" class="billing-tab active">Jobs</a>
+  <a href="{% url 'daily_route' %}" class="billing-tab">Routes</a>
   <a href="{% url 'checklists:template_list' %}" class="billing-tab">Checklists</a>
 </div>
 
@@ -44,7 +45,7 @@
       {% if job.status == 'completed' %}
       <a href="{% url 'job_detail' job.id %}" class="job-row">
         <b>{{ item.title }}</b>
-        <span>{{ job.scheduled_date|date:"M j" }} · ${{ item.amount|floatformat:2 }}</span>
+        <span>{{ job.scheduled_date|date:"M j" }} · ${{ item.amount|floatformat:2 }}{% if job.duration_display %} · {{ job.duration_display }}{% endif %}</span>
       </a>
       {% endif %}
       {% endwith %}

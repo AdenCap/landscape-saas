@@ -1,3 +1,4 @@
+import builtins
 from django.db import models
 from django.conf import settings
 from customers.models import Property
@@ -178,6 +179,29 @@ class Job(models.Model):
         blank=True,
         help_text="Estimated arrival time (for owner use only)"
     )
+
+    def _get_duration_minutes(self):
+        """Computed duration in minutes from started_at to completed_at."""
+        if self.started_at and self.completed_at:
+            delta = self.completed_at - self.started_at
+            return max(0, int(delta.total_seconds() / 60))
+        return None
+    # Note: can't use @property because `property` is shadowed by the ForeignKey field
+    duration_minutes = builtins.property(_get_duration_minutes)
+
+    def _get_duration_display(self):
+        """Human-readable duration string like '45m' or '1h 30m'."""
+        mins = self.duration_minutes
+        if mins is None:
+            return None
+        if mins < 60:
+            return f"{mins}m"
+        hours = mins // 60
+        remaining = mins % 60
+        if remaining:
+            return f"{hours}h {remaining}m"
+        return f"{hours}h"
+    duration_display = builtins.property(_get_duration_display)
 
     def __str__(self):
         return f"{self.property.address} - {self.scheduled_date or 'Unscheduled'}"

@@ -7,11 +7,14 @@
     <p>All mowing clients &middot; {{ week_start|date:"M j" }} &ndash; {{ week_end|date:"M j, Y" }}</p>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <button type="button" class="btn btn-primary" id="bulk-msg-btn" disabled>
+    <button type="button" class="btn btn-primary" id="add-client-btn" onclick="document.getElementById('add-modal').style.display='flex'">
+      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">person_add</span>
+      Add Client
+    </button>
+    <button type="button" class="btn btn-secondary" id="bulk-msg-btn" disabled>
       <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">mail</span>
       Message Selected
     </button>
-    <a href="{% url 'calendar' %}" class="btn btn-secondary">Calendar</a>
   </div>
 </div>
 
@@ -32,6 +35,10 @@
   <div class="mow-stat">
     <span class="mow-stat-num" style="color:#22d3ee;">{{ scheduled_this_week }}</span>
     <span class="mow-stat-label">This Week</span>
+  </div>
+  <div class="mow-stat">
+    <span class="mow-stat-num" style="color:#a78bfa;">{{ est_day_display }}</span>
+    <span class="mow-stat-label">Est. Day Total</span>
   </div>
 </div>
 
@@ -91,6 +98,83 @@ If you have any questions, please don't hesitate to reach out.
   </div>
 </div>
 
+<!-- Add Mowing Client modal -->
+<div id="add-modal" class="mow-modal-overlay" style="display:none;">
+  <div class="mow-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;">Add Mowing Client</h3>
+      <button type="button" onclick="document.getElementById('add-modal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;">&times;</button>
+    </div>
+    <form method="post" action="{% url 'add_mowing_client' %}">
+      {% csrf_token %}
+      <div class="mow-field">
+        <label>Customer</label>
+        <select id="add-customer" onchange="addUpdateProps()">
+          <option value="">Select customer...</option>
+        </select>
+      </div>
+      <input type="hidden" name="customer_id" id="add-customer-id">
+      <div class="mow-field" id="add-prop-wrap" style="display:none;">
+        <label>Property</label>
+        <select name="property_id" id="add-property">
+          <option value="">Select property...</option>
+        </select>
+      </div>
+      <div class="mow-field">
+        <label>Frequency</label>
+        <select name="frequency">
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Bi-Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div class="mow-field">
+        <label>Assign Crew</label>
+        <select name="crew_id">
+          <option value="">Unassigned</option>
+          {% for crew in crews %}
+          <option value="{{ crew.id }}">{{ crew.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary" style="margin-top:12px;">Add Mowing Client</button>
+    </form>
+  </div>
+</div>
+<script>
+(function() {
+  var customers = {{ customers_json|safe }};
+  var custSel = document.getElementById('add-customer');
+  customers.forEach(function(c) {
+    var o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = c.name;
+    custSel.appendChild(o);
+  });
+  window.addUpdateProps = function() {
+    var cid = custSel.value;
+    document.getElementById('add-customer-id').value = cid;
+    var propSel = document.getElementById('add-property');
+    while (propSel.options.length > 1) propSel.remove(1);
+    if (!cid) { document.getElementById('add-prop-wrap').style.display = 'none'; return; }
+    var cust = customers.find(function(c) { return String(c.id) === String(cid); });
+    if (cust) {
+      cust.properties.forEach(function(p) {
+        var o = document.createElement('option');
+        o.value = p.id;
+        o.textContent = p.address;
+        propSel.appendChild(o);
+      });
+      if (cust.properties.length === 1) propSel.selectedIndex = 1;
+    }
+    document.getElementById('add-prop-wrap').style.display = '';
+  };
+  document.getElementById('add-modal').addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+  });
+})();
+</script>
+
 <!-- Client List -->
 <div class="card" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
   <table class="data-table" id="mow-table">
@@ -102,6 +186,7 @@ If you have any questions, please don't hesitate to reach out.
         <th>Frequency</th>
         <th>Crew</th>
         <th>This Week</th>
+        <th>Avg Time</th>
         <th>Contact</th>
       </tr>
     </thead>
@@ -139,6 +224,9 @@ If you have any questions, please don't hesitate to reach out.
             <span style="color:var(--text-muted);font-size:12px;">Not scheduled</span>
           {% endif %}
         </td>
+        <td style="font-size:13px;font-weight:600;color:var(--primary);">
+          {% if c.avg_duration %}{{ c.avg_duration }}{% else %}&mdash;{% endif %}
+        </td>
         <td style="white-space:nowrap;">
           {% if c.has_email %}<span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);vertical-align:-3px;" title="Has email">mail</span>{% endif %}
           {% if c.has_phone %}<span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);vertical-align:-3px;margin-left:4px;" title="Has phone">phone</span>{% endif %}
@@ -146,7 +234,7 @@ If you have any questions, please don't hesitate to reach out.
       </tr>
       {% empty %}
       <tr>
-        <td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">
+        <td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">
           <span class="material-symbols-outlined" style="font-size:40px;display:block;margin-bottom:8px;">grass</span>
           No mowing clients found. Create a recurring mowing job to get started.
         </td>

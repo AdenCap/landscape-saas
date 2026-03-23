@@ -192,11 +192,11 @@ document.addEventListener('DOMContentLoaded', function () {
         container.appendChild(addr);
       }
 
-      // Completed checkmark
+      // Completed checkmark + duration
       if (isCompleted) {
         var check = document.createElement('span');
         check.className = 'cal-event-check';
-        check.textContent = '\u2713';
+        check.textContent = props.duration ? '\u2713 ' + props.duration : '\u2713';
         container.appendChild(check);
       }
 
@@ -276,6 +276,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (p.crew && p.crew !== 'Unassigned') parts.push('Crew: ' + p.crew);
         if (p.status) parts.push('Status: ' + p.status);
         if (p.recurring && p.frequency) parts.push('Recurring: ' + p.frequency);
+        if (p.duration) parts.push('Duration: ' + p.duration);
         info.el.title = parts.join('\n');
       }
     },

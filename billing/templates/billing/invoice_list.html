@@ -33,7 +33,15 @@
         <td>{{ inv.issue_date }}</td>
         <td><span class="badge badge-{{ inv.status|lower }}">{{ inv.status }}</span></td>
         <td><strong>{{ inv.total|currency }}</strong></td>
-        <td><a href="{% url 'billing:invoice_detail' inv.id %}" class="btn btn-primary btn-sm">Open</a></td>
+        <td style="white-space:nowrap;">
+          <a href="{% url 'billing:invoice_detail' inv.id %}" class="btn btn-primary btn-sm">Open</a>
+          {% if inv.status == "sent" %}
+          <form method="post" action="{% url 'billing:send_reminder' inv.id %}" style="display:inline;" onsubmit="return confirm('Send payment reminder to {{ inv.customer.name }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm" title="Send payment reminder">Remind</button>
+          </form>
+          {% endif %}
+        </td>
       </tr>
       {% empty %}
       <tr>

@@ -98,7 +98,7 @@
     <i data-lucide="clipboard-list" class="empty-state-icon"></i>
     <div class="empty-state-title">No programs yet</div>
     <div class="empty-state-desc">Create your first fertilization program to define rounds, products, and schedules for your customers.</div>
-    <button type="button" class="btn btn-primary" onclick="FertHub.addProgram()">+ Create Program</button>
+    <a href="{% url 'fertilization:program_builder' %}" class="btn btn-primary">+ Create Program</a>
   </div>
   {% endif %}
 </div>

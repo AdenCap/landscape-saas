@@ -1028,6 +1028,83 @@ def resend_invoice(request, invoice_id):
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
+@require_POST
+@role_required("owner", "manager")
+def send_reminder(request, invoice_id):
+    """Send a payment reminder email for an outstanding invoice."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("business", "customer"),
+        id=invoice_id, business=business,
+    )
+    if invoice.status != "sent":
+        messages.error(request, "Reminders can only be sent for outstanding invoices.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+    if not invoice.customer.email:
+        messages.error(request, f"{invoice.customer.name} has no email address.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    from businesses.email_sender import send_business_email, is_email_configured
+    if not is_email_configured(business):
+        messages.error(request, "Email isn't set up. Go to Settings → Email.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    invoice.recompute_totals()
+    pay_url = ""
+    if invoice.payment_token:
+        pay_url = request.build_absolute_uri(
+            reverse("billing:invoice_pay_page", args=[invoice.id, invoice.payment_token])
+        )
+
+    days_overdue = ""
+    if invoice.due_date:
+        from django.utils import timezone as tz
+        delta = (tz.now().date() - invoice.due_date).days
+        if delta > 0:
+            days_overdue = f" This invoice is {delta} day{'s' if delta != 1 else ''} past due."
+
+    subject = f"Payment Reminder: Invoice #{invoice.id} from {business.name}"
+    intro = f"Hi {invoice.customer.name}, this is a friendly reminder that Invoice #{invoice.id} for ${invoice.total} is still outstanding.{days_overdue}"
+    closing = "Please arrange payment at your earliest convenience. Thank you!"
+
+    body_text = intro + "\n\n"
+    if pay_url:
+        body_text += f"Pay online: {pay_url}\n\n"
+    body_text += closing + "\n\n" + business.name
+
+    logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
+    doc_template = DocumentTemplate.get_default_for_business(business, "invoice")
+    accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
+    html_content = render_to_string("billing/invoice_email.html", {
+        "invoice": invoice,
+        "business": business,
+        "pay_url": pay_url,
+        "logo_url": logo_url,
+        "email_intro": intro,
+        "email_closing": closing,
+        "accent_color": accent_color,
+    })
+
+    reply_to = [business.contact_email] if business.contact_email else None
+    ok, detail = send_business_email(
+        business=business,
+        to=invoice.customer.email,
+        subject=subject,
+        body_text=body_text,
+        body_html=html_content,
+        reply_to=reply_to,
+    )
+    if ok:
+        messages.success(request, f"Payment reminder sent to {invoice.customer.email}.")
+    else:
+        from businesses.email_sender import format_send_error
+        messages.error(request, format_send_error(detail))
+    return redirect("billing:invoice_list")
+
+
 # --- Estimates ---
 
 

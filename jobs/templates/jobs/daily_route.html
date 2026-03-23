@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="billing-tabs" style="margin-bottom:16px;">
+  <a href="{% url 'job_list' %}" class="billing-tab">Jobs</a>
+  <a href="{% url 'daily_route' %}" class="billing-tab active">Routes</a>
+  <a href="{% url 'checklists:template_list' %}" class="billing-tab">Checklists</a>
+</div>
+<style>.billing-tabs{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;}.billing-tab{display:inline-block;padding:9px 18px;font-size:15px;font-weight:500;border-radius:20px;text-decoration:none;color:var(--text-muted);background:var(--surface);border:1px solid var(--border);transition:all .15s ease;white-space:nowrap;}.billing-tab:hover{color:var(--text);border-color:var(--text-muted);}.billing-tab.active{border-color:var(--primary);color:var(--primary);background:var(--primary-light);}</style>
 <div class="route-page-header">
   <div class="route-header-main">
     <h1>Daily Routes</h1>
@@ -27,10 +33,15 @@
   </div>
 </div>
 
-<!-- Route summary (shown after optimization) -->
-<div id="route-summary" class="route-summary" style="display:none;">
-  <span id="route-distance" class="route-stat"></span>
+<!-- Route summary -->
+<div id="route-summary" class="route-summary" {% if not est_work_display %}style="display:none;"{% endif %}>
+  {% if est_work_display %}
+  <span class="route-stat">{{ jobs_with_colors|length }} stops</span>
   <span class="route-stat-sep">&middot;</span>
+  <span class="route-stat">~{{ est_work_display }} est. work time</span>
+  <span class="route-stat-sep">&middot;</span>
+  {% endif %}
+  <span id="route-distance" class="route-stat"></span>
   <span id="route-duration" class="route-stat"></span>
 </div>
 
@@ -50,7 +61,7 @@
         <span class="route-color-swatch" style="background: {{ item.color }};" title="Crew/employee"></span>
         <div class="route-item-body">
           <span class="route-address">{{ item.job.property.address }}</span>
-          <span class="route-assignee">{% if item.job.assigned_crew %}{{ item.job.assigned_crew.name }}{% elif item.job.assigned_to %}{{ item.job.assigned_to.get_full_name|default:item.job.assigned_to.username }}{% else %}&mdash;{% endif %}</span>
+          <span class="route-assignee">{% if item.job.assigned_crew %}{{ item.job.assigned_crew.name }}{% elif item.job.assigned_to %}{{ item.job.assigned_to.get_full_name|default:item.job.assigned_to.username }}{% else %}&mdash;{% endif %}{% if item.est_minutes %} <span style="color:var(--primary);font-weight:600;">~{{ item.est_minutes }}min</span>{% endif %}</span>
           <div class="route-nav-links">
             <a href="https://maps.apple.com/?daddr={{ item.job.property.address|urlencode }}" target="_blank" rel="noopener" class="route-nav-link">Apple Maps</a>
             <a href="https://www.google.com/maps/dir/?api=1&destination={{ item.job.property.address|urlencode }}" target="_blank" rel="noopener" class="route-nav-link">Google Maps</a>

@@ -12,6 +12,7 @@ urlpatterns = [
     path("<int:invoice_id>/edit-line-items/", views.invoice_edit_line_items, name="invoice_edit_line_items"),
     path("<int:invoice_id>/send/", views.send_invoice, name="send_invoice"),
     path("<int:invoice_id>/resend/", views.resend_invoice, name="resend_invoice"),
+    path("<int:invoice_id>/remind/", views.send_reminder, name="send_reminder"),
     path("<int:invoice_id>/pdf/", views.invoice_pdf, name="invoice_pdf"),
     path("<int:invoice_id>/pay/<str:token>/", views.invoice_pay_page, name="invoice_pay_page"),
     path("<int:invoice_id>/pay/<str:token>/stripe/", views.create_invoice_checkout_session, name="create_invoice_checkout"),

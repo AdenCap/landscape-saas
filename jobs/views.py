@@ -403,6 +403,7 @@ def calendar_events(request):
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
                     "startedAt": job.started_at.isoformat() if job.started_at else None,
                     "completedAt": job.completed_at.isoformat() if job.completed_at else None,
+                    "duration": job.duration_display,
                 },
             }
         else:
@@ -423,6 +424,7 @@ def calendar_events(request):
                     "serviceAbbr": service_names[0] if service_names else "",
                     "recurring": bool(job.recurring_job_id),
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
+                    "duration": job.duration_display,
                 },
             }
         events.append(evt)
@@ -938,13 +940,48 @@ def daily_route_view(request):
         for u in User.objects.filter(business=business, role__in=["crew", "owner"]):
             if u.color and u.color.strip():
                 user_colors[u.id] = u.color.strip()
-    jobs_with_colors = [{"job": j, "color": _color_for_assignee(j, crew_colors, user_colors)} for j in jobs]
+
+    # Calculate average duration per property for route time estimation
+    from django.db.models import Avg, F, ExpressionWrapper, DurationField
+    property_ids = [j.property_id for j in jobs]
+    prop_avg_durations = {}
+    if property_ids:
+        avgs = Job.objects.filter(
+            property_id__in=property_ids,
+            status="completed",
+            started_at__isnull=False,
+            completed_at__isnull=False,
+        ).values('property_id').annotate(
+            avg_dur=Avg(ExpressionWrapper(F('completed_at') - F('started_at'), output_field=DurationField()))
+        )
+        for row in avgs:
+            dur = row['avg_dur']
+            if dur:
+                prop_avg_durations[row['property_id']] = int(dur.total_seconds() / 60)
+
+    jobs_with_colors = [
+        {
+            "job": j,
+            "color": _color_for_assignee(j, crew_colors, user_colors),
+            "est_minutes": prop_avg_durations.get(j.property_id),
+        }
+        for j in jobs
+    ]
+
+    total_est_minutes = sum(item.get("est_minutes") or 0 for item in jobs_with_colors)
+    if total_est_minutes:
+        _hrs, _mins_rem = divmod(total_est_minutes, 60)
+        est_work_display = f"{_hrs}h {_mins_rem}m" if _hrs else f"{_mins_rem}m"
+    else:
+        est_work_display = ""
 
     return render(request, 'jobs/daily_route.html', {
         "jobs": jobs,
         "jobs_with_colors": jobs_with_colors,
         "date_param": date_param,
         "google_maps_api_key": getattr(settings, "GOOGLE_MAPS_API_KEY", ""),
+        "total_est_minutes": total_est_minutes,
+        "est_work_display": est_work_display,
     })
 
 
@@ -2200,11 +2237,43 @@ def mowing_hub(request):
     # Build sorted client list
     clients = []
     freq_order = {"weekly": 0, "biweekly": 1, "monthly": 2, "custom": 3, "one_time": 4}
+    # Calculate avg duration per property (for all properties in customer_map)
+    from django.db.models import Avg, F, ExpressionWrapper, DurationField
+    all_prop_ids = set()
+    for data in customer_map.values():
+        for p in data["properties"]:
+            all_prop_ids.add(p.id)
+
+    prop_avg_durations = {}
+    if all_prop_ids:
+        avgs = Job.objects.filter(
+            property_id__in=all_prop_ids,
+            status="completed",
+            started_at__isnull=False,
+            completed_at__isnull=False,
+        ).values('property_id').annotate(
+            avg_dur=Avg(ExpressionWrapper(F('completed_at') - F('started_at'), output_field=DurationField()))
+        )
+        for row in avgs:
+            dur = row['avg_dur']
+            if dur:
+                prop_avg_durations[row['property_id']] = int(dur.total_seconds() / 60)
+
     for cid, data in customer_map.items():
         data["this_week_jobs"] = week_schedule.get(cid, [])
         data["next_job_date"] = data["this_week_jobs"][0].scheduled_date if data["this_week_jobs"] else None
         data["has_email"] = bool(data["customer"].email)
         data["has_phone"] = bool(data["customer"].phone)
+        # Average duration from all property history
+        prop_ids = [p.id for p in data["properties"]]
+        mins_list = [prop_avg_durations[pid] for pid in prop_ids if pid in prop_avg_durations]
+        if mins_list:
+            avg_mins = sum(mins_list) // len(mins_list)
+            data["avg_duration"] = f"{avg_mins}m" if avg_mins < 60 else f"{avg_mins // 60}h {avg_mins % 60}m"
+            data["avg_duration_mins"] = avg_mins
+        else:
+            data["avg_duration"] = None
+            data["avg_duration_mins"] = 0
         clients.append(data)
     clients.sort(key=lambda c: (freq_order.get(c["frequency_key"], 9), c["customer"].name))
 
@@ -2212,6 +2281,17 @@ def mowing_hub(request):
     weekly_count = sum(1 for c in clients if c["frequency_key"] == "weekly")
     biweekly_count = sum(1 for c in clients if c["frequency_key"] == "biweekly")
     scheduled_this_week = sum(1 for c in clients if c["this_week_jobs"])
+    total_est_minutes = sum(c.get("avg_duration_mins", 0) for c in clients if c["this_week_jobs"])
+    est_day_display = f"{total_est_minutes // 60}h {total_est_minutes % 60}m" if total_est_minutes else "—"
+
+    # Customers + crews for "Add Mowing Client" modal
+    from customers.models import Customer
+    all_customers = Customer.objects.filter(business=business).prefetch_related('properties').order_by('name')
+    customers_json = json.dumps([
+        {"id": c.id, "name": c.name, "properties": [{"id": p.id, "address": p.address} for p in c.properties.all()]}
+        for c in all_customers
+    ])
+    crews = Crew.objects.filter(business=business).order_by("name")
 
     return render(request, "jobs/mowing_hub.html", {
         "clients": clients,
@@ -2219,9 +2299,12 @@ def mowing_hub(request):
         "weekly_count": weekly_count,
         "biweekly_count": biweekly_count,
         "scheduled_this_week": scheduled_this_week,
+        "est_day_display": est_day_display,
         "week_start": week_start,
         "week_end": week_end,
         "today": today,
+        "customers_json": customers_json,
+        "crews": crews,
     })
 
 
@@ -2276,3 +2359,53 @@ def mowing_bulk_message(request):
             failed += 1
 
     return JsonResponse({"sent": sent, "failed": failed})
+
+
+@require_POST
+@role_required("owner", "manager")
+def add_mowing_client(request):
+    """Create a recurring mowing job for a customer/property."""
+    business = get_business(request)
+    if not business:
+        messages.error(request, "Forbidden")
+        return redirect("mowing_hub")
+
+    from pricing.models import ServiceTemplate
+    from customers.models import Customer
+    from pricing.utils import get_effective_rate
+
+    customer_id = request.POST.get("customer_id")
+    property_id = request.POST.get("property_id")
+    frequency = request.POST.get("frequency", "weekly")
+    crew_id = request.POST.get("crew_id")
+
+    if not customer_id or not property_id:
+        messages.error(request, "Customer and property are required.")
+        return redirect("mowing_hub")
+
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+    prop = get_object_or_404(Property, id=property_id, customer=customer)
+
+    # Find mowing service
+    mowing_svc = ServiceTemplate.objects.filter(
+        business=business, active=True, name__icontains="mow"
+    ).first()
+    if not mowing_svc:
+        messages.error(request, "No mowing service found. Create one in your Pricebook first.")
+        return redirect("mowing_hub")
+
+    unit, rate = get_effective_rate(prop, mowing_svc)
+    service_snapshot = [{"service_id": mowing_svc.id, "quantity": "1", "unit": unit, "unit_price": str(rate)}]
+
+    crew = Crew.objects.filter(id=crew_id, business=business).first() if crew_id else None
+
+    RecurringJob.objects.create(
+        property=prop,
+        frequency=frequency,
+        start_date=timezone.now().date(),
+        active=True,
+        assigned_crew=crew,
+        service_snapshot=service_snapshot,
+    )
+    messages.success(request, f"Added {customer.name} as a {dict(RecurringJob.FREQUENCY_CHOICES).get(frequency, frequency)} mowing client.")
+    return redirect("mowing_hub")

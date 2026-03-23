@@ -35,6 +35,38 @@
   {% endif %}
 </div>
 
+{% if job.started_at or job.completed_at %}
+<div class="card" style="margin-bottom:20px;">
+  <h2 class="card-title">Time Tracking</h2>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:14px;">
+    {% if job.started_at %}
+    <div>
+      <span style="color:var(--text-muted);font-size:11px;text-transform:uppercase;font-weight:600;display:block;margin-bottom:2px;">Started</span>
+      <span>{{ job.started_at|date:"M j, g:i A" }}</span>
+    </div>
+    {% endif %}
+    {% if job.completed_at %}
+    <div>
+      <span style="color:var(--text-muted);font-size:11px;text-transform:uppercase;font-weight:600;display:block;margin-bottom:2px;">Completed</span>
+      <span>{{ job.completed_at|date:"M j, g:i A" }}</span>
+    </div>
+    {% endif %}
+    {% if job.duration_display %}
+    <div>
+      <span style="color:var(--text-muted);font-size:11px;text-transform:uppercase;font-weight:600;display:block;margin-bottom:2px;">Duration</span>
+      <span style="font-size:22px;font-weight:700;color:var(--primary);">{{ job.duration_display }}</span>
+    </div>
+    {% endif %}
+    {% if job.completed_by %}
+    <div>
+      <span style="color:var(--text-muted);font-size:11px;text-transform:uppercase;font-weight:600;display:block;margin-bottom:2px;">Completed By</span>
+      <span>{{ job.completed_by.get_full_name|default:job.completed_by.username }}</span>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 <!-- Add material cost (inline, optional receipt + parse) -->
 <div class="card" style="margin-bottom: 20px;">
   <h2 class="card-title">Add material cost</h2>
