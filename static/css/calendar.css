@@ -157,7 +157,6 @@
 
 .fc .fc-day-today {
   background: rgba(157, 216, 80, 0.03) !important;
-  box-shadow: inset 0 0 20px rgba(157, 216, 80, 0.03);
 }
 
 .fc .fc-day-other .fc-daygrid-day-number {
@@ -188,7 +187,6 @@
 
 .fc-timegrid .fc-day-today {
   background: rgba(157, 216, 80, 0.02) !important;
-  box-shadow: inset 0 0 20px rgba(157, 216, 80, 0.02);
 }
 
 /* Google Calendar: large date numbers in column headers */

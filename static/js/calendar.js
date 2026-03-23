@@ -167,113 +167,30 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inp) inp.value = formatDateStr(calendar.getDate());
     },
 
-    // ── Premium event card rendering ──
+    // ── Lightweight event card rendering (performance-optimized) ──
     eventContent: function(arg) {
       var container = document.createElement('div');
       container.className = 'cal-event-card';
 
       var props = arg.event.extendedProps || {};
       var isCompleted = props.status === 'completed';
-      var isMeeting = props.type === 'meeting';
-      var isListView = arg.view.type.indexOf('list') === 0;
-      var isMonthView = arg.view.type === 'dayGridMonth';
-      var isTimeGrid = arg.view.type.indexOf('timeGrid') === 0;
-
       if (isCompleted) container.classList.add('cal-event--completed');
-      if (props.status === 'in_progress') container.classList.add('cal-event--inprogress');
-      if (isMeeting) container.classList.add('cal-event--meeting');
-      if (isListView) container.classList.add('cal-event-card--list');
+      if (props.type === 'meeting') container.classList.add('cal-event--meeting');
+      if (arg.view.type.indexOf('list') === 0) container.classList.add('cal-event-card--list');
 
-      // Time badge (month + list views, timed events)
-      if (arg.event.start && !arg.event.allDay && (isMonthView || isListView)) {
-        var timeBadge = document.createElement('span');
-        timeBadge.className = 'cal-event-time';
-        timeBadge.textContent = formatTimeShort(arg.event.start);
-        container.appendChild(timeBadge);
-      }
-
-      // Crew color dot
-      var dot = document.createElement('span');
-      dot.className = 'cal-event-dot';
-      dot.style.backgroundColor = props.crewColor || arg.event.borderColor || '#94a3b8';
-      container.appendChild(dot);
-
-      // Content wrapper
-      var content = document.createElement('div');
-      content.className = 'cal-event-content';
-
-      // Service name — full name, not abbreviation
-      if (!isMeeting && props.serviceAbbr) {
-        var svcBadge = document.createElement('span');
-        svcBadge.className = 'cal-event-svc';
-        svcBadge.textContent = props.serviceAbbr;
-        content.appendChild(svcBadge);
-      }
-
-      // Customer name
+      // Customer name (primary text)
       var name = document.createElement('span');
       name.className = 'cal-event-name';
       name.textContent = props.customer || arg.event.title;
-      content.appendChild(name);
+      container.appendChild(name);
 
-      // Address (secondary line) — tappable for navigation
-      if (!isMeeting && arg.event.title) {
-        var rawAddr = arg.event.title.replace(/^✓\s*/, '');
+      // Address (secondary — only in list/time views, not month)
+      if (arg.view.type !== 'dayGridMonth' && arg.event.title) {
         var addr = document.createElement('span');
         addr.className = 'cal-event-addr';
-        addr.textContent = rawAddr;
-        content.appendChild(addr);
-
-        // Navigation link (small icon, stops event click propagation)
-        var navLink = document.createElement('a');
-        navLink.className = 'cal-event-nav';
-        navLink.title = 'Navigate to ' + rawAddr;
-        navLink.setAttribute('aria-label', 'Open in maps');
-        // iOS → Apple Maps, everything else → Google Maps
-        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        navLink.href = isIOS
-          ? 'https://maps.apple.com/?daddr=' + encodeURIComponent(rawAddr)
-          : 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(rawAddr);
-        navLink.target = '_blank';
-        navLink.rel = 'noopener';
-        navLink.addEventListener('click', function(e) { e.stopPropagation(); }); // Don't open modal
-        // Map pin icon (inline SVG via DOM)
-        var navSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        navSvg.setAttribute('width', '14');
-        navSvg.setAttribute('height', '14');
-        navSvg.setAttribute('viewBox', '0 0 24 24');
-        navSvg.setAttribute('fill', 'none');
-        navSvg.setAttribute('stroke', 'currentColor');
-        navSvg.setAttribute('stroke-width', '2');
-        var path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path1.setAttribute('d', 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z');
-        var circle1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        circle1.setAttribute('cx', '12');
-        circle1.setAttribute('cy', '10');
-        circle1.setAttribute('r', '3');
-        navSvg.appendChild(path1);
-        navSvg.appendChild(circle1);
-        navLink.appendChild(navSvg);
-        content.appendChild(navLink);
+        addr.textContent = arg.event.title.replace(/^✓\s*/, '');
+        container.appendChild(addr);
       }
-
-      // Crew / assignee name — critical info for field workers
-      if (props.crew && props.crew !== 'Unassigned') {
-        var crewEl = document.createElement('span');
-        crewEl.className = 'cal-event-crew';
-        crewEl.textContent = props.crew;
-        content.appendChild(crewEl);
-      }
-
-      // Recurring indicator
-      if (props.recurring) {
-        var recurEl = document.createElement('span');
-        recurEl.className = 'cal-event-recur';
-        recurEl.textContent = '\u21BB' + (props.frequency ? ' ' + props.frequency : '');
-        content.appendChild(recurEl);
-      }
-
-      container.appendChild(content);
 
       // Completed checkmark
       if (isCompleted) {
@@ -445,10 +362,7 @@ document.addEventListener('DOMContentLoaded', function () {
         el.textContent = c > 0 ? c : '';
         el.style.display = c > 0 ? '' : 'none';
       });
-      // Apply color mode after events load (deferred to avoid race)
-      if (typeof _applyColorMode === 'function') {
-        requestAnimationFrame(_applyColorMode);
-      }
+      // Color mode applied only on toggle click, not every event load
     }
   });
   calendar.render();
