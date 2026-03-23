@@ -576,6 +576,12 @@ def owner_dashboard(request):
 
     # --- Jobs today ---
     jobs_today = Job.objects.filter(property__customer__business=business, scheduled_date=today).count()
+    todays_jobs = (
+        Job.objects.filter(property__customer__business=business, scheduled_date=today)
+        .select_related('property', 'assigned_to', 'assigned_crew')
+        .prefetch_related('service_items__service')
+        .order_by('scheduled_time', 'route_order')[:15]
+    )
 
     # --- Work completed this month (total $ of completed jobs, not payments received) ---
     work_completed_this_month = (
@@ -751,6 +757,7 @@ def owner_dashboard(request):
         "overdue_60_plus": overdue_60_plus,
         "ar_outstanding": ar_outstanding,
         "jobs_today": jobs_today,
+        "todays_jobs": todays_jobs,
         "month_start": month_start,
         "month_end": month_end,
         "client_messages": client_messages,
