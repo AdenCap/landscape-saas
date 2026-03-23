@@ -52,10 +52,17 @@ def program_builder(request, program_id=None):
     existing_rounds = []
     if program_id:
         program = get_object_or_404(FertilizationProgram, id=program_id, business=business)
-        existing_rounds = list(program.rounds.order_by('round_number').values(
-            'id', 'round_number', 'name', 'target_month_start', 'target_month_end',
-            'default_rate_override', 'crew_instructions',
-        ))
+        for r in program.rounds.order_by('round_number').prefetch_related('products'):
+            existing_rounds.append({
+                'id': r.id,
+                'round_number': r.round_number,
+                'name': r.name,
+                'target_month_start': r.target_month_start,
+                'target_month_end': r.target_month_end,
+                'default_rate_override': float(r.default_rate_override) if r.default_rate_override else None,
+                'crew_instructions': r.crew_instructions,
+                'product_ids': list(r.products.values_list('id', flat=True)),
+            })
 
     if request.method == "POST":
         name = (request.POST.get("name") or "").strip()
@@ -105,7 +112,7 @@ def program_builder(request, program_id=None):
                 except (InvalidOperation, ValueError):
                     rate = None
             instr = round_instructions[i] if i < len(round_instructions) else ""
-            ProgramRound.objects.create(
+            pr = ProgramRound.objects.create(
                 program=program,
                 round_number=i + 1,
                 name=rname,
@@ -114,6 +121,10 @@ def program_builder(request, program_id=None):
                 default_rate_override=rate,
                 crew_instructions=instr,
             )
+            # Attach selected products to this round
+            product_ids = request.POST.getlist(f"round_products_{i}")
+            if product_ids:
+                pr.products.set(product_ids)
 
         action = "updated" if program_id else "created"
         messages.success(request, f"Program '{program.name}' {action} with {program.rounds.count()} rounds.")

@@ -55,6 +55,7 @@
 <script>
 (function() {
   var MONTHS = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var PRODUCTS = {{ products|safe }};
   var container = document.getElementById('rounds-container');
   var roundCount = 0;
 
@@ -113,6 +114,34 @@
     grid.appendChild(f4);
 
     body.appendChild(grid);
+
+    // Products (checkboxes)
+    var selPids = data.product_ids || [];
+    if (PRODUCTS.length > 0) {
+      var fp = document.createElement('div');
+      fp.className = 'pb-field';
+      var lp = document.createElement('label');
+      lp.textContent = 'Products';
+      fp.appendChild(lp);
+      var prodGrid = document.createElement('div');
+      prodGrid.className = 'rd-products';
+      PRODUCTS.forEach(function(prod) {
+        var lbl = document.createElement('label');
+        lbl.className = 'rd-product-check';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.name = 'round_products_' + (roundCount - 1);
+        cb.value = prod.id;
+        if (selPids.indexOf(prod.id) >= 0) cb.checked = true;
+        lbl.appendChild(cb);
+        var sp = document.createElement('span');
+        sp.textContent = prod.name;
+        lbl.appendChild(sp);
+        prodGrid.appendChild(lbl);
+      });
+      fp.appendChild(prodGrid);
+      body.appendChild(fp);
+    }
 
     // Instructions
     var f5 = document.createElement('div');
@@ -202,6 +231,11 @@
   .rd-rm:hover { color: #ffb4ab; }
   .rd-body { padding: 14px; }
   .rd-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 10px; }
+  .rd-products { display: flex; gap: 8px; flex-wrap: wrap; }
+  .rd-product-check { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); cursor: pointer; font-size: 12px; transition: all 0.15s; }
+  .rd-product-check:hover { border-color: var(--primary); }
+  .rd-product-check input[type="checkbox"] { accent-color: var(--primary); width: 14px; height: 14px; }
+  .rd-product-check input:checked + span { color: var(--primary); font-weight: 600; }
 
   @media (max-width: 768px) {
     .rd-grid { grid-template-columns: 1fr 1fr; }
