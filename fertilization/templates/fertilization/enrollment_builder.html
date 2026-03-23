@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>Enroll Customer</h1>
+    <p>Assign a fertilization program to a property with pricing.</p>
+  </div>
+  <a href="{% url 'fertilization:hub' %}" class="btn btn-secondary">&larr; Back to Hub</a>
+</div>
+
+<form method="post" id="enroll-form">
+  {% csrf_token %}
+
+  <!-- Step 1: Customer & Property -->
+  <div class="card" style="max-width:700px;margin-bottom:20px;">
+    <h3 style="margin:0 0 16px;font-family:var(--font-headline);font-weight:700;">1. Select Customer &amp; Property</h3>
+    <div class="pb-field">
+      <label>Customer</label>
+      <select id="enr-customer" onchange="updateProperties()">
+        <option value="">Select a customer...</option>
+      </select>
+    </div>
+    <div class="pb-field" id="prop-wrap" style="display:none;">
+      <label>Property</label>
+      <select id="enr-property" name="property_id" onchange="updateSqft()">
+        <option value="">Select property...</option>
+      </select>
+    </div>
+    <div id="sqft-info" style="display:none;margin-top:8px;">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--primary-light);border-radius:var(--radius-md);font-size:13px;">
+        <span style="font-weight:700;color:var(--primary);" id="sqft-display">0 sq ft</span>
+        <span style="color:var(--text-muted);">|</span>
+        <a href="#" id="measure-link" target="_blank" style="color:var(--primary);font-weight:600;font-size:12px;">Measure from satellite &rarr;</a>
+      </div>
+    </div>
+    <div id="no-sqft-info" style="display:none;margin-top:8px;">
+      <div style="padding:10px 14px;background:rgba(226,193,155,0.06);border:1px solid rgba(226,193,155,0.15);border-radius:var(--radius-md);font-size:12px;color:var(--tertiary);">
+        No sq ft recorded. <a href="#" id="measure-link-empty" target="_blank" style="color:var(--primary);font-weight:600;">Measure from satellite</a> for accurate per-sqft pricing.
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Program -->
+  <div class="card" style="max-width:700px;margin-bottom:20px;">
+    <h3 style="margin:0 0 16px;font-family:var(--font-headline);font-weight:700;">2. Select Program</h3>
+    <div class="pb-field">
+      <label>Program</label>
+      <select id="enr-program" name="program_id" onchange="updateProgramInfo()">
+        <option value="">Select a program...</option>
+      </select>
+    </div>
+    <div id="program-info" style="display:none;margin-top:8px;padding:10px 14px;background:var(--surface-highest);border-radius:var(--radius-md);font-size:12px;color:var(--text-secondary);">
+      <span id="program-rounds">0</span> rounds per year
+    </div>
+    <div class="pb-field" style="margin-top:12px;">
+      <label>Year</label>
+      <input type="number" name="year" value="{{ current_year }}" min="2024" max="2030" style="max-width:120px;">
+    </div>
+  </div>
+
+  <!-- Step 3: Pricing -->
+  <div class="card" style="max-width:700px;margin-bottom:20px;">
+    <h3 style="margin:0 0 16px;font-family:var(--font-headline);font-weight:700;">3. Pricing</h3>
+    <div class="pb-field">
+      <label>Pricing Method</label>
+      <select id="enr-pricing" name="pricing_method" onchange="updatePricingFields()">
+        <option value="per_sqft">Per Sq Ft (recommended)</option>
+        <option value="per_application">Per Application (flat rate)</option>
+        <option value="annual_flat">Annual Flat Rate</option>
+      </select>
+    </div>
+
+    <!-- Per Sq Ft fields -->
+    <div id="pricing-sqft" class="pricing-section">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="pb-field">
+          <label>Price per Sq Ft</label>
+          <input type="number" id="enr-price-sqft" name="price_per_sqft" step="0.0001" min="0" value="{{ default_price_per_sqft }}" placeholder="e.g. 0.0065" oninput="calcPrice()">
+          <p style="font-size:11px;color:var(--text-muted);margin:4px 0 0;">$<span id="per-1000">0.00</span> per 1,000 sq ft</p>
+        </div>
+        <div class="pb-field">
+          <label>Calculated Price / Application</label>
+          <div id="calc-result" style="font-size:20px;font-weight:800;color:var(--primary);padding:10px 0;">$0.00</div>
+          <p style="font-size:11px;color:var(--text-muted);">Based on property sq ft &times; rate</p>
+        </div>
+      </div>
+      <div id="calc-annual" style="margin-top:8px;padding:10px 14px;background:var(--surface-highest);border-radius:var(--radius-md);font-size:13px;">
+        Annual total (<span id="calc-rounds">0</span> rounds): <strong id="calc-annual-val" style="color:var(--primary);">$0.00</strong>
+      </div>
+    </div>
+
+    <!-- Per Application fields -->
+    <div id="pricing-app" class="pricing-section" style="display:none;">
+      <div class="pb-field">
+        <label>Price per Application</label>
+        <input type="number" name="price_per_application" step="0.01" min="0" placeholder="e.g. 65.00">
+      </div>
+    </div>
+
+    <!-- Annual Flat fields -->
+    <div id="pricing-annual" class="pricing-section" style="display:none;">
+      <div class="pb-field">
+        <label>Annual Flat Price</label>
+        <input type="number" name="annual_price" step="0.01" min="0" placeholder="e.g. 450.00">
+      </div>
+    </div>
+
+    <div class="pb-field" style="margin-top:12px;">
+      <label>Notes</label>
+      <textarea name="notes" rows="2" placeholder="Special instructions, customer preferences..."></textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;max-width:700px;">
+    <button type="submit" class="btn btn-primary">Enroll Customer</button>
+    <a href="{% url 'fertilization:hub' %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+
+<script>
+(function() {
+  var customers = {{ customers_json|safe }};
+  var programs = {{ programs_json|safe }};
+  var currentSqft = 0;
+  var currentRounds = 0;
+  var currentCustomerId = null;
+  var currentPropertyId = null;
+
+  // Populate customer dropdown
+  var custSel = document.getElementById('enr-customer');
+  customers.forEach(function(c) {
+    var o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = c.name;
+    custSel.appendChild(o);
+  });
+
+  // Populate program dropdown
+  var progSel = document.getElementById('enr-program');
+  programs.forEach(function(p) {
+    var o = document.createElement('option');
+    o.value = p.id;
+    o.textContent = p.name + ' (' + p.rounds + ' rounds)';
+    progSel.appendChild(o);
+  });
+
+  window.updateProperties = function() {
+    var cid = custSel.value;
+    currentCustomerId = cid;
+    var propSel = document.getElementById('enr-property');
+    while (propSel.options.length > 1) propSel.remove(1);
+
+    if (!cid) {
+      document.getElementById('prop-wrap').style.display = 'none';
+      return;
+    }
+
+    var cust = customers.find(function(c) { return String(c.id) === String(cid); });
+    if (cust && cust.properties.length) {
+      cust.properties.forEach(function(p) {
+        var o = document.createElement('option');
+        o.value = p.id;
+        o.textContent = p.address + (p.sqft ? ' (' + p.sqft + ' sq ft)' : '');
+        o.setAttribute('data-sqft', p.sqft || 0);
+        propSel.appendChild(o);
+      });
+      if (cust.properties.length === 1) {
+        propSel.selectedIndex = 1;
+        updateSqft();
+      }
+    }
+    document.getElementById('prop-wrap').style.display = '';
+  };
+
+  window.updateSqft = function() {
+    var propSel = document.getElementById('enr-property');
+    var opt = propSel.options[propSel.selectedIndex];
+    currentPropertyId = propSel.value;
+    var sqft = parseInt(opt ? opt.getAttribute('data-sqft') : 0) || 0;
+    currentSqft = sqft;
+
+    var measureUrl = '/clients/' + currentCustomerId + '/properties/' + currentPropertyId + '/measure-lawn/';
+
+    if (sqft > 0) {
+      document.getElementById('sqft-display').textContent = sqft.toLocaleString() + ' sq ft';
+      document.getElementById('measure-link').href = measureUrl;
+      document.getElementById('sqft-info').style.display = '';
+      document.getElementById('no-sqft-info').style.display = 'none';
+    } else if (currentPropertyId) {
+      document.getElementById('measure-link-empty').href = measureUrl;
+      document.getElementById('sqft-info').style.display = 'none';
+      document.getElementById('no-sqft-info').style.display = '';
+    }
+    calcPrice();
+  };
+
+  window.updateProgramInfo = function() {
+    var pid = progSel.value;
+    if (!pid) {
+      document.getElementById('program-info').style.display = 'none';
+      currentRounds = 0;
+      return;
+    }
+    var prog = programs.find(function(p) { return String(p.id) === String(pid); });
+    currentRounds = prog ? prog.rounds : 0;
+    document.getElementById('program-rounds').textContent = currentRounds;
+    document.getElementById('program-info').style.display = '';
+    calcPrice();
+  };
+
+  window.updatePricingFields = function() {
+    var method = document.getElementById('enr-pricing').value;
+    document.getElementById('pricing-sqft').style.display = method === 'per_sqft' ? '' : 'none';
+    document.getElementById('pricing-app').style.display = method === 'per_application' ? '' : 'none';
+    document.getElementById('pricing-annual').style.display = method === 'annual_flat' ? '' : 'none';
+  };
+
+  window.calcPrice = function() {
+    var rate = parseFloat(document.getElementById('enr-price-sqft').value) || 0;
+    var per1000 = (rate * 1000).toFixed(2);
+    document.getElementById('per-1000').textContent = per1000;
+
+    var perApp = (rate * currentSqft).toFixed(2);
+    document.getElementById('calc-result').textContent = '$' + perApp;
+
+    document.getElementById('calc-rounds').textContent = currentRounds;
+    var annual = (parseFloat(perApp) * currentRounds).toFixed(2);
+    document.getElementById('calc-annual-val').textContent = '$' + annual;
+  };
+
+  // Init
+  calcPrice();
+})();
+</script>
+
+<style>
+  .pb-field { margin-bottom: 12px; }
+  .pb-field label { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .pb-field input, .pb-field select, .pb-field textarea { width: 100%; }
+  @media (max-width: 768px) {
+    .card[style*="max-width:700px"] { max-width: 100% !important; }
+    .pb-field input, .pb-field select, .pb-field textarea { font-size: 16px; min-height: 44px; }
+  }
+</style>
+{% endblock %}

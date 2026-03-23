@@ -109,7 +109,7 @@
 <div id="panel-customers" class="fert-panel" data-panel="customers" style="display:none;">
   <div class="panel-header">
     <h2>Customer Enrollments ({{ current_year }})</h2>
-    <button type="button" class="btn btn-primary btn-sm" onclick="FertHub.addEnrollment()">+ Enroll Customer</button>
+    <a href="{% url 'fertilization:enrollment_builder' %}" class="btn btn-primary btn-sm">+ Enroll Customer</a>
   </div>
 
   {% if enrollments %}

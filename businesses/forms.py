@@ -43,6 +43,7 @@ class BusinessSettingsForm(forms.ModelForm):
             "default_invoice_due_days",
             "growing_season_start_month",
             "growing_season_end_month",
+            "default_fert_price_per_sqft",
             "venmo_username",
             "zelle_email_or_phone",
             "cashapp_cashtag",

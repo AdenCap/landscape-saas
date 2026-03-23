@@ -379,6 +379,13 @@ class Business(models.Model):
         default=10,
         help_text="Last month of growing season (1–12). Default 10 = October.",
     )
+    default_fert_price_per_sqft = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="Default price per sq ft per application for fertilization (e.g. 0.0065 = $6.50 per 1000 sq ft).",
+    )
 
     # Timezone — all times in the app display in this timezone
     US_TIMEZONE_CHOICES = [

@@ -134,6 +134,78 @@ def program_builder(request, program_id=None):
 # ─────────────────────────────────────────────────────────────
 
 @role_required("owner", "manager")
+@require_http_methods(["GET", "POST"])
+def enrollment_builder(request):
+    """Full-page enrollment: pick customer/property, program, pricing → enroll."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+
+    from datetime import date as dt_date
+    from customers.models import Customer
+
+    if request.method == "POST":
+        property_id = request.POST.get("property_id")
+        program_id = request.POST.get("program_id")
+        year = request.POST.get("year") or dt_date.today().year
+        pricing_method = request.POST.get("pricing_method") or "per_application"
+        price_per_app = request.POST.get("price_per_application") or None
+        annual_price = request.POST.get("annual_price") or None
+        price_per_sqft = request.POST.get("price_per_sqft") or None
+        notes = request.POST.get("notes", "")
+
+        prop = get_object_or_404(Property, id=property_id, customer__business=business)
+        program = get_object_or_404(FertilizationProgram, id=program_id, business=business)
+
+        try:
+            enrollment = CustomerProgramEnrollment.objects.create(
+                business=business,
+                property=prop,
+                program=program,
+                year=int(year),
+                pricing_method=pricing_method,
+                price_per_application=Decimal(price_per_app) if price_per_app else None,
+                annual_price=Decimal(annual_price) if annual_price else None,
+                price_per_sqft=Decimal(price_per_sqft) if price_per_sqft else None,
+                notes=notes,
+            )
+            # Auto-generate scheduled rounds
+            for rnd in program.rounds.order_by('round_number'):
+                ScheduledRound.objects.create(
+                    enrollment=enrollment,
+                    round_template=rnd,
+                    round_number=rnd.round_number,
+                    status='pending',
+                )
+            messages.success(request, f"Enrolled {prop.address} in {program.name} ({year}) with {program.rounds.count()} rounds.")
+        except Exception as e:
+            messages.error(request, f"Error: {e}")
+        return redirect("fertilization:hub")
+
+    # GET — build context
+    customers = Customer.objects.filter(business=business).prefetch_related('properties').order_by('name')
+    programs = FertilizationProgram.objects.filter(business=business, is_active=True).prefetch_related('rounds').order_by('name')
+    default_price_per_sqft = business.default_fert_price_per_sqft or ""
+
+    # Build customer/property JSON for JS
+    customers_data = []
+    for c in customers:
+        props = [{"id": p.id, "address": p.address, "sqft": p.yard_sqft} for p in c.properties.all()]
+        customers_data.append({"id": c.id, "name": c.name, "properties": props})
+
+    programs_data = []
+    for p in programs:
+        programs_data.append({"id": p.id, "name": p.name, "rounds": p.rounds.count()})
+
+    return render(request, "fertilization/enrollment_builder.html", {
+        "customers_json": json.dumps(customers_data),
+        "programs_json": json.dumps(programs_data),
+        "default_price_per_sqft": default_price_per_sqft,
+        "current_year": dt_date.today().year,
+    })
+
+
+@role_required("owner", "manager")
 @module_required("fertilization")
 def hub(request):
     """Main fertilization management hub — tabbed page."""

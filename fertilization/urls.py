@@ -8,6 +8,7 @@ urlpatterns = [
     path("", views.hub, name="hub"),
     path("program/create/", views.program_builder, name="program_builder"),
     path("program/<int:program_id>/edit/", views.program_builder, name="program_builder_edit"),
+    path("enroll/", views.enrollment_builder, name="enrollment_builder"),
 
     # Programs CRUD (AJAX)
     path("api/programs/", views.program_list_create, name="program_list_create"),
