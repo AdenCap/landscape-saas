@@ -6,6 +6,8 @@ app_name = "fertilization"
 urlpatterns = [
     # Main hub page
     path("", views.hub, name="hub"),
+    path("program/create/", views.program_builder, name="program_builder"),
+    path("program/<int:program_id>/edit/", views.program_builder, name="program_builder_edit"),
 
     # Programs CRUD (AJAX)
     path("api/programs/", views.program_list_create, name="program_list_create"),

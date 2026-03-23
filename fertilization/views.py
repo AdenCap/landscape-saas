@@ -36,6 +36,100 @@ from jobs.views import _fertilization_dates_for_year
 
 
 # ─────────────────────────────────────────────────────────────
+#  Program Builder (full-page create/edit with inline rounds)
+# ─────────────────────────────────────────────────────────────
+
+@role_required("owner", "manager")
+@require_http_methods(["GET", "POST"])
+def program_builder(request, program_id=None):
+    """Full-page program creation/editing with inline rounds."""
+    business = get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    program = None
+    existing_rounds = []
+    if program_id:
+        program = get_object_or_404(FertilizationProgram, id=program_id, business=business)
+        existing_rounds = list(program.rounds.order_by('round_number').values(
+            'id', 'round_number', 'name', 'target_month_start', 'target_month_end',
+            'default_rate_override', 'crew_instructions',
+        ))
+
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()
+        description = (request.POST.get("description") or "").strip()
+        grass_type = request.POST.get("grass_type") or "both"
+
+        if not name:
+            messages.error(request, "Program name is required.")
+            return redirect(request.path)
+
+        if program:
+            program.name = name
+            program.description = description
+            program.grass_type = grass_type
+            program.save()
+        else:
+            try:
+                program = FertilizationProgram.objects.create(
+                    business=business, name=name, description=description, grass_type=grass_type,
+                )
+            except Exception as e:
+                messages.error(request, f"Error creating program: {e}")
+                return redirect(request.path)
+
+        # Delete existing rounds and recreate from form data
+        program.rounds.all().delete()
+
+        round_names = request.POST.getlist("round_name")
+        round_month_starts = request.POST.getlist("round_month_start")
+        round_month_ends = request.POST.getlist("round_month_end")
+        round_instructions = request.POST.getlist("round_instructions")
+        round_rates = request.POST.getlist("round_rate")
+
+        for i in range(len(round_names)):
+            rname = (round_names[i] if i < len(round_names) else "").strip()
+            if not rname:
+                continue
+            try:
+                ms = int(round_month_starts[i]) if i < len(round_month_starts) else 1
+                me = int(round_month_ends[i]) if i < len(round_month_ends) else ms
+            except (ValueError, TypeError):
+                ms, me = 1, 1
+            rate = None
+            if i < len(round_rates) and round_rates[i].strip():
+                try:
+                    rate = Decimal(round_rates[i].strip())
+                except (InvalidOperation, ValueError):
+                    rate = None
+            instr = round_instructions[i] if i < len(round_instructions) else ""
+            ProgramRound.objects.create(
+                program=program,
+                round_number=i + 1,
+                name=rname,
+                target_month_start=max(1, min(12, ms)),
+                target_month_end=max(1, min(12, me)),
+                default_rate_override=rate,
+                crew_instructions=instr,
+            )
+
+        action = "updated" if program_id else "created"
+        messages.success(request, f"Program '{program.name}' {action} with {program.rounds.count()} rounds.")
+        return redirect("fertilization:hub")
+
+    products = list(FertilizerProduct.objects.filter(business=business, is_active=True).values('id', 'name'))
+
+    return render(request, "fertilization/program_builder.html", {
+        "program": program,
+        "existing_rounds": json.dumps(existing_rounds),
+        "products": products,
+        "grass_types": FertilizationProgram.GRASS_TYPE_CHOICES,
+    })
+
+
+# ─────────────────────────────────────────────────────────────
 #  Hub view (fully functional)
 # ─────────────────────────────────────────────────────────────
 

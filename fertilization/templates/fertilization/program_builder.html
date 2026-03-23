@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>{% if program %}Edit Program{% else %}Create Program{% endif %}</h1>
+    <p>Define your fertilization program and all rounds in one place.</p>
+  </div>
+  <a href="{% url 'fertilization:hub' %}" class="btn btn-secondary">&larr; Back to Hub</a>
+</div>
+
+<form method="post" id="program-form">
+  {% csrf_token %}
+
+  <!-- Program Info -->
+  <div class="card" style="max-width:700px;margin-bottom:20px;">
+    <h3 style="margin:0 0 16px;font-family:var(--font-headline);font-weight:700;">Program Details</h3>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;">
+      <div class="pb-field">
+        <label for="prog-name">Program Name *</label>
+        <input type="text" id="prog-name" name="name" value="{{ program.name|default:'' }}" placeholder="e.g. 6-Round Premium Program" required>
+      </div>
+      <div class="pb-field">
+        <label for="prog-grass">Grass Type</label>
+        <select id="prog-grass" name="grass_type">
+          {% for val, label in grass_types %}
+          <option value="{{ val }}" {% if program.grass_type == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="pb-field">
+      <label for="prog-desc">Description</label>
+      <textarea id="prog-desc" name="description" rows="2" placeholder="Optional program description...">{{ program.description|default:'' }}</textarea>
+    </div>
+  </div>
+
+  <!-- Rounds -->
+  <div class="card" style="max-width:700px;margin-bottom:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;">Rounds</h3>
+      <button type="button" id="add-round-btn" class="btn btn-secondary" style="font-size:12px;">+ Add Round</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin:-8px 0 16px;">Add each treatment round with timing and instructions.</p>
+
+    <div id="rounds-container"></div>
+  </div>
+
+  <div style="display:flex;gap:10px;max-width:700px;">
+    <button type="submit" class="btn btn-primary">{% if program %}Save Changes{% else %}Create Program{% endif %}</button>
+    <a href="{% url 'fertilization:hub' %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+
+<script>
+(function() {
+  var MONTHS = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var container = document.getElementById('rounds-container');
+  var roundCount = 0;
+
+  function addRound(data) {
+    data = data || {};
+    roundCount++;
+    var n = roundCount;
+
+    var row = document.createElement('div');
+    row.className = 'rd-row';
+
+    // Header
+    var hdr = document.createElement('div');
+    hdr.className = 'rd-hdr';
+    var numEl = document.createElement('span');
+    numEl.className = 'rd-num';
+    numEl.textContent = 'R' + n;
+    hdr.appendChild(numEl);
+    var titleEl = document.createElement('span');
+    titleEl.className = 'rd-title';
+    titleEl.textContent = data.name || 'Round ' + n;
+    hdr.appendChild(titleEl);
+    var rmBtn = document.createElement('button');
+    rmBtn.type = 'button';
+    rmBtn.className = 'rd-rm';
+    rmBtn.textContent = '\u00D7';
+    rmBtn.addEventListener('click', function() { row.remove(); renumber(); });
+    hdr.appendChild(rmBtn);
+    row.appendChild(hdr);
+
+    // Fields
+    var body = document.createElement('div');
+    body.className = 'rd-body';
+
+    var grid = document.createElement('div');
+    grid.className = 'rd-grid';
+
+    // Name
+    var f1 = mkField('Round Name *', 'text', 'round_name', data.name || '', 'e.g. Early Spring Pre-Emergent');
+    f1.querySelector('input').required = true;
+    f1.querySelector('input').addEventListener('input', function() { titleEl.textContent = this.value || 'Round ' + n; });
+    grid.appendChild(f1);
+
+    // Start Month
+    var f2 = mkSelect('Start Month', 'round_month_start', data.target_month_start || 3);
+    grid.appendChild(f2);
+
+    // End Month
+    var f3 = mkSelect('End Month', 'round_month_end', data.target_month_end || 3);
+    grid.appendChild(f3);
+
+    // Rate
+    var f4 = mkField('Rate Override', 'number', 'round_rate', data.default_rate_override || '', 'Optional');
+    f4.querySelector('input').step = '0.01';
+    f4.querySelector('input').min = '0';
+    grid.appendChild(f4);
+
+    body.appendChild(grid);
+
+    // Instructions
+    var f5 = document.createElement('div');
+    f5.className = 'pb-field';
+    var lbl5 = document.createElement('label');
+    lbl5.textContent = 'Crew Instructions';
+    f5.appendChild(lbl5);
+    var ta = document.createElement('textarea');
+    ta.name = 'round_instructions';
+    ta.rows = 1;
+    ta.placeholder = 'Application notes, safety info...';
+    ta.textContent = data.crew_instructions || '';
+    f5.appendChild(ta);
+    body.appendChild(f5);
+
+    row.appendChild(body);
+    container.appendChild(row);
+    return row;
+  }
+
+  function mkField(label, type, name, value, placeholder) {
+    var d = document.createElement('div');
+    d.className = 'pb-field';
+    var l = document.createElement('label');
+    l.textContent = label;
+    d.appendChild(l);
+    var i = document.createElement('input');
+    i.type = type;
+    i.name = name;
+    i.value = value;
+    i.placeholder = placeholder || '';
+    d.appendChild(i);
+    return d;
+  }
+
+  function mkSelect(label, name, selected) {
+    var d = document.createElement('div');
+    d.className = 'pb-field';
+    var l = document.createElement('label');
+    l.textContent = label;
+    d.appendChild(l);
+    var s = document.createElement('select');
+    s.name = name;
+    for (var m = 1; m <= 12; m++) {
+      var o = document.createElement('option');
+      o.value = m;
+      o.textContent = MONTHS[m];
+      if (m == selected) o.selected = true;
+      s.appendChild(o);
+    }
+    d.appendChild(s);
+    return d;
+  }
+
+  function renumber() {
+    container.querySelectorAll('.rd-row').forEach(function(row, i) {
+      row.querySelector('.rd-num').textContent = 'R' + (i + 1);
+    });
+    roundCount = container.querySelectorAll('.rd-row').length;
+  }
+
+  // Load existing rounds or start with one empty
+  var existing = {{ existing_rounds|default:"[]"|safe }};
+  if (existing.length > 0) {
+    existing.forEach(function(r) { addRound(r); });
+  } else {
+    addRound();
+  }
+
+  document.getElementById('add-round-btn').addEventListener('click', function() {
+    var row = addRound();
+    row.querySelector('input[name="round_name"]').focus();
+  });
+})();
+</script>
+
+<style>
+  .pb-field { margin-bottom: 12px; }
+  .pb-field label { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .pb-field input, .pb-field select, .pb-field textarea { width: 100%; }
+
+  .rd-row { background: var(--surface-highest); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 10px; overflow: hidden; }
+  .rd-hdr { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface-bright); }
+  .rd-num { font-family: var(--font-headline); font-size: 12px; font-weight: 800; color: var(--primary); min-width: 28px; }
+  .rd-title { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); }
+  .rd-rm { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 0 4px; }
+  .rd-rm:hover { color: #ffb4ab; }
+  .rd-body { padding: 14px; }
+  .rd-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 10px; }
+
+  @media (max-width: 768px) {
+    .rd-grid { grid-template-columns: 1fr 1fr; }
+    .pb-field input, .pb-field select, .pb-field textarea { font-size: 16px; min-height: 44px; }
+    .card[style*="max-width:700px"] { max-width: 100% !important; }
+  }
+</style>
+{% endblock %}
