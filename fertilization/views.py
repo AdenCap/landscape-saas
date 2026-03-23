@@ -119,7 +119,7 @@ def program_builder(request, program_id=None):
         messages.success(request, f"Program '{program.name}' {action} with {program.rounds.count()} rounds.")
         return redirect("fertilization:hub")
 
-    products = list(FertilizerProduct.objects.filter(business=business, is_active=True).values('id', 'name'))
+    products = list(FertilizerProduct.objects.filter(business=business, active=True).values('id', 'name'))
 
     return render(request, "fertilization/program_builder.html", {
         "program": program,
