@@ -11,10 +11,40 @@
 
 {% include "customers/_crm_tabs.html" %}
 
-<form method="get" class="card search-row" style="margin-bottom:12px;">
-  <input type="search" name="q" value="{{ search }}" placeholder="Search customers by name, phone, email, address..." class="search-input">
-  <button type="submit" class="btn btn-secondary">Search</button>
+<form method="get" class="card" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 16px;">
+  <input type="search" name="q" value="{{ search }}" placeholder="Search by name, phone, email, address..." style="flex:1;min-width:200px;">
+  <select name="service" style="min-width:140px;" onchange="this.form.submit()">
+    <option value="">All Services</option>
+    {% for svc in service_types %}
+    <option value="{{ svc }}" {% if service_filter == svc %}selected{% endif %}>{{ svc }}</option>
+    {% endfor %}
+  </select>
+  <select name="status" style="min-width:120px;" onchange="this.form.submit()">
+    <option value="">All Status</option>
+    <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active (90 days)</option>
+    <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
+  </select>
+  <button type="submit" class="btn btn-secondary">Filter</button>
+  {% if service_filter or status_filter or search %}
+  <a href="{% url 'customer_list' %}" class="btn btn-secondary" style="font-size:12px;">Clear</a>
+  {% endif %}
 </form>
+{% if service_filter or status_filter %}
+<div style="margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap;">
+  {% if service_filter %}
+  <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--primary-light);color:var(--primary);border-radius:var(--radius-full);font-size:11px;font-weight:600;">
+    Service: {{ service_filter }}
+    <a href="?q={{ search }}&status={{ status_filter }}" style="color:inherit;text-decoration:none;font-weight:800;">&times;</a>
+  </span>
+  {% endif %}
+  {% if status_filter %}
+  <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--primary-light);color:var(--primary);border-radius:var(--radius-full);font-size:11px;font-weight:600;">
+    {{ status_filter|title }}
+    <a href="?q={{ search }}&service={{ service_filter }}" style="color:inherit;text-decoration:none;font-weight:800;">&times;</a>
+  </span>
+  {% endif %}
+</div>
+{% endif %}
 
 <div class="card">
   <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">

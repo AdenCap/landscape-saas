@@ -30,13 +30,15 @@ from .forms import (
 
 @role_required("owner", "manager")
 def customer_list(request):
-    """CRM home: list all customers with search."""
+    """CRM home: list all customers with search and service type filters."""
     business = _get_business(request)
     if not business:
         messages.error(request, "You must be associated with a business to view clients.")
         return redirect("/")
 
     search = request.GET.get("q", "").strip()
+    service_filter = request.GET.get("service", "").strip()
+    status_filter = request.GET.get("status", "").strip()
     customers = Customer.objects.filter(business=business)
 
     if search:
@@ -48,15 +50,46 @@ def customer_list(request):
             Q(city__icontains=search)
         )
 
-    # Annotate with property and invoice counts (distinct=True so the JOIN doesn't inflate counts)
+    # Filter by service type (customers who have had jobs with this service)
+    if service_filter:
+        customers = customers.filter(
+            properties__jobs__service_items__service__name__icontains=service_filter
+        ).distinct()
+
+    # Filter by status (active = job in last 90 days)
+    if status_filter == "active":
+        from datetime import timedelta
+        cutoff = timezone.now().date() - timedelta(days=90)
+        customers = customers.filter(
+            properties__jobs__scheduled_date__gte=cutoff
+        ).distinct()
+    elif status_filter == "inactive":
+        from datetime import timedelta
+        cutoff = timezone.now().date() - timedelta(days=90)
+        customers = customers.exclude(
+            properties__jobs__scheduled_date__gte=cutoff
+        ).distinct()
+
+    # Annotate with property and invoice counts
     customers = customers.annotate(
         property_count=Count('properties', distinct=True),
         invoice_count=Count('invoices', distinct=True),
     ).select_related('business').order_by('name')
 
+    # Get available service types for filter dropdown
+    from pricing.models import ServiceTemplate
+    service_types = list(
+        ServiceTemplate.objects.filter(business=business, active=True)
+        .values_list('name', flat=True)
+        .order_by('name')
+    )
+
     return render(request, "customers/customer_list.html", {
         "customers": customers,
         "search": search,
+        "service_filter": service_filter,
+        "status_filter": status_filter,
+        "service_types": service_types,
     })
 
 
