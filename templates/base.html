@@ -907,6 +907,42 @@
   </main>
 
   {% block extra_js %}{% endblock %}
+
+  <!-- Button feedback: loading state on form submit + ripple -->
+  <script>
+  (function() {
+    // Auto-add loading state to submit buttons when their form submits
+    document.addEventListener('submit', function(e) {
+      var form = e.target;
+      if (!form || form.tagName !== 'FORM') return;
+      // Find the submit button that was clicked
+      var btn = form.querySelector('button[type="submit"]:focus, button[type="submit"]:active') ||
+                form.querySelector('button[type="submit"].btn-primary') ||
+                form.querySelector('button[type="submit"]');
+      if (btn && btn.classList.contains('btn')) {
+        btn.classList.add('is-loading');
+        // Prevent double-submit
+        setTimeout(function() { btn.disabled = true; }, 10);
+        // Safety fallback: re-enable after 10s in case of error
+        setTimeout(function() { btn.classList.remove('is-loading'); btn.disabled = false; }, 10000);
+      }
+    });
+
+    // Track ripple position on primary/secondary buttons
+    document.addEventListener('mousedown', function(e) {
+      var btn = e.target.closest('.btn-primary, .btn-secondary');
+      if (btn) {
+        var rect = btn.getBoundingClientRect();
+        var x = ((e.clientX - rect.left) / rect.width * 100).toFixed(0);
+        var y = ((e.clientY - rect.top) / rect.height * 100).toFixed(0);
+        btn.style.setProperty('--ripple-x', x + '%');
+        btn.style.setProperty('--ripple-y', y + '%');
+        btn.classList.add('btn-ripple');
+      }
+    });
+  })();
+  </script>
+
   {% if user.is_authenticated %}
   <script>
   (function() {

@@ -236,28 +236,48 @@ a:hover {
   border: 1px solid transparent;
   cursor: pointer;
   text-decoration: none;
-  transition: all var(--motion-slow) var(--motion-ease);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
+  position: relative;
+  user-select: none;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
 }
 
 .btn:active {
-  transform: scale(0.97);
+  transform: translateY(0) scale(0.97);
+  transition-duration: 0.05s;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .btn-primary {
-  background: var(--gradient-primary);
+  background: var(--primary);
   color: var(--on-primary);
   border-color: transparent;
-  box-shadow: 0 0 16px rgba(157, 216, 80, 0.1);
+  box-shadow: 0 2px 8px rgba(157, 216, 80, 0.15), 0 0 0 0 rgba(157, 216, 80, 0);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 700;
 }
 
 .btn-primary:hover {
-  box-shadow: 0 0 24px rgba(157, 216, 80, 0.2);
+  background: #a8e05a;
+  box-shadow: 0 4px 16px rgba(157, 216, 80, 0.3), 0 0 0 0 rgba(157, 216, 80, 0);
   color: var(--on-primary);
+  transform: translateY(-2px);
+}
+
+.btn-primary:active {
+  background: #8cc644;
+  box-shadow: 0 1px 4px rgba(157, 216, 80, 0.2);
+  transform: translateY(0) scale(0.97);
 }
 
 .btn-secondary {
@@ -267,12 +287,21 @@ a:hover {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .btn-secondary:hover {
   background: var(--surface-high);
   border-color: var(--border-hover);
   color: var(--text);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.btn-secondary:active {
+  background: var(--surface-highest);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  transform: translateY(0) scale(0.97);
 }
 
 .btn-ghost {
@@ -284,6 +313,10 @@ a:hover {
 .btn-ghost:hover {
   background: var(--bg-surface);
   color: var(--text);
+}
+
+.btn-ghost:active {
+  background: var(--surface-high);
 }
 
 .btn-sm {
@@ -758,6 +791,7 @@ a:hover {
   position: relative;
   color: transparent !important;
   pointer-events: none;
+  transform: none !important;
 }
 
 .btn.is-loading::after {
@@ -769,6 +803,24 @@ a:hover {
   border-top-color: #fff;
   border-radius: var(--radius-full);
   animation: spin 0.6s linear infinite;
+}
+
+/* Ripple effect on click */
+.btn-ripple {
+  overflow: hidden;
+}
+.btn-ripple::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(255,255,255,0.2) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.btn-ripple:active::before {
+  opacity: 1;
+  transition-duration: 0.05s;
 }
 
 /* ──────────────────────────────────────────
