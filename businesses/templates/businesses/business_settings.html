@@ -200,10 +200,16 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:5px;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/></svg>
               Change Gmail account
             </a>
-            <form method="post" action="{% url 'disconnect_gmail' %}" style="margin:0;" onsubmit="return confirm('Disconnect Gmail? You will need to reconnect to send emails.');">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-sm" style="color:var(--danger,#ef4444);border-color:var(--danger,#ef4444);background:transparent;">Disconnect</button>
-            </form>
+            <button type="button" class="btn btn-sm" style="color:var(--danger,#ef4444);border-color:var(--danger,#ef4444);background:transparent;" onclick="disconnectGmail()">Disconnect</button>
+            <script>
+            function disconnectGmail() {
+              if (!confirm('Disconnect Gmail? You will need to reconnect to send emails.')) return;
+              fetch('{% url "disconnect_gmail" %}', {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'},
+              }).then(function() { location.reload(); });
+            }
+            </script>
           </div>
           {% elif business.email_smtp_user and business.email_smtp_password %}
           <div class="status-banner status-ok">
