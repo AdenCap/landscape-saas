@@ -46,6 +46,75 @@
   </a>
 </nav>
 
+{% if due_count > 0 %}
+<!-- Fertilization Rounds Due Banner -->
+<div class="fert-due-banner">
+  <div class="fert-due-header">
+    <span class="material-symbols-outlined" style="font-size:22px;color:var(--primary);">eco</span>
+    <div>
+      <strong>{{ due_count }} round{{ due_count|pluralize }} due this month</strong>
+      <p style="margin:2px 0 0;font-size:12px;color:var(--text-muted);">These clients are due for their next fertilization treatment. Pick a date and schedule them all at once.</p>
+    </div>
+  </div>
+  <form method="post" action="{% url 'fertilization:batch_schedule_rounds' %}" id="batch-schedule-form">
+    {% csrf_token %}
+    <div class="fert-due-groups">
+      {% for group_name, group in due_groups.items %}
+      <div class="fert-due-group">
+        <div class="fert-due-group-head">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;font-size:13px;">
+            <input type="checkbox" class="fert-due-select-group" checked style="accent-color:var(--primary);width:16px;height:16px;">
+            {{ group_name }}
+          </label>
+          <span style="font-size:12px;color:var(--text-muted);">{{ group.clients|length }} client{{ group.clients|length|pluralize }}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-secondary);padding:4px 0 0 22px;">
+          {% for name in group.clients %}{{ name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        </div>
+        {% for rid in group.ids %}
+        <input type="hidden" name="round_ids" value="{{ rid }}" class="fert-due-rid" data-group="{{ group_name }}">
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="fert-due-actions">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Schedule for:</label>
+        <input type="date" name="schedule_date" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;">
+        <span style="font-size:11px;color:var(--text-muted);">Leave blank to use each round's target date</span>
+      </div>
+      <button type="submit" class="btn btn-primary">
+        <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:4px;">calendar_month</span>
+        Schedule Selected Rounds
+      </button>
+    </div>
+  </form>
+</div>
+<style>
+  .fert-due-banner { background: var(--surface); border: 1px solid rgba(34,197,94,0.2); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
+  .fert-due-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+  .fert-due-groups { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .fert-due-group { padding: 10px 12px; background: var(--surface-highest); border-radius: 8px; border: 1px solid var(--border); }
+  .fert-due-group-head { display: flex; justify-content: space-between; align-items: center; }
+  .fert-due-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  @media (max-width: 768px) {
+    .fert-due-actions { flex-direction: column; align-items: stretch; }
+    .fert-due-actions .btn { justify-content: center; }
+  }
+</style>
+<script>
+// Toggle round checkboxes per group
+document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
+  cb.addEventListener('change', function() {
+    var group = this.closest('.fert-due-group');
+    group.querySelectorAll('.fert-due-rid').forEach(function(input) {
+      input.disabled = !cb.checked;
+    });
+  });
+});
+</script>
+{% endif %}
+
 <!-- ═══════════════════════════════════════════════════════════
      PROGRAMS TAB
      ═══════════════════════════════════════════════════════════ -->

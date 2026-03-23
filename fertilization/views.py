@@ -336,6 +336,27 @@ def hub(request):
         for prog in programs.filter(is_active=True)
     ])
 
+    # Rounds due this month (pending, not yet scheduled as jobs)
+    today = date.today()
+    month_start = today.replace(day=1)
+    next_month = (month_start + timedelta(days=32)).replace(day=1)
+    due_rounds = ScheduledRound.objects.filter(
+        enrollment__business=business,
+        status='pending',
+        scheduled_date__gte=month_start,
+        scheduled_date__lt=next_month,
+    ).select_related('enrollment__property__customer', 'enrollment__program', 'round_template').order_by('scheduled_date')
+    due_count = due_rounds.count()
+
+    # Group due rounds by round template name
+    due_groups = {}
+    for sr in due_rounds:
+        rname = sr.round_template.name if sr.round_template else f"Round {sr.round_number}"
+        if rname not in due_groups:
+            due_groups[rname] = {"name": rname, "clients": [], "ids": []}
+        due_groups[rname]["clients"].append(sr.enrollment.property.customer.name)
+        due_groups[rname]["ids"].append(sr.id)
+
     context = {
         'programs': programs,
         'products': products,
@@ -348,6 +369,9 @@ def hub(request):
         'programs_json': programs_json,
         'growing_season_start': business.growing_season_start_month or 3,
         'growing_season_end': business.growing_season_end_month or 10,
+        'due_rounds': due_rounds,
+        'due_count': due_count,
+        'due_groups': due_groups,
     }
 
     return render(request, "fertilization/hub.html", context)
@@ -1693,3 +1717,80 @@ def report_material_usage(request):
         ])
 
     return response
+
+
+# ─────────────────────────────────────────────────────────────
+#  Batch Schedule: create jobs from pending rounds
+# ─────────────────────────────────────────────────────────────
+
+@require_POST
+@role_required("owner", "manager")
+@module_required("fertilization")
+def batch_schedule_rounds(request):
+    """Batch-create calendar jobs from selected pending fertilization rounds."""
+    business = get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    round_ids = request.POST.getlist("round_ids")
+    schedule_date_str = request.POST.get("schedule_date", "")
+
+    if not round_ids:
+        messages.error(request, "No rounds selected.")
+        return redirect("fertilization:hub")
+
+    from jobs.models import Job, JobServiceItem
+    from pricing.models import ServiceTemplate
+    from pricing.utils import get_effective_rate
+
+    # Find a fertilization service template
+    fert_service = ServiceTemplate.objects.filter(
+        business=business, active=True, name__icontains="fertil"
+    ).first()
+
+    # Parse target date or use the round's scheduled_date
+    target_date = None
+    if schedule_date_str:
+        try:
+            target_date = date.fromisoformat(schedule_date_str)
+        except (ValueError, TypeError):
+            pass
+
+    rounds = ScheduledRound.objects.filter(
+        id__in=round_ids,
+        enrollment__business=business,
+        status='pending',
+    ).select_related('enrollment__property', 'enrollment__program', 'round_template')
+
+    created = 0
+    for sr in rounds:
+        prop = sr.enrollment.property
+        job_date = target_date or sr.scheduled_date
+
+        round_name = sr.round_template.name if sr.round_template else f"Round {sr.round_number}"
+        job = Job.objects.create(
+            property=prop,
+            scheduled_date=job_date,
+            status="scheduled",
+            notes=f"[Fertilization] {round_name} — {sr.enrollment.program.name}",
+        )
+
+        if fert_service:
+            unit, rate = get_effective_rate(prop, fert_service)
+            JobServiceItem.objects.create(
+                job=job,
+                service=fert_service,
+                description=f"{round_name} ({sr.enrollment.program.name})",
+                quantity=1,
+                unit=unit,
+                unit_price=sr.price if sr.price else rate,
+            )
+
+        sr.job = job
+        sr.status = 'scheduled'
+        sr.save(update_fields=['job', 'status'])
+        created += 1
+
+    messages.success(request, f"Scheduled {created} fertilization round{'' if created == 1 else 's'} on the calendar.")
+    return redirect("fertilization:hub")

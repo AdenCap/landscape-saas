@@ -108,7 +108,7 @@
         <span class="material-symbols-outlined" style="font-size:18px;color:var(--text-muted);">receipt_long</span>
       </a>
     </div>
-    {% if invoices_overdue_count or queue_count %}
+    {% if invoices_overdue_count or queue_count or fert_due_count %}
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
       <h5 style="font-size:10px;text-transform:uppercase;font-weight:700;letter-spacing:0.1em;color:var(--text-muted);margin:0 0 10px;">Needs Attention</h5>
       {% if invoices_overdue_count %}
@@ -121,6 +121,12 @@
       <a href="/billing/estimates/?tab=queue" class="attn-item">
         <span class="attn-dot" style="background:var(--tertiary);"></span>
         {{ queue_count }} quote{{ queue_count|pluralize }} in queue
+      </a>
+      {% endif %}
+      {% if fert_due_count %}
+      <a href="{% url 'fertilization:hub' %}" class="attn-item">
+        <span class="attn-dot" style="background:#86efac;"></span>
+        {{ fert_due_count }} fertilization round{{ fert_due_count|pluralize }} due this month
       </a>
       {% endif %}
     </div>

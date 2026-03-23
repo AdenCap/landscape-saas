@@ -770,6 +770,23 @@ def owner_dashboard(request):
         )["total"]
         monthly_revenue.append(float(rev))
 
+    # --- Fertilization rounds due this month (pending, not yet scheduled as jobs) ---
+    from fertilization.models import ScheduledRound
+    fert_due_rounds = ScheduledRound.objects.filter(
+        enrollment__business=business,
+        status='pending',
+        scheduled_date__gte=month_start,
+        scheduled_date__lt=month_end,
+    ).select_related('enrollment__property__customer', 'enrollment__program', 'round_template').order_by('scheduled_date')
+    fert_due_count = fert_due_rounds.count()
+    # Group by round name for display
+    fert_due_groups = {}
+    for sr in fert_due_rounds:
+        round_name = sr.round_template.name if sr.round_template else f"Round {sr.round_number}"
+        if round_name not in fert_due_groups:
+            fert_due_groups[round_name] = []
+        fert_due_groups[round_name].append(sr)
+
     context = {
         "today": today,
         "revenue_this_month": revenue_this_month,
@@ -798,6 +815,8 @@ def owner_dashboard(request):
         "solo_plan_overage": solo_plan_overage,
         "monthly_labels": monthly_labels,
         "monthly_revenue": monthly_revenue,
+        "fert_due_count": fert_due_count,
+        "fert_due_groups": fert_due_groups,
         **review_stats,
     }
     return render(request, "dashboard/owner_dashboard.html", context)
