@@ -164,31 +164,58 @@ def enrollment_builder(request):
         annual_price = request.POST.get("annual_price") or None
         price_per_sqft = request.POST.get("price_per_sqft") or None
         notes = request.POST.get("notes", "")
+        existing_id = request.POST.get("enrollment_id")
 
         prop = get_object_or_404(Property, id=property_id, customer__business=business)
         program = get_object_or_404(FertilizationProgram, id=program_id, business=business)
 
         try:
-            enrollment = CustomerProgramEnrollment.objects.create(
-                business=business,
-                property=prop,
-                program=program,
-                year=int(year),
-                pricing_method=pricing_method,
-                price_per_application=Decimal(price_per_app) if price_per_app else None,
-                annual_price=Decimal(annual_price) if annual_price else None,
-                price_per_sqft=Decimal(price_per_sqft) if price_per_sqft else None,
-                notes=notes,
-            )
-            # Auto-generate scheduled rounds
-            for rnd in program.rounds.order_by('round_number'):
-                ScheduledRound.objects.create(
-                    enrollment=enrollment,
-                    round_template=rnd,
-                    round_number=rnd.round_number,
-                    status='pending',
+            if existing_id:
+                # Update existing enrollment
+                enrollment = get_object_or_404(CustomerProgramEnrollment, id=int(existing_id), business=business)
+                enrollment.property = prop
+                enrollment.program = program
+                enrollment.year = int(year)
+                enrollment.pricing_method = pricing_method
+                enrollment.price_per_application = Decimal(price_per_app) if price_per_app else None
+                enrollment.annual_price = Decimal(annual_price) if annual_price else None
+                enrollment.price_per_sqft = Decimal(price_per_sqft) if price_per_sqft else None
+                enrollment.notes = notes
+                enrollment.save()
+                messages.success(request, f"Enrollment for {prop.address} updated.")
+            else:
+                # Create new enrollment
+                enrollment = CustomerProgramEnrollment.objects.create(
+                    business=business,
+                    property=prop,
+                    program=program,
+                    year=int(year),
+                    pricing_method=pricing_method,
+                    price_per_application=Decimal(price_per_app) if price_per_app else None,
+                    annual_price=Decimal(annual_price) if annual_price else None,
+                    price_per_sqft=Decimal(price_per_sqft) if price_per_sqft else None,
+                    notes=notes,
                 )
-            messages.success(request, f"Enrolled {prop.address} in {program.name} ({year}) with {program.rounds.count()} rounds.")
+                # Auto-generate scheduled rounds with dates from round month targets
+                for rnd in program.rounds.order_by('round_number'):
+                    sched_year = int(year)
+                    try:
+                        sched_date = dt_date(sched_year, rnd.target_month_start, 15)
+                    except ValueError:
+                        sched_date = dt_date(sched_year, rnd.target_month_start, 1)
+                    if sched_date < dt_date.today():
+                        try:
+                            sched_date = dt_date(sched_year + 1, rnd.target_month_start, 15)
+                        except ValueError:
+                            sched_date = dt_date(sched_year + 1, rnd.target_month_start, 1)
+                    ScheduledRound.objects.create(
+                        enrollment=enrollment,
+                        round_template=rnd,
+                        round_number=rnd.round_number,
+                        scheduled_date=sched_date,
+                        status='pending',
+                    )
+                messages.success(request, f"Enrolled {prop.address} in {program.name} ({year}) with {program.rounds.count()} rounds.")
         except Exception as e:
             messages.error(request, f"Error: {e}")
         return redirect("fertilization:hub")
@@ -208,11 +235,37 @@ def enrollment_builder(request):
     for p in programs:
         programs_data.append({"id": p.id, "name": p.name, "rounds": p.rounds.count()})
 
+    # Support editing: ?edit=<enrollment_id>
+    edit_enrollment = None
+    edit_data = {}
+    edit_id = request.GET.get("edit")
+    if edit_id:
+        try:
+            edit_enrollment = CustomerProgramEnrollment.objects.select_related(
+                'property__customer', 'program'
+            ).get(id=int(edit_id), business=business)
+            edit_data = {
+                "id": edit_enrollment.id,
+                "customer_id": edit_enrollment.property.customer_id,
+                "property_id": edit_enrollment.property_id,
+                "program_id": edit_enrollment.program_id,
+                "year": edit_enrollment.year,
+                "pricing_method": edit_enrollment.pricing_method,
+                "price_per_application": float(edit_enrollment.price_per_application) if edit_enrollment.price_per_application else None,
+                "annual_price": float(edit_enrollment.annual_price) if edit_enrollment.annual_price else None,
+                "price_per_sqft": float(edit_enrollment.price_per_sqft) if edit_enrollment.price_per_sqft else None,
+                "notes": edit_enrollment.notes,
+            }
+        except CustomerProgramEnrollment.DoesNotExist:
+            pass
+
     return render(request, "fertilization/enrollment_builder.html", {
         "customers_json": json.dumps(customers_data),
         "programs_json": json.dumps(programs_data),
         "default_price_per_sqft": default_price_per_sqft,
         "current_year": dt_date.today().year,
+        "edit_enrollment": edit_enrollment,
+        "edit_data_json": json.dumps(edit_data),
     })
 
 
@@ -1040,6 +1093,22 @@ def enrollment_cancel(request, pk):
     enrollment.scheduled_rounds.filter(status='pending').update(status='skipped')
 
     return JsonResponse({"ok": True})
+
+
+@require_POST
+@role_required("owner", "manager")
+@module_required("fertilization")
+def enrollment_delete(request, pk):
+    """POST: permanently delete an enrollment and its scheduled rounds."""
+    biz, err = _biz_or_403(request)
+    if err:
+        return err
+
+    enrollment = get_object_or_404(CustomerProgramEnrollment, pk=pk, business=biz)
+    customer_name = enrollment.property.customer.name
+    enrollment.delete()
+    messages.success(request, f"Enrollment for {customer_name} deleted.")
+    return redirect("fertilization:hub")
 
 
 @require_http_methods(["GET"])

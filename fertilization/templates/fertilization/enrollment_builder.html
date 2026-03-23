@@ -3,14 +3,15 @@
 {% block content %}
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
   <div>
-    <h1>Enroll Customer</h1>
-    <p>Assign a fertilization program to a property with pricing.</p>
+    <h1>{% if edit_enrollment %}Edit Enrollment{% else %}Enroll Customer{% endif %}</h1>
+    <p>{% if edit_enrollment %}Update program, pricing, or property for this enrollment.{% else %}Assign a fertilization program to a property with pricing.{% endif %}</p>
   </div>
   <a href="{% url 'fertilization:hub' %}" class="btn btn-secondary">&larr; Back to Hub</a>
 </div>
 
 <form method="post" id="enroll-form">
   {% csrf_token %}
+  {% if edit_enrollment %}<input type="hidden" name="enrollment_id" value="{{ edit_enrollment.id }}">{% endif %}
 
   <!-- Step 1: Customer & Property -->
   <div class="card" style="max-width:700px;margin-bottom:20px;">
@@ -113,7 +114,7 @@
   </div>
 
   <div style="display:flex;gap:10px;max-width:700px;">
-    <button type="submit" class="btn btn-primary">Enroll Customer</button>
+    <button type="submit" class="btn btn-primary">{% if edit_enrollment %}Save Changes{% else %}Enroll Customer{% endif %}</button>
     <a href="{% url 'fertilization:hub' %}" class="btn btn-secondary">Cancel</a>
   </div>
 </form>
@@ -231,6 +232,34 @@
 
   // Init
   calcPrice();
+
+  // Pre-fill when editing
+  var editData = {{ edit_data_json|safe }};
+  if (editData && editData.id) {
+    // Select customer
+    custSel.value = editData.customer_id;
+    updateProperties();
+    // Select property
+    document.getElementById('enr-property').value = editData.property_id;
+    updateSqft();
+    // Select program
+    progSel.value = editData.program_id;
+    updateProgramInfo();
+    // Year
+    var yearInput = document.querySelector('input[name="year"]');
+    if (yearInput) yearInput.value = editData.year;
+    // Pricing method
+    var pricingSel = document.getElementById('enr-pricing');
+    pricingSel.value = editData.pricing_method;
+    updatePricingFields();
+    // Pricing values
+    if (editData.price_per_sqft) document.getElementById('enr-price-sqft').value = editData.price_per_sqft;
+    if (editData.price_per_application) document.querySelector('input[name="price_per_application"]').value = editData.price_per_application;
+    if (editData.annual_price) document.querySelector('input[name="annual_price"]').value = editData.annual_price;
+    // Notes
+    if (editData.notes) document.querySelector('textarea[name="notes"]').value = editData.notes;
+    calcPrice();
+  }
 })();
 </script>
 

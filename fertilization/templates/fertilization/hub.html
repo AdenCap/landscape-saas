@@ -147,13 +147,19 @@
           </td>
           <td>{{ enr.rounds_completed }}/{{ enr.total_rounds }}</td>
           <td><span class="status-badge status-{{ enr.status }}">{{ enr.get_status_display }}</span></td>
-          <td class="actions-cell">
-            <button class="btn btn-sm btn-secondary" onclick="FertHub.editEnrollment({{ enr.id }})">Edit</button>
+          <td class="actions-cell" style="white-space:nowrap;">
+            <a href="{% url 'fertilization:enrollment_builder' %}?edit={{ enr.id }}" class="btn btn-sm btn-secondary">Edit</a>
             {% if enr.status != 'cancelled' %}
             <button class="btn btn-sm btn-ghost" onclick="FertHub.cancelEnrollment({{ enr.id }})" title="Cancel enrollment">
               <i data-lucide="x-circle" style="width:14px;height:14px;"></i>
             </button>
             {% endif %}
+            <form method="post" action="{% url 'fertilization:enrollment_delete' enr.id %}" style="display:inline;" onsubmit="return confirm('Permanently delete this enrollment for {{ enr.property.customer.name }}? This cannot be undone.');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-ghost" style="color:#ffb4ab;" title="Delete permanently">
+                <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+              </button>
+            </form>
           </td>
         </tr>
         {% endfor %}
