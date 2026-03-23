@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>Mowing Management</h1>
+    <p>All mowing clients &middot; {{ week_start|date:"M j" }} &ndash; {{ week_end|date:"M j, Y" }}</p>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button type="button" class="btn btn-primary" id="bulk-msg-btn" disabled>
+      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">mail</span>
+      Message Selected
+    </button>
+    <a href="{% url 'calendar' %}" class="btn btn-secondary">Calendar</a>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="mow-stats">
+  <div class="mow-stat">
+    <span class="mow-stat-num">{{ total_count }}</span>
+    <span class="mow-stat-label">Total Clients</span>
+  </div>
+  <div class="mow-stat">
+    <span class="mow-stat-num" style="color:var(--primary);">{{ weekly_count }}</span>
+    <span class="mow-stat-label">Weekly</span>
+  </div>
+  <div class="mow-stat">
+    <span class="mow-stat-num" style="color:#f59e0b;">{{ biweekly_count }}</span>
+    <span class="mow-stat-label">Bi-Weekly</span>
+  </div>
+  <div class="mow-stat">
+    <span class="mow-stat-num" style="color:#22d3ee;">{{ scheduled_this_week }}</span>
+    <span class="mow-stat-label">This Week</span>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="mow-filters">
+  <button type="button" class="mow-filter active" data-filter="all">All</button>
+  <button type="button" class="mow-filter" data-filter="weekly">Weekly</button>
+  <button type="button" class="mow-filter" data-filter="biweekly">Bi-Weekly</button>
+  <button type="button" class="mow-filter" data-filter="this-week">Scheduled This Week</button>
+  <div style="flex:1;"></div>
+  <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;">
+    <input type="checkbox" id="select-all" style="accent-color:var(--primary);width:16px;height:16px;"> Select all
+  </label>
+</div>
+
+<!-- Bulk message modal -->
+<div id="bulk-modal" class="mow-modal-overlay" style="display:none;">
+  <div class="mow-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;">Send Message</h3>
+      <button type="button" id="modal-close" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;">&times;</button>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">Sending to <strong id="modal-count">0</strong> clients. Variables: <code>{{customer_name}}</code>, <code>{{business_name}}</code></p>
+    <div class="mow-field">
+      <label>Subject</label>
+      <input type="text" id="msg-subject" placeholder="e.g. Mowing Schedule Update">
+    </div>
+    <div class="mow-field">
+      <label>Message</label>
+      <textarea id="msg-body" rows="4" placeholder="Hi {{customer_name}}, due to rain in the forecast, your mowing service will be rescheduled..."></textarea>
+    </div>
+    <div class="mow-presets">
+      <span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Quick templates:</span>
+      <button type="button" class="mow-preset" data-subject="Rain Delay Notice" data-body="Hi {{customer_name}},
+
+Due to rain in the forecast, your mowing service this week will be rescheduled. We will get to your property as soon as conditions allow.
+
+Thank you for your understanding!
+{{business_name}}">Rain Delay</button>
+      <button type="button" class="mow-preset" data-subject="Service Cancellation - Weather" data-body="Hi {{customer_name}},
+
+Unfortunately, due to severe weather conditions, we need to cancel mowing services for this week. Your next scheduled service will be on your regular day next week.
+
+We apologize for the inconvenience.
+{{business_name}}">Cancellation</button>
+      <button type="button" class="mow-preset" data-subject="Schedule Change Notice" data-body="Hi {{customer_name}},
+
+We wanted to let you know about a change to your mowing schedule this week. Our crew will be visiting your property on a different day than usual.
+
+If you have any questions, please don't hesitate to reach out.
+{{business_name}}">Schedule Change</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button type="button" id="send-bulk-btn" class="btn btn-primary">Send Messages</button>
+      <button type="button" id="modal-cancel" class="btn btn-secondary">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Client List -->
+<div class="card" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+  <table class="data-table" id="mow-table">
+    <thead>
+      <tr>
+        <th style="width:32px;"></th>
+        <th>Client</th>
+        <th>Address</th>
+        <th>Frequency</th>
+        <th>Crew</th>
+        <th>This Week</th>
+        <th>Contact</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in clients %}
+      <tr class="mow-row" data-freq="{{ c.frequency_key }}" data-has-jobs="{% if c.this_week_jobs %}yes{% else %}no{% endif %}" data-cid="{{ c.customer.id }}" data-email="{{ c.has_email|yesno:'1,0' }}">
+        <td><input type="checkbox" class="mow-check" value="{{ c.customer.id }}" style="accent-color:var(--primary);width:16px;height:16px;"></td>
+        <td>
+          <a href="{% url 'customer_detail' c.customer.id %}" class="link-primary" style="font-weight:600;">{{ c.customer.name }}</a>
+        </td>
+        <td style="font-size:13px;color:var(--text-secondary);">
+          {{ c.properties.0.address|truncatechars:40 }}
+        </td>
+        <td>
+          {% if c.frequency_key == "weekly" %}
+            <span class="mow-badge mow-badge-weekly">Weekly</span>
+          {% elif c.frequency_key == "biweekly" %}
+            <span class="mow-badge mow-badge-biweekly">Bi-Weekly</span>
+          {% elif c.frequency_key == "monthly" %}
+            <span class="mow-badge mow-badge-monthly">Monthly</span>
+          {% else %}
+            <span class="mow-badge">{{ c.frequency }}</span>
+          {% endif %}
+        </td>
+        <td style="font-size:13px;">{{ c.crew }}</td>
+        <td>
+          {% if c.this_week_jobs %}
+            {% for job in c.this_week_jobs %}
+              <a href="{% url 'job_detail' job.id %}" class="mow-job-link">
+                {{ job.scheduled_date|date:"D M j" }}
+                <span class="mow-job-status mow-job-{{ job.status }}">{{ job.get_status_display }}</span>
+              </a>
+            {% endfor %}
+          {% else %}
+            <span style="color:var(--text-muted);font-size:12px;">Not scheduled</span>
+          {% endif %}
+        </td>
+        <td style="white-space:nowrap;">
+          {% if c.has_email %}<span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);vertical-align:-3px;" title="Has email">mail</span>{% endif %}
+          {% if c.has_phone %}<span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);vertical-align:-3px;margin-left:4px;" title="Has phone">phone</span>{% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">
+          <span class="material-symbols-outlined" style="font-size:40px;display:block;margin-bottom:8px;">grass</span>
+          No mowing clients found. Create a recurring mowing job to get started.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+(function() {
+  var csrf = '{{ csrf_token }}';
+  var checks = document.querySelectorAll('.mow-check');
+  var selectAll = document.getElementById('select-all');
+  var bulkBtn = document.getElementById('bulk-msg-btn');
+  var modal = document.getElementById('bulk-modal');
+  var filters = document.querySelectorAll('.mow-filter');
+  var rows = document.querySelectorAll('.mow-row');
+
+  function updateBulkBtn() {
+    var count = document.querySelectorAll('.mow-check:checked').length;
+    bulkBtn.disabled = count === 0;
+    bulkBtn.textContent = count > 0 ? 'Message Selected (' + count + ')' : 'Message Selected';
+  }
+
+  checks.forEach(function(cb) { cb.addEventListener('change', updateBulkBtn); });
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      var visible = document.querySelectorAll('.mow-row:not([style*="display: none"]):not([style*="display:none"]) .mow-check');
+      visible.forEach(function(cb) { cb.checked = selectAll.checked; });
+      updateBulkBtn();
+    });
+  }
+
+  // Filters
+  filters.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      filters.forEach(function(f) { f.classList.remove('active'); });
+      btn.classList.add('active');
+      var filter = btn.dataset.filter;
+      rows.forEach(function(row) {
+        var show = true;
+        if (filter === 'weekly') show = row.dataset.freq === 'weekly';
+        else if (filter === 'biweekly') show = row.dataset.freq === 'biweekly';
+        else if (filter === 'this-week') show = row.dataset.hasJobs === 'yes';
+        row.style.display = show ? '' : 'none';
+      });
+    });
+  });
+
+  // Modal
+  bulkBtn.addEventListener('click', function() {
+    var count = document.querySelectorAll('.mow-check:checked').length;
+    document.getElementById('modal-count').textContent = count;
+    modal.style.display = 'flex';
+  });
+  document.getElementById('modal-close').addEventListener('click', function() { modal.style.display = 'none'; });
+  document.getElementById('modal-cancel').addEventListener('click', function() { modal.style.display = 'none'; });
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.style.display = 'none'; });
+
+  // Quick templates
+  document.querySelectorAll('.mow-preset').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.getElementById('msg-subject').value = btn.dataset.subject;
+      document.getElementById('msg-body').value = btn.dataset.body;
+    });
+  });
+
+  // Send
+  document.getElementById('send-bulk-btn').addEventListener('click', function() {
+    var ids = [];
+    document.querySelectorAll('.mow-check:checked').forEach(function(cb) { ids.push(parseInt(cb.value)); });
+    var subject = document.getElementById('msg-subject').value.trim();
+    var message = document.getElementById('msg-body').value.trim();
+    if (!message) { alert('Please enter a message.'); return; }
+
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Sending\u2026';
+
+    fetch('{% url "mowing_bulk_message" %}', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+      body: JSON.stringify({customer_ids: ids, subject: subject, message: message})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      modal.style.display = 'none';
+      btn.disabled = false;
+      btn.textContent = 'Send Messages';
+      if (data.error) {
+        alert(data.error);
+      } else {
+        var msg = 'Sent to ' + data.sent + ' client' + (data.sent !== 1 ? 's' : '');
+        if (data.failed > 0) msg += ' (' + data.failed + ' failed - no email)';
+        if (window.showToast) window.showToast(msg);
+        else alert(msg);
+      }
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.textContent = 'Send Messages';
+      alert('Failed to send messages.');
+    });
+  });
+})();
+</script>
+
+<style>
+  .mow-stats { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .mow-stat { flex: 1; min-width: 120px; padding: 16px; background: var(--surface, #141414); border: 1px solid var(--border); border-radius: 12px; text-align: center; }
+  .mow-stat-num { display: block; font-size: 28px; font-weight: 700; font-family: var(--font-headline); line-height: 1.1; }
+  .mow-stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+
+  .mow-filters { display: flex; gap: 6px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+  .mow-filter { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+  .mow-filter:hover { color: var(--text); border-color: var(--text-muted); }
+  .mow-filter.active { background: var(--primary); color: #111; border-color: var(--primary); font-weight: 600; }
+
+  .mow-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--surface-highest); color: var(--text-muted); }
+  .mow-badge-weekly { background: rgba(34,197,94,0.12); color: var(--primary); }
+  .mow-badge-biweekly { background: rgba(245,158,11,0.12); color: #f59e0b; }
+  .mow-badge-monthly { background: rgba(139,92,246,0.12); color: #8b5cf6; }
+
+  .mow-job-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); text-decoration: none; padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.04); margin: 2px 0; }
+  .mow-job-link:hover { background: rgba(255,255,255,0.08); }
+  .mow-job-status { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+  .mow-job-scheduled { background: rgba(34,197,94,0.12); color: var(--primary); }
+  .mow-job-in_progress { background: rgba(59,130,246,0.12); color: #60a5fa; }
+  .mow-job-completed { background: rgba(156,163,175,0.12); color: #9ca3af; }
+
+  /* Modal */
+  .mow-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .mow-modal { background: var(--surface, #141414); border: 1px solid var(--border); border-radius: 16px; padding: 24px; max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  .mow-field { margin-bottom: 12px; }
+  .mow-field label { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .mow-field input, .mow-field textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; background: var(--bg); color: var(--text); font-family: inherit; }
+  .mow-field textarea { resize: vertical; }
+  .mow-presets { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .mow-preset { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .mow-preset:hover { border-color: var(--primary); color: var(--primary); }
+
+  @media (max-width: 768px) {
+    .mow-stats { gap: 8px; }
+    .mow-stat { min-width: 80px; padding: 12px 8px; }
+    .mow-stat-num { font-size: 22px; }
+    .mow-filters { gap: 4px; }
+    .mow-filter { padding: 10px 12px; min-height: 44px; font-size: 13px; }
+  }
+</style>
+{% endblock %}

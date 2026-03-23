@@ -2105,3 +2105,174 @@ def get_job_tracking(request, job_id):
     }
 
     return JsonResponse(data)
+
+
+# ═══════════════════════════════════════════════
+# Mowing Management
+# ═══════════════════════════════════════════════
+
+@role_required("owner", "manager")
+def mowing_hub(request):
+    """Mowing management page: see all mowing clients, frequencies, upcoming jobs, send bulk messages."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+
+    today = timezone.localdate()
+    week_start = today - timedelta(days=today.weekday())  # Monday
+    week_end = week_start + timedelta(days=6)
+
+    # Find mowing-related services (name contains "mow" case-insensitive)
+    from pricing.models import ServiceTemplate
+    mowing_services = ServiceTemplate.objects.filter(
+        business=business, active=True, name__icontains="mow"
+    )
+    mowing_svc_ids = set(mowing_services.values_list("id", flat=True))
+
+    # Get all active recurring jobs that include a mowing service
+    recurring_jobs = RecurringJob.objects.filter(
+        property__customer__business=business,
+        active=True,
+    ).select_related("property__customer", "assigned_crew", "assigned_to")
+
+    mowing_recurrences = []
+    for rj in recurring_jobs:
+        # Check if service_snapshot contains a mowing service
+        is_mowing = False
+        for svc_snap in (rj.service_snapshot or []):
+            sid = svc_snap.get("service_id")
+            if sid and int(sid) in mowing_svc_ids:
+                is_mowing = True
+                break
+        if not is_mowing:
+            # Fallback: check notes for "mow"
+            if "mow" in (rj.notes or "").lower():
+                is_mowing = True
+        if is_mowing:
+            mowing_recurrences.append(rj)
+
+    # Gather unique customers from recurring mowing jobs
+    customer_map = {}  # customer_id -> {customer, properties, frequency, crew, recurring_id}
+    for rj in mowing_recurrences:
+        cust = rj.property.customer
+        cid = cust.id
+        if cid not in customer_map:
+            customer_map[cid] = {
+                "customer": cust,
+                "properties": [],
+                "frequency": rj.get_frequency_display(),
+                "frequency_key": rj.frequency,
+                "crew": rj.assigned_crew.name if rj.assigned_crew else (rj.assigned_to.get_full_name() if rj.assigned_to else "Unassigned"),
+                "recurring_id": rj.id,
+            }
+        customer_map[cid]["properties"].append(rj.property)
+
+    # Also find customers with mowing jobs this week (even without recurring setup)
+    this_week_jobs = Job.objects.filter(
+        property__customer__business=business,
+        scheduled_date__gte=week_start,
+        scheduled_date__lte=week_end,
+        service_items__service__in=mowing_services,
+    ).select_related("property__customer", "assigned_crew", "assigned_to").distinct()
+
+    # Build week schedule: {customer_id: [job, ...]}
+    week_schedule = {}
+    for job in this_week_jobs:
+        cid = job.property.customer_id
+        if cid not in week_schedule:
+            week_schedule[cid] = []
+        week_schedule[cid].append(job)
+
+    # Also add one-off mowing clients from this week who aren't in recurring
+    for cid, jobs in week_schedule.items():
+        if cid not in customer_map:
+            cust = jobs[0].property.customer
+            customer_map[cid] = {
+                "customer": cust,
+                "properties": [jobs[0].property],
+                "frequency": "One-time",
+                "frequency_key": "one_time",
+                "crew": (jobs[0].assigned_crew.name if jobs[0].assigned_crew
+                         else (jobs[0].assigned_to.get_full_name() if jobs[0].assigned_to else "Unassigned")),
+                "recurring_id": None,
+            }
+
+    # Build sorted client list
+    clients = []
+    freq_order = {"weekly": 0, "biweekly": 1, "monthly": 2, "custom": 3, "one_time": 4}
+    for cid, data in customer_map.items():
+        data["this_week_jobs"] = week_schedule.get(cid, [])
+        data["next_job_date"] = data["this_week_jobs"][0].scheduled_date if data["this_week_jobs"] else None
+        data["has_email"] = bool(data["customer"].email)
+        data["has_phone"] = bool(data["customer"].phone)
+        clients.append(data)
+    clients.sort(key=lambda c: (freq_order.get(c["frequency_key"], 9), c["customer"].name))
+
+    # Stats
+    weekly_count = sum(1 for c in clients if c["frequency_key"] == "weekly")
+    biweekly_count = sum(1 for c in clients if c["frequency_key"] == "biweekly")
+    scheduled_this_week = sum(1 for c in clients if c["this_week_jobs"])
+
+    return render(request, "jobs/mowing_hub.html", {
+        "clients": clients,
+        "total_count": len(clients),
+        "weekly_count": weekly_count,
+        "biweekly_count": biweekly_count,
+        "scheduled_this_week": scheduled_this_week,
+        "week_start": week_start,
+        "week_end": week_end,
+        "today": today,
+    })
+
+
+@require_POST
+@role_required("owner", "manager")
+def mowing_bulk_message(request):
+    """Send a bulk email to selected mowing clients (e.g., rain delay notice)."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
+    from businesses.email_sender import send_business_email, is_email_configured
+    if not is_email_configured(business):
+        return JsonResponse({"error": "Email not configured. Connect Gmail in Settings."}, status=400)
+
+    data = json.loads(request.body)
+    customer_ids = data.get("customer_ids", [])
+    subject = (data.get("subject") or "").strip()
+    message_body = (data.get("message") or "").strip()
+
+    if not customer_ids or not message_body:
+        return JsonResponse({"error": "Select clients and enter a message."}, status=400)
+
+    from customers.models import Customer, ClientMessage
+
+    customers = Customer.objects.filter(id__in=customer_ids, business=business)
+    sent = 0
+    failed = 0
+    for cust in customers:
+        if not cust.email:
+            failed += 1
+            continue
+        ok, _detail = send_business_email(
+            business=business,
+            to=cust.email,
+            subject=subject or f"Update from {business.name}",
+            body_text=message_body.replace("{{customer_name}}", cust.name).replace("{{business_name}}", business.name),
+            reply_to=[business.contact_email] if business.contact_email else None,
+        )
+        if ok:
+            ClientMessage.objects.create(
+                customer=cust,
+                channel="email",
+                direction=ClientMessage.DIRECTION_SENT,
+                subject=subject or f"Update from {business.name}",
+                body=message_body.replace("{{customer_name}}", cust.name),
+                to_address=cust.email,
+                created_by=request.user,
+            )
+            sent += 1
+        else:
+            failed += 1
+
+    return JsonResponse({"sent": sent, "failed": failed})
