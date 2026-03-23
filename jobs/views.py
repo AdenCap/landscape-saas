@@ -2427,3 +2427,59 @@ def add_mowing_client(request):
     )
     messages.success(request, f"Added {customer.name} as a {dict(RecurringJob.FREQUENCY_CHOICES).get(frequency, frequency)} mowing client.")
     return redirect("mowing_hub")
+
+
+@require_POST
+@role_required("owner", "manager")
+def mowing_bulk_schedule(request):
+    """Batch-create mowing jobs for selected clients on a specific date."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+
+    from pricing.models import ServiceTemplate
+    from pricing.utils import get_effective_rate
+
+    property_ids = request.POST.getlist("property_ids")
+    schedule_date_str = request.POST.get("schedule_date", "")
+
+    if not property_ids or not schedule_date_str:
+        messages.error(request, "Select clients and pick a date.")
+        return redirect("mowing_hub")
+
+    try:
+        schedule_date = date.fromisoformat(schedule_date_str)
+    except (ValueError, TypeError):
+        messages.error(request, "Invalid date.")
+        return redirect("mowing_hub")
+
+    mowing_svc = ServiceTemplate.objects.filter(
+        business=business, active=True, name__icontains="mow"
+    ).first()
+
+    properties = Property.objects.filter(
+        id__in=property_ids, customer__business=business
+    ).select_related("customer")
+
+    created = 0
+    for prop in properties:
+        job = Job.objects.create(
+            property=prop,
+            scheduled_date=schedule_date,
+            status="scheduled",
+            notes=f"[Mowing] {prop.customer.name}",
+        )
+        if mowing_svc:
+            unit, rate = get_effective_rate(prop, mowing_svc)
+            JobServiceItem.objects.create(
+                job=job,
+                service=mowing_svc,
+                description="Mowing",
+                quantity=1,
+                unit=unit,
+                unit_price=rate,
+            )
+        created += 1
+
+    messages.success(request, f"Scheduled {created} mowing job{'' if created == 1 else 's'} for {schedule_date.strftime('%b %d')}.")
+    return redirect("mowing_hub")

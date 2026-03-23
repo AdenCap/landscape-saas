@@ -341,19 +341,15 @@ def hub(request):
         for prog in programs.filter(is_active=True)
     ])
 
-    # Rounds due this month (pending, not yet scheduled as jobs)
+    # ALL pending rounds (not yet scheduled as jobs)
     today = date.today()
-    month_start = today.replace(day=1)
-    next_month = (month_start + timedelta(days=32)).replace(day=1)
     due_rounds = ScheduledRound.objects.filter(
         enrollment__business=business,
         status='pending',
-        scheduled_date__gte=month_start,
-        scheduled_date__lt=next_month,
     ).select_related('enrollment__property__customer', 'enrollment__program', 'round_template').order_by('scheduled_date')
     due_count = due_rounds.count()
 
-    # Group due rounds by round template name
+    # Group due rounds by round template name, with date display
     due_groups = {}
     for sr in due_rounds:
         rname = sr.round_template.name if sr.round_template else f"Round {sr.round_number}"
