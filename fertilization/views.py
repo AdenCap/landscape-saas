@@ -1030,7 +1030,7 @@ def enrollment_list_create(request):
         end_month = getattr(biz, 'growing_season_end_month', None) or 10
 
         dates = _fertilization_dates_for_year(year, n_rounds, start_month, end_month)
-        square_feet = prop.lawn_square_feet or 0
+        square_feet = prop.yard_sqft or 0
 
         for i, rnd_template in enumerate(rounds):
             # Calculate material cost for this round
@@ -1156,7 +1156,7 @@ def calculate_pricing(request):
         business=biz,
     )
 
-    square_feet = prop.lawn_square_feet or 0
+    square_feet = prop.yard_sqft or 0
 
     try:
         markup_pct = Decimal(request.GET.get('markup_pct', '40'))
@@ -1293,7 +1293,7 @@ def route_calculator(request):
 
     for sr in scheduled:
         prop = sr.enrollment.property
-        square_feet = prop.lawn_square_feet or 0
+        square_feet = prop.yard_sqft or 0
         stop_products = []
 
         if sr.round_template:
@@ -1328,7 +1328,7 @@ def route_calculator(request):
             'round_number': sr.round_number,
             'property_address': prop.address,
             'customer_name': prop.customer.name,
-            'square_feet': prop.lawn_square_feet or 0,
+            'square_feet': prop.yard_sqft or 0,
             'products': stop_products,
         })
 

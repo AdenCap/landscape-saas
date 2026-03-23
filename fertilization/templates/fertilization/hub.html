@@ -202,7 +202,7 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
           <td>{{ enr.property.address }}</td>
           <td>{{ enr.property.customer.name }}</td>
           <td>{{ enr.program.name }}</td>
-          <td class="num">{{ enr.property.lawn_square_feet|default:"--" }}</td>
+          <td class="num">{% if enr.property.yard_sqft %}{{ enr.property.yard_sqft|floatformat:0 }}{% else %}--{% endif %}</td>
           <td class="num">
             {% if enr.pricing_method == 'per_application' and enr.price_per_application %}
               ${{ enr.price_per_application|floatformat:2 }}/app
