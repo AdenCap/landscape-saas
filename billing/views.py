@@ -2176,29 +2176,30 @@ def fertilizer_product_create(request):
         if not name:
             messages.error(request, "Product name is required.")
             return redirect("billing:fertilizer_products_list")
-        
-        pricing_type = request.POST.get("pricing_type", "per_pound")
-        cost_per_pound = request.POST.get("cost_per_pound") or None
-        cost_per_bag = request.POST.get("cost_per_bag") or None
-        lbs_per_bag = request.POST.get("lbs_per_bag") or None
-        notes = request.POST.get("notes", "").strip()
-        
+
         try:
             product = FertilizerProduct.objects.create(
                 business=business,
                 name=name,
-                pricing_type=pricing_type,
-                cost_per_pound=Decimal(cost_per_pound) if cost_per_pound else None,
-                cost_per_bag=Decimal(cost_per_bag) if cost_per_bag else None,
-                lbs_per_bag=Decimal(lbs_per_bag) if lbs_per_bag else None,
-                notes=notes,
+                category=request.POST.get("category", "fertilizer"),
+                product_type=request.POST.get("product_type", "granular"),
+                pricing_type=request.POST.get("pricing_type", "per_pound"),
+                cost_per_pound=Decimal(request.POST["cost_per_pound"]) if request.POST.get("cost_per_pound") else None,
+                cost_per_bag=Decimal(request.POST["cost_per_bag"]) if request.POST.get("cost_per_bag") else None,
+                lbs_per_bag=Decimal(request.POST["lbs_per_bag"]) if request.POST.get("lbs_per_bag") else None,
+                nitrogen_pct=Decimal(request.POST["nitrogen_pct"]) if request.POST.get("nitrogen_pct") else None,
+                phosphorus_pct=Decimal(request.POST["phosphorus_pct"]) if request.POST.get("phosphorus_pct") else None,
+                potassium_pct=Decimal(request.POST["potassium_pct"]) if request.POST.get("potassium_pct") else None,
+                application_rate=Decimal(request.POST["application_rate"]) if request.POST.get("application_rate") else None,
+                epa_registration_number=request.POST.get("epa_registration_number", "").strip(),
+                notes=request.POST.get("notes", "").strip(),
             )
             messages.success(request, f"Product '{product.name}' created.")
             return redirect("billing:fertilizer_products_list")
         except Exception as e:
             messages.error(request, f"Error creating product: {str(e)}")
             return redirect("billing:fertilizer_products_list")
-    
+
     return render(request, "billing/fertilizer_product_form.html", {
         "product": None,
     })
@@ -2220,22 +2221,22 @@ def fertilizer_product_edit(request, product_id):
         if not name:
             messages.error(request, "Product name is required.")
             return redirect("billing:fertilizer_product_edit", product_id=product_id)
-        
-        pricing_type = request.POST.get("pricing_type", "per_pound")
-        cost_per_pound = request.POST.get("cost_per_pound") or None
-        cost_per_bag = request.POST.get("cost_per_bag") or None
-        lbs_per_bag = request.POST.get("lbs_per_bag") or None
-        active = request.POST.get("active") == "on"
-        notes = request.POST.get("notes", "").strip()
-        
+
         try:
             product.name = name
-            product.pricing_type = pricing_type
-            product.cost_per_pound = Decimal(cost_per_pound) if cost_per_pound else None
-            product.cost_per_bag = Decimal(cost_per_bag) if cost_per_bag else None
-            product.lbs_per_bag = Decimal(lbs_per_bag) if lbs_per_bag else None
-            product.active = active
-            product.notes = notes
+            product.category = request.POST.get("category", "fertilizer")
+            product.product_type = request.POST.get("product_type", "granular")
+            product.pricing_type = request.POST.get("pricing_type", "per_pound")
+            product.cost_per_pound = Decimal(request.POST["cost_per_pound"]) if request.POST.get("cost_per_pound") else None
+            product.cost_per_bag = Decimal(request.POST["cost_per_bag"]) if request.POST.get("cost_per_bag") else None
+            product.lbs_per_bag = Decimal(request.POST["lbs_per_bag"]) if request.POST.get("lbs_per_bag") else None
+            product.nitrogen_pct = Decimal(request.POST["nitrogen_pct"]) if request.POST.get("nitrogen_pct") else None
+            product.phosphorus_pct = Decimal(request.POST["phosphorus_pct"]) if request.POST.get("phosphorus_pct") else None
+            product.potassium_pct = Decimal(request.POST["potassium_pct"]) if request.POST.get("potassium_pct") else None
+            product.application_rate = Decimal(request.POST["application_rate"]) if request.POST.get("application_rate") else None
+            product.epa_registration_number = request.POST.get("epa_registration_number", "").strip()
+            product.active = request.POST.get("active") == "on"
+            product.notes = request.POST.get("notes", "").strip()
             product.save()
             messages.success(request, f"Product '{product.name}' updated.")
             return redirect("billing:fertilizer_products_list")

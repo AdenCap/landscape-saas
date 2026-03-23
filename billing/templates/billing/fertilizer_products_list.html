@@ -2,8 +2,8 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>Fertilizer Products</h1>
-  <p>Manage your product catalog with pricing for accurate cost and profit calculations</p>
+  <h1>Products &amp; Chemicals</h1>
+  <p>Manage fertilizers, herbicides, pre-emergents, and other products</p>
 </div>
 
 <div class="quick-actions" style="margin-bottom: 24px;">
@@ -23,7 +23,8 @@
     <thead>
       <tr>
         <th>Product Name</th>
-        <th>Pricing</th>
+        <th>Category</th>
+        <th>Form</th>
         <th>Cost</th>
         <th>Status</th>
         <th class="col-actions"></th>
@@ -32,14 +33,12 @@
     <tbody>
       {% for product in products %}
       <tr>
-        <td><strong>{{ product.name }}</strong></td>
         <td>
-          {% if product.pricing_type == 'per_pound' %}
-            Per pound
-          {% else %}
-            Per bag ({{ product.lbs_per_bag|default:"—" }} lbs)
-          {% endif %}
+          <strong>{{ product.name }}</strong>
+          {% if product.npk_display %}<span style="color:var(--text-muted);font-size:12px;margin-left:6px;">{{ product.npk_display }}</span>{% endif %}
         </td>
+        <td><span class="badge" style="font-size:10px;">{{ product.get_category_display }}</span></td>
+        <td style="font-size:13px;">{{ product.get_product_type_display }}</td>
         <td>
           {% if product.pricing_type == 'per_pound' %}
             ${{ product.cost_per_pound|floatformat:2 }}/lb

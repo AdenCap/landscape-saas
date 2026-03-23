@@ -2,92 +2,155 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>{% if product %}Edit Product{% else %}New Fertilizer Product{% endif %}</h1>
-  <p>{% if product %}Update product details and pricing{% else %}Add a product to your catalog for accurate cost calculations{% endif %}</p>
+  <h1>{% if product %}Edit Product{% else %}New Product{% endif %}</h1>
+  <p>{% if product %}Update product details and pricing{% else %}Add a fertilizer, herbicide, or other product to your catalog{% endif %}</p>
 </div>
 
 <div class="quick-actions" style="margin-bottom: 24px;">
-  <a href="{% url 'billing:fertilizer_products_list' %}" class="btn btn-secondary">← Back to Products</a>
+  <a href="{% url 'billing:fertilizer_products_list' %}" class="btn btn-secondary">&larr; Back to Products</a>
 </div>
 
 <div class="card" style="max-width: 700px;">
   <form method="post">
     {% csrf_token %}
-    
-    <div class="field" style="margin-bottom: 20px;">
-      <label for="name">Product Name *</label>
-      <input type="text" name="name" id="name" required value="{{ product.name|default:'' }}" placeholder="e.g. Scotts Turf Builder 32-0-4" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">
-    </div>
-    
-    <div class="field" style="margin-bottom: 20px;">
-      <label for="pricing_type">Pricing Type *</label>
-      <select name="pricing_type" id="pricing_type" required style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">
-        <option value="per_pound" {% if not product or product.pricing_type == 'per_pound' %}selected{% endif %}>Per pound</option>
-        <option value="per_bag" {% if product and product.pricing_type == 'per_bag' %}selected{% endif %}>Per bag</option>
-      </select>
-    </div>
-    
-    <div id="per-pound-fields" style="margin-bottom: 20px;">
-      <div class="field">
-        <label for="cost_per_pound">Cost per pound ($) *</label>
-        <input type="number" name="cost_per_pound" id="cost_per_pound" step="0.01" min="0" value="{{ product.cost_per_pound|default:'' }}" placeholder="0.50" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">
+
+    <!-- Name + Category -->
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:20px;">
+      <div class="fp-field">
+        <label for="name">Product Name *</label>
+        <input type="text" name="name" id="name" required value="{{ product.name|default:'' }}" placeholder="e.g. Scotts Turf Builder 32-0-4">
+      </div>
+      <div class="fp-field">
+        <label for="category">Category *</label>
+        <select name="category" id="category">
+          <option value="fertilizer" {% if not product or product.category == 'fertilizer' %}selected{% endif %}>Fertilizer</option>
+          <option value="herbicide" {% if product.category == 'herbicide' %}selected{% endif %}>Herbicide</option>
+          <option value="pre_emergent" {% if product.category == 'pre_emergent' %}selected{% endif %}>Pre-Emergent</option>
+          <option value="insecticide" {% if product.category == 'insecticide' %}selected{% endif %}>Insecticide</option>
+          <option value="fungicide" {% if product.category == 'fungicide' %}selected{% endif %}>Fungicide</option>
+          <option value="combo" {% if product.category == 'combo' %}selected{% endif %}>Weed & Feed / Combo</option>
+          <option value="other" {% if product.category == 'other' %}selected{% endif %}>Other</option>
+        </select>
       </div>
     </div>
-    
-    <div id="per-bag-fields" style="display: none; margin-bottom: 20px;">
-      <div class="field" style="margin-bottom: 16px;">
-        <label for="cost_per_bag">Cost per bag ($) *</label>
-        <input type="number" name="cost_per_bag" id="cost_per_bag" step="0.01" min="0" value="{{ product.cost_per_bag|default:'' }}" placeholder="25.00" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">
+
+    <!-- Product Type + Pricing Type -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+      <div class="fp-field">
+        <label for="product_type">Form</label>
+        <select name="product_type" id="product_type">
+          <option value="granular" {% if not product or product.product_type == 'granular' %}selected{% endif %}>Granular</option>
+          <option value="liquid" {% if product.product_type == 'liquid' %}selected{% endif %}>Liquid</option>
+        </select>
       </div>
-      <div class="field">
-        <label for="lbs_per_bag">Pounds per bag *</label>
-        <input type="number" name="lbs_per_bag" id="lbs_per_bag" step="0.1" min="0.1" value="{{ product.lbs_per_bag|default:'' }}" placeholder="50" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">
+      <div class="fp-field">
+        <label for="pricing_type">Pricing Type *</label>
+        <select name="pricing_type" id="pricing_type" required>
+          <option value="per_pound" {% if not product or product.pricing_type == 'per_pound' %}selected{% endif %}>Per pound</option>
+          <option value="per_bag" {% if product.pricing_type == 'per_bag' %}selected{% endif %}>Per bag</option>
+        </select>
       </div>
     </div>
-    
+
+    <!-- Pricing Fields -->
+    <div id="per-pound-fields" style="margin-bottom:20px;">
+      <div class="fp-field">
+        <label for="cost_per_pound">Cost per pound ($)</label>
+        <input type="number" name="cost_per_pound" id="cost_per_pound" step="0.01" min="0" value="{{ product.cost_per_pound|default:'' }}" placeholder="0.50">
+      </div>
+    </div>
+    <div id="per-bag-fields" style="display:none;margin-bottom:20px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="fp-field">
+          <label for="cost_per_bag">Cost per bag ($)</label>
+          <input type="number" name="cost_per_bag" id="cost_per_bag" step="0.01" min="0" value="{{ product.cost_per_bag|default:'' }}" placeholder="25.00">
+        </div>
+        <div class="fp-field">
+          <label for="lbs_per_bag">Pounds per bag</label>
+          <input type="number" name="lbs_per_bag" id="lbs_per_bag" step="0.1" min="0.1" value="{{ product.lbs_per_bag|default:'' }}" placeholder="50">
+        </div>
+      </div>
+    </div>
+
+    <!-- NPK Analysis -->
+    <div id="npk-section" style="margin-bottom:20px;">
+      <label style="display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">NPK Analysis (from label)</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div class="fp-field">
+          <label for="nitrogen_pct">N (Nitrogen %)</label>
+          <input type="number" name="nitrogen_pct" id="nitrogen_pct" step="0.01" min="0" max="100" value="{{ product.nitrogen_pct|default:'' }}" placeholder="32">
+        </div>
+        <div class="fp-field">
+          <label for="phosphorus_pct">P (Phosphorus %)</label>
+          <input type="number" name="phosphorus_pct" id="phosphorus_pct" step="0.01" min="0" max="100" value="{{ product.phosphorus_pct|default:'' }}" placeholder="0">
+        </div>
+        <div class="fp-field">
+          <label for="potassium_pct">K (Potassium %)</label>
+          <input type="number" name="potassium_pct" id="potassium_pct" step="0.01" min="0" max="100" value="{{ product.potassium_pct|default:'' }}" placeholder="4">
+        </div>
+      </div>
+    </div>
+
+    <!-- Application Rate + EPA -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+      <div class="fp-field">
+        <label for="application_rate">Application Rate (lbs / 1,000 sqft)</label>
+        <input type="number" name="application_rate" id="application_rate" step="0.01" min="0" value="{{ product.application_rate|default:'' }}" placeholder="3.5">
+      </div>
+      <div class="fp-field">
+        <label for="epa_registration_number">EPA Registration #</label>
+        <input type="text" name="epa_registration_number" id="epa_registration_number" value="{{ product.epa_registration_number|default:'' }}" placeholder="Optional">
+      </div>
+    </div>
+
     {% if product %}
-    <div class="field" style="margin-bottom: 20px;">
-      <label style="display: flex; align-items: center; gap: 8px;">
-        <input type="checkbox" name="active" {% if product.active %}checked{% endif %}>
+    <div class="fp-field" style="margin-bottom:20px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" name="active" {% if product.active %}checked{% endif %} style="accent-color:var(--primary);width:18px;height:18px;">
         Active (show in product selection)
       </label>
     </div>
     {% endif %}
-    
-    <div class="field" style="margin-bottom: 20px;">
-      <label for="notes">Notes (optional)</label>
-      <textarea name="notes" id="notes" rows="3" placeholder="Optional notes about this product" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">{{ product.notes|default:'' }}</textarea>
+
+    <div class="fp-field" style="margin-bottom:20px;">
+      <label for="notes">Notes</label>
+      <textarea name="notes" id="notes" rows="2" placeholder="Optional notes about this product">{{ product.notes|default:'' }}</textarea>
     </div>
-    
-    <div style="display: flex; gap: 10px;">
+
+    <div style="display:flex;gap:10px;">
       <button type="submit" class="btn btn-primary">{% if product %}Update Product{% else %}Create Product{% endif %}</button>
       <a href="{% url 'billing:fertilizer_products_list' %}" class="btn btn-secondary">Cancel</a>
     </div>
   </form>
 </div>
 
+<style>
+  .fp-field { margin-bottom: 0; }
+  .fp-field label { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .fp-field input, .fp-field select, .fp-field textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 14px; font-family: inherit; }
+  .fp-field input:focus, .fp-field select:focus, .fp-field textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(34,197,94,0.12); }
+  @media (max-width: 768px) {
+    .fp-field input, .fp-field select, .fp-field textarea { font-size: 16px; min-height: 44px; }
+    div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+  }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   var pricingType = document.getElementById('pricing_type');
   var perPoundFields = document.getElementById('per-pound-fields');
   var perBagFields = document.getElementById('per-bag-fields');
-  
+
   function toggleFields() {
     if (pricingType.value === 'per_bag') {
       perPoundFields.style.display = 'none';
       perBagFields.style.display = 'block';
-      document.getElementById('cost_per_pound').required = false;
-      document.getElementById('cost_per_bag').required = true;
-      document.getElementById('lbs_per_bag').required = true;
     } else {
       perPoundFields.style.display = 'block';
       perBagFields.style.display = 'none';
-      document.getElementById('cost_per_pound').required = true;
-      document.getElementById('cost_per_bag').required = false;
-      document.getElementById('lbs_per_bag').required = false;
     }
   }
-  
+
   pricingType.addEventListener('change', toggleFields);
   toggleFields();
 });

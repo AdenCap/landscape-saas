@@ -697,12 +697,27 @@ class FertilizerProduct(models.Model):
         help_text="Recommended lbs per 1,000 sq ft"
     )
 
-    # Product type
+    # Product category & type
+    CATEGORY_CHOICES = [
+        ('fertilizer', 'Fertilizer'),
+        ('herbicide', 'Herbicide'),
+        ('pre_emergent', 'Pre-Emergent'),
+        ('insecticide', 'Insecticide'),
+        ('fungicide', 'Fungicide'),
+        ('combo', 'Weed & Feed / Combo'),
+        ('other', 'Other'),
+    ]
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default='fertilizer',
+        help_text="What type of product (fertilizer, herbicide, etc.)"
+    )
     product_type = models.CharField(
         max_length=20,
         choices=[('granular', 'Granular'), ('liquid', 'Liquid')],
         default='granular',
-        help_text="Affects unit display in calculators"
+        help_text="Physical form — affects unit display in calculators"
     )
 
     # EPA registration
