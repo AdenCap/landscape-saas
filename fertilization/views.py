@@ -292,6 +292,11 @@ def hub(request):
         business=business, year=current_year
     ).select_related('property__customer', 'program').prefetch_related('scheduled_rounds')
 
+    # Add pending round IDs string for bulk scheduling in template
+    for enr in enrollments:
+        pending_ids = list(enr.scheduled_rounds.filter(status='pending').values_list('id', flat=True))
+        enr.pending_round_ids_str = ','.join(str(rid) for rid in pending_ids)
+
     # Applications tab data
     recent_applications = FertilizerApplication.objects.filter(
         business=business

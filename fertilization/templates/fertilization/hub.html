@@ -202,12 +202,33 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
       <option value="cancelled">Cancelled</option>
     </select>
     <span id="fert-result-count" style="font-size:12px;color:var(--text-muted);"></span>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:auto;">
+      <input type="checkbox" id="fert-select-all" style="accent-color:var(--primary);width:16px;height:16px;"> Select all
+    </label>
+  </div>
+
+  <!-- Bulk Schedule Bar (hidden until checkboxes selected) -->
+  <div id="fert-bulk-bar" style="display:none;padding:12px 16px;margin-bottom:14px;background:rgba(157,216,80,0.08);border:1px solid rgba(157,216,80,0.2);border-radius:10px;display:none;">
+    <form method="post" action="{% url 'fertilization:batch_schedule_rounds' %}" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      {% csrf_token %}
+      <div id="fert-bulk-hidden-inputs"></div>
+      <span style="font-size:13px;font-weight:600;"><span id="fert-bulk-count">0</span> selected</span>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Date:</label>
+        <input type="date" name="schedule_date" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;" required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="font-size:12px;padding:8px 16px;">
+        <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">calendar_month</span>
+        Schedule Selected
+      </button>
+    </form>
   </div>
 
   <div style="overflow-x:auto;">
     <table class="data-table" id="fert-enrollment-table">
       <thead>
         <tr>
+          <th style="width:32px;"></th>
           <th>Property</th>
           <th>Customer</th>
           <th>Program</th>
@@ -220,7 +241,12 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
       </thead>
       <tbody>
         {% for enr in enrollments %}
-        <tr class="fert-enr-row" style="cursor:pointer;" data-customer="{{ enr.property.customer.name|lower }}" data-address="{{ enr.property.address|lower }}" data-program="{{ enr.program.name }}" data-status="{{ enr.status }}" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+        <tr class="fert-enr-row" style="cursor:pointer;" data-customer="{{ enr.property.customer.name|lower }}" data-address="{{ enr.property.address|lower }}" data-program="{{ enr.program.name }}" data-status="{{ enr.status }}" data-pending-ids="{{ enr.pending_round_ids_str }}" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+          <td onclick="event.stopPropagation()">
+            {% if enr.status != 'completed' and enr.status != 'cancelled' %}
+            <input type="checkbox" class="fert-enr-check" data-pending="{{ enr.pending_round_ids_str }}" style="accent-color:var(--primary);width:16px;height:16px;">
+            {% endif %}
+          </td>
           <td>{{ enr.property.address }}</td>
           <td>{{ enr.property.customer.name }}</td>
           <td>{{ enr.program.name }}</td>
@@ -254,7 +280,7 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
           </td>
         </tr>
         <tr class="fert-enr-detail" style="display:none;">
-          <td colspan="8" style="padding:0;">
+          <td colspan="9" style="padding:0;">
             <div style="padding:10px 20px 14px;background:var(--surface-highest);border-top:1px solid var(--border);">
               <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Round Schedule</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -295,6 +321,10 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
   var programFilter = document.getElementById('fert-filter-program');
   var statusFilter = document.getElementById('fert-filter-status');
   var countEl = document.getElementById('fert-result-count');
+  var selectAllCb = document.getElementById('fert-select-all');
+  var bulkBar = document.getElementById('fert-bulk-bar');
+  var bulkCount = document.getElementById('fert-bulk-count');
+  var bulkInputs = document.getElementById('fert-bulk-hidden-inputs');
   if (!searchInput) return;
 
   function filterEnrollments() {
@@ -318,12 +348,47 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
       var show = matchSearch && matchProgram && matchStatus;
       row.style.display = show ? '' : 'none';
       if (detailRow && detailRow.classList.contains('fert-enr-detail')) {
-        detailRow.style.display = 'none'; // always collapse on filter change
+        detailRow.style.display = 'none';
       }
       if (show) visible++;
     });
 
     countEl.textContent = visible + ' of ' + rows.length;
+  }
+
+  // Bulk selection
+  function updateBulkBar() {
+    var checks = document.querySelectorAll('.fert-enr-check:checked');
+    var count = checks.length;
+    bulkBar.style.display = count > 0 ? '' : 'none';
+    bulkCount.textContent = count;
+
+    // Clear and rebuild hidden inputs for selected pending round IDs
+    while (bulkInputs.firstChild) bulkInputs.removeChild(bulkInputs.firstChild);
+    checks.forEach(function(cb) {
+      var ids = (cb.dataset.pending || '').split(',');
+      ids.forEach(function(id) {
+        if (id) {
+          var inp = document.createElement('input');
+          inp.type = 'hidden';
+          inp.name = 'round_ids';
+          inp.value = id;
+          bulkInputs.appendChild(inp);
+        }
+      });
+    });
+  }
+
+  document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('fert-enr-check')) updateBulkBar();
+  });
+
+  if (selectAllCb) {
+    selectAllCb.addEventListener('change', function() {
+      var visible = document.querySelectorAll('.fert-enr-row:not([style*="display: none"]):not([style*="display:none"]) .fert-enr-check');
+      visible.forEach(function(cb) { cb.checked = selectAllCb.checked; });
+      updateBulkBar();
+    });
   }
 
   searchInput.addEventListener('input', filterEnrollments);
