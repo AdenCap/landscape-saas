@@ -56,7 +56,7 @@
     {% endif %}
     <div class="estimate-preview-header">
       {% if estimate.business.logo %}
-      <img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}" class="estimate-preview-logo">
+      <img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}" class="estimate-preview-logo" onerror="this.style.display='none'">
       {% endif %}
       <div class="estimate-preview-title-block">
         <h2>{{ estimate.title }}</h2>

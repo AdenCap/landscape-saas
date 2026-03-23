@@ -89,7 +89,7 @@
 
     {% if estimate.business.logo %}
     <div class="doc-logo">
-      <img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}">
+      <img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}" onerror="this.parentElement.style.display='none'">
     </div>
     {% endif %}
 

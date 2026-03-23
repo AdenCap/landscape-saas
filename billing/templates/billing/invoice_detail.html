@@ -6,7 +6,8 @@
   <div class="invoice-header-row">
     <div class="invoice-branding">
       {% if invoice.business.logo %}
-      <img src="{{ invoice.business.logo.url }}" alt="{{ invoice.business.name }}" class="invoice-logo">
+      <img src="{{ invoice.business.logo.url }}" alt="{{ invoice.business.name }}" class="invoice-logo" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+      <h1 class="invoice-brand-name" style="display:none;">{{ invoice.business.name }}</h1>
       {% else %}
       <h1 class="invoice-brand-name">{{ invoice.business.name }}</h1>
       {% endif %}

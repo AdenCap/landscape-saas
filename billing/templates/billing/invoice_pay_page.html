@@ -41,7 +41,7 @@
   <div class="pay-card">
     <div class="pay-header">
       {% if business.logo %}
-      <img src="{{ business.logo.url }}" alt="" class="pay-logo">
+      <img src="{{ business.logo.url }}" alt="" class="pay-logo" onerror="this.style.display='none'">
       {% endif %}
       <div class="pay-header-text">
         <h1>Invoice #{{ invoice.id }}</h1>

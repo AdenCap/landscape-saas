@@ -18,7 +18,7 @@
 <body>
   <div class="card">
     {% if estimate.business.logo %}
-    <div class="doc-logo"><img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}"></div>
+    <div class="doc-logo"><img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}" onerror="this.parentElement.style.display='none'"></div>
     {% endif %}
     <h1>Thank you!</h1>
     <p>You've accepted the estimate for <strong>{{ accepted_total|currency }}</strong>.</p>

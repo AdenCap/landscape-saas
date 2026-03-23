@@ -341,13 +341,21 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# When BLOB_READ_WRITE_TOKEN is set (e.g. Vercel Blob store "fieldlgx-blob"), use Vercel Blob for uploads
-if os.environ.get("BLOB_READ_WRITE_TOKEN", "").strip():
+# File storage: Supabase Storage for production, local filesystem for dev
+if os.environ.get("SUPABASE_SERVICE_KEY", "").strip() and os.environ.get("SUPABASE_PROJECT_URL", "").strip():
+    # Production: persistent storage via Supabase Storage bucket
+    STORAGES = {
+        "default": {"BACKEND": "config.supabase_storage.SupabaseStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+elif os.environ.get("BLOB_READ_WRITE_TOKEN", "").strip():
+    # Legacy: Vercel Blob store
     STORAGES = {
         "default": {"BACKEND": "config.storages.VercelBlobStorage"},
         "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
     }
 else:
+    # Local dev: filesystem
     STORAGES = {
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage", "OPTIONS": {"location": MEDIA_ROOT}},
         "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},

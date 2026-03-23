@@ -63,7 +63,7 @@
             <p class="field-help">Appears on invoices, estimates, and emails.</p>
             {% if business.logo %}
             <div class="logo-preview">
-              <img src="{{ business.logo.url }}" alt="{{ business.name }} logo">
+              <img src="{{ business.logo.url }}" alt="{{ business.name }} logo" onerror="this.style.display='none'">
             </div>
             {% endif %}
             {{ form.logo }}
