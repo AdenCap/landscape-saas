@@ -726,9 +726,10 @@
             <i data-lucide="users" class="nav-icon"></i>
             Employee Management
           </a>
-          <a href="{% url 'notification_send' %}" class="btn btn-nav {% if '/notifications/send' in request.path %}active{% endif %}">
+          <a href="{% url 'notification_inbox' %}" class="btn btn-nav {% if '/notifications' in request.path %}active{% endif %}">
             <i data-lucide="bell" class="nav-icon"></i>
             Notifications
+            {% if notification_unread_count > 0 %}<span class="nav-badge">{{ notification_unread_count }}</span>{% endif %}
           </a>
           <a href="{% url 'financials:dashboard' %}" class="btn btn-nav {% if '/financials' in request.path %}active{% endif %}">
             <i data-lucide="chart-column" class="nav-icon"></i>
@@ -863,7 +864,7 @@
             {% endif %}
             {# Property Estimator accessible via Estimates > Estimator Tools tab #}
             <a href="{% url 'employee_management' %}"><i data-lucide="users" class="nav-icon"></i>Employees</a>
-            <a href="{% url 'notification_send' %}"><i data-lucide="bell" class="nav-icon"></i>Notifications</a>
+            <a href="{% url 'notification_inbox' %}"><i data-lucide="bell" class="nav-icon"></i>Notifications{% if notification_unread_count > 0 %} <span class="bottom-nav-count">{{ notification_unread_count }}</span>{% endif %}</a>
             <a href="{% url 'financials:dashboard' %}"><i data-lucide="chart-column" class="nav-icon"></i>Financials</a>
             <a href="/settings/"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
           {% endif %}
@@ -1030,5 +1031,47 @@
   {% endfor %}{% endif %}
 })();
 </script>
+{% if user.is_authenticated %}
+<script>
+// Service Worker + Push Notification subscription
+(function() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  navigator.serviceWorker.register('/static/sw.js').then(function(reg) {
+    // Check if already subscribed
+    reg.pushManager.getSubscription().then(function(sub) {
+      if (sub) return; // Already subscribed
+      // Get VAPID key and subscribe
+      fetch('/notifications/push/vapid-key/').then(function(r) { return r.json(); }).then(function(data) {
+        if (!data.publicKey) return;
+        var key = urlBase64ToUint8Array(data.publicKey);
+        reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: key
+        }).then(function(subscription) {
+          // Send subscription to server
+          var subJson = subscription.toJSON();
+          fetch('/notifications/push/subscribe/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+            body: JSON.stringify({
+              endpoint: subJson.endpoint,
+              keys: subJson.keys
+            })
+          });
+        }).catch(function() { /* User denied or push not supported */ });
+      });
+    });
+  });
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var rawData = window.atob(base64);
+    var outputArray = new Uint8Array(rawData.length);
+    for (var i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+})();
+</script>
+{% endif %}
 </body>
 </html>

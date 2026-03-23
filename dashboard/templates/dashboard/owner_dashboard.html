@@ -193,9 +193,9 @@
     new Chart(c, {
       type: 'bar',
       data: {
-        labels: {{ monthly_labels|default:"['Oct','Nov','Dec','Jan','Feb','Mar']"|safe }},
+        labels: {{ monthly_labels|safe }},
         datasets: [{
-          data: {{ monthly_revenue|default:"[4200,5100,3800,6200,5500,7100]"|safe }},
+          data: {{ monthly_revenue|safe }},
           backgroundColor: function(ctx) {
             return ctx.dataIndex === ctx.dataset.data.length - 1 ? 'rgba(157,216,80,0.5)' : 'rgba(157,216,80,0.1)';
           },

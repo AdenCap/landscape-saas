@@ -3,65 +3,168 @@
 {% block title %}Notifications – FieldLgx{% endblock %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
   <div>
     <h1>Notifications</h1>
-    <p>Messages from your manager or business owner.</p>
+    <p>{% if can_send %}Send messages to your team and view your alerts.{% else %}Messages from your manager or business owner.{% endif %}</p>
   </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <button type="button" class="btn btn-primary" id="btn-open-new-chat" onclick="openChatNewMessage()">
-      <i data-lucide="message-circle-plus" style="width:16px;height:16px;"></i> Start a Chat
-    </button>
-    {% if unread_count > 0 %}
-    <button type="button" class="btn btn-secondary" id="mark-all-read">Mark all as read</button>
-    {% endif %}
+  {% if unread_count > 0 %}
+  <button type="button" class="btn btn-secondary" id="mark-all-read">Mark all as read</button>
+  {% endif %}
+</div>
+
+{% if can_send %}
+<div class="notif-tabs">
+  <button type="button" class="notif-tab {% if tab == 'inbox' %}active{% endif %}" data-tab="inbox">
+    <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;">inbox</span>
+    Inbox{% if unread_count > 0 %} <span class="notif-badge">{{ unread_count }}</span>{% endif %}
+  </button>
+  <button type="button" class="notif-tab {% if tab == 'send' %}active{% endif %}" data-tab="send">
+    <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;">send</span>
+    Send Message
+  </button>
+</div>
+{% endif %}
+
+<!-- INBOX TAB -->
+<div class="notif-panel {% if tab == 'inbox' %}active{% endif %}" id="panel-inbox">
+  <div class="card">
+    {% for n in notifications %}
+    <div class="notification-item" data-id="{{ n.id }}" style="padding:16px;border-bottom:1px solid var(--border);{% if not n.read_at %}background:rgba(34,197,94,0.08);{% endif %}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">
+            From {{ n.from_user.get_full_name|default:n.from_user.username }}
+            <span style="margin-left:8px;">{{ n.created_at|timesince }} ago</span>
+          </div>
+          <p style="margin:0;white-space:pre-wrap;word-break:break-word;">{{ n.message }}</p>
+        </div>
+        {% if not n.read_at %}
+        <form method="post" action="{% url 'notification_mark_read' n.id %}" style="flex-shrink:0;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-secondary btn-sm">Mark read</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div style="padding:40px 24px;text-align:center;">
+      <span class="material-symbols-outlined" style="font-size:40px;color:var(--text-muted);display:block;margin-bottom:8px;">notifications_none</span>
+      <p style="color:var(--text-muted);margin:0;">No notifications yet.</p>
+    </div>
+    {% endfor %}
   </div>
 </div>
 
-<div class="card">
-  {% for n in notifications %}
-  <div class="notification-item" data-id="{{ n.id }}" style="padding: 16px; border-bottom: 1px solid var(--border); {% if not n.read_at %}background: rgba(34, 197, 94, 0.08);{% endif %}">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
-      <div style="flex: 1; min-width: 0;">
-        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">
-          From {{ n.from_user.get_full_name|default:n.from_user.username }}
-          <span style="margin-left: 8px;">{{ n.created_at|timesince }} ago</span>
-        </div>
-        <p style="margin: 0; white-space: pre-wrap; word-break: break-word;">{{ n.message }}</p>
-      </div>
-      {% if not n.read_at %}
-      <form method="post" action="{% url 'notification_mark_read' n.id %}" style="flex-shrink: 0;">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-secondary btn-sm">Mark read</button>
-      </form>
+{% if can_send %}
+<!-- SEND TAB -->
+<div class="notif-panel {% if tab == 'send' %}active{% endif %}" id="panel-send">
+  <div class="card" style="max-width:640px;padding:24px;">
+    <h3 style="margin:0 0 4px;font-family:var(--font-headline);font-weight:700;">Send a message</h3>
+    <p style="color:var(--text-muted);font-size:13px;margin:0 0 20px;">All selected employees will receive an in-app notification.</p>
+
+    <form method="post" action="{% url 'notification_inbox' %}">
+      {% csrf_token %}
+      {% if send_form.non_field_errors %}
+      <p style="color:#fca5a5;margin-bottom:16px;font-size:14px;">{{ send_form.non_field_errors.0 }}</p>
       {% endif %}
-    </div>
+
+      <div style="margin-bottom:16px;">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
+          <input type="checkbox" name="send_to_all" id="id_send_to_all" {% if send_form.send_to_all.value %}checked{% endif %} style="margin-top:3px;accent-color:var(--primary);width:18px;height:18px;">
+          <span>
+            <strong>All employees</strong>
+            <span style="display:block;color:var(--text-muted);font-size:12px;">Send to everyone on your team</span>
+          </span>
+        </label>
+      </div>
+
+      <div style="margin-bottom:16px;" id="employees-group">
+        <span style="display:block;font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Select employees</span>
+        <div style="display:grid;gap:4px;">
+          {% for value, label in send_form.employees.field.choices %}
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 12px;border-radius:8px;background:var(--surface-highest);">
+            <input type="checkbox" name="employees" value="{{ value }}" style="accent-color:var(--primary);width:16px;height:16px;">
+            <span style="font-size:14px;">{{ label }}</span>
+          </label>
+          {% empty %}
+          <p style="color:var(--text-muted);font-size:13px;">No employees yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% if send_form.crews.field.choices %}
+      <div style="margin-bottom:16px;" id="crews-group">
+        <span style="display:block;font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Select crews</span>
+        <div style="display:grid;gap:4px;">
+          {% for value, label in send_form.crews.field.choices %}
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 12px;border-radius:8px;background:var(--surface-highest);">
+            <input type="checkbox" name="crews" value="{{ value }}" style="accent-color:var(--primary);width:16px;height:16px;">
+            <span style="font-size:14px;">{{ label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Message</label>
+        <textarea name="message" required rows="4" maxlength="2000" placeholder="Type your message..." style="width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:14px;resize:vertical;background:var(--bg);color:var(--text);font-family:inherit;">{{ send_form.message.value|default:'' }}</textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary">
+        <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">send</span>
+        Send Notification
+      </button>
+    </form>
   </div>
-  {% empty %}
-  <p style="padding: 24px; color: var(--text-muted); margin: 0;">No notifications yet.</p>
-  {% endfor %}
 </div>
+{% endif %}
 
 <style>
   .notification-item:last-child { border-bottom: none; }
-</style>
-<script>
-function openChatNewMessage() {
-  // Open the floating chat panel
-  var panel = document.getElementById('chat-panel');
-  var fab = document.getElementById('chat-fab');
-  var overlay = document.getElementById('chat-overlay');
-  if (panel) {
-    panel.classList.add('open');
-    if (overlay) overlay.classList.add('active');
-    // Click the new message button to go directly to the user picker
-    var newMsgBtn = document.getElementById('btn-new-message');
-    if (newMsgBtn) {
-      setTimeout(function() { newMsgBtn.click(); }, 150);
-    }
+  .notif-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  .notif-tab { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border: 1px solid var(--border); border-radius: 8px 8px 0 0; background: transparent; color: var(--text-muted); font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; }
+  .notif-tab:hover { color: var(--text); }
+  .notif-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(34,197,94,0.06); }
+  .notif-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; font-weight: 700; border-radius: 9px; background: var(--primary); color: #111; }
+  .notif-panel { display: none; }
+  .notif-panel.active { display: block; }
+  @media (max-width: 768px) {
+    .notif-tab { padding: 12px 14px; min-height: 44px; font-size: 13px; }
+    textarea { font-size: 16px !important; }
   }
-}
+</style>
+
+<script>
+// Tab switching
+(function() {
+  var tabs = document.querySelectorAll('.notif-tab');
+  var panels = document.querySelectorAll('.notif-panel');
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      panels.forEach(function(p) { p.classList.remove('active'); });
+      tab.classList.add('active');
+      var panel = document.getElementById('panel-' + tab.dataset.tab);
+      if (panel) panel.classList.add('active');
+    });
+  });
+
+  // Send to all toggle
+  var sendToAll = document.getElementById('id_send_to_all');
+  var empGroup = document.getElementById('employees-group');
+  var crewGroup = document.getElementById('crews-group');
+  function toggleGroups() {
+    var disabled = sendToAll && sendToAll.checked;
+    [empGroup, crewGroup].forEach(function(g) {
+      if (g) g.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.disabled = disabled; });
+    });
+  }
+  if (sendToAll) { sendToAll.addEventListener('change', toggleGroups); toggleGroups(); }
+})();
 </script>
+
 {% if unread_count > 0 %}
 <script>
 (function() {
@@ -73,18 +176,12 @@ function openChatNewMessage() {
       var token = csrf ? csrf.value : '';
       var done = 0;
       forms.forEach(function(f) {
-        if (f.querySelector('button[type=submit]')) {
-          fetch(f.action, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'X-CSRFToken': token,
-              'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: 'csrfmiddlewaretoken=' + encodeURIComponent(token),
-            credentials: 'same-origin'
-          }).then(function() { done++; if (done >= forms.length) window.location.reload(); });
-        }
+        fetch(f.action, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': token, 'X-Requested-With': 'XMLHttpRequest'},
+          body: 'csrfmiddlewaretoken=' + encodeURIComponent(token),
+          credentials: 'same-origin'
+        }).then(function() { done++; if (done >= forms.length) window.location.reload(); });
       });
       if (forms.length === 0) window.location.reload();
     });

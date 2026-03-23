@@ -444,6 +444,11 @@ GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 # Usage limits to prevent overages (10,000 free requests per month, then charged)
 GOOGLE_MAPS_MONTHLY_LIMIT = int(os.environ.get("GOOGLE_MAPS_MONTHLY_LIMIT", "10000"))
 GOOGLE_MAPS_DAILY_LIMIT = int(os.environ.get("GOOGLE_MAPS_DAILY_LIMIT", "0"))  # 0 = no daily limit
+# Web Push Notifications (VAPID keys)
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
+VAPID_ADMIN_EMAIL = os.environ.get("VAPID_ADMIN_EMAIL", "admin@fieldlgx.com")
+
 DEFAULT_FROM_EMAIL = "FieldLgx <noreply@fieldlgx.com>"
 
 # Cache: used by django-ratelimit and general app caching.

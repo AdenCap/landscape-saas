@@ -191,6 +191,18 @@ class Notification(models.Model):
         return f"{self.from_user} → {self.to_user}: {self.message[:50]}…"
 
 
+class PushSubscription(models.Model):
+    """Web Push subscription for browser notifications."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_subscriptions")
+    endpoint = models.URLField(max_length=500, unique=True)
+    p256dh = models.CharField(max_length=200)
+    auth = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Push sub for {self.user} ({self.endpoint[:50]}...)"
+
+
 class AuditLog(models.Model):
     """Security audit trail: platform admin actions, logins, etc."""
     ACTION_CHOICES = [

@@ -480,18 +480,69 @@ def notification_send(request):
 
 
 @login_required
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "POST"])
 def notification_inbox(request):
-    """Employees (and owner) see notifications sent to them."""
+    """Combined inbox + send page. Owners/managers can send from the 'Send' tab."""
+    business = _get_business(request)
     notifications = (
         Notification.objects.filter(to_user=request.user)
         .select_related("from_user")
         .order_by("-created_at")[:100]
     )
     unread_count = Notification.objects.filter(to_user=request.user, read_at__isnull=True).count()
+
+    # Send form for owners/managers
+    send_form = None
+    tab = request.GET.get("tab", "inbox")
+    can_send = request.user.role in ("owner", "manager")
+    if can_send:
+        if request.method == "POST":
+            send_form = SendNotificationForm(request.POST, business=business)
+            if send_form.is_valid():
+                msg = send_form.cleaned_data["message"].strip()
+                if msg:
+                    recipient_ids = set()
+                    if send_form.cleaned_data.get("send_to_all"):
+                        recipient_ids.update(
+                            User.objects.filter(business=business)
+                            .exclude(pk=request.user.pk)
+                            .values_list("pk", flat=True)
+                        )
+                    else:
+                        emp_ids = [int(x) for x in (send_form.cleaned_data.get("employees") or [])]
+                        crew_ids = [int(x) for x in (send_form.cleaned_data.get("crews") or [])]
+                        if emp_ids:
+                            recipient_ids.update(
+                                User.objects.filter(business=business, id__in=emp_ids).values_list("pk", flat=True)
+                            )
+                        if crew_ids:
+                            for crew in Crew.objects.filter(business=business, id__in=crew_ids).prefetch_related("members"):
+                                recipient_ids.update(crew.members.values_list("pk", flat=True))
+                    recipient_ids.discard(request.user.pk)
+                    created = 0
+                    for to_user_id in recipient_ids:
+                        Notification.objects.create(
+                            business=business,
+                            from_user=request.user,
+                            to_user_id=to_user_id,
+                            message=msg,
+                        )
+                        created += 1
+                    if created:
+                        messages.success(request, f"Notification sent to {created} employee(s).")
+                    else:
+                        messages.warning(request, "No recipients found.")
+                    return redirect("notification_inbox")
+            tab = "send"
+        else:
+            send_form = SendNotificationForm(business=business)
+
     return render(request, "accounts/notification_inbox.html", {
         "notifications": notifications,
         "unread_count": unread_count,
+        "send_form": send_form,
+        "can_send": can_send,
+        "tab": tab,
     })
 
 
@@ -508,6 +559,40 @@ def notification_mark_read(request, notification_id):
         from django.http import JsonResponse
         return JsonResponse({"ok": True})
     return redirect("notification_inbox")
+
+
+@login_required
+@require_http_methods(["POST"])
+def push_subscribe(request):
+    """Store a Web Push subscription for the current user."""
+    import json as _json
+    from django.http import JsonResponse
+    from .models import PushSubscription
+    try:
+        data = _json.loads(request.body)
+        endpoint = data.get("endpoint", "")
+        keys = data.get("keys", {})
+        p256dh = keys.get("p256dh", "")
+        auth = keys.get("auth", "")
+        if not endpoint or not p256dh or not auth:
+            return JsonResponse({"error": "Invalid subscription"}, status=400)
+        PushSubscription.objects.update_or_create(
+            endpoint=endpoint,
+            defaults={"user": request.user, "p256dh": p256dh, "auth": auth},
+        )
+        return JsonResponse({"ok": True})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+@login_required
+@require_http_methods(["GET"])
+def push_vapid_key(request):
+    """Return the VAPID public key for push subscription."""
+    from django.conf import settings as django_settings
+    from django.http import JsonResponse
+    key = getattr(django_settings, "VAPID_PUBLIC_KEY", "")
+    return JsonResponse({"publicKey": key})
 
 
 @role_required("owner")

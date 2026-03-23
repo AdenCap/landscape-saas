@@ -742,6 +742,34 @@ def owner_dashboard(request):
         changes_feed.append({"time": timezone.localtime(msg.created_at), "text": f"Email sent · {msg.customer.name}"})
     changes_feed = sorted(changes_feed, key=lambda x: x["time"], reverse=True)[:10]
 
+    # --- Monthly revenue chart (last 6 months of real data) ---
+    import calendar as cal_mod
+    monthly_labels = []
+    monthly_revenue = []
+    for i in range(5, -1, -1):
+        # Go back i months from current month
+        m = today.month - i
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        month_name = cal_mod.month_abbr[m]
+        monthly_labels.append(month_name)
+        first_day = date(y, m, 1)
+        if m == 12:
+            last_day = date(y + 1, 1, 1)
+        else:
+            last_day = date(y, m + 1, 1)
+        rev = Invoice.objects.filter(
+            business=business,
+            status="paid",
+            period_start__gte=first_day,
+            period_start__lt=last_day,
+        ).aggregate(
+            total=Coalesce(Sum("total"), Decimal("0.00"), output_field=DecimalField(max_digits=12, decimal_places=2))
+        )["total"]
+        monthly_revenue.append(float(rev))
+
     context = {
         "today": today,
         "revenue_this_month": revenue_this_month,
@@ -768,6 +796,8 @@ def owner_dashboard(request):
         "queue_count": queue_count,
         "crew_user_count": crew_user_count,
         "solo_plan_overage": solo_plan_overage,
+        "monthly_labels": monthly_labels,
+        "monthly_revenue": monthly_revenue,
         **review_stats,
     }
     return render(request, "dashboard/owner_dashboard.html", context)
