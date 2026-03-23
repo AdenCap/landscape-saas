@@ -198,7 +198,7 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
       </thead>
       <tbody>
         {% for enr in enrollments %}
-        <tr>
+        <tr style="cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
           <td>{{ enr.property.address }}</td>
           <td>{{ enr.property.customer.name }}</td>
           <td>{{ enr.program.name }}</td>
@@ -216,7 +216,7 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
           </td>
           <td>{{ enr.rounds_completed }}/{{ enr.total_rounds }}</td>
           <td><span class="status-badge status-{{ enr.status }}">{{ enr.get_status_display }}</span></td>
-          <td class="actions-cell" style="white-space:nowrap;">
+          <td class="actions-cell" style="white-space:nowrap;" onclick="event.stopPropagation()">
             <a href="{% url 'fertilization:enrollment_builder' %}?edit={{ enr.id }}" class="btn btn-sm btn-secondary">Edit</a>
             {% if enr.status != 'cancelled' %}
             <button class="btn btn-sm btn-ghost" onclick="FertHub.cancelEnrollment({{ enr.id }})" title="Cancel enrollment">
@@ -229,6 +229,28 @@ document.querySelectorAll('.fert-due-select-group').forEach(function(cb) {
                 <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
               </button>
             </form>
+          </td>
+        </tr>
+        <tr style="display:none;">
+          <td colspan="8" style="padding:0;">
+            <div style="padding:10px 20px 14px;background:var(--surface-highest);border-top:1px solid var(--border);">
+              <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Round Schedule</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                {% for sr in enr.scheduled_rounds.all %}
+                <div style="padding:6px 10px;border-radius:6px;font-size:12px;border:1px solid var(--border);{% if sr.status == 'completed' %}background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.2);{% elif sr.status == 'scheduled' %}background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.2);{% elif sr.status == 'skipped' %}background:rgba(248,113,113,0.1);border-color:rgba(248,113,113,0.2);{% else %}background:var(--surface-container);{% endif %}">
+                  <strong>R{{ sr.round_number }}</strong>
+                  {% if sr.round_template %}<span style="color:var(--text-secondary);">{{ sr.round_template.name }}</span>{% endif %}
+                  <span style="color:var(--text-muted);">&middot; {{ sr.scheduled_date|date:"M j" }}</span>
+                  {% if sr.status == 'completed' %}<span style="color:var(--primary);">&#10003;</span>
+                  {% elif sr.status == 'scheduled' %}<span style="color:#60a5fa;">&#9679;</span>
+                  {% elif sr.status == 'skipped' %}<span style="color:#f87171;">&#10005;</span>
+                  {% else %}<span style="color:var(--text-muted);">&#9675;</span>{% endif %}
+                </div>
+                {% empty %}
+                <span style="color:var(--text-muted);font-size:12px;">No rounds scheduled yet.</span>
+                {% endfor %}
+              </div>
+            </div>
           </td>
         </tr>
         {% endfor %}

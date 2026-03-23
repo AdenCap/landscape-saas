@@ -1180,6 +1180,24 @@ def complete_job(request, job_id):
             pass
     job.save(update_fields=update_fields)
 
+    # Auto-complete any linked fertilization scheduled rounds
+    try:
+        from fertilization.models import ScheduledRound as FertScheduledRound
+        linked_rounds = FertScheduledRound.objects.filter(job=job, status__in=['pending', 'scheduled'])
+        for sr in linked_rounds:
+            sr.status = 'completed'
+            sr.save(update_fields=['status'])
+            # Update enrollment visit counter
+            enrollment = sr.enrollment
+            enrollment.visits_used = enrollment.scheduled_rounds.filter(status='completed').count()
+            if enrollment.visits_used >= enrollment.total_rounds and enrollment.status == 'enrolled':
+                enrollment.status = 'completed'
+            elif enrollment.status == 'enrolled':
+                enrollment.status = 'in_progress'
+            enrollment.save(update_fields=['status'])
+    except Exception:
+        pass  # fertilization updates should never block job completion
+
     # Notify client that job is complete
     try:
         from customers.notifications import notify_customer

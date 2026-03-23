@@ -787,6 +787,15 @@ def owner_dashboard(request):
             fert_due_groups[round_name] = []
         fert_due_groups[round_name].append(sr)
 
+    # --- Upcoming fertilization rounds (scheduled on calendar, this month + next 30 days) ---
+    upcoming_window = today + timedelta(days=30)
+    fert_upcoming = ScheduledRound.objects.filter(
+        enrollment__business=business,
+        status='scheduled',
+        scheduled_date__gte=today,
+        scheduled_date__lte=upcoming_window,
+    ).select_related('enrollment__property__customer', 'enrollment__program', 'round_template', 'job').order_by('scheduled_date')[:10]
+
     context = {
         "today": today,
         "revenue_this_month": revenue_this_month,
@@ -817,6 +826,7 @@ def owner_dashboard(request):
         "monthly_revenue": monthly_revenue,
         "fert_due_count": fert_due_count,
         "fert_due_groups": fert_due_groups,
+        "fert_upcoming": fert_upcoming,
         **review_stats,
     }
     return render(request, "dashboard/owner_dashboard.html", context)

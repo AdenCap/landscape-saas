@@ -164,6 +164,38 @@
   </div>
 </div>
 
+{% if fert_upcoming or fert_due_count %}
+<!-- Fertilization Schedule -->
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-head">
+    <h3><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;color:var(--primary);">eco</span> Fertilization Schedule</h3>
+    <a href="{% url 'fertilization:hub' %}" class="card-link">Manage &rarr;</a>
+  </div>
+  {% if fert_due_count %}
+  <div style="padding:10px 14px;margin-bottom:12px;background:rgba(157,216,80,0.08);border:1px solid rgba(157,216,80,0.15);border-radius:8px;font-size:13px;">
+    <strong style="color:var(--primary);">{{ fert_due_count }} round{{ fert_due_count|pluralize }} pending</strong> — not yet on the calendar.
+    <a href="{% url 'fertilization:hub' %}" style="color:var(--primary);font-weight:600;margin-left:4px;">Schedule now &rarr;</a>
+  </div>
+  {% endif %}
+  {% if fert_upcoming %}
+  <div class="today-list">
+    {% for sr in fert_upcoming %}
+    <a href="{% if sr.job %}{% url 'job_detail' sr.job.id %}{% else %}{% url 'fertilization:hub' %}{% endif %}" class="today-item">
+      <div class="today-time">{{ sr.scheduled_date|date:"M j" }}</div>
+      <div class="today-info">
+        <span class="today-addr">{{ sr.enrollment.property.customer.name }}</span>
+        <span class="today-svc">{{ sr.round_template.name|default:"Round" }} — {{ sr.enrollment.program.name }}</span>
+      </div>
+      <span class="today-status today-status-scheduled">{{ sr.get_status_display }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color:var(--text-muted);font-size:13px;padding:12px 0;text-align:center;">No rounds scheduled yet this month.</p>
+  {% endif %}
+</div>
+{% endif %}
+
 <!-- Navigation Grid -->
 <div class="nav-grid">
   <a href="{% url 'calendar' %}" class="nav-tile"><span class="material-symbols-outlined">calendar_month</span><span>Calendar</span></a>
