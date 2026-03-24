@@ -46,53 +46,7 @@
   </a>
 </nav>
 
-{% if active_count > 0 %}
-<!-- CURRENT ROUND: These clients need to be scheduled NOW -->
-<div style="background:var(--surface);border:1px solid rgba(34,197,94,0.3);border-radius:12px;padding:16px 20px;margin-bottom:20px;">
-  <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">
-    <span class="material-symbols-outlined" style="font-size:24px;color:var(--primary);">schedule</span>
-    <div>
-      <strong style="font-size:16px;">{{ active_round_name }} — {{ active_count }} client{{ active_count|pluralize }} need{{ active_count|pluralize:"s," }} scheduling</strong>
-      <p style="margin:4px 0 0;font-size:13px;color:var(--text-muted);">This round's window has arrived. Select clients, pick a date, and add them to the calendar.</p>
-    </div>
-  </div>
-  <form method="post" action="{% url 'fertilization:batch_schedule_rounds' %}" id="banner-schedule-form">
-    {% csrf_token %}
-    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px;">
-      {% for sr in active_rounds %}
-      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;">
-        <input type="checkbox" name="round_ids" value="{{ sr.id }}" checked style="accent-color:var(--primary);width:16px;height:16px;">
-        <span style="font-weight:700;color:var(--primary);min-width:28px;">R{{ sr.round_number }}</span>
-        <span style="flex:1;font-weight:500;">{{ sr.enrollment.property.customer.name }}</span>
-        <span style="color:var(--text-muted);font-size:12px;">{{ sr.enrollment.property.address|truncatewords:4 }}</span>
-      </label>
-      {% endfor %}
-    </div>
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-      <div style="display:flex;align-items:center;gap:6px;">
-        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Schedule for:</label>
-        <input type="date" name="schedule_date" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;">
-      </div>
-      <button type="submit" class="btn btn-primary">
-        <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:4px;">calendar_month</span>
-        Schedule Selected
-      </button>
-    </div>
-  </form>
-</div>
-{% endif %}
-
-{% if next_round_name %}
-<!-- NEXT ROUND PREVIEW: Coming up but not actionable yet -->
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-  <span class="material-symbols-outlined" style="font-size:20px;color:var(--text-muted);">upcoming</span>
-  <div style="flex:1;">
-    <strong>Coming up next: {{ next_round_name }}</strong>
-    <span style="color:var(--text-muted);font-size:13px;">&middot; starts {{ next_round_date|date:"M j" }} &middot; {{ next_round_client_count }} client{{ next_round_client_count|pluralize }}</span>
-  </div>
-  <span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Not yet — finish current round first</span>
-</div>
-{% endif %}
+<!-- No global banner — scheduling is per-program in the Customers tab -->
 
 <!-- ═══════════════════════════════════════════════════════════
      PROGRAMS TAB
@@ -152,230 +106,119 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     CUSTOMERS TAB
+     CUSTOMERS TAB — Organized by Program
      ═══════════════════════════════════════════════════════════ -->
 <div id="panel-customers" class="fert-panel" data-panel="customers" style="display:none;">
   <div class="panel-header">
-    <h2>Customer Enrollments ({{ current_year }})</h2>
+    <h2>Clients ({{ current_year }})</h2>
     <a href="{% url 'fertilization:enrollment_builder' %}" class="btn btn-primary btn-sm">+ Enroll Customer</a>
   </div>
 
-  {% if enrollments %}
-  <!-- Search + Filters -->
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
-    <div style="position:relative;flex:1;min-width:200px;max-width:320px;">
-      <span class="material-symbols-outlined" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--text-muted);">search</span>
-      <input type="text" id="fert-search" placeholder="Search client or address..." style="width:100%;padding:9px 12px 9px 34px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;">
-    </div>
-    <select id="fert-filter-program" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;">
-      <option value="">All Programs</option>
-      {% for prog in programs %}
-      <option value="{{ prog.name }}">{{ prog.name }}</option>
-      {% endfor %}
-    </select>
-    <select id="fert-filter-status" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;">
-      <option value="">All Statuses</option>
-      <option value="enrolled">Enrolled</option>
-      <option value="in_progress">In Progress</option>
-      <option value="completed">Completed</option>
-      <option value="cancelled">Cancelled</option>
-    </select>
-    <span id="fert-result-count" style="font-size:12px;color:var(--text-muted);"></span>
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:auto;">
-      <input type="checkbox" id="fert-select-all" style="accent-color:var(--primary);width:16px;height:16px;"> Select all
-    </label>
+  {% if program_list %}
+  <!-- Search -->
+  <div style="position:relative;max-width:320px;margin-bottom:16px;">
+    <span class="material-symbols-outlined" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--text-muted);">search</span>
+    <input type="text" id="fert-search" placeholder="Search client or address..." style="width:100%;padding:9px 12px 9px 34px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;" oninput="fertFilter()">
   </div>
 
-  <!-- Bulk Schedule Bar (hidden until checkboxes selected) -->
-  <div id="fert-bulk-bar" style="display:none;padding:12px 16px;margin-bottom:14px;background:rgba(157,216,80,0.08);border:1px solid rgba(157,216,80,0.2);border-radius:10px;">
-    <form method="post" action="{% url 'fertilization:batch_schedule_rounds' %}" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-      {% csrf_token %}
-      <div id="fert-bulk-hidden-inputs"></div>
-      <span style="font-size:13px;font-weight:600;"><span id="fert-bulk-count">0</span> selected</span>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Date:</label>
-        <input type="date" name="schedule_date" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;">
-        <span style="font-size:11px;color:var(--text-muted);">Or leave blank for target dates</span>
+  {% for pg in program_list %}
+  <!-- Program: {{ pg.program.name }} -->
+  <div class="fert-program-card" style="margin-bottom:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--surface-highest);border:1px solid var(--border);border-radius:12px 12px 0 0;">
+      <div>
+        <h3 style="margin:0;font-size:16px;font-weight:700;font-family:var(--font-headline);">{{ pg.program.name }}</h3>
+        <span style="font-size:12px;color:var(--text-muted);">{{ pg.clients|length }} client{{ pg.clients|length|pluralize }} &middot; {{ pg.program.rounds.count }} rounds</span>
       </div>
-      <button type="submit" class="btn btn-primary" style="font-size:12px;padding:8px 16px;">
-        <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">calendar_month</span>
-        Schedule Selected
-      </button>
-    </form>
-  </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        {% if pg.active_round_name %}
+        <span style="font-size:11px;font-weight:600;color:var(--primary);background:rgba(157,216,80,0.12);padding:4px 10px;border-radius:6px;">{{ pg.active_round_name }} — schedule now</span>
+        {% elif pg.next_round_name %}
+        <span style="font-size:11px;color:var(--text-muted);background:var(--surface-container);padding:4px 10px;border-radius:6px;">Next: {{ pg.next_round_name }} · {{ pg.next_round_date|date:"M j" }}</span>
+        {% endif %}
+      </div>
+    </div>
 
-  <div style="overflow-x:auto;">
-    <table class="data-table" id="fert-enrollment-table">
-      <thead>
-        <tr>
-          <th style="width:32px;"></th>
-          <th>Property</th>
-          <th>Customer</th>
-          <th>Program</th>
-          <th class="num">Sqft</th>
-          <th class="num">Price</th>
-          <th>Progress</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for enr in enrollments %}
-        <tr class="fert-enr-row" style="cursor:pointer;" data-customer="{{ enr.property.customer.name|lower }}" data-address="{{ enr.property.address|lower }}" data-program="{{ enr.program.name }}" data-status="{{ enr.status }}" data-pending-ids="{{ enr.pending_round_ids_str }}" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
-          <td onclick="event.stopPropagation()">
-            {% if enr.status != 'completed' and enr.status != 'cancelled' %}
-            <input type="checkbox" class="fert-enr-check" data-pending="{{ enr.pending_round_ids_str }}" style="accent-color:var(--primary);width:16px;height:16px;">
-            {% endif %}
-          </td>
-          <td>{{ enr.property.address }}</td>
-          <td>{{ enr.property.customer.name }}</td>
-          <td>{{ enr.program.name }}</td>
-          <td class="num">{% if enr.property.yard_sqft %}{{ enr.property.yard_sqft|floatformat:0 }}{% else %}--{% endif %}</td>
-          <td class="num">
-            {% if enr.pricing_method == 'per_application' and enr.price_per_application %}
-              ${{ enr.price_per_application|floatformat:2 }}/app
-            {% elif enr.pricing_method == 'annual_flat' and enr.annual_price %}
-              ${{ enr.annual_price|floatformat:2 }}/yr
-            {% elif enr.pricing_method == 'per_sqft' and enr.price_per_sqft %}
-              ${{ enr.price_per_sqft|floatformat:4 }}/sqft
-            {% else %}
-              --
-            {% endif %}
-          </td>
-          <td>{{ enr.rounds_completed }}/{{ enr.total_rounds }}</td>
-          <td><span class="status-badge status-{{ enr.status }}">{{ enr.get_status_display }}</span></td>
-          <td class="actions-cell" style="white-space:nowrap;" onclick="event.stopPropagation()">
-            <a href="{% url 'fertilization:enrollment_builder' %}?edit={{ enr.id }}" class="btn btn-sm btn-secondary">Edit</a>
-            {% if enr.status != 'cancelled' %}
-            <button class="btn btn-sm btn-ghost" onclick="FertHub.cancelEnrollment({{ enr.id }})" title="Cancel enrollment">
-              <i data-lucide="x-circle" style="width:14px;height:14px;"></i>
-            </button>
-            {% endif %}
-            <form method="post" action="{% url 'fertilization:enrollment_delete' enr.id %}" style="display:inline;" onsubmit="return confirm('Permanently delete this enrollment for {{ enr.property.customer.name }}? This cannot be undone.');">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-sm btn-ghost" style="color:#ffb4ab;" title="Delete permanently">
-                <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
-              </button>
-            </form>
-          </td>
-        </tr>
-        <tr class="fert-enr-detail" style="display:none;">
-          <td colspan="9" style="padding:0;">
-            <div style="padding:10px 20px 14px;background:var(--surface-highest);border-top:1px solid var(--border);">
-              <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Round Schedule</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                {% for sr in enr.scheduled_rounds.all %}
-                <div style="padding:6px 10px;border-radius:6px;font-size:12px;border:1px solid var(--border);{% if sr.status == 'completed' %}background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.2);{% elif sr.status == 'scheduled' %}background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.2);{% elif sr.status == 'skipped' %}background:rgba(248,113,113,0.1);border-color:rgba(248,113,113,0.2);{% else %}background:var(--surface-container);{% endif %}">
-                  <strong>R{{ sr.round_number }}</strong>
-                  {% if sr.round_template %}<span style="color:var(--text-secondary);">{{ sr.round_template.name }}</span>{% endif %}
-                  <span style="color:var(--text-muted);">&middot; {{ sr.scheduled_date|date:"M j" }}</span>
-                  {% if sr.status == 'completed' %}<span style="color:var(--primary);">&#10003;</span>
-                  {% elif sr.status == 'scheduled' %}<span style="color:#60a5fa;">&#9679;</span>
-                  {% elif sr.status == 'skipped' %}<span style="color:#f87171;">&#10005;</span>
-                  {% else %}<span style="color:var(--text-muted);">&#9675;</span>{% endif %}
-                </div>
-                {% empty %}
-                <span style="color:var(--text-muted);font-size:12px;">No rounds scheduled yet.</span>
-                {% endfor %}
-              </div>
-            </div>
-          </td>
-        </tr>
+    {% if pg.active_round_ids %}
+    <!-- Bulk schedule for this program's active round -->
+    <div style="padding:10px 16px;background:rgba(157,216,80,0.06);border-left:1px solid var(--border);border-right:1px solid var(--border);">
+      <form method="post" action="{% url 'fertilization:batch_schedule_rounds' %}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        {% csrf_token %}
+        {% for rid in pg.active_round_ids %}
+        <input type="hidden" name="round_ids" value="{{ rid }}">
         {% endfor %}
-      </tbody>
-    </table>
+        <span style="font-size:12px;font-weight:600;">Schedule all {{ pg.active_round_name }}:</span>
+        <input type="date" name="schedule_date" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;" required>
+        <button type="submit" class="btn btn-primary" style="font-size:11px;padding:6px 14px;">
+          <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:2px;">calendar_month</span>
+          Schedule
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+    <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;overflow:hidden;">
+      <table class="data-table" style="margin:0;">
+        <thead>
+          <tr>
+            <th>Client</th>
+            <th>Address</th>
+            <th class="num">Sq Ft</th>
+            <th class="num">~Lbs</th>
+            <th>Progress</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for enr in pg.clients %}
+          <tr class="fert-client-row" data-search="{{ enr.property.customer.name|lower }} {{ enr.property.address|lower }}">
+            <td style="font-weight:600;">{{ enr.property.customer.name }}</td>
+            <td style="font-size:13px;color:var(--text-secondary);">{{ enr.property.address|truncatewords:5 }}</td>
+            <td class="num">{% if enr._sqft %}{{ enr._sqft|floatformat:0 }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
+            <td class="num">{% if enr._lbs_needed %}{{ enr._lbs_needed }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
+            <td>
+              <div style="display:flex;gap:3px;align-items:center;">
+                {% for sr in enr.scheduled_rounds.all %}
+                <span title="R{{ sr.round_number }}{% if sr.round_template %}: {{ sr.round_template.name }}{% endif %} — {{ sr.get_status_display }}" style="width:16px;height:16px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;{% if sr.status == 'completed' %}background:var(--primary);color:#111;{% elif sr.status == 'scheduled' %}background:#3b82f6;color:#fff;{% elif sr.status == 'skipped' %}background:rgba(248,113,113,0.3);color:#f87171;{% else %}background:var(--surface-highest);color:var(--text-muted);border:1px solid var(--border);{% endif %}">{{ sr.round_number }}</span>
+                {% endfor %}
+                <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">{{ enr._rounds_completed }}/{{ enr._rounds_total }}</span>
+              </div>
+            </td>
+            <td><span class="status-badge status-{{ enr.status }}" style="font-size:10px;">{{ enr.get_status_display }}</span></td>
+            <td style="white-space:nowrap;">
+              <a href="{% url 'fertilization:enrollment_builder' %}?edit={{ enr.id }}" class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 8px;">Edit</a>
+              <form method="post" action="{% url 'fertilization:enrollment_delete' enr.id %}" style="display:inline;" onsubmit="return confirm('Delete {{ enr.property.customer.name }} from {{ pg.program.name }}?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-ghost" style="color:#ffb4ab;font-size:11px;padding:4px 6px;" title="Delete">
+                  <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
+  {% endfor %}
+
   {% else %}
   <div class="empty-state">
     <i data-lucide="users" class="empty-state-icon"></i>
     <div class="empty-state-title">No enrollments for {{ current_year }}</div>
-    <div class="empty-state-desc">Enroll customers in a fertilization program to schedule rounds and track applications throughout the season.</div>
+    <div class="empty-state-desc">Enroll customers in a fertilization program to start tracking rounds.</div>
     <a href="{% url 'fertilization:enrollment_builder' %}" class="btn btn-primary">+ Enroll Customer</a>
   </div>
   {% endif %}
 </div>
 
 <script>
-(function() {
-  var searchInput = document.getElementById('fert-search');
-  var programFilter = document.getElementById('fert-filter-program');
-  var statusFilter = document.getElementById('fert-filter-status');
-  var countEl = document.getElementById('fert-result-count');
-  var selectAllCb = document.getElementById('fert-select-all');
-  var bulkBar = document.getElementById('fert-bulk-bar');
-  var bulkCount = document.getElementById('fert-bulk-count');
-  var bulkInputs = document.getElementById('fert-bulk-hidden-inputs');
-  if (!searchInput) return;
-
-  function filterEnrollments() {
-    var query = (searchInput.value || '').toLowerCase();
-    var program = programFilter.value;
-    var status = statusFilter.value;
-    var rows = document.querySelectorAll('.fert-enr-row');
-    var visible = 0;
-
-    rows.forEach(function(row) {
-      var detailRow = row.nextElementSibling;
-      var customer = row.dataset.customer || '';
-      var address = row.dataset.address || '';
-      var rowProgram = row.dataset.program || '';
-      var rowStatus = row.dataset.status || '';
-
-      var matchSearch = !query || customer.indexOf(query) >= 0 || address.indexOf(query) >= 0;
-      var matchProgram = !program || rowProgram === program;
-      var matchStatus = !status || rowStatus === status;
-
-      var show = matchSearch && matchProgram && matchStatus;
-      row.style.display = show ? '' : 'none';
-      if (detailRow && detailRow.classList.contains('fert-enr-detail')) {
-        detailRow.style.display = 'none';
-      }
-      if (show) visible++;
-    });
-
-    countEl.textContent = visible + ' of ' + rows.length;
-  }
-
-  // Bulk selection
-  function updateBulkBar() {
-    var checks = document.querySelectorAll('.fert-enr-check:checked');
-    var count = checks.length;
-    bulkBar.style.display = count > 0 ? '' : 'none';
-    bulkCount.textContent = count;
-
-    // Clear and rebuild hidden inputs for selected pending round IDs
-    while (bulkInputs.firstChild) bulkInputs.removeChild(bulkInputs.firstChild);
-    checks.forEach(function(cb) {
-      var ids = (cb.dataset.pending || '').split(',');
-      ids.forEach(function(id) {
-        if (id) {
-          var inp = document.createElement('input');
-          inp.type = 'hidden';
-          inp.name = 'round_ids';
-          inp.value = id;
-          bulkInputs.appendChild(inp);
-        }
-      });
-    });
-  }
-
-  document.addEventListener('change', function(e) {
-    if (e.target.classList.contains('fert-enr-check')) updateBulkBar();
+function fertFilter() {
+  var q = (document.getElementById('fert-search').value || '').toLowerCase();
+  document.querySelectorAll('.fert-client-row').forEach(function(row) {
+    row.style.display = !q || (row.dataset.search || '').indexOf(q) >= 0 ? '' : 'none';
   });
-
-  if (selectAllCb) {
-    selectAllCb.addEventListener('change', function() {
-      var visible = document.querySelectorAll('.fert-enr-row:not([style*="display: none"]):not([style*="display:none"]) .fert-enr-check');
-      visible.forEach(function(cb) { cb.checked = selectAllCb.checked; });
-      updateBulkBar();
-    });
-  }
-
-  searchInput.addEventListener('input', filterEnrollments);
-  programFilter.addEventListener('change', filterEnrollments);
-  statusFilter.addEventListener('change', filterEnrollments);
-  filterEnrollments();
-})();
+}
 </script>
 
 <!-- ═══════════════════════════════════════════════════════════
