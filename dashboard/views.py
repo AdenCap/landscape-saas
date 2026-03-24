@@ -770,28 +770,43 @@ def owner_dashboard(request):
         )["total"]
         monthly_revenue.append(float(rev))
 
-    # --- Fertilization: pending rounds that need scheduling ---
+    # --- Fertilization: current round needing scheduling + next upcoming ---
     from fertilization.models import ScheduledRound
-    fert_pending = ScheduledRound.objects.filter(
+    current_month = today.month
+
+    # Active round = pending rounds whose target month has arrived (month <= current)
+    fert_active = ScheduledRound.objects.filter(
         enrollment__business=business,
         status='pending',
-    ).select_related('round_template').order_by('scheduled_date')
-    fert_due_count = fert_pending.count()
+        round_template__target_month_start__lte=current_month,
+    ).select_related('round_template')
+    fert_active_count = fert_active.count()
 
-    # Find the next round window coming up (earliest pending round group)
+    fert_active_name = None
+    if fert_active.exists():
+        first = fert_active.first()
+        fert_active_name = first.round_template.name if first.round_template else f"Round {first.round_number}"
+
+    # Next round = first pending round whose target month is AFTER current month
     fert_next_round_name = None
     fert_next_round_date = None
     fert_next_round_count = 0
-    if fert_pending.exists():
-        first = fert_pending.first()
-        fert_next_round_name = first.round_template.name if first.round_template else f"Round {first.round_number}"
-        fert_next_round_date = first.scheduled_date
-        fert_next_round_count = fert_pending.filter(
-            round_number=first.round_number,
-            round_template=first.round_template,
+    fert_next = ScheduledRound.objects.filter(
+        enrollment__business=business,
+        status='pending',
+        round_template__target_month_start__gt=current_month,
+    ).select_related('round_template').order_by('round_number').first()
+    if fert_next:
+        fert_next_round_name = fert_next.round_template.name if fert_next.round_template else f"Round {fert_next.round_number}"
+        fert_next_round_date = fert_next.scheduled_date
+        fert_next_round_count = ScheduledRound.objects.filter(
+            enrollment__business=business,
+            status='pending',
+            round_number=fert_next.round_number,
+            round_template=fert_next.round_template,
         ).count()
 
-    # --- Upcoming fertilization rounds (already on calendar, next 30 days) ---
+    # Upcoming scheduled rounds (already on calendar, next 30 days)
     upcoming_window = today + timedelta(days=30)
     fert_upcoming = ScheduledRound.objects.filter(
         enrollment__business=business,
@@ -828,7 +843,8 @@ def owner_dashboard(request):
         "solo_plan_overage": solo_plan_overage,
         "monthly_labels": monthly_labels,
         "monthly_revenue": monthly_revenue,
-        "fert_due_count": fert_due_count,
+        "fert_active_count": fert_active_count,
+        "fert_active_name": fert_active_name,
         "fert_next_round_name": fert_next_round_name,
         "fert_next_round_date": fert_next_round_date,
         "fert_next_round_count": fert_next_round_count,

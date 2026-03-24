@@ -349,22 +349,47 @@ def hub(request):
         for prog in programs.filter(is_active=True)
     ])
 
-    # ALL pending rounds (not yet scheduled as jobs)
+    # --- Round scheduling logic ---
+    # Only show the CURRENT round (target month <= this month) or the NEXT
+    # upcoming round. Never show future rounds months away.
     today = date.today()
-    due_rounds = ScheduledRound.objects.filter(
+    current_month = today.month
+
+    all_pending = ScheduledRound.objects.filter(
         enrollment__business=business,
         status='pending',
-    ).select_related('enrollment__property__customer', 'enrollment__program', 'round_template').order_by('scheduled_date')
-    due_count = due_rounds.count()
+    ).select_related('enrollment__property__customer', 'enrollment__program', 'round_template').order_by('round_number', 'scheduled_date')
 
-    # Group due rounds by round template name, with date display
-    due_groups = {}
-    for sr in due_rounds:
-        rname = sr.round_template.name if sr.round_template else f"Round {sr.round_number}"
-        if rname not in due_groups:
-            due_groups[rname] = {"name": rname, "clients": [], "ids": []}
-        due_groups[rname]["clients"].append(sr.enrollment.property.customer.name)
-        due_groups[rname]["ids"].append(sr.id)
+    # Split into "active now" (target month <= current) and "upcoming" (target month > current)
+    active_rounds = []   # Rounds whose window has arrived or passed — need scheduling NOW
+    next_rounds = []     # The very next future round — preview only
+    next_round_number = None
+
+    for sr in all_pending:
+        target_month = sr.round_template.target_month_start if sr.round_template else sr.scheduled_date.month
+        if target_month <= current_month:
+            active_rounds.append(sr)
+        else:
+            # Only include the FIRST future round number
+            if next_round_number is None:
+                next_round_number = sr.round_number
+            if sr.round_number == next_round_number:
+                next_rounds.append(sr)
+
+    active_count = len(active_rounds)
+    active_round_name = None
+    if active_rounds:
+        sr = active_rounds[0]
+        active_round_name = sr.round_template.name if sr.round_template else f"Round {sr.round_number}"
+
+    next_round_name = None
+    next_round_date = None
+    next_round_client_count = 0
+    if next_rounds:
+        sr = next_rounds[0]
+        next_round_name = sr.round_template.name if sr.round_template else f"Round {sr.round_number}"
+        next_round_date = sr.scheduled_date
+        next_round_client_count = len(next_rounds)
 
     context = {
         'programs': programs,
@@ -378,9 +403,12 @@ def hub(request):
         'programs_json': programs_json,
         'growing_season_start': business.growing_season_start_month or 3,
         'growing_season_end': business.growing_season_end_month or 10,
-        'due_rounds': due_rounds,
-        'due_count': due_count,
-        'due_groups': due_groups,
+        'active_rounds': active_rounds,
+        'active_count': active_count,
+        'active_round_name': active_round_name,
+        'next_round_name': next_round_name,
+        'next_round_date': next_round_date,
+        'next_round_client_count': next_round_client_count,
     }
 
     return render(request, "fertilization/hub.html", context)
