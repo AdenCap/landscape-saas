@@ -126,7 +126,11 @@
       {% if fert_due_count %}
       <a href="{% url 'fertilization:hub' %}" class="attn-item">
         <span class="attn-dot" style="background:#86efac;"></span>
-        {{ fert_due_count }} fertilization round{{ fert_due_count|pluralize }} due this month
+        {% if fert_next_round_name %}
+          <strong>{{ fert_next_round_name }}</strong> starting {{ fert_next_round_date|date:"M j" }} &middot; {{ fert_next_round_count }} client{{ fert_next_round_count|pluralize }} &middot; Schedule now
+        {% else %}
+          {{ fert_due_count }} fertilization round{{ fert_due_count|pluralize }} need scheduling
+        {% endif %}
       </a>
       {% endif %}
     </div>
@@ -172,8 +176,14 @@
     <a href="{% url 'fertilization:hub' %}" class="card-link">Manage &rarr;</a>
   </div>
   {% if fert_due_count %}
-  <div style="padding:10px 14px;margin-bottom:12px;background:rgba(157,216,80,0.08);border:1px solid rgba(157,216,80,0.15);border-radius:8px;font-size:13px;">
-    <strong style="color:var(--primary);">{{ fert_due_count }} round{{ fert_due_count|pluralize }} pending</strong> — not yet on the calendar.
+  <div style="padding:12px 14px;margin-bottom:12px;background:rgba(157,216,80,0.08);border:1px solid rgba(157,216,80,0.15);border-radius:8px;font-size:13px;">
+    {% if fert_next_round_name %}
+    <div style="margin-bottom:4px;">
+      <strong style="color:var(--primary);">Next up: {{ fert_next_round_name }}</strong>
+      <span style="color:var(--text-muted);">&middot; target {{ fert_next_round_date|date:"M j" }} &middot; {{ fert_next_round_count }} client{{ fert_next_round_count|pluralize }}</span>
+    </div>
+    {% endif %}
+    <span>{{ fert_due_count }} total round{{ fert_due_count|pluralize }} pending.</span>
     <a href="{% url 'fertilization:hub' %}" style="color:var(--primary);font-weight:600;margin-left:4px;">Schedule now &rarr;</a>
   </div>
   {% endif %}

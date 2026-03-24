@@ -770,24 +770,28 @@ def owner_dashboard(request):
         )["total"]
         monthly_revenue.append(float(rev))
 
-    # --- Fertilization rounds due this month (pending, not yet scheduled as jobs) ---
+    # --- Fertilization: pending rounds that need scheduling ---
     from fertilization.models import ScheduledRound
-    fert_due_rounds = ScheduledRound.objects.filter(
+    fert_pending = ScheduledRound.objects.filter(
         enrollment__business=business,
         status='pending',
-        scheduled_date__gte=month_start,
-        scheduled_date__lt=month_end,
-    ).select_related('enrollment__property__customer', 'enrollment__program', 'round_template').order_by('scheduled_date')
-    fert_due_count = fert_due_rounds.count()
-    # Group by round name for display
-    fert_due_groups = {}
-    for sr in fert_due_rounds:
-        round_name = sr.round_template.name if sr.round_template else f"Round {sr.round_number}"
-        if round_name not in fert_due_groups:
-            fert_due_groups[round_name] = []
-        fert_due_groups[round_name].append(sr)
+    ).select_related('round_template').order_by('scheduled_date')
+    fert_due_count = fert_pending.count()
 
-    # --- Upcoming fertilization rounds (scheduled on calendar, this month + next 30 days) ---
+    # Find the next round window coming up (earliest pending round group)
+    fert_next_round_name = None
+    fert_next_round_date = None
+    fert_next_round_count = 0
+    if fert_pending.exists():
+        first = fert_pending.first()
+        fert_next_round_name = first.round_template.name if first.round_template else f"Round {first.round_number}"
+        fert_next_round_date = first.scheduled_date
+        fert_next_round_count = fert_pending.filter(
+            round_number=first.round_number,
+            round_template=first.round_template,
+        ).count()
+
+    # --- Upcoming fertilization rounds (already on calendar, next 30 days) ---
     upcoming_window = today + timedelta(days=30)
     fert_upcoming = ScheduledRound.objects.filter(
         enrollment__business=business,
@@ -825,7 +829,9 @@ def owner_dashboard(request):
         "monthly_labels": monthly_labels,
         "monthly_revenue": monthly_revenue,
         "fert_due_count": fert_due_count,
-        "fert_due_groups": fert_due_groups,
+        "fert_next_round_name": fert_next_round_name,
+        "fert_next_round_date": fert_next_round_date,
+        "fert_next_round_count": fert_next_round_count,
         "fert_upcoming": fert_upcoming,
         **review_stats,
     }

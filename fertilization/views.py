@@ -196,26 +196,34 @@ def enrollment_builder(request):
                     price_per_sqft=Decimal(price_per_sqft) if price_per_sqft else None,
                     notes=notes,
                 )
-                # Auto-generate scheduled rounds with dates from round month targets
+                # Smart mid-year enrollment: only create pending rounds for
+                # months that haven't passed. Earlier rounds get marked as skipped.
+                today = dt_date.today()
+                sched_year = int(year)
+                pending_count = 0
+                skipped_count = 0
                 for rnd in program.rounds.order_by('round_number'):
-                    sched_year = int(year)
                     try:
                         sched_date = dt_date(sched_year, rnd.target_month_start, 15)
                     except ValueError:
                         sched_date = dt_date(sched_year, rnd.target_month_start, 1)
-                    if sched_date < dt_date.today():
-                        try:
-                            sched_date = dt_date(sched_year + 1, rnd.target_month_start, 15)
-                        except ValueError:
-                            sched_date = dt_date(sched_year + 1, rnd.target_month_start, 1)
+                    # If the round's target month is in the past for this year
+                    is_past = sched_date < today and sched_year == today.year
                     ScheduledRound.objects.create(
                         enrollment=enrollment,
                         round_template=rnd,
                         round_number=rnd.round_number,
                         scheduled_date=sched_date,
-                        status='pending',
+                        status='skipped' if is_past else 'pending',
                     )
-                messages.success(request, f"Enrolled {prop.address} in {program.name} ({year}) with {program.rounds.count()} rounds.")
+                    if is_past:
+                        skipped_count += 1
+                    else:
+                        pending_count += 1
+                msg = f"Enrolled {prop.address} in {program.name} ({year}) — {pending_count} round{'' if pending_count == 1 else 's'} scheduled"
+                if skipped_count:
+                    msg += f", {skipped_count} past round{'' if skipped_count == 1 else 's'} skipped (season already started)"
+                messages.success(request, msg)
         except Exception as e:
             messages.error(request, f"Error: {e}")
         return redirect("fertilization:hub")
@@ -1737,20 +1745,27 @@ def batch_schedule_rounds(request):
     round_ids = request.POST.getlist("round_ids")
     schedule_date_str = request.POST.get("schedule_date", "")
 
-    if not round_ids:
+    # Deduplicate round IDs
+    seen = set()
+    unique_ids = []
+    for rid in round_ids:
+        if rid and rid not in seen:
+            seen.add(rid)
+            unique_ids.append(rid)
+
+    if not unique_ids:
         messages.error(request, "No rounds selected.")
         return redirect("fertilization:hub")
 
+    from django.db import transaction
     from jobs.models import Job, JobServiceItem
     from pricing.models import ServiceTemplate
     from pricing.utils import get_effective_rate
 
-    # Find a fertilization service template
     fert_service = ServiceTemplate.objects.filter(
         business=business, active=True, name__icontains="fertil"
     ).first()
 
-    # Parse target date or use the round's scheduled_date
     target_date = None
     if schedule_date_str:
         try:
@@ -1758,40 +1773,51 @@ def batch_schedule_rounds(request):
         except (ValueError, TypeError):
             pass
 
-    rounds = ScheduledRound.objects.filter(
-        id__in=round_ids,
-        enrollment__business=business,
-        status='pending',
-    ).select_related('enrollment__property', 'enrollment__program', 'round_template')
-
     created = 0
-    for sr in rounds:
-        prop = sr.enrollment.property
-        job_date = target_date or sr.scheduled_date
+    skipped = 0
+    with transaction.atomic():
+        # select_for_update prevents race conditions
+        rounds = ScheduledRound.objects.select_for_update().filter(
+            id__in=unique_ids,
+            enrollment__business=business,
+            status='pending',
+        ).select_related('enrollment__property__customer', 'enrollment__program', 'round_template')
 
-        round_name = sr.round_template.name if sr.round_template else f"Round {sr.round_number}"
-        job = Job.objects.create(
-            property=prop,
-            scheduled_date=job_date,
-            status="scheduled",
-            notes=f"[Fertilization] {round_name} — {sr.enrollment.program.name}",
-        )
+        for sr in rounds:
+            # Double-check: skip if already has a job linked
+            if sr.job_id:
+                skipped += 1
+                continue
 
-        if fert_service:
-            unit, rate = get_effective_rate(prop, fert_service)
-            JobServiceItem.objects.create(
-                job=job,
-                service=fert_service,
-                description=f"{round_name} ({sr.enrollment.program.name})",
-                quantity=1,
-                unit=unit,
-                unit_price=sr.price if sr.price else rate,
+            prop = sr.enrollment.property
+            job_date = target_date or sr.scheduled_date
+
+            round_name = sr.round_template.name if sr.round_template else f"Round {sr.round_number}"
+            job = Job.objects.create(
+                property=prop,
+                scheduled_date=job_date,
+                status="scheduled",
+                notes=f"[Fertilization] {round_name} — {sr.enrollment.program.name} — {prop.customer.name}",
             )
 
-        sr.job = job
-        sr.status = 'scheduled'
-        sr.save(update_fields=['job', 'status'])
-        created += 1
+            if fert_service:
+                unit, rate = get_effective_rate(prop, fert_service)
+                JobServiceItem.objects.create(
+                    job=job,
+                    service=fert_service,
+                    description=f"{round_name} ({sr.enrollment.program.name})",
+                    quantity=1,
+                    unit=unit,
+                    unit_price=sr.price if sr.price else rate,
+                )
 
-    messages.success(request, f"Scheduled {created} fertilization round{'' if created == 1 else 's'} on the calendar.")
+            sr.job = job
+            sr.status = 'scheduled'
+            sr.save(update_fields=['job', 'status'])
+            created += 1
+
+    msg = f"Scheduled {created} fertilization round{'' if created == 1 else 's'} on the calendar."
+    if skipped:
+        msg += f" ({skipped} already scheduled, skipped.)"
+    messages.success(request, msg)
     return redirect("fertilization:hub")
