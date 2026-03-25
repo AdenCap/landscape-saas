@@ -1224,12 +1224,13 @@ def complete_job(request, job_id):
         for sr in linked_rounds:
             sr.status = 'completed'
             sr.save(update_fields=['status'])
-            # Update enrollment visit counter
+            # Update enrollment status based on round progress
             enrollment = sr.enrollment
-            enrollment.visits_used = enrollment.scheduled_rounds.filter(status='completed').count()
-            if enrollment.visits_used >= enrollment.total_rounds and enrollment.status == 'enrolled':
+            completed_count = enrollment.scheduled_rounds.filter(status='completed').count()
+            total_count = enrollment.scheduled_rounds.count()
+            if completed_count >= total_count and enrollment.status in ('enrolled', 'in_progress'):
                 enrollment.status = 'completed'
-            elif enrollment.status == 'enrolled':
+            elif completed_count > 0 and enrollment.status == 'enrolled':
                 enrollment.status = 'in_progress'
             enrollment.save(update_fields=['status'])
     except Exception:
