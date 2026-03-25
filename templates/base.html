@@ -731,6 +731,10 @@
             <i data-lucide="chart-column" class="nav-icon"></i>
             Financials
           </a>
+          <a href="{% url 'financials:overhead_hub' %}" class="btn btn-nav {% if '/overhead' in request.path %}active{% endif %}">
+            <span class="material-symbols-outlined nav-icon" style="font-size:20px;">account_balance</span>
+            Business Costs
+          </a>
           <a href="{% url 'service_pricing' %}" class="btn btn-nav {% if '/service-pricing' in request.path %}active{% endif %}">
             <span class="material-symbols-outlined nav-icon" style="font-size:20px;">attach_money</span>
             Service Pricing

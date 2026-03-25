@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>Business Costs</h1>
+    <p>Track overhead, equipment, vehicles, and labor burden to know your true costs.</p>
+  </div>
+  <a href="{% url 'financials:dashboard' %}" class="btn btn-secondary">&larr; Financials</a>
+</div>
+
+<!-- Break-Even Summary (always visible) -->
+<div class="oh-summary">
+  <div class="oh-sum-card">
+    <span class="oh-sum-label">Total Annual Overhead</span>
+    <span class="oh-sum-num">${{ grand_total_annual|floatformat:0 }}</span>
+    <span class="oh-sum-sub">${{ grand_total_monthly|floatformat:0 }}/mo</span>
+  </div>
+  <div class="oh-sum-card">
+    <span class="oh-sum-label">Break-Even Rate</span>
+    <span class="oh-sum-num" style="color:var(--primary);">${{ breakeven_rate|floatformat:2 }}/hr</span>
+    <span class="oh-sum-sub">{{ crew_count }} crew · {{ total_billable_hours }} billable hrs/yr</span>
+  </div>
+  <div class="oh-sum-card">
+    <span class="oh-sum-label">Billing Rate (15% profit)</span>
+    <span class="oh-sum-num">${{ billing_rate_15|floatformat:2 }}/hr</span>
+    <span class="oh-sum-sub">20%: ${{ billing_rate_20|floatformat:2 }}/hr</span>
+  </div>
+  <div class="oh-sum-card">
+    <span class="oh-sum-label">Overhead / Hour</span>
+    <span class="oh-sum-num">${{ overhead_per_hour|floatformat:2 }}</span>
+    <span class="oh-sum-sub">Burdened wage: ${{ burdened_wage|floatformat:2 }}/hr</span>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="oh-tabs">
+  <button class="oh-tab active" data-tab="expenses">Expenses <span class="oh-tab-count">{{ expenses|length }}</span></button>
+  <button class="oh-tab" data-tab="equipment">Equipment <span class="oh-tab-count">{{ equipment|length }}</span></button>
+  <button class="oh-tab" data-tab="vehicles">Vehicles <span class="oh-tab-count">{{ vehicles|length }}</span></button>
+  <button class="oh-tab" data-tab="burden">Labor Burden</button>
+</div>
+
+<!-- EXPENSES TAB -->
+<div class="oh-panel active" id="panel-expenses">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <h3 style="margin:0;">Monthly Overhead Expenses</h3>
+    <button type="button" class="btn btn-primary" style="font-size:12px;padding:6px 14px;" onclick="document.getElementById('expense-form-section').style.display=''">+ Add Expense</button>
+  </div>
+  <div id="expense-form-section" style="display:none;margin-bottom:14px;">
+    <div class="card" style="max-width:600px;">
+      <form method="post" action="{% url 'financials:overhead_expense_save' %}">
+        {% csrf_token %}
+        <div class="oh-field"><label>Name</label><input type="text" name="name" required placeholder="e.g. F-250 truck payment"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div class="oh-field"><label>Category</label><select name="category">{% for val, lbl in expense_categories %}<option value="{{ val }}">{{ lbl }}</option>{% endfor %}</select></div>
+          <div class="oh-field"><label>Amount ($)</label><input type="number" name="amount" step="0.01" min="0" required placeholder="500"></div>
+          <div class="oh-field"><label>Frequency</label><select name="frequency">{% for val, lbl in expense_frequencies %}<option value="{{ val }}" {% if val == "monthly" %}selected{% endif %}>{{ lbl }}</option>{% endfor %}</select></div>
+        </div>
+        <div class="oh-field"><label>Notes</label><input type="text" name="notes" placeholder="Optional"></div>
+        <div style="display:flex;gap:8px;"><button type="submit" class="btn btn-primary" style="font-size:12px;">Save</button><button type="button" class="btn btn-secondary" style="font-size:12px;" onclick="this.closest('#expense-form-section').style.display='none'">Cancel</button></div>
+      </form>
+    </div>
+  </div>
+  {% if expenses %}
+  <div class="card" style="overflow-x:auto;">
+    <table class="data-table" style="margin:0;">
+      <thead><tr><th>Name</th><th>Category</th><th>Amount</th><th>Frequency</th><th>Annual</th><th></th></tr></thead>
+      <tbody>
+        {% for e in expenses %}
+        <tr>
+          <td><strong>{{ e.name }}</strong>{% if e.notes %}<br><span style="font-size:11px;color:var(--text-muted);">{{ e.notes }}</span>{% endif %}</td>
+          <td><span class="badge" style="font-size:10px;">{{ e.get_category_display }}</span></td>
+          <td>${{ e.amount|floatformat:2 }}</td>
+          <td>{{ e.get_frequency_display }}</td>
+          <td style="font-weight:600;">${{ e.annual_cost|floatformat:0 }}</td>
+          <td><form method="post" action="{% url 'financials:overhead_expense_delete' e.id %}" style="display:inline;" onsubmit="return confirm('Delete {{ e.name }}?');">{% csrf_token %}<button type="submit" class="btn btn-sm btn-ghost" style="color:#ffb4ab;"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button></form></td>
+        </tr>
+        {% endfor %}
+        <tr style="font-weight:700;border-top:2px solid var(--border);"><td colspan="4" style="text-align:right;">Total Annual:</td><td>${{ total_overhead_annual|floatformat:0 }}</td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:32px;color:var(--text-muted);">No overhead expenses yet. Add your monthly costs to see your true break-even rate.</div>
+  {% endif %}
+</div>
+
+<!-- EQUIPMENT TAB -->
+<div class="oh-panel" id="panel-equipment">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <h3 style="margin:0;">Equipment</h3>
+    <button type="button" class="btn btn-primary" style="font-size:12px;padding:6px 14px;" onclick="document.getElementById('equip-form-section').style.display=''">+ Add Equipment</button>
+  </div>
+  <div id="equip-form-section" style="display:none;margin-bottom:14px;">
+    <div class="card" style="max-width:600px;">
+      <form method="post" action="{% url 'financials:equipment_save' %}">
+        {% csrf_token %}
+        <div class="oh-field"><label>Name</label><input type="text" name="name" required placeholder="e.g. Scag V-Ride 52in"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div class="oh-field"><label>Purchase Price</label><input type="number" name="purchase_price" step="0.01" min="0" placeholder="7000"></div>
+          <div class="oh-field"><label>Salvage Value</label><input type="number" name="salvage_value" step="0.01" min="0" placeholder="1500"></div>
+          <div class="oh-field"><label>Useful Life (hrs)</label><input type="number" name="useful_life_hours" min="1" placeholder="2500"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div class="oh-field"><label>Annual Maintenance</label><input type="number" name="annual_maintenance" step="0.01" min="0" placeholder="500"></div>
+          <div class="oh-field"><label>Fuel $/hr</label><input type="number" name="fuel_cost_per_hour" step="0.01" min="0" placeholder="3.50"></div>
+          <div class="oh-field"><label>Hours/Year</label><input type="number" name="hours_per_year" min="1" placeholder="1000"></div>
+        </div>
+        <div style="display:flex;gap:8px;"><button type="submit" class="btn btn-primary" style="font-size:12px;">Save</button><button type="button" class="btn btn-secondary" style="font-size:12px;" onclick="this.closest('#equip-form-section').style.display='none'">Cancel</button></div>
+      </form>
+    </div>
+  </div>
+  {% if equipment %}
+  <div class="card" style="overflow-x:auto;">
+    <table class="data-table" style="margin:0;">
+      <thead><tr><th>Name</th><th>Purchase</th><th>Depreciation/hr</th><th>Cost/hr</th><th>Annual Cost</th><th></th></tr></thead>
+      <tbody>
+        {% for eq in equipment %}
+        <tr>
+          <td><strong>{{ eq.name }}</strong></td>
+          <td>${{ eq.purchase_price|floatformat:0 }}</td>
+          <td>${{ eq.depreciation_per_hour|floatformat:2 }}</td>
+          <td style="font-weight:600;color:var(--primary);">${{ eq.cost_per_hour|floatformat:2 }}</td>
+          <td>${{ eq.annual_cost|floatformat:0 }}</td>
+          <td><form method="post" action="{% url 'financials:equipment_delete' eq.id %}" style="display:inline;" onsubmit="return confirm('Delete {{ eq.name }}?');">{% csrf_token %}<button type="submit" class="btn btn-sm btn-ghost" style="color:#ffb4ab;"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button></form></td>
+        </tr>
+        {% endfor %}
+        <tr style="font-weight:700;border-top:2px solid var(--border);"><td colspan="4" style="text-align:right;">Total Annual:</td><td>${{ total_equipment_annual|floatformat:0 }}</td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:32px;color:var(--text-muted);">No equipment tracked. Add your mowers, trimmers, and other equipment.</div>
+  {% endif %}
+</div>
+
+<!-- VEHICLES TAB -->
+<div class="oh-panel" id="panel-vehicles">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <h3 style="margin:0;">Vehicles</h3>
+    <button type="button" class="btn btn-primary" style="font-size:12px;padding:6px 14px;" onclick="document.getElementById('vehicle-form-section').style.display=''">+ Add Vehicle</button>
+  </div>
+  <div id="vehicle-form-section" style="display:none;margin-bottom:14px;">
+    <div class="card" style="max-width:600px;">
+      <form method="post" action="{% url 'financials:vehicle_save' %}">
+        {% csrf_token %}
+        <div class="oh-field"><label>Name</label><input type="text" name="name" required placeholder="e.g. 2022 Ford F-250"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="oh-field"><label>Monthly Payment</label><input type="number" name="monthly_payment" step="0.01" min="0" placeholder="650"></div>
+          <div class="oh-field"><label>Annual Insurance</label><input type="number" name="annual_insurance" step="0.01" min="0" placeholder="2400"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div class="oh-field"><label>Avg MPG</label><input type="number" name="avg_mpg" step="0.1" min="1" placeholder="15"></div>
+          <div class="oh-field"><label>Fuel $/gal</label><input type="number" name="fuel_price_per_gallon" step="0.01" min="0" placeholder="3.50"></div>
+          <div class="oh-field"><label>Annual Miles</label><input type="number" name="estimated_annual_miles" min="0" placeholder="20000"></div>
+        </div>
+        <div class="oh-field"><label>Annual Maintenance</label><input type="number" name="annual_maintenance" step="0.01" min="0" placeholder="1500"></div>
+        <div style="display:flex;gap:8px;"><button type="submit" class="btn btn-primary" style="font-size:12px;">Save</button><button type="button" class="btn btn-secondary" style="font-size:12px;" onclick="this.closest('#vehicle-form-section').style.display='none'">Cancel</button></div>
+      </form>
+    </div>
+  </div>
+  {% if vehicles %}
+  <div class="card" style="overflow-x:auto;">
+    <table class="data-table" style="margin:0;">
+      <thead><tr><th>Vehicle</th><th>Payment</th><th>Fuel/yr</th><th>Cost/mile</th><th>Annual Cost</th><th></th></tr></thead>
+      <tbody>
+        {% for v in vehicles %}
+        <tr>
+          <td><strong>{{ v.name }}</strong></td>
+          <td>${{ v.monthly_payment|floatformat:0 }}/mo</td>
+          <td>${{ v.annual_fuel_cost|floatformat:0 }}</td>
+          <td style="font-weight:600;color:var(--primary);">${{ v.cost_per_mile|floatformat:2 }}</td>
+          <td>${{ v.annual_cost|floatformat:0 }}</td>
+          <td><form method="post" action="{% url 'financials:vehicle_delete' v.id %}" style="display:inline;" onsubmit="return confirm('Delete {{ v.name }}?');">{% csrf_token %}<button type="submit" class="btn btn-sm btn-ghost" style="color:#ffb4ab;"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button></form></td>
+        </tr>
+        {% endfor %}
+        <tr style="font-weight:700;border-top:2px solid var(--border);"><td colspan="4" style="text-align:right;">Total Annual:</td><td>${{ total_vehicle_annual|floatformat:0 }}</td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:32px;color:var(--text-muted);">No vehicles tracked. Add your trucks and trailers.</div>
+  {% endif %}
+</div>
+
+<!-- LABOR BURDEN TAB -->
+<div class="oh-panel" id="panel-burden">
+  <div class="card" style="max-width:600px;">
+    <h3 style="margin:0 0 4px;">Labor Burden</h3>
+    <p style="font-size:12px;color:var(--text-muted);margin:0 0 16px;">Only fill in what applies to you. Blank fields are ignored. Current burden: <strong style="color:var(--primary);">{{ burden_pct_display }}%</strong></p>
+    <form method="post" action="{% url 'financials:burden_save' %}">
+      {% csrf_token %}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="oh-field"><label>FICA / Social Security (%)</label><input type="number" name="fica_rate" step="0.01" min="0" max="20" value="{{ burden.fica_rate|default_if_none:'' }}" placeholder="7.65"></div>
+        <div class="oh-field"><label>Federal Unemployment (%)</label><input type="number" name="futa_rate" step="0.01" min="0" max="10" value="{{ burden.futa_rate|default_if_none:'' }}" placeholder="0.6"></div>
+        <div class="oh-field"><label>State Unemployment (%)</label><input type="number" name="suta_rate" step="0.01" min="0" max="15" value="{{ burden.suta_rate|default_if_none:'' }}" placeholder="2.5"></div>
+        <div class="oh-field"><label>Workers Comp (%)</label><input type="number" name="workers_comp_rate" step="0.01" min="0" max="20" value="{{ burden.workers_comp_rate|default_if_none:'' }}" placeholder="4.4"></div>
+        <div class="oh-field"><label>PTO Accrual (%)</label><input type="number" name="pto_rate" step="0.01" min="0" max="20" value="{{ burden.pto_rate|default_if_none:'' }}" placeholder="3"></div>
+        <div class="oh-field"><label>Other Burden (%)</label><input type="number" name="other_burden_rate" step="0.01" min="0" max="20" value="{{ burden.other_burden_rate|default_if_none:'' }}" placeholder="1"></div>
+      </div>
+      <div class="oh-field"><label>Health Insurance per Employee ($/month)</label><input type="number" name="health_insurance_per_employee" step="0.01" min="0" value="{{ burden.health_insurance_per_employee|default_if_none:'' }}" placeholder="e.g. 500"></div>
+      <button type="submit" class="btn btn-primary" style="margin-top:12px;">Save Labor Burden</button>
+    </form>
+  </div>
+</div>
+
+<style>
+  .oh-summary { display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap; }
+  .oh-sum-card { flex:1;min-width:150px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;text-align:center; }
+  .oh-sum-label { display:block;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px; }
+  .oh-sum-num { display:block;font-size:24px;font-weight:700;font-family:var(--font-headline); }
+  .oh-sum-sub { display:block;font-size:11px;color:var(--text-muted);margin-top:2px; }
+  .oh-tabs { display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap; }
+  .oh-tab { padding:10px 16px;border:1px solid var(--border);border-radius:8px 8px 0 0;background:transparent;color:var(--text-muted);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent; }
+  .oh-tab:hover { color:var(--text); }
+  .oh-tab.active { color:var(--primary);border-bottom-color:var(--primary);background:rgba(157,216,80,0.06); }
+  .oh-tab-count { font-size:10px;font-weight:700;background:var(--surface-highest);padding:1px 5px;border-radius:4px;margin-left:4px; }
+  .oh-panel { display:none; }
+  .oh-panel.active { display:block; }
+  .oh-field { margin-bottom:10px; }
+  .oh-field label { display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em; }
+  .oh-field input, .oh-field select { width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;font-family:inherit; }
+  .oh-field input:focus, .oh-field select:focus { outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(157,216,80,0.12); }
+  @media (max-width:768px) {
+    .oh-summary { gap:8px; }
+    .oh-sum-card { min-width:100px;padding:12px; }
+    .oh-sum-num { font-size:18px; }
+    .oh-field input, .oh-field select { font-size:16px;min-height:44px; }
+    div[style*="grid-template-columns"] { grid-template-columns:1fr !important; }
+  }
+</style>
+<script>
+(function() {
+  var tabs = document.querySelectorAll('.oh-tab');
+  var panels = document.querySelectorAll('.oh-panel');
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      panels.forEach(function(p) { p.classList.remove('active'); });
+      tab.classList.add('active');
+      var panel = document.getElementById('panel-' + tab.dataset.tab);
+      if (panel) panel.classList.add('active');
+    });
+  });
+})();
+</script>
+{% endblock %}

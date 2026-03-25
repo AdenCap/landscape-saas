@@ -479,3 +479,205 @@ def receipt_delete(request, receipt_id):
     receipt.delete()
     messages.success(request, "Receipt deleted.")
     return redirect("financials:receipt_list")
+
+
+# ═══════════════════════════════════════════════
+# Overhead & Business Cost Tracking
+# ═══════════════════════════════════════════════
+
+@role_required("owner", "manager")
+def overhead_hub(request):
+    """Main overhead tracking page: expenses, equipment, vehicles, labor burden, break-even."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+
+    from .models import OverheadExpense, EquipmentAsset, VehicleAsset, LaborBurdenConfig
+    from accounts.models import User
+    from decimal import Decimal
+
+    expenses = OverheadExpense.objects.filter(business=business, active=True)
+    equipment = EquipmentAsset.objects.filter(business=business, active=True)
+    vehicles = VehicleAsset.objects.filter(business=business, active=True)
+    burden, _ = LaborBurdenConfig.objects.get_or_create(business=business)
+
+    # Totals
+    total_overhead_annual = sum(e.annual_cost for e in expenses)
+    total_equipment_annual = sum(eq.annual_cost for eq in equipment)
+    total_vehicle_annual = sum(v.annual_cost for v in vehicles)
+    grand_total_annual = total_overhead_annual + total_equipment_annual + total_vehicle_annual
+
+    # Break-even calculation
+    crew_employees = User.objects.filter(business=business, role="crew", is_active=True)
+    crew_count = crew_employees.count()
+    avg_wage = Decimal("0")
+    if crew_count:
+        wages = [e.hourly_rate for e in crew_employees if e.hourly_rate]
+        avg_wage = sum(wages) / len(wages) if wages else Decimal("0")
+
+    # Working assumptions (configurable later)
+    weeks_per_year = 30  # typical mowing season
+    hours_per_week = 40
+    utilization_rate = Decimal("0.55")  # 55% billable
+
+    total_paid_hours = crew_count * weeks_per_year * hours_per_week if crew_count else 0
+    total_billable_hours = int(total_paid_hours * utilization_rate) if total_paid_hours else 0
+
+    burden_pct = burden.total_burden_pct() / 100 if burden.total_burden_pct() else Decimal("0")
+    burdened_wage = avg_wage * (1 + burden_pct)
+    overhead_per_hour = Decimal(str(grand_total_annual)) / total_billable_hours if total_billable_hours else Decimal("0")
+    breakeven_rate = burdened_wage + overhead_per_hour
+    billing_rate_15 = breakeven_rate / Decimal("0.85") if breakeven_rate else Decimal("0")  # 15% profit
+    billing_rate_20 = breakeven_rate / Decimal("0.80") if breakeven_rate else Decimal("0")  # 20% profit
+
+    tab = request.GET.get("tab", "overview")
+
+    return render(request, "financials/overhead_hub.html", {
+        "expenses": expenses,
+        "equipment": equipment,
+        "vehicles": vehicles,
+        "burden": burden,
+        "total_overhead_annual": total_overhead_annual,
+        "total_equipment_annual": total_equipment_annual,
+        "total_vehicle_annual": total_vehicle_annual,
+        "grand_total_annual": grand_total_annual,
+        "grand_total_monthly": grand_total_annual / 12 if grand_total_annual else 0,
+        "crew_count": crew_count,
+        "avg_wage": avg_wage,
+        "burdened_wage": burdened_wage,
+        "burden_pct_display": burden.total_burden_pct(),
+        "total_billable_hours": total_billable_hours,
+        "overhead_per_hour": overhead_per_hour,
+        "breakeven_rate": breakeven_rate,
+        "billing_rate_15": billing_rate_15,
+        "billing_rate_20": billing_rate_20,
+        "weeks_per_year": weeks_per_year,
+        "utilization_rate": int(utilization_rate * 100),
+        "tab": tab,
+        "expense_categories": OverheadExpense.CATEGORY_CHOICES,
+        "expense_frequencies": OverheadExpense.FREQUENCY_CHOICES,
+    })
+
+
+@require_POST
+@role_required("owner", "manager")
+def overhead_expense_save(request):
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    from .models import OverheadExpense
+    pk = request.POST.get("pk")
+    if pk:
+        obj = get_object_or_404(OverheadExpense, id=pk, business=business)
+    else:
+        obj = OverheadExpense(business=business)
+    obj.name = request.POST.get("name", "").strip()
+    obj.category = request.POST.get("category", "other")
+    obj.amount = request.POST.get("amount") or 0
+    obj.frequency = request.POST.get("frequency", "monthly")
+    obj.notes = request.POST.get("notes", "")
+    obj.save()
+    messages.success(request, f"Expense '{obj.name}' saved.")
+    return redirect("financials:overhead_hub")
+
+
+@require_POST
+@role_required("owner", "manager")
+def overhead_expense_delete(request, pk):
+    business = _get_business(request)
+    obj = get_object_or_404(OverheadExpense, id=pk, business=business)
+    obj.delete()
+    messages.success(request, "Expense deleted.")
+    return redirect("financials:overhead_hub")
+
+
+@require_POST
+@role_required("owner", "manager")
+def equipment_save(request):
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    from .models import EquipmentAsset
+    pk = request.POST.get("pk")
+    if pk:
+        obj = get_object_or_404(EquipmentAsset, id=pk, business=business)
+    else:
+        obj = EquipmentAsset(business=business)
+    obj.name = request.POST.get("name", "").strip()
+    obj.purchase_price = request.POST.get("purchase_price") or 0
+    obj.salvage_value = request.POST.get("salvage_value") or 0
+    obj.useful_life_hours = request.POST.get("useful_life_hours") or 2500
+    obj.annual_maintenance = request.POST.get("annual_maintenance") or 0
+    obj.annual_insurance = request.POST.get("annual_insurance") or 0
+    obj.fuel_cost_per_hour = request.POST.get("fuel_cost_per_hour") or 0
+    obj.hours_per_year = request.POST.get("hours_per_year") or 1000
+    obj.notes = request.POST.get("notes", "")
+    obj.save()
+    messages.success(request, f"Equipment '{obj.name}' saved.")
+    return redirect("financials:overhead_hub")
+
+
+@require_POST
+@role_required("owner", "manager")
+def equipment_delete(request, pk):
+    business = _get_business(request)
+    obj = get_object_or_404(EquipmentAsset, id=pk, business=business)
+    obj.delete()
+    messages.success(request, "Equipment deleted.")
+    return redirect("financials:overhead_hub")
+
+
+@require_POST
+@role_required("owner", "manager")
+def vehicle_save(request):
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    from .models import VehicleAsset
+    pk = request.POST.get("pk")
+    if pk:
+        obj = get_object_or_404(VehicleAsset, id=pk, business=business)
+    else:
+        obj = VehicleAsset(business=business)
+    obj.name = request.POST.get("name", "").strip()
+    obj.monthly_payment = request.POST.get("monthly_payment") or 0
+    obj.annual_insurance = request.POST.get("annual_insurance") or 0
+    obj.annual_registration = request.POST.get("annual_registration") or 0
+    obj.avg_mpg = request.POST.get("avg_mpg") or 15
+    obj.fuel_price_per_gallon = request.POST.get("fuel_price_per_gallon") or 3.50
+    obj.estimated_annual_miles = request.POST.get("estimated_annual_miles") or 20000
+    obj.annual_maintenance = request.POST.get("annual_maintenance") or 0
+    obj.notes = request.POST.get("notes", "")
+    obj.save()
+    messages.success(request, f"Vehicle '{obj.name}' saved.")
+    return redirect("financials:overhead_hub")
+
+
+@require_POST
+@role_required("owner", "manager")
+def vehicle_delete(request, pk):
+    business = _get_business(request)
+    obj = get_object_or_404(VehicleAsset, id=pk, business=business)
+    obj.delete()
+    messages.success(request, "Vehicle deleted.")
+    return redirect("financials:overhead_hub")
+
+
+@require_POST
+@role_required("owner", "manager")
+def burden_save(request):
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    from .models import LaborBurdenConfig
+    burden, _ = LaborBurdenConfig.objects.get_or_create(business=business)
+    # Only save fields that have values — leave the rest null
+    for field in ['fica_rate', 'futa_rate', 'suta_rate', 'workers_comp_rate',
+                  'pto_rate', 'other_burden_rate']:
+        val = request.POST.get(field, "").strip()
+        setattr(burden, field, val if val else None)
+    hi = request.POST.get("health_insurance_per_employee", "").strip()
+    burden.health_insurance_per_employee = hi if hi else None
+    burden.save()
+    messages.success(request, "Labor burden updated.")
+    return redirect("financials:overhead_hub")

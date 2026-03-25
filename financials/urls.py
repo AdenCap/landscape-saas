@@ -19,4 +19,14 @@ urlpatterns = [
     path("<int:receipt_id>/edit/", views.receipt_edit, name="receipt_edit"),
     path("<int:receipt_id>/download/", views.receipt_download, name="receipt_download"),
     path("<int:receipt_id>/delete/", views.receipt_delete, name="receipt_delete"),
+
+    # Overhead & Business Cost Tracking
+    path("overhead/", views.overhead_hub, name="overhead_hub"),
+    path("overhead/expense/save/", views.overhead_expense_save, name="overhead_expense_save"),
+    path("overhead/expense/<int:pk>/delete/", views.overhead_expense_delete, name="overhead_expense_delete"),
+    path("overhead/equipment/save/", views.equipment_save, name="equipment_save"),
+    path("overhead/equipment/<int:pk>/delete/", views.equipment_delete, name="equipment_delete"),
+    path("overhead/vehicle/save/", views.vehicle_save, name="vehicle_save"),
+    path("overhead/vehicle/<int:pk>/delete/", views.vehicle_delete, name="vehicle_delete"),
+    path("overhead/burden/save/", views.burden_save, name="burden_save"),
 ]
