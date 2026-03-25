@@ -1220,20 +1220,25 @@ def complete_job(request, job_id):
     # Auto-complete any linked fertilization scheduled rounds
     try:
         from fertilization.models import ScheduledRound as FertScheduledRound
-        # Find rounds linked by job FK
+        # 1. Find rounds linked by job FK
         linked_rounds = list(FertScheduledRound.objects.filter(job=job, status__in=['pending', 'scheduled']))
-        # Also try to match by property + date for rounds that weren't linked properly
+        # 2. Fallback: match by property for unlinked rounds (legacy data)
         if not linked_rounds and '[Fertilization]' in (job.notes or ''):
+            # Try exact property + date
             linked_rounds = list(FertScheduledRound.objects.filter(
                 enrollment__property=job.property,
                 scheduled_date=job.scheduled_date,
                 status__in=['pending', 'scheduled'],
-                job__isnull=True,
-            )[:1])
-            # Link the job to the round retroactively
-            for sr in linked_rounds:
-                sr.job = job
+            ).order_by('round_number')[:1])
+            # If no date match, find next pending round for this property
+            if not linked_rounds:
+                linked_rounds = list(FertScheduledRound.objects.filter(
+                    enrollment__property=job.property,
+                    status__in=['pending', 'scheduled'],
+                ).order_by('round_number')[:1])
+        # 3. Link and complete
         for sr in linked_rounds:
+            sr.job = job
             sr.status = 'completed'
             sr.save(update_fields=['status', 'job'])
             # Update enrollment status based on round progress

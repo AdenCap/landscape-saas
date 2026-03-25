@@ -345,6 +345,8 @@ def hub(request):
         enr.calc_rounds_total = program_clients[pid]["program_round_count"]
         enr.calc_sqft = sqft
         enr.calc_lbs_needed = lbs_needed
+        enr.calc_active_ids = ','.join(str(rid) for rid in active_ids)
+        enr.calc_has_pending = len(active_ids) > 0
         program_clients[pid]["clients"].append(enr)
 
     # Sort programs by name
