@@ -2478,13 +2478,21 @@ def add_mowing_client(request):
     customer = get_object_or_404(Customer, id=customer_id, business=business)
     prop = get_object_or_404(Property, id=property_id, customer=customer)
 
-    # Find mowing service
+    # Find or auto-create mowing service
     mowing_svc = ServiceTemplate.objects.filter(
         business=business, active=True, name__icontains="mow"
     ).first()
     if not mowing_svc:
-        messages.error(request, "No mowing service found. Create one in your Pricebook first.")
-        return redirect("mowing_hub")
+        # Auto-create a default mowing service
+        mowing_svc = ServiceTemplate.objects.create(
+            business=business,
+            name="Mowing",
+            default_unit="visit",
+            default_rate=0,
+            pricing_method="flat",
+            active=True,
+        )
+        messages.info(request, "A 'Mowing' service was created. Set your pricing in Service Pricing.")
 
     unit, rate = get_effective_rate(prop, mowing_svc)
     service_snapshot = [{"service_id": mowing_svc.id, "quantity": "1", "unit": unit, "unit_price": str(rate)}]
