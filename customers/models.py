@@ -81,6 +81,22 @@ class Customer(models.Model):
         help_text="Override due date for this client: days from issue date (e.g. 15 = Net 15). Leave blank to use business default.",
     )
 
+    # Card on file (Stripe)
+    stripe_customer_id = models.CharField(
+        max_length=100, blank=True,
+        help_text="Stripe Customer ID on the connected account (for card-on-file payments)"
+    )
+    stripe_payment_method_id = models.CharField(
+        max_length=100, blank=True,
+        help_text="Stripe PaymentMethod ID for saved card"
+    )
+    card_last4 = models.CharField(max_length=4, blank=True, help_text="Last 4 digits of saved card")
+    card_brand = models.CharField(max_length=20, blank=True, help_text="Card brand (visa, mastercard, etc.)")
+    auto_charge = models.BooleanField(
+        default=False,
+        help_text="Automatically charge saved card when invoice is sent"
+    )
+
     # Customer Portal access
     portal_access_token = models.CharField(
         max_length=64,

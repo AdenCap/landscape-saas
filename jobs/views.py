@@ -1273,7 +1273,40 @@ def complete_job(request, job_id):
                     user=request.user,
                     details={"source": "automation", "trigger": "job_completed"},
                 )
-                messages.success(request, f"Job completed. Invoice #{invoice.id} was automatically approved and sent.")
+                # Auto-charge card on file if enabled
+                charged_msg = ""
+                if (customer.auto_charge and customer.stripe_payment_method_id
+                        and customer.stripe_customer_id and business.stripe_connect_account_id):
+                    try:
+                        import stripe as _stripe
+                        _stripe.api_key = settings.STRIPE_SECRET_KEY
+                        invoice.recompute_totals()
+                        amount_cents = int(invoice.total * 100)
+                        if amount_cents >= 50:
+                            pi = _stripe.PaymentIntent.create(
+                                amount=amount_cents,
+                                currency="usd",
+                                customer=customer.stripe_customer_id,
+                                payment_method=customer.stripe_payment_method_id,
+                                off_session=True,
+                                confirm=True,
+                                description=f"Invoice #{invoice.id} from {business.name}",
+                                metadata={"invoice_id": invoice.id},
+                                stripe_account=business.stripe_connect_account_id,
+                            )
+                            if pi.status == "succeeded":
+                                invoice.status = "paid"
+                                invoice.save(update_fields=["status"])
+                                InvoiceAuditLog.objects.create(
+                                    invoice=invoice,
+                                    action="auto_charged",
+                                    user=request.user,
+                                    details={"stripe_pi": pi.id, "card": customer.card_last4},
+                                )
+                                charged_msg = f" Card ({customer.card_brand} ****{customer.card_last4}) charged."
+                    except Exception:
+                        pass
+                messages.success(request, f"Job completed. Invoice #{invoice.id} sent.{charged_msg}")
             else:
                 messages.success(
                     request,

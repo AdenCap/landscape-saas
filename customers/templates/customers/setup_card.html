@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>Save Card for {{ customer.name }}</h1>
+    <p>Card details are securely stored by Stripe. We never see or store the full card number.</p>
+  </div>
+  <a href="{% url 'customer_detail' customer.id %}" class="btn btn-secondary">&larr; Back</a>
+</div>
+
+<div class="card" style="max-width:500px;">
+  <div id="card-element" style="padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);margin-bottom:16px;"></div>
+  <div id="card-errors" style="color:#f87171;font-size:13px;margin-bottom:12px;display:none;"></div>
+  <button type="button" id="save-btn" class="btn btn-primary" style="width:100%;">Save Card</button>
+  <p style="font-size:11px;color:var(--text-muted);margin:12px 0 0;text-align:center;">
+    Secured by Stripe. Your card information is encrypted and never stored on our servers.
+  </p>
+</div>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+(function() {
+  var stripe = Stripe('{{ stripe_publishable_key }}', {
+    stripeAccount: '{{ stripe_account_id }}'
+  });
+  var elements = stripe.elements({
+    appearance: {
+      theme: 'night',
+      variables: {
+        colorPrimary: '#9dd850',
+        colorBackground: '#131313',
+        colorText: '#e5e2e1',
+        colorDanger: '#f87171',
+        borderRadius: '8px',
+      }
+    }
+  });
+  var cardElement = elements.create('card', {
+    style: {
+      base: { fontSize: '16px', color: '#e5e2e1' },
+      invalid: { color: '#f87171' }
+    }
+  });
+  cardElement.mount('#card-element');
+
+  var errEl = document.getElementById('card-errors');
+  cardElement.on('change', function(event) {
+    if (event.error) {
+      errEl.textContent = event.error.message;
+      errEl.style.display = '';
+    } else {
+      errEl.style.display = 'none';
+    }
+  });
+
+  document.getElementById('save-btn').addEventListener('click', function() {
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    stripe.confirmCardSetup('{{ client_secret }}', {
+      payment_method: { card: cardElement }
+    }).then(function(result) {
+      if (result.error) {
+        errEl.textContent = result.error.message;
+        errEl.style.display = '';
+        btn.disabled = false;
+        btn.textContent = 'Save Card';
+      } else {
+        // Save the payment method ID to our server
+        fetch('{% url "customer_save_card" customer.id %}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+          },
+          body: JSON.stringify({
+            payment_method_id: result.setupIntent.payment_method
+          })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.ok) {
+            btn.textContent = 'Card Saved!';
+            btn.style.background = 'var(--primary)';
+            setTimeout(function() {
+              window.location.href = '{% url "customer_detail" customer.id %}';
+            }, 1000);
+          } else {
+            errEl.textContent = data.error || 'Failed to save card.';
+            errEl.style.display = '';
+            btn.disabled = false;
+            btn.textContent = 'Save Card';
+          }
+        });
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

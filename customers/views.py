@@ -1288,3 +1288,154 @@ def property_photo_gallery(request, customer_id, property_id):
         "photos": photos,
         "category_filter": category_filter,
     })
+
+
+# ═══════════════════════════════════════════════
+# Card on File (Stripe)
+# ═══════════════════════════════════════════════
+
+@role_required("owner", "manager")
+def customer_setup_card(request, customer_id):
+    """Create a Stripe SetupIntent and show the card entry form."""
+    import stripe
+    from django.conf import settings as django_settings
+
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+
+    if not business.stripe_connect_account_id:
+        messages.error(request, "Connect Stripe in Settings first to save cards.")
+        return redirect("customer_detail", customer_id=customer.id)
+
+    stripe.api_key = django_settings.STRIPE_SECRET_KEY
+
+    # Create or retrieve Stripe Customer on the connected account
+    if not customer.stripe_customer_id:
+        try:
+            sc = stripe.Customer.create(
+                name=customer.name,
+                email=customer.email or None,
+                metadata={"fieldlgx_customer_id": customer.id},
+                stripe_account=business.stripe_connect_account_id,
+            )
+            customer.stripe_customer_id = sc.id
+            customer.save(update_fields=["stripe_customer_id"])
+        except stripe.error.StripeError as e:
+            messages.error(request, f"Stripe error: {e.user_message or str(e)}")
+            return redirect("customer_detail", customer_id=customer.id)
+
+    # Create SetupIntent for saving a card
+    try:
+        setup_intent = stripe.SetupIntent.create(
+            customer=customer.stripe_customer_id,
+            payment_method_types=["card"],
+            stripe_account=business.stripe_connect_account_id,
+        )
+    except stripe.error.StripeError as e:
+        messages.error(request, f"Stripe error: {e.user_message or str(e)}")
+        return redirect("customer_detail", customer_id=customer.id)
+
+    return render(request, "customers/setup_card.html", {
+        "customer": customer,
+        "client_secret": setup_intent.client_secret,
+        "stripe_publishable_key": django_settings.STRIPE_PUBLISHABLE_KEY,
+        "stripe_account_id": business.stripe_connect_account_id,
+    })
+
+
+@require_POST
+@role_required("owner", "manager")
+def customer_save_card(request, customer_id):
+    """After Stripe confirms the SetupIntent, save the payment method details."""
+    import stripe
+    from django.conf import settings as django_settings
+    from django.http import JsonResponse
+
+    business = _get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+
+    import json
+    data = json.loads(request.body) if request.body else {}
+    payment_method_id = data.get("payment_method_id", "")
+
+    if not payment_method_id:
+        return JsonResponse({"error": "Missing payment method"}, status=400)
+
+    stripe.api_key = django_settings.STRIPE_SECRET_KEY
+
+    try:
+        # Retrieve the payment method to get card details
+        pm = stripe.PaymentMethod.retrieve(
+            payment_method_id,
+            stripe_account=business.stripe_connect_account_id,
+        )
+        # Set as default payment method on the customer
+        stripe.Customer.modify(
+            customer.stripe_customer_id,
+            invoice_settings={"default_payment_method": payment_method_id},
+            stripe_account=business.stripe_connect_account_id,
+        )
+        # Save card details locally
+        customer.stripe_payment_method_id = payment_method_id
+        customer.card_last4 = pm.card.last4
+        customer.card_brand = pm.card.brand
+        customer.save(update_fields=["stripe_payment_method_id", "card_last4", "card_brand"])
+
+        return JsonResponse({"ok": True, "last4": pm.card.last4, "brand": pm.card.brand})
+    except stripe.error.StripeError as e:
+        return JsonResponse({"error": e.user_message or str(e)}, status=400)
+
+
+@require_POST
+@role_required("owner", "manager")
+def customer_remove_card(request, customer_id):
+    """Remove saved card from customer."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+
+    # Detach from Stripe if possible
+    if customer.stripe_payment_method_id and customer.stripe_customer_id:
+        try:
+            import stripe
+            from django.conf import settings as django_settings
+            stripe.api_key = django_settings.STRIPE_SECRET_KEY
+            stripe.PaymentMethod.detach(
+                customer.stripe_payment_method_id,
+                stripe_account=business.stripe_connect_account_id,
+            )
+        except Exception:
+            pass
+
+    customer.stripe_payment_method_id = ""
+    customer.card_last4 = ""
+    customer.card_brand = ""
+    customer.auto_charge = False
+    customer.save(update_fields=["stripe_payment_method_id", "card_last4", "card_brand", "auto_charge"])
+    messages.success(request, f"Card removed for {customer.name}.")
+    return redirect("customer_detail", customer_id=customer.id)
+
+
+@require_POST
+@role_required("owner", "manager")
+def customer_toggle_auto_charge(request, customer_id):
+    """Toggle auto-charge on/off for a customer with a saved card."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+
+    if not customer.stripe_payment_method_id:
+        messages.error(request, "No card on file. Save a card first.")
+        return redirect("customer_detail", customer_id=customer.id)
+
+    customer.auto_charge = not customer.auto_charge
+    customer.save(update_fields=["auto_charge"])
+    state = "enabled" if customer.auto_charge else "disabled"
+    messages.success(request, f"Auto-charge {state} for {customer.name}.")
+    return redirect("customer_detail", customer_id=customer.id)

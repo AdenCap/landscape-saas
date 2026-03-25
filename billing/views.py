@@ -359,7 +359,43 @@ def send_invoice(request, invoice_id):
         invoice.approved_by = request.user
         invoice.save(update_fields=["status", "payment_token", "approved_at", "approved_by"])
         _log_invoice_audit(invoice, "approved_sent", request=request)
-        messages.success(request, "Invoice approved and sent. Customer can pay via the link below.")
+
+        # Auto-charge card on file if enabled
+        customer = invoice.customer
+        charged = False
+        if (customer.auto_charge and customer.stripe_payment_method_id
+                and customer.stripe_customer_id and business.stripe_connect_account_id):
+            try:
+                import stripe as _stripe
+                _stripe.api_key = settings.STRIPE_SECRET_KEY
+                invoice.recompute_totals()
+                amount_cents = int(invoice.total * 100)
+                if amount_cents >= 50:
+                    pi = _stripe.PaymentIntent.create(
+                        amount=amount_cents,
+                        currency="usd",
+                        customer=customer.stripe_customer_id,
+                        payment_method=customer.stripe_payment_method_id,
+                        off_session=True,
+                        confirm=True,
+                        description=f"Invoice #{invoice.id} from {business.name}",
+                        metadata={"invoice_id": invoice.id, "business_id": business.id},
+                        stripe_account=business.stripe_connect_account_id,
+                    )
+                    if pi.status == "succeeded":
+                        invoice.status = "paid"
+                        invoice.save(update_fields=["status"])
+                        _log_invoice_audit(invoice, "auto_charged", request=request, details={
+                            "stripe_pi": pi.id, "amount": amount_cents, "card": customer.card_last4
+                        })
+                        charged = True
+            except Exception:
+                pass  # auto-charge failure should not block invoice send
+
+        if charged:
+            messages.success(request, f"Invoice #{invoice.id} sent and auto-charged to {customer.card_brand} ****{customer.card_last4}.")
+        else:
+            messages.success(request, "Invoice approved and sent. Customer can pay via the link below.")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 

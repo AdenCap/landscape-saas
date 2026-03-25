@@ -106,6 +106,30 @@ Thank you for choosing {{ business.name }}!">
             — Invoices due in {{ customer.invoice_due_days }} days (Net {{ customer.invoice_due_days }})
           {% endif %}
         </dd>
+        <dt>Card on File</dt>
+        <dd>
+          {% if customer.card_last4 %}
+            <span style="display:inline-flex;align-items:center;gap:6px;">
+              <span style="font-weight:600;text-transform:capitalize;">{{ customer.card_brand }}</span>
+              &bull;&bull;&bull;&bull; {{ customer.card_last4 }}
+              {% if customer.auto_charge %}<span style="background:rgba(34,197,94,0.12);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">AUTO-CHARGE</span>{% endif %}
+            </span>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <form method="post" action="{% url 'customer_toggle_auto_charge' customer.id %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-secondary">{% if customer.auto_charge %}Disable{% else %}Enable{% endif %} Auto-Charge</button>
+              </form>
+              <a href="{% url 'customer_setup_card' customer.id %}" class="btn btn-sm btn-secondary">Change Card</a>
+              <form method="post" action="{% url 'customer_remove_card' customer.id %}" style="display:inline;" onsubmit="return confirm('Remove saved card for {{ customer.name }}?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-ghost" style="color:#ffb4ab;">Remove</button>
+              </form>
+            </div>
+          {% else %}
+            <span style="color:var(--text-muted);">No card saved</span>
+            <a href="{% url 'customer_setup_card' customer.id %}" class="btn btn-sm btn-primary" style="margin-left:8px;">+ Save Card</a>
+          {% endif %}
+        </dd>
         {% if not customer.phone and not customer.email and customer.full_address == "—" %}
         <dd>No contact info. <a href="{% url 'customer_edit' customer.id %}" class="link-primary">Add</a></dd>
         {% endif %}
