@@ -138,13 +138,13 @@
       </div>
     </div>
 
-    {% if pg.active_round_ids %}
+    {% if pg.active_round_ids or pg.next_round_num %}
     <!-- Schedule bar (appears when clients are selected) -->
     <div class="fert-sched-bar" id="sched-bar-{{ pg.program.id }}" style="display:none;padding:10px 16px;background:rgba(157,216,80,0.08);border-left:1px solid var(--border);border-right:1px solid var(--border);">
       <form method="post" action="{% url 'fertilization:batch_schedule_rounds' %}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         {% csrf_token %}
         <div id="sched-inputs-{{ pg.program.id }}"></div>
-        <span style="font-size:12px;font-weight:600;">Schedule <span id="sched-count-{{ pg.program.id }}">0</span> client{{ pg.clients|length|pluralize }} · Round {{ pg.active_round_num }}:</span>
+        <span style="font-size:12px;font-weight:600;">Schedule <span id="sched-count-{{ pg.program.id }}">0</span> client{{ pg.clients|length|pluralize }}:</span>
         <input type="date" name="schedule_date" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;" required>
         <button type="submit" class="btn btn-primary" style="font-size:11px;padding:6px 14px;">
           <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:2px;">calendar_month</span>
@@ -158,7 +158,7 @@
       <table class="data-table" style="margin:0;">
         <thead>
           <tr>
-            {% if pg.active_round_ids %}<th style="width:32px;"><input type="checkbox" class="fert-select-all" data-pid="{{ pg.program.id }}" style="accent-color:var(--primary);width:16px;height:16px;" title="Select all"></th>{% endif %}
+            {% if pg.active_round_ids or pg.next_round_num %}<th style="width:32px;"><input type="checkbox" class="fert-select-all" data-pid="{{ pg.program.id }}" style="accent-color:var(--primary);width:16px;height:16px;" title="Select all"></th>{% endif %}
             <th>Client</th>
             <th>Address</th>
             <th class="num">Sq Ft</th>
@@ -171,7 +171,7 @@
         <tbody>
           {% for enr in pg.clients %}
           <tr class="fert-client-row" data-search="{{ enr.property.customer.name|lower }} {{ enr.property.address|lower }}">
-            {% if pg.active_round_ids %}<td>{% if enr.calc_has_pending %}<input type="checkbox" class="fert-client-cb" data-pid="{{ pg.program.id }}" data-rids="{{ enr.calc_active_ids }}" style="accent-color:var(--primary);width:16px;height:16px;">{% endif %}</td>{% endif %}
+            {% if pg.active_round_ids or pg.next_round_num %}<td>{% if enr.calc_has_pending %}<input type="checkbox" class="fert-client-cb" data-pid="{{ pg.program.id }}" data-rids="{{ enr.calc_all_pending_ids }}" style="accent-color:var(--primary);width:16px;height:16px;">{% endif %}</td>{% endif %}
             <td style="font-weight:600;">{{ enr.property.customer.name }}</td>
             <td style="font-size:13px;color:var(--text-secondary);">{{ enr.property.address|truncatewords:5 }}</td>
             <td class="num">{% if enr.calc_sqft %}{{ enr.calc_sqft|floatformat:0 }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>

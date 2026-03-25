@@ -362,13 +362,22 @@ def hub(request):
 
         # Per-client data
         active_ids = []
+        all_pending_ids = []
+        all_pending_rounds = []  # [{id, num, month_name}, ...]
         rounds_completed = 0
+        import calendar as cal_mod
         for sr in enr.scheduled_rounds.all():
             if sr.status == 'completed':
                 rounds_completed += 1
             elif sr.status == 'pending':
-                target_month = sr.round_template.target_month_start if sr.round_template else sr.scheduled_date.month
-                if target_month <= current_month:
+                all_pending_ids.append(sr.id)
+                month_num = sr.round_template.target_month_start if sr.round_template else sr.scheduled_date.month
+                all_pending_rounds.append({
+                    "id": sr.id,
+                    "num": sr.round_number,
+                    "month": cal_mod.month_abbr[month_num] if 1 <= month_num <= 12 else "?",
+                })
+                if month_num <= current_month:
                     active_ids.append(sr.id)
                     if not program_clients[pid]["active_round_num"]:
                         program_clients[pid]["active_round_num"] = sr.round_number
@@ -386,7 +395,9 @@ def hub(request):
         enr.calc_sqft = sqft
         enr.calc_lbs_needed = lbs_needed
         enr.calc_active_ids = ','.join(str(rid) for rid in active_ids)
-        enr.calc_has_pending = len(active_ids) > 0
+        enr.calc_all_pending_ids = ','.join(str(rid) for rid in all_pending_ids)
+        enr.calc_has_pending = len(all_pending_ids) > 0
+        enr.calc_pending_rounds = all_pending_rounds
         program_clients[pid]["clients"].append(enr)
 
     # Sort programs by name
@@ -1832,6 +1843,16 @@ def batch_schedule_rounds(request):
     fert_service = ServiceTemplate.objects.filter(
         business=business, active=True, name__icontains="fertil"
     ).first()
+    if not fert_service:
+        # Auto-create a fertilization service template
+        fert_service = ServiceTemplate.objects.create(
+            business=business,
+            name="Fertilization",
+            default_unit="visit",
+            default_rate=0,
+            pricing_method="flat",
+            active=True,
+        )
 
     target_date = None
     if schedule_date_str:
@@ -1842,9 +1863,8 @@ def batch_schedule_rounds(request):
 
     created = 0
     skipped = 0
-    with transaction.atomic():
-        # select_for_update prevents race conditions
-        rounds = ScheduledRound.objects.select_for_update().filter(
+    try:
+        rounds = ScheduledRound.objects.filter(
             id__in=unique_ids,
             enrollment__business=business,
             status='pending',
@@ -1882,6 +1902,9 @@ def batch_schedule_rounds(request):
             sr.status = 'scheduled'
             sr.save(update_fields=['job', 'status'])
             created += 1
+    except Exception as e:
+        messages.error(request, f"Error scheduling: {e}")
+        return redirect("fertilization:hub")
 
     msg = f"Scheduled {created} fertilization round{'' if created == 1 else 's'} on the calendar."
     if skipped:
