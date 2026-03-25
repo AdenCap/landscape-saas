@@ -174,14 +174,14 @@
           <tr class="fert-client-row" data-search="{{ enr.property.customer.name|lower }} {{ enr.property.address|lower }}">
             <td style="font-weight:600;">{{ enr.property.customer.name }}</td>
             <td style="font-size:13px;color:var(--text-secondary);">{{ enr.property.address|truncatewords:5 }}</td>
-            <td class="num">{% if enr._sqft %}{{ enr._sqft|floatformat:0 }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
-            <td class="num">{% if enr._lbs_needed %}{{ enr._lbs_needed }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
+            <td class="num">{% if enr.calc_sqft %}{{ enr.calc_sqft|floatformat:0 }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
+            <td class="num">{% if enr.calc_lbs_needed %}{{ enr.calc_lbs_needed }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
             <td>
               <div style="display:flex;gap:3px;align-items:center;">
                 {% for sr in enr.scheduled_rounds.all %}
                 <span title="R{{ sr.round_number }}{% if sr.round_template %}: {{ sr.round_template.name }}{% endif %} — {{ sr.get_status_display }}" style="width:16px;height:16px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;{% if sr.status == 'completed' %}background:var(--primary);color:#111;{% elif sr.status == 'scheduled' %}background:#3b82f6;color:#fff;{% elif sr.status == 'skipped' %}background:rgba(248,113,113,0.3);color:#f87171;{% else %}background:var(--surface-highest);color:var(--text-muted);border:1px solid var(--border);{% endif %}">{{ sr.round_number }}</span>
                 {% endfor %}
-                <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">{{ enr._rounds_completed }}/{{ enr._rounds_total }}</span>
+                <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">{{ enr.calc_rounds_completed }}/{{ enr.calc_rounds_total }}</span>
               </div>
             </td>
             <td><span class="status-badge status-{{ enr.status }}" style="font-size:10px;">{{ enr.get_status_display }}</span></td>

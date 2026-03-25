@@ -347,12 +347,12 @@ def hub(request):
             lbs_needed = round(sqft / 1000 * 4, 1)
 
         program_clients[pid]["active_round_ids"].extend(active_ids)
-        enr._pending_ids_str = ','.join(str(rid) for rid in pending_ids)
-        enr._active_ids_str = ','.join(str(rid) for rid in active_ids)
-        enr._rounds_completed = rounds_completed
-        enr._rounds_total = rounds_total
-        enr._sqft = sqft
-        enr._lbs_needed = lbs_needed
+        enr.calc_pending_ids_str = ','.join(str(rid) for rid in pending_ids)
+        enr.calc_active_ids_str = ','.join(str(rid) for rid in active_ids)
+        enr.calc_rounds_completed = rounds_completed
+        enr.calc_rounds_total = rounds_total
+        enr.calc_sqft = sqft
+        enr.calc_lbs_needed = lbs_needed
         program_clients[pid]["clients"].append(enr)
 
     # Sort programs by name
