@@ -298,6 +298,46 @@ def hub(request):
     current_year = date.today().year
     today = date.today()
     current_month = today.month
+
+    # --- Auto-fix orphaned rounds ---
+    # Rounds marked 'scheduled' or 'completed' whose linked job no longer exists
+    # must be reverted to 'pending'. This catches stale data from deleted jobs.
+    from jobs.models import Job as _Job
+    orphaned = ScheduledRound.objects.filter(
+        enrollment__business=business,
+        status__in=['scheduled', 'completed'],
+    ).exclude(job__isnull=True)
+    # Find rounds whose job_id points to a deleted job
+    existing_job_ids = set(_Job.objects.filter(
+        id__in=orphaned.values_list('job_id', flat=True)
+    ).values_list('id', flat=True))
+    for sr in orphaned:
+        if sr.job_id and sr.job_id not in existing_job_ids:
+            sr.job = None
+            sr.status = 'pending'
+            sr.save(update_fields=['job', 'status'])
+    # Also fix rounds marked 'scheduled' with no job at all
+    ScheduledRound.objects.filter(
+        enrollment__business=business,
+        status='scheduled',
+        job__isnull=True,
+    ).update(status='pending')
+    # Re-sync enrollment statuses
+    for enr in CustomerProgramEnrollment.objects.filter(business=business, year=current_year):
+        completed = enr.scheduled_rounds.filter(status='completed').count()
+        total = enr.scheduled_rounds.count()
+        if total == 0:
+            continue
+        if completed >= total:
+            new_status = 'completed'
+        elif completed > 0:
+            new_status = 'in_progress'
+        else:
+            new_status = 'enrolled'
+        if enr.status != new_status:
+            enr.status = new_status
+            enr.save(update_fields=['status'])
+
     enrollments = CustomerProgramEnrollment.objects.filter(
         business=business, year=current_year
     ).select_related('property__customer', 'program').prefetch_related(
