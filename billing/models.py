@@ -300,6 +300,7 @@ class Estimate(models.Model):
     accepted_at = models.DateTimeField(null=True, blank=True)
     accepted_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     last_follow_up_at = models.DateTimeField(null=True, blank=True, help_text="When a follow-up email was last sent")
+    job_scheduled = models.BooleanField(default=False, help_text="Whether a job has been created from this accepted estimate")
 
     # ── Deposit ──────────────────────────────────────────────
     deposit_required = models.BooleanField(

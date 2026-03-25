@@ -206,10 +206,24 @@ def job_list(request):
             'invoice_status': details['invoice_status'],
         })
     
+    # Accepted estimates that need scheduling (no job created yet)
+    from billing.models import Estimate
+    needs_scheduling = []
+    if not filter_type and getattr(request.user, 'role', None) in ('owner', 'manager'):
+        accepted_estimates = Estimate.objects.filter(
+            business=business,
+            status='accepted',
+            job_scheduled=False,
+        ).select_related('customer', 'property').order_by('-accepted_at')[:20]
+        for est in accepted_estimates:
+            est.recompute_totals()
+            needs_scheduling.append(est)
+
     return render(request, 'jobs/job_list.html', {
         'upcoming_jobs': upcoming_with_details,
         'past_jobs': past_jobs_with_details,
         'unscheduled_jobs': unscheduled_with_details,
+        'needs_scheduling': needs_scheduling,
         'today': today,
         'filter_type': filter_type,
         'filter_date': filter_date,
@@ -219,6 +233,69 @@ def job_list(request):
         'past_30_days_count': past_30_days_count,
         'this_month_past_count': this_month_past_count,
     })
+
+
+@require_POST
+@role_required("owner", "manager")
+def schedule_from_estimate(request, estimate_id):
+    """Create a job from an accepted estimate and mark estimate as scheduled."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    from billing.models import Estimate
+    from pricing.utils import get_effective_rate
+
+    estimate = get_object_or_404(Estimate, id=estimate_id, business=business, status='accepted')
+
+    schedule_date_str = request.POST.get("schedule_date", "")
+    if not schedule_date_str:
+        messages.error(request, "Please select a date.")
+        return redirect("job_list")
+
+    try:
+        schedule_date = date.fromisoformat(schedule_date_str)
+    except (ValueError, TypeError):
+        messages.error(request, "Invalid date.")
+        return redirect("job_list")
+
+    prop = estimate.property
+    if not prop:
+        # Use customer's first property as fallback
+        prop = estimate.customer.properties.first()
+    if not prop:
+        messages.error(request, f"No property found for {estimate.customer.name}.")
+        return redirect("job_list")
+
+    # Create the job
+    job = Job.objects.create(
+        property=prop,
+        scheduled_date=schedule_date,
+        status="scheduled",
+        notes=f"From estimate #{estimate.id}: {estimate.title}",
+    )
+
+    # Copy line items from estimate to job service items
+    for line in estimate.line_items.all():
+        from pricing.models import ServiceTemplate
+        svc = ServiceTemplate.objects.filter(business=business, name__icontains=line.description[:30]).first()
+        if not svc:
+            svc = ServiceTemplate.objects.filter(business=business, active=True).first()
+        if svc:
+            JobServiceItem.objects.create(
+                job=job,
+                service=svc,
+                description=line.description,
+                quantity=line.quantity or 1,
+                unit=line.unit or "visit",
+                unit_price=line.unit_price or 0,
+            )
+
+    # Mark estimate as scheduled
+    estimate.job_scheduled = True
+    estimate.save(update_fields=['job_scheduled'])
+
+    messages.success(request, f"Job scheduled for {schedule_date.strftime('%b %d')} from estimate #{estimate.id} ({estimate.customer.name}).")
+    return redirect("job_list")
 
 
 @role_required("owner", "manager", "crew")

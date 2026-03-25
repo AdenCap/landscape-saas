@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     path("", views.job_list, name="job_list"),
     path("create/", views.create_job, name="create_job"),
+    path("schedule-from-estimate/<int:estimate_id>/", views.schedule_from_estimate, name="schedule_from_estimate"),
     path("fertilization-schedule/", views.fertilization_schedule, name="fertilization_schedule"),
     path("mowing/", views.mowing_hub, name="mowing_hub"),
     path("mowing/bulk-message/", views.mowing_bulk_message, name="mowing_bulk_message"),
