@@ -126,12 +126,12 @@
       {% if fert_active_count %}
       <a href="{% url 'fertilization:hub' %}" class="attn-item attn-warn">
         <span class="attn-dot" style="background:#86efac;"></span>
-        <strong>{{ fert_active_name }}</strong> — {{ fert_active_count }} client{{ fert_active_count|pluralize }} need{{ fert_active_count|pluralize:"s," }} scheduling now
+        Fertilization Round {{ fert_active_num }} — {{ fert_active_count }} client{{ fert_active_count|pluralize }} need{{ fert_active_count|pluralize:"s," }} scheduling
       </a>
-      {% elif fert_next_round_name %}
+      {% elif fert_next_round_num %}
       <a href="{% url 'fertilization:hub' %}" class="attn-item">
         <span class="attn-dot" style="background:var(--text-muted);"></span>
-        Next round: <strong>{{ fert_next_round_name }}</strong> starting {{ fert_next_round_date|date:"M j" }} &middot; {{ fert_next_round_count }} client{{ fert_next_round_count|pluralize }}
+        Next: Fertilization Round {{ fert_next_round_num }} &middot; {{ fert_next_round_date|date:"M j" }} &middot; {{ fert_next_round_count }} client{{ fert_next_round_count|pluralize }}
       </a>
       {% endif %}
     </div>
@@ -169,7 +169,7 @@
   </div>
 </div>
 
-{% if fert_upcoming or fert_active_count or fert_next_round_name %}
+{% if fert_upcoming or fert_active_count or fert_next_round_num %}
 <!-- Fertilization Schedule -->
 <div class="card" style="margin-bottom:20px;">
   <div class="card-head">
@@ -178,15 +178,15 @@
   </div>
   {% if fert_active_count %}
   <div style="padding:12px 14px;margin-bottom:12px;background:rgba(157,216,80,0.1);border:1px solid rgba(157,216,80,0.25);border-radius:8px;font-size:13px;">
-    <strong style="color:var(--primary);">{{ fert_active_name }}</strong> — {{ fert_active_count }} client{{ fert_active_count|pluralize }} need{{ fert_active_count|pluralize:"s," }} scheduling
+    <strong style="color:var(--primary);">Round {{ fert_active_num }}</strong> — {{ fert_active_count }} client{{ fert_active_count|pluralize }} need{{ fert_active_count|pluralize:"s," }} scheduling
     <a href="{% url 'fertilization:hub' %}" style="color:var(--primary);font-weight:600;margin-left:6px;">Schedule &rarr;</a>
   </div>
   {% endif %}
-  {% if fert_next_round_name and not fert_active_count %}
+  {% if fert_next_round_num and not fert_active_count %}
   <div style="padding:10px 14px;margin-bottom:12px;background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;font-size:13px;">
-    <span style="color:var(--text-muted);">Next round:</span>
-    <strong>{{ fert_next_round_name }}</strong>
-    <span style="color:var(--text-muted);">starts {{ fert_next_round_date|date:"M j" }} &middot; {{ fert_next_round_count }} client{{ fert_next_round_count|pluralize }}</span>
+    <span style="color:var(--text-muted);">Next:</span>
+    <strong>Round {{ fert_next_round_num }}</strong>
+    <span style="color:var(--text-muted);">&middot; {{ fert_next_round_date|date:"M j" }} &middot; {{ fert_next_round_count }} client{{ fert_next_round_count|pluralize }}</span>
   </div>
   {% endif %}
   {% if fert_upcoming %}

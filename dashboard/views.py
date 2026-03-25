@@ -782,13 +782,13 @@ def owner_dashboard(request):
     ).select_related('round_template')
     fert_active_count = fert_active.count()
 
-    fert_active_name = None
+    fert_active_num = None
     if fert_active.exists():
         first = fert_active.first()
-        fert_active_name = first.round_template.name if first.round_template else f"Round {first.round_number}"
+        fert_active_num = first.round_number
 
     # Next round = first pending round whose target month is AFTER current month
-    fert_next_round_name = None
+    fert_next_round_num = None
     fert_next_round_date = None
     fert_next_round_count = 0
     fert_next = ScheduledRound.objects.filter(
@@ -797,7 +797,7 @@ def owner_dashboard(request):
         round_template__target_month_start__gt=current_month,
     ).select_related('round_template').order_by('round_number').first()
     if fert_next:
-        fert_next_round_name = fert_next.round_template.name if fert_next.round_template else f"Round {fert_next.round_number}"
+        fert_next_round_num = fert_next.round_number
         fert_next_round_date = fert_next.scheduled_date
         fert_next_round_count = ScheduledRound.objects.filter(
             enrollment__business=business,
@@ -844,8 +844,8 @@ def owner_dashboard(request):
         "monthly_labels": monthly_labels,
         "monthly_revenue": monthly_revenue,
         "fert_active_count": fert_active_count,
-        "fert_active_name": fert_active_name,
-        "fert_next_round_name": fert_next_round_name,
+        "fert_active_num": fert_active_num,
+        "fert_next_round_num": fert_next_round_num,
         "fert_next_round_date": fert_next_round_date,
         "fert_next_round_count": fert_next_round_count,
         "fert_upcoming": fert_upcoming,

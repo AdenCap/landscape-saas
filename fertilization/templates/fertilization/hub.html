@@ -130,10 +130,10 @@
         <span style="font-size:12px;color:var(--text-muted);">{{ pg.clients|length }} client{{ pg.clients|length|pluralize }} &middot; {{ pg.program.rounds.count }} rounds</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        {% if pg.active_round_name %}
-        <span style="font-size:11px;font-weight:600;color:var(--primary);background:rgba(157,216,80,0.12);padding:4px 10px;border-radius:6px;">{{ pg.active_round_name }} — schedule now</span>
-        {% elif pg.next_round_name %}
-        <span style="font-size:11px;color:var(--text-muted);background:var(--surface-container);padding:4px 10px;border-radius:6px;">Next: {{ pg.next_round_name }} · {{ pg.next_round_date|date:"M j" }}</span>
+        {% if pg.active_round_num %}
+        <span style="font-size:11px;font-weight:600;color:var(--primary);background:rgba(157,216,80,0.12);padding:4px 10px;border-radius:6px;">Round {{ pg.active_round_num }} — schedule now</span>
+        {% elif pg.next_round_num %}
+        <span style="font-size:11px;color:var(--text-muted);background:var(--surface-container);padding:4px 10px;border-radius:6px;">Next: Round {{ pg.next_round_num }} · {{ pg.next_round_date|date:"M j" }}</span>
         {% endif %}
       </div>
     </div>
@@ -146,7 +146,7 @@
         {% for rid in pg.active_round_ids %}
         <input type="hidden" name="round_ids" value="{{ rid }}">
         {% endfor %}
-        <span style="font-size:12px;font-weight:600;">Schedule all {{ pg.active_round_name }}:</span>
+        <span style="font-size:12px;font-weight:600;">Schedule all Round {{ pg.active_round_num }}:</span>
         <input type="date" name="schedule_date" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;" required>
         <button type="submit" class="btn btn-primary" style="font-size:11px;padding:6px 14px;">
           <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:2px;">calendar_month</span>

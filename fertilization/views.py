@@ -305,52 +305,44 @@ def hub(request):
     ).order_by('program__name', 'property__customer__name')
 
     # Build program-centric structure
-    program_clients = {}  # {program_id: {"program": ..., "clients": [...], "active_round": ..., "next_round": ...}}
+    program_clients = {}
     for enr in enrollments:
         pid = enr.program_id
         if pid not in program_clients:
+            program_round_count = enr.program.rounds.count()
             program_clients[pid] = {
                 "program": enr.program,
                 "clients": [],
-                "active_round_name": None,
+                "program_round_count": program_round_count,
+                "active_round_num": None,
                 "active_round_ids": [],
-                "next_round_name": None,
+                "next_round_num": None,
                 "next_round_date": None,
             }
 
         # Per-client data
-        pending_ids = []
         active_ids = []
         rounds_completed = 0
-        rounds_total = 0
         for sr in enr.scheduled_rounds.all():
-            rounds_total += 1
             if sr.status == 'completed':
                 rounds_completed += 1
             elif sr.status == 'pending':
-                pending_ids.append(sr.id)
                 target_month = sr.round_template.target_month_start if sr.round_template else sr.scheduled_date.month
                 if target_month <= current_month:
                     active_ids.append(sr.id)
-                    rname = sr.round_template.name if sr.round_template else f"Round {sr.round_number}"
-                    if not program_clients[pid]["active_round_name"]:
-                        program_clients[pid]["active_round_name"] = rname
-                elif not program_clients[pid]["next_round_name"]:
-                    program_clients[pid]["next_round_name"] = sr.round_template.name if sr.round_template else f"Round {sr.round_number}"
+                    if not program_clients[pid]["active_round_num"]:
+                        program_clients[pid]["active_round_num"] = sr.round_number
+                elif not program_clients[pid]["next_round_num"]:
+                    program_clients[pid]["next_round_num"] = sr.round_number
                     program_clients[pid]["next_round_date"] = sr.scheduled_date
 
-        # Calculate lbs needed (if sqft and program has application rate info)
+        # Calculate lbs needed (4 lbs per 1000 sqft industry standard)
         sqft = enr.property.yard_sqft or 0
-        lbs_needed = 0
-        if sqft:
-            # Rough estimate: 4 lbs per 1000 sqft per application (industry standard)
-            lbs_needed = round(sqft / 1000 * 4, 1)
+        lbs_needed = round(sqft / 1000 * 4, 1) if sqft else 0
 
         program_clients[pid]["active_round_ids"].extend(active_ids)
-        enr.calc_pending_ids_str = ','.join(str(rid) for rid in pending_ids)
-        enr.calc_active_ids_str = ','.join(str(rid) for rid in active_ids)
         enr.calc_rounds_completed = rounds_completed
-        enr.calc_rounds_total = rounds_total
+        enr.calc_rounds_total = program_clients[pid]["program_round_count"]
         enr.calc_sqft = sqft
         enr.calc_lbs_needed = lbs_needed
         program_clients[pid]["clients"].append(enr)
