@@ -2283,6 +2283,25 @@ def mowing_hub(request):
             if dur:
                 prop_avg_durations[row['property_id']] = int(dur.total_seconds() / 60)
 
+    # Query mowing job history for the current year per property (for progress tracker)
+    year_start_date = today.replace(month=1, day=1)
+    mow_jobs_this_year = Job.objects.filter(
+        property_id__in=all_prop_ids,
+        scheduled_date__gte=year_start_date,
+        service_items__service__in=mowing_services,
+    ).select_related("property").order_by("scheduled_date").distinct()
+
+    # Build per-property mow history: [{num, status, date}, ...]
+    prop_mow_history = {}
+    for job in mow_jobs_this_year:
+        pid = job.property_id
+        if pid not in prop_mow_history:
+            prop_mow_history[pid] = []
+        prop_mow_history[pid].append({
+            "status": job.status,
+            "date": job.scheduled_date,
+        })
+
     for cid, data in customer_map.items():
         data["this_week_jobs"] = week_schedule.get(cid, [])
         data["next_job_date"] = data["this_week_jobs"][0].scheduled_date if data["this_week_jobs"] else None
@@ -2298,6 +2317,13 @@ def mowing_hub(request):
         else:
             data["avg_duration"] = None
             data["avg_duration_mins"] = 0
+        # Mowing progress for the year
+        history = prop_mow_history.get(prop_ids[0], []) if prop_ids else []
+        data["mow_completed"] = sum(1 for h in history if h["status"] == "completed")
+        data["mow_scheduled"] = sum(1 for h in history if h["status"] == "scheduled")
+        data["mow_skipped"] = sum(1 for h in history if h["status"] == "skipped")
+        data["mow_total"] = len(history)
+        data["mow_history"] = history
         clients.append(data)
     clients.sort(key=lambda c: (freq_order.get(c["frequency_key"], 9), c["customer"].name))
 
