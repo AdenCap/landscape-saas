@@ -1,12 +1,16 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
-  <div>
-    <h1>Business Costs</h1>
-    <p>Track overhead, equipment, vehicles, and labor burden to know your true costs.</p>
-  </div>
-  <a href="{% url 'financials:dashboard' %}" class="btn btn-secondary">&larr; Financials</a>
+<div class="page-header">
+  <h1>Financials</h1>
+  <p>Track overhead, equipment, vehicles, and labor burden to know your true costs.</p>
+</div>
+
+<div class="billing-tabs" style="margin-bottom:16px;">
+  <a href="{% url 'financials:dashboard' %}" class="billing-tab">Overview</a>
+  <a href="{% url 'financials:revenue_breakdown' %}" class="billing-tab">Revenue</a>
+  <a href="{% url 'financials:receipt_list' %}" class="billing-tab">Receipts</a>
+  <a href="{% url 'financials:overhead_hub' %}" class="billing-tab active">Business Costs</a>
 </div>
 
 <!-- Break-Even Summary (always visible) -->

@@ -3,11 +3,17 @@
 {% block content %}
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
   <div>
-    <a href="{% url 'financials:dashboard' %}" class="link-primary" style="font-size: 14px; margin-bottom: 4px; display: inline-block;">← Financials overview</a>
-    <h1>Receipts & expenses</h1>
+    <h1>Financials</h1>
     <p>All receipts and material costs in one place</p>
   </div>
   <a href="{% url 'financials:receipt_upload' %}" class="btn btn-primary">+ Upload Receipt</a>
+</div>
+
+<div class="billing-tabs" style="margin-bottom:16px;">
+  <a href="{% url 'financials:dashboard' %}" class="billing-tab">Overview</a>
+  <a href="{% url 'financials:revenue_breakdown' %}" class="billing-tab">Revenue</a>
+  <a href="{% url 'financials:receipt_list' %}" class="billing-tab active">Receipts</a>
+  <a href="{% url 'financials:overhead_hub' %}" class="billing-tab">Business Costs</a>
 </div>
 
 <div class="card" style="margin-bottom: 20px;">
