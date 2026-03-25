@@ -634,6 +634,21 @@ def calendar_job_update(request, job_id):
                 job.color = None
         else:
             job.color = None  # Clear override = use crew/employee default
+    # Handle status changes (skip from calendar)
+    if "status" in data:
+        new_status = data["status"]
+        if new_status in ("scheduled", "skipped"):
+            old_status = job.status
+            job.status = new_status
+            # Sync fertilization rounds when skipping
+            if new_status == "skipped":
+                try:
+                    from fertilization.models import ScheduledRound as FertScheduledRound
+                    for sr in FertScheduledRound.objects.filter(job=job):
+                        sr.status = 'skipped'
+                        sr.save(update_fields=['status'])
+                except Exception:
+                    pass
     job.save()
 
     if "assigned_crew_id" in data or "assigned_to_id" in data:
@@ -704,6 +719,14 @@ def calendar_job_reschedule(request, job_id):
         job.scheduled_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         job.scheduled_time = time_obj
         job.save()
+        # Sync linked fertilization round date
+        try:
+            from fertilization.models import ScheduledRound as FertScheduledRound
+            for sr in FertScheduledRound.objects.filter(job=job):
+                sr.scheduled_date = job.scheduled_date
+                sr.save(update_fields=['scheduled_date'])
+        except Exception:
+            pass
         return JsonResponse({"status": "ok", "scheduled_date": date_str})
     except (ValueError, TypeError) as e:
         return JsonResponse({"error": str(e)}, status=400)
@@ -740,7 +763,15 @@ def calendar_bulk_reschedule(request):
     )
     if job_ids:
         jobs = jobs.filter(id__in=job_ids)
+    moved_job_ids = list(jobs.values_list('id', flat=True))
     count = jobs.update(scheduled_date=to_d)
+    # Sync linked fertilization round dates
+    if moved_job_ids:
+        try:
+            from fertilization.models import ScheduledRound as FertScheduledRound
+            FertScheduledRound.objects.filter(job_id__in=moved_job_ids).update(scheduled_date=to_d)
+        except Exception:
+            pass
     return JsonResponse({"moved": count, "to_date": to_date})
 
 
@@ -1704,6 +1735,17 @@ def job_delete(request, job_id):
         id=job_id,
         property__customer__business=business,
     )
+    # Revert any linked fertilization rounds to pending before deleting
+    try:
+        from fertilization.models import ScheduledRound as FertScheduledRound
+        linked_fert = FertScheduledRound.objects.filter(job=job)
+        for sr in linked_fert:
+            sr.job = None
+            sr.status = 'pending'
+            sr.save(update_fields=['job', 'status'])
+    except Exception:
+        pass
+
     job.delete()
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return JsonResponse({"status": "ok"})
