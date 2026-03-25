@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>Service Pricing</h1>
+    <p>Set standard prices for your services. These show as suggested prices on estimates and jobs.</p>
+  </div>
+  <button type="button" class="btn btn-primary" onclick="document.getElementById('add-modal').style.display='flex'">+ Add Service</button>
+</div>
+
+{% if services %}
+<div class="card" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Service</th>
+        <th>Pricing Method</th>
+        <th>Rate</th>
+        <th>Min Price</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for svc in services %}
+      <tr>
+        <td><strong>{{ svc.name }}</strong>{% if svc.pricing_notes %}<br><span style="font-size:11px;color:var(--text-muted);">{{ svc.pricing_notes|truncatewords:8 }}</span>{% endif %}</td>
+        <td><span class="badge" style="font-size:10px;">{{ svc.get_pricing_method_display }}</span></td>
+        <td style="font-weight:600;color:var(--primary);">{{ svc.pricing_display }}</td>
+        <td>{% if svc.min_price %}${{ svc.min_price|floatformat:2 }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
+        <td>{% if svc.active %}<span style="color:var(--primary);">Active</span>{% else %}<span style="color:var(--text-muted);">Inactive</span>{% endif %}</td>
+        <td style="white-space:nowrap;">
+          <button type="button" class="btn btn-sm btn-secondary" onclick="openEdit({{ svc.id }},'{{ svc.name|escapejs }}','{{ svc.pricing_method }}','{{ svc.default_unit }}','{{ svc.default_rate }}','{{ svc.rate_per_sqft|default_if_none:"" }}','{{ svc.min_price|default_if_none:"" }}','{{ svc.pricing_notes|escapejs }}',{{ svc.active|yesno:'true,false' }})">Edit</button>
+          <form method="post" style="display:inline;" onsubmit="return confirm('Delete {{ svc.name }}?');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="service_id" value="{{ svc.id }}">
+            <button type="submit" class="btn btn-sm btn-ghost" style="color:#ffb4ab;"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:48px 24px;">
+  <span class="material-symbols-outlined" style="font-size:48px;color:var(--text-muted);display:block;margin-bottom:12px;">attach_money</span>
+  <p style="color:var(--text-muted);margin-bottom:16px;">No services yet. Add your service pricing to get started.</p>
+  <button type="button" class="btn btn-primary" onclick="document.getElementById('add-modal').style.display='flex'">+ Add Service</button>
+</div>
+{% endif %}
+
+<!-- Add Service Modal -->
+<div id="add-modal" class="sp-modal-overlay" style="display:none;">
+  <div class="sp-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;" id="modal-title">Add Service</h3>
+      <button type="button" onclick="closeModals()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;">&times;</button>
+    </div>
+    <form method="post" id="service-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" id="form-action" value="create">
+      <input type="hidden" name="service_id" id="form-service-id" value="">
+
+      <div class="sp-field">
+        <label>Service Name</label>
+        <input type="text" name="name" id="f-name" required placeholder="e.g. Mowing, Mulch Installation">
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="sp-field">
+          <label>Pricing Method</label>
+          <select name="pricing_method" id="f-method" onchange="toggleFields()">
+            <option value="flat">Flat rate (per visit)</option>
+            <option value="per_sqft">Per square foot</option>
+            <option value="per_yard">Per yard</option>
+            <option value="per_hour">Per hour</option>
+          </select>
+        </div>
+        <div class="sp-field">
+          <label>Unit</label>
+          <select name="default_unit" id="f-unit">
+            <option value="visit">Per visit</option>
+            <option value="yard">Per yard</option>
+            <option value="hour">Per hour</option>
+            <option value="item">Per item</option>
+            <option value="sqft">Per sq ft</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="flat-fields">
+        <div class="sp-field">
+          <label>Rate ($)</label>
+          <input type="number" name="default_rate" id="f-rate" step="0.01" min="0" placeholder="e.g. 45.00">
+          <p class="sp-help">Standard price charged for this service</p>
+        </div>
+      </div>
+
+      <div id="sqft-fields" style="display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="sp-field">
+            <label>Rate per Sq Ft ($)</label>
+            <input type="number" name="rate_per_sqft" id="f-sqft-rate" step="0.0001" min="0" placeholder="e.g. 0.0150">
+            <p class="sp-help">Price per square foot of lawn</p>
+          </div>
+          <div class="sp-field">
+            <label>Minimum Price ($)</label>
+            <input type="number" name="min_price" id="f-min" step="0.01" min="0" placeholder="e.g. 35.00">
+            <p class="sp-help">Minimum charge even for small yards</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="sp-field" id="active-field" style="display:none;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;">
+          <input type="checkbox" name="active" id="f-active" checked style="accent-color:var(--primary);width:18px;height:18px;">
+          Active
+        </label>
+      </div>
+
+      <div class="sp-field">
+        <label>Pricing Notes</label>
+        <textarea name="pricing_notes" id="f-notes" rows="2" placeholder="Internal notes (e.g. $130/yard for mulch includes delivery)"></textarea>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button type="submit" class="btn btn-primary" id="form-submit-btn">Add Service</button>
+        <button type="button" class="btn btn-secondary" onclick="closeModals()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .sp-modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px; }
+  .sp-modal { background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto; }
+  .sp-field { margin-bottom:12px; }
+  .sp-field label { display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em; }
+  .sp-field input, .sp-field select, .sp-field textarea { width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;background:var(--bg);color:var(--text);font-family:inherit; }
+  .sp-help { font-size:11px;color:var(--text-muted);margin:4px 0 0; }
+  @media (max-width:768px) {
+    div[style*="grid-template-columns"] { grid-template-columns:1fr !important; }
+    .sp-field input, .sp-field select, .sp-field textarea { font-size:16px;min-height:44px; }
+  }
+</style>
+
+<script>
+function toggleFields() {
+  var method = document.getElementById('f-method').value;
+  document.getElementById('sqft-fields').style.display = method === 'per_sqft' ? '' : 'none';
+  document.getElementById('flat-fields').style.display = method === 'per_sqft' ? 'none' : '';
+  // Auto-set unit
+  var unit = document.getElementById('f-unit');
+  if (method === 'per_sqft') unit.value = 'sqft';
+  else if (method === 'per_yard') unit.value = 'yard';
+  else if (method === 'per_hour') unit.value = 'hour';
+  else unit.value = 'visit';
+}
+
+function openEdit(id, name, method, unit, rate, sqftRate, minPrice, notes, active) {
+  document.getElementById('modal-title').textContent = 'Edit Service';
+  document.getElementById('form-action').value = 'update';
+  document.getElementById('form-service-id').value = id;
+  document.getElementById('form-submit-btn').textContent = 'Save Changes';
+  document.getElementById('f-name').value = name;
+  document.getElementById('f-method').value = method;
+  document.getElementById('f-unit').value = unit;
+  document.getElementById('f-rate').value = rate;
+  document.getElementById('f-sqft-rate').value = sqftRate;
+  document.getElementById('f-min').value = minPrice;
+  document.getElementById('f-notes').value = notes;
+  document.getElementById('f-active').checked = active;
+  document.getElementById('active-field').style.display = '';
+  toggleFields();
+  document.getElementById('add-modal').style.display = 'flex';
+}
+
+function closeModals() {
+  document.getElementById('add-modal').style.display = 'none';
+  document.getElementById('modal-title').textContent = 'Add Service';
+  document.getElementById('form-action').value = 'create';
+  document.getElementById('form-service-id').value = '';
+  document.getElementById('form-submit-btn').textContent = 'Add Service';
+  document.getElementById('active-field').style.display = 'none';
+  document.getElementById('service-form').reset();
+  toggleFields();
+}
+
+document.getElementById('add-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModals();
+});
+</script>
+{% endblock %}

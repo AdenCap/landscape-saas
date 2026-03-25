@@ -169,45 +169,6 @@
   </div>
 </div>
 
-{% if fert_upcoming or fert_active_count or fert_next_round_num %}
-<!-- Fertilization Schedule -->
-<div class="card" style="margin-bottom:20px;">
-  <div class="card-head">
-    <h3><span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;color:var(--primary);">eco</span> Fertilization</h3>
-    <a href="{% url 'fertilization:hub' %}" class="card-link">Manage &rarr;</a>
-  </div>
-  {% if fert_active_count %}
-  <div style="padding:12px 14px;margin-bottom:12px;background:rgba(157,216,80,0.1);border:1px solid rgba(157,216,80,0.25);border-radius:8px;font-size:13px;">
-    <strong style="color:var(--primary);">Round {{ fert_active_num }}</strong> — {{ fert_active_count }} client{{ fert_active_count|pluralize }} need{{ fert_active_count|pluralize:"s," }} scheduling
-    <a href="{% url 'fertilization:hub' %}" style="color:var(--primary);font-weight:600;margin-left:6px;">Schedule &rarr;</a>
-  </div>
-  {% endif %}
-  {% if fert_next_round_num and not fert_active_count %}
-  <div style="padding:10px 14px;margin-bottom:12px;background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;font-size:13px;">
-    <span style="color:var(--text-muted);">Next:</span>
-    <strong>Round {{ fert_next_round_num }}</strong>
-    <span style="color:var(--text-muted);">&middot; {{ fert_next_round_date|date:"M j" }} &middot; {{ fert_next_round_count }} client{{ fert_next_round_count|pluralize }}</span>
-  </div>
-  {% endif %}
-  {% if fert_upcoming %}
-  <div class="today-list">
-    {% for sr in fert_upcoming %}
-    <a href="{% if sr.job %}{% url 'job_detail' sr.job.id %}{% else %}{% url 'fertilization:hub' %}{% endif %}" class="today-item">
-      <div class="today-time">{{ sr.scheduled_date|date:"M j" }}</div>
-      <div class="today-info">
-        <span class="today-addr">{{ sr.enrollment.property.customer.name }}</span>
-        <span class="today-svc">{{ sr.round_template.name|default:"Round" }} — {{ sr.enrollment.program.name }}</span>
-      </div>
-      <span class="today-status today-status-scheduled">{{ sr.get_status_display }}</span>
-    </a>
-    {% endfor %}
-  </div>
-  {% else %}
-  <p style="color:var(--text-muted);font-size:13px;padding:12px 0;text-align:center;">No rounds scheduled yet this month.</p>
-  {% endif %}
-</div>
-{% endif %}
-
 <!-- Navigation Grid -->
 <div class="nav-grid">
   <a href="{% url 'calendar' %}" class="nav-tile"><span class="material-symbols-outlined">calendar_month</span><span>Calendar</span></a>

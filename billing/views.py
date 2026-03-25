@@ -1498,8 +1498,28 @@ def estimate_edit(request, estimate_id):
         form = EstimateForm(instance=estimate, business=business)
         formset = EstimateLineItemFormSet(instance=estimate)
 
+    # Service pricing suggestions for the estimate
+    from pricing.models import ServiceTemplate
+    import json as _json
+    prop = estimate.property
+    sqft = prop.yard_sqft if prop else 0
+    service_prices = []
+    for svc in ServiceTemplate.objects.filter(business=business, active=True).order_by('name'):
+        sp = {
+            "id": svc.id,
+            "name": svc.name,
+            "method": svc.pricing_method,
+            "rate": float(svc.default_rate),
+            "unit": svc.default_unit,
+            "suggested": float(svc.suggested_price_for_property(prop)) if prop else float(svc.default_rate),
+            "display": svc.pricing_display(),
+        }
+        service_prices.append(sp)
+
     return render(request, "billing/estimate_edit.html", {
         "form": form, "formset": formset, "estimate": estimate, "doc_template": doc_template,
+        "service_prices_json": _json.dumps(service_prices),
+        "property_sqft": sqft,
     })
 
 

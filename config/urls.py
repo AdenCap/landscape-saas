@@ -86,6 +86,7 @@ urlpatterns = [
     path("jobs/", include("jobs.urls")),
     path("time/", include("time_tracking.urls")),
     path("settings/", include("businesses.urls")),
+    path("settings/service-pricing/", include("pricing.urls")),
     path("subscription/", include("subscription.urls")),
     path("webhooks/stripe/", include("subscription.webhook_urls")),
     path("financials/", include(("financials.urls", "financials"), namespace="financials")),

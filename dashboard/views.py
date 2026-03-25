@@ -806,15 +806,6 @@ def owner_dashboard(request):
             round_template=fert_next.round_template,
         ).count()
 
-    # Upcoming scheduled rounds (already on calendar, next 30 days)
-    upcoming_window = today + timedelta(days=30)
-    fert_upcoming = ScheduledRound.objects.filter(
-        enrollment__business=business,
-        status='scheduled',
-        scheduled_date__gte=today,
-        scheduled_date__lte=upcoming_window,
-    ).select_related('enrollment__property__customer', 'enrollment__program', 'round_template', 'job').order_by('scheduled_date')[:10]
-
     context = {
         "today": today,
         "revenue_this_month": revenue_this_month,
@@ -848,7 +839,6 @@ def owner_dashboard(request):
         "fert_next_round_num": fert_next_round_num,
         "fert_next_round_date": fert_next_round_date,
         "fert_next_round_count": fert_next_round_count,
-        "fert_upcoming": fert_upcoming,
         **review_stats,
     }
     return render(request, "dashboard/owner_dashboard.html", context)
