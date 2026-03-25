@@ -407,11 +407,16 @@ def calendar_events(request):
                 },
             }
         else:
+            # No scheduled_time — show as a timed event at 8 AM so it appears
+            # in week/day timeGrid views (allDay events hide in the collapsed header)
+            default_start = datetime.combine(job.scheduled_date, datetime.min.time().replace(hour=8))
+            start_str = default_start.strftime("%Y-%m-%dT%H:%M:%S")
+            end_str = (default_start + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S")
             evt = {
                 "id": str(job.id),
                 "title": title,
-                "start": job.scheduled_date.isoformat(),
-                "allDay": True,
+                "start": start_str,
+                "end": end_str,
                 "backgroundColor": bg,
                 "borderColor": bg,
                 "extendedProps": {
@@ -425,6 +430,7 @@ def calendar_events(request):
                     "recurring": bool(job.recurring_job_id),
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
                     "duration": job.duration_display,
+                    "noTimeSet": True,
                 },
             }
         events.append(evt)
