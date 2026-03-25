@@ -722,11 +722,6 @@
             <i data-lucide="users" class="nav-icon"></i>
             Employee Management
           </a>
-          <a href="{% url 'notification_inbox' %}" class="btn btn-nav {% if '/notifications' in request.path %}active{% endif %}">
-            <i data-lucide="bell" class="nav-icon"></i>
-            Notifications
-            {% if notification_unread_count > 0 %}<span class="nav-badge">{{ notification_unread_count }}</span>{% endif %}
-          </a>
           <a href="{% url 'financials:dashboard' %}" class="btn btn-nav {% if '/financials' in request.path %}active{% endif %}">
             <i data-lucide="chart-column" class="nav-icon"></i>
             Financials

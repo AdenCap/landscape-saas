@@ -2510,8 +2510,24 @@ def mowing_hub(request):
         data["mow_skipped"] = sum(1 for h in history if h["status"] == "skipped")
         data["mow_total"] = len(history)
         data["mow_history"] = history
+        # Missed client detection: no job this week + last mow was too long ago
+        data["is_missed"] = False
+        if not data["this_week_jobs"] and data["frequency_key"] in ("weekly", "biweekly"):
+            completed_dates = [h["date"] for h in history if h["status"] == "completed"]
+            if completed_dates:
+                last_mow = max(completed_dates)
+                days_since = (today - last_mow).days
+                threshold = 10 if data["frequency_key"] == "weekly" else 21
+                if days_since > threshold:
+                    data["is_missed"] = True
+                    data["days_since_last_mow"] = days_since
+            elif history:
+                # Has been scheduled before but never completed
+                data["is_missed"] = True
+                data["days_since_last_mow"] = None
         clients.append(data)
     clients.sort(key=lambda c: (freq_order.get(c["frequency_key"], 9), c["customer"].name))
+    missed_count = sum(1 for c in clients if c.get("is_missed"))
 
     # Stats
     weekly_count = sum(1 for c in clients if c["frequency_key"] == "weekly")
@@ -2535,6 +2551,7 @@ def mowing_hub(request):
         "weekly_count": weekly_count,
         "biweekly_count": biweekly_count,
         "scheduled_this_week": scheduled_this_week,
+        "missed_count": missed_count,
         "est_day_display": est_day_display,
         "week_start": week_start,
         "week_end": week_end,

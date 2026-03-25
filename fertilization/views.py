@@ -322,6 +322,15 @@ def hub(request):
         status='scheduled',
         job__isnull=True,
     ).update(status='pending')
+    # Fix enrollments with more scheduled rounds than the program has
+    for enr in CustomerProgramEnrollment.objects.filter(business=business, year=current_year).select_related('program').prefetch_related('scheduled_rounds'):
+        program_rounds = enr.program.rounds.count()
+        scheduled_count = enr.scheduled_rounds.count()
+        if scheduled_count > program_rounds:
+            # Delete excess rounds (keep only the first N matching the program)
+            keep_ids = list(enr.scheduled_rounds.order_by('round_number').values_list('id', flat=True)[:program_rounds])
+            enr.scheduled_rounds.exclude(id__in=keep_ids).delete()
+
     # Re-sync enrollment statuses
     for enr in CustomerProgramEnrollment.objects.filter(business=business, year=current_year):
         completed = enr.scheduled_rounds.filter(status='completed').count()
@@ -391,7 +400,9 @@ def hub(request):
 
         program_clients[pid]["active_round_ids"].extend(active_ids)
         enr.calc_rounds_completed = rounds_completed
-        enr.calc_rounds_total = program_clients[pid]["program_round_count"]
+        # Use the program's round count — but if enrollment has fewer scheduled rounds, use that
+        actual_scheduled = enr.scheduled_rounds.count()
+        enr.calc_rounds_total = min(program_clients[pid]["program_round_count"], actual_scheduled) if actual_scheduled else program_clients[pid]["program_round_count"]
         enr.calc_sqft = sqft
         enr.calc_lbs_needed = lbs_needed
         enr.calc_active_ids = ','.join(str(rid) for rid in active_ids)

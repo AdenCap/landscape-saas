@@ -37,7 +37,19 @@
     <span class="mow-stat-num" style="color:#a78bfa;">{{ est_day_display }}</span>
     <span class="mow-stat-label">Est. Day Total</span>
   </div>
+  {% if missed_count %}
+  <div class="mow-stat" style="border-color:rgba(248,113,113,0.3);">
+    <span class="mow-stat-num" style="color:#f87171;">{{ missed_count }}</span>
+    <span class="mow-stat-label">Missed</span>
+  </div>
+  {% endif %}
 </div>
+
+{% if missed_count %}
+<div style="padding:10px 14px;margin-bottom:14px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:8px;font-size:13px;color:#fca5a5;">
+  <strong>{{ missed_count }} client{{ missed_count|pluralize }} may have been missed</strong> — not scheduled this week and overdue based on their frequency. Use the "Missed" filter to see them.
+</div>
+{% endif %}
 
 <!-- Filters -->
 <div class="mow-filters">
@@ -45,6 +57,7 @@
   <button type="button" class="mow-filter" data-filter="weekly">Weekly</button>
   <button type="button" class="mow-filter" data-filter="biweekly">Bi-Weekly</button>
   <button type="button" class="mow-filter" data-filter="this-week">Scheduled This Week</button>
+  {% if missed_count %}<button type="button" class="mow-filter" data-filter="missed" style="color:#f87171;border-color:rgba(248,113,113,0.3);">Missed</button>{% endif %}
   <div style="flex:1;"></div>
   <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;">
     <input type="checkbox" id="select-all" style="accent-color:var(--primary);width:16px;height:16px;"> Select all
@@ -227,7 +240,7 @@ If you have any questions, please don't hesitate to reach out.
     </thead>
     <tbody>
       {% for c in clients %}
-      <tr class="mow-row" data-freq="{{ c.frequency_key }}" data-has-jobs="{% if c.this_week_jobs %}yes{% else %}no{% endif %}" data-cid="{{ c.customer.id }}" data-email="{{ c.has_email|yesno:'1,0' }}">
+      <tr class="mow-row" data-freq="{{ c.frequency_key }}" data-has-jobs="{% if c.this_week_jobs %}yes{% else %}no{% endif %}" data-cid="{{ c.customer.id }}" data-email="{{ c.has_email|yesno:'1,0' }}" data-missed="{% if c.is_missed %}yes{% else %}no{% endif %}" {% if c.is_missed %}style="border-left:3px solid #f87171;"{% endif %}>
         <td><input type="checkbox" class="mow-check" value="{{ c.customer.id }}" data-propid="{{ c.properties.0.id }}" style="accent-color:var(--primary);width:16px;height:16px;"></td>
         <td>
           <a href="{% url 'customer_detail' c.customer.id %}" class="link-primary" style="font-weight:600;">{{ c.customer.name }}</a>
@@ -275,8 +288,8 @@ If you have any questions, please don't hesitate to reach out.
           {% if c.avg_duration %}{{ c.avg_duration }}{% else %}&mdash;{% endif %}
         </td>
         <td style="white-space:nowrap;">
-          {% if c.has_email %}<span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);vertical-align:-3px;" title="Has email">mail</span>{% endif %}
-          {% if c.has_phone %}<span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);vertical-align:-3px;margin-left:4px;" title="Has phone">phone</span>{% endif %}
+          {% if c.has_email %}<a href="mailto:{{ c.customer.email }}" title="{{ c.customer.email }}" style="text-decoration:none;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);vertical-align:-3px;">mail</span></a>{% endif %}
+          {% if c.has_phone %}<a href="tel:{{ c.customer.phone }}" title="{{ c.customer.phone }}" style="text-decoration:none;margin-left:4px;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);vertical-align:-3px;">phone</span></a>{% endif %}
         </td>
       </tr>
       {% empty %}
@@ -345,6 +358,7 @@ If you have any questions, please don't hesitate to reach out.
         if (filter === 'weekly') show = row.dataset.freq === 'weekly';
         else if (filter === 'biweekly') show = row.dataset.freq === 'biweekly';
         else if (filter === 'this-week') show = row.dataset.hasJobs === 'yes';
+        else if (filter === 'missed') show = row.dataset.missed === 'yes';
         row.style.display = show ? '' : 'none';
       });
     });
