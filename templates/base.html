@@ -669,10 +669,6 @@
             <i data-lucide="calendar-days" class="nav-icon"></i>
             Calendar
           </a>
-          <a href="/jobs/mowing/" class="btn btn-nav {% if '/jobs/mowing' in request.path %}active{% endif %}">
-            <span class="material-symbols-outlined nav-icon" style="font-size:20px;">grass</span>
-            Mowing
-          </a>
           <a href="/clients/" class="btn btn-nav {% if '/clients' in request.path %}active{% endif %}">
             <i data-lucide="users" class="nav-icon"></i>
             Clients
@@ -685,6 +681,10 @@
             <i data-lucide="file-text" class="nav-icon"></i>
             Estimates
             {% if estimate_queue_count > 0 %}<span class="nav-badge">{{ estimate_queue_count }}</span>{% endif %}
+          </a>
+          <a href="/jobs/mowing/" class="btn btn-nav {% if '/jobs/mowing' in request.path %}active{% endif %}">
+            <span class="material-symbols-outlined nav-icon" style="font-size:20px;">grass</span>
+            Mowing
           </a>
           {% if show_fertilization %}
           <a href="{% url 'fertilization:hub' %}" class="btn btn-nav {% if '/fertilization' in request.path %}active{% endif %}">
@@ -805,7 +805,7 @@
       {% else %}
         <a href="/" class="{% if request.path == '/' or request.path == '' %}active{% endif %}"><i data-lucide="layout-dashboard" class="nav-icon"></i>Dashboard</a>
         <a href="{% url 'job_list' %}" class="{% if request.path == '/jobs/' or request.path == '/jobs' %}active{% endif %}"><i data-lucide="clipboard-list" class="nav-icon"></i>Jobs</a>
-        <a href="/jobs/calendar/" class="{% if '/jobs/calendar' in request.path %}active{% endif %}"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendar</a>
+        <a href="/clients/" class="{% if '/clients' in request.path %}active{% endif %}"><i data-lucide="users" class="nav-icon"></i>Clients</a>
         <div class="bottom-nav-create-wrap">
           <button type="button" class="bottom-nav-plus" id="mobile-create-btn" aria-label="Create" aria-haspopup="true" aria-expanded="false">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -839,6 +839,7 @@
           {% if user.role == "crew" %}
             <a href="{% url 'employee_management' %}"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Time off &amp; schedule</a>
           {% else %}
+            <a href="/clients/"><i data-lucide="users" class="nav-icon"></i>Clients</a>
             <a href="/jobs/calendar/"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendar</a>
             <a href="/billing/"><i data-lucide="file-plus-2" class="nav-icon"></i>Invoices</a>
             <a href="/billing/estimates/"><i data-lucide="file-text" class="nav-icon"></i>Estimates{% if estimate_queue_count > 0 %} <span class="bottom-nav-count">{{ estimate_queue_count }}</span>{% endif %}</a>
