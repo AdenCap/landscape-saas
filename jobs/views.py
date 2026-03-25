@@ -1784,11 +1784,27 @@ def job_delete(request, job_id):
     # Revert any linked fertilization rounds to pending before deleting
     try:
         from fertilization.models import ScheduledRound as FertScheduledRound
-        linked_fert = FertScheduledRound.objects.filter(job=job)
+        # Find by job FK
+        linked_fert = list(FertScheduledRound.objects.filter(job=job))
+        # Fallback: match by property + date for unlinked rounds
+        if not linked_fert and '[Fertilization]' in (job.notes or ''):
+            linked_fert = list(FertScheduledRound.objects.filter(
+                enrollment__property=job.property,
+                scheduled_date=job.scheduled_date,
+                status__in=['scheduled', 'completed'],
+            ))
         for sr in linked_fert:
             sr.job = None
             sr.status = 'pending'
             sr.save(update_fields=['job', 'status'])
+            # Revert enrollment status
+            enrollment = sr.enrollment
+            completed_count = enrollment.scheduled_rounds.filter(status='completed').count()
+            if completed_count == 0:
+                enrollment.status = 'enrolled'
+            else:
+                enrollment.status = 'in_progress'
+            enrollment.save(update_fields=['status'])
     except Exception:
         pass
 
