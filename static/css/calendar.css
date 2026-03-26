@@ -2364,3 +2364,58 @@ body.is-dragging * {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ══════════════════════════════════════════════
+   MOBILE CALENDAR — clean, full-screen experience
+   ══════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Compact FullCalendar toolbar */
+  .fc .fc-toolbar {
+    font-size: 0.85em;
+    gap: 4px;
+    padding: 4px 0;
+  }
+  .fc .fc-toolbar-title {
+    font-size: 16px !important;
+  }
+  .fc .fc-button {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* Narrower time axis on mobile */
+  .fc .fc-timegrid-axis {
+    width: 36px !important;
+  }
+  .fc .fc-timegrid-slot-label-cushion {
+    font-size: 10px;
+    padding: 0 2px;
+  }
+
+  /* Compact events in time grid */
+  .fc .fc-timegrid-event .fc-event-main {
+    padding: 1px 3px;
+  }
+  .cal-event-card {
+    padding: 2px 4px !important;
+  }
+  .cal-event-name {
+    font-size: 11px !important;
+  }
+  .cal-event-addr {
+    font-size: 9px !important;
+  }
+
+  /* List view: clean mobile cards */
+  .fc .fc-list-event td {
+    padding: 10px 8px;
+  }
+  .fc .fc-list-day-cushion {
+    padding: 8px 10px;
+  }
+
+  /* Day grid month: tighter cells */
+  .fc .fc-daygrid-day {
+    min-height: 60px;
+  }
+}

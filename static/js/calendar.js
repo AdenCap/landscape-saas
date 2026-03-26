@@ -112,20 +112,23 @@ document.addEventListener('DOMContentLoaded', function () {
       listMonth: { buttonText: 'Schedule', duration: { months: 1 } }
     },
     slotMinTime: '06:00:00',
-    slotMaxTime: '22:00:00',
+    slotMaxTime: '21:00:00',
     slotDuration: '00:30:00',
+    scrollTime: '07:00:00',
+    scrollTimeReset: false,
+    stickyHeaderDates: true,
     allDaySlot: false,
     expandRows: true,
     nowIndicator: true,
     eventDisplay: 'block',
     editable: isOwner,
     eventDurationEditable: isOwner,
-    longPressDelay: 300,
+    longPressDelay: 500,
     selectable: isOwner,
     selectMirror: true,
     unselectAuto: true,
-    height: 'auto',
-    dayMaxEvents: isMobile ? 3 : 5,  // Show "+N more" link instead of overflowing
+    height: isMobile ? 'auto' : 'calc(100vh - 200px)',
+    dayMaxEvents: isMobile ? 3 : 5,
 
     // ── Event source (date-range filtered + AbortController) ──
     events: function(info, successCallback, failureCallback) {
