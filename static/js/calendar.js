@@ -95,13 +95,11 @@ document.addEventListener('DOMContentLoaded', function () {
   var calEl = document.getElementById('calendar');
 
   var calendar = new FullCalendar.Calendar(calEl, {
-    headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
-      right: isMobile
-        ? 'listMonth,timeGridDay,dayGridMonth'
-        : 'timeGridWeek,timeGridDay,dayGridMonth,listWeek'
-    },
+    // Expose globally for custom header controls
+    __postInit: true,
+    headerToolbar: isMobile
+      ? { left: 'prev,next', center: '', right: 'timeGridDay,timeGridWeek,dayGridMonth,listMonth' }
+      : { left: 'prev,next', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth,listWeek' },
     initialView: initialView,
     initialDate: initialDate || undefined,
     views: {
@@ -110,6 +108,15 @@ document.addEventListener('DOMContentLoaded', function () {
       timeGridDay: { buttonText: 'Day' },
       listWeek: { buttonText: 'List' },
       listMonth: { buttonText: 'Schedule', duration: { months: 1 } }
+    },
+    // Update month label in custom header
+    datesSet: function(dateInfo) {
+      var label = document.getElementById('cal-month-label');
+      if (label) {
+        var d = dateInfo.view.currentStart || dateInfo.start;
+        var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        label.textContent = months[d.getMonth()];
+      }
     },
     slotMinTime: '06:00:00',
     slotMaxTime: '21:00:00',
@@ -370,6 +377,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
   calendar.render();
+  window._fc = calendar;  // expose for custom header buttons
 
   // Hide skeleton loader once calendar renders
   var skeleton = document.getElementById('calendar-skeleton');

@@ -43,13 +43,26 @@
     background: rgba(34,197,94,.1);
   }
 
+  /* Google Calendar-style header */
+  .cal-header { display:flex;justify-content:space-between;align-items:center;padding:8px 4px;margin-bottom:8px; }
+  .cal-header-left { display:flex;align-items:center;gap:4px; }
+  .cal-header-right { display:flex;align-items:center;gap:6px; }
+  .cal-header-title { display:flex;align-items:center;gap:2px;background:none;border:none;color:var(--text);font-size:20px;font-weight:600;font-family:var(--font-headline);cursor:pointer;padding:4px 8px;border-radius:8px; }
+  .cal-header-title:hover { background:var(--surface-highest); }
+  .cal-header-icon { display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:none;border:none;color:var(--text-muted);cursor:pointer; }
+  .cal-header-icon:hover { background:var(--surface-highest); }
+  .cal-header-icon .material-symbols-outlined { font-size:22px; }
+  .cal-fab { background:var(--primary) !important;color:#111 !important;border-radius:16px !important;width:auto !important;padding:0 14px !important;gap:4px; }
+  .cal-fab .material-symbols-outlined { font-size:20px; }
+
+  .cal-desktop-hide { display:none; }
+  .cal-mobile-hide { display:flex; }
+
   @media (max-width: 768px) {
-    /* Hide toolbar clutter on mobile — just show the calendar */
-    .calendar-toolbar { display: none; }
-    .calendar-page-header { margin-bottom: 8px; }
-    .calendar-page-header h1 { font-size: 20px !important; }
-    .calendar-subtitle { display: none; }
-    .calendar-actions .btn { min-height: 44px; font-size: 12px; padding: 8px 12px; }
+    .cal-mobile-hide { display: none !important; }
+    .cal-desktop-hide { display: flex !important; }
+    .cal-header { padding: 6px 0; }
+    .cal-header-title { font-size: 18px; }
 
     /* Form modals */
     .modal-body input, .modal-body select, .modal-body textarea { font-size: 16px; min-height: 44px; }
@@ -61,28 +74,34 @@
 {% block context_panel %}{% endblock %}
 
 {% block content %}
-<div class="calendar-page-header">
-  <div class="calendar-header-main">
-    <h1 style="font-family:var(--font-headline,'Manrope');font-size:clamp(24px,3vw,36px);font-weight:800;letter-spacing:-0.02em;text-transform:uppercase;">Scheduling &amp; Dispatch</h1>
-    <p class="calendar-subtitle" style="color:var(--text-muted);font-size:13px;">Click dates to create · Drag to reschedule · Scroll to navigate</p>
+<!-- Google Calendar-style header -->
+<div class="cal-header">
+  <div class="cal-header-left">
+    <button type="button" id="cal-menu-btn" class="cal-header-icon cal-desktop-hide" onclick="document.getElementById('cal-drawer').classList.toggle('open')">
+      <span class="material-symbols-outlined">menu</span>
+    </button>
+    <button type="button" id="cal-title-btn" class="cal-header-title" onclick="if(window._fc) window._fc.today()">
+      <span id="cal-month-label">March</span>
+      <span class="material-symbols-outlined" style="font-size:18px;">arrow_drop_down</span>
+    </button>
   </div>
-  <div class="calendar-actions">
+  <div class="cal-header-right">
+    <button type="button" id="calendar-today-btn" class="cal-header-icon" title="Today" style="font-size:12px;font-weight:700;width:auto;padding:0 8px;">
+      {{ today.day }}
+    </button>
     {% if user.role == "owner" or user.role == "manager" %}
-    <a href="{% url 'create_job' %}" class="btn btn-primary" style="text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">
-      <span class="material-symbols-outlined" style="font-size:16px;">add</span> New Job
+    <a href="{% url 'create_job' %}" class="cal-header-icon cal-fab" title="New Job">
+      <span class="material-symbols-outlined">add</span>
     </a>
-    <a href="{% url 'meeting_create' %}" class="btn btn-secondary" style="text-transform:uppercase;letter-spacing:0.05em;">Meeting</a>
     {% endif %}
-    <a href="{% url 'daily_route' %}" class="btn btn-secondary" style="text-transform:uppercase;letter-spacing:0.05em;">Routes</a>
   </div>
 </div>
 
-<!-- Toolbar -->
-<div class="calendar-toolbar card">
+<!-- Desktop toolbar (hidden on mobile) -->
+<div class="calendar-toolbar card cal-mobile-hide">
   <div class="calendar-toolbar-left">
     <input type="date" id="calendar-goto-date" class="toolbar-date-input" aria-label="Jump to date">
     <button type="button" id="calendar-goto-btn" class="btn btn-secondary btn-sm">Go</button>
-    <button type="button" id="calendar-today-btn" class="btn btn-secondary btn-sm">Today</button>
   </div>
   <div class="calendar-toolbar-center">
     <select id="filter-crews" class="toolbar-filter-select" aria-label="Filter by crew">
@@ -115,8 +134,8 @@
   </div>
 </div>
 
-<!-- Status legend -->
-<div class="crew-legend-bar">
+<!-- Status legend (desktop only) -->
+<div class="crew-legend-bar cal-mobile-hide">
   <span class="legend-item"><span class="legend-dot" style="background: #3b82f6;"></span>Scheduled</span>
   <span class="legend-item"><span class="legend-dot" style="background: #f59e0b;"></span>In Progress</span>
   <span class="legend-item"><span class="legend-dot" style="background: #22c55e;"></span>Completed</span>
