@@ -8,7 +8,7 @@
   --fc-border-color: rgba(66, 72, 68, 0.1);
   --fc-bg-color: #131313;
   --fc-highlight-color: rgba(157, 216, 80, 0.06);
-  --fc-today-bg-color: rgba(157, 216, 80, 0.03);
+  --fc-today-bg-color: transparent;
   --fc-now-indicator-color: #ef4444;
   --fc-neutral-bg-color: #1c1b1b;
   --fc-list-event-hover-bg-color: #201f1f;
@@ -2363,6 +2363,86 @@ body.is-dragging * {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+
+/* ══════════════════════════════════════════════
+   PREMIUM CALENDAR — Google Calendar-inspired
+   ══════════════════════════════════════════════ */
+
+/* Today: colored circle on day number, not cell background */
+.fc .fc-day-today {
+  background-color: transparent !important;
+}
+.fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  background: var(--primary);
+  color: #111;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+.fc .fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion {
+  color: var(--primary);
+  font-weight: 700;
+}
+.fc-timegrid-col.fc-day-today {
+  background-color: rgba(157,216,80,0.02) !important;
+}
+
+/* Now indicator: thicker line with pulsing dot */
+.fc .fc-timegrid-now-indicator-line {
+  border-color: #ef4444;
+  border-width: 2px;
+}
+.fc .fc-timegrid-now-indicator-arrow {
+  border: none;
+  background: #ef4444;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: -4px;
+  left: -1px;
+}
+
+/* Day number: clickable circle affordance */
+.fc .fc-daygrid-day-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 2px;
+  transition: background 0.1s;
+}
+.fc .fc-daygrid-day-number:hover {
+  background: var(--surface-highest);
+}
+
+/* Lighter grid lines */
+.fc td, .fc th {
+  border-color: rgba(66,72,68,0.08);
+}
+
+/* Day cell hover in month view */
+.fc .fc-daygrid-day:hover {
+  background-color: rgba(255,255,255,0.01);
+}
+
+/* Month view cursor: pointer (click to navigate) */
+.fc-dayGridMonth-view .fc-daygrid-day {
+  cursor: pointer;
+}
+
+/* Time view cursor: default (no click-to-create) */
+.fc-timeGridWeek-view .fc-timegrid-slot,
+.fc-timeGridDay-view .fc-timegrid-slot {
+  cursor: default;
 }
 
 /* ══════════════════════════════════════════════

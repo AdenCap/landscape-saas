@@ -131,9 +131,8 @@ document.addEventListener('DOMContentLoaded', function () {
     editable: isOwner,
     eventDurationEditable: isOwner,
     longPressDelay: 500,
-    selectable: isOwner,
-    selectMirror: true,
-    unselectAuto: true,
+    navLinks: true,
+    navLinkDayClick: 'timeGridDay',
     height: isMobile ? 'calc(100vh - 140px)' : 'calc(100vh - 200px)',
     dayMaxEvents: isMobile ? 3 : 5,
 
@@ -213,18 +212,16 @@ document.addEventListener('DOMContentLoaded', function () {
       return { domNodes: [container] };
     },
 
-    // ── Click date → quick-create popover (Google Calendar style) ──
+    // ── Click date → navigate to day view (month), or nothing (day/week) ──
     dateClick: function(info) {
-      if (!isOwner) return;
-      openQuickCreate(info.date, info.dateStr, info.jsEvent, info.view.type);
+      if (info.view.type === 'dayGridMonth') {
+        calendar.changeView('timeGridDay', info.dateStr);
+      }
+      // In day/week views, clicking empty space does nothing — use + button
     },
 
-    // ── Drag-select time range → quick-create with time pre-filled ──
-    select: function(info) {
-      if (!isOwner) return;
-      openQuickCreate(info.start, info.startStr, info.jsEvent, info.view.type, info.end);
-      calendar.unselect();
-    },
+    // ── Drag-select time range → disabled (use + button instead) ──
+    selectable: false,
 
     // ── Drag event to reschedule ──
     eventDrop: function(info) {
