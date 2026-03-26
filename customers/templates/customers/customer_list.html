@@ -60,7 +60,7 @@
         <td><a href="{% url 'customer_detail' c.id %}" class="link-primary" style="font-weight:600;">{{ c.name }}</a></td>
         <td style="white-space:nowrap;">
           {% if c.email %}<a href="mailto:{{ c.email }}" title="{{ c.email }}" style="text-decoration:none;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);vertical-align:-3px;">mail</span></a>{% endif %}
-          {% if c.phone %}<a href="tel:{{ c.phone }}" title="{{ c.phone }}" style="text-decoration:none;margin-left:6px;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);vertical-align:-3px;">phone</span></a>{% endif %}
+          {% if c.phone %}<a href="tel:{{ c.phone }}" title="Call {{ c.phone }}" style="text-decoration:none;margin-left:6px;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);vertical-align:-3px;">phone</span></a><a href="sms:{{ c.phone }}" title="Text {{ c.phone }}" style="text-decoration:none;margin-left:4px;"><span class="material-symbols-outlined" style="font-size:16px;color:#60a5fa;vertical-align:-3px;">sms</span></a>{% endif %}
           {% if not c.phone and not c.email %}<span style="color:var(--text-muted);">—</span>{% endif %}
         </td>
         <td class="crm-hide-mobile">{{ c.full_address }}</td>

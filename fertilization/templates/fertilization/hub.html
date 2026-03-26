@@ -182,7 +182,7 @@
               <strong>{{ enr.property.customer.name }}</strong>
               <span style="margin-left:6px;" onclick="event.stopPropagation()">
                 {% if enr.property.customer.email %}<a href="mailto:{{ enr.property.customer.email }}" title="{{ enr.property.customer.email }}" style="text-decoration:none;"><span class="material-symbols-outlined" style="font-size:14px;color:var(--primary);vertical-align:-2px;">mail</span></a>{% endif %}
-                {% if enr.property.customer.phone %}<a href="tel:{{ enr.property.customer.phone }}" title="{{ enr.property.customer.phone }}" style="text-decoration:none;margin-left:3px;"><span class="material-symbols-outlined" style="font-size:14px;color:var(--text-muted);vertical-align:-2px;">phone</span></a>{% endif %}
+                {% if enr.property.customer.phone %}<a href="tel:{{ enr.property.customer.phone }}" title="Call {{ enr.property.customer.phone }}" style="text-decoration:none;margin-left:3px;"><span class="material-symbols-outlined" style="font-size:14px;color:var(--text-muted);vertical-align:-2px;">phone</span></a><a href="sms:{{ enr.property.customer.phone }}" title="Text {{ enr.property.customer.phone }}" style="text-decoration:none;margin-left:3px;"><span class="material-symbols-outlined" style="font-size:14px;color:#60a5fa;vertical-align:-2px;">sms</span></a>{% endif %}
               </span>
             </td>
             <td class="fert-hide-mobile" style="font-size:13px;color:var(--text-secondary);">{{ enr.property.address|truncatewords:5 }}</td>
