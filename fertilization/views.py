@@ -398,14 +398,16 @@ def hub(request):
         sqft = enr.property.yard_sqft or 0
         lbs_needed = round(sqft / 1000 * 4, 1) if sqft else 0
 
-        program_clients[pid]["active_round_ids"].extend(active_ids)
+        # Only the FIRST pending round per client (the next one to schedule)
+        next_round_id = active_ids[0] if active_ids else (all_pending_ids[0] if all_pending_ids else None)
+        program_clients[pid]["active_round_ids"].extend(active_ids[:1] if active_ids else all_pending_ids[:1])
         enr.calc_rounds_completed = rounds_completed
-        # Use the program's round count — but if enrollment has fewer scheduled rounds, use that
         actual_scheduled = enr.scheduled_rounds.count()
         enr.calc_rounds_total = min(program_clients[pid]["program_round_count"], actual_scheduled) if actual_scheduled else program_clients[pid]["program_round_count"]
         enr.calc_sqft = sqft
         enr.calc_lbs_needed = lbs_needed
-        enr.calc_active_ids = ','.join(str(rid) for rid in active_ids)
+        # next_round_id = just the single next round to schedule
+        enr.calc_next_round_id = str(next_round_id) if next_round_id else ''
         enr.calc_all_pending_ids = ','.join(str(rid) for rid in all_pending_ids)
         enr.calc_has_pending = len(all_pending_ids) > 0
         enr.calc_pending_rounds = all_pending_rounds
