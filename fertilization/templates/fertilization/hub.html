@@ -20,13 +20,13 @@
      TAB NAVIGATION
      ═══════════════════════════════════════════════════════════ -->
 <nav class="fert-tabs" aria-label="Fertilization sections">
-  <a href="#programs" class="fert-tab active" data-tab="programs">
-    <i data-lucide="clipboard-list" style="width:16px;height:16px;"></i>
-    Programs
-  </a>
-  <a href="#customers" class="fert-tab" data-tab="customers">
+  <a href="#customers" class="fert-tab active" data-tab="customers">
     <i data-lucide="users" style="width:16px;height:16px;"></i>
     Customers
+  </a>
+  <a href="#programs" class="fert-tab" data-tab="programs">
+    <i data-lucide="clipboard-list" style="width:16px;height:16px;"></i>
+    Programs
   </a>
   <a href="#products" class="fert-tab" data-tab="products">
     <i data-lucide="package" style="width:16px;height:16px;"></i>
@@ -51,7 +51,7 @@
 <!-- ═══════════════════════════════════════════════════════════
      PROGRAMS TAB
      ═══════════════════════════════════════════════════════════ -->
-<div id="panel-programs" class="fert-panel" data-panel="programs">
+<div id="panel-programs" class="fert-panel" data-panel="programs" style="display:none;">
   <div class="panel-header">
     <h2>Fertilization Programs</h2>
     <a href="{% url 'fertilization:program_builder' %}" class="btn btn-primary btn-sm">+ New Program</a>
@@ -108,7 +108,7 @@
 <!-- ═══════════════════════════════════════════════════════════
      CUSTOMERS TAB — Organized by Program
      ═══════════════════════════════════════════════════════════ -->
-<div id="panel-customers" class="fert-panel" data-panel="customers" style="display:none;">
+<div id="panel-customers" class="fert-panel" data-panel="customers">
   <div class="panel-header">
     <h2>Clients ({{ current_year }})</h2>
     <a href="{% url 'fertilization:enrollment_builder' %}" class="btn btn-primary btn-sm">+ Enroll Customer</a>
