@@ -66,24 +66,40 @@
 
 <!-- Bulk Schedule Bar (hidden until checkboxes selected) -->
 <div id="mow-bulk-schedule" style="display:none;padding:12px 16px;margin-bottom:14px;background:rgba(157,216,80,0.08);border:1px solid rgba(157,216,80,0.2);border-radius:10px;">
-  <form method="post" action="{% url 'mowing_bulk_schedule' %}" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <form method="post" action="{% url 'mowing_bulk_schedule' %}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
     {% csrf_token %}
     <div id="mow-schedule-inputs"></div>
-    <span style="font-size:13px;font-weight:600;"><span id="mow-schedule-count">0</span> selected</span>
-    <div style="display:flex;align-items:center;gap:6px;">
-      <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Date:</label>
-      <input type="date" name="schedule_date" required style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;">
+    <span style="font-size:12px;font-weight:600;"><span id="mow-schedule-count">0</span> selected</span>
+    <select name="schedule_mode" id="mow-sched-mode" onchange="mowModeChange()" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:11px;">
+      <option value="once">Schedule once</option>
+      <option value="season">Schedule for season</option>
+    </select>
+    <div style="display:flex;align-items:center;gap:4px;">
+      <label style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;" id="mow-date-label">Date:</label>
+      <input type="date" name="schedule_date" required style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:11px;">
     </div>
-    <button type="submit" class="btn btn-primary" style="font-size:12px;padding:8px 16px;">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">calendar_month</span>
-      Schedule Mowing
+    <div id="mow-season-end" style="display:none;align-items:center;gap:4px;">
+      <label style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">End:</label>
+      <input type="date" name="season_end" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:11px;">
+      <span style="font-size:10px;color:var(--text-muted);">Default: Oct 31</span>
+    </div>
+    <button type="submit" class="btn btn-primary" style="font-size:11px;padding:6px 14px;">
+      <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:2px;">calendar_month</span>
+      Schedule
     </button>
-    <button type="button" class="btn btn-secondary" style="font-size:12px;padding:8px 16px;" onclick="document.getElementById('bulk-modal').style.display='flex'">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">mail</span>
+    <button type="button" class="btn btn-secondary" style="font-size:11px;padding:6px 14px;" onclick="document.getElementById('bulk-modal').style.display='flex'">
+      <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:2px;">mail</span>
       Message
     </button>
   </form>
 </div>
+<script>
+function mowModeChange() {
+  var mode = document.getElementById('mow-sched-mode').value;
+  document.getElementById('mow-season-end').style.display = mode === 'season' ? 'flex' : 'none';
+  document.getElementById('mow-date-label').textContent = mode === 'season' ? 'Start:' : 'Date:';
+}
+</script>
 
 <!-- Bulk message modal -->
 <div id="bulk-modal" class="mow-modal-overlay" style="display:none;">

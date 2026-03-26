@@ -2675,7 +2675,7 @@ def add_mowing_client(request):
 @require_POST
 @role_required("owner", "manager")
 def mowing_bulk_schedule(request):
-    """Batch-create mowing jobs for selected clients on a specific date."""
+    """Batch-create mowing jobs — once or for the entire season based on frequency."""
     business = get_business(request)
     if not business:
         return redirect("/")
@@ -2685,9 +2685,11 @@ def mowing_bulk_schedule(request):
 
     property_ids = request.POST.getlist("property_ids")
     schedule_date_str = request.POST.get("schedule_date", "")
+    schedule_mode = request.POST.get("schedule_mode", "once")
+    season_end_str = request.POST.get("season_end", "")
 
     if not property_ids or not schedule_date_str:
-        messages.error(request, "Select clients and pick a date.")
+        messages.error(request, "Select clients and pick a start date.")
         return redirect("mowing_hub")
 
     try:
@@ -2695,6 +2697,17 @@ def mowing_bulk_schedule(request):
     except (ValueError, TypeError):
         messages.error(request, "Invalid date.")
         return redirect("mowing_hub")
+
+    # Season end date
+    season_end = None
+    if schedule_mode == "season" and season_end_str:
+        try:
+            season_end = date.fromisoformat(season_end_str)
+        except (ValueError, TypeError):
+            pass
+    if schedule_mode == "season" and not season_end:
+        # Default: end of October
+        season_end = date(schedule_date.year, 10, 31)
 
     mowing_svc = ServiceTemplate.objects.filter(
         business=business, active=True, name__icontains="mow"
@@ -2704,25 +2717,61 @@ def mowing_bulk_schedule(request):
         id__in=property_ids, customer__business=business
     ).select_related("customer")
 
+    # Get frequency per property from their RecurringJob
+    prop_frequencies = {}
+    for rj in RecurringJob.objects.filter(property_id__in=property_ids, active=True):
+        prop_frequencies[rj.property_id] = rj.frequency
+
     created = 0
     for prop in properties:
-        job = Job.objects.create(
-            property=prop,
-            scheduled_date=schedule_date,
-            status="scheduled",
-            notes=f"[Mowing] {prop.customer.name}",
-        )
-        if mowing_svc:
-            unit, rate = get_effective_rate(prop, mowing_svc)
-            JobServiceItem.objects.create(
-                job=job,
-                service=mowing_svc,
-                description="Mowing",
-                quantity=1,
-                unit=unit,
-                unit_price=rate,
-            )
-        created += 1
+        freq = prop_frequencies.get(prop.id, "weekly")
 
-    messages.success(request, f"Scheduled {created} mowing job{'' if created == 1 else 's'} for {schedule_date.strftime('%b %d')}.")
+        if schedule_mode == "season":
+            # Generate recurring dates from start to season end
+            interval = 7 if freq == "weekly" else (14 if freq == "biweekly" else 30)
+            current_date = schedule_date
+            while current_date <= season_end:
+                # Skip weekends if needed (keep on weekdays)
+                Job.objects.create(
+                    property=prop,
+                    scheduled_date=current_date,
+                    status="scheduled",
+                    notes=f"[Mowing] {prop.customer.name}",
+                )
+                if mowing_svc:
+                    unit, rate = get_effective_rate(prop, mowing_svc)
+                    JobServiceItem.objects.create(
+                        job=Job.objects.filter(property=prop, scheduled_date=current_date).last(),
+                        service=mowing_svc,
+                        description="Mowing",
+                        quantity=1,
+                        unit=unit,
+                        unit_price=rate,
+                    )
+                created += 1
+                current_date += timedelta(days=interval)
+        else:
+            # Single job
+            job = Job.objects.create(
+                property=prop,
+                scheduled_date=schedule_date,
+                status="scheduled",
+                notes=f"[Mowing] {prop.customer.name}",
+            )
+            if mowing_svc:
+                unit, rate = get_effective_rate(prop, mowing_svc)
+                JobServiceItem.objects.create(
+                    job=job,
+                    service=mowing_svc,
+                    description="Mowing",
+                    quantity=1,
+                    unit=unit,
+                    unit_price=rate,
+                )
+            created += 1
+
+    if schedule_mode == "season":
+        messages.success(request, f"Scheduled {created} mowing job{'' if created == 1 else 's'} through {season_end.strftime('%b %d')}.")
+    else:
+        messages.success(request, f"Scheduled {created} mowing job{'' if created == 1 else 's'} for {schedule_date.strftime('%b %d')}.")
     return redirect("mowing_hub")
