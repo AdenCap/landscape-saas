@@ -30,6 +30,7 @@
       Quote Queue{% if queue_count %} <span class="queue-badge">{{ queue_count }}</span>{% endif %}
     </a>
     <a href="{% url 'estimator_index' %}" class="billing-tab {% if '/estimator' in request.path %}active{% endif %}">Estimator Tools</a>
+    <a href="{% url 'service_pricing' %}" class="billing-tab {% if '/service-pricing' in request.path %}active{% endif %}">Service Pricing</a>
     <a href="{% url 'billing:fertilizer_products_list' %}" class="billing-tab {% if '/fertilizer-products' in request.path %}active{% endif %}">Fertilizer Products</a>
     <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="billing-tab {% if '/templates/estimate' in request.path %}active{% endif %}">Estimate template editor</a>
   </div>
