@@ -222,12 +222,17 @@ If you have any questions, please don't hesitate to reach out.
 })();
 </script>
 
-<!-- Client List -->
+<!-- Select toggle + Client List -->
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+  <button type="button" class="btn btn-ghost" id="mow-toggle-select" style="font-size:11px;padding:4px 10px;color:var(--text-muted);">
+    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:2px;">checklist</span> Select
+  </button>
+</div>
 <div class="card" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
   <table class="data-table" id="mow-table">
     <thead>
       <tr>
-        <th style="width:32px;"></th>
+        <th class="mow-sel-col" style="width:32px;display:none;"><input type="checkbox" id="select-all" style="accent-color:var(--primary);width:16px;height:16px;"></th>
         <th>Client</th>
         <th class="mow-hide-mobile">Address</th>
         <th>Freq</th>
@@ -240,10 +245,10 @@ If you have any questions, please don't hesitate to reach out.
     </thead>
     <tbody>
       {% for c in clients %}
-      <tr class="mow-row" data-freq="{{ c.frequency_key }}" data-has-jobs="{% if c.this_week_jobs %}yes{% else %}no{% endif %}" data-cid="{{ c.customer.id }}" data-email="{{ c.has_email|yesno:'1,0' }}" data-missed="{% if c.is_missed %}yes{% else %}no{% endif %}" {% if c.is_missed %}style="border-left:3px solid #f87171;"{% endif %}>
-        <td><input type="checkbox" class="mow-check" value="{{ c.customer.id }}" data-propid="{{ c.properties.0.id }}" style="accent-color:var(--primary);width:16px;height:16px;"></td>
+      <tr class="mow-row" data-freq="{{ c.frequency_key }}" data-has-jobs="{% if c.this_week_jobs %}yes{% else %}no{% endif %}" data-cid="{{ c.customer.id }}" data-email="{{ c.has_email|yesno:'1,0' }}" data-missed="{% if c.is_missed %}yes{% else %}no{% endif %}" style="cursor:pointer;{% if c.is_missed %}border-left:3px solid #f87171;{% endif %}" onclick="window.location='{% url 'customer_detail' c.customer.id %}'">
+        <td class="mow-sel-col" style="display:none;" onclick="event.stopPropagation()"><input type="checkbox" class="mow-check" value="{{ c.customer.id }}" data-propid="{{ c.properties.0.id }}" style="accent-color:var(--primary);width:16px;height:16px;"></td>
         <td>
-          <a href="{% url 'customer_detail' c.customer.id %}" class="link-primary" style="font-weight:600;">{{ c.customer.name }}</a>
+          <strong>{{ c.customer.name }}</strong>
         </td>
         <td class="mow-hide-mobile" style="font-size:13px;color:var(--text-secondary);">
           {{ c.properties.0.address|truncatechars:40 }}
@@ -287,7 +292,7 @@ If you have any questions, please don't hesitate to reach out.
         <td class="mow-hide-mobile" style="font-size:13px;font-weight:600;color:var(--primary);">
           {% if c.avg_duration %}{{ c.avg_duration }}{% else %}&mdash;{% endif %}
         </td>
-        <td style="white-space:nowrap;">
+        <td style="white-space:nowrap;" onclick="event.stopPropagation()">
           {% if c.has_email %}<a href="mailto:{{ c.customer.email }}" title="{{ c.customer.email }}" style="text-decoration:none;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);vertical-align:-3px;">mail</span></a>{% endif %}
           {% if c.has_phone %}<a href="tel:{{ c.customer.phone }}" title="Call {{ c.customer.phone }}" style="text-decoration:none;margin-left:4px;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);vertical-align:-3px;">phone</span></a><a href="sms:{{ c.customer.phone }}" title="Text {{ c.customer.phone }}" style="text-decoration:none;margin-left:4px;"><span class="material-symbols-outlined" style="font-size:16px;color:#60a5fa;vertical-align:-3px;">sms</span></a>{% endif %}
         </td>
@@ -419,6 +424,21 @@ If you have any questions, please don't hesitate to reach out.
       alert('Failed to send messages.');
     });
   });
+
+  // Toggle select mode
+  var toggleBtn = document.getElementById('mow-toggle-select');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function() {
+      var cols = document.querySelectorAll('.mow-sel-col');
+      var showing = cols[0] && cols[0].style.display !== 'none';
+      cols.forEach(function(col) { col.style.display = showing ? 'none' : ''; });
+      toggleBtn.style.color = showing ? 'var(--text-muted)' : 'var(--primary)';
+      if (showing) {
+        document.querySelectorAll('.mow-check').forEach(function(cb) { cb.checked = false; });
+        updateBulkBtn();
+      }
+    });
+  }
 })();
 </script>
 
