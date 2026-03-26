@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
-from django.db.models import Sum, Q, F
+from django.db.models import Sum, Q, F, Count
 from django.http import FileResponse, Http404, JsonResponse
 from django.utils import timezone
 
@@ -17,7 +17,7 @@ from .receipt_parser import parse_receipt_image
 
 @role_required("owner")
 def financials_dashboard(request):
-    """Full company financials: revenue, invoices, projected revenue, expenses, labor."""
+    """Full company financials: KPIs, charts, overdue aging, drafts."""
     business = _get_business(request)
     if not business:
         messages.error(request, "You must be associated with a business to view financials.")
@@ -27,101 +27,168 @@ def financials_dashboard(request):
     year_start = today.replace(month=1, day=1)
     year_end = today.replace(year=today.year + 1, month=1, day=1)
     month_start = today.replace(day=1)
-    if today.month == 12:
-        month_end = today.replace(day=31)
-    else:
-        month_end = (today.replace(month=today.month + 1, day=1)) - timedelta(days=1)
 
     from billing.models import Invoice
     from jobs.models import JobServiceItem
-
-    # Revenue (paid invoices only) — using issue_date as the date of revenue
-    inv_qs = Invoice.objects.filter(business=business, status="paid")
-    revenue_today = inv_qs.filter(issue_date=today).aggregate(Sum("total"))["total__sum"] or Decimal("0")
-    revenue_month = inv_qs.filter(issue_date__gte=month_start, issue_date__lte=month_end).aggregate(Sum("total"))["total__sum"] or Decimal("0")
-    revenue_year = inv_qs.filter(issue_date__gte=year_start, issue_date__lt=year_end).aggregate(Sum("total"))["total__sum"] or Decimal("0")
-
-    # Invoices past due (sent or draft, due_date < today)
-    past_due = Invoice.objects.filter(
-        business=business,
-        status__in=("sent", "draft"),
-        due_date__isnull=False,
-        due_date__lt=today,
-    ).select_related("customer").order_by("due_date")
-    past_due_count = past_due.count()
-    past_due_total = past_due.aggregate(Sum("total"))["total__sum"] or Decimal("0")
-
-    # Invoices to be sent (draft)
-    to_send = Invoice.objects.filter(business=business, status="draft").select_related("customer").order_by("issue_date")
-    to_send_count = to_send.count()
-    to_send_total = to_send.aggregate(Sum("total"))["total__sum"] or Decimal("0")
-
-    # Projected revenue: sum of job service item totals for jobs scheduled this year (excluding skipped)
-    projected_revenue = (
-        JobServiceItem.objects.filter(
-            job__property__customer__business=business,
-            job__scheduled_date__year=today.year,
-        )
-        .exclude(job__status="skipped")
-        .aggregate(tot=Sum(F("quantity") * F("unit_price")))["tot"]
-        or Decimal("0")
-    )
-
-    # Total expenses for the year (receipts)
-    total_expenses_year = (
-        Receipt.objects.filter(business=business, receipt_date__year=today.year).aggregate(Sum("amount"))["amount__sum"]
-        or Decimal("0")
-    )
-
-    # Labor expenses: receipts with category labor + timesheet labor (hours * hourly_rate)
-    labor_receipts = (
-        Receipt.objects.filter(business=business, category="labor", receipt_date__year=today.year).aggregate(Sum("amount"))["amount__sum"]
-        or Decimal("0")
-    )
     from time_tracking.models import TimeEntry
-    year_entries = TimeEntry.objects.filter(
-        user__business=business,
-        clock_out__isnull=False,
-        clock_in__date__gte=year_start,
-        clock_in__date__lt=year_end,
-    ).select_related("user")
-    labor_timesheet = Decimal("0")
-    for e in year_entries:
-        rate = (e.user.hourly_rate or Decimal("0"))
-        mins = e.duration_minutes or 0
-        labor_timesheet += Decimal(str(mins)) / Decimal("60") * rate
-    labor_expenses_year = labor_receipts + labor_timesheet
+    from .models import OverheadExpense, EquipmentAsset, VehicleAsset
+    import calendar as cal_mod
+    from django.db.models import DecimalField
+    from django.db.models.functions import Coalesce
 
-    # Pay schedule form (for payroll balance on dashboard)
-    pay_schedule_form = PayScheduleForm(instance=business)
-    if request.method == "POST" and request.POST.get("form_type") == "pay_schedule":
-        pay_schedule_form = PayScheduleForm(request.POST, instance=business)
-        if pay_schedule_form.is_valid():
-            business = pay_schedule_form.save(commit=False)
-            freq = pay_schedule_form.cleaned_data.get("pay_frequency")
-            if freq == "custom_dates":
-                business.pay_specific_days = pay_schedule_form.cleaned_data.get("pay_specific_days_parsed") or []
-            else:
-                business.pay_specific_days = None
-            business.save()
-            messages.success(request, "Pay schedule updated.")
-            return redirect("financials:dashboard")
+    inv_qs = Invoice.objects.filter(business=business, status="paid")
+
+    # --- KPI: Revenue this month ---
+    revenue_month = inv_qs.filter(
+        issue_date__gte=month_start
+    ).aggregate(
+        total=Coalesce(Sum("total"), Decimal("0"), output_field=DecimalField(max_digits=12, decimal_places=2))
+    )["total"]
+
+    # --- KPI: Revenue last month (for comparison) ---
+    if today.month == 1:
+        last_month_start = today.replace(year=today.year - 1, month=12, day=1)
+    else:
+        last_month_start = today.replace(month=today.month - 1, day=1)
+    last_month_end = month_start - timedelta(days=1)
+    revenue_last_month = inv_qs.filter(
+        issue_date__gte=last_month_start, issue_date__lte=last_month_end
+    ).aggregate(
+        total=Coalesce(Sum("total"), Decimal("0"), output_field=DecimalField(max_digits=12, decimal_places=2))
+    )["total"]
+
+    # --- KPI: Revenue this year ---
+    revenue_year = inv_qs.filter(
+        issue_date__gte=year_start, issue_date__lt=year_end
+    ).aggregate(
+        total=Coalesce(Sum("total"), Decimal("0"), output_field=DecimalField(max_digits=12, decimal_places=2))
+    )["total"]
+
+    # --- KPI: Expenses this month ---
+    expenses_month = Receipt.objects.filter(
+        business=business, receipt_date__gte=month_start
+    ).aggregate(total=Coalesce(Sum("amount"), Decimal("0"), output_field=DecimalField()))["total"]
+
+    # Labor cost this month
+    month_entries = TimeEntry.objects.filter(
+        user__business=business, clock_out__isnull=False,
+        clock_in__date__gte=month_start
+    ).select_related("user")
+    labor_month = Decimal("0")
+    for e in month_entries:
+        rate = e.user.hourly_rate or Decimal("0")
+        mins = e.duration_minutes or 0
+        labor_month += Decimal(str(mins)) / Decimal("60") * rate
+    total_costs_month = expenses_month + labor_month
+
+    # --- KPI: Profit this month ---
+    profit_month = revenue_month - total_costs_month
+
+    # --- KPI: Outstanding AR ---
+    ar_outstanding = Invoice.objects.filter(
+        business=business, status="sent"
+    ).aggregate(
+        total=Coalesce(Sum("total"), Decimal("0"), output_field=DecimalField())
+    )["total"]
+
+    # --- KPI: Overdue ---
+    overdue_qs = Invoice.objects.filter(
+        business=business, status="sent", due_date__isnull=False, due_date__lt=today
+    )
+    overdue_count = overdue_qs.count()
+    overdue_total = overdue_qs.aggregate(
+        total=Coalesce(Sum("total"), Decimal("0"), output_field=DecimalField())
+    )["total"]
+
+    # --- Overdue aging ---
+    day_30 = today - timedelta(days=30)
+    day_60 = today - timedelta(days=60)
+    aging_0_30 = Invoice.objects.filter(business=business, status="sent", due_date__isnull=False, due_date__gte=day_30, due_date__lt=today).aggregate(count=Count("id"), total=Coalesce(Sum("total"), Decimal("0"), output_field=DecimalField()))
+    aging_30_60 = Invoice.objects.filter(business=business, status="sent", due_date__isnull=False, due_date__gte=day_60, due_date__lt=day_30).aggregate(count=Count("id"), total=Coalesce(Sum("total"), Decimal("0"), output_field=DecimalField()))
+    aging_60_plus = Invoice.objects.filter(business=business, status="sent", due_date__isnull=False, due_date__lt=day_60).aggregate(count=Count("id"), total=Coalesce(Sum("total"), Decimal("0"), output_field=DecimalField()))
+
+    # --- Chart: Monthly Revenue & Profit (last 6 months) ---
+    monthly_labels = []
+    monthly_revenue = []
+    monthly_profit = []
+    for i in range(5, -1, -1):
+        m = today.month - i
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        monthly_labels.append(cal_mod.month_abbr[m])
+        first_day = today.replace(year=y, month=m, day=1)
+        if m == 12:
+            last_day = today.replace(year=y + 1, month=1, day=1)
+        else:
+            last_day = today.replace(year=y, month=m + 1, day=1)
+        rev = inv_qs.filter(issue_date__gte=first_day, issue_date__lt=last_day).aggregate(
+            total=Coalesce(Sum("total"), Decimal("0"), output_field=DecimalField())
+        )["total"]
+        exp = Receipt.objects.filter(business=business, receipt_date__gte=first_day, receipt_date__lt=last_day).aggregate(
+            total=Coalesce(Sum("amount"), Decimal("0"), output_field=DecimalField())
+        )["total"]
+        monthly_revenue.append(float(rev))
+        monthly_profit.append(float(rev - exp))
+
+    # --- Chart: Expense breakdown ---
+    overhead_annual = sum(e.annual_cost for e in OverheadExpense.objects.filter(business=business, active=True))
+    equipment_annual = sum(eq.annual_cost for eq in EquipmentAsset.objects.filter(business=business, active=True))
+    vehicle_annual = sum(v.annual_cost for v in VehicleAsset.objects.filter(business=business, active=True))
+    labor_year = Receipt.objects.filter(business=business, category="labor", receipt_date__year=today.year).aggregate(
+        total=Coalesce(Sum("amount"), Decimal("0"), output_field=DecimalField())
+    )["total"]
+    # Add timesheet labor
+    year_entries = TimeEntry.objects.filter(
+        user__business=business, clock_out__isnull=False,
+        clock_in__date__gte=year_start, clock_in__date__lt=year_end
+    ).select_related("user")
+    for e in year_entries:
+        rate = e.user.hourly_rate or Decimal("0")
+        mins = e.duration_minutes or 0
+        labor_year += Decimal(str(mins)) / Decimal("60") * rate
+    expense_labels = ['Overhead', 'Equipment', 'Vehicles', 'Labor']
+    expense_values = [float(overhead_annual), float(equipment_annual), float(vehicle_annual), float(labor_year)]
+
+    # --- Drafts to send ---
+    drafts = Invoice.objects.filter(business=business, status="draft").select_related("customer").order_by("issue_date")[:8]
+    drafts_count = Invoice.objects.filter(business=business, status="draft").count()
+    drafts_total = Invoice.objects.filter(business=business, status="draft").aggregate(
+        total=Coalesce(Sum("total"), Decimal("0"), output_field=DecimalField())
+    )["total"]
+
+    # --- Overdue invoices list ---
+    overdue_invoices = overdue_qs.select_related("customer").order_by("due_date")[:8]
+
+    # Revenue trend indicator
+    if revenue_last_month and revenue_last_month > 0:
+        revenue_change_pct = round(((revenue_month - revenue_last_month) / revenue_last_month) * 100, 1)
+    else:
+        revenue_change_pct = 0
 
     return render(request, "financials/dashboard.html", {
-        "revenue_today": revenue_today,
-        "revenue_month": revenue_month,
-        "revenue_year": revenue_year,
-        "past_due_invoices": past_due[:10],
-        "past_due_count": past_due_count,
-        "past_due_total": past_due_total,
-        "to_send_invoices": to_send[:10],
-        "to_send_count": to_send_count,
-        "to_send_total": to_send_total,
-        "projected_revenue": projected_revenue,
-        "total_expenses_year": total_expenses_year,
-        "labor_expenses_year": labor_expenses_year,
         "today": today,
-        "pay_schedule_form": pay_schedule_form,
+        "revenue_month": revenue_month,
+        "revenue_last_month": revenue_last_month,
+        "revenue_year": revenue_year,
+        "revenue_change_pct": revenue_change_pct,
+        "profit_month": profit_month,
+        "ar_outstanding": ar_outstanding,
+        "overdue_count": overdue_count,
+        "overdue_total": overdue_total,
+        "aging_0_30": aging_0_30,
+        "aging_30_60": aging_30_60,
+        "aging_60_plus": aging_60_plus,
+        "overdue_invoices": overdue_invoices,
+        "drafts": drafts,
+        "drafts_count": drafts_count,
+        "drafts_total": drafts_total,
+        "monthly_labels": monthly_labels,
+        "monthly_revenue": monthly_revenue,
+        "monthly_profit": monthly_profit,
+        "expense_labels": expense_labels,
+        "expense_values": expense_values,
     })
 
 
