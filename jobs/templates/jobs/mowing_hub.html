@@ -229,12 +229,12 @@ If you have any questions, please don't hesitate to reach out.
       <tr>
         <th style="width:32px;"></th>
         <th>Client</th>
-        <th>Address</th>
-        <th>Frequency</th>
-        <th>Crew</th>
-        <th>Season Progress</th>
-        <th>This Week</th>
-        <th>Avg Time</th>
+        <th class="mow-hide-mobile">Address</th>
+        <th>Freq</th>
+        <th class="mow-hide-mobile">Crew</th>
+        <th>Progress</th>
+        <th class="mow-hide-mobile">This Week</th>
+        <th class="mow-hide-mobile">Avg Time</th>
         <th>Contact</th>
       </tr>
     </thead>
@@ -245,21 +245,21 @@ If you have any questions, please don't hesitate to reach out.
         <td>
           <a href="{% url 'customer_detail' c.customer.id %}" class="link-primary" style="font-weight:600;">{{ c.customer.name }}</a>
         </td>
-        <td style="font-size:13px;color:var(--text-secondary);">
+        <td class="mow-hide-mobile" style="font-size:13px;color:var(--text-secondary);">
           {{ c.properties.0.address|truncatechars:40 }}
         </td>
         <td>
           {% if c.frequency_key == "weekly" %}
-            <span class="mow-badge mow-badge-weekly">Weekly</span>
+            <span class="mow-badge mow-badge-weekly">W</span>
           {% elif c.frequency_key == "biweekly" %}
-            <span class="mow-badge mow-badge-biweekly">Bi-Weekly</span>
+            <span class="mow-badge mow-badge-biweekly">BW</span>
           {% elif c.frequency_key == "monthly" %}
-            <span class="mow-badge mow-badge-monthly">Monthly</span>
+            <span class="mow-badge mow-badge-monthly">M</span>
           {% else %}
             <span class="mow-badge">{{ c.frequency }}</span>
           {% endif %}
         </td>
-        <td style="font-size:13px;">{{ c.crew }}</td>
+        <td class="mow-hide-mobile" style="font-size:13px;">{{ c.crew }}</td>
         <td>
           {% if c.mow_history %}
           <div style="display:flex;gap:2px;align-items:center;flex-wrap:wrap;">
@@ -272,7 +272,7 @@ If you have any questions, please don't hesitate to reach out.
           <span style="color:var(--text-muted);font-size:11px;">No history</span>
           {% endif %}
         </td>
-        <td>
+        <td class="mow-hide-mobile">
           {% if c.this_week_jobs %}
             {% for job in c.this_week_jobs %}
               <a href="{% url 'job_detail' job.id %}" class="mow-job-link">
@@ -281,10 +281,10 @@ If you have any questions, please don't hesitate to reach out.
               </a>
             {% endfor %}
           {% else %}
-            <span style="color:var(--text-muted);font-size:12px;">Not scheduled</span>
+            <span style="color:var(--text-muted);font-size:12px;">—</span>
           {% endif %}
         </td>
-        <td style="font-size:13px;font-weight:600;color:var(--primary);">
+        <td class="mow-hide-mobile" style="font-size:13px;font-weight:600;color:var(--primary);">
           {% if c.avg_duration %}{{ c.avg_duration }}{% else %}&mdash;{% endif %}
         </td>
         <td style="white-space:nowrap;">
@@ -458,10 +458,13 @@ If you have any questions, please don't hesitate to reach out.
 
   @media (max-width: 768px) {
     .mow-stats { gap: 8px; }
-    .mow-stat { min-width: 80px; padding: 12px 8px; }
-    .mow-stat-num { font-size: 22px; }
+    .mow-stat { min-width: 70px; padding: 10px 6px; }
+    .mow-stat-num { font-size: 20px; }
     .mow-filters { gap: 4px; }
     .mow-filter { padding: 10px 12px; min-height: 44px; font-size: 13px; }
+    .mow-hide-mobile { display: none !important; }
+    #mow-table td, #mow-table th { padding: 8px 6px; font-size: 12px; }
+    .mow-badge { font-size: 10px; padding: 2px 6px; }
   }
 </style>
 {% endblock %}
