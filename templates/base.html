@@ -842,6 +842,7 @@
             <a href="/jobs/calendar/"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendar</a>
             <a href="/billing/"><i data-lucide="file-plus-2" class="nav-icon"></i>Invoices</a>
             <a href="/billing/estimates/"><i data-lucide="file-text" class="nav-icon"></i>Estimates{% if estimate_queue_count > 0 %} <span class="bottom-nav-count">{{ estimate_queue_count }}</span>{% endif %}</a>
+            <a href="/jobs/mowing/"><span class="material-symbols-outlined nav-icon" style="font-size:20px;">grass</span>Mowing</a>
             {% if show_fertilization %}
             <a href="{% url 'fertilization:hub' %}"><i data-lucide="leaf" class="nav-icon"></i>Fertilization</a>
             {% endif %}
