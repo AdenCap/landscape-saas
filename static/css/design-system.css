@@ -336,6 +336,48 @@ a:hover {
   background: var(--surface-high);
 }
 
+/* Tab navigation pills — used across Jobs, Estimates, Financials, etc. */
+.billing-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.billing-tabs::-webkit-scrollbar { display: none; }
+.billing-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 1rem;
+  text-decoration: none;
+  color: var(--text-muted);
+  background: var(--surface-container);
+  border: 1px solid var(--border);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.billing-tab:hover {
+  color: var(--text);
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+.billing-tab.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(157, 216, 80, 0.08);
+  font-weight: 700;
+}
+@media (max-width: 768px) {
+  .billing-tab { min-height: 44px; padding: 10px 16px; font-size: 13px; }
+}
+
 /* Containers */
 .shell {
   max-width: 1200px;
