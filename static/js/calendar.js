@@ -131,6 +131,8 @@ document.addEventListener('DOMContentLoaded', function () {
     editable: isOwner,
     eventDurationEditable: isOwner,
     longPressDelay: 500,
+    selectable: isOwner,
+    selectMirror: true,
     navLinks: true,
     navLinkDayClick: 'timeGridDay',
     height: isMobile ? 'calc(100vh - 140px)' : 'calc(100vh - 200px)',
@@ -212,16 +214,24 @@ document.addEventListener('DOMContentLoaded', function () {
       return { domNodes: [container] };
     },
 
-    // ── Click date → navigate to day view (month), or nothing (day/week) ──
+    // ── Click date → navigate (month) or create (day/week) ──
     dateClick: function(info) {
       if (info.view.type === 'dayGridMonth') {
+        // Month view: navigate to that day
         calendar.changeView('timeGridDay', info.dateStr);
+      } else if (isOwner) {
+        // Day/Week view: open quick-create at the clicked time
+        openQuickCreate(info.date, info.dateStr, info.jsEvent, info.view.type);
       }
-      // In day/week views, clicking empty space does nothing — use + button
     },
 
-    // ── Drag-select time range → disabled (use + button instead) ──
-    selectable: false,
+    // ── Drag-select time range → quick-create with time pre-filled ──
+    select: function(info) {
+      if (!isOwner) return;
+      if (info.view.type === 'dayGridMonth') return;
+      openQuickCreate(info.start, info.startStr, info.jsEvent, info.view.type, info.end);
+      calendar.unselect();
+    },
 
     // ── Drag event to reschedule ──
     eventDrop: function(info) {
@@ -1551,9 +1561,50 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ── Submit: create job via AJAX ──
+  // Event type tabs
+  var qcTypeBtns = document.querySelectorAll('.qc-type-btn');
+  qcTypeBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      qcTypeBtns.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var type = btn.dataset.type;
+      document.getElementById('qc-event-type').value = type;
+      var titleEl = document.getElementById('qc-title-text');
+      var customerField = document.getElementById('qc-customer-field');
+      var noteTitleWrap = document.getElementById('qc-note-title-wrap');
+      var linesField = document.getElementById('qc-lines') ? document.getElementById('qc-lines').parentElement : null;
+      var clientOptional = document.getElementById('qc-client-optional');
+      var moreOptions = document.getElementById('qc-more-options');
+
+      if (type === 'job') {
+        titleEl.textContent = 'New Job';
+        if (customerField) customerField.style.display = '';
+        if (noteTitleWrap) noteTitleWrap.style.display = 'none';
+        if (linesField) linesField.style.display = '';
+        if (clientOptional) clientOptional.style.display = 'none';
+        if (moreOptions) { moreOptions.style.display = ''; moreOptions.href = '/jobs/create/'; }
+      } else if (type === 'meeting') {
+        titleEl.textContent = 'New Meeting';
+        if (customerField) customerField.style.display = '';
+        if (noteTitleWrap) noteTitleWrap.style.display = '';
+        if (linesField) linesField.style.display = 'none';
+        if (clientOptional) clientOptional.style.display = '';
+        if (moreOptions) { moreOptions.style.display = ''; moreOptions.href = '/jobs/meetings/create/'; }
+      } else {
+        titleEl.textContent = 'New Note';
+        if (customerField) customerField.style.display = 'none';
+        if (noteTitleWrap) noteTitleWrap.style.display = '';
+        if (linesField) linesField.style.display = 'none';
+        if (clientOptional) clientOptional.style.display = 'none';
+        if (moreOptions) moreOptions.style.display = 'none';
+      }
+    });
+  });
+
   var qcSubmitBtn = document.getElementById('qc-submit');
   if (qcSubmitBtn) {
     qcSubmitBtn.addEventListener('click', function() {
+      var eventType = document.getElementById('qc-event-type').value;
       var customerId = document.getElementById('qc-customer-id').value;
       var propertyId = document.getElementById('qc-property-id').value;
       var dateVal = document.getElementById('qc-date').value;
@@ -1561,7 +1612,61 @@ document.addEventListener('DOMContentLoaded', function () {
       var colorVal = document.getElementById('qc-color').value;
       var assignVal = document.getElementById('qc-assign').value;
 
-      // Collect line items
+      if (eventType === 'meeting') {
+        // Create meeting
+        var noteTitle = (document.getElementById('qc-note-title').value || '').trim();
+        if (!noteTitle) { showToast('Enter a title for the meeting', 'error'); return; }
+        var payload = {
+          title: noteTitle,
+          scheduled_date: dateVal,
+          scheduled_time: timeVal || null,
+          customer_id: customerId ? parseInt(customerId) : null,
+        };
+        qcSubmitBtn.disabled = true;
+        qcSubmitBtn.textContent = 'Creating\u2026';
+        fetch('/jobs/meetings/create/', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          body: JSON.stringify(payload)
+        }).then(function(r) { return r.json().then(function(d) { return {ok:r.ok,data:d}; }); })
+        .then(function(result) {
+          qcSubmitBtn.disabled = false;
+          qcSubmitBtn.textContent = 'Create';
+          if (result.ok) { closeQuickCreate(); calendar.refetchEvents(); showToast('Meeting created'); }
+          else { showToast(result.data.error || 'Failed', 'error'); }
+        }).catch(function() { qcSubmitBtn.disabled = false; qcSubmitBtn.textContent = 'Create'; showToast('Network error', 'error'); });
+        return;
+      }
+
+      if (eventType === 'note') {
+        // Create a calendar note (no customer needed — uses meeting model)
+        var noteTitle = (document.getElementById('qc-note-title').value || '').trim();
+        if (!noteTitle) { showToast('Enter a title', 'error'); return; }
+        var payload = {
+          title: noteTitle,
+          scheduled_date: dateVal,
+          scheduled_time: timeVal || null,
+          customer_id: null,
+        };
+        qcSubmitBtn.disabled = true;
+        qcSubmitBtn.textContent = 'Creating\u2026';
+        fetch('/jobs/meetings/create/', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          body: JSON.stringify(payload)
+        }).then(function(r) { return r.json().then(function(d) { return {ok:r.ok,data:d}; }); })
+        .then(function(result) {
+          qcSubmitBtn.disabled = false;
+          qcSubmitBtn.textContent = 'Create';
+          if (result.ok) { closeQuickCreate(); calendar.refetchEvents(); showToast('Note added to calendar'); }
+          else { showToast(result.data.error || 'Failed', 'error'); }
+        }).catch(function() { qcSubmitBtn.disabled = false; qcSubmitBtn.textContent = 'Create'; showToast('Network error', 'error'); });
+        return;
+      }
+
+      // Default: create job
       var lineRows = document.querySelectorAll('#qc-lines .qc-line-row');
       var services = [];
       lineRows.forEach(function(row) {
@@ -1607,7 +1712,7 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(function(r) { return r.json().then(function(d) { return {ok:r.ok, data:d}; }); })
       .then(function(result) {
         qcSubmitBtn.disabled = false;
-        qcSubmitBtn.textContent = 'Create Job';
+        qcSubmitBtn.textContent = 'Create';
         if (result.ok && result.data.status === 'ok') {
           closeQuickCreate();
           calendar.refetchEvents();
@@ -1618,7 +1723,7 @@ document.addEventListener('DOMContentLoaded', function () {
       })
       .catch(function() {
         qcSubmitBtn.disabled = false;
-        qcSubmitBtn.textContent = 'Create Job';
+        qcSubmitBtn.textContent = 'Create';
         showToast('Network error', 'error');
       });
     });

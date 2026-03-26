@@ -1794,7 +1794,10 @@ def estimate_send(request, estimate_id):
     from businesses.email_sender import send_business_email, is_email_configured, email_diagnostic
     if not is_email_configured(business):
         diag = email_diagnostic(business)
-        messages.error(request, diag["message"])
+        if "permission" in diag.get("oauth_status", "").lower():
+            messages.error(request, "Gmail is connected but doesn't have send permission. Go to Settings → Email and click 'Connect Gmail' to grant send access.")
+        else:
+            messages.error(request, diag.get("message", "Email is not configured. Go to Settings → Email to set up Gmail."))
         return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
     logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
@@ -1900,7 +1903,10 @@ def estimate_send_followup(request, estimate_id):
     from businesses.email_sender import send_business_email, is_email_configured, email_diagnostic
     if not is_email_configured(business):
         diag = email_diagnostic(business)
-        messages.error(request, diag["message"])
+        if "permission" in diag.get("oauth_status", "").lower():
+            messages.error(request, "Gmail is connected but doesn't have send permission. Go to Settings → Email and click 'Connect Gmail' to grant send access.")
+        else:
+            messages.error(request, diag.get("message", "Email is not configured. Go to Settings → Email to set up Gmail."))
         return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
     logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None

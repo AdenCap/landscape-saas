@@ -1918,11 +1918,54 @@ def meeting_list(request):
 
 @role_required("owner", "manager")
 def meeting_create(request):
-    """Create a new meeting (e.g. client meeting)."""
+    """Create a new meeting or calendar note."""
     business = get_business(request)
     if not business:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.content_type == "application/json":
+            return JsonResponse({"error": "No business"}, status=403)
         messages.error(request, "You must be associated with a business.")
         return redirect("/")
+
+    # JSON API (from quick-create popover)
+    if request.method == "POST" and request.content_type == "application/json":
+        data = json.loads(request.body) if request.body else {}
+        title = (data.get("title") or "").strip()
+        if not title:
+            return JsonResponse({"error": "Title is required"}, status=400)
+        from customers.models import Customer
+        customer = None
+        cid = data.get("customer_id")
+        if cid:
+            customer = Customer.objects.filter(id=cid, business=business).first()
+        sched_date = data.get("scheduled_date")
+        sched_time = data.get("scheduled_time")
+        from datetime import time as dt_time
+        time_obj = None
+        if sched_time and ":" in str(sched_time):
+            parts = str(sched_time).split(":")
+            time_obj = dt_time(int(parts[0]), int(parts[1] if len(parts) > 1 else 0))
+        meeting = Meeting.objects.create(
+            business=business,
+            title=title,
+            customer=customer,
+            scheduled_at=timezone.now(),
+            created_by=request.user,
+            notes=f"Scheduled for {sched_date}" + (f" at {sched_time}" if sched_time else ""),
+        )
+        # Store the date/time so it shows on the calendar
+        if sched_date:
+            try:
+                d = datetime.strptime(sched_date, "%Y-%m-%d").date()
+                if time_obj:
+                    meeting.scheduled_at = timezone.make_aware(datetime.combine(d, time_obj))
+                else:
+                    meeting.scheduled_at = timezone.make_aware(datetime.combine(d, dt_time(9, 0)))
+                meeting.save(update_fields=["scheduled_at"])
+            except (ValueError, TypeError):
+                pass
+        return JsonResponse({"status": "ok", "id": meeting.id})
+
+    # Standard form POST
     initial = {}
     date_param = request.GET.get("date")
     time_param = request.GET.get("time")
@@ -1936,7 +1979,7 @@ def meeting_create(request):
             meeting.business = business
             meeting.created_by = request.user
             meeting.save()
-            messages.success(request, f"Meeting “{meeting.title}” added to your schedule.")
+            messages.success(request, f"Meeting added to your schedule.")
             return redirect("calendar")
         messages.error(request, "Please correct the errors below.")
     else:
@@ -1955,7 +1998,7 @@ def meeting_edit(request, meeting_id):
         form = MeetingForm(request.POST, instance=meeting, business=business)
         if form.is_valid():
             form.save()
-            messages.success(request, f"Meeting “{meeting.title}” updated.")
+            messages.success(request, f"Meeting '{meeting.title}' updated.")
             return redirect("calendar")
         messages.error(request, "Please correct the errors below.")
     else:
@@ -1973,7 +2016,7 @@ def meeting_delete(request, meeting_id):
     meeting = get_object_or_404(Meeting, id=meeting_id, business=business)
     title = meeting.title
     meeting.delete()
-    messages.success(request, f"Meeting “{title}” deleted.")
+    messages.success(request, f"Meeting '{title}' deleted.")
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return JsonResponse({"status": "ok"})
     return redirect("calendar")

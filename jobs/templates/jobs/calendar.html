@@ -43,6 +43,12 @@
     background: rgba(34,197,94,.1);
   }
 
+  /* Event type tabs in quick-create */
+  .qc-type-tabs { display:flex;gap:4px;background:var(--surface-highest);border-radius:8px;padding:3px; }
+  .qc-type-btn { flex:1;padding:6px 0;border:none;background:transparent;color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;transition:all 0.1s; }
+  .qc-type-btn:hover { color:var(--text); }
+  .qc-type-btn.active { background:var(--surface);color:var(--primary);box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+
   /* Google Calendar-style header */
   .cal-header { display:flex;justify-content:space-between;align-items:center;padding:8px 4px;margin-bottom:8px; }
   .cal-header-left { display:flex;align-items:center;gap:4px; }
@@ -402,12 +408,24 @@
 {% if user.role == "owner" or user.role == "manager" %}
 <div id="quick-create-popover" class="quick-create-popover" role="dialog" aria-modal="true" aria-label="Quick create job">
   <div class="qc-header">
-    <span class="qc-title">New Job</span>
+    <span class="qc-title" id="qc-title-text">New Event</span>
     <button type="button" class="qc-close" id="qc-close" aria-label="Close">&times;</button>
   </div>
   <div class="qc-body">
     <div class="qc-field">
-      <label for="qc-customer-search">Client</label>
+      <div class="qc-type-tabs">
+        <button type="button" class="qc-type-btn active" data-type="job">Job</button>
+        <button type="button" class="qc-type-btn" data-type="meeting">Meeting</button>
+        <button type="button" class="qc-type-btn" data-type="note">Note</button>
+      </div>
+    </div>
+    <input type="hidden" id="qc-event-type" value="job">
+    <div id="qc-note-title-wrap" class="qc-field" style="display:none;">
+      <label>Title</label>
+      <input type="text" id="qc-note-title" placeholder="e.g. Pick up mulch, Equipment maintenance">
+    </div>
+    <div class="qc-field" id="qc-customer-field">
+      <label for="qc-customer-search">Client <span id="qc-client-optional" style="display:none;font-weight:400;color:var(--text-muted);">(optional)</span></label>
       <div class="qc-search-wrap">
         <input type="text" id="qc-customer-search" placeholder="Search clients…" autocomplete="off" spellcheck="false">
         <div id="qc-customer-dropdown" class="qc-dropdown"></div>
@@ -461,7 +479,7 @@
   </div>
   <div class="qc-footer">
     <a id="qc-more-options" href="{% url 'create_job' %}" class="qc-link">More options</a>
-    <button type="button" id="qc-submit" class="btn btn-primary btn-sm">Create Job</button>
+    <button type="button" id="qc-submit" class="btn btn-primary btn-sm">Create</button>
   </div>
   <input type="hidden" id="qc-date" value="">
 </div>
