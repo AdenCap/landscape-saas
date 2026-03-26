@@ -1664,7 +1664,41 @@ document.addEventListener('DOMContentLoaded', function () {
         b.classList.toggle('active', b.dataset.mode === colorMode);
       });
       _applyColorMode();
+      updateLegend();
     });
   }
+
+  // New header color toggle (works on both mobile and desktop)
+  var calColorToggle = document.getElementById('cal-color-toggle');
+  if (calColorToggle) {
+    calColorToggle.querySelectorAll('.cal-color-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.mode === colorMode);
+    });
+    calColorToggle.addEventListener('click', function(e) {
+      var btn = e.target.closest('.cal-color-btn');
+      if (!btn) return;
+      colorMode = btn.dataset.mode;
+      try { localStorage.setItem(STORAGE_COLOR_MODE, colorMode); } catch(ex) {}
+      calColorToggle.querySelectorAll('.cal-color-btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.mode === colorMode);
+      });
+      // Sync desktop toggle too
+      if (toggleContainer) {
+        toggleContainer.querySelectorAll('.color-mode-btn').forEach(function(b) {
+          b.classList.toggle('active', b.dataset.mode === colorMode);
+        });
+      }
+      _applyColorMode();
+      updateLegend();
+    });
+  }
+
+  function updateLegend() {
+    var statusLegend = document.getElementById('cal-legend-status');
+    var crewLegend = document.getElementById('cal-legend-crew');
+    if (statusLegend) statusLegend.style.display = colorMode === 'status' ? 'flex' : 'none';
+    if (crewLegend) crewLegend.style.display = colorMode === 'assignee' ? 'flex' : 'none';
+  }
+  updateLegend();
 
 });

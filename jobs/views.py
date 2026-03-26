@@ -309,10 +309,13 @@ def calendar_view(request):
     if business:
         from pricing.models import ServiceTemplate
         services = list(ServiceTemplate.objects.filter(business=business, active=True).order_by("name").values("id", "name"))
-        crews = list(Crew.objects.filter(business=business).order_by("name").values("id", "name"))
+        crews = [
+            {"id": c.id, "name": c.name, "color": c.color or CREW_COLORS[i % len(CREW_COLORS)]}
+            for i, c in enumerate(Crew.objects.filter(business=business).order_by("name"))
+        ]
         employees = [
-            {"id": u.id, "name": u.get_full_name() or u.username}
-            for u in User.objects.filter(business=business).exclude(role="client").order_by("first_name", "last_name")
+            {"id": u.id, "name": u.get_full_name() or u.username, "color": (u.color or "").strip() or "#8b5cf6"}
+            for u in User.objects.filter(business=business, role__in=["crew", "owner"]).order_by("first_name", "last_name")
         ]
         # Fetch weather forecast for the business location
         from jobs.weather import get_forecast, get_business_location

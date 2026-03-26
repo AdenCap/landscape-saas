@@ -52,8 +52,17 @@
   .cal-header-icon { display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:none;border:none;color:var(--text-muted);cursor:pointer; }
   .cal-header-icon:hover { background:var(--surface-highest); }
   .cal-header-icon .material-symbols-outlined { font-size:22px; }
-  .cal-fab { background:var(--primary) !important;color:#111 !important;border-radius:16px !important;width:auto !important;padding:0 14px !important;gap:4px; }
-  .cal-fab .material-symbols-outlined { font-size:20px; }
+  .cal-fab-btn { display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;background:var(--primary);color:#111;border-radius:18px;border:none;cursor:pointer;text-decoration:none;font-weight:700;gap:4px; }
+  .cal-fab-btn:hover { opacity:0.9; }
+
+  .cal-color-toggle { display:flex;gap:2px;background:var(--surface-highest);border-radius:8px;padding:2px; }
+  .cal-color-btn { display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;border-radius:6px;transition:all 0.1s; }
+  .cal-color-btn:hover { color:var(--text); }
+  .cal-color-btn.active { background:var(--surface);color:var(--primary);box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+
+  .cal-legend { display:flex;gap:12px;flex-wrap:wrap;padding:4px 8px;font-size:11px;color:var(--text-muted);margin-bottom:8px; }
+  .cal-legend-item { display:flex;align-items:center;gap:4px;white-space:nowrap; }
+  .cal-legend-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
 
   .cal-desktop-hide { display:none; }
   .cal-mobile-hide { display:flex; }
@@ -86,15 +95,41 @@
     </button>
   </div>
   <div class="cal-header-right">
+    <!-- Color mode toggle -->
+    <div class="cal-color-toggle" id="cal-color-toggle">
+      <button type="button" class="cal-color-btn active" data-mode="status" title="Color by status">
+        <span class="material-symbols-outlined" style="font-size:18px;">palette</span>
+      </button>
+      <button type="button" class="cal-color-btn" data-mode="assignee" title="Color by crew/employee">
+        <span class="material-symbols-outlined" style="font-size:18px;">group</span>
+      </button>
+    </div>
     <button type="button" id="calendar-today-btn" class="cal-header-icon" title="Today" style="font-size:12px;font-weight:700;width:auto;padding:0 8px;">
       {{ today.day }}
     </button>
     {% if user.role == "owner" or user.role == "manager" %}
-    <a href="{% url 'create_job' %}" class="cal-header-icon cal-fab" title="New Job">
-      <span class="material-symbols-outlined">add</span>
+    <a href="{% url 'create_job' %}" class="cal-fab-btn" title="New Job">
+      <span class="material-symbols-outlined" style="font-size:20px;">add</span>
     </a>
     {% endif %}
   </div>
+</div>
+
+<!-- Legend bar (changes based on color mode) -->
+<div class="cal-legend" id="cal-legend-status">
+  <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#3b82f6;"></span>Scheduled</span>
+  <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#f59e0b;"></span>In Progress</span>
+  <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#22c55e;"></span>Completed</span>
+  <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#6b7280;"></span>Skipped</span>
+</div>
+<div class="cal-legend" id="cal-legend-crew" style="display:none;">
+  {% for c in filter_crews %}
+  <span class="cal-legend-item"><span class="cal-legend-dot" style="background:{{ c.color|default:'#3b82f6' }};"></span>{{ c.name }}</span>
+  {% endfor %}
+  {% for e in filter_employees %}
+  <span class="cal-legend-item"><span class="cal-legend-dot" style="background:{{ e.color|default:'#8b5cf6' }};"></span>{{ e.name }}</span>
+  {% endfor %}
+  <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#94a3b8;"></span>Unassigned</span>
 </div>
 
 <!-- Desktop toolbar (hidden on mobile) -->
@@ -134,26 +169,6 @@
   </div>
 </div>
 
-<!-- Status legend (desktop only) -->
-<div class="crew-legend-bar cal-mobile-hide">
-  <span class="legend-item"><span class="legend-dot" style="background: #3b82f6;"></span>Scheduled</span>
-  <span class="legend-item"><span class="legend-dot" style="background: #f59e0b;"></span>In Progress</span>
-  <span class="legend-item"><span class="legend-dot" style="background: #22c55e;"></span>Completed</span>
-  <span class="legend-item"><span class="legend-dot" style="background: #6b7280;"></span>Skipped</span>
-  {% if user.role == "owner" or user.role == "manager" %}
-  <span class="legend-item"><span class="legend-dot" style="background: #7c3aed;"></span>Meetings</span>
-  {% endif %}
-  {% if crew_legend|length > 2 %}
-  <select id="legend-crew-filter" class="legend-crew-filter">
-    <option value="">All Crews</option>
-    {% for item in crew_legend %}
-    {% if item.name != "Unassigned" %}
-    <option value="{{ item.name }}">{{ item.name }}</option>
-    {% endif %}
-    {% endfor %}
-  </select>
-  {% endif %}
-</div>
 
 <!-- Main layout: calendar + unscheduled side panel -->
 <div class="calendar-layout">
