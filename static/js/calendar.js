@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function () {
     selectable: isOwner,
     selectMirror: true,
     unselectAuto: true,
-    height: isMobile ? 'auto' : 'calc(100vh - 200px)',
+    height: isMobile ? 'calc(100vh - 140px)' : 'calc(100vh - 200px)',
     dayMaxEvents: isMobile ? 3 : 5,
 
     // ── Event source (date-range filtered + AbortController) ──
