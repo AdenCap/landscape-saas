@@ -154,27 +154,33 @@
     </div>
     {% endif %}
 
+    {% if pg.active_round_ids or pg.next_round_num %}
+    <div style="display:flex;justify-content:flex-end;padding:6px 16px;border-left:1px solid var(--border);border-right:1px solid var(--border);">
+      <button type="button" class="btn btn-ghost fert-toggle-select" data-pid="{{ pg.program.id }}" style="font-size:11px;padding:4px 10px;color:var(--text-muted);">
+        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:2px;">checklist</span> Select
+      </button>
+    </div>
+    {% endif %}
+
     <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;overflow:hidden;">
       <table class="data-table" style="margin:0;">
         <thead>
           <tr>
-            {% if pg.active_round_ids or pg.next_round_num %}<th style="width:32px;"><input type="checkbox" class="fert-select-all" data-pid="{{ pg.program.id }}" style="accent-color:var(--primary);width:16px;height:16px;" title="Select all"></th>{% endif %}
+            <th class="fert-sel-col fert-sel-{{ pg.program.id }}" style="width:32px;display:none;"><input type="checkbox" class="fert-select-all" data-pid="{{ pg.program.id }}" style="accent-color:var(--primary);width:16px;height:16px;" title="Select all"></th>
             <th>Client</th>
             <th class="fert-hide-mobile">Address</th>
             <th class="num fert-hide-mobile">Sq Ft</th>
             <th class="num fert-hide-mobile">~Lbs</th>
             <th>Progress</th>
-            <th class="fert-hide-mobile">Status</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
           {% for enr in pg.clients %}
-          <tr class="fert-client-row" data-search="{{ enr.property.customer.name|lower }} {{ enr.property.address|lower }}">
-            {% if pg.active_round_ids or pg.next_round_num %}<td>{% if enr.calc_has_pending %}<input type="checkbox" class="fert-client-cb" data-pid="{{ pg.program.id }}" data-rids="{{ enr.calc_all_pending_ids }}" style="accent-color:var(--primary);width:16px;height:16px;">{% endif %}</td>{% endif %}
+          <tr class="fert-client-row" data-search="{{ enr.property.customer.name|lower }} {{ enr.property.address|lower }}" style="cursor:pointer;" onclick="window.location='{% url 'customer_detail' enr.property.customer.id %}'">
+            <td class="fert-sel-col fert-sel-{{ pg.program.id }}" style="display:none;" onclick="event.stopPropagation()">{% if enr.calc_has_pending %}<input type="checkbox" class="fert-client-cb" data-pid="{{ pg.program.id }}" data-rids="{{ enr.calc_all_pending_ids }}" style="accent-color:var(--primary);width:16px;height:16px;">{% endif %}</td>
             <td>
               <strong>{{ enr.property.customer.name }}</strong>
-              <span class="fert-contact-icons" style="margin-left:6px;">
+              <span style="margin-left:6px;" onclick="event.stopPropagation()">
                 {% if enr.property.customer.email %}<a href="mailto:{{ enr.property.customer.email }}" title="{{ enr.property.customer.email }}" style="text-decoration:none;"><span class="material-symbols-outlined" style="font-size:14px;color:var(--primary);vertical-align:-2px;">mail</span></a>{% endif %}
                 {% if enr.property.customer.phone %}<a href="tel:{{ enr.property.customer.phone }}" title="{{ enr.property.customer.phone }}" style="text-decoration:none;margin-left:3px;"><span class="material-symbols-outlined" style="font-size:14px;color:var(--text-muted);vertical-align:-2px;">phone</span></a>{% endif %}
               </span>
@@ -189,16 +195,6 @@
                 {% endfor %}
                 <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">{{ enr.calc_rounds_completed }}/{{ enr.calc_rounds_total }}</span>
               </div>
-            </td>
-            <td class="fert-hide-mobile"><span class="status-badge status-{{ enr.status }}" style="font-size:10px;">{{ enr.get_status_display }}</span></td>
-            <td style="white-space:nowrap;">
-              <a href="{% url 'fertilization:enrollment_builder' %}?edit={{ enr.id }}" class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 8px;">Edit</a>
-              <form method="post" action="{% url 'fertilization:enrollment_delete' enr.id %}" style="display:inline;" onsubmit="return confirm('Delete {{ enr.property.customer.name }} from {{ pg.program.name }}?');">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-ghost" style="color:#ffb4ab;font-size:11px;padding:4px 6px;" title="Delete">
-                  <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
-                </button>
-              </form>
             </td>
           </tr>
           {% endfor %}
@@ -268,6 +264,24 @@ document.addEventListener('change', function(e) {
     });
     updateSchedBar(pid);
   }
+});
+
+// Toggle select mode per program
+document.querySelectorAll('.fert-toggle-select').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var pid = btn.dataset.pid;
+    var cols = document.querySelectorAll('.fert-sel-' + pid);
+    var showing = cols[0] && cols[0].style.display !== 'none';
+    cols.forEach(function(col) {
+      col.style.display = showing ? 'none' : '';
+    });
+    btn.style.color = showing ? 'var(--text-muted)' : 'var(--primary)';
+    // If hiding, uncheck all and hide schedule bar
+    if (showing) {
+      document.querySelectorAll('.fert-client-cb[data-pid="' + pid + '"]').forEach(function(cb) { cb.checked = false; });
+      updateSchedBar(pid);
+    }
+  });
 });
 </script>
 
