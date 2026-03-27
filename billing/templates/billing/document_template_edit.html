@@ -188,8 +188,11 @@
 
       <!-- Email preview (hidden by default) -->
       <div id="email-preview-container" style="display:none;margin-top:12px;">
-        <iframe id="email-preview-iframe" src="" style="width:100%;height:600px;border:1px solid var(--border);border-radius:10px;background:#050505;" sandbox="allow-same-origin"></iframe>
-        <p style="font-size:11px;color:var(--text-muted);margin:6px 0 0;text-align:center;">Save first, then open this preview to see the latest email.</p>
+        <div id="email-preview-content" style="width:100%;min-height:400px;border:1px solid var(--border);border-radius:10px;background:#f4f4f5;overflow:auto;max-height:700px;"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;justify-content:center;">
+          <button type="button" class="btn btn-ghost btn-sm" id="refresh-email-preview" style="font-size:11px;">Refresh Preview</button>
+        </div>
+        <p style="font-size:11px;color:var(--text-muted);margin:4px 0 0;text-align:center;">Save template first, then refresh to see your latest changes.</p>
       </div>
     </aside>
   </div>
@@ -433,24 +436,59 @@
     if (el) { el.addEventListener('input', updatePreview); el.addEventListener('change', updatePreview); }
   });
 
-  /* Email preview toggle */
+  /* Email preview — fetch via AJAX to avoid iframe auth issues */
   var emailBtn = document.getElementById('toggle-email-preview');
   var emailBox = document.getElementById('email-preview-container');
-  var emailIframe = document.getElementById('email-preview-iframe');
+  var emailContent = document.getElementById('email-preview-content');
+  var refreshBtn = document.getElementById('refresh-email-preview');
+  var emailPreviewUrl = '{% url "billing:email_template_preview" doc_type %}';
+
+  function loadEmailPreview() {
+    if (!emailContent) return;
+    emailContent.textContent = 'Loading preview...';
+    emailContent.style.textAlign = 'center';
+    emailContent.style.padding = '40px';
+    emailContent.style.color = '#71717a';
+    fetch(emailPreviewUrl, { credentials: 'same-origin' })
+      .then(function(r) {
+        if (!r.ok) throw new Error('Failed to load (' + r.status + ')');
+        return r.text();
+      })
+      .then(function(html) {
+        emailContent.style.textAlign = '';
+        emailContent.style.padding = '0';
+        emailContent.style.color = '';
+        var shadow = emailContent.attachShadow ? emailContent.attachShadow({mode: 'open'}) : null;
+        if (shadow) {
+          shadow.textContent = '';
+          var wrapper = document.createElement('div');
+          wrapper.style.cssText = 'all:initial;display:block;';
+          wrapper.insertAdjacentHTML('afterbegin', html);
+          shadow.appendChild(wrapper);
+        } else {
+          emailContent.textContent = '';
+          emailContent.insertAdjacentHTML('afterbegin', html);
+        }
+      })
+      .catch(function(err) {
+        emailContent.textContent = 'Could not load email preview. Save your template and try again.';
+        emailContent.style.color = '#f87171';
+      });
+  }
+
   if (emailBtn && emailBox) {
     emailBtn.addEventListener('click', function() {
       if (emailBox.style.display === 'none') {
         emailBox.style.display = 'block';
         emailBtn.textContent = 'Hide Email';
-        if (!emailIframe.src || emailIframe.src === location.href) {
-          emailIframe.src = '{% url "billing:email_template_preview" doc_type %}';
-        }
+        loadEmailPreview();
       } else {
         emailBox.style.display = 'none';
         emailBtn.textContent = 'Email Preview';
       }
     });
   }
+  if (refreshBtn) refreshBtn.addEventListener('click', loadEmailPreview);
 
   /* Init */
   updatePreview();
