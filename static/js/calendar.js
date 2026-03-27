@@ -24,9 +24,8 @@ document.addEventListener('DOMContentLoaded', function () {
   var savedView = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_VIEW)) || null;
   var initialView = savedView || defaultView;
 
-  var savedDate = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_DATE) : null;
+  // Always start on today — don't restore saved date
   var initialDate = null;
-  if (savedDate && /^\d{4}-\d{2}-\d{2}$/.test(savedDate)) initialDate = savedDate;
 
   // ── Helper functions ──
   function pad2(n) { return String(n).padStart(2, '0'); }
@@ -392,31 +391,60 @@ document.addEventListener('DOMContentLoaded', function () {
   var skeleton = document.getElementById('calendar-skeleton');
   if (skeleton) skeleton.style.display = 'none';
 
-  // ── Swipe left/right to navigate days/weeks on mobile ──
+  // ── Mobile: vertical scroll past end/start of day advances to next/prev day ──
   if (isMobile) {
+    var _scrollNav = { timer: null, cooldown: false };
+    // Find the scrollable time grid container
+    function getScrollContainer() {
+      return calEl.querySelector('.fc-timegrid-body') ||
+             calEl.querySelector('.fc-scroller-liquid-absolute') ||
+             calEl.querySelector('.fc-scroller');
+    }
+
+    calEl.addEventListener('scroll', function() {
+      if (_scrollNav.cooldown) return;
+      var view = calendar.view;
+      if (!view || view.type !== 'timeGridDay') return;
+      var scroller = calEl.querySelector('.fc-scroller-liquid-absolute') || calEl.querySelector('.fc-scroller');
+      if (!scroller) return;
+      var atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 5;
+      var atTop = scroller.scrollTop <= 2;
+      if (atBottom || atTop) {
+        _scrollNav.cooldown = true;
+        clearTimeout(_scrollNav.timer);
+        _scrollNav.timer = setTimeout(function() {
+          // Re-check position after a brief pause (user stopped scrolling)
+          var s2 = calEl.querySelector('.fc-scroller-liquid-absolute') || calEl.querySelector('.fc-scroller');
+          if (!s2) { _scrollNav.cooldown = false; return; }
+          var stillAtBottom = s2.scrollTop + s2.clientHeight >= s2.scrollHeight - 5;
+          var stillAtTop = s2.scrollTop <= 2;
+          if (stillAtBottom) {
+            calendar.next();
+          } else if (stillAtTop) {
+            calendar.prev();
+          }
+          _scrollNav.cooldown = false;
+        }, 400);
+      }
+    }, true);
+
+    // Also keep horizontal swipe for month/week views
     var touchStartX = 0;
     var touchStartY = 0;
-    var swiping = false;
     calEl.addEventListener('touchstart', function(e) {
       if (e.touches.length === 1) {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
-        swiping = true;
       }
     }, { passive: true });
     calEl.addEventListener('touchend', function(e) {
-      if (!swiping) return;
-      swiping = false;
+      var view = calendar.view;
+      if (view && view.type === 'timeGridDay') return; // day view uses vertical scroll nav
       var touch = e.changedTouches[0];
       var dx = touch.clientX - touchStartX;
       var dy = touch.clientY - touchStartY;
-      // Only trigger on horizontal swipes (not vertical scroll)
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-        if (dx < 0) {
-          calendar.next();
-        } else {
-          calendar.prev();
-        }
+        if (dx < 0) calendar.next(); else calendar.prev();
       }
     }, { passive: true });
   }
