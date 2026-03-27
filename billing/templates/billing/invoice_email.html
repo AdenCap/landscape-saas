@@ -1,199 +1,162 @@
 {% load billing_filters %}
 <!DOCTYPE html>
-<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <meta name="supported-color-schemes" content="dark">
-  <title>Invoice #{{ invoice.id }} – {{ business.name }}</title>
-  <!--[if mso]><style>body,table{font-family:Arial,sans-serif!important}</style><![endif]-->
+  <meta name="color-scheme" content="light dark">
+  <title>Invoice #{{ invoice.id }} from {{ business.name }}</title>
+  <!--[if mso]><style>body,table,td{font-family:Arial,Helvetica,sans-serif!important}</style><![endif]-->
   <style>
-    body{margin:0;padding:0;background:#050505;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#e5e5e5;-webkit-text-size-adjust:100%}
+    body{margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:15px;line-height:1.6;color:#27272a;-webkit-text-size-adjust:100%}
     a{color:{{ accent_color|default:'#22c55e' }}}
+    @media(prefers-color-scheme:dark){
+      body{background:#09090b!important}
+      .card-wrap{background:#18181b!important;border-color:#27272a!important}
+      .detail-box{background:#111!important;border-color:#27272a!important}
+      .txt-primary{color:#fafafa!important}
+      .txt-secondary{color:#a1a1aa!important}
+      .txt-muted{color:#71717a!important}
+      .divider{background:#27272a!important}
+      .detail-row{border-color:#27272a!important}
+      .pay-method{background:#111!important;border-color:#27272a!important}
+    }
     @media only screen and (max-width:600px){
-      .outer{padding:12px 8px!important}
-      .card{border-radius:12px!important}
-      .card-pad{padding:20px 16px!important}
-      .hero-amount{font-size:36px!important}
-      .pay-grid td{display:block!important;width:100%!important;padding:6px 0!important}
+      .outer{padding:16px 12px!important}
+      .card-wrap{border-radius:12px!important}
+      .inner{padding:24px 20px!important}
+      .hero-amount{font-size:32px!important}
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background:#050505;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#050505;">
-    <tr>
-      <td class="outer" align="center" style="padding:40px 16px;">
-        <!-- Accent bar -->
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;">
-          <tr><td style="height:4px;background:{{ accent_color|default:'#22c55e' }};border-radius:4px 4px 0 0;"></td></tr>
-        </table>
+<body style="margin:0;padding:0;background:#f4f4f5;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f4f5;">
+<tr><td class="outer" align="center" style="padding:32px 16px;">
 
-        <!-- Main card -->
-        <table role="presentation" class="card" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;background:#141414;border:1px solid #262626;border-top:none;border-radius:0 0 14px 14px;">
-          <!-- Header: Logo + Invoice info -->
-          <tr>
-            <td class="card-pad" style="padding:28px 32px 20px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td style="vertical-align:top;">
-                    {% if logo_url %}<img src="{{ logo_url }}" alt="{{ business.name }}" style="max-height:44px;max-width:180px;display:block;margin-bottom:16px;">{% endif %}
-                    {% if header_text %}<p style="margin:0 0 10px;font-size:13px;color:#737373;">{{ header_text|linebreaksbr }}</p>{% endif %}
-                    <p style="margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#737373;">Invoice</p>
-                    <h1 style="margin:4px 0 0;font-size:24px;font-weight:800;color:#fafafa;letter-spacing:-0.02em;">#{{ invoice.id }}</h1>
-                  </td>
-                  <td style="vertical-align:top;text-align:right;">
-                    <p style="margin:0;font-size:13px;color:#737373;">Issued {{ invoice.issue_date }}</p>
-                    {% if invoice.due_date %}<p style="margin:4px 0 0;font-size:13px;color:#f59e0b;font-weight:600;">Due {{ invoice.due_date }}</p>{% endif %}
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+  <!-- Card -->
+  <table role="presentation" class="card-wrap" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:16px;overflow:hidden;">
 
-          <!-- From / Bill to -->
-          <tr>
-            <td class="card-pad" style="padding:0 32px 20px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td style="width:50%;vertical-align:top;padding-right:16px;">
-                    <p style="margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#525252;">From</p>
-                    <p style="margin:4px 0 0;font-size:14px;font-weight:600;color:#fafafa;">{{ business.name }}</p>
-                  </td>
-                  <td style="width:50%;vertical-align:top;">
-                    <p style="margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#525252;">Bill to</p>
-                    <p style="margin:4px 0 0;font-size:14px;font-weight:600;color:#fafafa;">{{ invoice.customer.name }}</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+    <!-- Accent bar -->
+    <tr><td style="height:4px;background:{{ accent_color|default:'#22c55e' }};"></td></tr>
 
-          {% if email_intro %}
-          <tr>
-            <td class="card-pad" style="padding:0 32px 20px;">
-              <p style="margin:0;font-size:15px;color:#d4d4d4;line-height:1.6;">{{ email_intro|linebreaksbr }}</p>
-            </td>
-          </tr>
-          {% endif %}
+    <!-- Logo + Header -->
+    <tr><td class="inner" style="padding:28px 32px 0;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+        <tr>
+          <td style="vertical-align:top;">
+            {% if logo_url %}<img src="{{ logo_url }}" alt="{{ business.name }}" style="max-height:40px;max-width:160px;display:block;margin-bottom:12px;">{% endif %}
+            {% if header_text %}<p class="txt-muted" style="margin:0 0 8px;font-size:13px;color:#71717a;">{{ header_text|linebreaksbr }}</p>{% endif %}
+          </td>
+          <td style="vertical-align:top;text-align:right;">
+            <p class="txt-muted" style="margin:0;font-size:12px;color:#71717a;">Issued {{ invoice.issue_date }}</p>
+            {% if invoice.due_date %}<p style="margin:4px 0 0;font-size:12px;color:#f59e0b;font-weight:600;">Due {{ invoice.due_date }}</p>{% endif %}
+          </td>
+        </tr>
+      </table>
+    </td></tr>
 
-          <!-- Divider -->
-          <tr><td style="padding:0 32px;"><div style="height:1px;background:#262626;"></div></td></tr>
+    <!-- Greeting -->
+    <tr><td class="inner" style="padding:16px 32px 0;">
+      <p class="txt-primary" style="margin:0;font-size:16px;color:#18181b;line-height:1.65;">{{ email_intro }}</p>
+    </td></tr>
 
-          <!-- Line items -->
-          <tr>
-            <td class="card-pad" style="padding:20px 32px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-                <thead>
-                  <tr>
-                    <th style="text-align:left;padding:10px 0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#525252;border-bottom:1px solid #1e1e1e;">Description</th>
-                    <th style="text-align:right;padding:10px 0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#525252;border-bottom:1px solid #1e1e1e;">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for item in invoice.line_items.all %}
-                  <tr>
-                    <td style="padding:14px 0;border-bottom:1px solid #1e1e1e;color:#e5e5e5;font-size:14px;">{{ item.description }}</td>
-                    <td style="text-align:right;padding:14px 0;border-bottom:1px solid #1e1e1e;color:#e5e5e5;font-size:14px;font-weight:600;">{{ item.line_total|currency }}</td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </td>
-          </tr>
+    <!-- Invoice details box -->
+    <tr><td class="inner" style="padding:20px 32px;">
+      <table role="presentation" class="detail-box" width="100%" cellspacing="0" cellpadding="0" style="background:#fafafa;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;">
+        <tr><td style="padding:20px 24px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <tr>
+              <td class="txt-muted" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#71717a;padding-bottom:4px;">Invoice #</td>
+              <td class="txt-primary" style="text-align:right;font-size:14px;font-weight:600;color:#18181b;padding-bottom:4px;">{{ invoice.id }}</td>
+            </tr>
+            <tr><td colspan="2" class="divider" style="height:1px;background:#e4e4e7;"></td></tr>
+            <tr>
+              <td class="txt-muted" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#71717a;padding-top:8px;padding-bottom:4px;">Bill to</td>
+              <td class="txt-primary" style="text-align:right;font-size:14px;color:#18181b;padding-top:8px;padding-bottom:4px;">{{ invoice.customer.name }}</td>
+            </tr>
+            <tr><td colspan="2" class="divider" style="height:1px;background:#e4e4e7;"></td></tr>
+            <tr>
+              <td class="txt-muted" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#71717a;padding-top:8px;">Amount due</td>
+              <td class="hero-amount" style="text-align:right;font-size:28px;font-weight:800;color:{{ accent_color|default:'#22c55e' }};padding-top:8px;letter-spacing:-0.02em;">{{ invoice.total|currency }}</td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>
 
-          <!-- Total (hero) -->
-          <tr>
-            <td class="card-pad" style="padding:8px 32px 28px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td style="text-align:right;">
-                    <p style="margin:0;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#737373;">Total Due</p>
-                    <p class="hero-amount" style="margin:4px 0 0;font-size:42px;font-weight:800;color:{{ accent_color|default:'#22c55e' }};letter-spacing:-0.03em;line-height:1;">{{ invoice.total|currency }}</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+    <!-- Line items -->
+    <tr><td class="inner" style="padding:0 32px 20px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+        {% for item in invoice.line_items.all %}
+        <tr class="detail-row">
+          <td style="padding:10px 0;border-bottom:1px solid #f4f4f5;font-size:14px;color:#3f3f46;">{{ item.description }}</td>
+          <td style="text-align:right;padding:10px 0;border-bottom:1px solid #f4f4f5;font-size:14px;font-weight:600;color:#18181b;white-space:nowrap;">{{ item.line_total|currency }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </td></tr>
 
-          <!-- Pay online CTA -->
-          {% if pay_url %}
-          <tr>
-            <td class="card-pad" style="padding:0 32px 24px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td style="background:{{ accent_color|default:'#22c55e' }};border-radius:12px;text-align:center;padding:20px;">
-                    <a href="{{ pay_url }}" style="display:inline-block;padding:0;color:#000!important;text-decoration:none;font-weight:700;font-size:16px;">View Invoice &amp; Pay Online</a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          {% endif %}
+    <!-- CTA Button -->
+    {% if pay_url %}
+    <tr><td class="inner" style="padding:0 32px 24px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+        <tr><td style="background:{{ accent_color|default:'#22c55e' }};border-radius:10px;text-align:center;">
+          <a href="{{ pay_url }}" style="display:block;padding:16px 24px;color:#000!important;text-decoration:none;font-weight:700;font-size:16px;">View &amp; Pay Invoice</a>
+        </td></tr>
+      </table>
+    </td></tr>
+    {% endif %}
 
-          <!-- Payment methods -->
-          {% if business.venmo_username or business.zelle_email_or_phone or business.cashapp_cashtag or business.paypal_link %}
-          <tr>
-            <td class="card-pad" style="padding:0 32px 24px;">
-              <p style="margin:0 0 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#525252;">Other ways to pay</p>
-              <table role="presentation" class="pay-grid" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-                <tr>
-                  {% if business.venmo_username %}
-                  <td style="padding:8px 12px 8px 0;vertical-align:middle;white-space:nowrap;">
-                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#008CFF;margin-right:8px;vertical-align:middle;"></span>
-                    <span style="color:#a3a3a3;font-size:13px;">Venmo: <strong style="color:#e5e5e5;">{{ business.venmo_username }}</strong></span>
-                  </td>
-                  {% endif %}
-                  {% if business.zelle_email_or_phone %}
-                  <td style="padding:8px 12px 8px 0;vertical-align:middle;white-space:nowrap;">
-                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6D1ED4;margin-right:8px;vertical-align:middle;"></span>
-                    <span style="color:#a3a3a3;font-size:13px;">Zelle: <strong style="color:#e5e5e5;">{{ business.zelle_email_or_phone }}</strong></span>
-                  </td>
-                  {% endif %}
-                </tr>
-                <tr>
-                  {% if business.cashapp_cashtag %}
-                  <td style="padding:8px 12px 8px 0;vertical-align:middle;white-space:nowrap;">
-                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#00D54B;margin-right:8px;vertical-align:middle;"></span>
-                    <span style="color:#a3a3a3;font-size:13px;">Cash App: <strong style="color:#e5e5e5;">{{ business.cashapp_cashtag }}</strong></span>
-                  </td>
-                  {% endif %}
-                  {% if business.paypal_link %}
-                  <td style="padding:8px 12px 8px 0;vertical-align:middle;white-space:nowrap;">
-                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#003087;margin-right:8px;vertical-align:middle;"></span>
-                    <span style="color:#a3a3a3;font-size:13px;">PayPal: <strong style="color:#e5e5e5;">{{ business.paypal_link }}</strong></span>
-                  </td>
-                  {% endif %}
-                </tr>
-              </table>
-            </td>
-          </tr>
-          {% endif %}
+    <!-- Payment methods -->
+    {% if business.venmo_username or business.zelle_email_or_phone or business.cashapp_cashtag or business.paypal_link %}
+    <tr><td class="inner" style="padding:0 32px 20px;">
+      <p class="txt-muted" style="margin:0 0 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#71717a;">Other ways to pay</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+        {% if business.venmo_username %}
+        <tr><td class="pay-method" style="padding:6px 0;font-size:13px;color:#52525b;">Venmo: <strong style="color:#18181b;">{{ business.venmo_username }}</strong></td></tr>
+        {% endif %}
+        {% if business.zelle_email_or_phone %}
+        <tr><td class="pay-method" style="padding:6px 0;font-size:13px;color:#52525b;">Zelle: <strong style="color:#18181b;">{{ business.zelle_email_or_phone }}</strong></td></tr>
+        {% endif %}
+        {% if business.cashapp_cashtag %}
+        <tr><td class="pay-method" style="padding:6px 0;font-size:13px;color:#52525b;">Cash App: <strong style="color:#18181b;">{{ business.cashapp_cashtag }}</strong></td></tr>
+        {% endif %}
+        {% if business.paypal_link %}
+        <tr><td class="pay-method" style="padding:6px 0;font-size:13px;color:#52525b;">PayPal: <strong style="color:#18181b;">{{ business.paypal_link }}</strong></td></tr>
+        {% endif %}
+      </table>
+    </td></tr>
+    {% endif %}
 
-          {% if terms_text %}
-          <tr>
-            <td class="card-pad" style="padding:0 32px 16px;">
-              <p style="margin:0;font-size:12px;color:#525252;line-height:1.5;">{{ terms_text|linebreaksbr }}</p>
-            </td>
-          </tr>
-          {% endif %}
+    <!-- Already paid note -->
+    <tr><td class="inner" style="padding:0 32px 20px;">
+      <p class="txt-secondary" style="margin:0;font-size:13px;color:#71717a;">If you have already submitted payment, please disregard this message. If you have questions, just reply to this email{% if business.contact_phone %} or call {{ business.contact_phone }}{% endif %}.</p>
+    </td></tr>
 
-          <!-- Footer -->
-          <tr>
-            <td class="card-pad" style="padding:20px 32px;border-top:1px solid #1e1e1e;">
-              {% if email_closing %}<p style="margin:0 0 10px;font-size:14px;color:#d4d4d4;">{{ email_closing|linebreaksbr }}</p>{% endif %}
-              {% if footer_text %}<p style="margin:0 0 10px;font-size:13px;color:#737373;">{{ footer_text|linebreaksbr }}</p>{% endif %}
-              <p style="margin:0;font-size:12px;color:#525252;">
-                PDF attached &middot; Sent by {{ business.name }}{% if business.contact_email %} &middot; {{ business.contact_email }}{% endif %}{% if business.contact_phone %} &middot; {{ business.contact_phone }}{% endif %}
-              </p>
-            </td>
-          </tr>
-        </table>
+    {% if terms_text %}
+    <tr><td class="inner" style="padding:0 32px 16px;">
+      <p class="txt-muted" style="margin:0;font-size:12px;color:#a1a1aa;line-height:1.5;">{{ terms_text|linebreaksbr }}</p>
+    </td></tr>
+    {% endif %}
 
-        <!-- Powered by -->
-        <p style="margin:24px 0 0;font-size:11px;color:#404040;text-align:center;">Powered by FieldLgx</p>
-      </td>
-    </tr>
+    <!-- Footer / Signature -->
+    <tr><td class="inner" style="padding:20px 32px;border-top:1px solid #e4e4e7;">
+      {% if email_closing %}<p class="txt-primary" style="margin:0 0 12px;font-size:14px;color:#18181b;">{{ email_closing }}</p>{% endif %}
+      {% if footer_text %}<p class="txt-muted" style="margin:0 0 12px;font-size:13px;color:#71717a;">{{ footer_text|linebreaksbr }}</p>{% endif %}
+      <p class="txt-muted" style="margin:0;font-size:13px;font-weight:600;color:#3f3f46;">{{ business.name }}</p>
+      <p class="txt-muted" style="margin:2px 0 0;font-size:12px;color:#71717a;">
+        {% if business.contact_phone %}{{ business.contact_phone }}{% endif %}
+        {% if business.contact_phone and business.contact_email %} &middot; {% endif %}
+        {% if business.contact_email %}{{ business.contact_email }}{% endif %}
+      </p>
+      <p style="margin:10px 0 0;font-size:12px;color:#a1a1aa;">PDF attached{% if pay_url %} &middot; <a href="{{ pay_url }}" style="color:{{ accent_color|default:'#22c55e' }};">Pay online here</a>{% endif %}</p>
+    </td></tr>
+
   </table>
+
+  <p style="margin:20px 0 0;font-size:11px;color:#a1a1aa;text-align:center;">Powered by FieldLgx</p>
+
+</td></tr>
+</table>
 </body>
 </html>
