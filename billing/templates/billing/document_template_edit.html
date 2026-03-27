@@ -60,41 +60,45 @@
       <div class="card doc-template-section">
         <h2 class="section-title">Template style</h2>
         <div class="style-options">
-          <label class="style-option {% if template_obj.template_key == 'professional' or not template_obj.template_key %}active{% endif %}">
-            <input type="radio" name="template_key" value="professional" {% if template_obj.template_key == 'professional' or not template_obj.template_key %}checked{% endif %}>
-            <div class="style-option-preview">
-              <div class="style-preview-bar" style="height:3px;border-radius:2px 2px 0 0;"></div>
+          <label class="style-option {% if template_obj.template_key == 'modern_dark' or not template_obj.template_key %}active{% endif %}">
+            <input type="radio" name="template_key" value="modern_dark" {% if template_obj.template_key == 'modern_dark' or not template_obj.template_key %}checked{% endif %}>
+            <div class="style-option-preview" style="background:#1a1a1a;">
+              <div class="style-preview-bar" style="height:4px;border-radius:2px 2px 0 0;"></div>
               <div class="style-preview-body">
-                <div class="style-preview-title" style="font-weight:700;"></div>
+                <div class="style-preview-title" style="font-weight:700;color:#fff;"></div>
                 <div class="style-preview-line"></div>
-                <div class="style-preview-text"></div>
-                <div class="style-preview-text" style="width:60%"></div>
+                <div class="style-preview-text" style="background:rgba(255,255,255,0.1);"></div>
+                <div class="style-preview-text" style="width:60%;background:rgba(255,255,255,0.1);"></div>
               </div>
             </div>
-            <span class="style-option-name">Professional</span>
+            <span class="style-option-name">Modern Dark</span>
+            <span style="font-size:10px;color:var(--text-muted);display:block;">Tech-forward, premium</span>
           </label>
-          <label class="style-option {% if template_obj.template_key == 'minimal' %}active{% endif %}">
-            <input type="radio" name="template_key" value="minimal" {% if template_obj.template_key == 'minimal' %}checked{% endif %}>
-            <div class="style-option-preview style-preview-minimal">
+          <label class="style-option {% if template_obj.template_key == 'clean_light' %}active{% endif %}">
+            <input type="radio" name="template_key" value="clean_light" {% if template_obj.template_key == 'clean_light' %}checked{% endif %}>
+            <div class="style-option-preview" style="background:#fff;border:1px solid #e5e7eb;">
               <div class="style-preview-body">
-                <div class="style-preview-title" style="font-weight:600;"></div>
+                <div class="style-preview-title" style="font-weight:500;color:#374151;"></div>
                 <div class="style-preview-line" style="height:1px;background:#d1d5db;"></div>
-                <div class="style-preview-text"></div>
-                <div class="style-preview-text" style="width:60%"></div>
+                <div class="style-preview-text" style="background:#e5e7eb;"></div>
+                <div class="style-preview-text" style="width:60%;background:#e5e7eb;"></div>
               </div>
             </div>
-            <span class="style-option-name">Minimal</span>
+            <span class="style-option-name">Clean Light</span>
+            <span style="font-size:10px;color:var(--text-muted);display:block;">Traditional, professional</span>
           </label>
-          <label class="style-option {% if template_obj.template_key == 'modern' %}active{% endif %}">
-            <input type="radio" name="template_key" value="modern" {% if template_obj.template_key == 'modern' %}checked{% endif %}>
-            <div class="style-option-preview style-preview-modern">
-              <div class="style-preview-bar" style="height:16px;border-radius:4px 4px 0 0;"></div>
-              <div class="style-preview-body">
-                <div class="style-preview-text"></div>
-                <div class="style-preview-text" style="width:70%"></div>
+          <label class="style-option {% if template_obj.template_key == 'luxury' %}active{% endif %}">
+            <input type="radio" name="template_key" value="luxury" {% if template_obj.template_key == 'luxury' %}checked{% endif %}>
+            <div class="style-option-preview" style="background:#0f0f0f;border:2px double;">
+              <div style="border-bottom:2px double;padding:0;margin:6px 8px 0;"></div>
+              <div class="style-preview-body" style="padding-top:8px;">
+                <div class="style-preview-title" style="font-weight:700;color:#d4af37;letter-spacing:2px;"></div>
+                <div class="style-preview-text" style="background:rgba(255,255,255,0.08);"></div>
+                <div class="style-preview-text" style="width:50%;background:rgba(255,255,255,0.08);"></div>
               </div>
             </div>
-            <span class="style-option-name">Modern</span>
+            <span class="style-option-name">Luxury Statement</span>
+            <span style="font-size:10px;color:var(--text-muted);display:block;">Elegant, high-end</span>
           </label>
         </div>
         <div class="form-group" style="margin-top:16px;">

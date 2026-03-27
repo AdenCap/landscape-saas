@@ -763,11 +763,22 @@ def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, p
         pass
 
 
-# Theme colors for PDFs (match base.html: primary #22c55e, dark #171717, muted #a3a3a3)
+# Theme colors for PDFs
 _PDF_GREEN = (34 / 255, 197 / 255, 94 / 255)
 _PDF_DARK = (0.09, 0.09, 0.09)
 _PDF_MUTED = (0.64, 0.64, 0.64)
 _PDF_BORDER = (0.15, 0.15, 0.15)
+_PDF_WHITE = (1, 1, 1)
+_PDF_LIGHT_BG = (0.97, 0.97, 0.97)  # #f7f7f7
+
+
+def _pdf_fonts(font_style):
+    """Return (heading_font, body_font) based on font_style choice."""
+    if font_style == "serif":
+        return "Times-Bold", "Times-Roman"
+    elif font_style == "bold":
+        return "Helvetica-Bold", "Helvetica"
+    return "Helvetica-Bold", "Helvetica"  # clean default
 
 
 def _hex_to_rgb(hex_str):
@@ -784,7 +795,7 @@ def _hex_to_rgb(hex_str):
 
 
 def _build_invoice_pdf(invoice, request):
-    """Build professional invoice PDF with logo, two-column header, and clean table."""
+    """Build professional invoice PDF with template style support."""
     canvas, LETTER = _get_reportlab()
     items = invoice.line_items.all()
     buffer = BytesIO()
@@ -793,49 +804,83 @@ def _build_invoice_pdf(invoice, request):
     business = invoice.business
     doc_template = DocumentTemplate.get_default_for_business(business, "invoice") if business else None
     accent = _hex_to_rgb(doc_template.primary_color) if doc_template and getattr(doc_template, "primary_color", None) else _PDF_GREEN
-    accent_light = tuple(min(1.0, c * 0.15 + 0.85) for c in accent)  # light tint for row shading
+    accent_light = tuple(min(1.0, c * 0.15 + 0.85) for c in accent)
+    style = doc_template.template_key if doc_template else "modern_dark"
+    font_style = doc_template.font_style if doc_template else "clean"
+    h_font, b_font = _pdf_fonts(font_style)
     margin = 50
     right = width - margin
 
-    # ── Top accent bar ──
-    p.setFillColorRGB(*accent)
-    p.rect(0, height - 8, width, 8, fill=True, stroke=False)
+    # ── Style-dependent header ──
+    if style == "luxury":
+        # Luxury: double line at top, elegant spacing
+        p.setStrokeColorRGB(*accent)
+        p.setLineWidth(2)
+        p.line(margin, height - 30, right, height - 30)
+        p.setLineWidth(0.5)
+        p.line(margin, height - 34, right, height - 34)
+        y = height - 60
+        if business and business.logo:
+            _draw_pdf_logo(p, business, x=margin, y_top=y + 10, max_height=40, max_width=120)
+        p.setFillColorRGB(*_PDF_DARK)
+        p.setFont(h_font, 28)
+        p.drawRightString(right, y - 10, "INVOICE")
+        p.setFont(b_font, 10)
+        p.setFillColorRGB(*_PDF_MUTED)
+        p.drawRightString(right, y - 26, f"No. {invoice.id}")
+        y -= 60
+    elif style == "clean_light":
+        # Clean Light: minimal, thin top rule
+        p.setStrokeColorRGB(*_PDF_MUTED)
+        p.setLineWidth(0.5)
+        p.line(margin, height - 20, right, height - 20)
+        y = height - 50
+        if business and business.logo:
+            _draw_pdf_logo(p, business, x=margin, y_top=y + 10, max_height=40, max_width=120)
+        p.setFillColorRGB(*_PDF_DARK)
+        p.setFont(h_font, 22)
+        p.drawRightString(right, y - 6, "INVOICE")
+        p.setFont(b_font, 10)
+        p.setFillColorRGB(*_PDF_MUTED)
+        p.drawRightString(right, y - 22, f"#{invoice.id}")
+        y -= 56
+    else:
+        # Modern Dark (default): accent bar + bold title
+        p.setFillColorRGB(*accent)
+        p.rect(0, height - 8, width, 8, fill=True, stroke=False)
+        y = height - 50
+        if business and business.logo:
+            _draw_pdf_logo(p, business, x=margin, y_top=y + 10, max_height=50, max_width=150)
+        p.setFillColorRGB(*accent)
+        p.setFont(h_font, 24)
+        p.drawRightString(right, y - 10, "INVOICE")
+        p.setFont(b_font, 11)
+        p.setFillColorRGB(*_PDF_MUTED)
+        p.drawRightString(right, y - 26, f"#{invoice.id}")
+        y -= 60
 
-    # ── Header: Logo (left) + Invoice title (right) ──
-    y = height - 50
-    if business and business.logo:
-        _draw_pdf_logo(p, business, x=margin, y_top=y + 10, max_height=50, max_width=150)
-
-    p.setFillColorRGB(*accent)
-    p.setFont("Helvetica-Bold", 24)
-    p.drawRightString(right, y - 10, "INVOICE")
-    p.setFont("Helvetica", 11)
-    p.setFillColorRGB(*_PDF_MUTED)
-    p.drawRightString(right, y - 26, f"#{invoice.id}")
-    y -= 60
-
-    # ── Horizontal separator ──
-    p.setStrokeColorRGB(*accent)
-    p.setLineWidth(1.5)
+    # ── Separator ──
+    p.setStrokeColorRGB(*accent if style != "clean_light" else _PDF_MUTED)
+    p.setLineWidth(1 if style != "luxury" else 0.5)
     p.line(margin, y, right, y)
     y -= 20
 
     # ── Two-column: From (business) + To (customer) ──
     col2_x = width / 2 + 20
-    p.setFont("Helvetica-Bold", 8)
+    p.setFont(h_font, 8)
     p.setFillColorRGB(*_PDF_MUTED)
     p.drawString(margin, y, "FROM")
     p.drawString(col2_x, y, "BILL TO")
     y -= 14
 
-    p.setFont("Helvetica-Bold", 11)
+    p.setFont(h_font, 11)
     p.setFillColorRGB(*_PDF_DARK)
     if business:
         p.drawString(margin, y, business.name)
     p.drawString(col2_x, y, invoice.customer.name)
     y -= 14
 
-    p.setFont("Helvetica", 9)
+    p.setFont(b_font, 9)
     p.setFillColorRGB(*_PDF_MUTED)
     if business and business.contact_email:
         p.drawString(margin, y, business.contact_email)
@@ -853,18 +898,33 @@ def _build_invoice_pdf(invoice, request):
     y -= 10
 
     # ── Date info row ──
-    p.setFont("Helvetica", 9)
+    p.setFont(b_font, 9)
     p.setFillColorRGB(*_PDF_MUTED)
     p.drawString(margin, y, f"Issue date: {invoice.issue_date}")
     p.drawString(col2_x, y, f"Due date: {invoice.due_date or '---'}")
     y -= 24
 
     # ── Line items table ──
-    # Table header
-    p.setFillColorRGB(*accent)
-    p.rect(margin, y - 4, right - margin, 18, fill=True, stroke=False)
-    p.setFillColorRGB(1, 1, 1)
-    p.setFont("Helvetica-Bold", 9)
+    # Table header — style-dependent
+    if style == "clean_light":
+        # Thin top border, no fill
+        p.setStrokeColorRGB(*_PDF_MUTED)
+        p.setLineWidth(0.5)
+        p.line(margin, y + 14, right, y + 14)
+        p.line(margin, y - 4, right, y - 4)
+        p.setFillColorRGB(*_PDF_DARK)
+    elif style == "luxury":
+        # Subtle accent bottom border only
+        p.setStrokeColorRGB(*accent)
+        p.setLineWidth(1)
+        p.line(margin, y - 4, right, y - 4)
+        p.setFillColorRGB(*_PDF_DARK)
+    else:
+        # Modern dark: filled accent header
+        p.setFillColorRGB(*accent)
+        p.rect(margin, y - 4, right - margin, 18, fill=True, stroke=False)
+        p.setFillColorRGB(1, 1, 1)
+    p.setFont(h_font, 9)
     p.drawString(margin + 8, y, "DESCRIPTION")
     p.drawString(360, y, "QTY")
     p.drawString(410, y, "RATE")
@@ -872,14 +932,14 @@ def _build_invoice_pdf(invoice, request):
     y -= 20
 
     p.setFillColorRGB(*_PDF_DARK)
-    p.setFont("Helvetica", 9)
+    p.setFont(b_font, 9)
     computed_total = Decimal("0.00")
     row_idx = 0
     for item in items:
         if y < 100:
             p.showPage()
             y = height - 50
-            p.setFont("Helvetica", 9)
+            p.setFont(b_font, 9)
             p.setFillColorRGB(*_PDF_DARK)
 
         # Alternating row shading
@@ -905,10 +965,21 @@ def _build_invoice_pdf(invoice, request):
     y -= 2
 
     total_to_show = getattr(invoice, "total", None) or computed_total
-    p.setFont("Helvetica-Bold", 14)
+    total_label = "PAID" if invoice.status == "paid" else "Total Due"
+    p.setFont(h_font, 14)
     p.setFillColorRGB(*accent)
-    p.drawRightString(right - 8, y - 4, f"Total Due: {_fmt_currency(total_to_show)}")
+    p.drawRightString(right - 8, y - 4, f"{total_label}: {_fmt_currency(total_to_show)}")
     y -= 30
+
+    # ── PAID stamp overlay ──
+    if invoice.status == "paid":
+        p.saveState()
+        p.setFillColorRGB(0.13, 0.77, 0.37, 0.15)  # semi-transparent green
+        p.setFont(h_font, 72)
+        p.translate(width / 2, height / 2)
+        p.rotate(30)
+        p.drawCentredString(0, 0, "PAID")
+        p.restoreState()
 
     # ── Payment methods ──
     _has_payment = business and (
@@ -918,11 +989,11 @@ def _build_invoice_pdf(invoice, request):
         or (business.paypal_link or "").strip()
     )
     if _has_payment and y > 140:
-        p.setFont("Helvetica-Bold", 9)
+        p.setFont(h_font, 9)
         p.setFillColorRGB(*_PDF_DARK)
         p.drawString(margin, y, "PAYMENT METHODS")
         y -= 14
-        p.setFont("Helvetica", 9)
+        p.setFont(b_font, 9)
         p.setFillColorRGB(*_PDF_MUTED)
         for label, handle in [
             ("Venmo", (business.venmo_username or "").strip()),
@@ -935,13 +1006,23 @@ def _build_invoice_pdf(invoice, request):
                 y -= 12
         y -= 6
 
+    # ── Custom payment instructions ──
+    if doc_template and doc_template.payment_instructions and y > 120:
+        p.setFont(b_font, 8)
+        p.setFillColorRGB(*_PDF_MUTED)
+        for line in doc_template.payment_instructions.split("\n")[:3]:
+            if line.strip() and y > 80:
+                p.drawString(margin, y, line.strip()[:90])
+                y -= 10
+        y -= 4
+
     # ── Terms & conditions ──
     if doc_template and doc_template.terms_and_conditions and y > 100:
-        p.setFont("Helvetica-Bold", 8)
+        p.setFont(h_font, 8)
         p.setFillColorRGB(*_PDF_DARK)
         p.drawString(margin, y, "TERMS & CONDITIONS")
         y -= 10
-        p.setFont("Helvetica", 7)
+        p.setFont(b_font, 7)
         p.setFillColorRGB(*_PDF_MUTED)
         for line in (doc_template.terms_and_conditions or "").replace("\r", "").split("\n")[:8]:
             if line.strip() and y > 50:
@@ -949,7 +1030,7 @@ def _build_invoice_pdf(invoice, request):
                 y -= 9
 
     # ── Footer ──
-    p.setFont("Helvetica", 7)
+    p.setFont(b_font, 7)
     p.setFillColorRGB(*_PDF_MUTED)
     footer_text = ""
     if business:
@@ -961,9 +1042,20 @@ def _build_invoice_pdf(invoice, request):
         footer_text = " | ".join(parts)
     p.drawCentredString(width / 2, 30, footer_text)
 
-    # Bottom accent bar
-    p.setFillColorRGB(*accent)
-    p.rect(0, 0, width, 4, fill=True, stroke=False)
+    # Bottom — style-dependent
+    if style == "luxury":
+        p.setStrokeColorRGB(*accent)
+        p.setLineWidth(2)
+        p.line(margin, 20, right, 20)
+        p.setLineWidth(0.5)
+        p.line(margin, 16, right, 16)
+    elif style == "clean_light":
+        p.setStrokeColorRGB(*_PDF_MUTED)
+        p.setLineWidth(0.5)
+        p.line(margin, 20, right, 20)
+    else:
+        p.setFillColorRGB(*accent)
+        p.rect(0, 0, width, 4, fill=True, stroke=False)
 
     p.showPage()
     p.save()
@@ -1614,7 +1706,7 @@ def estimate_detail(request, estimate_id):
 
 
 def _build_estimate_pdf(estimate, business):
-    """Build professional estimate PDF with logo, two-column header, and clean table."""
+    """Build professional estimate PDF with template style support."""
     canvas, LETTER = _get_reportlab()
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=LETTER)
@@ -1622,25 +1714,56 @@ def _build_estimate_pdf(estimate, business):
     doc_template = DocumentTemplate.get_default_for_business(business, "estimate") if business else None
     accent = _hex_to_rgb(doc_template.primary_color) if doc_template and getattr(doc_template, "primary_color", None) else _PDF_GREEN
     accent_light = tuple(min(1.0, c * 0.15 + 0.85) for c in accent)
+    style = doc_template.template_key if doc_template else "modern_dark"
+    font_style = doc_template.font_style if doc_template else "clean"
+    h_font, b_font = _pdf_fonts(font_style)
     margin = 50
     right = width - margin
 
-    # ── Top accent bar ──
-    p.setFillColorRGB(*accent)
-    p.rect(0, height - 8, width, 8, fill=True, stroke=False)
-
-    # ── Header: Logo (left) + Estimate title (right) ──
-    y = height - 50
-    if business and business.logo:
-        _draw_pdf_logo(p, business, x=margin, y_top=y + 10, max_height=50, max_width=150)
-
-    p.setFillColorRGB(*accent)
-    p.setFont("Helvetica-Bold", 24)
-    p.drawRightString(right, y - 10, "ESTIMATE")
-    p.setFont("Helvetica", 11)
-    p.setFillColorRGB(*_PDF_MUTED)
-    p.drawRightString(right, y - 26, f"#{estimate.id}")
-    y -= 60
+    # ── Style-dependent header ──
+    if style == "luxury":
+        p.setStrokeColorRGB(*accent)
+        p.setLineWidth(2)
+        p.line(margin, height - 30, right, height - 30)
+        p.setLineWidth(0.5)
+        p.line(margin, height - 34, right, height - 34)
+        y = height - 60
+        if business and business.logo:
+            _draw_pdf_logo(p, business, x=margin, y_top=y + 10, max_height=40, max_width=120)
+        p.setFillColorRGB(*_PDF_DARK)
+        p.setFont(h_font, 28)
+        p.drawRightString(right, y - 10, "ESTIMATE")
+        p.setFont(b_font, 10)
+        p.setFillColorRGB(*_PDF_MUTED)
+        p.drawRightString(right, y - 26, f"No. {estimate.id}")
+        y -= 60
+    elif style == "clean_light":
+        p.setStrokeColorRGB(*_PDF_MUTED)
+        p.setLineWidth(0.5)
+        p.line(margin, height - 20, right, height - 20)
+        y = height - 50
+        if business and business.logo:
+            _draw_pdf_logo(p, business, x=margin, y_top=y + 10, max_height=40, max_width=120)
+        p.setFillColorRGB(*_PDF_DARK)
+        p.setFont(h_font, 22)
+        p.drawRightString(right, y - 6, "ESTIMATE")
+        p.setFont(b_font, 10)
+        p.setFillColorRGB(*_PDF_MUTED)
+        p.drawRightString(right, y - 22, f"#{estimate.id}")
+        y -= 56
+    else:
+        p.setFillColorRGB(*accent)
+        p.rect(0, height - 8, width, 8, fill=True, stroke=False)
+        y = height - 50
+        if business and business.logo:
+            _draw_pdf_logo(p, business, x=margin, y_top=y + 10, max_height=50, max_width=150)
+        p.setFillColorRGB(*accent)
+        p.setFont(h_font, 24)
+        p.drawRightString(right, y - 10, "ESTIMATE")
+        p.setFont(b_font, 11)
+        p.setFillColorRGB(*_PDF_MUTED)
+        p.drawRightString(right, y - 26, f"#{estimate.id}")
+        y -= 60
 
     # ── Separator ──
     p.setStrokeColorRGB(*accent)
@@ -1795,9 +1918,20 @@ def _build_estimate_pdf(estimate, business):
         footer_text = " | ".join(parts)
     p.drawCentredString(width / 2, 30, footer_text)
 
-    # Bottom accent bar
-    p.setFillColorRGB(*accent)
-    p.rect(0, 0, width, 4, fill=True, stroke=False)
+    # Bottom — style-dependent
+    if style == "luxury":
+        p.setStrokeColorRGB(*accent)
+        p.setLineWidth(2)
+        p.line(margin, 20, right, 20)
+        p.setLineWidth(0.5)
+        p.line(margin, 16, right, 16)
+    elif style == "clean_light":
+        p.setStrokeColorRGB(*_PDF_MUTED)
+        p.setLineWidth(0.5)
+        p.line(margin, 20, right, 20)
+    else:
+        p.setFillColorRGB(*accent)
+        p.rect(0, 0, width, 4, fill=True, stroke=False)
 
     p.showPage()
     p.save()

@@ -448,7 +448,17 @@ class DocumentTemplate(models.Model):
         ("estimate", "Estimate"),
         ("invoice", "Invoice"),
     ]
-    BUILTIN_KEYS = ["professional", "minimal", "modern"]
+    BUILTIN_KEYS = ["modern_dark", "clean_light", "luxury"]
+    TEMPLATE_KEY_CHOICES = [
+        ("modern_dark", "Modern Dark — tech-forward, premium"),
+        ("clean_light", "Clean Light — traditional, professional"),
+        ("luxury", "Luxury Statement — elegant, high-end"),
+    ]
+    FONT_STYLE_CHOICES = [
+        ("clean", "Clean Sans-Serif (Helvetica)"),
+        ("serif", "Classic Serif (Times)"),
+        ("bold", "Modern Bold (Helvetica-Bold)"),
+    ]
 
     business = models.ForeignKey(
         Business,
@@ -481,6 +491,13 @@ class DocumentTemplate(models.Model):
         blank=True,
         help_text="Terms and conditions shown on the document.",
     )
+
+    # Style options
+    font_style = models.CharField(max_length=20, choices=FONT_STYLE_CHOICES, default="clean")
+    show_property_address = models.BooleanField(default=True, help_text="Show service address on document")
+    show_service_date = models.BooleanField(default=True, help_text="Show service/scheduled date")
+    show_photos = models.BooleanField(default=False, help_text="Include property/job photos")
+    payment_instructions = models.TextField(blank=True, help_text="Custom payment instructions shown on invoices")
 
     # Custom fields: list of {"key": "po_number", "label": "PO Number", "type": "text"|"number"|"date"|"textarea", "required": false}
     custom_fields = models.JSONField(
