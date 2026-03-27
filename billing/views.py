@@ -1193,6 +1193,7 @@ def resend_invoice(request, invoice_id):
     logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
     doc_template = DocumentTemplate.get_default_for_business(business, "invoice")
     accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
+    template_style = doc_template.template_key if doc_template else "modern_dark"
     html_content = render_to_string("billing/invoice_email.html", {
         "invoice": invoice,
         "business": business,
@@ -1201,6 +1202,10 @@ def resend_invoice(request, invoice_id):
         "email_intro": intro,
         "email_closing": closing,
         "accent_color": accent_color,
+        "template_style": template_style,
+        "header_text": doc_template.header_text if doc_template else "",
+        "footer_text": doc_template.footer_text if doc_template else "",
+        "terms_text": doc_template.terms_and_conditions if doc_template else "",
     })
 
     pdf_bytes = _build_invoice_pdf(invoice, request)
@@ -1281,6 +1286,10 @@ def send_reminder(request, invoice_id):
         "email_intro": intro,
         "email_closing": closing,
         "accent_color": accent_color,
+        "template_style": doc_template.template_key if doc_template else "modern_dark",
+        "header_text": doc_template.header_text if doc_template else "",
+        "footer_text": doc_template.footer_text if doc_template else "",
+        "terms_text": doc_template.terms_and_conditions if doc_template else "",
     })
 
     reply_to = [business.contact_email] if business.contact_email else None
@@ -2060,6 +2069,7 @@ def estimate_send(request, estimate_id):
     )
     doc_template = DocumentTemplate.get_default_for_business(business, "estimate")
     accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
+    template_style = doc_template.template_key if doc_template else "modern_dark"
     html_content = render_to_string("billing/estimate_email.html", {
         "estimate": estimate,
         "customer": customer,
@@ -2070,6 +2080,10 @@ def estimate_send(request, estimate_id):
         "email_intro": intro,
         "email_closing": closing,
         "accent_color": accent_color,
+        "template_style": template_style,
+        "header_text": doc_template.header_text if doc_template else "",
+        "footer_text": doc_template.footer_text if doc_template else "",
+        "terms_text": doc_template.terms_and_conditions if doc_template else "",
     })
 
     plain_body = intro + "\n\nView and accept your estimate: " + (view_url or "") + "\n\n" + closing + "\n\n" + business.name
@@ -2442,6 +2456,10 @@ def email_template_preview(request, doc_type):
             "email_intro": business.invoice_email_intro or "Hi John, please find your invoice below.",
             "email_closing": business.invoice_email_closing or "Thank you for your business.",
             "accent_color": accent_color,
+            "template_style": doc_template.template_key if doc_template else "modern_dark",
+            "header_text": doc_template.header_text if doc_template else "",
+            "footer_text": doc_template.footer_text if doc_template else "",
+            "terms_text": doc_template.terms_and_conditions if doc_template else "",
         })
     else:
         html = render_to_string("billing/estimate_email.html", {
@@ -2468,6 +2486,10 @@ def email_template_preview(request, doc_type):
             "email_intro": business.estimate_email_intro or "Hi Sarah, here is your estimate for the landscaping project.",
             "email_closing": business.estimate_email_closing or "We look forward to working with you.",
             "accent_color": accent_color,
+            "template_style": doc_template.template_key if doc_template else "modern_dark",
+            "header_text": doc_template.header_text if doc_template else "",
+            "footer_text": doc_template.footer_text if doc_template else "",
+            "terms_text": doc_template.terms_and_conditions if doc_template else "",
         })
     return HttpResponse(html, content_type="text/html")
 
