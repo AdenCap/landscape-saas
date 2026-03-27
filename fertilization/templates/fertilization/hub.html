@@ -174,7 +174,7 @@
             <th>Client</th>
             <th class="fert-hide-mobile">Address</th>
             <th class="num fert-hide-mobile">Sq Ft</th>
-            <th class="num fert-hide-mobile">~Lbs</th>
+            {% if can_see_pricing %}<th class="num fert-hide-mobile">Per App</th>{% endif %}
             <th>Progress</th>
           </tr>
         </thead>
@@ -191,7 +191,11 @@
             </td>
             <td class="fert-hide-mobile" style="font-size:13px;color:var(--text-secondary);">{{ enr.property.address|truncatewords:5 }}</td>
             <td class="num fert-hide-mobile">{% if enr.calc_sqft %}{{ enr.calc_sqft|floatformat:0 }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
-            <td class="num fert-hide-mobile">{% if enr.calc_lbs_needed %}{{ enr.calc_lbs_needed }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
+            {% if can_see_pricing %}
+            <td class="num fert-hide-mobile" style="{% if enr.price_per_application %}color:var(--primary);font-weight:600;{% else %}color:var(--text-muted);{% endif %}">
+              {% if enr.price_per_application %}${{ enr.price_per_application|floatformat:0 }}{% else %}—{% endif %}
+            </td>
+            {% endif %}
             <td>
               <div style="display:flex;gap:3px;align-items:center;">
                 {% for sr in enr.scheduled_rounds.all %}
