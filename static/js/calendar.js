@@ -392,6 +392,35 @@ document.addEventListener('DOMContentLoaded', function () {
   var skeleton = document.getElementById('calendar-skeleton');
   if (skeleton) skeleton.style.display = 'none';
 
+  // ── Swipe left/right to navigate days/weeks on mobile ──
+  if (isMobile) {
+    var touchStartX = 0;
+    var touchStartY = 0;
+    var swiping = false;
+    calEl.addEventListener('touchstart', function(e) {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        swiping = true;
+      }
+    }, { passive: true });
+    calEl.addEventListener('touchend', function(e) {
+      if (!swiping) return;
+      swiping = false;
+      var touch = e.changedTouches[0];
+      var dx = touch.clientX - touchStartX;
+      var dy = touch.clientY - touchStartY;
+      // Only trigger on horizontal swipes (not vertical scroll)
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        if (dx < 0) {
+          calendar.next();
+        } else {
+          calendar.prev();
+        }
+      }
+    }, { passive: true });
+  }
+
   // ══════════════════════════════════════════════════════════════
   // Toolbar Controls
   // ══════════════════════════════════════════════════════════════

@@ -325,7 +325,7 @@ document.querySelectorAll('.fert-toggle-select').forEach(function(btn) {
           <th>NPK</th>
           <th>Type</th>
           <th class="num">App Rate</th>
-          <th class="num">Cost/lb</th>
+          {% if can_see_pricing %}<th class="num">Cost/lb</th>{% endif %}
           <th>EPA #</th>
           <th>Active</th>
           <th></th>
@@ -338,7 +338,7 @@ document.querySelectorAll('.fert-toggle-select').forEach(function(btn) {
           <td>{{ prod.npk_display|default:"--" }}</td>
           <td>{{ prod.get_product_type_display }}</td>
           <td class="num">{{ prod.application_rate|default:"--" }}</td>
-          <td class="num">${{ prod.get_cost_per_pound_equivalent|floatformat:2 }}</td>
+          {% if can_see_pricing %}<td class="num">${{ prod.get_cost_per_pound_equivalent|floatformat:2 }}</td>{% endif %}
           <td>{{ prod.epa_registration_number|default:"--" }}</td>
           <td>
             {% if prod.active %}
@@ -385,9 +385,11 @@ document.querySelectorAll('.fert-toggle-select').forEach(function(btn) {
           <th class="num">Amount</th>
           <th class="num">Rate</th>
           <th>Weather</th>
+          {% if can_see_pricing %}
           <th class="num">Material $</th>
           <th class="num">Charged $</th>
           <th class="num">Profit %</th>
+          {% endif %}
           <th></th>
         </tr>
       </thead>
@@ -403,6 +405,7 @@ document.querySelectorAll('.fert-toggle-select').forEach(function(btn) {
             {% if app.weather_conditions %}{{ app.get_weather_conditions_display }}{% endif %}
             {% if app.weather_temp_f %} {{ app.weather_temp_f }}F{% endif %}
           </td>
+          {% if can_see_pricing %}
           <td class="num">${{ app.material_cost|floatformat:2 }}</td>
           <td class="num">{% if app.charge_amount %} ${{ app.charge_amount|floatformat:2 }}{% else %}--{% endif %}</td>
           <td class="num">
@@ -414,6 +417,7 @@ document.querySelectorAll('.fert-toggle-select').forEach(function(btn) {
               --
             {% endif %}
           </td>
+          {% endif %}
           <td class="actions-cell">
             <button class="btn btn-sm btn-secondary" onclick="FertHub.editApplication({{ app.id }})">Edit</button>
           </td>

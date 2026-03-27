@@ -2556,6 +2556,17 @@ def mowing_hub(request):
         data["mow_skipped"] = sum(1 for h in history if h["status"] == "skipped")
         data["mow_total"] = len(history)
         data["mow_history"] = history
+        # Per-cut pricing from service template or property override
+        from pricing.utils import get_effective_rate
+        data["per_cut_rate"] = None
+        if prop_ids and mowing_services.exists():
+            mow_svc = mowing_services.first()
+            prop_obj = data["properties"][0] if data["properties"] else None
+            if prop_obj and mow_svc:
+                _unit, _rate = get_effective_rate(prop_obj, mow_svc)
+                if _rate > 0:
+                    data["per_cut_rate"] = _rate
+
         # Missed client detection: no job this week + last mow was too long ago
         data["is_missed"] = False
         if not data["this_week_jobs"] and data["frequency_key"] in ("weekly", "biweekly"):
@@ -2591,6 +2602,8 @@ def mowing_hub(request):
     ])
     crews = Crew.objects.filter(business=business).order_by("name")
 
+    can_see_pricing = request.user.role in ("owner", "manager")
+
     return render(request, "jobs/mowing_hub.html", {
         "clients": clients,
         "total_count": len(clients),
@@ -2604,6 +2617,7 @@ def mowing_hub(request):
         "today": today,
         "customers_json": customers_json,
         "crews": crews,
+        "can_see_pricing": can_see_pricing,
     })
 
 

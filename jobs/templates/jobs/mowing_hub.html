@@ -254,6 +254,7 @@ If you have any questions, please don't hesitate to reach out.
         <th class="mow-hide-mobile">Address</th>
         <th>Freq</th>
         <th class="mow-hide-mobile">Crew</th>
+        {% if can_see_pricing %}<th class="mow-hide-mobile">Per Cut</th>{% endif %}
         <th>Progress</th>
         <th class="mow-hide-mobile">This Week</th>
         <th class="mow-hide-mobile">Avg Time</th>
@@ -282,6 +283,11 @@ If you have any questions, please don't hesitate to reach out.
           {% endif %}
         </td>
         <td class="mow-hide-mobile" style="font-size:13px;">{{ c.crew }}</td>
+        {% if can_see_pricing %}
+        <td class="mow-hide-mobile" style="font-size:13px;font-weight:600;{% if c.per_cut_rate %}color:var(--primary);{% else %}color:var(--text-muted);{% endif %}">
+          {% if c.per_cut_rate %}${{ c.per_cut_rate|floatformat:0 }}{% else %}—{% endif %}
+        </td>
+        {% endif %}
         <td>
           {% if c.mow_history %}
           <div style="display:flex;gap:2px;align-items:center;flex-wrap:wrap;">

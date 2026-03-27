@@ -67,6 +67,7 @@
 </div>
 {% endif %}
 
+{% if request.user.role == "owner" or request.user.role == "manager" %}
 <!-- Add material cost (inline, optional receipt + parse) -->
 <div class="card" style="margin-bottom: 20px;">
   <h2 class="card-title">Add material cost</h2>
@@ -150,6 +151,7 @@
     </ul>
   </div>
 {% endif %}
+{% endif %}{# end owner/manager pricing block #}
 
 {% if job.status == "completed" and has_unbilled_items %}
   <div class="card" style="margin-bottom: 20px; background: var(--primary-light); border-color: var(--primary);">

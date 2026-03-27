@@ -460,6 +460,8 @@ def hub(request):
         for prog in programs.filter(is_active=True)
     ])
 
+    can_see_pricing = request.user.role in ("owner", "manager")
+
     context = {
         'programs': programs,
         'products': products,
@@ -472,6 +474,7 @@ def hub(request):
         'programs_json': programs_json,
         'growing_season_start': business.growing_season_start_month or 3,
         'growing_season_end': business.growing_season_end_month or 10,
+        'can_see_pricing': can_see_pricing,
     }
 
     return render(request, "fertilization/hub.html", context)
