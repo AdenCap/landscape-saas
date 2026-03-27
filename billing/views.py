@@ -2381,10 +2381,19 @@ def document_template_edit(request, doc_type):
     # GET — build form just for rendering widgets (header_text, footer_text, etc.)
     form = DocumentTemplateForm(instance=template_obj)
 
+    logo_url = None
+    if business.logo:
+        try:
+            logo_url = business.logo.url
+        except Exception:
+            pass
+
     return render(request, "billing/document_template_edit.html", {
         "form": form,
         "doc_type": doc_type,
         "template_obj": template_obj,
+        "business": business,
+        "logo_url": logo_url,
     })
 
 
