@@ -9,6 +9,17 @@
       <p class="estimate-detail-meta">
         Estimate #{{ estimate.id }} · {{ estimate.customer.name }}
         <span class="badge badge-{{ estimate.status }}">{{ estimate.status|title }}</span>
+        {% if estimate.view_count %}
+        <span class="view-tracker" title="First viewed: {{ estimate.first_viewed_at|date:'M j, g:i A' }}{% if estimate.view_count > 1 %} · Last viewed: {{ estimate.last_viewed_at|date:'M j, g:i A' }}{% endif %}">
+          <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;color:var(--primary);">visibility</span>
+          Viewed {{ estimate.view_count }}x
+        </span>
+        {% elif estimate.status == 'sent' %}
+        <span class="view-tracker view-tracker-unseen" title="Client has not opened this estimate yet">
+          <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">visibility_off</span>
+          Not yet viewed
+        </span>
+        {% endif %}
       </p>
     </div>
     <div class="estimate-detail-actions">
@@ -251,6 +262,8 @@
   .estimate-detail-heading h1 { margin: 0 0 6px 0; font-size: 28px; font-weight: 700; }
   .estimate-detail-meta { margin: 0; color: var(--text-muted); font-size: 16px; }
   .estimate-detail-meta .badge { margin-left: 10px; }
+  .view-tracker { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; font-size: 12px; font-weight: 600; color: var(--primary); background: var(--primary-light); padding: 2px 8px; border-radius: 999px; cursor: help; }
+  .view-tracker-unseen { color: var(--text-muted); background: var(--surface-highest); }
   .estimate-detail-actions .btn { font-size: 15px; }
   .estimate-detail-actions {
     display: flex;

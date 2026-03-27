@@ -37,6 +37,17 @@
       <span class="meta-value">{{ invoice.approved_at|date:"M j, Y g:i A" }}{% if invoice.approved_by %} by {{ invoice.approved_by.get_full_name|default:invoice.approved_by.email }}{% endif %}</span>
     </div>
     {% endif %}
+    {% if invoice.view_count %}
+    <div class="meta-group" title="First viewed: {{ invoice.first_viewed_at|date:'M j, g:i A' }}{% if invoice.view_count > 1 %} · Last: {{ invoice.last_viewed_at|date:'M j, g:i A' }}{% endif %}">
+      <span class="meta-label"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;color:var(--primary);">visibility</span> Client viewed</span>
+      <span class="meta-value" style="color:var(--primary);">{{ invoice.view_count }}x — {{ invoice.last_viewed_at|date:"M j, g:i A" }}</span>
+    </div>
+    {% elif invoice.status == 'sent' %}
+    <div class="meta-group">
+      <span class="meta-label"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;">visibility_off</span> Client view</span>
+      <span class="meta-value" style="color:var(--text-muted);">Not yet viewed</span>
+    </div>
+    {% endif %}
   </div>
   {% if audit_logs %}
   <div class="invoice-audit">

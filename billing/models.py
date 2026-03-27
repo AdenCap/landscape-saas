@@ -130,6 +130,11 @@ class Invoice(models.Model):
         help_text="Allow credit card payment via Stripe for this invoice. Uncheck to disable card payments.",
     )
 
+    # ── View tracking ──────────────────────────────────────
+    first_viewed_at = models.DateTimeField(null=True, blank=True, help_text="First time the client opened this invoice")
+    last_viewed_at = models.DateTimeField(null=True, blank=True, help_text="Most recent time the client viewed this invoice")
+    view_count = models.PositiveIntegerField(default=0, help_text="How many times the client has viewed this invoice")
+
     custom_field_values = models.JSONField(
         default=dict,
         blank=True,
@@ -326,6 +331,11 @@ class Estimate(models.Model):
     )
     deposit_paid = models.BooleanField(default=False)
     deposit_paid_at = models.DateTimeField(null=True, blank=True)
+
+    # ── View tracking ──────────────────────────────────────
+    first_viewed_at = models.DateTimeField(null=True, blank=True, help_text="First time the client opened this estimate")
+    last_viewed_at = models.DateTimeField(null=True, blank=True, help_text="Most recent time the client viewed this estimate")
+    view_count = models.PositiveIntegerField(default=0, help_text="How many times the client has viewed this estimate")
 
     custom_field_values = models.JSONField(
         default=dict,

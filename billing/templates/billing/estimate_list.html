@@ -140,7 +140,10 @@
             <td><a href="{% url 'customer_detail' est.customer.id %}" class="link-primary">{{ est.customer.name }}</a></td>
             <td>{{ est.title }}</td>
             <td class="num">{{ est.total|currency }}</td>
-            <td><span class="badge badge-{{ est.status }}">{{ est.status|title }}</span></td>
+            <td>
+              <span class="badge badge-{{ est.status }}">{{ est.status|title }}</span>
+              {% if est.view_count %}<span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-left:4px;color:var(--primary);" title="Viewed {{ est.view_count }}x — Last: {{ est.last_viewed_at|date:'M j, g:i A' }}">visibility</span>{% endif %}
+            </td>
             <td class="col-actions">
               <a href="{% url 'billing:estimate_detail' est.id %}" class="btn btn-secondary btn-sm">View</a>
               {% if est.status == 'draft' %}

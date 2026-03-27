@@ -415,6 +415,14 @@ def invoice_pay_page(request, invoice_id, token):
         id=invoice_id,
         payment_token=token,
     )
+    # Track client view
+    now = timezone.now()
+    if not invoice.first_viewed_at:
+        invoice.first_viewed_at = now
+    invoice.last_viewed_at = now
+    invoice.view_count = (invoice.view_count or 0) + 1
+    invoice.save(update_fields=["first_viewed_at", "last_viewed_at", "view_count"])
+
     invoice.recompute_totals()
     business = invoice.business
     has_payment_methods = _business_has_payment_methods(business)
@@ -2207,6 +2215,14 @@ def estimate_client_view(request, estimate_id, token):
         view_token=token,
         status__in=["sent", "accepted"],
     )
+    # Track client view
+    now = timezone.now()
+    if not estimate.first_viewed_at:
+        estimate.first_viewed_at = now
+    estimate.last_viewed_at = now
+    estimate.view_count = (estimate.view_count or 0) + 1
+    estimate.save(update_fields=["first_viewed_at", "last_viewed_at", "view_count"])
+
     base_items = list(estimate.line_items.filter(is_addon=False))
     optional_items = list(estimate.line_items.filter(is_addon=True))
     base_total = sum(item.line_total for item in base_items)
