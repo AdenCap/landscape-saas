@@ -784,7 +784,7 @@ def _hex_to_rgb(hex_str):
 
 
 def _build_invoice_pdf(invoice, request):
-    """Build invoice PDF bytes (for download or email). Uses document template if set."""
+    """Build professional invoice PDF with logo, two-column header, and clean table."""
     canvas, LETTER = _get_reportlab()
     items = invoice.line_items.all()
     buffer = BytesIO()
@@ -792,159 +792,178 @@ def _build_invoice_pdf(invoice, request):
     width, height = LETTER
     business = invoice.business
     doc_template = DocumentTemplate.get_default_for_business(business, "invoice") if business else None
-    accent_rgb = _hex_to_rgb(doc_template.primary_color) if doc_template and getattr(doc_template, "primary_color", None) else _PDF_GREEN
+    accent = _hex_to_rgb(doc_template.primary_color) if doc_template and getattr(doc_template, "primary_color", None) else _PDF_GREEN
+    accent_light = tuple(min(1.0, c * 0.15 + 0.85) for c in accent)  # light tint for row shading
+    margin = 50
+    right = width - margin
 
-    # Accent bar at top
-    p.setFillColorRGB(*accent_rgb)
-    p.rect(0, height - 12, width, 12, fill=True, stroke=False)
+    # ── Top accent bar ──
+    p.setFillColorRGB(*accent)
+    p.rect(0, height - 8, width, 8, fill=True, stroke=False)
 
-    y = height - 44
-    p.setFillColorRGB(*_PDF_DARK)
-    if doc_template and doc_template.header_text:
-        p.setFont("Helvetica", 9)
-        p.setFillColorRGB(*_PDF_MUTED)
-        for line in (doc_template.header_text or "").replace("\r", "").split("\n")[:4]:
-            if line.strip():
-                p.drawString(50, y, line.strip()[:90])
-                y -= 12
-        y -= 8
-        p.setFillColorRGB(*_PDF_DARK)
+    # ── Header: Logo (left) + Invoice title (right) ──
+    y = height - 50
     if business and business.logo:
-        _draw_pdf_logo(p, business, x=None, y_top=y + 10, max_height=44, max_width=140, page_width=width)
-        p.setFont("Helvetica-Bold", 20)
-        p.setFillColorRGB(*accent_rgb)
-        p.drawString(50, y - 28, f"Invoice #{invoice.id}")
-        p.setFillColorRGB(*_PDF_DARK)
-        y -= 50
-    else:
-        p.setFont("Helvetica-Bold", 20)
-        p.setFillColorRGB(*accent_rgb)
-        p.drawString(50, y, f"Invoice #{invoice.id}")
-        p.setFillColorRGB(*_PDF_DARK)
-        y -= 28
+        _draw_pdf_logo(p, business, x=margin, y_top=y + 10, max_height=50, max_width=150)
 
-    p.setFont("Helvetica", 10)
+    p.setFillColorRGB(*accent)
+    p.setFont("Helvetica-Bold", 24)
+    p.drawRightString(right, y - 10, "INVOICE")
+    p.setFont("Helvetica", 11)
     p.setFillColorRGB(*_PDF_MUTED)
-    p.drawString(50, y, f"Issue date: {invoice.issue_date}")
-    y -= 14
-    p.drawString(50, y, f"Due date: {invoice.due_date or '—'}")
-    y -= 14
-    p.setFillColorRGB(*_PDF_DARK)
-    p.drawString(50, y, f"Bill to: {invoice.customer.name}")
-    y -= 14
-    if invoice.customer.full_address:
-        p.setFont("Helvetica", 9)
-        p.setFillColorRGB(*_PDF_MUTED)
-        p.drawString(50, y, invoice.customer.full_address[:60])
-        y -= 12
-    p.setFont("Helvetica", 10)
-    y -= 12
+    p.drawRightString(right, y - 26, f"#{invoice.id}")
+    y -= 60
 
-    # Table header
-    p.setFillColorRGB(*_PDF_DARK)
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(50, y, "Description")
-    p.drawString(450, y, "Total")
-    y -= 4
-    p.setFillColorRGB(*accent_rgb)
+    # ── Horizontal separator ──
+    p.setStrokeColorRGB(*accent)
     p.setLineWidth(1.5)
-    p.line(50, y, 560, y)
-    y -= 16
+    p.line(margin, y, right, y)
+    y -= 20
+
+    # ── Two-column: From (business) + To (customer) ──
+    col2_x = width / 2 + 20
+    p.setFont("Helvetica-Bold", 8)
+    p.setFillColorRGB(*_PDF_MUTED)
+    p.drawString(margin, y, "FROM")
+    p.drawString(col2_x, y, "BILL TO")
+    y -= 14
+
+    p.setFont("Helvetica-Bold", 11)
+    p.setFillColorRGB(*_PDF_DARK)
+    if business:
+        p.drawString(margin, y, business.name)
+    p.drawString(col2_x, y, invoice.customer.name)
+    y -= 14
+
+    p.setFont("Helvetica", 9)
+    p.setFillColorRGB(*_PDF_MUTED)
+    if business and business.contact_email:
+        p.drawString(margin, y, business.contact_email)
+    if invoice.customer.email:
+        p.drawString(col2_x, y, invoice.customer.email)
+    y -= 12
+    if business and business.contact_phone:
+        p.drawString(margin, y, business.contact_phone)
+    if invoice.customer.phone:
+        p.drawString(col2_x, y, invoice.customer.phone)
+    y -= 12
+    if invoice.customer.full_address and invoice.customer.full_address != "---":
+        p.drawString(col2_x, y, invoice.customer.full_address[:50])
+        y -= 12
+    y -= 10
+
+    # ── Date info row ──
+    p.setFont("Helvetica", 9)
+    p.setFillColorRGB(*_PDF_MUTED)
+    p.drawString(margin, y, f"Issue date: {invoice.issue_date}")
+    p.drawString(col2_x, y, f"Due date: {invoice.due_date or '---'}")
+    y -= 24
+
+    # ── Line items table ──
+    # Table header
+    p.setFillColorRGB(*accent)
+    p.rect(margin, y - 4, right - margin, 18, fill=True, stroke=False)
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont("Helvetica-Bold", 9)
+    p.drawString(margin + 8, y, "DESCRIPTION")
+    p.drawString(360, y, "QTY")
+    p.drawString(410, y, "RATE")
+    p.drawRightString(right - 8, y, "AMOUNT")
+    y -= 20
 
     p.setFillColorRGB(*_PDF_DARK)
-    p.setFont("Helvetica", 10)
+    p.setFont("Helvetica", 9)
     computed_total = Decimal("0.00")
+    row_idx = 0
     for item in items:
-        lt = item.line_total
-        computed_total += lt
-        p.drawString(50, y, str(item.description)[:50])
-        p.drawRightString(560, y, _fmt_currency(lt))
-        y -= 16
         if y < 100:
             p.showPage()
             y = height - 50
-            p.setFont("Helvetica", 10)
+            p.setFont("Helvetica", 9)
             p.setFillColorRGB(*_PDF_DARK)
 
-    y -= 6
-    p.setFillColorRGB(*accent_rgb)
-    p.line(450, y + 4, 560, y + 4)
-    y -= 4
-    p.setFont("Helvetica-Bold", 12)
-    total_to_show = getattr(invoice, "total", None) or computed_total
-    p.drawRightString(560, y, f"Total: {_fmt_currency(total_to_show)}")
+        # Alternating row shading
+        if row_idx % 2 == 1:
+            p.setFillColorRGB(*accent_light)
+            p.rect(margin, y - 4, right - margin, 16, fill=True, stroke=False)
+            p.setFillColorRGB(*_PDF_DARK)
 
-    if doc_template and doc_template.custom_fields and invoice.custom_field_values:
-        y -= 20
-        p.setFont("Helvetica-Bold", 9)
-        p.setFillColorRGB(*_PDF_MUTED)
-        p.drawString(50, y, "Additional information")
-        y -= 12
-        p.setFont("Helvetica", 9)
-        for field_def in doc_template.custom_fields:
-            key = field_def.get("key")
-            val = (invoice.custom_field_values or {}).get(key)
-            if key and val:
-                p.drawString(50, y, f"{field_def.get('label', key)}: {str(val)[:70]}")
-                y -= 12
-                if y < 100:
-                    break
-        y -= 8
-    if doc_template and doc_template.terms_and_conditions:
+        lt = item.line_total
+        computed_total += lt
+        p.drawString(margin + 8, y, str(item.description)[:45])
+        p.drawString(360, y, str(item.quantity or 1))
+        p.drawString(410, y, _fmt_currency(item.unit_price) if item.unit_price else "---")
+        p.drawRightString(right - 8, y, _fmt_currency(lt))
         y -= 16
-        p.setFont("Helvetica-Bold", 9)
-        p.setFillColorRGB(*_PDF_DARK)
-        p.drawString(50, y, "Terms & conditions")
-        y -= 10
-        p.setFont("Helvetica", 8)
-        p.setFillColorRGB(*_PDF_MUTED)
-        for line in (doc_template.terms_and_conditions or "").replace("\r", "").split("\n")[:12]:
-            if line.strip():
-                p.drawString(50, y, line.strip()[:90])
-                y -= 10
-                if y < 60:
-                    break
-    if doc_template and doc_template.footer_text:
-        y -= 12
-        p.setFont("Helvetica", 8)
-        p.setFillColorRGB(*_PDF_MUTED)
-        for line in (doc_template.footer_text or "").replace("\r", "").split("\n")[:3]:
-            if line.strip():
-                p.drawString(50, y, line.strip()[:90])
-                y -= 10
-                if y < 50:
-                    break
-    y -= 12
+        row_idx += 1
 
+    # ── Totals section ──
+    y -= 8
+    p.setStrokeColorRGB(*accent)
+    p.setLineWidth(0.5)
+    p.line(350, y + 6, right, y + 6)
+    y -= 2
+
+    total_to_show = getattr(invoice, "total", None) or computed_total
+    p.setFont("Helvetica-Bold", 14)
+    p.setFillColorRGB(*accent)
+    p.drawRightString(right - 8, y - 4, f"Total Due: {_fmt_currency(total_to_show)}")
+    y -= 30
+
+    # ── Payment methods ──
     _has_payment = business and (
         (business.venmo_username or "").strip()
         or (business.zelle_email_or_phone or "").strip()
         or (business.cashapp_cashtag or "").strip()
+        or (business.paypal_link or "").strip()
     )
     if _has_payment and y > 140:
-        y -= 28
+        p.setFont("Helvetica-Bold", 9)
         p.setFillColorRGB(*_PDF_DARK)
-        p.setFont("Helvetica-Bold", 10)
-        p.drawString(50, y, "How to pay")
-        y -= 18
-        icon_size = 14
-        for label, handle, r, g, b in [
-            ("Venmo", (business.venmo_username or "").strip(), 0, 0.55, 1),
-            ("Zelle", (business.zelle_email_or_phone or "").strip(), 0.43, 0.12, 0.83),
-            ("Cash App", (business.cashapp_cashtag or "").strip(), 0, 0.84, 0.29),
+        p.drawString(margin, y, "PAYMENT METHODS")
+        y -= 14
+        p.setFont("Helvetica", 9)
+        p.setFillColorRGB(*_PDF_MUTED)
+        for label, handle in [
+            ("Venmo", (business.venmo_username or "").strip()),
+            ("Zelle", (business.zelle_email_or_phone or "").strip()),
+            ("Cash App", (business.cashapp_cashtag or "").strip()),
+            ("PayPal", (business.paypal_link or "").strip()),
         ]:
-            if not handle:
-                continue
-            icon_y = y + 10
-            p.setFillColorRGB(r, g, b)
-            p.roundRect(50, icon_y - icon_size, icon_size, icon_size, 3, fill=True, stroke=False)
-            p.setFillColorRGB(1, 1, 1)
-            p.setFont("Helvetica-Bold", 9)
-            p.drawString(53, icon_y - icon_size + 3, label[0])
-            p.setFillColorRGB(*_PDF_DARK)
-            p.setFont("Helvetica", 10)
-            p.drawString(50 + icon_size + 8, icon_y - 10, f"{label}: {handle[:40]}")
-            y -= 22
+            if handle:
+                p.drawString(margin, y, f"{label}: {handle[:50]}")
+                y -= 12
+        y -= 6
+
+    # ── Terms & conditions ──
+    if doc_template and doc_template.terms_and_conditions and y > 100:
+        p.setFont("Helvetica-Bold", 8)
+        p.setFillColorRGB(*_PDF_DARK)
+        p.drawString(margin, y, "TERMS & CONDITIONS")
+        y -= 10
+        p.setFont("Helvetica", 7)
+        p.setFillColorRGB(*_PDF_MUTED)
+        for line in (doc_template.terms_and_conditions or "").replace("\r", "").split("\n")[:8]:
+            if line.strip() and y > 50:
+                p.drawString(margin, y, line.strip()[:100])
+                y -= 9
+
+    # ── Footer ──
+    p.setFont("Helvetica", 7)
+    p.setFillColorRGB(*_PDF_MUTED)
+    footer_text = ""
+    if business:
+        parts = [business.name]
+        if business.contact_email:
+            parts.append(business.contact_email)
+        if business.contact_phone:
+            parts.append(business.contact_phone)
+        footer_text = " | ".join(parts)
+    p.drawCentredString(width / 2, 30, footer_text)
+
+    # Bottom accent bar
+    p.setFillColorRGB(*accent)
+    p.rect(0, 0, width, 4, fill=True, stroke=False)
 
     p.showPage()
     p.save()
@@ -1595,156 +1614,190 @@ def estimate_detail(request, estimate_id):
 
 
 def _build_estimate_pdf(estimate, business):
-    """Build estimate PDF bytes (with logo if business has one). Uses document template if set."""
+    """Build professional estimate PDF with logo, two-column header, and clean table."""
     canvas, LETTER = _get_reportlab()
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=LETTER)
     width, height = LETTER
     doc_template = DocumentTemplate.get_default_for_business(business, "estimate") if business else None
-    accent_rgb = _hex_to_rgb(doc_template.primary_color) if doc_template and getattr(doc_template, "primary_color", None) else _PDF_GREEN
+    accent = _hex_to_rgb(doc_template.primary_color) if doc_template and getattr(doc_template, "primary_color", None) else _PDF_GREEN
+    accent_light = tuple(min(1.0, c * 0.15 + 0.85) for c in accent)
+    margin = 50
+    right = width - margin
 
-    # Accent bar at top
-    p.setFillColorRGB(*accent_rgb)
-    p.rect(0, height - 12, width, 12, fill=True, stroke=False)
+    # ── Top accent bar ──
+    p.setFillColorRGB(*accent)
+    p.rect(0, height - 8, width, 8, fill=True, stroke=False)
 
-    y = height - 44
-    p.setFillColorRGB(*_PDF_DARK)
-    if doc_template and doc_template.header_text:
-        p.setFont("Helvetica", 9)
-        p.setFillColorRGB(*_PDF_MUTED)
-        for line in (doc_template.header_text or "").replace("\r", "").split("\n")[:4]:
-            if line.strip():
-                p.drawString(50, y, line.strip()[:90])
-                y -= 12
-        y -= 8
-        p.setFillColorRGB(*_PDF_DARK)
+    # ── Header: Logo (left) + Estimate title (right) ──
+    y = height - 50
     if business and business.logo:
-        _draw_pdf_logo(p, business, x=None, y_top=y + 10, max_height=44, max_width=140, page_width=width)
-        p.setFont("Helvetica-Bold", 18)
-        p.setFillColorRGB(*accent_rgb)
-        p.drawString(50, y - 28, estimate.title)
-        p.setFillColorRGB(*_PDF_DARK)
-        y -= 50
-    else:
-        p.setFont("Helvetica-Bold", 18)
-        p.setFillColorRGB(*accent_rgb)
-        p.drawString(50, y, estimate.title)
-        p.setFillColorRGB(*_PDF_DARK)
-        y -= 28
+        _draw_pdf_logo(p, business, x=margin, y_top=y + 10, max_height=50, max_width=150)
 
-    p.setFont("Helvetica", 10)
+    p.setFillColorRGB(*accent)
+    p.setFont("Helvetica-Bold", 24)
+    p.drawRightString(right, y - 10, "ESTIMATE")
+    p.setFont("Helvetica", 11)
     p.setFillColorRGB(*_PDF_MUTED)
-    p.drawString(50, y, f"Estimate #{estimate.id}")
-    y -= 14
-    p.drawString(50, y, f"Prepared for: {estimate.customer.name}")
-    y -= 14
-    if estimate.customer.email:
-        p.drawString(50, y, f"Email: {estimate.customer.email}")
-        y -= 14
-    if estimate.valid_until:
-        p.drawString(50, y, f"Valid until: {estimate.valid_until}")
-        y -= 14
-    p.setFillColorRGB(*_PDF_DARK)
-    y -= 12
+    p.drawRightString(right, y - 26, f"#{estimate.id}")
+    y -= 60
 
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(50, y, "Description")
-    p.drawString(450, y, "Total")
-    y -= 4
-    p.setFillColorRGB(*accent_rgb)
+    # ── Separator ──
+    p.setStrokeColorRGB(*accent)
     p.setLineWidth(1.5)
-    p.line(50, y, 560, y)
+    p.line(margin, y, right, y)
+    y -= 20
+
+    # ── Two-column: From + To ──
+    col2_x = width / 2 + 20
+    p.setFont("Helvetica-Bold", 8)
+    p.setFillColorRGB(*_PDF_MUTED)
+    p.drawString(margin, y, "FROM")
+    p.drawString(col2_x, y, "PREPARED FOR")
+    y -= 14
+
+    p.setFont("Helvetica-Bold", 11)
+    p.setFillColorRGB(*_PDF_DARK)
+    if business:
+        p.drawString(margin, y, business.name)
+    p.drawString(col2_x, y, estimate.customer.name)
+    y -= 14
+
+    p.setFont("Helvetica", 9)
+    p.setFillColorRGB(*_PDF_MUTED)
+    if business and business.contact_email:
+        p.drawString(margin, y, business.contact_email)
+    if estimate.customer.email:
+        p.drawString(col2_x, y, estimate.customer.email)
+    y -= 12
+    if business and business.contact_phone:
+        p.drawString(margin, y, business.contact_phone)
+    if estimate.customer.phone:
+        p.drawString(col2_x, y, estimate.customer.phone)
     y -= 16
 
+    # ── Title + dates ──
+    p.setFont("Helvetica-Bold", 12)
     p.setFillColorRGB(*_PDF_DARK)
-    p.setFont("Helvetica", 10)
+    p.drawString(margin, y, estimate.title)
+    y -= 14
+    p.setFont("Helvetica", 9)
+    p.setFillColorRGB(*_PDF_MUTED)
+    if estimate.valid_until:
+        p.drawString(margin, y, f"Valid until: {estimate.valid_until}")
+        y -= 12
+    y -= 10
+
+    # ── Line items table ──
     base_items = estimate.line_items.filter(is_addon=False)
     addon_items = estimate.line_items.filter(is_addon=True)
 
+    # Table header
+    p.setFillColorRGB(*accent)
+    p.rect(margin, y - 4, right - margin, 18, fill=True, stroke=False)
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont("Helvetica-Bold", 9)
+    p.drawString(margin + 8, y, "DESCRIPTION")
+    p.drawString(360, y, "QTY")
+    p.drawString(410, y, "RATE")
+    p.drawRightString(right - 8, y, "AMOUNT")
+    y -= 20
+
+    p.setFillColorRGB(*_PDF_DARK)
+    p.setFont("Helvetica", 9)
+    row_idx = 0
     for item in base_items:
-        p.drawString(50, y, str(item.description)[:50])
-        p.drawRightString(560, y, _fmt_currency(item.line_total))
-        y -= 16
         if y < 100:
             p.showPage()
             y = height - 50
-            p.setFont("Helvetica", 10)
+            p.setFont("Helvetica", 9)
             p.setFillColorRGB(*_PDF_DARK)
+        if row_idx % 2 == 1:
+            p.setFillColorRGB(*accent_light)
+            p.rect(margin, y - 4, right - margin, 16, fill=True, stroke=False)
+            p.setFillColorRGB(*_PDF_DARK)
+        p.drawString(margin + 8, y, str(item.description)[:45])
+        p.drawString(360, y, str(item.quantity or 1))
+        p.drawString(410, y, _fmt_currency(item.unit_price) if item.unit_price else "---")
+        p.drawRightString(right - 8, y, _fmt_currency(item.line_total))
+        y -= 16
+        row_idx += 1
 
+    # Add-on items
     if addon_items.exists():
         y -= 6
-        p.setFont("Helvetica-Oblique", 10)
+        p.setFont("Helvetica-Bold", 9)
         p.setFillColorRGB(*_PDF_MUTED)
-        p.drawString(50, y, "Optional items:")
-        y -= 16
-        p.setFont("Helvetica", 10)
+        p.drawString(margin + 8, y, "OPTIONAL ADD-ONS")
+        y -= 14
+        p.setFont("Helvetica", 9)
         p.setFillColorRGB(*_PDF_DARK)
         for item in addon_items:
-            p.drawString(50, y, str(item.description)[:50])
-            p.drawRightString(560, y, _fmt_currency(item.line_total))
-            y -= 16
             if y < 100:
                 p.showPage()
                 y = height - 50
-                p.setFont("Helvetica", 10)
+                p.setFont("Helvetica", 9)
                 p.setFillColorRGB(*_PDF_DARK)
+            p.drawString(margin + 8, y, str(item.description)[:45])
+            p.drawString(360, y, str(item.quantity or 1))
+            p.drawString(410, y, _fmt_currency(item.unit_price) if item.unit_price else "---")
+            p.drawRightString(right - 8, y, _fmt_currency(item.line_total))
+            y -= 16
 
-    y -= 6
-    p.setFillColorRGB(*accent_rgb)
-    p.line(450, y + 4, 560, y + 4)
-    y -= 4
-    p.setFont("Helvetica-Bold", 12)
-    p.drawRightString(560, y, f"Total: {_fmt_currency(estimate.total())}")
+    # ── Totals ──
+    y -= 8
+    p.setStrokeColorRGB(*accent)
+    p.setLineWidth(0.5)
+    p.line(350, y + 6, right, y + 6)
+    y -= 2
+    p.setFont("Helvetica-Bold", 14)
+    p.setFillColorRGB(*accent)
+    p.drawRightString(right - 8, y - 4, f"Estimate Total: {_fmt_currency(estimate.total())}")
+    y -= 30
 
-    if doc_template and doc_template.custom_fields and estimate.custom_field_values:
-        y -= 20
-        p.setFont("Helvetica-Bold", 9)
-        p.setFillColorRGB(*_PDF_MUTED)
-        p.drawString(50, y, "Additional information")
-        y -= 12
-        p.setFont("Helvetica", 9)
-        for field_def in doc_template.custom_fields:
-            key = field_def.get("key")
-            val = (estimate.custom_field_values or {}).get(key)
-            if key and val:
-                p.drawString(50, y, f"{field_def.get('label', key)}: {str(val)[:70]}")
-                y -= 12
-                if y < 100:
-                    break
-        y -= 8
-    if estimate.notes:
-        y -= 16
-        p.setFont("Helvetica", 9)
-        p.setFillColorRGB(*_PDF_MUTED)
-        for line in estimate.notes.split("\n")[:8]:
-            p.drawString(50, y, line[:80])
-            y -= 12
-            if y < 80:
-                break
-    if doc_template and doc_template.terms_and_conditions:
-        y -= 16
-        p.setFont("Helvetica-Bold", 9)
+    # ── Notes ──
+    if estimate.notes and y > 100:
+        p.setFont("Helvetica-Bold", 8)
         p.setFillColorRGB(*_PDF_DARK)
-        p.drawString(50, y, "Terms & conditions")
+        p.drawString(margin, y, "NOTES")
         y -= 10
         p.setFont("Helvetica", 8)
         p.setFillColorRGB(*_PDF_MUTED)
-        for line in (doc_template.terms_and_conditions or "").replace("\r", "").split("\n")[:12]:
-            if line.strip():
-                p.drawString(50, y, line.strip()[:90])
+        for line in estimate.notes.split("\n")[:6]:
+            if y > 60:
+                p.drawString(margin, y, line[:90])
                 y -= 10
-                if y < 60:
-                    break
-    if doc_template and doc_template.footer_text:
-        y -= 12
-        p.setFont("Helvetica", 8)
+        y -= 6
+
+    # ── Terms ──
+    if doc_template and doc_template.terms_and_conditions and y > 80:
+        p.setFont("Helvetica-Bold", 8)
+        p.setFillColorRGB(*_PDF_DARK)
+        p.drawString(margin, y, "TERMS & CONDITIONS")
+        y -= 10
+        p.setFont("Helvetica", 7)
         p.setFillColorRGB(*_PDF_MUTED)
-        for line in (doc_template.footer_text or "").replace("\r", "").split("\n")[:3]:
-            if line.strip():
-                p.drawString(50, y, line.strip()[:90])
-                y -= 10
-                if y < 50:
-                    break
+        for line in (doc_template.terms_and_conditions or "").replace("\r", "").split("\n")[:6]:
+            if line.strip() and y > 50:
+                p.drawString(margin, y, line.strip()[:100])
+                y -= 9
+
+    # ── Footer ──
+    p.setFont("Helvetica", 7)
+    p.setFillColorRGB(*_PDF_MUTED)
+    footer_text = ""
+    if business:
+        parts = [business.name]
+        if business.contact_email:
+            parts.append(business.contact_email)
+        if business.contact_phone:
+            parts.append(business.contact_phone)
+        footer_text = " | ".join(parts)
+    p.drawCentredString(width / 2, 30, footer_text)
+
+    # Bottom accent bar
+    p.setFillColorRGB(*accent)
+    p.rect(0, 0, width, 4, fill=True, stroke=False)
 
     p.showPage()
     p.save()
