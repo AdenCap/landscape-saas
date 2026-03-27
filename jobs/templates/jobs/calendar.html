@@ -95,9 +95,14 @@
     <button type="button" id="cal-menu-btn" class="cal-header-icon cal-desktop-hide" onclick="document.getElementById('cal-drawer').classList.toggle('open')">
       <span class="material-symbols-outlined">menu</span>
     </button>
+    <button type="button" class="cal-header-icon cal-nav-btn" id="cal-prev-btn" onclick="if(window._fc){window._fc.prev()}" title="Previous">
+      <span class="material-symbols-outlined" style="font-size:20px;">chevron_left</span>
+    </button>
     <button type="button" id="cal-title-btn" class="cal-header-title" onclick="if(window._fc) window._fc.today()">
       <span id="cal-month-label">March</span>
-      <span class="material-symbols-outlined" style="font-size:18px;">arrow_drop_down</span>
+    </button>
+    <button type="button" class="cal-header-icon cal-nav-btn" id="cal-next-btn" onclick="if(window._fc){window._fc.next()}" title="Next">
+      <span class="material-symbols-outlined" style="font-size:20px;">chevron_right</span>
     </button>
   </div>
   <div class="cal-header-right">

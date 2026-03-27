@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Field Capture{% endblock %}
+{% block title %}Site Visit{% endblock %}
 
 {% block content %}
 <div class="fc-page">
   <div class="fc-header">
-    <h1>Field Capture</h1>
-    <p>Quick notes &amp; photos from a site visit. Complete the full quote later.</p>
+    <h1>Site Visit</h1>
+    <p>Capture notes &amp; photos on-site. Build the full estimate later.</p>
   </div>
 
   <form method="post" enctype="multipart/form-data" class="fc-form">
@@ -24,7 +24,7 @@
         {% if form.errors.customer %}
         <p class="fc-error">{{ form.errors.customer.0 }}</p>
         {% endif %}
-        <a href="{% url 'customer_create' %}?next=estimate_and_select" class="fc-add-link">+ New client</a>
+        <a href="{% url 'customer_create' %}?next={% url 'billing:field_capture' %}" class="fc-add-link">+ New client</a>
       </div>
       <div class="fc-field" id="property-group" style="display: none;">
         <select name="property" id="id_property">
@@ -435,12 +435,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function syncFileInputs() {
     // Build a fresh DataTransfer and assign to a hidden input
-    var dt = new DataTransfer();
-    collectedFiles.forEach(function(f) { dt.items.add(f); });
-    // Use the camera input as the carrier (name="photos")
-    cameraInput.files = dt.files;
-    // Clear gallery so we don't double-submit
-    galleryInput.name = '';
+    try {
+      var dt = new DataTransfer();
+      collectedFiles.forEach(function(f) { dt.items.add(f); });
+      cameraInput.files = dt.files;
+      galleryInput.name = '';
+    } catch (e) {
+      // DataTransfer not supported (older iOS Safari) — fall back to keeping original inputs
+      // Photos will still submit from whichever file input the user last used
+    }
   }
 
   cameraInput.addEventListener('change', function() {

@@ -109,15 +109,6 @@ document.addEventListener('DOMContentLoaded', function () {
       listWeek: { buttonText: 'List' },
       listMonth: { buttonText: 'Schedule', duration: { months: 1 } }
     },
-    // Update month label in custom header
-    datesSet: function(dateInfo) {
-      var label = document.getElementById('cal-month-label');
-      if (label) {
-        var d = dateInfo.view.currentStart || dateInfo.start;
-        var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-        label.textContent = months[d.getMonth()];
-      }
-    },
     slotMinTime: '06:00:00',
     slotMaxTime: '21:00:00',
     slotDuration: '00:30:00',
@@ -162,8 +153,19 @@ document.addEventListener('DOMContentLoaded', function () {
         .catch(function(err) { if (err.name !== 'AbortError') failureCallback(err); });
     },
 
-    // ── Persist view/date ──
+    // ── Persist view/date + update month label ──
     datesSet: function(info) {
+      // Update custom month label in mobile header
+      var label = document.getElementById('cal-month-label');
+      if (label) {
+        var d = info.view.currentStart || info.start;
+        var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        var monthName = months[d.getMonth()];
+        var yr = d.getFullYear();
+        var now = new Date();
+        label.textContent = (yr === now.getFullYear()) ? monthName : monthName + ' ' + yr;
+      }
+      // Persist to localStorage
       if (typeof localStorage !== 'undefined') {
         try {
           localStorage.setItem(STORAGE_VIEW, info.view.type);

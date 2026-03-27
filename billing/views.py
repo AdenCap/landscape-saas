@@ -2701,7 +2701,7 @@ def field_capture(request):
                 added += 1
 
             photo_msg = f" with {added} photo{'s' if added != 1 else ''}" if added else ""
-            messages.success(request, f"Field capture saved for {estimate.customer.name}{photo_msg}.")
+            messages.success(request, f"Site visit saved for {estimate.customer.name}{photo_msg}.")
             return redirect("billing:estimate_queue")
     else:
         initial = {"site_visit_date": timezone.localdate()}

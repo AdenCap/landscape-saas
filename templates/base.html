@@ -472,11 +472,12 @@
       .bottom-nav-plus {
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
         padding: 10px 8px; min-height: 56px; width: 100%;
-        background: none; border: none; color: var(--text-muted); font-size: 11px; font-weight: 500;
+        background: var(--primary); border: none; color: #000; font-size: 11px; font-weight: 700;
         cursor: pointer; -webkit-tap-highlight-color: transparent; font-family: inherit;
+        border-radius: 12px; margin: 4px 2px;
       }
-      .bottom-nav-plus:hover { color: var(--primary); }
-      .bottom-nav-plus .nav-icon { width: 26px; height: 26px; }
+      .bottom-nav-plus:hover { opacity: 0.9; }
+      .bottom-nav-plus .nav-icon { width: 26px; height: 26px; stroke: #000; }
       .bottom-nav-create-popover {
         position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
         min-width: 160px; padding: 8px; background: var(--surface); border: 1px solid var(--border);
@@ -811,7 +812,7 @@
             <a href="{% url 'create_job' %}" role="menuitem">New job</a>
             <a href="{% url 'billing:estimate_create' %}" role="menuitem">Estimate</a>
             <a href="{% url 'billing:invoice_create' %}" role="menuitem">Invoice</a>
-            <a href="{% url 'billing:field_capture' %}" role="menuitem">Field capture</a>
+            <a href="{% url 'billing:field_capture' %}" role="menuitem">Site visit</a>
           </div>
         </div>
       {% endif %}
