@@ -139,13 +139,16 @@ def _compute_fertilizing(config):
     rate = Decimal(str(config.get('lbs_per_1000') or 0))
     sqft = Decimal(str(config.get('total_sqft') or 0))
     product = str(config.get('product') or 'Fertilizer').strip() or 'Fertilizer'
+    if sqft <= 0 or rate <= 0:
+        # Not enough data — return product name as description
+        return product, Decimal('0')
     total_pounds = (rate / 1000) * sqft
     pricing = config.get('pricing_type') or 'per_pound'
     if pricing == 'per_bag':
         cost_bag = Decimal(str(config.get('cost_per_bag') or 0))
         lbs_bag = Decimal(str(config.get('lbs_per_bag') or 1)) or Decimal('1')
         if lbs_bag <= 0:
-            return None, Decimal('0')
+            lbs_bag = Decimal('1')
         bags = (total_pounds / lbs_bag).quantize(Decimal('1'), rounding=ROUND_CEILING)
         cost = bags * cost_bag
         desc = f"{int(bags)} bag{'s' if bags != 1 else ''} of {product} ({sqft:,.0f} sq ft)"
@@ -163,6 +166,9 @@ def _compute_mulch(config):
     sqft = Decimal(str(config.get('total_sqft') or 0))
     depth = Decimal(str(config.get('depth_inches') or 3))
     product = str(config.get('product') or 'Mulch').strip() or 'Mulch'
+    if sqft <= 0:
+        # No sqft entered — return product name as description with zero cost
+        return product, Decimal('0')
     cubic_yards = (sqft * depth) / Decimal('324')
     yd_str = _fmt_qty(cubic_yards)
     desc = f"{yd_str} cubic yard{'s' if float(cubic_yards) != 1 else ''} of {product}"
@@ -171,7 +177,7 @@ def _compute_mulch(config):
         cost_bag = Decimal(str(config.get('cost_per_bag') or 0))
         cf_per_bag = Decimal(str(config.get('cf_per_bag') or 2))
         if cf_per_bag <= 0:
-            return None, Decimal('0')
+            cf_per_bag = Decimal('2')
         cubic_ft = cubic_yards * 27
         bags = (cubic_ft / cf_per_bag).quantize(Decimal('1'), rounding=ROUND_CEILING)
         cost = bags * cost_bag
@@ -223,6 +229,7 @@ class EstimateLineItemForm(forms.ModelForm):
     mulch_cost_per_bag = forms.DecimalField(required=False, min_value=0, max_digits=8, decimal_places=2, widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': 'e.g. 4.50'}))
     mulch_cf_per_bag = forms.DecimalField(required=False, min_value=0.1, max_digits=5, decimal_places=2, widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': 'e.g. 2 or 1.5'}))
     mulch_cost_per_cy = forms.DecimalField(required=False, min_value=0, max_digits=8, decimal_places=2, widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': 'e.g. 35'}))
+    mulch_charge_per_cy = forms.DecimalField(required=False, min_value=0, max_digits=8, decimal_places=2, widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': 'e.g. 85'}))
 
     # Mowing
     mowing_total_sqft = forms.DecimalField(required=False, min_value=0, max_digits=12, decimal_places=2, widget=forms.NumberInput(attrs={'step': 'any', 'placeholder': 'e.g. 5000 or 4125.25'}))
@@ -286,6 +293,7 @@ class EstimateLineItemForm(forms.ModelForm):
             self.fields['mulch_cost_per_bag'].initial = c.get('cost_per_bag')
             self.fields['mulch_cf_per_bag'].initial = c.get('cf_per_bag', 2)
             self.fields['mulch_cost_per_cy'].initial = c.get('cost_per_cy')
+            self.fields['mulch_charge_per_cy'].initial = c.get('charge_per_cy')
         if self.instance and self.instance.mowing_config:
             c = self.instance.mowing_config
             self.fields['mowing_total_sqft'].initial = c.get('total_sqft')
@@ -315,6 +323,10 @@ class EstimateLineItemForm(forms.ModelForm):
                 data['material_cost'] = cost
                 data['quantity'] = Decimal('1')
                 data['unit'] = 'application'
+            else:
+                if not data.get('description'):
+                    data['description'] = data.get('fertilizing_product') or 'Fertilizer Application'
+                data['quantity'] = data.get('quantity') or Decimal('1')
         elif item_type == 'mulch':
             cfg = {
                 'total_sqft': data.get('mulch_total_sqft'),
@@ -324,6 +336,7 @@ class EstimateLineItemForm(forms.ModelForm):
                 'cost_per_bag': data.get('mulch_cost_per_bag'),
                 'cf_per_bag': data.get('mulch_cf_per_bag') or 2,
                 'cost_per_cy': data.get('mulch_cost_per_cy'),
+                'charge_per_cy': data.get('mulch_charge_per_cy'),
             }
             data['mulch_config'] = cfg
             desc, cost = _compute_mulch(cfg)
@@ -332,6 +345,18 @@ class EstimateLineItemForm(forms.ModelForm):
                 data['material_cost'] = cost
                 data['quantity'] = Decimal('1')
                 data['unit'] = 'application'
+                # Auto-calculate total from charge rate per yard
+                charge_rate = data.get('mulch_charge_per_cy')
+                if charge_rate and charge_rate > 0:
+                    sqft = Decimal(str(cfg.get('total_sqft') or 0))
+                    depth = Decimal(str(cfg.get('depth_inches') or 3))
+                    cubic_yards = (sqft * depth) / Decimal('324')
+                    data['total_override'] = (cubic_yards * charge_rate).quantize(Decimal('0.01'))
+            else:
+                # If calculator fields empty, allow saving with manual description
+                if not data.get('description'):
+                    data['description'] = data.get('mulch_product') or 'Mulch'
+                data['quantity'] = data.get('quantity') or Decimal('1')
             data['fertilizing_config'] = None
         elif item_type == 'mowing':
             cfg = {
@@ -430,9 +455,9 @@ class DocumentTemplateForm(forms.ModelForm):
     """Form for customizing estimate or invoice template: style, colors, header, footer, terms."""
     template_key = forms.ChoiceField(
         choices=[
-            ("professional", "Professional"),
-            ("minimal", "Minimal"),
-            ("modern", "Modern"),
+            ("modern_dark", "Modern Dark"),
+            ("clean_light", "Clean Light"),
+            ("luxury", "Luxury Statement"),
         ],
         required=False,
         help_text="Base style for the document. You can still customize colors and text below.",

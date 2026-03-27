@@ -3,197 +3,173 @@
 {% block content %}
 <div class="doc-template-edit-page">
   <header class="doc-template-edit-header">
-    <h1>Customize {{ doc_type|title }} template</h1>
-    <p class="doc-template-edit-subtitle">Live preview updates as you type. Your accent color, logo, and content settings apply to both PDF and email.</p>
+    <h1>Customize {{ doc_type|title }} Template</h1>
+    <p class="doc-template-edit-subtitle">Changes preview in real time. Hit Save to apply them to all future {{ doc_type }}s.</p>
   </header>
 
-  <!-- Email Preview Section -->
-  <div class="card" style="margin-bottom: 18px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-      <div>
-        <h3 style="margin:0;font-size:16px;font-weight:600;">Email Preview</h3>
-        <p style="margin:4px 0 0;font-size:13px;color:var(--text-muted);">This is how your {{ doc_type }} emails look to customers. Save template changes first, then refresh the preview.</p>
-      </div>
-      <button type="button" class="btn btn-secondary btn-sm" id="toggle-email-preview" onclick="toggleEmailPreview()">Show Email Preview</button>
-    </div>
-    <div id="email-preview-container" style="display:none;margin-top:16px;">
-      <iframe id="email-preview-iframe" src="" style="width:100%;height:700px;border:1px solid var(--border);border-radius:10px;background:#050505;" sandbox="allow-same-origin"></iframe>
-    </div>
-  </div>
-  <script>
-  function toggleEmailPreview() {
-    var container = document.getElementById('email-preview-container');
-    var iframe = document.getElementById('email-preview-iframe');
-    var btn = document.getElementById('toggle-email-preview');
-    if (container.style.display === 'none') {
-      container.style.display = 'block';
-      btn.textContent = 'Hide Email Preview';
-      if (!iframe.src || iframe.src === '' || iframe.src === window.location.href) {
-        iframe.src = '{% url "billing:email_template_preview" doc_type %}';
-      }
-    } else {
-      container.style.display = 'none';
-      btn.textContent = 'Show Email Preview';
-    }
-  }
-  </script>
-
-  {% if doc_type == 'invoice' %}
   <div class="billing-tabs" style="margin-bottom: 18px;">
-    <a href="{% url 'billing:invoice_list' %}" class="billing-tab">Invoices</a>
-    <a href="{% url 'billing:outstanding_invoices' %}" class="billing-tab">Outstanding</a>
-    <a href="{% url 'billing:monthly_invoice_list' %}" class="billing-tab">Monthly</a>
-    <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="billing-tab active">Invoice Template Editor</a>
+    <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="billing-tab {% if doc_type == 'estimate' %}active{% endif %}">Estimate Template</a>
+    <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="billing-tab {% if doc_type == 'invoice' %}active{% endif %}">Invoice Template</a>
+    <a href="{% url 'billing:estimate_list' %}" class="billing-tab" style="margin-left:auto;">Back to Estimates</a>
+    <a href="{% url 'billing:invoice_list' %}" class="billing-tab">Back to Invoices</a>
   </div>
-  {% else %}
-  <div class="billing-tabs" style="margin-bottom: 18px;">
-    <a href="{% url 'billing:estimate_list' %}" class="billing-tab">Estimates</a>
-    <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="billing-tab active">Estimate Template Editor</a>
-    <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="billing-tab">Invoice Template Editor</a>
-  </div>
-  {% endif %}
 
   <div class="editor-layout">
-    <form method="post" class="doc-template-edit-form">
+    <!-- LEFT: FORM -->
+    <form method="post" class="doc-template-edit-form" id="template-form">
       {% csrf_token %}
 
+      <!-- Style Picker -->
       <div class="card doc-template-section">
-        <h2 class="section-title">Template style</h2>
+        <h2 class="section-title">Template Style</h2>
         <div class="style-options">
-          <label class="style-option {% if template_obj.template_key == 'modern_dark' or not template_obj.template_key %}active{% endif %}">
-            <input type="radio" name="template_key" value="modern_dark" {% if template_obj.template_key == 'modern_dark' or not template_obj.template_key %}checked{% endif %}>
+          {% with current_key=template_obj.template_key %}
+          <label class="style-option {% if current_key == 'modern_dark' or current_key != 'clean_light' and current_key != 'luxury' %}active{% endif %}">
+            <input type="radio" name="template_key" value="modern_dark" {% if current_key == 'modern_dark' or current_key != 'clean_light' and current_key != 'luxury' %}checked{% endif %}>
             <div class="style-option-preview" style="background:#1a1a1a;">
-              <div class="style-preview-bar" style="height:4px;border-radius:2px 2px 0 0;"></div>
-              <div class="style-preview-body">
-                <div class="style-preview-title" style="font-weight:700;color:#fff;"></div>
-                <div class="style-preview-line"></div>
-                <div class="style-preview-text" style="background:rgba(255,255,255,0.1);"></div>
-                <div class="style-preview-text" style="width:60%;background:rgba(255,255,255,0.1);"></div>
+              <div style="height:4px;background:var(--primary);border-radius:2px 2px 0 0;"></div>
+              <div style="padding:6px 8px;">
+                <div style="height:6px;width:50%;background:#fff;border-radius:3px;margin-bottom:5px;"></div>
+                <div style="height:2px;background:var(--primary);opacity:.5;margin:4px 0;border-radius:1px;"></div>
+                <div style="height:4px;width:80%;background:rgba(255,255,255,0.1);border-radius:2px;margin-bottom:3px;"></div>
               </div>
             </div>
             <span class="style-option-name">Modern Dark</span>
-            <span style="font-size:10px;color:var(--text-muted);display:block;">Tech-forward, premium</span>
           </label>
-          <label class="style-option {% if template_obj.template_key == 'clean_light' %}active{% endif %}">
-            <input type="radio" name="template_key" value="clean_light" {% if template_obj.template_key == 'clean_light' %}checked{% endif %}>
+          <label class="style-option {% if current_key == 'clean_light' %}active{% endif %}">
+            <input type="radio" name="template_key" value="clean_light" {% if current_key == 'clean_light' %}checked{% endif %}>
             <div class="style-option-preview" style="background:#fff;border:1px solid #e5e7eb;">
-              <div class="style-preview-body">
-                <div class="style-preview-title" style="font-weight:500;color:#374151;"></div>
-                <div class="style-preview-line" style="height:1px;background:#d1d5db;"></div>
-                <div class="style-preview-text" style="background:#e5e7eb;"></div>
-                <div class="style-preview-text" style="width:60%;background:#e5e7eb;"></div>
+              <div style="padding:6px 8px;">
+                <div style="height:6px;width:50%;background:#374151;border-radius:3px;margin-bottom:5px;"></div>
+                <div style="height:1px;background:#d1d5db;margin:4px 0;"></div>
+                <div style="height:4px;width:80%;background:#e5e7eb;border-radius:2px;margin-bottom:3px;"></div>
               </div>
             </div>
             <span class="style-option-name">Clean Light</span>
-            <span style="font-size:10px;color:var(--text-muted);display:block;">Traditional, professional</span>
           </label>
-          <label class="style-option {% if template_obj.template_key == 'luxury' %}active{% endif %}">
-            <input type="radio" name="template_key" value="luxury" {% if template_obj.template_key == 'luxury' %}checked{% endif %}>
-            <div class="style-option-preview" style="background:#0f0f0f;border:2px double;">
-              <div style="border-bottom:2px double;padding:0;margin:6px 8px 0;"></div>
-              <div class="style-preview-body" style="padding-top:8px;">
-                <div class="style-preview-title" style="font-weight:700;color:#d4af37;letter-spacing:2px;"></div>
-                <div class="style-preview-text" style="background:rgba(255,255,255,0.08);"></div>
-                <div class="style-preview-text" style="width:50%;background:rgba(255,255,255,0.08);"></div>
+          <label class="style-option {% if current_key == 'luxury' %}active{% endif %}">
+            <input type="radio" name="template_key" value="luxury" {% if current_key == 'luxury' %}checked{% endif %}>
+            <div class="style-option-preview" style="background:#0a0a0a;border:2px double #555;">
+              <div style="border-bottom:2px double #555;margin:6px 8px 0;"></div>
+              <div style="padding:6px 8px;">
+                <div style="height:6px;width:50%;background:#d4af37;border-radius:3px;margin-bottom:5px;"></div>
+                <div style="height:4px;width:80%;background:rgba(255,255,255,0.08);border-radius:2px;margin-bottom:3px;"></div>
               </div>
             </div>
-            <span class="style-option-name">Luxury Statement</span>
-            <span style="font-size:10px;color:var(--text-muted);display:block;">Elegant, high-end</span>
+            <span class="style-option-name">Luxury</span>
           </label>
+          {% endwith %}
         </div>
         <div class="form-group" style="margin-top:16px;">
           <label for="id_name">Template name (optional)</label>
-          {{ form.name }}
-          {{ form.name.errors }}
+          <input type="text" name="name" id="id_name" value="{{ template_obj.name }}" placeholder="e.g. My Estimate Template" class="form-control">
         </div>
       </div>
 
+      <!-- Branding & Content -->
       <div class="card doc-template-section">
-        <h2 class="section-title">Branding & content</h2>
+        <h2 class="section-title">Branding &amp; Content</h2>
         <div class="form-group">
-          <label for="id_primary_color">Accent color</label>
+          <label>Accent Color</label>
           <div class="color-input-wrap">
             <input type="color" name="primary_color" id="id_primary_color" value="{{ template_obj.primary_color|default:'#22c55e' }}" class="color-picker">
             <input type="text" id="id_primary_color_hex" value="{{ template_obj.primary_color|default:'#22c55e' }}" class="color-hex-input" maxlength="7" placeholder="#22c55e">
           </div>
-          {{ form.primary_color.errors }}
         </div>
         <div class="form-group">
-          <label for="id_header_text">Header text (optional)</label>
-          {{ form.header_text }}
-          <span class="form-hint">Shown at the top of the document (e.g. tagline, license number).</span>
-          {{ form.header_text.errors }}
+          <label for="id_header_text">Header Text</label>
+          <textarea name="header_text" id="id_header_text" rows="3" placeholder="Tagline, license #, or slogan" class="form-control">{{ template_obj.header_text }}</textarea>
+          <span class="form-hint">Shown at the top of your document and email.</span>
         </div>
         <div class="form-group">
-          <label for="id_footer_text">Footer text (optional)</label>
-          {{ form.footer_text }}
-          <span class="form-hint">Shown at the bottom (e.g. thank you, payment instructions).</span>
-          {{ form.footer_text.errors }}
+          <label for="id_footer_text">Footer Text</label>
+          <textarea name="footer_text" id="id_footer_text" rows="3" placeholder="Thank you message, payment instructions" class="form-control">{{ template_obj.footer_text }}</textarea>
+          <span class="form-hint">Shown at the bottom of your document and email.</span>
         </div>
         <div class="form-group">
-          <label for="id_terms_and_conditions">Terms and conditions</label>
-          {{ form.terms_and_conditions }}
-          {{ form.terms_and_conditions.errors }}
+          <label for="id_terms_and_conditions">Terms &amp; Conditions</label>
+          <textarea name="terms_and_conditions" id="id_terms_and_conditions" rows="4" placeholder="Payment due within 30 days..." class="form-control">{{ template_obj.terms_and_conditions }}</textarea>
         </div>
       </div>
 
+      <!-- Custom Fields -->
       <div class="card doc-template-section">
-        <h2 class="section-title">Custom fields</h2>
+        <h2 class="section-title">Custom Fields</h2>
         <p class="section-desc">Add fields that appear on every {{ doc_type }}.</p>
         <div class="custom-fields-list" id="custom-fields-list">
           {% for field in template_obj.custom_fields %}
           <div class="custom-field-row" data-index="{{ forloop.counter0 }}">
-            <input type="text" name="custom_field_key" value="{{ field.key }}" placeholder="Key (e.g. po_number)" class="field-key">
-            <input type="text" name="custom_field_label" value="{{ field.label }}" placeholder="Label (e.g. PO Number)" class="field-label">
-            <select name="custom_field_type" class="field-type">
+            <input type="text" name="custom_field_key" value="{{ field.key }}" placeholder="Key" class="field-key form-control">
+            <input type="text" name="custom_field_label" value="{{ field.label }}" placeholder="Label" class="field-label form-control">
+            <select name="custom_field_type" class="field-type form-control">
               <option value="text" {% if field.type == "text" %}selected{% endif %}>Text</option>
               <option value="number" {% if field.type == "number" %}selected{% endif %}>Number</option>
               <option value="date" {% if field.type == "date" %}selected{% endif %}>Date</option>
               <option value="textarea" {% if field.type == "textarea" %}selected{% endif %}>Long text</option>
             </select>
             <label class="field-required-label">
-              <input type="checkbox" name="custom_field_required_{{ forloop.counter0 }}" {% if field.required %}checked{% endif %} class="field-required"> Required
+              <input type="checkbox" name="custom_field_required_{{ forloop.counter0 }}" {% if field.required %}checked{% endif %} class="field-required"> Req
             </label>
-            <button type="button" class="btn btn-secondary btn-sm remove-field" aria-label="Remove field">Remove</button>
+            <button type="button" class="btn btn-ghost btn-sm remove-field" style="color:#f87171;">&times;</button>
           </div>
           {% endfor %}
         </div>
-        <button type="button" id="add-custom-field" class="btn btn-secondary">+ Add custom field</button>
+        <button type="button" id="add-custom-field" class="btn btn-secondary">+ Add field</button>
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Save template</button>
+        <button type="submit" class="btn btn-primary" style="min-width:160px;">
+          <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">save</span> Save Template
+        </button>
         <a href="{% if doc_type == 'invoice' %}{% url 'billing:invoice_list' %}{% else %}{% url 'billing:estimate_list' %}{% endif %}" class="btn btn-secondary">Back</a>
       </div>
     </form>
 
-    <aside class="card live-preview-card">
-      <h2 class="section-title" style="margin-bottom: 10px;">Live preview</h2>
-      <div id="preview-doc" class="preview-doc" data-style="{{ template_obj.template_key|default:'professional' }}" style="--preview-accent: {{ template_obj.primary_color|default:'#22c55e' }};">
+    <!-- RIGHT: LIVE PREVIEW -->
+    <aside class="live-preview-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h2 class="section-title" style="margin:0;">Live Preview</h2>
+        <button type="button" class="btn btn-ghost btn-sm" id="toggle-email-preview" style="font-size:12px;">
+          <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">mail</span> Email Preview
+        </button>
+      </div>
+
+      <!-- Document preview -->
+      <div id="preview-doc" class="preview-doc" data-style="{{ template_obj.template_key|default:'modern_dark' }}" style="--preview-accent: {{ template_obj.primary_color|default:'#22c55e' }};">
         <div class="preview-accent-bar"></div>
-        <div class="preview-modern-head"></div>
+        <div class="preview-luxury-border-top"></div>
         <div class="preview-inner">
           <div class="preview-head">
             <div>
-              <div class="preview-title" id="preview-doc-type">{{ doc_type|title }}</div>
-              <div class="preview-meta">#1001 &middot; March 7, 2026</div>
+              <div class="preview-title">{{ doc_type|upper }}</div>
+              <div class="preview-meta">#1001 &middot; Mar 26, 2026</div>
             </div>
-            <div class="preview-status">Draft</div>
+            <div class="preview-badge">Draft</div>
           </div>
-          <div class="preview-header-text" id="preview-header-text">{{ template_obj.header_text|default:'Your branding/header text appears here.' }}</div>
-          <div class="preview-line"></div>
-          <div class="preview-section-title">Client</div>
-          <div class="preview-client">Sample Client, 123 Main St</div>
-          <div class="preview-section-title" style="margin-top: 14px;">Items</div>
+          <div class="preview-header-text" id="preview-header-text"></div>
+          <div class="preview-divider"></div>
+          <div class="preview-label">Bill To</div>
+          <div class="preview-client">John Smith &middot; 123 Main St, Springfield</div>
+          <div class="preview-label" style="margin-top:12px;">Items</div>
           <table class="preview-table">
-            <tr><th>Description</th><th class="num">Qty</th><th class="num">Price</th></tr>
-            <tr><td>Lawn service</td><td class="num">1</td><td class="num">$95.00</td></tr>
+            <thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Price</th></tr></thead>
+            <tbody>
+              <tr><td>Weekly Lawn Mowing</td><td class="r">1</td><td class="r">$85.00</td></tr>
+              <tr><td>Mulch Install - 3 cu yd</td><td class="r">1</td><td class="r">$255.00</td></tr>
+              <tr class="total-row"><td colspan="2">Total</td><td class="r"><strong>$340.00</strong></td></tr>
+            </tbody>
           </table>
           <div class="preview-custom" id="preview-custom-fields"></div>
-          <div class="preview-section-title" style="margin-top: 14px;">Terms</div>
-          <div class="preview-terms" id="preview-terms">{{ template_obj.terms_and_conditions|default:'Payment due within 30 days.' }}</div>
-          <div class="preview-footer" id="preview-footer-text">{{ template_obj.footer_text|default:'Thank you for your business.' }}</div>
+          <div class="preview-label" style="margin-top:12px;">Terms</div>
+          <div class="preview-terms" id="preview-terms"></div>
+          <div class="preview-footer-text" id="preview-footer-text"></div>
         </div>
+      </div>
+
+      <!-- Email preview (hidden by default) -->
+      <div id="email-preview-container" style="display:none;margin-top:12px;">
+        <iframe id="email-preview-iframe" src="" style="width:100%;height:600px;border:1px solid var(--border);border-radius:10px;background:#050505;" sandbox="allow-same-origin"></iframe>
+        <p style="font-size:11px;color:var(--text-muted);margin:6px 0 0;text-align:center;">Save first, then open this preview to see the latest email.</p>
       </div>
     </aside>
   </div>
@@ -202,308 +178,257 @@
 <style>
   .doc-template-edit-page { max-width: 1200px; }
   .doc-template-edit-header { margin-bottom: 16px; }
-  .doc-template-edit-header h1 { margin: 0 0 6px 0; font-size: 26px; font-weight: 700; }
-  .doc-template-edit-subtitle { margin: 0; color: var(--text-muted); font-size: 15px; line-height: 1.5; }
-  .billing-tabs {
-    display: flex;
-    gap: 8px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    margin-bottom: 16px;
-    padding-bottom: 2px;
-  }
-  .billing-tabs::-webkit-scrollbar { height: 6px; }
-  .billing-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
-  .billing-tab {
-    display: inline-block;
-    padding: 9px 18px;
-    font-size: 15px;
-    font-weight: 500;
-    border-radius: 20px;
-    text-decoration: none;
-    color: var(--text-muted);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    transition: all 0.15s ease;
-  }
-  .billing-tab:hover { color: var(--text); border-color: var(--text-muted); }
-  .billing-tab.active { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+  .doc-template-edit-header h1 { margin: 0 0 4px 0; font-size: 26px; font-weight: 700; }
+  .doc-template-edit-subtitle { margin: 0; color: var(--text-muted); font-size: 14px; }
 
-  .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 20px; align-items: start; }
-  .doc-template-section { padding: 24px; margin-bottom: 20px; }
-  .section-title { margin: 0 0 16px 0; font-size: 16px; font-weight: 600; }
-  .section-desc { margin: 0 0 16px 0; font-size: 14px; color: var(--text-muted); line-height: 1.5; }
-  .form-group { margin-bottom: 18px; }
+  .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 20px; align-items: start; }
+  .doc-template-section { padding: 22px; margin-bottom: 16px; }
+  .section-title { margin: 0 0 14px 0; font-size: 15px; font-weight: 700; font-family: var(--font-headline); }
+  .section-desc { margin: -6px 0 14px 0; font-size: 13px; color: var(--text-muted); }
+  .form-group { margin-bottom: 16px; }
   .form-group:last-child { margin-bottom: 0; }
-  .form-group label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; color: var(--text); }
-  .form-control, .form-group input[type="text"], .form-group select, .form-group textarea {
-    width: 100%; padding: 10px 12px; font-size: 15px; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--surface); color: var(--text); font-family: inherit;
+  .form-group > label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; color: var(--text); }
+  .form-control {
+    width: 100%; padding: 10px 12px; font-size: 15px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit;
   }
-  .form-group textarea { min-height: 80px; resize: vertical; }
-  .form-hint { display: block; margin-top: 4px; font-size: 13px; color: var(--text-muted); }
-  .color-input-wrap { display: flex; gap: 12px; align-items: center; }
-  .color-picker { height: 44px; width: 80px; padding: 4px; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
-  .color-hex-input { flex: 1; max-width: 120px; }
-  .custom-fields-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
-  .custom-field-row {
-    display: grid; grid-template-columns: 1fr 1fr auto auto auto; gap: 10px; align-items: center;
-    padding: 12px; background: var(--surface-alt); border-radius: 8px; border: 1px solid var(--border);
-  }
-  .custom-field-row .field-key, .custom-field-row .field-label { min-width: 0; }
-  .custom-field-row .field-type { min-width: 100px; }
-  .field-required-label { margin: 0; font-size: 14px; font-weight: normal; display: flex; align-items: center; gap: 6px; }
-  .form-actions { display: flex; gap: 12px; flex-wrap: wrap; padding-top: 8px; }
+  .form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
+  textarea.form-control { min-height: 72px; resize: vertical; }
+  .form-hint { display: block; margin-top: 3px; font-size: 12px; color: var(--text-muted); }
+  .color-input-wrap { display: flex; gap: 10px; align-items: center; }
+  .color-picker { height: 42px; width: 72px; padding: 3px; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
+  .color-hex-input { flex: 1; max-width: 110px; }
+  .form-actions { display: flex; gap: 12px; flex-wrap: wrap; padding-top: 4px; }
 
   /* Style option cards */
-  .style-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .style-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .style-option {
-    position: relative;
-    cursor: pointer;
-    border: 2px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-    transition: border-color .15s, box-shadow .15s;
-    background: var(--surface-alt);
-    margin-bottom: 0;
+    cursor: pointer; border: 2px solid var(--border); border-radius: 10px; overflow: hidden;
+    transition: border-color .15s, box-shadow .15s; background: var(--surface-alt); margin-bottom: 0;
   }
   .style-option:hover { border-color: color-mix(in srgb, var(--border) 50%, var(--primary)); }
   .style-option.active { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
   .style-option input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
-  .style-option-preview {
-    height: 60px;
-    background: #fff;
-    position: relative;
-    overflow: hidden;
-  }
-  .style-preview-bar { background: var(--primary); width: 100%; }
-  .style-preview-body { padding: 6px 8px; }
-  .style-preview-title { height: 6px; width: 50%; background: #374151; border-radius: 3px; margin-bottom: 5px; }
-  .style-preview-line { height: 2px; background: var(--primary); margin: 4px 0; opacity: .5; border-radius: 1px; }
-  .style-preview-text { height: 4px; width: 80%; background: #d1d5db; border-radius: 2px; margin-bottom: 3px; }
-  .style-preview-minimal .style-preview-title { background: #111827; }
-  .style-preview-modern .style-preview-bar { background: var(--primary); }
-  .style-option-name {
-    display: block;
-    text-align: center;
-    padding: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-muted);
-  }
+  .style-option-preview { height: 55px; position: relative; overflow: hidden; }
+  .style-option-name { display: block; text-align: center; padding: 7px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
   .style-option.active .style-option-name { color: var(--primary); }
 
-  /* Live preview */
-  .live-preview-card { position: sticky; top: 16px; padding: 16px; }
-  .preview-doc { border: 1px solid var(--border); border-radius: 12px; background: #fff; color: #111827; font-size: 13px; line-height: 1.4; overflow: hidden; }
-  .preview-inner { padding: 14px; }
-  .preview-accent-bar { height: 3px; background: var(--preview-accent); display: block; }
-  .preview-modern-head { display: none; }
-  .preview-head { display: flex; justify-content: space-between; align-items: start; }
-  .preview-title { font-size: 18px; font-weight: 700; color: var(--preview-accent); }
-  .preview-meta { color: #6b7280; font-size: 12px; }
-  .preview-status { border: 1px solid #d1d5db; padding: 2px 8px; border-radius: 999px; font-size: 11px; color: #4b5563; }
-  .preview-header-text, .preview-footer, .preview-terms { white-space: pre-wrap; }
-  .preview-line { height: 2px; background: var(--preview-accent); margin: 10px 0; opacity: .5; }
-  .preview-section-title { font-weight: 700; margin-bottom: 4px; color: #374151; }
-  .preview-client { color: #111827; }
-  .preview-table { width: 100%; border-collapse: collapse; }
-  .preview-table th, .preview-table td { padding: 6px 4px; border-bottom: 1px solid #e5e7eb; text-align: left; }
-  .preview-table .num { text-align: right; }
-  .preview-custom { margin-top: 10px; display: grid; gap: 4px; }
-  .preview-custom-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
-  .preview-custom-label { color: #374151; font-weight: 600; }
-  .preview-custom-value { color: #6b7280; }
-  .preview-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid #e5e7eb; color: #374151; }
-
-  /* Minimal style preview */
-  .preview-doc[data-style="minimal"] .preview-accent-bar { display: none; }
-  .preview-doc[data-style="minimal"] .preview-line { height: 1px; background: #d1d5db; opacity: 1; }
-  .preview-doc[data-style="minimal"] .preview-title { color: #111827; }
-  .preview-doc[data-style="minimal"] .preview-section-title::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--preview-accent); margin-right: 6px; vertical-align: middle; }
-
-  /* Modern style preview */
-  .preview-doc[data-style="modern"] .preview-accent-bar { display: none; }
-  .preview-doc[data-style="modern"] .preview-modern-head {
-    display: block;
-    background: var(--preview-accent);
-    padding: 16px;
+  /* Custom fields */
+  .custom-fields-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .custom-field-row {
+    display: grid; grid-template-columns: 1fr 1fr 90px auto auto; gap: 8px; align-items: center;
+    padding: 10px; background: var(--surface-alt); border-radius: 8px; border: 1px solid var(--border);
   }
-  .preview-doc[data-style="modern"] .preview-head { position: relative; margin-top: -8px; }
-  .preview-doc[data-style="modern"] .preview-title { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
-  .preview-doc[data-style="modern"] .preview-meta { color: rgba(255,255,255,.8); }
-  .preview-doc[data-style="modern"] .preview-status { border-color: rgba(255,255,255,.4); color: rgba(255,255,255,.9); }
-  .preview-doc[data-style="modern"] .preview-line { display: none; }
+  .field-required-label { margin: 0; font-size: 12px; font-weight: normal; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+
+  /* LIVE PREVIEW */
+  .live-preview-card { position: sticky; top: 16px; }
+  .preview-doc {
+    border: 1px solid var(--border); border-radius: 12px; font-size: 12px; line-height: 1.45; overflow: hidden;
+    transition: background .3s, color .3s;
+    background: #1a1a1a; color: #d4d4d4;
+  }
+  .preview-inner { padding: 16px; }
+  .preview-accent-bar { height: 4px; background: var(--preview-accent); }
+  .preview-luxury-border-top { display: none; }
+  .preview-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .preview-title { font-size: 16px; font-weight: 800; letter-spacing: .5px; color: #fff; }
+  .preview-meta { font-size: 11px; color: #777; margin-top: 2px; }
+  .preview-badge { font-size: 10px; padding: 2px 8px; border-radius: 999px; border: 1px solid #444; color: #999; }
+  .preview-header-text { font-size: 11px; color: #999; white-space: pre-wrap; margin: 4px 0 0; }
+  .preview-header-text:empty { display: none; }
+  .preview-divider { height: 2px; background: var(--preview-accent); margin: 8px 0; opacity: .4; }
+  .preview-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #999; margin-bottom: 3px; }
+  .preview-client { font-size: 12px; color: #e0e0e0; }
+  .preview-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  .preview-table th { padding: 5px 4px; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #fff; background: var(--preview-accent); }
+  .preview-table td { padding: 5px 4px; border-bottom: 1px solid #333; font-size: 12px; }
+  .preview-table .r { text-align: right; }
+  .preview-table .total-row td { border-bottom: none; padding-top: 8px; font-size: 13px; }
+  .preview-custom { margin-top: 8px; }
+  .preview-custom-row { display: flex; justify-content: space-between; font-size: 11px; color: #888; padding: 2px 0; }
+  .preview-terms { font-size: 11px; color: #777; white-space: pre-wrap; }
+  .preview-terms:empty { display: none; }
+  .preview-footer-text { margin-top: 10px; padding-top: 8px; border-top: 1px solid #333; font-size: 11px; color: #888; white-space: pre-wrap; }
+  .preview-footer-text:empty { display: none; }
+
+  /* Modern Dark */
+  .preview-doc[data-style="modern_dark"] .preview-accent-bar { display: block; }
+  .preview-doc[data-style="modern_dark"] .preview-luxury-border-top { display: none; }
+
+  /* Clean Light */
+  .preview-doc[data-style="clean_light"] { background: #fff; color: #1f2937; }
+  .preview-doc[data-style="clean_light"] .preview-accent-bar { display: none; }
+  .preview-doc[data-style="clean_light"] .preview-title { color: #111827; font-family: Georgia, serif; font-weight: 700; letter-spacing: 0; }
+  .preview-doc[data-style="clean_light"] .preview-meta { color: #6b7280; }
+  .preview-doc[data-style="clean_light"] .preview-badge { border-color: #d1d5db; color: #6b7280; }
+  .preview-doc[data-style="clean_light"] .preview-header-text { color: #6b7280; }
+  .preview-doc[data-style="clean_light"] .preview-divider { height: 1px; background: #d1d5db; opacity: 1; }
+  .preview-doc[data-style="clean_light"] .preview-label { color: #374151; }
+  .preview-doc[data-style="clean_light"] .preview-client { color: #111827; }
+  .preview-doc[data-style="clean_light"] .preview-table th { background: #f3f4f6; color: #374151; }
+  .preview-doc[data-style="clean_light"] .preview-table td { border-bottom-color: #e5e7eb; color: #111827; }
+  .preview-doc[data-style="clean_light"] .preview-terms { color: #6b7280; }
+  .preview-doc[data-style="clean_light"] .preview-footer-text { border-top-color: #e5e7eb; color: #374151; }
+  .preview-doc[data-style="clean_light"] .preview-custom-row { color: #6b7280; }
+
+  /* Luxury */
+  .preview-doc[data-style="luxury"] { background: #0a0a0a; color: #c0c0c0; }
+  .preview-doc[data-style="luxury"] .preview-accent-bar { display: none; }
+  .preview-doc[data-style="luxury"] .preview-luxury-border-top { display: block; height: 0; border-top: 3px double var(--preview-accent); margin: 0 16px; padding-top: 4px; }
+  .preview-doc[data-style="luxury"] .preview-title { color: var(--preview-accent); font-size: 18px; letter-spacing: 2px; text-transform: uppercase; }
+  .preview-doc[data-style="luxury"] .preview-meta { color: #666; letter-spacing: .5px; }
+  .preview-doc[data-style="luxury"] .preview-badge { border-color: var(--preview-accent); color: var(--preview-accent); }
+  .preview-doc[data-style="luxury"] .preview-divider { height: 1px; background: var(--preview-accent); opacity: .25; }
+  .preview-doc[data-style="luxury"] .preview-label { color: var(--preview-accent); letter-spacing: 1px; }
+  .preview-doc[data-style="luxury"] .preview-table th { background: rgba(255,255,255,.04); color: var(--preview-accent); letter-spacing: .5px; }
+  .preview-doc[data-style="luxury"] .preview-table td { border-bottom-color: #1a1a1a; }
+  .preview-doc[data-style="luxury"] .preview-footer-text { border-top: 3px double #222; color: #666; }
 
   @media (max-width: 1024px) {
-    .editor-layout { grid-template-columns: 1fr; gap: 14px; }
-    .live-preview-card { position: static; order: 2; }
-    .doc-template-edit-form { order: 1; }
-  }
-  @media (max-width: 768px) {
-    .doc-template-edit-header h1 { font-size: 24px; }
-    .doc-template-edit-subtitle { font-size: 14px; }
-    .billing-tab { white-space: nowrap; }
-    .doc-template-section { padding: 16px; margin-bottom: 14px; }
-    .form-actions .btn { flex: 1 1 calc(50% - 8px); justify-content: center; min-height: 42px; }
-    .preview-doc { font-size: 12px; padding: 12px; }
+    .editor-layout { grid-template-columns: 1fr; }
+    .live-preview-card { position: static; }
   }
   @media (max-width: 640px) {
     .custom-field-row { grid-template-columns: 1fr 1fr; }
-    .custom-field-row .field-type, .custom-field-row .field-required-label { grid-column: 1; }
-    .custom-field-row .remove-field { grid-column: 2; }
+    .style-options { grid-template-columns: 1fr; }
   }
 </style>
 
 <script>
 (function() {
-  var list = document.getElementById('custom-fields-list');
-  var addBtn = document.getElementById('add-custom-field');
-  var primaryColor = document.getElementById('id_primary_color');
-  var primaryHex = document.getElementById('id_primary_color_hex');
-
-  var previewDoc = document.getElementById('preview-doc');
-  var previewType = document.getElementById('preview-doc-type');
-  var previewHeader = document.getElementById('preview-header-text');
+  var previewDoc   = document.getElementById('preview-doc');
+  var previewHdr   = document.getElementById('preview-header-text');
   var previewTerms = document.getElementById('preview-terms');
-  var previewFooter = document.getElementById('preview-footer-text');
-  var previewCustomFields = document.getElementById('preview-custom-fields');
-  var inputHeader = document.getElementById('id_header_text');
-  var inputTerms = document.getElementById('id_terms_and_conditions');
-  var inputFooter = document.getElementById('id_footer_text');
+  var previewFtr   = document.getElementById('preview-footer-text');
+  var previewCF    = document.getElementById('preview-custom-fields');
+  var primaryColor = document.getElementById('id_primary_color');
+  var primaryHex   = document.getElementById('id_primary_color_hex');
+  var inputHeader  = document.getElementById('id_header_text');
+  var inputFooter  = document.getElementById('id_footer_text');
+  var inputTerms   = document.getElementById('id_terms_and_conditions');
+  var list         = document.getElementById('custom-fields-list');
 
-  function readDocTypeFromPath() {
-    return window.location.pathname.indexOf('/templates/invoice') !== -1 ? 'Invoice' : 'Estimate';
-  }
-
-  function sanitize(value) { return (value || '').trim(); }
-
+  /* Live preview updater */
   function updatePreview() {
-    if (previewType) previewType.textContent = readDocTypeFromPath();
-    if (previewHeader) previewHeader.textContent = sanitize(inputHeader && inputHeader.value) || 'Your branding/header text appears here.';
-    if (previewTerms) previewTerms.textContent = sanitize(inputTerms && inputTerms.value) || 'Payment due within 30 days.';
-    if (previewFooter) previewFooter.textContent = sanitize(inputFooter && inputFooter.value) || 'Thank you for your business.';
-
-    if (previewCustomFields) {
-      previewCustomFields.textContent = '';
-      var rows = list ? Array.from(list.querySelectorAll('.custom-field-row')) : [];
-      rows.forEach(function(row) {
-        var labelInput = row.querySelector('.field-label');
-        var keyInput = row.querySelector('.field-key');
-        var typeSelect = row.querySelector('.field-type');
-        var label = sanitize(labelInput && labelInput.value) || sanitize(keyInput && keyInput.value);
-        if (!label) return;
-        var fieldType = typeSelect ? typeSelect.value : 'text';
-        var sampleVal = 'Sample value';
-        if (fieldType === 'number') sampleVal = '1234';
-        else if (fieldType === 'date') sampleVal = '03/07/2026';
-        else if (fieldType === 'textarea') sampleVal = 'Detailed notes here...';
-        var rowDiv = document.createElement('div');
-        rowDiv.className = 'preview-custom-row';
-        var labelSpan = document.createElement('span');
-        labelSpan.className = 'preview-custom-label';
-        labelSpan.textContent = label;
-        var valSpan = document.createElement('span');
-        valSpan.className = 'preview-custom-value';
-        valSpan.textContent = sampleVal;
-        rowDiv.appendChild(labelSpan);
-        rowDiv.appendChild(valSpan);
-        previewCustomFields.appendChild(rowDiv);
-      });
+    var h = (inputHeader ? inputHeader.value : '').trim();
+    var t = (inputTerms ? inputTerms.value : '').trim();
+    var f = (inputFooter ? inputFooter.value : '').trim();
+    if (previewHdr) previewHdr.textContent = h;
+    if (previewTerms) previewTerms.textContent = t;
+    if (previewFtr) previewFtr.textContent = f;
+    if (previewCF) {
+      previewCF.textContent = '';
+      var rows = list ? list.querySelectorAll('.custom-field-row') : [];
+      for (var i = 0; i < rows.length; i++) {
+        var lbl = (rows[i].querySelector('.field-label') || {}).value || (rows[i].querySelector('.field-key') || {}).value || '';
+        if (!lbl.trim()) continue;
+        var div = document.createElement('div');
+        div.className = 'preview-custom-row';
+        var s1 = document.createElement('span');
+        s1.textContent = lbl.trim();
+        var s2 = document.createElement('span');
+        s2.textContent = 'Sample';
+        s2.style.color = '#aaa';
+        div.appendChild(s1);
+        div.appendChild(s2);
+        previewCF.appendChild(div);
+      }
     }
   }
 
-  function wireRow(row) {
-    row.querySelectorAll('input, select, textarea').forEach(function(el) {
-      el.addEventListener('input', updatePreview);
-      el.addEventListener('change', updatePreview);
-    });
-    var removeBtn = row.querySelector('.remove-field');
-    if (removeBtn) removeBtn.addEventListener('click', function() { row.remove(); updatePreview(); });
-  }
-
-  function addRow(index) {
-    var row = document.createElement('div');
-    row.className = 'custom-field-row';
-    row.setAttribute('data-index', index);
-
-    var keyInput = document.createElement('input');
-    keyInput.type = 'text'; keyInput.name = 'custom_field_key';
-    keyInput.placeholder = 'Key (e.g. po_number)'; keyInput.className = 'field-key';
-
-    var labelInput = document.createElement('input');
-    labelInput.type = 'text'; labelInput.name = 'custom_field_label';
-    labelInput.placeholder = 'Label (e.g. PO Number)'; labelInput.className = 'field-label';
-
-    var typeSelect = document.createElement('select');
-    typeSelect.name = 'custom_field_type'; typeSelect.className = 'field-type';
-    ['text', 'number', 'date', 'textarea'].forEach(function(t) {
-      var opt = document.createElement('option');
-      opt.value = t; opt.textContent = t === 'textarea' ? 'Long text' : t.charAt(0).toUpperCase() + t.slice(1);
-      typeSelect.appendChild(opt);
-    });
-
-    var reqLabel = document.createElement('label');
-    reqLabel.className = 'field-required-label';
-    var reqCb = document.createElement('input');
-    reqCb.type = 'checkbox'; reqCb.name = 'custom_field_required_' + index; reqCb.className = 'field-required';
-    reqLabel.appendChild(reqCb);
-    reqLabel.appendChild(document.createTextNode(' Required'));
-
-    var removeBtn = document.createElement('button');
-    removeBtn.type = 'button'; removeBtn.className = 'btn btn-secondary btn-sm remove-field';
-    removeBtn.setAttribute('aria-label', 'Remove field');
-    removeBtn.textContent = 'Remove';
-
-    row.appendChild(keyInput);
-    row.appendChild(labelInput);
-    row.appendChild(typeSelect);
-    row.appendChild(reqLabel);
-    row.appendChild(removeBtn);
-
-    list.appendChild(row);
-    wireRow(row);
-    updatePreview();
-  }
-
+  /* Color sync */
   if (primaryColor && primaryHex && previewDoc) {
-    function syncColorFromPicker() {
+    primaryColor.addEventListener('input', function() {
       primaryHex.value = primaryColor.value;
       previewDoc.style.setProperty('--preview-accent', primaryColor.value);
-    }
-    function syncColorFromHex() {
+    });
+    primaryHex.addEventListener('input', function() {
       if (/^#[0-9A-Fa-f]{6}$/.test(primaryHex.value)) {
         primaryColor.value = primaryHex.value;
         previewDoc.style.setProperty('--preview-accent', primaryHex.value);
       }
-    }
-    primaryColor.addEventListener('input', syncColorFromPicker);
-    primaryHex.addEventListener('input', syncColorFromHex);
+    });
   }
 
   /* Style switching */
   document.querySelectorAll('input[name="template_key"]').forEach(function(radio) {
     radio.addEventListener('change', function() {
-      document.querySelectorAll('.style-option').forEach(function(opt) { opt.classList.remove('active'); });
+      document.querySelectorAll('.style-option').forEach(function(o) { o.classList.remove('active'); });
       radio.closest('.style-option').classList.add('active');
       if (previewDoc) previewDoc.dataset.style = radio.value;
     });
   });
 
+  /* Custom field rows */
+  function wireRow(row) {
+    row.querySelectorAll('input, select').forEach(function(el) {
+      el.addEventListener('input', updatePreview);
+    });
+    var rm = row.querySelector('.remove-field');
+    if (rm) rm.addEventListener('click', function() { row.remove(); updatePreview(); });
+  }
+  document.querySelectorAll('.custom-field-row').forEach(wireRow);
+
+  var addBtn = document.getElementById('add-custom-field');
   if (addBtn) {
     addBtn.addEventListener('click', function() {
-      var count = list.querySelectorAll('.custom-field-row').length;
-      addRow(count);
+      var idx = list.querySelectorAll('.custom-field-row').length;
+      var row = document.createElement('div');
+      row.className = 'custom-field-row';
+
+      var k = document.createElement('input');
+      k.type = 'text'; k.name = 'custom_field_key'; k.placeholder = 'Key'; k.className = 'field-key form-control';
+      var l = document.createElement('input');
+      l.type = 'text'; l.name = 'custom_field_label'; l.placeholder = 'Label'; l.className = 'field-label form-control';
+      var s = document.createElement('select');
+      s.name = 'custom_field_type'; s.className = 'field-type form-control';
+      ['text','number','date','textarea'].forEach(function(v) {
+        var o = document.createElement('option'); o.value = v;
+        o.textContent = v === 'textarea' ? 'Long text' : v.charAt(0).toUpperCase() + v.slice(1);
+        s.appendChild(o);
+      });
+      var rl = document.createElement('label');
+      rl.className = 'field-required-label';
+      var rc = document.createElement('input');
+      rc.type = 'checkbox'; rc.name = 'custom_field_required_' + idx; rc.className = 'field-required';
+      rl.appendChild(rc); rl.appendChild(document.createTextNode(' Req'));
+      var rb = document.createElement('button');
+      rb.type = 'button'; rb.className = 'btn btn-ghost btn-sm remove-field';
+      rb.style.color = '#f87171'; rb.textContent = '\u00d7';
+
+      row.appendChild(k); row.appendChild(l); row.appendChild(s); row.appendChild(rl); row.appendChild(rb);
+      list.appendChild(row);
+      wireRow(row);
+      updatePreview();
     });
   }
 
-  document.querySelectorAll('.custom-field-row').forEach(wireRow);
-  [inputHeader, inputTerms, inputFooter].forEach(function(el) {
-    if (!el) return;
-    el.addEventListener('input', updatePreview);
-    el.addEventListener('change', updatePreview);
+  /* Wire text inputs to preview */
+  [inputHeader, inputFooter, inputTerms].forEach(function(el) {
+    if (el) { el.addEventListener('input', updatePreview); el.addEventListener('change', updatePreview); }
   });
+
+  /* Email preview toggle */
+  var emailBtn = document.getElementById('toggle-email-preview');
+  var emailBox = document.getElementById('email-preview-container');
+  var emailIframe = document.getElementById('email-preview-iframe');
+  if (emailBtn && emailBox) {
+    emailBtn.addEventListener('click', function() {
+      if (emailBox.style.display === 'none') {
+        emailBox.style.display = 'block';
+        emailBtn.textContent = 'Hide Email';
+        if (!emailIframe.src || emailIframe.src === location.href) {
+          emailIframe.src = '{% url "billing:email_template_preview" doc_type %}';
+        }
+      } else {
+        emailBox.style.display = 'none';
+        emailBtn.textContent = 'Email Preview';
+      }
+    });
+  }
+
+  /* Init */
   updatePreview();
 })();
 </script>

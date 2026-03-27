@@ -749,16 +749,56 @@ def _get_reportlab():
 
 
 def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, page_width=None):
-    """Draw business logo on ReportLab canvas if present. Use page_width and x=None to align right."""
+    """Draw business logo on ReportLab canvas if present. Supports both local files and URL-based storage."""
     if not business or not business.logo:
         return
     try:
-        path = business.logo.path
-        if not path:
-            return
+        import tempfile
+        import requests as _requests
+        from reportlab.lib.utils import ImageReader
+
         if page_width is not None and x is None:
             x = page_width - 50 - max_width
-        p.drawImage(path, x, y_top - max_height, width=max_width, height=max_height)
+
+        logo_url = None
+        logo_path = None
+
+        # Try to get URL first (works for Supabase/cloud storage)
+        try:
+            logo_url = business.logo.url
+        except Exception:
+            pass
+
+        # Try local path as fallback
+        try:
+            logo_path = business.logo.path
+        except Exception:
+            pass
+
+        img = None
+        if logo_url and logo_url.startswith("http"):
+            # Download from URL to a temp file
+            resp = _requests.get(logo_url, timeout=10)
+            resp.raise_for_status()
+            suffix = ".png"
+            if "jpeg" in resp.headers.get("content-type", "") or "jpg" in logo_url.lower():
+                suffix = ".jpg"
+            elif "webp" in resp.headers.get("content-type", ""):
+                suffix = ".webp"
+            tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+            tmp.write(resp.content)
+            tmp.flush()
+            tmp.close()
+            img = tmp.name
+        elif logo_path:
+            import os
+            if os.path.exists(logo_path):
+                img = logo_path
+
+        if img:
+            # Use preserveAspectRatio to avoid stretching
+            p.drawImage(img, x, y_top - max_height, width=max_width, height=max_height,
+                        preserveAspectRatio=True, mask='auto')
     except Exception:
         pass
 
@@ -2300,35 +2340,46 @@ def document_template_edit(request, doc_type):
     template_obj = DocumentTemplate.get_or_create_default(business, doc_type)
 
     if request.method == "POST":
-        form = DocumentTemplateForm(request.POST, instance=template_obj)
-        if form.is_valid():
-            template_obj = form.save(commit=False)
-            if form.cleaned_data.get("template_key"):
-                template_obj.template_key = form.cleaned_data["template_key"]
-            template_obj.save()
+        # Save directly from POST to avoid form validation issues
+        template_key = request.POST.get("template_key", "").strip()
+        if template_key in ("modern_dark", "clean_light", "luxury"):
+            template_obj.template_key = template_key
 
-            # Parse custom fields from POST (using indexed checkbox names to avoid misalignment)
-            keys = request.POST.getlist("custom_field_key")
-            labels = request.POST.getlist("custom_field_label")
-            types = request.POST.getlist("custom_field_type")
-            custom_fields = []
-            seen_keys = set()
-            for i in range(len(keys)):
-                key = (keys[i] or "").strip().lower().replace(" ", "_") or None
-                label = (labels[i] or "").strip() if i < len(labels) else ""
-                field_type = (types[i] or "text") if i < len(types) else "text"
-                if field_type not in ("text", "number", "date", "textarea"):
-                    field_type = "text"
-                required = request.POST.get(f"custom_field_required_{i}") == "on"
-                if key and key not in seen_keys:
-                    seen_keys.add(key)
-                    custom_fields.append({"key": key, "label": label or key.replace("_", " ").title(), "type": field_type, "required": bool(required)})
-            template_obj.custom_fields = custom_fields
-            template_obj.save()
-            messages.success(request, f"{doc_type.title()} template saved.")
-            return redirect("billing:document_templates_list")
-    else:
-        form = DocumentTemplateForm(instance=template_obj, initial={"template_key": template_obj.template_key or "professional"})
+        name = request.POST.get("name", "").strip()
+        if name:
+            template_obj.name = name
+
+        color = request.POST.get("primary_color", "").strip()
+        if color and len(color) == 7 and color.startswith("#"):
+            template_obj.primary_color = color
+
+        template_obj.header_text = request.POST.get("header_text", "").strip()
+        template_obj.footer_text = request.POST.get("footer_text", "").strip()
+        template_obj.terms_and_conditions = request.POST.get("terms_and_conditions", "").strip()
+
+        # Parse custom fields
+        keys = request.POST.getlist("custom_field_key")
+        labels = request.POST.getlist("custom_field_label")
+        types = request.POST.getlist("custom_field_type")
+        custom_fields = []
+        seen_keys = set()
+        for i in range(len(keys)):
+            key = (keys[i] or "").strip().lower().replace(" ", "_") or None
+            label = (labels[i] or "").strip() if i < len(labels) else ""
+            field_type = (types[i] or "text") if i < len(types) else "text"
+            if field_type not in ("text", "number", "date", "textarea"):
+                field_type = "text"
+            required = request.POST.get(f"custom_field_required_{i}") == "on"
+            if key and key not in seen_keys:
+                seen_keys.add(key)
+                custom_fields.append({"key": key, "label": label or key.replace("_", " ").title(), "type": field_type, "required": bool(required)})
+        template_obj.custom_fields = custom_fields
+        template_obj.save()
+        messages.success(request, f"{doc_type.title()} template saved successfully.")
+        return redirect("billing:document_template_edit", doc_type=doc_type)
+
+    # GET — build form just for rendering widgets (header_text, footer_text, etc.)
+    form = DocumentTemplateForm(instance=template_obj)
 
     return render(request, "billing/document_template_edit.html", {
         "form": form,

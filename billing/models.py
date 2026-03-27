@@ -525,10 +525,15 @@ class DocumentTemplate(models.Model):
         )
 
     @classmethod
-    def get_or_create_default(cls, business, doc_type, template_key="professional"):
+    def get_or_create_default(cls, business, doc_type, template_key="modern_dark"):
         """Return the default template, creating one from the built-in if none exists."""
         default = cls.get_default_for_business(business, doc_type)
         if default:
+            # Migrate old template_key values to new ones
+            if default.template_key and default.template_key not in ("modern_dark", "clean_light", "luxury"):
+                old_to_new = {"professional": "modern_dark", "minimal": "clean_light", "modern": "modern_dark"}
+                default.template_key = old_to_new.get(default.template_key, "modern_dark")
+                default.save(update_fields=["template_key"])
             return default
         return cls.objects.create(
             business=business,

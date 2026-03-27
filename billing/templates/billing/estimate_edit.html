@@ -174,10 +174,11 @@
                   <div class="estimator-row"><label>Total sq ft</label>{{ f.mulch_total_sqft }}</div>
                   <div class="estimator-row"><label>Depth (inches)</label>{{ f.mulch_depth_inches }}</div>
                   <div class="estimator-row"><label>Mulch product</label>{{ f.mulch_product }}</div>
-                  <div class="estimator-row"><label>Pricing</label>{{ f.mulch_pricing_type }}</div>
+                  <div class="estimator-row"><label>Material pricing</label>{{ f.mulch_pricing_type }}</div>
                   <div class="estimator-row mulch-per-bag"><label>Cost per bag ($)</label>{{ f.mulch_cost_per_bag }}</div>
                   <div class="estimator-row mulch-per-bag"><label>Cu ft per bag</label>{{ f.mulch_cf_per_bag }}</div>
                   <div class="estimator-row mulch-per-cy" style="display: none;"><label>Cost per cu yd ($)</label>{{ f.mulch_cost_per_cy }}</div>
+                  <div class="estimator-row mulch-charge-rate"><label>Charge per cu yd ($)</label>{{ f.mulch_charge_per_cy }}</div>
                 </div>
                 <div class="estimator-result mulch-result"></div>
               </div>
@@ -444,6 +445,15 @@
     font-size: 14px;
     grid-column: 1 / -1;
   }
+  .mulch-charge-rate {
+    grid-column: 1 / -1;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    margin-top: 4px;
+  }
+  .mulch-charge-rate label {
+    color: var(--primary) !important;
+  }
 
   /* Pictures */
   .estimate-images-grid {
@@ -594,10 +604,12 @@ document.addEventListener('DOMContentLoaded', function() {
     var panel = row.querySelector('.mulch-panel');
     var resultEl = row.querySelector('.mulch-result');
     var materialsInput = row.querySelector('input[name$="-material_cost"]');
+    var totalInput = row.querySelector('input[name$="-total_override"]');
     if (!panel || !resultEl) return;
     var sqft = parseFloat(panel.querySelector('input[name$="-mulch_total_sqft"]')?.value) || 0;
     var depth = parseFloat(panel.querySelector('input[name$="-mulch_depth_inches"]')?.value) || 3;
     var pricing = panel.querySelector('select[name$="-mulch_pricing_type"]')?.value || 'per_bag';
+    var chargeRate = parseFloat(panel.querySelector('input[name$="-mulch_charge_per_cy"]')?.value) || 0;
     var cubicYards = (sqft * depth) / 324;
     var cost = 0;
     var msg = 'Cu yd needed: ' + cubicYards.toFixed(2);
@@ -614,6 +626,12 @@ document.addEventListener('DOMContentLoaded', function() {
       var costCy = parseFloat(panel.querySelector('input[name$="-mulch_cost_per_cy"]')?.value) || 0;
       cost = cubicYards * costCy;
       msg = msg + ' · Material cost: $' + cost.toFixed(2);
+    }
+    // Auto-calculate charge from rate per yard
+    if (chargeRate > 0 && cubicYards > 0) {
+      var chargeTotal = cubicYards * chargeRate;
+      msg += ' · Charge: $' + chargeTotal.toFixed(2);
+      if (totalInput) totalInput.value = chargeTotal.toFixed(2);
     }
     resultEl.textContent = msg;
     if (materialsInput) materialsInput.value = cost.toFixed(2);
@@ -637,7 +655,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     row.querySelector('select.fertilizing-pricing-type')?.addEventListener('change', function() { toggleFertilizingPricing(row); calcFertilizing(row); });
     row.querySelector('select.mulch-pricing-type')?.addEventListener('change', function() { toggleMulchPricing(row); calcMulch(row); });
-    row.querySelectorAll('.fertilizing-panel input, .mulch-panel input, .mowing-panel input').forEach(function(inp) {
+    row.querySelectorAll('.fertilizing-panel input, .mulch-panel input, .mulch-charge-rate input, .mowing-panel input').forEach(function(inp) {
       inp.addEventListener('input', function() {
         var t = row.querySelector('.type-cell select')?.value;
         if (t === 'fertilizing') calcFertilizing(row); else if (t === 'mulch') calcMulch(row); else if (t === 'mowing') calcMowing(row);
