@@ -28,6 +28,25 @@ def _email_template_vars(s, **kwargs):
     for key, val in kwargs.items():
         out = out.replace("{{" + key + "}}", str(val or ""))
     return out
+
+
+def _get_logo_url(business, request=None):
+    """Get logo URL that works in emails. Handles both Supabase URLs and local files."""
+    if not business or not business.logo:
+        return None
+    try:
+        url = business.logo.url
+        if not url:
+            return None
+        # Already a full URL (Supabase storage) — use as-is
+        if url.startswith("http"):
+            return url
+        # Local file — make absolute
+        if request:
+            return request.build_absolute_uri(url)
+        return url
+    except Exception:
+        return None
 from .models import (
     Invoice,
     InvoiceAuditLog,
@@ -1190,7 +1209,7 @@ def resend_invoice(request, invoice_id):
         body_text += f"Pay online: {pay_url}\n\n"
     body_text += closing + "\n\n" + business.name
 
-    logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
+    logo_url = _get_logo_url(business, request)
     doc_template = DocumentTemplate.get_default_for_business(business, "invoice")
     accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
     template_style = doc_template.template_key if doc_template else "modern_dark"
@@ -1275,7 +1294,7 @@ def send_reminder(request, invoice_id):
         body_text += f"Pay online: {pay_url}\n\n"
     body_text += closing + "\n\n" + business.name
 
-    logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
+    logo_url = _get_logo_url(business, request)
     doc_template = DocumentTemplate.get_default_for_business(business, "invoice")
     accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
     html_content = render_to_string("billing/invoice_email.html", {
@@ -2044,7 +2063,7 @@ def estimate_send(request, estimate_id):
             messages.error(request, diag.get("message", "Email is not configured. Go to Settings → Email to set up Gmail."))
         return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
-    logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
+    logo_url = _get_logo_url(business, request)
     subject = (
         _email_template_vars(
             (business.estimate_email_subject or "").strip(),
@@ -2158,7 +2177,7 @@ def estimate_send_followup(request, estimate_id):
             messages.error(request, diag.get("message", "Email is not configured. Go to Settings → Email to set up Gmail."))
         return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
-    logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
+    logo_url = _get_logo_url(business, request)
     subject = (
         _email_template_vars(
             (business.estimate_followup_email_subject or "").strip(),
@@ -2411,12 +2430,7 @@ def document_template_edit(request, doc_type):
     # GET — build form just for rendering widgets (header_text, footer_text, etc.)
     form = DocumentTemplateForm(instance=template_obj)
 
-    logo_url = None
-    if business.logo:
-        try:
-            logo_url = business.logo.url
-        except Exception:
-            pass
+    logo_url = _get_logo_url(business, request)
 
     return render(request, "billing/document_template_edit.html", {
         "form": form,
@@ -2437,7 +2451,7 @@ def email_template_preview(request, doc_type):
         return JsonResponse({"error": "No business"}, status=403)
     doc_template = DocumentTemplate.get_default_for_business(business, doc_type)
     accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
-    logo_url = request.build_absolute_uri(business.logo.url) if business.logo else None
+    logo_url = _get_logo_url(business, request)
 
     if doc_type == "invoice":
         html = render_to_string("billing/invoice_email.html", {
