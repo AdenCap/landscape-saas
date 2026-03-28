@@ -15,6 +15,17 @@
   /* Full-width calendar — no context panel */
   .workspace-shell { grid-template-columns: minmax(0, 1fr); }
 
+  /* Unscheduled jobs — bottom collapsible */
+  .unscheduled-bottom { background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden; }
+  .unscheduled-bottom-toggle {
+    display:flex;align-items:center;width:100%;padding:12px 16px;background:none;border:none;
+    color:var(--text);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .unscheduled-bottom-toggle:hover { background:var(--surface-highest); }
+  .unscheduled-bottom-content { padding:0 16px 16px; }
+  .unscheduled-chevron.open { transform:rotate(180deg); }
+
   /* Inline filter dropdowns in toolbar */
   .calendar-toolbar-center {
     display: flex;
@@ -148,56 +159,41 @@
 </div>
 
 
-<!-- Main layout: calendar + unscheduled side panel -->
-<div class="calendar-layout">
-  <div class="calendar-main">
-    <div class="card calendar-drop-zone" id="calendar-wrapper">
-      {% csrf_token %}
-      <!-- Skeleton loader (hidden once FullCalendar renders) -->
-      <div id="calendar-skeleton" class="calendar-skeleton">
-        <div class="skeleton-header">
-          <div class="skeleton-block" style="width: 120px; height: 20px;"></div>
-          <div class="skeleton-block" style="width: 200px; height: 32px;"></div>
-          <div class="skeleton-block" style="width: 120px; height: 20px;"></div>
-        </div>
-        <div class="skeleton-grid">
-          <div class="skeleton-block"></div><div class="skeleton-block"></div>
-          <div class="skeleton-block"></div><div class="skeleton-block"></div>
-          <div class="skeleton-block"></div><div class="skeleton-block"></div>
-          <div class="skeleton-block"></div><div class="skeleton-block"></div>
-          <div class="skeleton-block"></div><div class="skeleton-block"></div>
-          <div class="skeleton-block"></div><div class="skeleton-block"></div>
-          <div class="skeleton-block"></div><div class="skeleton-block"></div>
-        </div>
-      </div>
-      <div id="calendar"></div>
+<!-- Calendar (full width) -->
+<div class="card calendar-drop-zone" id="calendar-wrapper" style="padding:12px;">
+  {% csrf_token %}
+  <div id="calendar-skeleton" class="calendar-skeleton">
+    <div class="skeleton-header">
+      <div class="skeleton-block" style="width: 120px; height: 20px;"></div>
+      <div class="skeleton-block" style="width: 200px; height: 32px;"></div>
+      <div class="skeleton-block" style="width: 120px; height: 20px;"></div>
+    </div>
+    <div class="skeleton-grid">
+      <div class="skeleton-block"></div><div class="skeleton-block"></div>
+      <div class="skeleton-block"></div><div class="skeleton-block"></div>
+      <div class="skeleton-block"></div><div class="skeleton-block"></div>
+      <div class="skeleton-block"></div><div class="skeleton-block"></div>
     </div>
   </div>
-
-  {% if user.role == "owner" or user.role == "manager" %}
-  <!-- Desktop only: unscheduled side panel -->
-  <aside class="unscheduled-panel cal-mobile-hide" id="unscheduled-panel">
-    <div class="unscheduled-panel-header">
-      <div class="drag-handle" aria-hidden="true"></div>
-      <h3>Unscheduled Jobs <span class="unscheduled-count" id="unscheduled-count"></span></h3>
-      <button type="button" class="panel-toggle" id="panel-toggle" aria-label="Toggle panel">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
-      </button>
-    </div>
-    <p class="unscheduled-hint">Drag onto the calendar or pick a date below.</p>
-    <div id="unscheduled-list" class="unscheduled-list">
-      <p class="muted" style="padding: 20px; text-align: center;">Loading…</p>
-    </div>
-  </aside>
-
-  <!-- Mobile FAB for unscheduled panel (hidden on mobile — unscheduled is on Jobs tab) -->
-  <button type="button" class="unscheduled-fab cal-mobile-hide" id="unscheduled-fab" aria-label="Show unscheduled jobs">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-    <span class="fab-badge" id="fab-badge"></span>
-  </button>
-  <div class="unscheduled-backdrop" id="unscheduled-backdrop"></div>
-  {% endif %}
+  <div id="calendar"></div>
 </div>
+
+{% if user.role == "owner" or user.role == "manager" %}
+<!-- Unscheduled jobs — collapsible section below calendar -->
+<div class="unscheduled-bottom cal-mobile-hide" id="unscheduled-panel" style="margin-top:12px;">
+  <button type="button" class="unscheduled-bottom-toggle" id="unscheduled-toggle">
+    <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:6px;">event_available</span>
+    Unscheduled Jobs <span class="unscheduled-count" id="unscheduled-count" style="margin-left:4px;"></span>
+    <span class="material-symbols-outlined unscheduled-chevron" id="unscheduled-chevron" style="margin-left:auto;font-size:18px;transition:transform .2s;">expand_more</span>
+  </button>
+  <div class="unscheduled-bottom-content" id="unscheduled-content" style="display:none;">
+    <p class="unscheduled-hint" style="margin:8px 0;font-size:12px;color:var(--text-muted);">Drag onto the calendar or pick a date below.</p>
+    <div id="unscheduled-list" class="unscheduled-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;">
+      <p class="muted" style="padding: 16px; text-align: center;">Loading...</p>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <!-- Job Modal -->
 <div id="job-modal" class="modal-overlay" role="dialog" aria-modal="true">

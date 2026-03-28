@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function () {
     selectMirror: true,
     navLinks: true,
     navLinkDayClick: 'timeGridDay',
-    height: isMobile ? 'calc(100vh - 130px)' : 'calc(100vh - 140px)',
+    height: isMobile ? 'calc(100vh - 130px)' : 'calc(100vh - 120px)',
     dayMaxEvents: isMobile ? 3 : 5,
 
     // ── Event source (date-range filtered + AbortController) ──
@@ -899,35 +899,23 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   if (isOwner) loadUnscheduled();
 
-  // ── Panel toggle (desktop) ──
-  var toggleBtn = document.getElementById('panel-toggle');
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', function() {
-      var panel = document.getElementById('unscheduled-panel');
-      if (panel) panel.classList.toggle('collapsed');
+  // ── Unscheduled bottom section toggle ──
+  var unschedToggle = document.getElementById('unscheduled-toggle');
+  var unschedContent = document.getElementById('unscheduled-content');
+  var unschedChevron = document.getElementById('unscheduled-chevron');
+  if (unschedToggle && unschedContent) {
+    unschedToggle.addEventListener('click', function() {
+      var isOpen = unschedContent.style.display !== 'none';
+      unschedContent.style.display = isOpen ? 'none' : 'block';
+      if (unschedChevron) unschedChevron.classList.toggle('open', !isOpen);
     });
   }
 
-  // ── Mobile FAB + bottom sheet ──
+  // Legacy compat — keep swipe-down dismiss wired if elements exist
   var fab = document.getElementById('unscheduled-fab');
   var panel = document.getElementById('unscheduled-panel');
   if (fab && panel) {
-    var backdrop = document.getElementById('unscheduled-backdrop') || (function() {
-      var el = document.createElement('div');
-      el.className = 'unscheduled-backdrop';
-      document.body.appendChild(el);
-      return el;
-    })();
-
-    fab.addEventListener('click', function() {
-      panel.classList.add('open');
-      backdrop.classList.add('visible');
-    });
-
-    backdrop.addEventListener('click', function() {
-      panel.classList.remove('open');
-      backdrop.classList.remove('visible');
-    });
+    var backdrop = document.getElementById('unscheduled-backdrop') || document.createElement('div');
 
     // Swipe-down to dismiss
     var sheetStartY = 0;

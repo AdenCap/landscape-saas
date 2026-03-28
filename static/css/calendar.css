@@ -737,21 +737,6 @@
    Calendar Layout (main + side panel)
    ========================================================================== */
 
-.calendar-layout {
-  display: flex;
-  gap: 0;
-  position: relative;
-}
-
-.calendar-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.calendar-main .card {
-  padding: 16px;
-}
-
 #calendar {
   min-height: 580px;
 }
