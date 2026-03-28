@@ -184,10 +184,14 @@
 <!-- Activity -->
 {% if changes_feed %}
 <div class="card" style="margin-top:16px;">
-  <div class="card-head"><h3>Recent Activity</h3></div>
+  <div class="card-head"><h3>Today's Activity</h3><span style="font-size:12px;color:var(--text-muted);">Last 24 hours</span></div>
   <div class="feed">
     {% for item in changes_feed %}
-    <div class="feed-item"><span class="feed-time">{{ item.time|date:"g:i A" }}</span><span>{{ item.text }}</span></div>
+    <div class="feed-item">
+      <span class="material-symbols-outlined" style="font-size:18px;color:{{ item.color|default:'var(--text-muted)' }};flex-shrink:0;">{{ item.icon|default:'info' }}</span>
+      <span style="flex:1;">{{ item.text }}</span>
+      <span class="feed-time">{{ item.time|date:"g:i A" }}</span>
+    </div>
     {% endfor %}
   </div>
 </div>
@@ -300,9 +304,9 @@
   .nav-tile .material-symbols-outlined { font-size:22px; }
 
   .feed { display:flex; flex-direction:column; }
-  .feed-item { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--text-secondary); }
+  .feed-item { display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--text-secondary); align-items:center; }
   .feed-item:last-child { border-bottom:none; }
-  .feed-time { font-weight:700; color:var(--text); min-width:60px; font-size:12px; }
+  .feed-time { font-weight:600; color:var(--text-muted); font-size:11px; white-space:nowrap; }
 
   @media (max-width:1024px) {
     .kpi-grid { grid-template-columns:repeat(2,1fr); }

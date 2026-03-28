@@ -730,17 +730,55 @@ def owner_dashboard(request):
 
     day_start = timezone.now() - timedelta(hours=24)
     changes_feed = []
+
+    # New clients added today
+    from customers.models import Customer as _Customer
+    new_clients = _Customer.objects.filter(business=business, created_at__gte=day_start).order_by("-created_at")[:5]
+    for c in new_clients:
+        changes_feed.append({"time": timezone.localtime(c.created_at), "text": f"New client added: {c.name}", "icon": "person_add", "color": "#22c55e"})
+
+    # Jobs created today
     recent_jobs = Job.objects.filter(property__customer__business=business, created_at__gte=day_start).select_related("property__customer").order_by("-created_at")[:6]
     for j in recent_jobs:
-        changes_feed.append({"time": timezone.localtime(j.created_at), "text": f"Job created: {j.property.customer.name} · {j.property.address}"})
-    recent_invoices = Invoice.objects.filter(business=business, issue_date__gte=(today - timedelta(days=1))).select_related("customer").order_by("-issue_date")[:6]
-    for inv in recent_invoices:
-        inv_time = timezone.make_aware(datetime.combine(inv.issue_date, datetime.min.time()))
-        changes_feed.append({"time": inv_time, "text": f"Invoice #{inv.id} ({inv.status}) · {inv.customer.name}"})
-    recent_messages = ClientMessage.objects.filter(customer__business=business, created_at__gte=day_start).select_related("customer").order_by("-created_at")[:6]
-    for msg in recent_messages:
-        changes_feed.append({"time": timezone.localtime(msg.created_at), "text": f"Email sent · {msg.customer.name}"})
-    changes_feed = sorted(changes_feed, key=lambda x: x["time"], reverse=True)[:10]
+        changes_feed.append({"time": timezone.localtime(j.created_at), "text": f"Job created: {j.property.customer.name}", "icon": "add_task", "color": "#3b82f6"})
+
+    # Jobs completed today
+    completed_jobs = Job.objects.filter(property__customer__business=business, status="completed", completed_at__gte=day_start).select_related("property__customer").order_by("-completed_at")[:6]
+    for j in completed_jobs:
+        changes_feed.append({"time": timezone.localtime(j.completed_at), "text": f"Job completed: {j.property.customer.name}", "icon": "check_circle", "color": "#22c55e"})
+
+    # Estimates sent today
+    from billing.models import Estimate as _Estimate
+    sent_estimates = _Estimate.objects.filter(business=business, status="sent", sent_at__gte=day_start).select_related("customer").order_by("-sent_at")[:5]
+    for est in sent_estimates:
+        changes_feed.append({"time": timezone.localtime(est.sent_at), "text": f"Estimate sent: {est.customer.name} · ${est.total():.0f}", "icon": "send", "color": "#f59e0b"})
+
+    # Estimates accepted today
+    accepted_estimates = _Estimate.objects.filter(business=business, status="accepted", accepted_at__gte=day_start).select_related("customer").order_by("-accepted_at")[:5]
+    for est in accepted_estimates:
+        changes_feed.append({"time": timezone.localtime(est.accepted_at), "text": f"Estimate accepted: {est.customer.name} · ${est.accepted_total or est.total():.0f}", "icon": "thumb_up", "color": "#22c55e"})
+
+    # Invoices paid today
+    paid_invoices = Invoice.objects.filter(business=business, status="paid", approved_at__gte=day_start).select_related("customer").order_by("-approved_at")[:5]
+    for inv in paid_invoices:
+        changes_feed.append({"time": timezone.localtime(inv.approved_at) if inv.approved_at else timezone.now(), "text": f"Invoice paid: {inv.customer.name} · ${inv.total:.0f}", "icon": "payments", "color": "#22c55e"})
+
+    # Invoices sent today
+    sent_invoices = Invoice.objects.filter(business=business, status="sent", approved_at__gte=day_start).select_related("customer").order_by("-approved_at")[:5]
+    for inv in sent_invoices:
+        changes_feed.append({"time": timezone.localtime(inv.approved_at) if inv.approved_at else timezone.now(), "text": f"Invoice sent: {inv.customer.name} · ${inv.total:.0f}", "icon": "receipt_long", "color": "#3b82f6"})
+
+    # Clock-ins today
+    from time_tracking.models import TimeEntry
+    clock_ins = TimeEntry.objects.filter(user__business=business, clock_in__gte=day_start).select_related("user").order_by("-clock_in")[:5]
+    for te in clock_ins:
+        t = timezone.localtime(te.clock_in)
+        hour = t.hour % 12 or 12
+        ampm = "AM" if t.hour < 12 else "PM"
+        uname = te.user.get_full_name() or te.user.username
+        changes_feed.append({"time": t, "text": f"{uname} clocked in at {hour}:{t.minute:02d} {ampm}", "icon": "login", "color": "#8b5cf6"})
+
+    changes_feed = sorted(changes_feed, key=lambda x: x["time"], reverse=True)[:15]
 
     # --- Monthly revenue chart (last 6 months of real data) ---
     import calendar as cal_mod

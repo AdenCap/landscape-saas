@@ -73,7 +73,9 @@ def clock_in(request):
         business = get_business(request)
         if business and request.user.role == "crew":
             now = timezone.localtime(timezone.now())
-            time_str = now.strftime("%-I:%M %p")
+            hour = now.hour % 12 or 12
+            ampm = "AM" if now.hour < 12 else "PM"
+            time_str = f"{hour}:{now.minute:02d} {ampm}"
             name = request.user.get_full_name() or request.user.username
             loc_str = ""
             if lat and lng:
@@ -123,7 +125,9 @@ def clock_out(request):
             business = get_business(request)
             if business and request.user.role == "crew":
                 now = timezone.localtime(timezone.now())
-                time_str = now.strftime("%-I:%M %p")
+                hour = now.hour % 12 or 12
+                ampm = "AM" if now.hour < 12 else "PM"
+                time_str = f"{hour}:{now.minute:02d} {ampm}"
                 name = request.user.get_full_name() or request.user.username
                 # Calculate duration
                 dur = ""

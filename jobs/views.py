@@ -103,13 +103,16 @@ def job_list(request):
         property__customer__business=business,
     ).select_related('property', 'property__customer', 'assigned_to', 'assigned_crew', 'completed_by', 'invoice').prefetch_related('service_items__service')
     
-    # Crew filter: only see jobs assigned to them
+    # Crew filter: show jobs assigned to them or their crew
     if getattr(request.user, 'role', None) == 'crew':
-        qs = qs.filter(
-            Q(assigned_to=request.user) |
-            Q(assigned_crew__members=request.user) |
-            Q(assigned_crew__crew_leader=request.user)
-        ).distinct()
+        is_in_crew = request.user.crew_memberships.exists() or request.user.led_crews.exists()
+        if is_in_crew:
+            qs = qs.filter(
+                Q(assigned_to=request.user) |
+                Q(assigned_crew__members=request.user) |
+                Q(assigned_crew__crew_leader=request.user)
+            ).distinct()
+        # If not in any crew, they see all business jobs
     
     # Get filter parameter
     filter_type = request.GET.get('filter', '').strip()
@@ -1144,11 +1147,14 @@ def crew_today_view(request):
 
     if request.user.role == "crew":
         from django.db.models import Q
-        jobs = jobs.filter(
-            Q(assigned_to=request.user) |
-            Q(assigned_crew__members=request.user) |
-            Q(assigned_crew__crew_leader=request.user)
-        ).distinct()
+        is_in_crew = request.user.crew_memberships.exists() or request.user.led_crews.exists()
+        if is_in_crew:
+            jobs = jobs.filter(
+                Q(assigned_to=request.user) |
+                Q(assigned_crew__members=request.user) |
+                Q(assigned_crew__crew_leader=request.user)
+            ).distinct()
+        # If not in any crew, show all business jobs for today
 
     jobs = list(jobs.order_by("route_order"))
     job_ids_with_photos = set(
