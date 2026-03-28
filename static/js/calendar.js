@@ -239,30 +239,37 @@ document.addEventListener('DOMContentLoaded', function () {
       var jobId = info.event.extendedProps?.jobId;
       if (!jobId) return;
       var start = info.event.start;
-      var dateStr = info.event.allDay ? formatDateStr(start) : formatDateTimeStr(start);
+      var end = info.event.end;
+      var payload = { scheduled_date: info.event.allDay ? formatDateStr(start) : formatDateTimeStr(start) };
+      if (end && !info.event.allDay) payload.scheduled_end = formatDateTimeStr(end);
       fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-        body: JSON.stringify({ scheduled_date: dateStr })
+        body: JSON.stringify(payload)
       }).then(function(r) {
         if (!r.ok) { info.revert(); return; }
         showToast('Job rescheduled');
       }).catch(function() { info.revert(); });
     },
 
-    // ── Resize event ──
+    // ── Resize event (change duration) ──
     eventResize: function(info) {
       var jobId = info.event.extendedProps?.jobId;
       if (!jobId) return;
       var start = info.event.start;
+      var end = info.event.end;
+      var payload = { scheduled_date: formatDateTimeStr(start) };
+      if (end) payload.scheduled_end = formatDateTimeStr(end);
       fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-        body: JSON.stringify({ scheduled_date: formatDateTimeStr(start) })
-      }).then(function(r) { if (!r.ok) info.revert(); })
-        .catch(function() { info.revert(); });
+        body: JSON.stringify(payload)
+      }).then(function(r) {
+        if (!r.ok) { info.revert(); return; }
+        showToast('Duration updated');
+      }).catch(function() { info.revert(); });
     },
 
     // ── Click event → open modal ──

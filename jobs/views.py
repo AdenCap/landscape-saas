@@ -464,9 +464,11 @@ def calendar_events(request):
             if job.started_at:
                 dt = datetime.combine(job.started_at.date(), job.started_at.time())
             start_str = dt.strftime("%Y-%m-%dT%H:%M:%S")
-            # If completed, use actual end time; otherwise estimate 1 hour
+            # End time: completed > scheduled_end_time > default 1 hour
             if job.completed_at and job.started_at:
                 end_str = datetime.combine(job.completed_at.date(), job.completed_at.time()).strftime("%Y-%m-%dT%H:%M:%S")
+            elif job.scheduled_end_time:
+                end_str = datetime.combine(job.scheduled_date, job.scheduled_end_time).strftime("%Y-%m-%dT%H:%M:%S")
             else:
                 end_dt = dt + timedelta(hours=1)
                 end_str = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
@@ -497,7 +499,10 @@ def calendar_events(request):
             # in week/day timeGrid views (allDay events hide in the collapsed header)
             default_start = datetime.combine(job.scheduled_date, datetime.min.time().replace(hour=8))
             start_str = default_start.strftime("%Y-%m-%dT%H:%M:%S")
-            end_str = (default_start + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S")
+            if job.scheduled_end_time:
+                end_str = datetime.combine(job.scheduled_date, job.scheduled_end_time).strftime("%Y-%m-%dT%H:%M:%S")
+            else:
+                end_str = (default_start + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S")
             evt = {
                 "id": str(job.id),
                 "title": title,
@@ -804,6 +809,18 @@ def calendar_job_reschedule(request, job_id):
                     time_obj = dt_time(h, m, s)
         job.scheduled_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         job.scheduled_time = time_obj
+
+        # Parse end time if provided (from resize or drag)
+        new_end = data.get("scheduled_end")
+        if new_end and isinstance(new_end, str) and "T" in new_end:
+            end_parts = new_end.split("T")
+            if len(end_parts) > 1 and end_parts[1]:
+                end_time_part = end_parts[1][:8]
+                if ":" in end_time_part:
+                    etparts = (end_time_part + ":0:0").split(":")[:3]
+                    eh, em, es = int(etparts[0] or 0), int(etparts[1] or 0), int(etparts[2] or 0)
+                    job.scheduled_end_time = dt_time(eh, em, es)
+
         job.save()
         # Sync linked fertilization round date
         try:
