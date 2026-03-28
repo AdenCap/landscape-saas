@@ -46,6 +46,32 @@
 </div>
 {% endif %}
 
+{% if new_clients and not search and not service_filter and not status_filter %}
+<div class="card" style="margin-bottom:12px;padding:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <h3 style="margin:0;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">
+      <span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">person_add</span>
+      New Clients
+      <span style="font-size:11px;font-weight:600;background:var(--primary);color:#111;padding:2px 7px;border-radius:10px;">{{ new_clients|length }}</span>
+    </h3>
+    <span style="font-size:11px;color:var(--text-muted);">Last 7 days</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;">
+    {% for c in new_clients %}
+    <a href="{% url 'customer_detail' c.id %}" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-highest);border:1px solid var(--border);border-radius:10px;text-decoration:none;color:var(--text);transition:border-color .15s;">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <span style="font-size:14px;font-weight:700;color:#111;">{{ c.name|first|upper }}</span>
+      </div>
+      <div style="min-width:0;">
+        <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.name }}</div>
+        <div style="font-size:11px;color:var(--text-muted);">Added {{ c.created_at|timesince }} ago</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <div class="card">
   <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
   <table class="data-table">

@@ -84,12 +84,21 @@ def customer_list(request):
         .order_by('name')
     )
 
+    # New clients in the last 7 days
+    from datetime import timedelta
+    seven_days_ago = timezone.now() - timedelta(days=7)
+    new_clients = Customer.objects.filter(
+        business=business,
+        created_at__gte=seven_days_ago,
+    ).order_by('-created_at')
+
     return render(request, "customers/customer_list.html", {
         "customers": customers,
         "search": search,
         "service_filter": service_filter,
         "status_filter": status_filter,
         "service_types": service_types,
+        "new_clients": new_clients,
     })
 
 
