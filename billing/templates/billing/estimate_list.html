@@ -135,26 +135,20 @@
         </thead>
         <tbody>
           {% for est in estimates %}
-          <tr>
+          <tr style="cursor:pointer;" onclick="window.location='{% url 'billing:estimate_detail' est.id %}'">
             <td class="col-id hide-mobile">{{ est.id }}</td>
-            <td><a href="{% url 'customer_detail' est.customer.id %}" class="link-primary">{{ est.customer.name }}</a></td>
+            <td>{{ est.customer.name }}</td>
             <td class="hide-mobile">{{ est.title }}</td>
             <td class="num">{{ est.total|currency }}</td>
             <td>
               <span class="badge badge-{{ est.status }}">{{ est.status|title }}</span>
-              {% if est.view_count %}<span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-left:4px;color:var(--primary);" title="Viewed {{ est.view_count }}x — Last: {{ est.last_viewed_at|date:'M j, g:i A' }}">visibility</span>{% endif %}
+              {% if est.view_count %}<span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-left:4px;color:var(--primary);">visibility</span>{% endif %}
             </td>
-            <td class="col-actions">
+            <td class="col-actions hide-xs" onclick="event.stopPropagation()">
               <a href="{% url 'billing:estimate_detail' est.id %}" class="btn btn-secondary btn-sm">View</a>
               {% if est.status == 'draft' %}
               <a href="{% url 'billing:estimate_edit' est.id %}" class="btn btn-secondary btn-sm hide-mobile">Edit</a>
               {% endif %}
-              <form method="post" action="{% url 'billing:estimate_delete' est.id %}" style="display:inline;" onsubmit="return confirm('Delete estimate #{{ est.id }} for {{ est.customer.name }}?');">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-secondary btn-sm" style="color:#ffb4ab;" title="Delete">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-              </form>
             </td>
           </tr>
           {% endfor %}
@@ -255,10 +249,13 @@
   }
 
   .estimate-list-card { padding: 0; overflow: hidden; }
-  .estimate-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .estimate-table-wrap { }
   .estimate-table { margin: 0; }
   .estimate-table th { padding: 16px 20px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 600; }
   .estimate-table td { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 16px; }
+  @media (max-width: 768px) {
+    .estimate-table th, .estimate-table td { padding: 10px 10px; font-size: 13px; }
+  }
   .estimate-table tbody tr:hover { background: rgba(255,255,255,0.02); transition: background var(--motion-base) var(--motion-ease); }
   .estimate-table tbody tr{animation:slideUp var(--motion-slow) var(--motion-ease-out) both}
   .estimate-table tbody tr:nth-child(1){animation-delay:0ms}
