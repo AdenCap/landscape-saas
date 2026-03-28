@@ -96,9 +96,9 @@
   {% else %}
   {# ── Estimates List ──────────────────────────────────────────── #}
   <div class="estimate-filters">
+    <a href="{% url 'billing:estimate_list' %}" class="filter-pill {% if status_filter == 'all' %}active{% endif %}">All</a>
     <a href="?status=pending" class="filter-pill {% if status_filter == 'pending' %}active{% endif %}">Pending</a>
     <a href="?status=accepted" class="filter-pill {% if status_filter == 'accepted' %}active{% endif %}">Accepted</a>
-    <a href="?status=all" class="filter-pill {% if status_filter == 'all' %}active{% endif %}">All</a>
   </div>
 
   {% if stuck_quotes %}
