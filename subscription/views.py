@@ -73,7 +73,18 @@ def create_checkout_session(request):
         plan_tier = "core"
     price_id = _get_price_id(plan_tier)
     if not price_id:
-        messages.info(request, "Subscription setup is in progress. Please contact support to activate your account.")
+        # No price ID configured for this tier — fall back to no-card trial
+        from django.utils import timezone as tz
+        from datetime import timedelta
+        business = get_business(request)
+        if business and not business.has_active_subscription():
+            trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
+            business.subscription_status = "trialing"
+            business.subscription_plan_tier = plan_tier
+            business.subscription_current_period_end = tz.now() + timedelta(days=trial_days)
+            business.save(update_fields=["subscription_status", "subscription_plan_tier", "subscription_current_period_end"])
+            messages.success(request, f"Your {trial_days}-day free trial has started!")
+            return redirect("/")
         return redirect("subscription:status")
     business = get_business(request)
     if not business:
