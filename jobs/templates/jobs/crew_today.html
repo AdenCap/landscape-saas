@@ -1,354 +1,382 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="crew-today-header">
-  <div class="crew-today-title-wrap">
-    <h1>Today</h1>
-    <p class="crew-today-subtitle">Your jobs for today</p>
+<div class="crew-header">
+  <div>
+    <h1>Today's Jobs</h1>
+    <p class="crew-date">{{ today|date:"l, F j" }}</p>
   </div>
-  <div class="clock-widget card">
+  <div class="clock-widget">
     {% if time_clock_current_entry %}
-    <form method="post" action="{% url 'time_clock_out' %}" class="clock-form">
+    <form method="post" action="{% url 'time_clock_out' %}">
       {% csrf_token %}
-      <span class="clock-badge in">Clocked in</span>
-      <button type="submit" class="btn btn-secondary clock-btn">Clock out</button>
+      <input type="hidden" name="latitude" class="geo-lat">
+      <input type="hidden" name="longitude" class="geo-lng">
+      <button type="submit" class="clock-btn clocked-in">
+        <span class="material-symbols-outlined" style="font-size:18px;">timer</span>
+        Clock Out
+      </button>
     </form>
     {% else %}
-    <form method="post" action="{% url 'time_clock_in' %}" class="clock-form">
+    <form method="post" action="{% url 'time_clock_in' %}">
       {% csrf_token %}
-      <span class="clock-badge out">Clocked out</span>
-      <button type="submit" class="btn btn-primary clock-btn">Clock in</button>
+      <input type="hidden" name="latitude" class="geo-lat">
+      <input type="hidden" name="longitude" class="geo-lng">
+      <button type="submit" class="clock-btn clocked-out">
+        <span class="material-symbols-outlined" style="font-size:18px;">login</span>
+        Clock In
+      </button>
     </form>
     {% endif %}
   </div>
 </div>
 
-<div class="crew-job-list">
 {% for job in jobs %}
-<article class="job-card card">
-  <div class="job-card-header">
-    <strong class="job-card-address">{{ job.property.address }}</strong>
-    <span class="badge badge-{{ job.status|cut:'_' }}">{{ job.status }}</span>
+<div class="job-card" id="job-{{ job.id }}">
+  <!-- Header: Address + Status -->
+  <div class="jc-head">
+    <div class="jc-info">
+      <div class="jc-customer">{{ job.property.customer.name }}</div>
+      <div class="jc-address">{{ job.property.address }}</div>
+      {% with services=job.service_items.all %}
+      {% if services %}
+      <div class="jc-services">
+        {% for si in services %}
+        <span class="jc-service-tag">{{ si.service.name }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+    </div>
+    <span class="jc-status jc-status-{{ job.status }}">
+      {% if job.status == "scheduled" %}Scheduled{% elif job.status == "in_progress" %}In Progress{% elif job.status == "completed" %}Done{% else %}{{ job.status|title }}{% endif %}
+    </span>
   </div>
-  {% if job.notes %}
-  <p class="job-notes"><em>{{ job.notes }}</em></p>
-  {% endif %}
-  <div class="job-links">
-    <a href="{% url 'report_issue' job.id %}" class="btn btn-secondary btn-sm job-link-btn">Report issue</a>
-    <a href="{% url 'upload_job_photo' job.id %}" class="btn btn-secondary btn-sm job-link-btn">Site Photos{% if job.site_photo_count %} ({{ job.site_photo_count }}){% endif %}</a>
-    <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-secondary btn-sm job-link-btn">Completion</a>
-    {% if job.property.address %}
-    <a href="https://www.google.com/maps/search/?api=1&query={{ job.property.address|urlencode }}" 
-       target="_blank" 
-       class="btn btn-secondary btn-sm job-link-btn"
-       style="display: inline-flex; align-items: center; gap: 6px;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-        <circle cx="12" cy="10" r="3"/>
-      </svg>
-      Maps
+
+  <!-- Quick actions bar -->
+  <div class="jc-quick-bar">
+    <a href="https://www.google.com/maps/dir/?api=1&destination={{ job.property.address|urlencode }}" target="_blank" class="jc-quick-btn">
+      <span class="material-symbols-outlined">directions</span> Navigate
+    </a>
+    {% if job.property.customer.phone %}
+    <a href="tel:{{ job.property.customer.phone }}" class="jc-quick-btn">
+      <span class="material-symbols-outlined">call</span> Call
+    </a>
+    <a href="sms:{{ job.property.customer.phone }}" class="jc-quick-btn">
+      <span class="material-symbols-outlined">sms</span> Text
     </a>
     {% endif %}
   </div>
-  {% if require_completion_photo and job.id not in job_ids_with_photos and job.status != "completed" %}
-  <p class="photo-required-msg">Photo required before you can complete.</p>
-  {% endif %}
-  <!-- Notes section (expandable) -->
-  <div class="job-notes-section">
-    <button type="button" class="notes-toggle" data-job-id="{{ job.id }}" onclick="toggleNotes(this, {{ job.id }})">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      Notes <span class="notes-count" id="notes-count-{{ job.id }}"></span>
-    </button>
-    <div class="notes-panel" id="notes-panel-{{ job.id }}" style="display: none;">
-      <div class="notes-list" id="notes-list-{{ job.id }}">
-        <p class="muted" style="text-align:center; padding:8px;">Loading…</p>
-      </div>
-      <div class="notes-add-forms">
-        <div class="note-form-group">
-          <textarea id="job-note-text-{{ job.id }}" class="note-textarea" rows="2" placeholder="Add a job note…"></textarea>
-          <button type="button" class="btn btn-primary btn-sm" onclick="submitNote({{ job.id }}, 'job')">Add job note</button>
-        </div>
-        <div class="note-form-group">
-          <textarea id="prop-note-text-{{ job.id }}" class="note-textarea" rows="2" placeholder="Add a property note (visible on all jobs at this address)…"></textarea>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="submitNote({{ job.id }}, 'property')">Add property note</button>
-        </div>
-      </div>
-    </div>
+
+  <!-- Notes (job notes visible by default if they exist) -->
+  {% if job.notes %}
+  <div class="jc-notes-preview">
+    <span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);flex-shrink:0;">description</span>
+    <span>{{ job.notes }}</span>
   </div>
-  <div class="job-actions">
+  {% endif %}
+
+  <!-- ═══ MAIN ACTION FLOW ═══ -->
+  <div class="jc-flow">
     {% if job.status == "scheduled" %}
-    <div class="job-action-group">
-      <form method="post" action="{% url 'notify_en_route' job.id %}" class="en-route-form">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-en-route job-action-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17H3v-4l1-4h9l3 4h3a2 2 0 0 1 2 2v2h-2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
-          On My Way
-        </button>
-      </form>
-      <form method="post" action="{% url 'start_job' job.id %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-secondary job-action-btn btn-sm">Start without notifying</button>
-      </form>
-    </div>
-    {% elif job.status == "in_progress" and job.en_route_at %}
-    <div class="en-route-badge">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-      Customer notified
-    </div>
+    <!-- Step 1: En Route -->
+    <form method="post" action="{% url 'notify_en_route' job.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="latitude" class="geo-lat">
+      <input type="hidden" name="longitude" class="geo-lng">
+      <button type="submit" class="jc-action-btn jc-btn-enroute">
+        <span class="material-symbols-outlined">directions_car</span>
+        On My Way
+      </button>
+    </form>
+    <form method="post" action="{% url 'start_job' job.id %}" style="margin-top:6px;">
+      {% csrf_token %}
+      <input type="hidden" name="latitude" class="geo-lat">
+      <input type="hidden" name="longitude" class="geo-lng">
+      <button type="submit" class="jc-action-btn jc-btn-secondary">Start Without Notifying</button>
+    </form>
+
     {% elif job.status == "in_progress" %}
-      {% if require_completion_photo and job.id not in job_ids_with_photos %}
-      <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-primary job-action-btn">Upload photo to complete</a>
-      {% else %}
-      <form method="post" action="{% url 'complete_job' job.id %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-primary job-action-btn job-action-complete">Complete job</button>
-      </form>
-      {% endif %}
+    <!-- Step 2: In Progress — show complete button -->
+    {% if job.en_route_at %}
+    <div class="jc-step-done">
+      <span class="material-symbols-outlined">check_circle</span> Customer notified
+    </div>
+    {% endif %}
+    {% if require_completion_photo and job.id not in job_ids_with_photos %}
+    <a href="{% url 'upload_completion_photo' job.id %}" class="jc-action-btn jc-btn-photo">
+      <span class="material-symbols-outlined">add_a_photo</span>
+      Upload Photo to Complete
+    </a>
+    {% else %}
+    <form method="post" action="{% url 'complete_job' job.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="latitude" class="geo-lat">
+      <input type="hidden" name="longitude" class="geo-lng">
+      <button type="submit" class="jc-action-btn jc-btn-complete">
+        <span class="material-symbols-outlined">check_circle</span>
+        Complete Job
+      </button>
+    </form>
+    {% endif %}
+
     {% elif job.status == "completed" %}
-    <button disabled class="btn btn-secondary job-action-btn job-action-done">Done</button>
+    <div class="jc-step-done" style="justify-content:center;">
+      <span class="material-symbols-outlined">task_alt</span> Job Complete
+    </div>
     {% endif %}
   </div>
-</article>
+
+  <!-- ═══ EXPANDABLE TOOLS ═══ -->
+  <div class="jc-tools">
+    <button type="button" class="jc-tool-toggle" onclick="toggleTools({{ job.id }})">
+      <span class="material-symbols-outlined" style="font-size:16px;">build</span>
+      Notes, Photos & More
+      <span class="material-symbols-outlined jc-chevron" id="chevron-{{ job.id }}">expand_more</span>
+    </button>
+
+    <div class="jc-tool-panel" id="tools-{{ job.id }}" style="display:none;">
+      <!-- Photo buttons -->
+      <div class="jc-tool-row">
+        <a href="{% url 'upload_job_photo' job.id %}" class="jc-tool-btn">
+          <span class="material-symbols-outlined">photo_camera</span> Site Photos{% if job.site_photo_count %} ({{ job.site_photo_count }}){% endif %}
+        </a>
+        <a href="{% url 'upload_completion_photo' job.id %}" class="jc-tool-btn">
+          <span class="material-symbols-outlined">verified</span> Completion Photo
+        </a>
+      </div>
+
+      <!-- Add notes -->
+      <div class="jc-tool-section">
+        <label class="jc-tool-label">Add Job Note</label>
+        <div class="jc-note-form">
+          <textarea id="note-{{ job.id }}" rows="2" placeholder="Leave a note about this job..." class="jc-textarea"></textarea>
+          <button type="button" class="jc-note-submit" onclick="submitNote({{ job.id }})">
+            <span class="material-symbols-outlined">send</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- View all notes -->
+      <button type="button" class="jc-tool-btn" style="width:100%;justify-content:center;" onclick="toggleNotes({{ job.id }})">
+        <span class="material-symbols-outlined">forum</span> View All Notes <span class="jc-note-count" id="note-count-{{ job.id }}"></span>
+      </button>
+      <div id="notes-list-{{ job.id }}" style="display:none;"></div>
+
+      <!-- Report issue -->
+      <a href="{% url 'report_issue' job.id %}" class="jc-tool-btn jc-tool-issue">
+        <span class="material-symbols-outlined">warning</span> Report Issue
+      </a>
+
+      <!-- Customer wants a quote -->
+      <button type="button" class="jc-tool-btn jc-tool-quote" onclick="toggleFieldRequest({{ job.id }})">
+        <span class="material-symbols-outlined">request_quote</span> Customer Wants a Quote
+      </button>
+      <div class="jc-field-request" id="field-req-{{ job.id }}" style="display:none;">
+        <select id="req-type-{{ job.id }}" class="jc-select">
+          <option value="quote">Customer wants a quote</option>
+          <option value="extra_work">Extra work noticed</option>
+          <option value="other">Other request</option>
+        </select>
+        <textarea id="req-desc-{{ job.id }}" rows="3" placeholder="Describe what the customer wants, measurements, details..." class="jc-textarea"></textarea>
+        <button type="button" class="jc-action-btn jc-btn-secondary" style="margin-top:6px;" onclick="sendFieldRequest({{ job.id }})">
+          <span class="material-symbols-outlined">send</span> Send to Owner
+        </button>
+        <div id="req-status-{{ job.id }}" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
 {% empty %}
-<div class="card crew-empty">
-  <p>No jobs assigned for today.</p>
+<div class="card" style="padding:40px;text-align:center;">
+  <span class="material-symbols-outlined" style="font-size:48px;color:var(--text-muted);display:block;margin-bottom:12px;">event_available</span>
+  <h3 style="margin:0 0 4px;">No jobs today</h3>
+  <p style="margin:0;color:var(--text-muted);">You're all caught up. Check back later for new assignments.</p>
 </div>
 {% endfor %}
-</div>
 
 <style>
-  .crew-today-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
-  .crew-today-title-wrap { min-width: 0; }
-  .crew-today-header h1 { margin: 0 0 4px 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
-  .crew-today-subtitle { margin: 0; color: var(--text-muted); font-size: 15px; }
-  .clock-widget { padding: 14px 18px; display: flex; align-items: center; gap: 14px; }
-  .clock-form { display: flex; align-items: center; gap: 14px; margin: 0; }
-  .clock-badge { font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 8px; }
-  .clock-badge.in { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .clock-badge.out { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
-  .clock-btn { min-height: 44px; padding: 10px 18px; }
-  .crew-job-list { display: flex; flex-direction: column; gap: 16px; }
-  .job-card { padding: 18px; }
-  .job-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
-  .job-card-address { font-size: 16px; line-height: 1.35; }
-  .job-notes { margin: 0 0 12px 0; color: var(--text-muted); font-size: 14px; line-height: 1.4; }
-  .job-links { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-  .job-link-btn { min-height: 44px; padding: 10px 16px; }
-  .job-actions { margin-top: 14px; }
-  .job-action-group { display: flex; flex-direction: column; gap: 8px; }
-  .job-action-btn { width: 100%; min-height: 44px; padding: 12px 16px; font-size: 15px; font-weight: 600; }
-  .btn-en-route {
-    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    background: var(--primary); color: #fff; border: none; border-radius: 8px;
-    cursor: pointer; transition: background 0.15s ease;
-  }
-  .btn-en-route:hover { background: #16a34a; }
-  .btn-en-route svg { flex-shrink: 0; }
-  .en-route-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 13px; font-weight: 500; color: #86efac;
-    background: rgba(34, 197, 94, 0.15); padding: 8px 14px;
-    border-radius: 8px; margin-bottom: 8px;
-  }
-  .job-action-complete { background: var(--accent); color: #0a0a0a; }
-  .job-action-complete:hover { background: #22c55e; color: #0a0a0a; }
-  .job-action-done { opacity: 0.7; cursor: not-allowed; }
-  .badge { display: inline-block; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; flex-shrink: 0; }
-  .badge-scheduled { background: rgba(34, 197, 94, 0.25); color: #6ee7b7; }
-  .badge-inprogress { background: rgba(234, 179, 8, 0.25); color: #fde047; }
-  .badge-completed { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .photo-required-msg { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; }
-  .crew-empty { padding: 24px; text-align: center; }
-  .crew-empty p { margin: 0; color: var(--text-muted); }
-  /* Notes section */
-  .job-notes-section { margin: 12px 0 0; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; }
-  .notes-toggle { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 6px; padding: 6px 0; }
-  .notes-toggle:hover { color: var(--primary-hover, #4ade80); }
-  .notes-count { font-size: 12px; background: rgba(34,197,94,0.2); color: #6ee7b7; padding: 2px 6px; border-radius: 10px; }
-  .notes-panel { margin-top: 10px; }
-  .notes-list { max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
-  .note-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; }
-  .note-item:last-child { border-bottom: none; }
-  .note-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
-  .note-type-badge { display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 1px 5px; border-radius: 3px; margin-right: 4px; }
-  .note-type-badge.job { background: rgba(34,197,94,0.2); color: #6ee7b7; }
-  .note-type-badge.property { background: rgba(168,85,247,0.2); color: #c4b5fd; }
-  .note-text { color: var(--text-primary, #e5e5e5); line-height: 1.4; }
-  .notes-add-forms { display: flex; flex-direction: column; gap: 8px; }
-  .note-form-group { display: flex; gap: 8px; align-items: flex-end; }
-  .note-textarea { flex: 1; resize: none; font-size: 13px; padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); background: var(--bg, #0a0a0a); color: var(--text-primary, #e5e5e5); min-height: 44px; }
-  .note-textarea:focus { outline: none; border-color: var(--primary); }
-  .notes-empty { text-align: center; color: var(--text-muted); font-size: 13px; padding: 12px 0; }
-  @media (min-width: 769px) {
-    .crew-today-header { align-items: center; margin-bottom: 24px; }
-    .crew-today-header h1 { font-size: 28px; }
-    .clock-widget { padding: 16px 20px; }
-    .job-action-btn { width: auto; min-width: 140px; min-height: 40px; padding: 10px 18px; font-size: 14px; }
-    .job-link-btn { min-height: 36px; padding: 8px 14px; font-size: 13px; }
-  }
-  @media (max-width: 768px) {
-    .crew-today-header { flex-direction: column; gap: 14px; }
-    .crew-today-header h1 { font-size: 22px; }
-    .clock-widget { width: 100%; }
-    .clock-form { flex: 1; justify-content: space-between; }
-    .clock-btn { min-height: 48px; padding: 12px 20px; font-size: 15px; }
-    .job-card { padding: 16px; }
-    .job-card-address { font-size: 15px; }
+  .crew-header { display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px; }
+  .crew-header h1 { margin:0;font-size:24px;font-weight:700; }
+  .crew-date { margin:2px 0 0;color:var(--text-muted);font-size:14px; }
+  .clock-btn { display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border:none;border-radius:10px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;min-height:44px; }
+  .clocked-out { background:var(--primary);color:#111; }
+  .clocked-in { background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3); }
+
+  .job-card { background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px; }
+
+  .jc-head { display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px; }
+  .jc-customer { font-size:16px;font-weight:700; }
+  .jc-address { font-size:13px;color:var(--text-muted);margin-top:2px; }
+  .jc-services { display:flex;gap:4px;flex-wrap:wrap;margin-top:6px; }
+  .jc-service-tag { font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:rgba(34,197,94,0.12);color:var(--primary); }
+  .jc-status { font-size:11px;font-weight:600;padding:4px 10px;border-radius:8px;white-space:nowrap; }
+  .jc-status-scheduled { background:rgba(59,130,246,0.15);color:#60a5fa; }
+  .jc-status-in_progress { background:rgba(245,158,11,0.15);color:#fbbf24; }
+  .jc-status-completed { background:rgba(34,197,94,0.15);color:#86efac; }
+
+  .jc-quick-bar { display:flex;gap:6px;margin-bottom:10px; }
+  .jc-quick-btn { display:inline-flex;align-items:center;gap:4px;padding:8px 12px;background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);font-size:12px;font-weight:500;min-height:36px; }
+  .jc-quick-btn:active { background:var(--primary-light); }
+  .jc-quick-btn .material-symbols-outlined { font-size:16px; }
+
+  .jc-notes-preview { display:flex;gap:8px;padding:10px 12px;background:var(--surface-highest);border-radius:8px;font-size:13px;color:var(--text-muted);margin-bottom:10px;line-height:1.4; }
+
+  /* Action flow */
+  .jc-flow { margin-bottom:10px; }
+  .jc-action-btn { display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;min-height:50px;text-decoration:none;color:inherit; }
+  .jc-btn-enroute { background:var(--primary);color:#111; }
+  .jc-btn-enroute:active { opacity:0.9; }
+  .jc-btn-secondary { background:var(--surface-highest);color:var(--text);border:1px solid var(--border); }
+  .jc-btn-complete { background:#22c55e;color:#111; }
+  .jc-btn-complete:active { background:#16a34a; }
+  .jc-btn-photo { background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3); }
+  .jc-step-done { display:flex;align-items:center;gap:6px;font-size:13px;color:#86efac;background:rgba(34,197,94,0.1);padding:8px 12px;border-radius:8px;margin-bottom:8px; }
+  .jc-action-btn .material-symbols-outlined { font-size:20px; }
+
+  /* Tools panel */
+  .jc-tools { border-top:1px solid var(--border);padding-top:8px; }
+  .jc-tool-toggle { display:flex;align-items:center;gap:6px;width:100%;padding:8px 0;background:none;border:none;color:var(--text-muted);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit; }
+  .jc-chevron { margin-left:auto;transition:transform .2s; }
+  .jc-chevron.open { transform:rotate(180deg); }
+  .jc-tool-panel { padding-top:10px;display:flex;flex-direction:column;gap:8px; }
+  .jc-tool-row { display:grid;grid-template-columns:1fr 1fr;gap:6px; }
+  .jc-tool-btn { display:inline-flex;align-items:center;gap:6px;padding:10px 12px;background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);font-size:13px;font-weight:500;cursor:pointer;min-height:40px; }
+  .jc-tool-btn:active { border-color:var(--primary); }
+  .jc-tool-btn .material-symbols-outlined { font-size:18px;color:var(--text-muted); }
+  .jc-tool-issue .material-symbols-outlined { color:#f59e0b; }
+  .jc-tool-quote .material-symbols-outlined { color:#60a5fa; }
+  .jc-tool-section { display:flex;flex-direction:column;gap:4px; }
+  .jc-tool-label { font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em; }
+  .jc-note-form { display:flex;gap:6px;align-items:flex-end; }
+  .jc-textarea { flex:1;padding:10px;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit;resize:none;min-height:44px; }
+  .jc-textarea:focus { outline:none;border-color:var(--primary); }
+  .jc-note-submit { display:flex;align-items:center;justify-content:center;width:40px;height:40px;border:none;background:var(--primary);color:#111;border-radius:8px;cursor:pointer;flex-shrink:0; }
+  .jc-note-count { font-size:10px;background:var(--primary-light);color:var(--primary);padding:1px 5px;border-radius:8px;margin-left:4px; }
+  .jc-select { width:100%;padding:10px;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit; }
+  .jc-field-request { margin-top:8px;display:flex;flex-direction:column;gap:6px; }
+
+  @media (max-width:768px) {
+    .crew-header { flex-direction:column;align-items:stretch; }
+    .jc-quick-bar { overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap; }
+    .jc-quick-btn { white-space:nowrap;flex-shrink:0; }
   }
 </style>
-{% endblock %}
 
-{% block extra_js %}
 <script>
-var CSRF_TOKEN = '{{ csrf_token }}';
+var CSRF = '{{ csrf_token }}';
 
-function toggleNotes(btn, jobId) {
-  var panel = document.getElementById('notes-panel-' + jobId);
+// GPS capture on all forms
+document.querySelectorAll('.geo-lat').forEach(function(el) {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      document.querySelectorAll('.geo-lat').forEach(function(e) { e.value = pos.coords.latitude; });
+      document.querySelectorAll('.geo-lng').forEach(function(e) { e.value = pos.coords.longitude; });
+    }, function() {}, { enableHighAccuracy: true, timeout: 5000 });
+  }
+});
+
+function toggleTools(jobId) {
+  var panel = document.getElementById('tools-' + jobId);
+  var chevron = document.getElementById('chevron-' + jobId);
   if (panel.style.display === 'none') {
-    panel.style.display = 'block';
-    loadNotes(jobId);
+    panel.style.display = 'flex';
+    chevron.classList.add('open');
   } else {
     panel.style.display = 'none';
+    chevron.classList.remove('open');
   }
 }
 
-function loadNotes(jobId) {
-  var list = document.getElementById('notes-list-' + jobId);
-  list.innerHTML = '<p class="muted" style="text-align:center;padding:8px;">Loading…</p>';
-  fetch('/jobs/' + jobId + '/notes/', {
-    headers: {'X-Requested-With': 'XMLHttpRequest'}
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    var all = [];
-    (data.job_notes || []).forEach(function(n) { all.push(n); });
-    (data.property_notes || []).forEach(function(n) { all.push(n); });
-    all.sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); });
-    var countEl = document.getElementById('notes-count-' + jobId);
-    if (countEl) countEl.textContent = all.length > 0 ? all.length : '';
-    if (all.length === 0) {
-      list.innerHTML = '<p class="notes-empty">No notes yet</p>';
-      return;
+function submitNote(jobId) {
+  var textarea = document.getElementById('note-' + jobId);
+  var text = textarea.value.trim();
+  if (!text) return;
+  fetch('/jobs/' + jobId + '/notes/add/', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ text: text })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    textarea.value = '';
+    if (data.status === 'ok') {
+      textarea.placeholder = 'Note saved!';
+      setTimeout(function() { textarea.placeholder = 'Leave a note about this job...'; }, 2000);
     }
-    var html = '';
-    all.forEach(function(n) {
-      var d = new Date(n.created_at);
-      var time = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-      html += '<div class="note-item">';
-      html += '<div class="note-meta"><span class="note-type-badge ' + n.type + '">' + n.type + '</span>' + n.author + ' · ' + time + '</div>';
-      html += '<div class="note-text">' + escHtml(n.text) + '</div>';
-      html += '</div>';
-    });
-    list.innerHTML = html;
-  })
-  .catch(function() {
-    list.innerHTML = '<p class="notes-empty">Failed to load notes</p>';
   });
 }
 
-function submitNote(jobId, noteType) {
-  var textareaId = noteType === 'job' ? 'job-note-text-' + jobId : 'prop-note-text-' + jobId;
-  var textarea = document.getElementById(textareaId);
-  var text = (textarea.value || '').trim();
-  if (!text) return;
-  var url = noteType === 'job'
-    ? '/jobs/' + jobId + '/notes/add/'
-    : '/jobs/' + jobId + '/property-notes/add/';
-  var body = new FormData();
-  body.append('text', text);
-  fetch(url, {
-    method: 'POST',
-    headers: {'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest'},
-    body: body,
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (data.error) { alert(data.error); return; }
-    textarea.value = '';
-    loadNotes(jobId);
-  })
-  .catch(function() { alert('Failed to save note'); });
-}
-
-function escHtml(s) {
-  var d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-
-// ══════════════════════════════════════════
-// GPS Location Capture + Auto-Update
-// ══════════════════════════════════════════
-
-(function() {
-  var lastLat = null, lastLng = null;
-
-  // Get current position (returns promise-like callback)
-  function getPosition(cb) {
-    if (!navigator.geolocation) { cb(null, null); return; }
-    navigator.geolocation.getCurrentPosition(
-      function(pos) { lastLat = pos.coords.latitude; lastLng = pos.coords.longitude; cb(lastLat, lastLng); },
-      function() { cb(lastLat, lastLng); }, // Use cached position if error
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-    );
+function toggleNotes(jobId) {
+  var list = document.getElementById('notes-list-' + jobId);
+  if (list.style.display !== 'none') {
+    list.style.display = 'none';
+    return;
   }
-
-  // Inject lat/lng hidden fields into all action forms before submission
-  function injectGPS(form, lat, lng) {
-    // Remove old hidden fields if any
-    var oldLat = form.querySelector('input[name="latitude"]');
-    var oldLng = form.querySelector('input[name="longitude"]');
-    if (oldLat) oldLat.remove();
-    if (oldLng) oldLng.remove();
-    if (lat && lng) {
-      var iLat = document.createElement('input');
-      iLat.type = 'hidden'; iLat.name = 'latitude'; iLat.value = lat;
-      form.appendChild(iLat);
-      var iLng = document.createElement('input');
-      iLng.type = 'hidden'; iLng.name = 'longitude'; iLng.value = lng;
-      form.appendChild(iLng);
-    }
-  }
-
-  // Intercept all crew action forms (start, complete, clock in/out, en-route)
-  document.querySelectorAll('form[action*="start/"], form[action*="complete/"], form[action*="clock-in"], form[action*="clock-out"], form[action*="en-route"]').forEach(function(form) {
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      var f = this;
-      getPosition(function(lat, lng) {
-        injectGPS(f, lat, lng);
-        f.submit();
+  list.style.display = 'block';
+  list.textContent = 'Loading...';
+  list.style.padding = '12px';
+  list.style.color = 'var(--text-muted)';
+  list.style.fontSize = '13px';
+  fetch('/jobs/' + jobId + '/notes/', { credentials: 'same-origin' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      list.textContent = '';
+      list.style.padding = '0';
+      if (!data.notes || data.notes.length === 0) {
+        list.textContent = 'No notes yet.';
+        list.style.padding = '12px';
+        return;
+      }
+      var countEl = document.getElementById('note-count-' + jobId);
+      if (countEl) countEl.textContent = data.notes.length;
+      data.notes.forEach(function(n) {
+        var div = document.createElement('div');
+        div.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;';
+        var meta = document.createElement('div');
+        meta.style.cssText = 'font-size:11px;color:var(--text-muted);margin-bottom:2px;';
+        meta.textContent = (n.author || 'Unknown') + ' · ' + (n.created_at || '');
+        if (n.note_type) {
+          var badge = document.createElement('span');
+          badge.style.cssText = 'font-size:9px;font-weight:700;text-transform:uppercase;padding:1px 5px;border-radius:3px;margin-right:4px;' + (n.note_type === 'job' ? 'background:rgba(34,197,94,0.2);color:#6ee7b7;' : 'background:rgba(168,85,247,0.2);color:#c4b5fd;');
+          badge.textContent = n.note_type;
+          meta.prepend(badge);
+        }
+        div.appendChild(meta);
+        var text = document.createElement('div');
+        text.textContent = n.text;
+        text.style.color = 'var(--text)';
+        div.appendChild(text);
+        list.appendChild(div);
       });
     });
+}
+
+function toggleFieldRequest(jobId) {
+  var el = document.getElementById('field-req-' + jobId);
+  el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+}
+
+function sendFieldRequest(jobId) {
+  var reqType = document.getElementById('req-type-' + jobId).value;
+  var desc = document.getElementById('req-desc-' + jobId).value.trim();
+  if (!desc) { alert('Please describe what the customer wants.'); return; }
+  var statusEl = document.getElementById('req-status-' + jobId);
+  fetch('/jobs/' + jobId + '/field-request/', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ type: reqType, description: desc })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.status === 'ok') {
+      statusEl.style.display = 'block';
+      statusEl.style.cssText = 'display:block;padding:10px;text-align:center;color:#86efac;background:rgba(34,197,94,0.1);border-radius:8px;font-size:13px;font-weight:500;';
+      statusEl.textContent = 'Sent to owner!';
+      document.getElementById('req-desc-' + jobId).value = '';
+      setTimeout(function() { document.getElementById('field-req-' + jobId).style.display = 'none'; statusEl.style.display = 'none'; }, 3000);
+    } else {
+      alert(data.error || 'Failed to send.');
+    }
   });
-
-  // Auto-update location every 2 minutes while clocked in
-  {% if time_clock_current_entry %}
-  var locationInterval = setInterval(function() {
-    getPosition(function(lat, lng) {
-      if (!lat || !lng) return;
-      // Find any in-progress job and send location update
-      var inProgressForms = document.querySelectorAll('.badge-inprogress');
-      if (inProgressForms.length === 0) return;
-      var jobCard = inProgressForms[0].closest('.job-card');
-      if (!jobCard) return;
-      // Extract job ID from the complete form action URL
-      var completeForm = jobCard.querySelector('form[action*="complete/"]');
-      if (!completeForm) return;
-      var match = completeForm.action.match(/\/(\d+)\/complete/);
-      if (!match) return;
-      var jobId = match[1];
-      fetch('/jobs/' + jobId + '/tracking/update/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
-        body: JSON.stringify({ latitude: lat, longitude: lng })
-      }).catch(function() {}); // Silent fail — don't bother user
-    });
-  }, 120000); // Every 2 minutes
-  {% endif %}
-
-  // Request GPS permission on page load (warm up for faster captures)
-  getPosition(function() {});
-})();
+}
 </script>
 {% endblock %}

@@ -1191,6 +1191,7 @@ def crew_today_view(request):
 
     return render(request, "jobs/crew_today.html", {
         "jobs": jobs,
+        "today": today,
         "time_clock_current_entry": time_clock_current_entry,
         "job_ids_with_photos": job_ids_with_photos,
         "require_completion_photo": require_completion_photo,
@@ -1516,6 +1517,57 @@ def resolve_issue(request, issue_id):
     issue.save()
     messages.success(request, "Issue marked resolved.")
     return redirect("job_detail", job_id=issue.job_id)
+
+
+@require_POST
+@role_required("owner", "manager", "crew")
+def crew_field_request(request, job_id):
+    """Crew submits a field request (customer wants a quote, extra work noticed, etc.).
+    Creates a notification for all owners/managers with the details."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
+
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    req_type = data.get("type", "quote")  # quote, extra_work, other
+    description = (data.get("description") or "").strip()
+    if not description:
+        return JsonResponse({"error": "Description is required"}, status=400)
+
+    from accounts.models import Notification, User
+    customer_name = job.property.customer.name
+    crew_name = request.user.get_full_name() or request.user.username
+    address = job.property.address or ""
+
+    type_labels = {"quote": "Quote Request", "extra_work": "Extra Work", "other": "Field Request"}
+    type_label = type_labels.get(req_type, "Field Request")
+
+    msg = f"[{type_label}] {crew_name} at {customer_name} ({address}): {description}"
+
+    owners_managers = User.objects.filter(
+        business=business, role__in=["owner", "manager"]
+    ).exclude(id=request.user.id)
+    for om in owners_managers:
+        Notification.objects.create(
+            business=business,
+            from_user=request.user,
+            to_user=om,
+            message=msg,
+        )
+
+    # Also add as a job note for record-keeping
+    JobNote.objects.create(
+        job=job,
+        author=request.user,
+        text=f"[{type_label}] {description}",
+    )
+
+    return JsonResponse({"status": "ok", "message": "Request sent to owner"})
 
 
 @role_required("owner", "manager", "crew")
