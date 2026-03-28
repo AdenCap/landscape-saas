@@ -128,12 +128,64 @@ def create_checkout_session(request):
 @role_required("owner")
 @require_http_methods(["GET"])
 def checkout_success(request):
-    """After successful Checkout; session_id is in query. Webhook will set subscription on Business."""
+    """After successful Checkout — immediately sync subscription from Stripe instead of waiting for webhook."""
     session_id = request.GET.get("session_id")
     if not session_id:
         return redirect("subscription:status")
+
+    # Immediately sync subscription so user doesn't get stuck waiting for webhook
+    business = get_business(request)
+    if business and _stripe_enabled() and session_id:
+        try:
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            session = stripe.checkout.Session.retrieve(session_id)
+            if session.subscription:
+                sub = stripe.Subscription.retrieve(session.subscription)
+                business.stripe_subscription_id = sub.id
+                business.subscription_status = sub.status  # "trialing" or "active"
+                business.stripe_customer_id = sub.customer
+                plan_tier = (session.metadata or {}).get("plan_tier", "core")
+                business.subscription_plan_tier = plan_tier
+                if sub.current_period_end:
+                    from datetime import datetime as _dt
+                    business.subscription_current_period_end = _dt.fromtimestamp(sub.current_period_end)
+                business.save()
+        except Exception:
+            pass  # Webhook will catch it eventually
+
     messages.success(request, "Subscription started. You now have full access to FieldLgx.")
     return redirect("/")
+
+
+@role_required("owner")
+@require_POST
+def start_free_trial(request):
+    """Start a free trial without requiring Stripe checkout. Sets subscription_status to 'trialing'
+    with a 14-day trial period. Useful when Stripe isn't fully configured or for no-card-required trials."""
+    from django.utils import timezone as tz
+    from datetime import timedelta
+    business = get_business(request)
+    if not business:
+        messages.error(request, "No business associated with your account.")
+        return redirect("/")
+
+    if business.has_active_subscription():
+        messages.info(request, "You already have an active subscription.")
+        return redirect("/")
+
+    plan_tier = (request.POST.get("plan_tier") or "core").strip().lower()
+    if plan_tier not in {"solo", "core"}:
+        plan_tier = "core"
+
+    trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
+    business.subscription_status = "trialing"
+    business.subscription_plan_tier = plan_tier
+    business.subscription_current_period_end = tz.now() + timedelta(days=trial_days)
+    business.save(update_fields=["subscription_status", "subscription_plan_tier", "subscription_current_period_end"])
+
+    messages.success(request, f"Your {trial_days}-day free trial has started! You have full access to FieldLgx.")
+    return redirect("/")
+
 
 
 @role_required("owner")

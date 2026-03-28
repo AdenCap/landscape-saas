@@ -20,8 +20,12 @@
         <li>Job tracking</li>
         <li>Basic invoicing</li>
       </ul>
-      {% if stripe_enabled and not has_active_subscription %}
-      <form method="post" action="{% url 'subscription:create_checkout' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="solo"><button class="btn btn-secondary" style="width:100%;">Start Solo free trial</button></form>
+      {% if not has_active_subscription %}
+        {% if stripe_enabled %}
+        <form method="post" action="{% url 'subscription:create_checkout' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="solo"><button class="btn btn-secondary" style="width:100%;">Start Solo Free Trial</button></form>
+        {% else %}
+        <form method="post" action="{% url 'subscription:start_trial' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="solo"><button class="btn btn-secondary" style="width:100%;">Start Solo Free Trial</button></form>
+        {% endif %}
       {% endif %}
     </article>
 
@@ -38,8 +42,12 @@
         <li>Service agreements</li>
         <li>Online booking & SMS</li>
       </ul>
-      {% if stripe_enabled and not has_active_subscription %}
-      <form method="post" action="{% url 'subscription:create_checkout' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="core"><button class="btn btn-primary" style="width:100%;">Start Pro free trial</button></form>
+      {% if not has_active_subscription %}
+        {% if stripe_enabled %}
+        <form method="post" action="{% url 'subscription:create_checkout' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="core"><button class="btn btn-primary" style="width:100%;">Start Pro Free Trial</button></form>
+        {% else %}
+        <form method="post" action="{% url 'subscription:start_trial' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="core"><button class="btn btn-primary" style="width:100%;">Start Pro Free Trial</button></form>
+        {% endif %}
       {% endif %}
     </article>
   </div>
@@ -58,8 +66,6 @@
       <form method="post" action="{% url 'subscription:create_portal' %}">{% csrf_token %}<button class="btn btn-secondary">Open billing portal</button></form>
       {% endif %}
     </div>
-  {% elif not stripe_enabled %}
-    <p style="color:var(--text-muted);">Billing setup is not enabled yet. Contact support to activate subscriptions.</p>
   {% endif %}
 </div>
 {% endblock %}
