@@ -38,11 +38,17 @@
         <li>Job tracking</li>
         <li>Basic invoicing</li>
       </ul>
-      {% if not has_active_subscription or trial_expired %}
+      {% if trial_expired %}
       <form method="post" action="{% url 'subscription:create_checkout' %}">
         {% csrf_token %}
         <input type="hidden" name="plan_tier" value="solo">
-        <button class="btn btn-secondary" style="width:100%;">{% if trial_expired %}Subscribe Solo{% else %}Start Solo Free Trial{% endif %}</button>
+        <button class="btn btn-secondary" style="width:100%;">Subscribe Solo</button>
+      </form>
+      {% elif not has_active_subscription %}
+      <form method="post" action="{% url 'subscription:start_trial' %}">
+        {% csrf_token %}
+        <input type="hidden" name="plan_tier" value="solo">
+        <button class="btn btn-secondary" style="width:100%;">Start Solo Free Trial</button>
       </form>
       {% elif business.subscription_plan_tier == "solo" %}
       <div style="text-align:center;padding:10px;color:var(--primary);font-weight:600;">Current Plan</div>
@@ -63,11 +69,17 @@
         <li>Fertilization management</li>
         <li>Financial reporting</li>
       </ul>
-      {% if not has_active_subscription or trial_expired %}
+      {% if trial_expired %}
       <form method="post" action="{% url 'subscription:create_checkout' %}">
         {% csrf_token %}
         <input type="hidden" name="plan_tier" value="core">
-        <button class="btn btn-primary" style="width:100%;">{% if trial_expired %}Subscribe Pro{% else %}Start Pro Free Trial{% endif %}</button>
+        <button class="btn btn-primary" style="width:100%;">Subscribe Pro</button>
+      </form>
+      {% elif not has_active_subscription %}
+      <form method="post" action="{% url 'subscription:start_trial' %}">
+        {% csrf_token %}
+        <input type="hidden" name="plan_tier" value="core">
+        <button class="btn btn-primary" style="width:100%;">Start Pro Free Trial</button>
       </form>
       {% elif business.subscription_plan_tier == "core" %}
       <div style="text-align:center;padding:10px;color:var(--primary);font-weight:600;">Current Plan</div>
