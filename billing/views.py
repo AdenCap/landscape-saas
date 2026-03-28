@@ -31,20 +31,19 @@ def _email_template_vars(s, **kwargs):
 
 
 def _get_logo_url(business, request=None):
-    """Get logo URL that works in emails. Handles both Supabase URLs and local files."""
+    """Get logo URL that works in emails. Uses the app's logo proxy to ensure
+    the image is served as PNG from our domain (avoids Supabase WebP/CORS issues)."""
     if not business or not business.logo:
         return None
     try:
-        url = business.logo.url
-        if not url:
-            return None
-        # Already a full URL (Supabase storage) — use as-is
-        if url.startswith("http"):
-            return url
-        # Local file — make absolute
+        # Use the proxy endpoint — always serves PNG from our domain
         if request:
-            return request.build_absolute_uri(url)
-        return url
+            return request.build_absolute_uri(f"/settings/logo/{business.id}.png")
+        # Fallback: direct URL
+        url = business.logo.url
+        if url and url.startswith("http"):
+            return url
+        return None
     except Exception:
         return None
 from .models import (
@@ -1228,9 +1227,6 @@ def resend_invoice(request, invoice_id):
         "terms_text": doc_template.terms_and_conditions if doc_template else "",
     })
 
-    pdf_bytes = _build_invoice_pdf(invoice, request)
-    attachments = [{"filename": f"Invoice_{invoice.id}.pdf", "content": pdf_bytes, "mimetype": "application/pdf"}]
-
     ok, detail = send_business_email(
         business=business,
         to=invoice.customer.email,
@@ -1238,7 +1234,6 @@ def resend_invoice(request, invoice_id):
         body_text=body_text,
         body_html=html_content,
         reply_to=reply_to,
-        attachments=attachments,
     )
     if ok:
         messages.success(request, f"Invoice #{invoice.id} resent to {invoice.customer.email}.")
@@ -1346,13 +1341,12 @@ def estimate_list(request):
 
     estimates = Estimate.objects.filter(business=business).select_related("customer").order_by("-created_at")
 
-    status_filter = request.GET.get("status") or "pending"
+    status_filter = request.GET.get("status") or "all"
     if status_filter == "accepted":
         estimates = estimates.filter(status="accepted")
     elif status_filter == "pending":
         estimates = estimates.exclude(status="accepted")
-    else:
-        status_filter = "all"
+    # else: "all" — show everything
 
     stale_cutoff = timezone.now() - timedelta(days=5)
     stuck_quotes = Estimate.objects.filter(
@@ -2122,9 +2116,7 @@ def estimate_send(request, estimate_id):
     })
 
     plain_body = intro + "\n\nView and accept your estimate: " + (view_url or "") + "\n\n" + closing + "\n\n" + business.name
-    pdf_bytes = _build_estimate_pdf(estimate, business)
     reply_to = [business.contact_email] if business.contact_email else None
-    attachments = [{"filename": f"estimate_{estimate.id}.pdf", "content": pdf_bytes, "mimetype": "application/pdf"}]
 
     ok, detail = send_business_email(
         business=business,
@@ -2133,7 +2125,6 @@ def estimate_send(request, estimate_id):
         body_text=plain_body,
         body_html=html_content,
         reply_to=reply_to,
-        attachments=attachments,
     )
     if ok:
         estimate.status = "sent"
@@ -2235,8 +2226,6 @@ def estimate_send_followup(request, estimate_id):
 
     reply_to = [business.contact_email] if business.contact_email else None
     plain_body = intro + "\n\nView your estimate: " + view_url
-    pdf_bytes = _build_estimate_pdf(estimate, business)
-    attachments = [{"filename": f"estimate_{estimate.id}.pdf", "content": pdf_bytes, "mimetype": "application/pdf"}]
 
     ok, detail = send_business_email(
         business=business,
@@ -2245,7 +2234,6 @@ def estimate_send_followup(request, estimate_id):
         body_text=plain_body,
         body_html=html_content,
         reply_to=reply_to,
-        attachments=attachments,
     )
     if ok:
         estimate.last_follow_up_at = timezone.now()

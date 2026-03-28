@@ -149,7 +149,7 @@
         {% if business.contact_phone and business.contact_email %} &middot; {% endif %}
         {% if business.contact_email %}{{ business.contact_email }}{% endif %}
       </p>
-      <p style="margin:10px 0 0;font-size:12px;color:#a1a1aa;">PDF attached{% if pay_url %} &middot; <a href="{{ pay_url }}" style="color:{{ accent_color|default:'#22c55e' }};">Pay online here</a>{% endif %}</p>
+      {% if pay_url %}<p style="margin:10px 0 0;font-size:12px;color:#a1a1aa;"><a href="{{ pay_url }}" style="color:{{ accent_color|default:'#22c55e' }};">View invoice online</a></p>{% endif %}
     </td></tr>
 
   </table>

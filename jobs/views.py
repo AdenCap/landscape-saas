@@ -216,7 +216,6 @@ def job_list(request):
             job_scheduled=False,
         ).select_related('customer', 'property').order_by('-accepted_at')[:20]
         for est in accepted_estimates:
-            est.recompute_totals()
             needs_scheduling.append(est)
 
     return render(request, 'jobs/job_list.html', {

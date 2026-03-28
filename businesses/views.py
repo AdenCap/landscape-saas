@@ -139,3 +139,33 @@ def test_gmail_connection(request):
         from .email_sender import format_send_error
         messages.error(request, format_send_error(detail))
     return redirect("business_settings")
+
+
+def serve_logo(request, business_id):
+    """Public endpoint to serve the business logo as PNG. Used in emails where
+    direct Supabase URLs may be blocked or return WebP (unsupported by Gmail)."""
+    from django.http import HttpResponse
+    business = get_object_or_404(Business, id=business_id)
+    if not business.logo:
+        return HttpResponse(status=404)
+    try:
+        import requests as _requests
+        from PIL import Image as PILImage
+        import io
+
+        url = business.logo.url
+        if url and url.startswith("http"):
+            resp = _requests.get(url, timeout=10)
+            resp.raise_for_status()
+            img_data = io.BytesIO(resp.content)
+        else:
+            img_data = business.logo.open("rb")
+
+        pil_img = PILImage.open(img_data)
+        pil_img = pil_img.convert("RGBA") if pil_img.mode in ("RGBA", "LA", "P") else pil_img.convert("RGB")
+        buf = io.BytesIO()
+        pil_img.save(buf, format="PNG")
+        buf.seek(0)
+        return HttpResponse(buf.read(), content_type="image/png")
+    except Exception:
+        return HttpResponse(status=404)
