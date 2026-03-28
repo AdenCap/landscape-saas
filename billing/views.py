@@ -780,54 +780,58 @@ def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, p
     if not business or not business.logo:
         return
     try:
-        import tempfile
         import requests as _requests
         from reportlab.lib.utils import ImageReader
+        from PIL import Image as PILImage
+        import io
+        import logging
+        logger = logging.getLogger(__name__)
 
         if page_width is not None and x is None:
             x = page_width - 50 - max_width
 
-        logo_url = None
-        logo_path = None
+        logo_url = _get_logo_url(business)
 
-        # Try to get URL first (works for Supabase/cloud storage)
-        try:
-            logo_url = business.logo.url
-        except Exception:
-            pass
+        if not logo_url:
+            return
 
-        # Try local path as fallback
-        try:
-            logo_path = business.logo.path
-        except Exception:
-            pass
-
-        img = None
-        if logo_url and logo_url.startswith("http"):
-            # Download from URL to a temp file
+        if logo_url.startswith("http"):
             resp = _requests.get(logo_url, timeout=10)
             resp.raise_for_status()
-            suffix = ".png"
-            if "jpeg" in resp.headers.get("content-type", "") or "jpg" in logo_url.lower():
-                suffix = ".jpg"
-            elif "webp" in resp.headers.get("content-type", ""):
-                suffix = ".webp"
-            tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
-            tmp.write(resp.content)
-            tmp.flush()
-            tmp.close()
-            img = tmp.name
-        elif logo_path:
+            img_data = io.BytesIO(resp.content)
+        else:
             import os
-            if os.path.exists(logo_path):
-                img = logo_path
+            if not os.path.exists(logo_url):
+                return
+            with open(logo_url, "rb") as f:
+                img_data = io.BytesIO(f.read())
 
-        if img:
-            # Use preserveAspectRatio to avoid stretching
-            p.drawImage(img, x, y_top - max_height, width=max_width, height=max_height,
-                        preserveAspectRatio=True, mask='auto')
-    except Exception:
-        pass
+        # Convert to PNG via PIL to handle any format (webp, heic, etc)
+        pil_img = PILImage.open(img_data)
+        if pil_img.mode in ("RGBA", "LA", "P"):
+            pil_img = pil_img.convert("RGBA")
+        else:
+            pil_img = pil_img.convert("RGB")
+        png_buf = io.BytesIO()
+        pil_img.save(png_buf, format="PNG")
+        png_buf.seek(0)
+
+        img_reader = ImageReader(png_buf)
+        p.drawImage(img_reader, x, y_top - max_height, width=max_width, height=max_height,
+                    preserveAspectRatio=True, mask='auto')
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("PDF logo failed: %s", exc)
+
+
+def _pdf_safe(text, max_len=200):
+    """Strip characters that ReportLab's built-in fonts can't render (emoji, CJK, etc.)."""
+    if not text:
+        return ""
+    import re
+    # Keep basic Latin, extended Latin, punctuation, common symbols
+    cleaned = re.sub(r'[^\x20-\x7E\xA0-\xFF\u2013\u2014\u2018\u2019\u201C\u201D\u2026\u00B7]', '', str(text))
+    return cleaned[:max_len]
 
 
 # Theme colors for PDFs
@@ -1006,9 +1010,15 @@ def _build_invoice_pdf(invoice, request):
         p.line(margin, y + 1, right, y + 1)
 
     # ── Totals box ──
-    y -= 12
+    y -= 8
     totals_x = 340
     total_to_show = getattr(invoice, "total", None) or computed_total
+
+    # Separator
+    p.setStrokeColorRGB(0.88, 0.88, 0.88)
+    p.setLineWidth(0.5)
+    p.line(totals_x, y + 4, right, y + 4)
+    y -= 6
 
     # Subtotal
     p.setFont(b_font, 9)
@@ -1016,7 +1026,7 @@ def _build_invoice_pdf(invoice, request):
     p.drawString(totals_x, y, "Subtotal")
     p.setFillColorRGB(*_PDF_DARK)
     p.drawRightString(right - 10, y, _fmt_currency(computed_total))
-    y -= 14
+    y -= 16
 
     # Tax (if applicable)
     tax = getattr(invoice, "tax", None) or Decimal("0")
@@ -1025,10 +1035,10 @@ def _build_invoice_pdf(invoice, request):
         p.drawString(totals_x, y, "Tax")
         p.setFillColorRGB(*_PDF_DARK)
         p.drawRightString(right - 10, y, _fmt_currency(tax))
-        y -= 14
+        y -= 16
 
     # Total due — highlighted box
-    y -= 4
+    y -= 8
     total_box_h = 28
     p.setFillColorRGB(*accent)
     p.rect(totals_x - 10, y - 6, right - totals_x + 10, total_box_h, fill=True, stroke=False)
@@ -1096,7 +1106,7 @@ def _build_invoice_pdf(invoice, request):
     if doc_template and doc_template.footer_text:
         p.setFont(b_font, 7)
         p.setFillColorRGB(*_PDF_MUTED)
-        p.drawCentredString(width / 2, 42, doc_template.footer_text[:80])
+        p.drawCentredString(width / 2, 42, _pdf_safe(doc_template.footer_text, 80))
 
     # Company info footer
     p.setFont(b_font, 7)
@@ -1931,22 +1941,28 @@ def _build_estimate_pdf(estimate, business):
     totals_x = 340
     base_total = sum(item.line_total for item in base_items)
 
+    # Thin separator above totals
+    p.setStrokeColorRGB(0.88, 0.88, 0.88)
+    p.setLineWidth(0.5)
+    p.line(totals_x, y + 4, right, y + 4)
+    y -= 6
+
     p.setFont(b_font, 9)
     p.setFillColorRGB(*_PDF_MUTED)
     p.drawString(totals_x, y, "Subtotal")
     p.setFillColorRGB(*_PDF_DARK)
     p.drawRightString(right - 10, y, _fmt_currency(base_total))
-    y -= 14
+    y -= 16
 
     if addon_items:
         addon_total = sum(item.line_total for item in addon_items)
         p.setFillColorRGB(*_PDF_MUTED)
         p.drawString(totals_x, y, "Add-ons (if selected)")
         p.drawRightString(right - 10, y, f"+{_fmt_currency(addon_total)}")
-        y -= 14
+        y -= 16
 
     # Estimate total — highlighted box
-    y -= 4
+    y -= 8
     total_box_h = 28
     p.setFillColorRGB(*accent)
     p.rect(totals_x - 10, y - 6, right - totals_x + 10, total_box_h, fill=True, stroke=False)
@@ -1991,7 +2007,7 @@ def _build_estimate_pdf(estimate, business):
     if doc_template and doc_template.footer_text:
         p.setFont(b_font, 7)
         p.setFillColorRGB(*_PDF_MUTED)
-        p.drawCentredString(width / 2, 42, doc_template.footer_text[:80])
+        p.drawCentredString(width / 2, 42, _pdf_safe(doc_template.footer_text, 80))
 
     p.setFont(b_font, 7)
     p.setFillColorRGB(*_PDF_MUTED)
@@ -2196,14 +2212,25 @@ def estimate_send_followup(request, estimate_id):
     )
     doc_template = DocumentTemplate.get_default_for_business(business, "estimate")
     accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
-    html_content = render_to_string("billing/estimate_followup_email.html", {
+    closing = _email_template_vars(
+        (business.estimate_email_closing or "").strip() or "We look forward to working with you.",
+        customer_name=customer.name,
+        business_name=business.name,
+    )
+    html_content = render_to_string("billing/estimate_email.html", {
         "estimate": estimate,
         "customer": customer,
         "business": business,
+        "request": request,
         "view_url": view_url,
         "logo_url": logo_url,
         "email_intro": intro,
+        "email_closing": closing,
         "accent_color": accent_color,
+        "template_style": doc_template.template_key if doc_template else "modern_dark",
+        "header_text": doc_template.header_text if doc_template else "",
+        "footer_text": doc_template.footer_text if doc_template else "",
+        "terms_text": doc_template.terms_and_conditions if doc_template else "",
     })
 
     reply_to = [business.contact_email] if business.contact_email else None
