@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function () {
     selectMirror: true,
     navLinks: true,
     navLinkDayClick: 'timeGridDay',
-    height: isMobile ? 'calc(100vh - 140px)' : 'calc(100vh - 200px)',
+    height: isMobile ? 'calc(100vh - 130px)' : 'calc(100vh - 140px)',
     dayMaxEvents: isMobile ? 3 : 5,
 
     // ── Event source (date-range filtered + AbortController) ──
@@ -391,44 +391,8 @@ document.addEventListener('DOMContentLoaded', function () {
   var skeleton = document.getElementById('calendar-skeleton');
   if (skeleton) skeleton.style.display = 'none';
 
-  // ── Mobile: vertical scroll past end/start of day advances to next/prev day ──
+  // ── Mobile: horizontal swipe to navigate all views ──
   if (isMobile) {
-    var _scrollNav = { timer: null, cooldown: false };
-    // Find the scrollable time grid container
-    function getScrollContainer() {
-      return calEl.querySelector('.fc-timegrid-body') ||
-             calEl.querySelector('.fc-scroller-liquid-absolute') ||
-             calEl.querySelector('.fc-scroller');
-    }
-
-    calEl.addEventListener('scroll', function() {
-      if (_scrollNav.cooldown) return;
-      var view = calendar.view;
-      if (!view || view.type !== 'timeGridDay') return;
-      var scroller = calEl.querySelector('.fc-scroller-liquid-absolute') || calEl.querySelector('.fc-scroller');
-      if (!scroller) return;
-      var atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 5;
-      var atTop = scroller.scrollTop <= 2;
-      if (atBottom || atTop) {
-        _scrollNav.cooldown = true;
-        clearTimeout(_scrollNav.timer);
-        _scrollNav.timer = setTimeout(function() {
-          // Re-check position after a brief pause (user stopped scrolling)
-          var s2 = calEl.querySelector('.fc-scroller-liquid-absolute') || calEl.querySelector('.fc-scroller');
-          if (!s2) { _scrollNav.cooldown = false; return; }
-          var stillAtBottom = s2.scrollTop + s2.clientHeight >= s2.scrollHeight - 5;
-          var stillAtTop = s2.scrollTop <= 2;
-          if (stillAtBottom) {
-            calendar.next();
-          } else if (stillAtTop) {
-            calendar.prev();
-          }
-          _scrollNav.cooldown = false;
-        }, 400);
-      }
-    }, true);
-
-    // Also keep horizontal swipe for month/week views
     var touchStartX = 0;
     var touchStartY = 0;
     calEl.addEventListener('touchstart', function(e) {
@@ -438,8 +402,6 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }, { passive: true });
     calEl.addEventListener('touchend', function(e) {
-      var view = calendar.view;
-      if (view && view.type === 'timeGridDay') return; // day view uses vertical scroll nav
       var touch = e.changedTouches[0];
       var dx = touch.clientX - touchStartX;
       var dy = touch.clientY - touchStartY;
@@ -1454,23 +1416,45 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(function() { searchInput.focus(); }, 100);
   }
 
+  // Populate service datalist for typeahead
+  var svcDatalist = document.getElementById('qc-service-datalist');
+  if (svcDatalist) {
+    (typeof QC_SERVICES !== 'undefined' ? QC_SERVICES : []).forEach(function(s) {
+      var o = document.createElement('option');
+      o.value = s.name;
+      o.setAttribute('data-id', s.id);
+      svcDatalist.appendChild(o);
+    });
+  }
+
+  // Wire service text input to resolve service ID
+  function wireServiceInput(textInput, hiddenInput) {
+    textInput.addEventListener('change', function() {
+      var val = textInput.value.trim();
+      var services = typeof QC_SERVICES !== 'undefined' ? QC_SERVICES : [];
+      var match = services.find(function(s) { return s.name.toLowerCase() === val.toLowerCase(); });
+      hiddenInput.value = match ? match.id : '';
+    });
+  }
+  // Wire the existing first row
+  var _firstText = document.querySelector('.qc-line-service-text');
+  var _firstHidden = document.querySelector('input.qc-line-service[type="hidden"]');
+  if (_firstText && _firstHidden) wireServiceInput(_firstText, _firstHidden);
+
   // Create a service line item row for quick-create
   function qcCreateLineRow() {
     var row = document.createElement('div');
     row.className = 'qc-line-row';
-    var sel = document.createElement('select');
-    sel.className = 'qc-line-service';
-    var defOpt = document.createElement('option');
-    defOpt.value = '';
-    defOpt.textContent = 'Service';
-    sel.appendChild(defOpt);
-    (typeof QC_SERVICES !== 'undefined' ? QC_SERVICES : []).forEach(function(s) {
-      var o = document.createElement('option');
-      o.value = s.id;
-      o.textContent = s.name;
-      sel.appendChild(o);
-    });
-    row.appendChild(sel);
+    var textInp = document.createElement('input');
+    textInp.type = 'text'; textInp.className = 'qc-line-service-text';
+    textInp.setAttribute('list', 'qc-service-datalist');
+    textInp.placeholder = 'Type or select service...';
+    textInp.style.flex = '1';
+    row.appendChild(textInp);
+    var hiddenInp = document.createElement('input');
+    hiddenInp.type = 'hidden'; hiddenInp.className = 'qc-line-service'; hiddenInp.value = '';
+    row.appendChild(hiddenInp);
+    wireServiceInput(textInp, hiddenInp);
     var qty = document.createElement('input');
     qty.type = 'number'; qty.className = 'qc-line-qty'; qty.value = '1';
     qty.min = '0.01'; qty.step = '0.01'; qty.placeholder = 'Qty';
@@ -1478,8 +1462,8 @@ document.addEventListener('DOMContentLoaded', function () {
     row.appendChild(qty);
     var price = document.createElement('input');
     price.type = 'number'; price.className = 'qc-line-price';
-    price.min = '0'; price.step = '0.01'; price.placeholder = 'Price';
-    price.style.width = '70px';
+    price.min = '0'; price.step = '0.01'; price.placeholder = '$';
+    price.style.width = '60px';
     row.appendChild(price);
     // Remove button (not on first row)
     var container = document.getElementById('qc-lines');

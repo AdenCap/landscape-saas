@@ -761,17 +761,18 @@
    ========================================================================== */
 
 .unscheduled-panel {
-  width: 300px;
+  width: 260px;
   flex-shrink: 0;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  margin-left: 12px;
-  padding: 16px;
-  max-height: calc(100vh - 180px);
+  margin-left: 10px;
+  padding: 14px;
+  max-height: calc(100vh - 100px);
   overflow-y: auto;
+  overflow-x: hidden;
   position: sticky;
-  top: 16px;
+  top: 12px;
   transition: width var(--motion-slow) var(--motion-ease),
               opacity var(--motion-base) var(--motion-ease),
               margin var(--motion-slow) var(--motion-ease),
@@ -2096,6 +2097,8 @@ body.is-dragging * {
 
 .qc-body {
   padding: 14px 18px;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
 }
 
 .qc-field {
