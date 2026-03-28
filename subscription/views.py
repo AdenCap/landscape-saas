@@ -179,33 +179,51 @@ def checkout_success(request):
     return redirect("/")
 
 
-@role_required("owner")
-@require_POST
+@require_http_methods(["GET", "POST"])
 def start_free_trial(request):
-    """Start a free trial without requiring Stripe checkout. Sets subscription_status to 'trialing'
-    with a 14-day trial period. Useful when Stripe isn't fully configured or for no-card-required trials."""
+    """Start a free trial. Works for any authenticated user with a business.
+    Accepts both GET and POST to handle any form/redirect scenario."""
+    if not request.user.is_authenticated:
+        messages.error(request, "Please log in first.")
+        return redirect("/accounts/login/")
+
     from django.utils import timezone as tz
     from datetime import timedelta
+    import logging
+    logger = logging.getLogger(__name__)
+
     business = get_business(request)
     if not business:
-        messages.error(request, "No business associated with your account.")
-        return redirect("/")
+        # Try to get business directly from user
+        business = getattr(request.user, "business", None)
+
+    if not business:
+        messages.error(request, "No business found. Please sign up first.")
+        logger.error("start_free_trial: no business for user %s (id=%s)", request.user.username, request.user.id)
+        return redirect("/accounts/signup/")
 
     if business.has_active_subscription():
         messages.info(request, "You already have an active subscription.")
         return redirect("/")
 
-    plan_tier = (request.POST.get("plan_tier") or "core").strip().lower()
+    plan_tier = (request.POST.get("plan_tier") or request.GET.get("plan_tier") or "core").strip().lower()
     if plan_tier not in {"solo", "core"}:
         plan_tier = "core"
 
-    trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
-    business.subscription_status = "trialing"
-    business.subscription_plan_tier = plan_tier
-    business.subscription_current_period_end = tz.now() + timedelta(days=trial_days)
-    business.save(update_fields=["subscription_status", "subscription_plan_tier", "subscription_current_period_end"])
+    try:
+        trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
+        business.subscription_status = "trialing"
+        business.subscription_plan_tier = plan_tier
+        business.subscription_current_period_end = tz.now() + timedelta(days=trial_days)
+        business.save(update_fields=["subscription_status", "subscription_plan_tier", "subscription_current_period_end"])
+        messages.success(request, f"Your {trial_days}-day free trial has started! Welcome to FieldLgx.")
+        logger.info("start_free_trial: started %d-day trial for business %s (id=%s, plan=%s)",
+                     trial_days, business.name, business.id, plan_tier)
+    except Exception as e:
+        messages.error(request, f"Error starting trial: {e}")
+        logger.exception("start_free_trial: failed for business %s", business.id)
+        return redirect("subscription:status")
 
-    messages.success(request, f"Your {trial_days}-day free trial has started! You have full access to FieldLgx.")
     return redirect("/")
 
 
