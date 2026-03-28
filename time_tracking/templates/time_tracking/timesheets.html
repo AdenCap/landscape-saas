@@ -26,22 +26,22 @@
     <thead>
       <tr>
         <th>Employee</th>
-        <th class="num">Hourly Rate</th>
-        <th class="num">Week Hours</th>
-        <th class="num">Week Cost</th>
-        <th class="num">Year Hours</th>
-        <th class="num">Year Cost</th>
+        <th class="num hide-mobile">Hourly Rate</th>
+        <th class="num">Week Hrs</th>
+        <th class="num">Week $</th>
+        <th class="num hide-mobile">Year Hrs</th>
+        <th class="num hide-mobile">Year $</th>
       </tr>
     </thead>
     <tbody>
       {% for stat in employee_stats %}
       <tr>
         <td>{{ stat.user.get_full_name|default:stat.user.username }}</td>
-        <td class="num">${{ stat.hourly_rate|floatformat:2 }}/hr</td>
+        <td class="num hide-mobile">${{ stat.hourly_rate|floatformat:2 }}/hr</td>
         <td class="num">{{ stat.week_display }}</td>
         <td class="num">${{ stat.week_cost|floatformat:2 }}</td>
-        <td class="num">{{ stat.year_display }}</td>
-        <td class="num">${{ stat.year_cost|floatformat:2 }}</td>
+        <td class="num hide-mobile">{{ stat.year_display }}</td>
+        <td class="num hide-mobile">${{ stat.year_cost|floatformat:2 }}</td>
       </tr>
       {% empty %}
       <tr><td colspan="6">No crew members. Add employees with the "Crew" role to see timesheets.</td></tr>

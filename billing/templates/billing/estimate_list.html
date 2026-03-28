@@ -125,9 +125,9 @@
       <table class="data-table estimate-table">
         <thead>
           <tr>
-            <th>#</th>
+            <th class="hide-mobile">#</th>
             <th>Customer</th>
-            <th>Title</th>
+            <th class="hide-mobile">Title</th>
             <th class="num">Total</th>
             <th>Status</th>
             <th class="col-actions"></th>
@@ -136,9 +136,9 @@
         <tbody>
           {% for est in estimates %}
           <tr>
-            <td class="col-id">{{ est.id }}</td>
+            <td class="col-id hide-mobile">{{ est.id }}</td>
             <td><a href="{% url 'customer_detail' est.customer.id %}" class="link-primary">{{ est.customer.name }}</a></td>
-            <td>{{ est.title }}</td>
+            <td class="hide-mobile">{{ est.title }}</td>
             <td class="num">{{ est.total|currency }}</td>
             <td>
               <span class="badge badge-{{ est.status }}">{{ est.status|title }}</span>
@@ -147,7 +147,7 @@
             <td class="col-actions">
               <a href="{% url 'billing:estimate_detail' est.id %}" class="btn btn-secondary btn-sm">View</a>
               {% if est.status == 'draft' %}
-              <a href="{% url 'billing:estimate_edit' est.id %}" class="btn btn-secondary btn-sm">Edit</a>
+              <a href="{% url 'billing:estimate_edit' est.id %}" class="btn btn-secondary btn-sm hide-mobile">Edit</a>
               {% endif %}
               <form method="post" action="{% url 'billing:estimate_delete' est.id %}" style="display:inline;" onsubmit="return confirm('Delete estimate #{{ est.id }} for {{ est.customer.name }}?');">
                 {% csrf_token %}

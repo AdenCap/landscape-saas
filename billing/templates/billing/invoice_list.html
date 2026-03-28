@@ -23,14 +23,14 @@
   <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
   <table class="data-table">
     <thead>
-      <tr><th>ID</th><th>Customer</th><th>Issue Date</th><th>Status</th><th>Total</th><th></th></tr>
+      <tr><th class="hide-mobile">ID</th><th>Customer</th><th class="hide-mobile">Issue Date</th><th>Status</th><th>Total</th><th></th></tr>
     </thead>
     <tbody>
       {% for inv in invoices %}
       <tr>
-        <td><a href="{% url 'billing:invoice_detail' inv.id %}" class="link-primary">#{{ inv.id }}</a></td>
-        <td>{{ inv.customer }}</td>
-        <td>{{ inv.issue_date }}</td>
+        <td class="hide-mobile"><a href="{% url 'billing:invoice_detail' inv.id %}" class="link-primary">#{{ inv.id }}</a></td>
+        <td><a href="{% url 'billing:invoice_detail' inv.id %}" class="link-primary">{{ inv.customer }}</a></td>
+        <td class="hide-mobile">{{ inv.issue_date }}</td>
         <td><span class="badge badge-{{ inv.status|lower }}">{{ inv.status }}</span></td>
         <td><strong>{{ inv.total|currency }}</strong></td>
         <td style="white-space:nowrap;">

@@ -43,22 +43,22 @@
   <table class="data-table">
     <thead>
       <tr>
-        <th>Date</th>
+        <th class="hide-mobile">Date</th>
         <th>Vendor</th>
         <th class="num">Amount</th>
-        <th>Category</th>
-        <th>Job</th>
+        <th class="hide-mobile">Category</th>
+        <th class="hide-mobile">Job</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
       {% for r in receipts %}
       <tr>
-        <td>{{ r.receipt_date }}</td>
+        <td class="hide-mobile">{{ r.receipt_date }}</td>
         <td>{{ r.vendor|default:"—" }}</td>
         <td class="num">{% if r.amount is not None %}${{ r.amount|floatformat:2 }}{% else %}—{% endif %}</td>
-        <td><span class="badge badge-cat">{{ r.get_category_display }}</span></td>
-        <td>
+        <td class="hide-mobile"><span class="badge badge-cat">{{ r.get_category_display }}</span></td>
+        <td class="hide-mobile">
           {% if r.job %}
           <a href="{% url 'job_detail' r.job_id %}" class="link-primary">{{ r.job.property.address }} ({{ r.job.scheduled_date }})</a>
           {% else %}—{% endif %}

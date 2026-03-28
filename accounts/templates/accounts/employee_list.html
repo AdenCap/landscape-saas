@@ -16,8 +16,8 @@
       <tr>
         <th>Name</th>
         <th>Role</th>
-        <th>Contact</th>
-        <th class="num">Pay</th>
+        <th class="hide-mobile">Contact</th>
+        <th class="num hide-mobile">Pay</th>
         <th></th>
       </tr>
     </thead>
@@ -30,13 +30,13 @@
           </a>
         </td>
         <td><span class="badge badge-{{ emp.role }}">{{ emp.get_role_display }}</span></td>
-        <td>
+        <td class="hide-mobile">
           {% if emp.phone %}{{ emp.phone }}{% endif %}
           {% if emp.phone and emp.email %} · {% endif %}
           {% if emp.email %}{{ emp.email }}{% endif %}
           {% if not emp.phone and not emp.email %}—{% endif %}
         </td>
-        <td class="num">{% if emp.hourly_rate %}${% endif %}{{ emp.hourly_rate|default:"—" }}</td>
+        <td class="num hide-mobile">{% if emp.hourly_rate %}${% endif %}{{ emp.hourly_rate|default:"—" }}</td>
         <td>
           <a href="{% url 'employee_edit' emp.id %}" class="btn btn-secondary btn-sm">Edit</a>
         </td>

@@ -27,8 +27,8 @@
     <thead>
       <tr>
         <th>Customer</th>
-        <th>Period</th>
-        <th>To be sent on</th>
+        <th class="hide-mobile">Period</th>
+        <th class="hide-mobile">Send on</th>
         <th>Status</th>
         <th class="num">Total</th>
         <th></th>
@@ -38,8 +38,8 @@
       {% for row in rows %}
       <tr>
         <td>{{ row.invoice.customer.name }}</td>
-        <td>{{ row.invoice.period_start|date:"F Y" }}{% if row.invoice.period_start != row.invoice.period_end %} – {{ row.invoice.period_end|date:"F j, Y" }}{% endif %}</td>
-        <td>{% if row.send_on %}{{ row.send_on|date:"F j, Y" }}{% else %}—{% endif %}</td>
+        <td class="hide-mobile">{{ row.invoice.period_start|date:"F Y" }}{% if row.invoice.period_start != row.invoice.period_end %} – {{ row.invoice.period_end|date:"F j, Y" }}{% endif %}</td>
+        <td class="hide-mobile">{% if row.send_on %}{{ row.send_on|date:"F j, Y" }}{% else %}—{% endif %}</td>
         <td><span class="badge badge-{{ row.invoice.status|lower }}">{{ row.invoice.status }}</span></td>
         <td class="num"><strong>{{ row.invoice.total|currency }}</strong></td>
         <td>

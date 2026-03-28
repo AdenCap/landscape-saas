@@ -340,6 +340,11 @@
     .data-table tbody tr { transition: background var(--motion-fast) var(--motion-ease); }
     .data-table tbody tr:hover { background: var(--surface-high); }
     .data-table .num { text-align: right; }
+    @media (max-width: 768px) {
+      .hide-mobile { display: none !important; }
+      .data-table th, .data-table td { padding: 10px 8px; font-size: 13px; }
+      .data-table .btn-sm { padding: 6px 10px; font-size: 11px; min-height: 32px; }
+    }
 
     .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
 

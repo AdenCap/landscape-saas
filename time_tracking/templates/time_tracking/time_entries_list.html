@@ -39,8 +39,8 @@
     <thead>
       <tr>
         <th>Employee</th>
-        <th>Clock in</th>
-        <th>Clock out</th>
+        <th class="hide-mobile">Clock in</th>
+        <th class="hide-mobile">Clock out</th>
         <th class="num">Duration</th>
         <th>Status</th>
         <th></th>
@@ -50,8 +50,8 @@
       {% for e in entries %}
       <tr>
         <td>{{ e.user.get_full_name|default:e.user.username }}</td>
-        <td>{{ e.clock_in|date:"M j, Y g:i A" }}</td>
-        <td>{% if e.clock_out %}{{ e.clock_out|date:"M j, Y g:i A" }}{% else %}— (in progress){% endif %}</td>
+        <td class="hide-mobile">{{ e.clock_in|date:"M j, Y g:i A" }}</td>
+        <td class="hide-mobile">{% if e.clock_out %}{{ e.clock_out|date:"M j, Y g:i A" }}{% else %}— (in progress){% endif %}</td>
         <td class="num">{{ e.duration_display }}</td>
         <td>
           <span class="badge badge-{% if e.status == 'approved' %}success{% elif e.status == 'rejected' %}danger{% else %}warning{% endif %}">
