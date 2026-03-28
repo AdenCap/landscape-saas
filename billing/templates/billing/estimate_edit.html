@@ -215,10 +215,15 @@
         </div>
         {% endfor %}
       </div>
-      <div class="section-actions">
-        <button type="submit" class="btn btn-primary">Save items</button>
+      <div class="section-actions" style="flex-wrap:wrap;">
+        <button type="button" class="btn btn-secondary" id="add-line-item-btn" style="gap:4px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Line Item
+        </button>
+        <button type="button" class="btn btn-primary" id="save-items-btn" style="min-width:130px;">Save Items</button>
         <a href="{% url 'billing:estimate_detail' estimate.id %}" class="btn btn-secondary">Done, view estimate</a>
       </div>
+      <div id="save-status" style="display:none;padding:10px 16px;margin-top:10px;border-radius:8px;font-size:14px;font-weight:500;text-align:center;"></div>
     </section>
   </form>
 
@@ -743,6 +748,153 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     if (customerSelect.value) {
       loadProperties(customerSelect.value, initialPropertyId);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Dynamic "Add Line Item" — clone the last empty row
+  // ═══════════════════════════════════════════════════════════
+  var addBtn = document.getElementById('add-line-item-btn');
+  var container = document.querySelector('.line-items-cards');
+  var prefix = '{{ formset.prefix }}';   // e.g. "estimatelineitem_set"
+
+  function getTotalForms() {
+    var el = document.getElementById('id_' + prefix + '-TOTAL_FORMS');
+    return el ? parseInt(el.value, 10) : 0;
+  }
+  function setTotalForms(n) {
+    var el = document.getElementById('id_' + prefix + '-TOTAL_FORMS');
+    if (el) el.value = n;
+  }
+
+  if (addBtn && container) {
+    addBtn.addEventListener('click', function() {
+      var rows = container.querySelectorAll('.formset-row');
+      var last = rows[rows.length - 1];
+      if (!last) return;
+
+      var idx = getTotalForms();
+      var newRow = last.cloneNode(true);
+
+      // Update all input/select/textarea names and ids
+      newRow.querySelectorAll('input, select, textarea').forEach(function(el) {
+        if (el.name) el.name = el.name.replace(/-\d+-/, '-' + idx + '-');
+        if (el.id) el.id = el.id.replace(/-\d+-/, '-' + idx + '-');
+        // Clear values for new row
+        if (el.type === 'checkbox') { el.checked = false; }
+        else if (el.tagName === 'SELECT') { el.selectedIndex = 0; }
+        else if (el.type === 'hidden' && el.name.match(/-id$/)) { el.value = ''; }  // clear pk
+        else if (el.type !== 'hidden') { el.value = ''; }
+      });
+      newRow.querySelectorAll('label[for]').forEach(function(lbl) {
+        if (lbl.htmlFor) lbl.htmlFor = lbl.htmlFor.replace(/-\d+-/, '-' + idx + '-');
+      });
+
+      // Update row number display
+      var numEl = newRow.querySelector('.line-item-card-number');
+      if (numEl) numEl.textContent = '#' + (idx + 1);
+
+      // Clear result displays
+      newRow.querySelectorAll('.estimator-result').forEach(function(r) { r.textContent = ''; });
+      newRow.querySelectorAll('.line-item-errors').forEach(function(e) { e.remove(); });
+
+      // Reset type panels
+      newRow.querySelectorAll('.type-panel').forEach(function(p) {
+        p.style.display = p.dataset.type === 'standard' ? 'block' : 'none';
+      });
+
+      // Remove the "Remove" checkbox label if present (new row has no pk)
+      var delToggle = newRow.querySelector('.delete-toggle');
+      if (delToggle) delToggle.remove();
+
+      newRow.setAttribute('data-form-index', idx);
+      container.appendChild(newRow);
+      setTotalForms(idx + 1);
+
+      // Wire up events on the new row
+      var typeSelect = newRow.querySelector('.type-cell select.item-type-select');
+      if (typeSelect) {
+        typeSelect.addEventListener('change', function() { updateRow(newRow); });
+      }
+      newRow.querySelector('select.fertilizing-pricing-type')?.addEventListener('change', function() { toggleFertilizingPricing(newRow); calcFertilizing(newRow); });
+      newRow.querySelector('select.mulch-pricing-type')?.addEventListener('change', function() { toggleMulchPricing(newRow); calcMulch(newRow); });
+      newRow.querySelectorAll('.fertilizing-panel input, .mulch-panel input, .mulch-charge-rate input, .mowing-panel input').forEach(function(inp) {
+        inp.addEventListener('input', function() {
+          var t = newRow.querySelector('.type-cell select')?.value;
+          if (t === 'fertilizing') calcFertilizing(newRow);
+          else if (t === 'mulch') calcMulch(newRow);
+          else if (t === 'mowing') calcMowing(newRow);
+        });
+      });
+
+      // Scroll to the new row
+      newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      var descInput = newRow.querySelector('.standard-panel input[type="text"], .standard-panel textarea');
+      if (descInput) setTimeout(function() { descInput.focus(); }, 300);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // AJAX Save — submit form without full page reload
+  // ═══════════════════════════════════════════════════════════
+  var saveBtn = document.getElementById('save-items-btn');
+  var statusEl = document.getElementById('save-status');
+  var mainForm = document.querySelector('form.estimate-edit-section, section.estimate-edit-section')?.closest('form') || document.querySelector('form');
+
+  if (saveBtn && mainForm) {
+    saveBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+
+      var formData = new FormData(mainForm);
+
+      fetch(mainForm.action || window.location.href, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+      .then(function(resp) {
+        if (resp.redirected || resp.ok) {
+          // Show success inline
+          if (statusEl) {
+            statusEl.style.display = 'block';
+            statusEl.style.background = 'rgba(34,197,94,0.12)';
+            statusEl.style.color = '#22c55e';
+            statusEl.textContent = 'Saved successfully!';
+            setTimeout(function() { statusEl.style.display = 'none'; }, 3000);
+          }
+          // Reload just the line items to get fresh IDs without scrolling to top
+          // For now, we do a soft reload that preserves scroll
+          var scrollPos = window.scrollY;
+          window.location.href = window.location.href;
+          // After reload, restore scroll (browser may handle this via hash)
+          sessionStorage.setItem('_scrollRestore', scrollPos);
+        } else {
+          throw new Error('Save failed');
+        }
+      })
+      .catch(function(err) {
+        if (statusEl) {
+          statusEl.style.display = 'block';
+          statusEl.style.background = 'rgba(248,113,113,0.12)';
+          statusEl.style.color = '#f87171';
+          statusEl.textContent = 'Error saving. Please try again.';
+          setTimeout(function() { statusEl.style.display = 'none'; }, 4000);
+        }
+      })
+      .finally(function() {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Items';
+      });
+    });
+
+    // Restore scroll position after reload
+    var savedScroll = sessionStorage.getItem('_scrollRestore');
+    if (savedScroll) {
+      sessionStorage.removeItem('_scrollRestore');
+      setTimeout(function() { window.scrollTo(0, parseInt(savedScroll, 10)); }, 50);
     }
   }
 });
