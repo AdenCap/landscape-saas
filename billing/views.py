@@ -1776,249 +1776,442 @@ def estimate_detail(request, estimate_id):
     })
 
 
-def _build_estimate_pdf(estimate, business):
-    """Build professional estimate PDF — QuickBooks-quality layout."""
+def _build_estimate_pdf(estimate, business, compact=False):
+    """Build premium estimate PDF matching the FieldLgx mockup design.
+    compact=True generates a single-page version for simple jobs like mowing."""
     canvas, LETTER = _get_reportlab()
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=LETTER)
     width, height = LETTER
     doc_template = DocumentTemplate.get_default_for_business(business, "estimate") if business else None
     accent = _hex_to_rgb(doc_template.primary_color) if doc_template and getattr(doc_template, "primary_color", None) else _PDF_GREEN
-    accent_lighter = tuple(min(1.0, c * 0.06 + 0.94) for c in accent)
+    accent_light = tuple(min(1.0, c * 0.15 + 0.85) for c in accent)
     h_font, b_font = _pdf_fonts(doc_template.font_style if doc_template else "clean")
     margin = 50
     right = width - margin
+    mid = width / 2
 
-    # ── Accent bar at top ──
-    p.setFillColorRGB(*accent)
-    p.rect(0, height - 6, width, 6, fill=True, stroke=False)
-
-    # ── Header: Logo left, ESTIMATE right ──
-    y = height - 50
-    if business and business.logo:
-        _draw_pdf_logo(p, business, x=margin, y_top=y + 10, max_height=44, max_width=140)
-
-    p.setFillColorRGB(*_PDF_DARK)
-    p.setFont(h_font, 28)
-    p.drawRightString(right, y - 2, "ESTIMATE")
-    p.setFont(b_font, 9)
-    p.setFillColorRGB(*_PDF_MUTED)
-    p.drawRightString(right, y - 18, f"Estimate #{estimate.id}")
-    if estimate.valid_until:
-        p.drawRightString(right, y - 30, f"Valid until: {estimate.valid_until}")
-    y -= 60
-
-    # Header text
-    if doc_template and doc_template.header_text:
-        p.setFont(b_font, 8)
-        p.setFillColorRGB(*_PDF_MUTED)
-        for line in doc_template.header_text.split("\n")[:2]:
-            if line.strip():
-                p.drawString(margin, y, line.strip()[:80])
-                y -= 10
-        y -= 4
-
-    # ── Separator ──
-    p.setStrokeColorRGB(*accent)
-    p.setLineWidth(1.5)
-    p.line(margin, y, right, y)
-    y -= 24
-
-    # ── Two-column: From + Prepared For ──
-    col2_x = width / 2 + 20
-    p.setFont(h_font, 8)
-    p.setFillColorRGB(*accent)
-    p.drawString(margin, y, "FROM")
-    p.drawString(col2_x, y, "PREPARED FOR")
-    y -= 14
-
-    p.setFont(h_font, 11)
-    p.setFillColorRGB(*_PDF_DARK)
-    if business:
-        p.drawString(margin, y, business.name)
-    p.drawString(col2_x, y, estimate.customer.name)
-    y -= 14
-
-    p.setFont(b_font, 9)
-    p.setFillColorRGB(*_PDF_MUTED)
-    from_lines = []
-    if business:
-        if business.contact_email:
-            from_lines.append(business.contact_email)
-        if business.contact_phone:
-            from_lines.append(business.contact_phone)
-    to_lines = []
-    if estimate.customer.email:
-        to_lines.append(estimate.customer.email)
-    if estimate.customer.phone:
-        to_lines.append(estimate.customer.phone)
-    addr = getattr(estimate.customer, "full_address", None)
-    if addr and addr != "---":
-        to_lines.append(addr[:50])
-
-    for i in range(max(len(from_lines), len(to_lines))):
-        if i < len(from_lines):
-            p.drawString(margin, y, from_lines[i])
-        if i < len(to_lines):
-            p.drawString(col2_x, y, to_lines[i])
-        y -= 12
-    y -= 8
-
-    # ── Project title ──
-    p.setFont(h_font, 13)
-    p.setFillColorRGB(*_PDF_DARK)
-    p.drawString(margin, y, estimate.title)
-    y -= 20
-
-    # ── Line items table ──
     base_items = list(estimate.line_items.filter(is_addon=False))
     addon_items = list(estimate.line_items.filter(is_addon=True))
+    base_total = sum(item.line_total for item in base_items)
+    customer = estimate.customer
+    est_num = f"EST-{estimate.created_at.year}-{estimate.id:04d}" if estimate.created_at else f"EST-{estimate.id}"
 
-    # Table header
-    header_h = 20
-    p.setFillColorRGB(*accent)
-    p.rect(margin, y - 4, right - margin, header_h, fill=True, stroke=False)
-    p.setFillColorRGB(1, 1, 1)
-    p.setFont(h_font, 8)
-    p.drawString(margin + 10, y + 2, "DESCRIPTION")
-    p.drawString(350, y + 2, "QTY")
-    p.drawString(405, y + 2, "RATE")
-    p.drawRightString(right - 10, y + 2, "AMOUNT")
-    y -= 22
+    def _page_footer():
+        """Draw footer + accent bar on every page."""
+        p.setFont(b_font, 7)
+        p.setFillColorRGB(*_PDF_MUTED)
+        parts = [business.name] if business else []
+        if business and business.contact_email:
+            parts.append(business.contact_email)
+        if business and business.contact_phone:
+            parts.append(business.contact_phone)
+        p.drawCentredString(mid, 24, "  |  ".join(parts))
+        # Page number
+        p.drawRightString(right, 24, f"Page {p.getPageNumber()}")
+        # Accent bar at bottom
+        p.setFillColorRGB(*accent)
+        p.rect(0, 0, width, 4, fill=True, stroke=False)
 
-    # Base items
+    # ═══════════════════════════════════════════════════════════════
+    # PAGE 1: Header, Contact Info, Line Items
+    # ═══════════════════════════════════════════════════════════════
+
+    # ── Logo + Company Name (top left) ──
+    y = height - 40
+    if business and business.logo:
+        _draw_pdf_logo(p, business, x=margin, y_top=y + 6, max_height=36, max_width=36)
+    p.setFont(h_font, 14)
     p.setFillColorRGB(*_PDF_DARK)
-    row_idx = 0
+    logo_x = margin + 44 if (business and business.logo) else margin
+    p.drawString(logo_x, y - 6, _pdf_safe(business.name if business else ""))
+    if doc_template and doc_template.header_text:
+        p.setFont(b_font, 7)
+        p.setFillColorRGB(*_PDF_MUTED)
+        p.drawString(logo_x, y - 18, _pdf_safe(doc_template.header_text.split("\n")[0], 60))
+
+    # ── ESTIMATE label + number (top right) ──
+    p.setFont(h_font, 12)
+    p.setFillColorRGB(*_PDF_MUTED)
+    p.drawRightString(right, y - 2, "ESTIMATE")
+    p.setFont(b_font, 9)
+    p.drawRightString(right, y - 14, f"# {est_num}")
+    p.drawRightString(right, y - 26, f"Issued {estimate.created_at.strftime('%B %d, %Y') if estimate.created_at else '---'}")
+    if estimate.valid_until:
+        p.drawRightString(right, y - 38, f"Valid through {estimate.valid_until.strftime('%B %d, %Y') if hasattr(estimate.valid_until, 'strftime') else estimate.valid_until}")
+    y -= 56
+
+    # ── Accent banner with project title ──
+    banner_h = 56
+    p.setFillColorRGB(*accent)
+    p.rect(margin, y - banner_h + 10, right - margin, banner_h, fill=True, stroke=False)
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont(h_font, 20)
+    title_text = _pdf_safe(estimate.title, 50)
+    p.drawString(margin + 16, y - 14, title_text)
+    if estimate.notes:
+        p.setFont(b_font, 8)
+        p.drawString(margin + 16, y - 30, _pdf_safe(estimate.notes.split("\n")[0], 80))
+    y -= banner_h + 8
+
+    # ── Prepared By / Prepared For (bordered box) ──
+    box_h = 80
+    box_top = y
+    # Left box
+    p.setStrokeColorRGB(0.85, 0.85, 0.85)
+    p.setLineWidth(0.5)
+    p.rect(margin, box_top - box_h, mid - margin - 5, box_h, stroke=True, fill=False)
+    # Right box
+    p.rect(mid + 5, box_top - box_h, right - mid - 5, box_h, stroke=True, fill=False)
+
+    # Prepared By content
+    bx = margin + 12
+    by = box_top - 14
+    p.setFont(h_font, 10)
+    p.setFillColorRGB(*_PDF_DARK)
+    p.drawString(bx, by, "Prepared By")
+    by -= 14
+    p.setFont(h_font, 9)
+    p.drawString(bx, by, _pdf_safe(business.name if business else ""))
+    by -= 11
+    p.setFont(b_font, 8)
+    p.setFillColorRGB(*_PDF_MUTED)
+    for line in [
+        business.contact_phone if business else "",
+        business.contact_email if business else "",
+    ]:
+        if line and line.strip():
+            p.drawString(bx, by, _pdf_safe(line))
+            by -= 10
+
+    # Prepared For content
+    fx = mid + 17
+    fy = box_top - 14
+    p.setFont(h_font, 10)
+    p.setFillColorRGB(*_PDF_DARK)
+    p.drawString(fx, fy, "Prepared For")
+    fy -= 14
+    p.setFont(h_font, 9)
+    p.drawString(fx, fy, _pdf_safe(customer.name))
+    fy -= 11
+    p.setFont(b_font, 8)
+    p.setFillColorRGB(*_PDF_MUTED)
+    if customer.phone:
+        p.drawString(fx, fy, _pdf_safe(customer.phone))
+        fy -= 10
+    addr = getattr(customer, "full_address", None)
+    if addr and addr != "---":
+        p.drawString(fx, fy, _pdf_safe(addr, 40))
+        fy -= 10
+    if customer.email:
+        p.drawString(fx, fy, _pdf_safe(customer.email))
+
+    y = box_top - box_h - 16
+
+    # ── Estimate Details heading ──
+    p.setFont(h_font, 13)
+    p.setFillColorRGB(*_PDF_DARK)
+    p.drawString(margin, y, "Estimate Details")
+    y -= 18
+
+    # ── Line items table ──
+    # Table header with thin top/bottom borders
+    p.setStrokeColorRGB(0.8, 0.8, 0.8)
+    p.setLineWidth(0.5)
+    p.line(margin, y + 12, right, y + 12)
+    p.line(margin, y - 4, right, y - 4)
+    p.setFont(h_font, 8)
+    p.setFillColorRGB(*_PDF_MUTED)
+    p.drawString(margin + 6, y, "Item")
+    p.drawString(margin + 100, y, "Description")
+    p.drawString(370, y, "Qty")
+    p.drawString(420, y, "Unit")
+    p.drawRightString(right - 6, y, "Total")
+    y -= 18
+
+    # Line items
     for item in base_items:
-        if y < 120:
+        if y < 100:
+            _page_footer()
             p.showPage()
             y = height - 50
-            p.setFillColorRGB(*_PDF_DARK)
-        row_h = 18
-        if row_idx % 2 == 1:
-            p.setFillColorRGB(*accent_lighter)
-            p.rect(margin, y - 5, right - margin, row_h, fill=True, stroke=False)
-            p.setFillColorRGB(*_PDF_DARK)
-        p.setFont(b_font, 9)
-        p.drawString(margin + 10, y, str(item.description)[:48])
-        p.drawString(350, y, str(item.quantity or 1))
-        p.drawString(405, y, _fmt_currency(item.unit_price) if item.unit_price else "---")
+        desc = str(item.description or "")
+        # Item name (bold) — first part before any dash or newline
+        item_name = desc.split(" - ")[0].split("\n")[0][:25] if " - " in desc or "\n" in desc else desc[:25]
+        item_desc = desc[len(item_name):].lstrip(" -\n")[:50] if len(desc) > 25 else ""
+
+        row_h = 28 if item_desc else 18
+        # Alternating row shading
+        if base_items.index(item) % 2 == 1:
+            p.setFillColorRGB(0.97, 0.97, 0.97)
+            p.rect(margin, y - 6, right - margin, row_h, fill=True, stroke=False)
+
+        p.setFillColorRGB(*_PDF_DARK)
         p.setFont(h_font, 9)
-        p.drawRightString(right - 10, y, _fmt_currency(item.line_total))
+        p.drawString(margin + 6, y, _pdf_safe(item_name))
+        p.setFont(b_font, 8)
+        p.setFillColorRGB(*_PDF_MUTED)
+        if item_desc:
+            p.drawString(margin + 100, y, _pdf_safe(item_desc))
+        p.setFillColorRGB(*_PDF_DARK)
+        p.setFont(b_font, 9)
+        p.drawString(370, y, str(item.quantity or 1))
+        p.drawString(420, y, _fmt_currency(item.unit_price) if item.unit_price else "---")
+        p.setFont(h_font, 9)
+        p.drawRightString(right - 6, y, _fmt_currency(item.line_total))
+
         y -= row_h
         p.setStrokeColorRGB(0.90, 0.90, 0.90)
         p.setLineWidth(0.3)
-        p.line(margin, y + 1, right, y + 1)
-        row_idx += 1
+        p.line(margin, y + 4, right, y + 4)
 
-    # Add-on items
-    if addon_items:
-        y -= 10
-        p.setFont(h_font, 8)
-        p.setFillColorRGB(*accent)
-        p.drawString(margin + 10, y, "OPTIONAL ADD-ONS")
+    # ── Notes & Totals side by side ──
+    if not compact:
         y -= 14
-        for item in addon_items:
-            if y < 120:
-                p.showPage()
-                y = height - 50
-            p.setFont(b_font, 9)
-            p.setFillColorRGB(*_PDF_MUTED)
-            p.drawString(margin + 10, y, str(item.description)[:48])
-            p.drawString(350, y, str(item.quantity or 1))
+        notes_present = bool(estimate.notes)
+
+        if notes_present and y > 140:
+            # Notes box (left)
+            notes_box_x = margin
+            notes_box_w = mid - margin - 10
+            p.setStrokeColorRGB(0.85, 0.85, 0.85)
+            p.setLineWidth(0.5)
+            notes_lines = [l.strip() for l in estimate.notes.replace("\r", "").split("\n") if l.strip()][:6]
+            notes_box_h = max(60, 20 + len(notes_lines) * 11)
+            p.roundRect(notes_box_x, y - notes_box_h + 8, notes_box_w, notes_box_h, 4, stroke=True, fill=False)
             p.setFont(h_font, 9)
-            p.drawRightString(right - 10, y, _fmt_currency(item.line_total))
-            y -= 16
+            p.setFillColorRGB(*_PDF_DARK)
+            p.drawString(notes_box_x + 10, y - 4, "Notes & Inclusions")
+            p.setFont(b_font, 7)
+            p.setFillColorRGB(*_PDF_MUTED)
+            ny = y - 18
+            for nl in notes_lines:
+                p.drawString(notes_box_x + 10, ny, _pdf_safe(nl, 45))
+                ny -= 11
 
-    # ── Totals box ──
-    y -= 12
-    totals_x = 340
-    base_total = sum(item.line_total for item in base_items)
-
-    # Thin separator above totals
-    p.setStrokeColorRGB(0.88, 0.88, 0.88)
-    p.setLineWidth(0.5)
-    p.line(totals_x, y + 4, right, y + 4)
-    y -= 6
-
-    p.setFont(b_font, 9)
-    p.setFillColorRGB(*_PDF_MUTED)
-    p.drawString(totals_x, y, "Subtotal")
-    p.setFillColorRGB(*_PDF_DARK)
-    p.drawRightString(right - 10, y, _fmt_currency(base_total))
-    y -= 16
-
-    if addon_items:
-        addon_total = sum(item.line_total for item in addon_items)
+        # Totals (right side or full width if no notes)
+        totals_x = mid + 10 if notes_present else 340
+        p.setFont(b_font, 9)
         p.setFillColorRGB(*_PDF_MUTED)
-        p.drawString(totals_x, y, "Add-ons (if selected)")
-        p.drawRightString(right - 10, y, f"+{_fmt_currency(addon_total)}")
+        ty = y - 4
+        p.drawString(totals_x, ty, "Subtotal")
+        p.setFillColorRGB(*_PDF_DARK)
+        p.drawRightString(right - 6, ty, _fmt_currency(base_total))
+        ty -= 16
+
+        p.setFillColorRGB(*_PDF_MUTED)
+        p.drawString(totals_x, ty, "Tax")
+        p.drawRightString(right - 6, ty, "$0.00")
+        ty -= 16
+
+        # Total estimate box
+        p.setFont(h_font, 10)
+        p.setFillColorRGB(*_PDF_DARK)
+        p.drawString(totals_x, ty, "Total Estimate")
+        p.setFont(h_font, 14)
+        p.drawRightString(right - 6, ty - 2, _fmt_currency(base_total))
+        ty -= 20
+
+    # ── Optional Upgrades (add-ons) ──
+    if addon_items and not compact:
+        if y < 160:
+            _page_footer()
+            p.showPage()
+            y = height - 50
+        else:
+            y = ty - 20
+
+        p.setFont(h_font, 12)
+        p.setFillColorRGB(*_PDF_DARK)
+        p.drawString(margin, y, "Optional Upgrades")
         y -= 16
 
-    # Estimate total — highlighted box
-    y -= 8
-    total_box_h = 28
-    p.setFillColorRGB(*accent)
-    p.rect(totals_x - 10, y - 6, right - totals_x + 10, total_box_h, fill=True, stroke=False)
-    p.setFillColorRGB(1, 1, 1)
-    p.setFont(h_font, 10)
-    p.drawString(totals_x, y + 4, "ESTIMATE TOTAL")
-    p.setFont(h_font, 14)
-    p.drawRightString(right - 10, y + 2, _fmt_currency(base_total))
-    y -= total_box_h + 8
-
-    # ── Notes ──
-    if estimate.notes and y > 110:
-        p.setFont(h_font, 8)
-        p.setFillColorRGB(*accent)
-        p.drawString(margin, y, "NOTES")
-        y -= 12
-        p.setFont(b_font, 8)
-        p.setFillColorRGB(*_PDF_MUTED)
-        for line in estimate.notes.split("\n")[:5]:
-            if y > 60:
-                p.drawString(margin, y, line[:90])
-                y -= 10
-        y -= 6
-
-    # ── Terms ──
-    if doc_template and doc_template.terms_and_conditions and y > 100:
-        p.setStrokeColorRGB(0.88, 0.88, 0.88)
+        # Header
+        p.setStrokeColorRGB(0.85, 0.85, 0.85)
         p.setLineWidth(0.5)
-        p.line(margin, y + 2, right, y + 2)
-        y -= 10
-        p.setFont(h_font, 7)
+        p.line(margin, y + 10, right, y + 10)
+        p.line(margin, y - 4, right, y - 4)
+        p.setFont(h_font, 8)
         p.setFillColorRGB(*_PDF_MUTED)
-        p.drawString(margin, y, "TERMS & CONDITIONS")
-        y -= 10
-        p.setFont(b_font, 7)
-        for line in (doc_template.terms_and_conditions or "").replace("\r", "").split("\n")[:6]:
-            if line.strip() and y > 50:
-                p.drawString(margin, y, line.strip()[:100])
-                y -= 9
+        p.drawString(margin + 6, y, "Option")
+        p.drawString(margin + 140, y, "Description")
+        p.drawRightString(right - 6, y, "Price")
+        y -= 18
 
-    # ── Footer ──
+        for item in addon_items:
+            p.setFont(h_font, 9)
+            p.setFillColorRGB(*_PDF_DARK)
+            p.drawString(margin + 6, y, _pdf_safe(str(item.description)[:25]))
+            p.setFont(b_font, 8)
+            p.setFillColorRGB(*_PDF_MUTED)
+            p.drawRightString(right - 6, y, _fmt_currency(item.line_total))
+            y -= 18
+            p.setStrokeColorRGB(0.92, 0.92, 0.92)
+            p.line(margin, y + 6, right, y + 6)
+
+    # If compact, put totals inline and skip page 2
+    if compact:
+        y -= 14
+        totals_x = 340
+        p.setStrokeColorRGB(0.85, 0.85, 0.85)
+        p.setLineWidth(0.5)
+        p.line(totals_x, y + 8, right, y + 8)
+
+        p.setFont(h_font, 11)
+        p.setFillColorRGB(*_PDF_DARK)
+        p.drawString(totals_x, y - 4, "Total")
+        p.setFont(h_font, 14)
+        p.setFillColorRGB(*accent)
+        p.drawRightString(right - 6, y - 4, _fmt_currency(base_total))
+        y -= 30
+
+        # Compact terms
+        if doc_template and doc_template.terms_and_conditions:
+            p.setFont(h_font, 7)
+            p.setFillColorRGB(*_PDF_MUTED)
+            p.drawString(margin, y, "TERMS")
+            y -= 10
+            p.setFont(b_font, 7)
+            for line in doc_template.terms_and_conditions.replace("\r", "").split("\n")[:4]:
+                if line.strip() and y > 40:
+                    p.drawString(margin, y, _pdf_safe(line, 90))
+                    y -= 9
+
+        _page_footer()
+        p.showPage()
+        p.save()
+        buffer.seek(0)
+        return buffer.read()
+
+    # ═══════════════════════════════════════════════════════════════
+    # PAGE 2: Approval & Terms
+    # ═══════════════════════════════════════════════════════════════
+    _page_footer()
+    p.showPage()
+    y = height - 50
+
+    p.setFont(h_font, 22)
+    p.setFillColorRGB(*_PDF_DARK)
+    p.drawString(margin, y, "Approval & Terms")
+    y -= 30
+
+    # ── Projected Timeline / Payment Terms (two columns) ──
+    col_w = (right - margin - 10) / 2
+    box_h = 70
+    p.setStrokeColorRGB(0.85, 0.85, 0.85)
+    p.setLineWidth(0.5)
+    p.rect(margin, y - box_h, col_w, box_h, stroke=True, fill=False)
+    p.rect(margin + col_w + 10, y - box_h, col_w, box_h, stroke=True, fill=False)
+
+    # Left: Timeline
+    lx = margin + 10
+    ly = y - 14
+    p.setFont(h_font, 10)
+    p.setFillColorRGB(*_PDF_DARK)
+    p.drawString(lx, ly, "Projected Timeline")
+    ly -= 14
+    p.setFont(b_font, 8)
+    p.setFillColorRGB(*_PDF_MUTED)
+    for tl in ["Start Window: Upon approval", "Crew Size: As needed"]:
+        p.drawString(lx, ly, tl)
+        ly -= 11
+
+    # Right: Payment Terms
+    rx = margin + col_w + 20
+    ry = y - 14
+    p.setFont(h_font, 10)
+    p.setFillColorRGB(*_PDF_DARK)
+    p.drawString(rx, ry, "Payment Terms")
+    ry -= 14
+    p.setFont(b_font, 8)
+    p.setFillColorRGB(*_PDF_MUTED)
+    deposit_text = ""
+    if estimate.deposit_required and estimate.deposit_amount:
+        if estimate.deposit_type == "percent":
+            deposit_text = f"Deposit: {estimate.deposit_amount:.0f}% due upon approval"
+        else:
+            deposit_text = f"Deposit: ${estimate.deposit_amount:.2f} due upon approval"
+    for pt in [
+        deposit_text or "Due upon completion",
+        "Accepted: ACH, card, or check",
+    ]:
+        if pt:
+            p.drawString(rx, ry, pt)
+            ry -= 11
+    y -= box_h + 20
+
+    # ── Terms & Conditions (bordered box) ──
+    if doc_template and doc_template.terms_and_conditions:
+        terms_lines = [l.strip() for l in doc_template.terms_and_conditions.replace("\r", "").split("\n") if l.strip()][:8]
+        tc_h = max(50, 18 + len(terms_lines) * 11)
+        p.setStrokeColorRGB(0.85, 0.85, 0.85)
+        p.setLineWidth(0.5)
+        p.roundRect(margin, y - tc_h, right - margin, tc_h, 4, stroke=True, fill=False)
+        p.setFont(h_font, 9)
+        p.setFillColorRGB(*_PDF_DARK)
+        p.drawString(margin + 10, y - 14, "Terms & Conditions")
+        p.setFont(b_font, 7)
+        p.setFillColorRGB(*_PDF_MUTED)
+        tcy = y - 28
+        for i, tl in enumerate(terms_lines):
+            p.drawString(margin + 10, tcy, f"{i+1}. {_pdf_safe(tl, 90)}")
+            tcy -= 11
+        y -= tc_h + 20
+
+    # ── Client Approval section ──
+    p.setFont(h_font, 14)
+    p.setFillColorRGB(*accent)
+    p.drawString(margin, y, "Client Approval")
+    y -= 8
+    p.setStrokeColorRGB(*accent)
+    p.setLineWidth(1)
+    p.line(margin, y, right, y)
+    y -= 16
+
+    p.setFont(b_font, 8)
+    p.setFillColorRGB(*_PDF_MUTED)
+    p.drawString(margin, y, "By signing below, I approve the work described in this estimate and authorize the contractor to proceed.")
+    y -= 24
+
+    # Signature lines
+    p.setFont(h_font, 8)
+    p.setFillColorRGB(*_PDF_DARK)
+    sig_w = (right - margin - 20) / 3
+    p.drawString(margin, y, "Client Signature")
+    p.drawString(margin + sig_w + 10, y, "Printed Name")
+    p.drawString(margin + 2 * sig_w + 20, y, "Date")
+    y -= 4
+    p.setStrokeColorRGB(*_PDF_MUTED)
+    p.setLineWidth(0.5)
+    p.line(margin, y, margin + sig_w, y)
+    p.line(margin + sig_w + 10, y, margin + 2 * sig_w + 10, y)
+    p.line(margin + 2 * sig_w + 20, y, right, y)
+    y -= 24
+
+    # Contractor signature + totals
+    p.setFont(h_font, 8)
+    p.setFillColorRGB(*_PDF_DARK)
+    p.drawString(margin, y, "Contractor Signature")
+    p.drawString(margin + sig_w + 10, y, "Approved Total")
+    p.drawString(margin + 2 * sig_w + 20, y, "Deposit Due")
+    y -= 4
+    p.line(margin, y, margin + sig_w, y)
+    y -= 14
+    p.setFont(h_font, 11)
+    p.drawString(margin + sig_w + 10, y, _fmt_currency(base_total))
+    if estimate.deposit_required and estimate.deposit_amount:
+        dep = estimate.deposit_amount
+        if estimate.deposit_type == "percent":
+            dep = base_total * estimate.deposit_amount / 100
+        p.drawString(margin + 2 * sig_w + 20, y, _fmt_currency(dep))
+
+    # Footer
     if doc_template and doc_template.footer_text:
         p.setFont(b_font, 7)
         p.setFillColorRGB(*_PDF_MUTED)
-        p.drawCentredString(width / 2, 42, _pdf_safe(doc_template.footer_text, 80))
+        p.drawCentredString(mid, 42, _pdf_safe(doc_template.footer_text, 80))
 
-    p.setFont(b_font, 7)
-    p.setFillColorRGB(*_PDF_MUTED)
-    footer_text = ""
-    if business:
-        parts = [business.name]
-        if business.contact_email:
-            parts.append(business.contact_email)
-        if business.contact_phone:
-            parts.append(business.contact_phone)
-        footer_text = "  |  ".join(parts)
-    p.drawCentredString(width / 2, 30, footer_text)
-
-    # Bottom accent bar
-    p.setFillColorRGB(*accent)
-    p.rect(0, 0, width, 4, fill=True, stroke=False)
-
+    _page_footer()
     p.showPage()
     p.save()
     buffer.seek(0)
@@ -2032,7 +2225,8 @@ def estimate_pdf(request, estimate_id):
         return redirect("/")
 
     estimate = get_object_or_404(Estimate, id=estimate_id, business=business)
-    pdf_bytes = _build_estimate_pdf(estimate, business)
+    compact = request.GET.get("compact") == "1"
+    pdf_bytes = _build_estimate_pdf(estimate, business, compact=compact)
     return FileResponse(BytesIO(pdf_bytes), as_attachment=True, filename=f"estimate_{estimate.id}.pdf")
 
 
