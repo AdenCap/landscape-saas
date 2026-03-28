@@ -448,7 +448,11 @@ def calendar_events(request):
         service_names = list({si.service.name for si in job.service_items.all() if si.service})
         services_str = ", ".join(service_names) if service_names else "No services"
 
-        title = job.property.address
+        # Title: service type + customer name (e.g. "Mowing · John Smith")
+        if service_names:
+            title = ", ".join(service_names[:2]) + " · " + customer_name
+        else:
+            title = customer_name or job.property.address
         if is_completed:
             title = '✓ ' + title
 
