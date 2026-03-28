@@ -48,6 +48,15 @@ def subscription_status(request):
         "solo_fit": crew_user_count <= 1,
         "recommend_pro": business.subscription_plan_tier == "solo" and crew_user_count > 1,
     }
+    # Calculate trial days remaining
+    from django.utils import timezone as tz
+    trial_days_left = None
+    trial_expired = False
+    if business.subscription_status == "trialing" and business.subscription_current_period_end:
+        delta = business.subscription_current_period_end - tz.now()
+        trial_days_left = max(0, delta.days)
+        trial_expired = delta.total_seconds() <= 0
+
     return render(
         request,
         "subscription/status.html",
@@ -57,6 +66,8 @@ def subscription_status(request):
             "has_active_subscription": business.has_active_subscription(),
             "pricing": pricing,
             "pricing_signal": pricing_signal,
+            "trial_days_left": trial_days_left,
+            "trial_expired": trial_expired,
         },
     )
 

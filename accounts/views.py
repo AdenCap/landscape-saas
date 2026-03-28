@@ -181,7 +181,7 @@ def signup(request):
             user.role = "owner"
             user.save()
             request.session.pop("signup_business_type", None)
-            login(request, user)
+            login(request, user, backend="django.contrib.auth.backends.ModelBackend")
             messages.success(request, f"Welcome! Your business '{business.name}' is set up.")
             return redirect("/subscription/status/")
     else:

@@ -500,8 +500,17 @@ class Business(models.Model):
     )
 
     def has_active_subscription(self):
-        """True if this business can use the app (active/trialing or complimentary override)."""
-        return self.subscription_status in ("active", "trialing") or self.complimentary_access_enabled
+        """True if this business can use the app (active/trialing within period, or complimentary)."""
+        if self.complimentary_access_enabled:
+            return True
+        if self.subscription_status not in ("active", "trialing"):
+            return False
+        # Check if trial/subscription has expired (for no-card trials without Stripe webhook updates)
+        if self.subscription_current_period_end:
+            from django.utils import timezone
+            if self.subscription_current_period_end < timezone.now():
+                return False
+        return True
 
     def can_accept_stripe_payments(self):
         """True if this business has connected Stripe and can accept card payments for invoices."""

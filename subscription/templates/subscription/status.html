@@ -2,12 +2,30 @@
 {% block content %}
 <div class="page-header" style="margin-bottom:16px;">
   <h1 style="margin:0 0 6px;">Subscription & Billing</h1>
-  <p style="margin:0; color:var(--text-muted);">Current plan: <strong>{{ business.get_subscription_plan_tier_display }}</strong>{% if business.complimentary_access_enabled %} · <span style="color:#86efac;">Complimentary access active</span>{% endif %}</p>
+  <p style="margin:0; color:var(--text-muted);">
+    {% if trial_expired %}
+    <span style="color:#f87171;font-weight:600;">Your free trial has expired.</span> Choose a plan below to continue.
+    {% elif trial_days_left is not None %}
+    <span style="color:var(--primary);font-weight:600;">Free trial: {{ trial_days_left }} day{{ trial_days_left|pluralize }} remaining</span>
+    {% elif has_active_subscription %}
+    Plan: <strong>{{ business.get_subscription_plan_tier_display }}</strong>
+    {% if business.complimentary_access_enabled %} &middot; <span style="color:#86efac;">Complimentary</span>{% endif %}
+    {% endif %}
+  </p>
 </div>
 
+{% if trial_expired %}
+<div class="card" style="max-width:960px;padding:18px;margin-bottom:16px;border:1px solid rgba(248,113,113,0.3);background:rgba(248,113,113,0.06);">
+  <h3 style="margin:0 0 6px;color:#f87171;">Trial Expired</h3>
+  <p style="margin:0;color:var(--text-muted);">Your 14-day free trial has ended. Subscribe to a plan to keep using FieldLgx. Your data is safe and waiting for you.</p>
+</div>
+{% endif %}
+
 <div class="card" style="max-width:960px; padding:18px;">
-  <h3 style="margin:0 0 10px;">Choose your plan</h3>
-  <p class="muted" style="margin:0 0 14px;">New accounts start with a free trial. You can switch plans later.</p>
+  <h3 style="margin:0 0 10px;">{% if has_active_subscription and not trial_expired %}Your Plan{% else %}Choose Your Plan{% endif %}</h3>
+  {% if not has_active_subscription or trial_expired %}
+  <p class="muted" style="margin:0 0 14px;">All plans include a 14-day free trial. No commitment required.</p>
+  {% endif %}
 
   <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px;">
     <article style="border:1px solid var(--border); border-radius:12px; padding:14px; background:rgba(255,255,255,.01);">
@@ -20,52 +38,51 @@
         <li>Job tracking</li>
         <li>Basic invoicing</li>
       </ul>
-      {% if not has_active_subscription %}
-        {% if stripe_enabled %}
-        <form method="post" action="{% url 'subscription:create_checkout' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="solo"><button class="btn btn-secondary" style="width:100%;">Start Solo Free Trial</button></form>
-        {% else %}
-        <form method="post" action="{% url 'subscription:start_trial' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="solo"><button class="btn btn-secondary" style="width:100%;">Start Solo Free Trial</button></form>
-        {% endif %}
+      {% if not has_active_subscription or trial_expired %}
+      <form method="post" action="{% url 'subscription:create_checkout' %}">
+        {% csrf_token %}
+        <input type="hidden" name="plan_tier" value="solo">
+        <button class="btn btn-secondary" style="width:100%;">{% if trial_expired %}Subscribe Solo{% else %}Start Solo Free Trial{% endif %}</button>
+      </form>
+      {% elif business.subscription_plan_tier == "solo" %}
+      <div style="text-align:center;padding:10px;color:var(--primary);font-weight:600;">Current Plan</div>
       {% endif %}
     </article>
 
     <article style="border:1px solid rgba(34,197,94,.5); border-radius:12px; padding:14px; background:rgba(34,197,94,.08);">
+      <span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:var(--primary);color:#111;padding:3px 8px;border-radius:4px;margin-bottom:8px;">Recommended</span>
       <h4 style="margin:0 0 8px;">Pro All-Access</h4>
       <div style="font-size:34px; font-weight:800; margin:2px 0 8px;">${{ pricing.pro_price }}<span style="font-size:13px; color:var(--text-muted); font-weight:500;">/mo</span></div>
-      <p style="margin:0 0 10px; color:var(--text-muted);">All features included for full operations control.</p>
+      <p style="margin:0 0 10px; color:var(--text-muted);">All features for full operations control.</p>
       <ul style="margin:0 0 12px; color:var(--text-muted); padding-left:18px; line-height:1.7;">
         <li>Everything in Solo</li>
         <li>Dispatch command center</li>
         <li>Invoicing + automation</li>
         <li>Pricebook & equipment tracking</li>
         <li>Inspections & checklists</li>
-        <li>Service agreements</li>
-        <li>Online booking & SMS</li>
+        <li>Fertilization management</li>
+        <li>Financial reporting</li>
       </ul>
-      {% if not has_active_subscription %}
-        {% if stripe_enabled %}
-        <form method="post" action="{% url 'subscription:create_checkout' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="core"><button class="btn btn-primary" style="width:100%;">Start Pro Free Trial</button></form>
-        {% else %}
-        <form method="post" action="{% url 'subscription:start_trial' %}">{% csrf_token %}<input type="hidden" name="plan_tier" value="core"><button class="btn btn-primary" style="width:100%;">Start Pro Free Trial</button></form>
-        {% endif %}
+      {% if not has_active_subscription or trial_expired %}
+      <form method="post" action="{% url 'subscription:create_checkout' %}">
+        {% csrf_token %}
+        <input type="hidden" name="plan_tier" value="core">
+        <button class="btn btn-primary" style="width:100%;">{% if trial_expired %}Subscribe Pro{% else %}Start Pro Free Trial{% endif %}</button>
+      </form>
+      {% elif business.subscription_plan_tier == "core" %}
+      <div style="text-align:center;padding:10px;color:var(--primary);font-weight:600;">Current Plan</div>
       {% endif %}
     </article>
   </div>
 
-  <div style="margin-top:14px; color:var(--text-muted); font-size:13px;">
-    Active crew users: <strong>{{ pricing_signal.crew_user_count }}</strong>. Solo is intended for one-person operations.
-    {% if pricing_signal.recommend_pro %}<div style="margin-top:8px; color:#fcd34d;">Your team has outgrown Solo. Pro is recommended.</div>{% endif %}
-  </div>
-
+  {% if has_active_subscription and not trial_expired %}
   <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-
-  {% if has_active_subscription %}
-    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-      <span style="color:var(--text-muted);">Need to update payment method, cancel, or switch billing details?</span>
-      {% if stripe_enabled and business.stripe_customer_id %}
-      <form method="post" action="{% url 'subscription:create_portal' %}">{% csrf_token %}<button class="btn btn-secondary">Open billing portal</button></form>
-      {% endif %}
-    </div>
+  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <span style="color:var(--text-muted);">Need to update payment method, cancel, or switch plans?</span>
+    {% if stripe_enabled and business.stripe_customer_id %}
+    <form method="post" action="{% url 'subscription:create_portal' %}">{% csrf_token %}<button class="btn btn-secondary">Manage Billing</button></form>
+    {% endif %}
+  </div>
   {% endif %}
 </div>
 {% endblock %}
