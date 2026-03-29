@@ -3025,3 +3025,84 @@ def estimate_queue_discard(request, estimate_id):
     estimate.delete()
     messages.success(request, f"Discarded draft for {customer_name}.")
     return redirect("/billing/estimates/?tab=queue")
+
+
+# ── Promotions ──────────────────────────────────────────────
+
+@role_required("owner", "manager")
+def promotion_list(request):
+    """List and manage promotions."""
+    from .models import Promotion
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    promos = Promotion.objects.filter(business=business).select_related("customer").order_by("-created_at")
+    customers = Customer.objects.filter(business=business).order_by("name")
+    return render(request, "billing/promotion_list.html", {
+        "promos": promos,
+        "customers": customers,
+    })
+
+
+@require_POST
+@role_required("owner", "manager")
+def promotion_create(request):
+    """Create a new promotion."""
+    from .models import Promotion
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    name = (request.POST.get("name") or "").strip()
+    if not name:
+        messages.error(request, "Promotion name is required.")
+        return redirect("billing:promotion_list")
+
+    promo_type = request.POST.get("promo_type", "buy_x_get_free")
+    customer_id = request.POST.get("customer_id")
+    customer = None
+    if customer_id:
+        customer = Customer.objects.filter(id=customer_id, business=business).first()
+
+    promo = Promotion.objects.create(
+        business=business,
+        customer=customer,
+        name=name,
+        promo_type=promo_type,
+        service_name=request.POST.get("service_name", "").strip(),
+        buy_quantity=int(request.POST.get("buy_quantity") or 0) or None,
+        free_quantity=int(request.POST.get("free_quantity") or 1) or 1,
+        discount_value=request.POST.get("discount_value") or None,
+        notes=request.POST.get("notes", "").strip(),
+    )
+    messages.success(request, f"Promotion '{name}' created.")
+    return redirect("billing:promotion_list")
+
+
+@require_POST
+@role_required("owner", "manager")
+def promotion_update_count(request, promo_id):
+    """Increment or set the current count for a buy-X-get-free promotion."""
+    from .models import Promotion
+    business = _get_business(request)
+    promo = get_object_or_404(Promotion, id=promo_id, business=business)
+    action = request.POST.get("action", "increment")
+    if action == "increment":
+        promo.current_count += 1
+    elif action == "set":
+        promo.current_count = int(request.POST.get("count", 0))
+    promo.save(update_fields=["current_count"])
+    messages.success(request, f"Updated count for '{promo.name}' to {promo.current_count}.")
+    return redirect("billing:promotion_list")
+
+
+@require_POST
+@role_required("owner", "manager")
+def promotion_redeem(request, promo_id):
+    """Mark a promotion as redeemed."""
+    from .models import Promotion
+    business = _get_business(request)
+    promo = get_object_or_404(Promotion, id=promo_id, business=business)
+    promo.status = "redeemed"
+    promo.save(update_fields=["status"])
+    messages.success(request, f"'{promo.name}' marked as redeemed.")
+    return redirect("billing:promotion_list")

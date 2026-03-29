@@ -192,8 +192,8 @@
             <td class="fert-hide-mobile" style="font-size:13px;color:var(--text-secondary);">{{ enr.property.address|truncatewords:5 }}</td>
             <td class="num fert-hide-mobile">{% if enr.calc_sqft %}{{ enr.calc_sqft|floatformat:0 }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
             {% if can_see_pricing %}
-            <td class="num fert-hide-mobile" style="{% if enr.price_per_application %}color:var(--primary);font-weight:600;{% else %}color:var(--text-muted);{% endif %}">
-              {% if enr.price_per_application %}${{ enr.price_per_application|floatformat:0 }}{% else %}—{% endif %}
+            <td class="num fert-hide-mobile" onclick="event.stopPropagation()">
+              <span class="fert-price-display" data-enrid="{{ enr.id }}" onclick="fertEditPrice(this)" style="cursor:pointer;font-weight:600;padding:4px 8px;border-radius:6px;{% if enr.price_per_application %}color:var(--primary);background:rgba(34,197,94,0.08);{% else %}color:var(--text-muted);{% endif %}">{% if enr.price_per_application %}${{ enr.price_per_application|floatformat:0 }}{% else %}+ Set{% endif %}</span>
             </td>
             {% endif %}
             <td>
@@ -235,6 +235,42 @@ function fertFilter() {
   var q = (document.getElementById('fert-search').value || '').toLowerCase();
   document.querySelectorAll('.fert-client-row').forEach(function(row) {
     row.style.display = !q || (row.dataset.search || '').indexOf(q) >= 0 ? '' : 'none';
+  });
+}
+
+function fertEditPrice(el) {
+  var enrId = el.dataset.enrid;
+  if (!enrId) return;
+  var current = el.textContent.trim().replace('$','').replace('+ Set','').trim();
+  var input = document.createElement('input');
+  input.type = 'number'; input.step = '0.01'; input.min = '0';
+  input.value = current || ''; input.placeholder = '$ per app';
+  input.style.cssText = 'width:70px;padding:4px 6px;font-size:13px;border:1px solid var(--primary);border-radius:6px;background:var(--bg);color:var(--text);text-align:center;';
+  el.style.display = 'none';
+  el.parentNode.appendChild(input);
+  input.focus(); input.select();
+  function save() {
+    var val = input.value.trim();
+    fetch('/fertilization/update-enrollment-price/', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+      body: JSON.stringify({ enrollment_id: enrId, price: val })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.ok) {
+        if (val && parseFloat(val) > 0) {
+          el.textContent = '$' + Math.round(parseFloat(val));
+          el.style.color = 'var(--primary)'; el.style.background = 'rgba(34,197,94,0.08)';
+        } else {
+          el.textContent = '+ Set'; el.style.color = 'var(--text-muted)'; el.style.background = '';
+        }
+      }
+    });
+    el.style.display = ''; input.remove();
+  }
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { el.style.display = ''; input.remove(); }
   });
 }
 

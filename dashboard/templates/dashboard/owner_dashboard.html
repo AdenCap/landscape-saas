@@ -182,6 +182,27 @@
 </div>
 
 <!-- Activity -->
+{% if active_promos %}
+<div class="card" style="margin-top:16px;">
+  <div class="card-head">
+    <h3>Promotions {% if ready_promos_count %}<span style="font-size:11px;font-weight:600;background:var(--primary);color:#111;padding:2px 7px;border-radius:10px;margin-left:4px;">{{ ready_promos_count }} ready</span>{% endif %}</h3>
+    <a href="{% url 'billing:promotion_list' %}" style="font-size:12px;color:var(--primary);">Manage</a>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:6px;">
+    {% for promo in active_promos %}
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:{% if promo.is_ready_to_redeem %}rgba(34,197,94,0.08){% else %}var(--surface-highest){% endif %};border:1px solid {% if promo.is_ready_to_redeem %}rgba(34,197,94,0.3){% else %}var(--border){% endif %};border-radius:8px;">
+      <span class="material-symbols-outlined" style="font-size:18px;{% if promo.is_ready_to_redeem %}color:var(--primary);{% else %}color:var(--text-muted);{% endif %}">{% if promo.is_ready_to_redeem %}redeem{% else %}loyalty{% endif %}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;">{{ promo.name }}</div>
+        <div style="font-size:11px;color:var(--text-muted);">{% if promo.customer %}{{ promo.customer.name }}{% else %}All clients{% endif %}{% if promo.progress_display %} · {{ promo.progress_display }}{% endif %}</div>
+      </div>
+      {% if promo.is_ready_to_redeem %}<span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:3px 8px;background:var(--primary);color:#111;border-radius:4px;">Ready</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {% if changes_feed %}
 <div class="card" style="margin-top:16px;">
   <div class="card-head"><h3>Today's Activity</h3><span style="font-size:12px;color:var(--text-muted);">Last 24 hours</span></div>

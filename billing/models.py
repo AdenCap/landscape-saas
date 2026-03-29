@@ -974,3 +974,71 @@ class FertilizerApplication(models.Model):
             return None
         return (profit / self.charge_amount) * 100
 
+
+class Promotion(models.Model):
+    """Track promotions and deals for customers — percentage off, buy-X-get-1-free, etc."""
+    PROMO_TYPE_CHOICES = [
+        ("percent_off", "Percentage Off"),
+        ("fixed_off", "Fixed Amount Off"),
+        ("buy_x_get_free", "Buy X Get 1 Free"),
+        ("free_service", "Free Service"),
+        ("custom", "Custom"),
+    ]
+    STATUS_CHOICES = [
+        ("active", "Active"),
+        ("redeemed", "Redeemed"),
+        ("expired", "Expired"),
+    ]
+
+    business = models.ForeignKey(
+        'businesses.Business', on_delete=models.CASCADE, related_name="promotions"
+    )
+    customer = models.ForeignKey(
+        Customer, on_delete=models.CASCADE, related_name="promotions",
+        null=True, blank=True, help_text="Leave blank for a business-wide promotion."
+    )
+    name = models.CharField(max_length=200, help_text="e.g. Buy 5 Fertilization Treatments, Get 6th Free")
+    promo_type = models.CharField(max_length=20, choices=PROMO_TYPE_CHOICES, default="buy_x_get_free")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
+
+    # For percentage/fixed off
+    discount_value = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True,
+        help_text="Percentage (e.g. 10 for 10%) or fixed dollar amount")
+
+    # For buy-X-get-free
+    buy_quantity = models.PositiveSmallIntegerField(null=True, blank=True,
+        help_text="Buy this many...")
+    free_quantity = models.PositiveSmallIntegerField(null=True, blank=True, default=1,
+        help_text="...get this many free")
+    current_count = models.PositiveSmallIntegerField(default=0,
+        help_text="How many the customer has completed so far")
+
+    # Service association
+    service_name = models.CharField(max_length=100, blank=True,
+        help_text="Which service this applies to (e.g. Fertilization, Mowing)")
+
+    notes = models.TextField(blank=True)
+    valid_from = models.DateField(null=True, blank=True)
+    valid_until = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        cust = self.customer.name if self.customer else "All clients"
+        return f"{self.name} — {cust}"
+
+    @property
+    def progress_display(self):
+        if self.promo_type == "buy_x_get_free" and self.buy_quantity:
+            return f"{self.current_count}/{self.buy_quantity}"
+        return ""
+
+    @property
+    def is_ready_to_redeem(self):
+        return (self.promo_type == "buy_x_get_free"
+                and self.buy_quantity
+                and self.current_count >= self.buy_quantity
+                and self.status == "active")
+

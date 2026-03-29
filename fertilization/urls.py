@@ -30,6 +30,7 @@ urlpatterns = [
     path("api/enrollments/<int:pk>/cancel/", views.enrollment_cancel, name="enrollment_cancel"),
     path("api/enrollments/<int:pk>/delete/", views.enrollment_delete, name="enrollment_delete"),
     path("batch-schedule/", views.batch_schedule_rounds, name="batch_schedule_rounds"),
+    path("update-enrollment-price/", views.update_enrollment_price, name="update_enrollment_price"),
 
     # Pricing calculator (AJAX)
     path("api/calculate-pricing/", views.calculate_pricing, name="calculate_pricing"),

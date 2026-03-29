@@ -879,6 +879,14 @@ def owner_dashboard(request):
         "fert_next_round_count": fert_next_round_count,
         **review_stats,
     }
+
+    # Active promotions
+    from billing.models import Promotion
+    active_promos = Promotion.objects.filter(business=business, status="active").select_related("customer").order_by("-created_at")[:10]
+    ready_promos = [p for p in active_promos if p.is_ready_to_redeem]
+    context["active_promos"] = active_promos
+    context["ready_promos_count"] = len(ready_promos)
+
     return render(request, "dashboard/owner_dashboard.html", context)
 
 

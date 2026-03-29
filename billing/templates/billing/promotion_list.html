@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+  <div>
+    <h1>Promotions</h1>
+    <p>Track deals, discounts, and loyalty programs for your clients.</p>
+  </div>
+</div>
+
+<!-- Create new promotion -->
+<div class="card" style="margin-bottom:16px;padding:16px;">
+  <h3 style="margin:0 0 12px;font-size:15px;font-weight:700;">Create Promotion</h3>
+  <form method="post" action="{% url 'billing:promotion_create' %}">
+    {% csrf_token %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Promotion Name</label>
+        <input type="text" name="name" required placeholder="e.g. Buy 5 Fert Treatments, Get 6th Free" class="form-control">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Type</label>
+        <select name="promo_type" class="form-control">
+          <option value="buy_x_get_free">Buy X Get 1 Free</option>
+          <option value="percent_off">Percentage Off</option>
+          <option value="fixed_off">Fixed Amount Off</option>
+          <option value="free_service">Free Service</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;">
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Customer (optional)</label>
+        <select name="customer_id" class="form-control">
+          <option value="">All Clients</option>
+          {% for c in customers %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Service</label>
+        <input type="text" name="service_name" placeholder="e.g. Fertilization" class="form-control">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Buy Qty (for buy-X-get-free)</label>
+        <input type="number" name="buy_quantity" value="5" min="1" class="form-control">
+      </div>
+    </div>
+    <div style="margin-top:10px;">
+      <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Notes</label>
+      <input type="text" name="notes" placeholder="Any details to remember..." class="form-control">
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top:12px;">Create Promotion</button>
+  </form>
+</div>
+
+<!-- Active promotions -->
+{% if promos %}
+<div class="card" style="padding:0;overflow:hidden;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Promotion</th>
+        <th class="hide-mobile">Client</th>
+        <th class="hide-mobile">Service</th>
+        <th>Progress</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for promo in promos %}
+      <tr style="{% if promo.is_ready_to_redeem %}background:rgba(34,197,94,0.05);{% endif %}">
+        <td>
+          <strong>{{ promo.name }}</strong>
+          {% if promo.notes %}<div style="font-size:11px;color:var(--text-muted);">{{ promo.notes }}</div>{% endif %}
+        </td>
+        <td class="hide-mobile">{% if promo.customer %}{{ promo.customer.name }}{% else %}<span style="color:var(--text-muted);">All</span>{% endif %}</td>
+        <td class="hide-mobile">{{ promo.service_name|default:"—" }}</td>
+        <td>
+          {% if promo.promo_type == "buy_x_get_free" and promo.buy_quantity %}
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="flex:1;max-width:80px;height:6px;background:var(--surface-highest);border-radius:3px;overflow:hidden;">
+              <div style="height:100%;background:{% if promo.is_ready_to_redeem %}var(--primary){% else %}#3b82f6{% endif %};border-radius:3px;width:{% widthratio promo.current_count promo.buy_quantity 100 %}%;"></div>
+            </div>
+            <span style="font-size:12px;font-weight:600;">{{ promo.current_count }}/{{ promo.buy_quantity }}</span>
+          </div>
+          {% elif promo.discount_value %}
+          {% if promo.promo_type == "percent_off" %}{{ promo.discount_value|floatformat:0 }}% off{% else %}-${{ promo.discount_value|floatformat:0 }}{% endif %}
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if promo.status == "active" %}
+            {% if promo.is_ready_to_redeem %}
+            <span style="font-size:10px;font-weight:700;padding:3px 8px;background:var(--primary);color:#111;border-radius:4px;">READY</span>
+            {% else %}
+            <span style="font-size:10px;font-weight:600;padding:3px 8px;background:rgba(59,130,246,0.15);color:#60a5fa;border-radius:4px;">Active</span>
+            {% endif %}
+          {% elif promo.status == "redeemed" %}
+          <span style="font-size:10px;font-weight:600;padding:3px 8px;background:rgba(34,197,94,0.15);color:#86efac;border-radius:4px;">Redeemed</span>
+          {% else %}
+          <span style="font-size:10px;font-weight:600;padding:3px 8px;background:var(--surface-highest);color:var(--text-muted);border-radius:4px;">Expired</span>
+          {% endif %}
+        </td>
+        <td style="white-space:nowrap;" onclick="event.stopPropagation()">
+          {% if promo.status == "active" and promo.promo_type == "buy_x_get_free" %}
+          <form method="post" action="{% url 'billing:promotion_update_count' promo.id %}" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="increment">
+            <button type="submit" class="btn btn-secondary btn-sm" title="Add 1 to count">+1</button>
+          </form>
+          {% endif %}
+          {% if promo.is_ready_to_redeem %}
+          <form method="post" action="{% url 'billing:promotion_redeem' promo.id %}" style="display:inline;" onsubmit="return confirm('Mark this promotion as redeemed?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-sm">Redeem</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="padding:40px;text-align:center;">
+  <span class="material-symbols-outlined" style="font-size:48px;color:var(--text-muted);display:block;margin-bottom:12px;">loyalty</span>
+  <h3 style="margin:0 0 4px;">No promotions yet</h3>
+  <p style="margin:0;color:var(--text-muted);">Create your first promotion above to start tracking deals and loyalty programs.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1827,6 +1827,42 @@ def report_material_usage(request):
 # ─────────────────────────────────────────────────────────────
 
 @require_POST
+@require_POST
+@role_required("owner", "manager")
+def update_enrollment_price(request):
+    """Update per-application price for a fertilization enrollment (inline edit)."""
+    from django.http import JsonResponse
+    import json as _json
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    try:
+        data = _json.loads(request.body)
+    except _json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    enrollment_id = data.get("enrollment_id")
+    price = data.get("price", "").strip() if data.get("price") else ""
+
+    if not enrollment_id:
+        return JsonResponse({"error": "Missing enrollment_id"}, status=400)
+
+    enr = get_object_or_404(CustomerProgramEnrollment, id=enrollment_id, business=business)
+
+    if price:
+        from decimal import Decimal
+        try:
+            enr.price_per_application = Decimal(price)
+            enr.save(update_fields=["price_per_application"])
+        except (ValueError, TypeError):
+            return JsonResponse({"error": "Invalid price"}, status=400)
+    else:
+        enr.price_per_application = None
+        enr.save(update_fields=["price_per_application"])
+
+    return JsonResponse({"ok": True})
+
+
 @role_required("owner", "manager")
 @module_required("fertilization")
 def batch_schedule_rounds(request):
