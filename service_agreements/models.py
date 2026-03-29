@@ -88,3 +88,57 @@ class AgreementVisit(models.Model):
 
     def __str__(self):
         return f"Visit for {self.agreement} on {self.scheduled_date}"
+
+
+class AgreementLineItem(models.Model):
+    """Individual service included in a maintenance agreement with set pricing."""
+    FREQUENCY_CHOICES = [
+        ("per_visit", "Per Visit"),
+        ("monthly", "Monthly"),
+        ("quarterly", "Quarterly"),
+        ("seasonal", "Seasonal (Spring/Fall)"),
+        ("annual", "Annual (Once)"),
+        ("as_needed", "As Needed"),
+    ]
+
+    agreement = models.ForeignKey(
+        ServiceAgreement, on_delete=models.CASCADE, related_name="line_items"
+    )
+    service_name = models.CharField(max_length=200, help_text="e.g. Mowing, Mulch, Spring Cleanup")
+    description = models.TextField(blank=True, help_text="Details about what's included")
+    frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES, default="per_visit")
+    quantity = models.DecimalField(max_digits=8, decimal_places=2, default=1)
+    unit = models.CharField(max_length=30, blank=True, help_text="e.g. visit, yard, application")
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    annual_total = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Total for the year if different from qty x price"
+    )
+    times_completed = models.PositiveSmallIntegerField(default=0)
+    times_expected = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        help_text="How many times this should be done per year"
+    )
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"{self.service_name} — {self.agreement}"
+
+    @property
+    def line_total(self):
+        if self.annual_total:
+            return self.annual_total
+        return self.quantity * self.unit_price
+
+    @property
+    def progress_display(self):
+        if self.times_expected:
+            return f"{self.times_completed}/{self.times_expected}"
+        return ""
+
+    @property
+    def is_complete(self):
+        return self.times_expected and self.times_completed >= self.times_expected

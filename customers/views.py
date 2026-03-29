@@ -235,6 +235,12 @@ def customer_detail(request, customer_id):
     ).select_related("program", "property").order_by("-year")[:5]
     is_fert_client = fert_enrollments.exists()
 
+    # Service agreements / maintenance contracts
+    from service_agreements.models import ServiceAgreement
+    active_agreements = ServiceAgreement.objects.filter(
+        customer=customer, status__in=["active", "draft"]
+    ).prefetch_related("line_items").order_by("-start_date")[:5]
+
     # Property notes
     from jobs.models import PropertyNote
     prop_ids = list(properties.values_list("id", flat=True))
@@ -266,6 +272,7 @@ def customer_detail(request, customer_id):
         "is_fert_client": is_fert_client,
         "fert_enrollments": fert_enrollments,
         "property_notes": property_notes,
+        "active_agreements": active_agreements,
     })
 
 
