@@ -2792,6 +2792,7 @@ def add_mowing_client(request):
     property_id = request.POST.get("property_id")
     frequency = request.POST.get("frequency", "weekly")
     crew_id = request.POST.get("crew_id")
+    price_per_cut = request.POST.get("price_per_cut", "").strip()
 
     if not customer_id or not property_id:
         messages.error(request, "Customer and property are required.")
@@ -2805,7 +2806,6 @@ def add_mowing_client(request):
         business=business, active=True, name__icontains="mow"
     ).first()
     if not mowing_svc:
-        # Auto-create a default mowing service
         mowing_svc = ServiceTemplate.objects.create(
             business=business,
             name="Mowing",
@@ -2815,6 +2815,20 @@ def add_mowing_client(request):
             active=True,
         )
         messages.info(request, "A 'Mowing' service was created. Set your pricing in Service Pricing.")
+
+    # Save per-client price override if provided
+    from pricing.models import PropertyServiceRate
+    if price_per_cut:
+        try:
+            from decimal import Decimal
+            rate_val = Decimal(price_per_cut)
+            PropertyServiceRate.objects.update_or_create(
+                property=prop,
+                service=mowing_svc,
+                defaults={"override_rate": rate_val},
+            )
+        except (ValueError, TypeError):
+            pass
 
     unit, rate = get_effective_rate(prop, mowing_svc)
     service_snapshot = [{"service_id": mowing_svc.id, "quantity": "1", "unit": unit, "unit_price": str(rate)}]
@@ -2829,7 +2843,8 @@ def add_mowing_client(request):
         assigned_crew=crew,
         service_snapshot=service_snapshot,
     )
-    messages.success(request, f"Added {customer.name} as a {dict(RecurringJob.FREQUENCY_CHOICES).get(frequency, frequency)} mowing client.")
+    price_msg = f" at ${price_per_cut}/cut" if price_per_cut else ""
+    messages.success(request, f"Added {customer.name} as a {dict(RecurringJob.FREQUENCY_CHOICES).get(frequency, frequency)} mowing client{price_msg}.")
     return redirect("mowing_hub")
 
 
