@@ -54,24 +54,45 @@
     Unscheduled Jobs
     <span style="font-size:11px;font-weight:600;background:var(--surface-highest);padding:2px 6px;border-radius:4px;margin-left:4px;">{{ unscheduled_jobs|length }}</span>
   </h3>
-  <div style="display:flex;flex-direction:column;gap:4px;">
+  <div style="display:flex;flex-direction:column;gap:6px;">
     {% load tz %}
     {% for item in unscheduled_jobs %}
-    <a href="{% url 'job_detail' item.job.id %}" class="fin-inv-row" style="padding:8px 10px;{% if item.job.schedule_by_date and item.job.schedule_by_date < today %}border-left:3px solid #f87171;{% elif item.job.schedule_by_date %}border-left:3px solid #f59e0b;{% endif %}">
-      <div style="flex:1;min-width:0;">
-        <span class="fin-inv-name"><strong>{{ item.job.property.customer.name }}</strong> <span style="color:var(--text-muted);font-weight:400;">· {{ item.title }}</span></span>
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;flex-wrap:wrap;{% if item.job.schedule_by_date and item.job.schedule_by_date < today %}border-left:3px solid #f87171;{% elif item.job.schedule_by_date %}border-left:3px solid #f59e0b;{% endif %}">
+      <a href="{% url 'job_detail' item.job.id %}" style="flex:1;min-width:200px;text-decoration:none;color:inherit;">
+        <strong style="font-size:14px;">{{ item.job.property.customer.name }}</strong>
+        <span style="font-size:12px;color:var(--text-muted);display:block;">{{ item.title }} · ${{ item.amount|floatformat:2 }}</span>
         {% if item.job.schedule_by_date %}
         <div style="font-size:11px;margin-top:2px;{% if item.job.schedule_by_date < today %}color:#f87171;font-weight:600;{% else %}color:#f59e0b;{% endif %}">
           <span class="material-symbols-outlined" style="font-size:12px;vertical-align:-2px;">schedule</span>
           Schedule by {{ item.job.schedule_by_date|date:"M j" }}{% if item.job.schedule_by_date < today %} — overdue{% endif %}
         </div>
         {% endif %}
-      </div>
-      <span class="fin-inv-amt">${{ item.amount|floatformat:2 }}</span>
-    </a>
+      </a>
+      <form method="post" action="{% url 'calendar_job_reschedule' item.job.id %}" class="unsched-quick-form" style="display:flex;align-items:center;gap:6px;" onsubmit="return scheduleUnschedJob(event, this, {{ item.job.id }});">
+        {% csrf_token %}
+        <input type="date" name="schedule_date" required style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;">
+        <button type="submit" class="btn btn-primary" style="font-size:11px;padding:6px 12px;">Schedule</button>
+      </form>
+    </div>
     {% endfor %}
   </div>
 </div>
+<script>
+function scheduleUnschedJob(e, form, jobId) {
+  e.preventDefault();
+  var dateVal = form.querySelector('[name="schedule_date"]').value;
+  if (!dateVal) return false;
+  var csrf = form.querySelector('[name="csrfmiddlewaretoken"]').value;
+  fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+    body: JSON.stringify({ scheduled_date: dateVal })
+  }).then(function(r) {
+    if (r.ok) { window.location.reload(); }
+  });
+  return false;
+}
+</script>
 {% endif %}
 
 <div class="lane-grid">

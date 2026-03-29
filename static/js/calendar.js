@@ -1032,7 +1032,11 @@ document.addEventListener('DOMContentLoaded', function () {
       var item = e.target.closest('.unscheduled-item');
       if (!item) return;
       var jobId = item.getAttribute('data-job-id');
+      var itemType = item.getAttribute('data-type') || 'job';
       if (!jobId) return;
+
+      // Capture pointer for reliable tracking
+      try { item.setPointerCapture(e.pointerId); } catch(ex) {}
 
       var startX = e.clientX, startY = e.clientY;
       var moved = false;
@@ -1044,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', function () {
           moved = true;
           var ghost = createGhost(item);
           var rect = item.getBoundingClientRect();
-          dragState = { jobId: jobId, ghost: ghost, offsetX: startX - rect.left, offsetY: startY - rect.top, sourceEl: item };
+          dragState = { jobId: jobId, itemType: itemType, ghost: ghost, offsetX: startX - rect.left, offsetY: startY - rect.top, sourceEl: item };
           item.classList.add('dragging');
           item.style.animation = 'dragPulse 0.3s ease-out';
           document.body.classList.add('is-dragging');
@@ -1063,6 +1067,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
         document.removeEventListener('pointercancel', onUp);
+        try { item.releasePointerCapture(ev.pointerId); } catch(ex) {}
         if (dragState) {
           if (dragState.ghost) dragState.ghost.remove();
           dragState.sourceEl.classList.remove('dragging');
@@ -1072,22 +1077,38 @@ document.addEventListener('DOMContentLoaded', function () {
           var calWrap = document.getElementById('calendar-wrapper');
           if (calWrap) calWrap.classList.remove('drop-zone-active');
 
-          // Hide ghost to get element underneath
+          // Get date from calendar cell underneath
           var dateStr = getDateAtPoint(ev.clientX, ev.clientY);
           if (dateStr) {
-            fetch('/jobs/calendar/job/' + dragState.jobId + '/reschedule/', {
-              method: 'POST', credentials: 'same-origin',
-              headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-              body: JSON.stringify({ scheduled_date: dateStr })
-            }).then(function(r) {
-              if (r.ok) {
-                calendar.refetchEvents();
-                loadUnscheduled();
-                showToast('Job scheduled');
-              } else {
-                showToast('Could not schedule job', 'error');
-              }
-            }).catch(function() { showToast('Could not schedule job', 'error'); });
+            if (dragState.itemType === 'estimate') {
+              // For estimates, use the schedule-from-estimate form POST
+              var form = document.createElement('form');
+              form.method = 'POST';
+              form.action = '/jobs/schedule-from-estimate/' + dragState.jobId + '/';
+              var csrfInp = document.createElement('input');
+              csrfInp.type = 'hidden'; csrfInp.name = 'csrfmiddlewaretoken'; csrfInp.value = csrf;
+              var dateField = document.createElement('input');
+              dateField.type = 'hidden'; dateField.name = 'schedule_date'; dateField.value = dateStr;
+              form.appendChild(csrfInp);
+              form.appendChild(dateField);
+              document.body.appendChild(form);
+              form.submit();
+            } else {
+              // For jobs, use the reschedule API
+              fetch('/jobs/calendar/job/' + dragState.jobId + '/reschedule/', {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                body: JSON.stringify({ scheduled_date: dateStr })
+              }).then(function(r) {
+                if (r.ok) {
+                  calendar.refetchEvents();
+                  loadUnscheduled();
+                  showToast('Job scheduled');
+                } else {
+                  showToast('Could not schedule job', 'error');
+                }
+              }).catch(function() { showToast('Could not schedule job', 'error'); });
+            }
           }
           dragState = null;
         }

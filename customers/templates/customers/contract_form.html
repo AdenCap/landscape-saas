@@ -6,9 +6,12 @@
   <p>{% if contract %}Editing contract{% else %}Add a contract for {{ customer.name }}{% endif %}</p>
 </div>
 
-<div class="card" style="max-width: 500px;">
-  <form method="post">
-    {% csrf_token %}
+<form method="post">
+  {% csrf_token %}
+
+  <!-- Contract Details -->
+  <div class="card" style="max-width:700px;margin-bottom:16px;">
+    <h3 style="margin:0 0 14px;font-family:var(--font-headline);font-weight:700;">Contract Details</h3>
     <div class="form-row">
       <div class="field">{{ form.contract_type.label_tag }}{{ form.contract_type }}{{ form.contract_type.errors }}</div>
       <div class="field">{{ form.status.label_tag }}{{ form.status }}{{ form.status.errors }}</div>
@@ -17,20 +20,148 @@
       <div class="field">{{ form.start_date.label_tag }}{{ form.start_date }}{{ form.start_date.errors }}</div>
       <div class="field">{{ form.end_date.label_tag }}{{ form.end_date }}{{ form.end_date.errors }}</div>
     </div>
-    <div class="field">{{ form.amount.label_tag }}{{ form.amount }}{{ form.amount.errors }}</div>
-    <div class="field">{{ form.notes.label_tag }}{{ form.notes }}{{ form.notes.errors }}</div>
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">Save</button>
-      <a href="{% url 'customer_detail' customer.id %}" class="btn btn-secondary">Cancel</a>
+    <div class="form-row">
+      <div class="field">{{ form.billing_frequency.label_tag }}{{ form.billing_frequency }}{{ form.billing_frequency.errors }}</div>
+      <div class="field">{{ form.amount.label_tag }}{{ form.amount }}{{ form.amount.errors }}</div>
     </div>
-  </form>
-</div>
+    <div class="field" style="display:flex;align-items:center;gap:8px;">
+      {{ form.prepaid }} <label for="{{ form.prepaid.id_for_label }}" style="margin:0;font-size:13px;cursor:pointer;">Client prepaid (skip auto-invoicing)</label>
+    </div>
+    <div class="field">{{ form.notes.label_tag }}{{ form.notes }}{{ form.notes.errors }}</div>
+  </div>
+
+  <!-- Line Items -->
+  <div class="card" style="max-width:700px;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;">
+        <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;color:var(--primary);">checklist</span>
+        Services Included
+      </h3>
+      <button type="button" id="add-line-btn" class="btn btn-secondary" style="font-size:12px;">+ Add Service</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin:-6px 0 14px;">Define what services are covered by this contract.</p>
+    <div id="line-items-container"></div>
+    <div id="line-total-bar" style="display:none;text-align:right;padding:10px 12px;margin-top:8px;background:var(--surface-highest);border-radius:8px;font-size:14px;font-weight:600;">
+      Line Items Total: $<span id="line-total-val">0.00</span>
+    </div>
+  </div>
+
+  <div class="form-actions" style="max-width:700px;">
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% url 'customer_detail' customer.id %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+
+<!-- Service datalist for autocomplete -->
+<datalist id="services-datalist">
+  {% for svc in services %}
+  <option value="{{ svc.name }}">
+  {% endfor %}
+</datalist>
+
+<!-- Line item template -->
+<template id="line-item-tmpl">
+  <div class="cli-row">
+    <div class="cli-grid">
+      <div class="field"><label>Service</label>
+        <input type="text" name="line_name" placeholder="e.g. Mowing, Mulch..." list="services-datalist"></div>
+      <div class="field"><label>Frequency</label>
+        <select name="line_frequency">
+          <option value="per_visit">Per Visit</option>
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Bi-Weekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="seasonal">Seasonal</option>
+          <option value="annual">Annual</option>
+          <option value="as_needed">As Needed</option>
+        </select></div>
+      <div class="field"><label>Qty</label>
+        <input type="number" name="line_qty" value="1" min="1" step="1" class="calc-trigger"></div>
+      <div class="field"><label>Price</label>
+        <input type="number" name="line_price" step="0.01" min="0" placeholder="$0" class="calc-trigger"></div>
+      <div class="field"><label>Times/Yr</label>
+        <input type="number" name="line_expected" min="0" placeholder="e.g. 26"></div>
+      <button type="button" class="cli-rm">&times;</button>
+    </div>
+  </div>
+</template>
+
+<script>
+(function() {
+  var container = document.getElementById('line-items-container');
+  var tmpl = document.getElementById('line-item-tmpl');
+
+  function calcTotals() {
+    var rows = container.querySelectorAll('.cli-row');
+    var total = 0;
+    rows.forEach(function(row) {
+      var qty = parseFloat(row.querySelector('[name="line_qty"]').value) || 0;
+      var price = parseFloat(row.querySelector('[name="line_price"]').value) || 0;
+      total += qty * price;
+    });
+    var bar = document.getElementById('line-total-bar');
+    var val = document.getElementById('line-total-val');
+    bar.style.display = rows.length > 0 ? '' : 'none';
+    val.textContent = total.toFixed(2);
+  }
+
+  function addLine(data) {
+    data = data || {};
+    var clone = tmpl.content.cloneNode(true);
+    var row = clone.querySelector('.cli-row');
+    if (data.name) row.querySelector('[name="line_name"]').value = data.name;
+    if (data.frequency) row.querySelector('[name="line_frequency"]').value = data.frequency;
+    if (data.qty) row.querySelector('[name="line_qty"]').value = data.qty;
+    if (data.price) row.querySelector('[name="line_price"]').value = data.price;
+    if (data.expected) row.querySelector('[name="line_expected"]').value = data.expected;
+    clone.querySelector('.cli-rm').addEventListener('click', function() {
+      this.closest('.cli-row').remove();
+      calcTotals();
+    });
+    clone.querySelectorAll('.calc-trigger').forEach(function(inp) {
+      inp.addEventListener('input', calcTotals);
+    });
+    container.appendChild(clone);
+  }
+
+  document.getElementById('add-line-btn').addEventListener('click', function() { addLine(); });
+
+  // Pre-populate existing line items on edit
+  {% if contract and contract.line_items.all %}
+  {% for li in contract.line_items.all %}
+  addLine({
+    name: "{{ li.service_name|escapejs }}",
+    frequency: "{{ li.frequency }}",
+    qty: "{{ li.quantity }}",
+    price: "{{ li.unit_price }}",
+    expected: "{{ li.times_expected|default:'' }}"
+  });
+  {% endfor %}
+  {% else %}
+  addLine();
+  {% endif %}
+})();
+</script>
 
 <style>
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .field { margin-bottom: 14px; }
-  .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
-  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; font-family: inherit; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text); }
   .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+
+  .cli-row { background: var(--surface-highest); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+  .cli-grid { display: grid; grid-template-columns: 2fr 1.2fr 60px 80px 70px 28px; gap: 8px; align-items: end; }
+  .cli-rm { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 0; align-self: end; margin-bottom: 16px; }
+  .cli-rm:hover { color: #ffb4ab; }
+  .cli-grid .field { margin-bottom: 0; }
+  .cli-grid .field label { font-size: 10px; margin-bottom: 3px; }
+
+  @media (max-width: 768px) {
+    .cli-grid { grid-template-columns: 1fr 1fr; }
+    .cli-rm { grid-column: span 2; text-align: right; margin-bottom: 0; }
+    .field input, .field select, .field textarea { font-size: 16px; min-height: 44px; }
+  }
 </style>
 {% endblock %}

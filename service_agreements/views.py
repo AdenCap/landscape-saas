@@ -81,16 +81,19 @@ def agreement_create(request):
         # Save line items
         line_names = request.POST.getlist("line_name")
         line_freqs = request.POST.getlist("line_frequency")
+        line_qtys = request.POST.getlist("line_qty")
         line_prices = request.POST.getlist("line_price")
         line_expected = request.POST.getlist("line_expected")
         for i in range(len(line_names)):
             ln = (line_names[i] or "").strip()
             if not ln:
                 continue
+            qty = Decimal(line_qtys[i]) if i < len(line_qtys) and line_qtys[i] else Decimal("1")
             AgreementLineItem.objects.create(
                 agreement=agreement,
                 service_name=ln,
                 frequency=line_freqs[i] if i < len(line_freqs) else "per_visit",
+                quantity=qty,
                 unit_price=Decimal(line_prices[i]) if i < len(line_prices) and line_prices[i] else Decimal("0"),
                 times_expected=int(line_expected[i]) if i < len(line_expected) and line_expected[i] else None,
                 order=i,

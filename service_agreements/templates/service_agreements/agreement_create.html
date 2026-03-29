@@ -4,7 +4,7 @@
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
   <div>
     <h1>Create Maintenance Plan</h1>
-    <p>Define services with scheduled dates — jobs are auto-created on the calendar.</p>
+    <p>Define services, pricing, and scheduled dates — jobs are auto-created on the calendar.</p>
   </div>
   <a href="{% url 'service_agreements:hub' %}" class="btn btn-secondary">&larr; Back</a>
 </div>
@@ -13,7 +13,7 @@
   {% csrf_token %}
 
   <!-- Customer & Property -->
-  <div class="card" style="max-width:700px;margin-bottom:16px;">
+  <div class="card" style="max-width:720px;margin-bottom:16px;">
     <h3 style="margin:0 0 14px;font-family:var(--font-headline);font-weight:700;">Customer &amp; Property</h3>
     <div class="sa-field">
       <label>Customer</label>
@@ -31,7 +31,7 @@
   </div>
 
   <!-- Plan Details -->
-  <div class="card" style="max-width:700px;margin-bottom:16px;">
+  <div class="card" style="max-width:720px;margin-bottom:16px;">
     <h3 style="margin:0 0 14px;font-family:var(--font-headline);font-weight:700;">Plan Details</h3>
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;">
       <div class="sa-field">
@@ -43,35 +43,147 @@
         <input type="number" name="price" step="0.01" min="0" placeholder="e.g. 1200.00">
       </div>
     </div>
-    <div class="sa-field">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+      <div class="sa-field">
+        <label>Start Date</label>
+        <input type="date" name="start_date">
+      </div>
+      <div class="sa-field">
+        <label>End Date</label>
+        <input type="date" name="end_date">
+      </div>
+      <div class="sa-field">
+        <label>Billing Frequency</label>
+        <select name="billing_frequency">
+          <option value="annual">Annual</option>
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="semi_annual">Semi-Annual</option>
+          <option value="one_time">One-Time</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:4px;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+        <input type="checkbox" name="prepaid" id="sa-prepaid" onchange="document.getElementById('sa-prepaid-wrap').style.display=this.checked?'':'none'">
+        Client prepaid (skip auto-invoicing)
+      </label>
+      <div class="sa-field" id="sa-prepaid-wrap" style="display:none;margin-bottom:0;">
+        <input type="number" name="prepaid_amount" step="0.01" min="0" placeholder="Amount paid" style="width:140px;">
+      </div>
+    </div>
+    <div class="sa-field" style="margin-top:10px;">
       <label>Notes</label>
       <textarea name="notes" rows="2" placeholder="Special instructions, client preferences..."></textarea>
     </div>
   </div>
 
-  <!-- Scheduled Services -->
-  <div class="card" style="max-width:700px;margin-bottom:16px;">
+  <!-- Line Items — What's included in this plan -->
+  <div class="card" style="max-width:720px;margin-bottom:16px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;">Scheduled Services</h3>
-      <button type="button" id="sa-add-visit" class="btn btn-secondary" style="font-size:12px;">+ Add Service</button>
+      <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;">
+        <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;color:var(--primary);">checklist</span>
+        Services Included
+      </h3>
+      <button type="button" id="sa-add-line" class="btn btn-secondary" style="font-size:12px;">+ Add Service</button>
     </div>
-    <p style="font-size:12px;color:var(--text-muted);margin:-6px 0 14px;">Each service below will create a job on the calendar automatically.</p>
+    <p style="font-size:12px;color:var(--text-muted);margin:-6px 0 14px;">Define what services are covered by this plan with pricing and frequency.</p>
+
+    <div id="sa-lines"></div>
+
+    <div id="sa-line-total" style="display:none;text-align:right;padding:10px 12px;margin-top:8px;background:var(--surface-highest);border-radius:8px;font-size:14px;font-weight:600;">
+      Line Items Total: $<span id="sa-line-total-val">0.00</span>
+    </div>
+  </div>
+
+  <!-- Scheduled Services — Auto-create calendar jobs -->
+  <div class="card" style="max-width:720px;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;">
+        <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;color:var(--primary);">calendar_month</span>
+        Schedule Visits
+      </h3>
+      <button type="button" id="sa-add-visit" class="btn btn-secondary" style="font-size:12px;">+ Add Visit</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin:-6px 0 14px;">Each visit below will create a job on the calendar automatically.</p>
 
     <div id="sa-visits"></div>
   </div>
 
-  <div style="display:flex;gap:10px;max-width:700px;">
+  <div style="display:flex;gap:10px;max-width:720px;">
     <button type="submit" class="btn btn-primary">Create Plan &amp; Schedule Jobs</button>
     <a href="{% url 'service_agreements:hub' %}" class="btn btn-secondary">Cancel</a>
   </div>
 </form>
 
+<!-- Service name datalist for autocomplete -->
+<datalist id="services-datalist">
+  {% for svc in services %}
+  <option value="{{ svc.name }}">
+  {% endfor %}
+</datalist>
+
+<!-- Line item template (hidden, cloned by JS) -->
+<template id="sa-line-tmpl">
+  <div class="sa-line-row">
+    <div class="sa-line-grid">
+      <div class="sa-field"><label>Service Name</label>
+        <input type="text" name="line_name" placeholder="e.g. Mowing, Mulch, Spring Cleanup" list="services-datalist"></div>
+      <div class="sa-field"><label>Frequency</label>
+        <select name="line_frequency">
+          <option value="per_visit">Per Visit</option>
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="seasonal">Seasonal</option>
+          <option value="annual">Annual</option>
+          <option value="as_needed">As Needed</option>
+        </select></div>
+      <div class="sa-field"><label>Qty</label>
+        <input type="number" name="line_qty" value="1" min="1" step="1" class="sa-calc-trigger"></div>
+      <div class="sa-field"><label>Unit Price</label>
+        <input type="number" name="line_price" step="0.01" min="0" placeholder="$0.00" class="sa-calc-trigger"></div>
+      <div class="sa-field"><label>Times/Year</label>
+        <input type="number" name="line_expected" min="0" placeholder="e.g. 26"></div>
+      <button type="button" class="sa-line-rm">&times;</button>
+    </div>
+  </div>
+</template>
+
+<!-- Visit template (hidden, cloned by JS) -->
+<template id="sa-visit-tmpl">
+  <div class="sa-visit-row">
+    <div class="sa-visit-grid">
+      <div class="sa-field"><label>Service</label>
+        <select name="visit_service">
+          <option value="">Select...</option>
+          {% for svc in services %}
+          <option value="{{ svc.id }}">{{ svc.name }}</option>
+          {% endfor %}
+        </select></div>
+      <div class="sa-field"><label>Month</label>
+        <select name="visit_month">
+          <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+          <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+          <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+          <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+        </select></div>
+      <div class="sa-field"><label>Day</label>
+        <input type="number" name="visit_day" min="1" max="28" value="15" placeholder="15"></div>
+      <div class="sa-field"><label>Notes</label>
+        <input type="text" name="visit_notes" placeholder="Optional..."></div>
+      <button type="button" class="sa-visit-rm">&times;</button>
+    </div>
+  </div>
+</template>
+
 <script>
 (function() {
   var customers = {{ customers_json|safe }};
-  var MONTHS = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var container = document.getElementById('sa-visits');
+  var lineContainer = document.getElementById('sa-lines');
+  var visitContainer = document.getElementById('sa-visits');
   var custSel = document.getElementById('sa-customer');
+  var lineTmpl = document.getElementById('sa-line-tmpl');
+  var visitTmpl = document.getElementById('sa-visit-tmpl');
 
   // Populate customers
   customers.forEach(function(c) {
@@ -100,106 +212,56 @@
     document.getElementById('sa-prop-wrap').style.display = '';
   };
 
-  function addVisit(data) {
-    data = data || {};
-    var row = document.createElement('div');
-    row.className = 'sa-visit-row';
-
-    // Service select
-    var f1 = document.createElement('div');
-    f1.className = 'sa-field';
-    var l1 = document.createElement('label');
-    l1.textContent = 'Service';
-    f1.appendChild(l1);
-    var sel = document.createElement('select');
-    sel.name = 'visit_service';
-    var defOpt = document.createElement('option');
-    defOpt.value = '';
-    defOpt.textContent = 'Select...';
-    sel.appendChild(defOpt);
-    {% for svc in services %}
-    var o{{ svc.id }} = document.createElement('option');
-    o{{ svc.id }}.value = '{{ svc.id }}';
-    o{{ svc.id }}.textContent = '{{ svc.name|escapejs }}';
-    sel.appendChild(o{{ svc.id }});
-    {% endfor %}
-    f1.appendChild(sel);
-
-    // Month select
-    var f2 = document.createElement('div');
-    f2.className = 'sa-field';
-    var l2 = document.createElement('label');
-    l2.textContent = 'Month';
-    f2.appendChild(l2);
-    var mSel = document.createElement('select');
-    mSel.name = 'visit_month';
-    for (var m = 1; m <= 12; m++) {
-      var mo = document.createElement('option');
-      mo.value = m;
-      mo.textContent = MONTHS[m];
-      mSel.appendChild(mo);
+  // ── LINE ITEMS ──
+  function calcLineTotals() {
+    var rows = lineContainer.querySelectorAll('.sa-line-row');
+    var total = 0;
+    rows.forEach(function(row) {
+      var qty = parseFloat(row.querySelector('[name="line_qty"]').value) || 0;
+      var price = parseFloat(row.querySelector('[name="line_price"]').value) || 0;
+      total += qty * price;
+    });
+    var totalEl = document.getElementById('sa-line-total');
+    var valEl = document.getElementById('sa-line-total-val');
+    if (rows.length > 0) {
+      totalEl.style.display = '';
+      valEl.textContent = total.toFixed(2);
+    } else {
+      totalEl.style.display = 'none';
     }
-    f2.appendChild(mSel);
-
-    // Day
-    var f3 = document.createElement('div');
-    f3.className = 'sa-field';
-    var l3 = document.createElement('label');
-    l3.textContent = 'Day';
-    f3.appendChild(l3);
-    var dayInput = document.createElement('input');
-    dayInput.type = 'number';
-    dayInput.name = 'visit_day';
-    dayInput.min = '1';
-    dayInput.max = '28';
-    dayInput.value = '15';
-    dayInput.placeholder = '15';
-    f3.appendChild(dayInput);
-
-    // Notes
-    var f4 = document.createElement('div');
-    f4.className = 'sa-field';
-    var l4 = document.createElement('label');
-    l4.textContent = 'Notes';
-    f4.appendChild(l4);
-    var notesInput = document.createElement('input');
-    notesInput.type = 'text';
-    notesInput.name = 'visit_notes';
-    notesInput.placeholder = 'Optional...';
-    f4.appendChild(notesInput);
-
-    // Remove
-    var rmBtn = document.createElement('button');
-    rmBtn.type = 'button';
-    rmBtn.className = 'sa-visit-rm';
-    rmBtn.textContent = '\u00D7';
-    rmBtn.addEventListener('click', function() { row.remove(); });
-
-    var grid = document.createElement('div');
-    grid.className = 'sa-visit-grid';
-    grid.appendChild(f1);
-    grid.appendChild(f2);
-    grid.appendChild(f3);
-    grid.appendChild(f4);
-    grid.appendChild(rmBtn);
-    row.appendChild(grid);
-
-    container.appendChild(row);
-    return row;
   }
 
-  // Start with 4 common services
-  var defaults = [
-    {name: 'Spring Cleanup', month: 3},
-    {name: 'Mulching', month: 4},
-    {name: 'Bush Trimming', month: 6},
-    {name: 'Fall Cleanup', month: 10},
-  ];
-  defaults.forEach(function() { addVisit(); });
+  function addLineItem() {
+    var clone = lineTmpl.content.cloneNode(true);
+    // Wire up remove button
+    clone.querySelector('.sa-line-rm').addEventListener('click', function() {
+      this.closest('.sa-line-row').remove();
+      calcLineTotals();
+    });
+    // Wire up calc triggers
+    clone.querySelectorAll('.sa-calc-trigger').forEach(function(inp) {
+      inp.addEventListener('input', calcLineTotals);
+    });
+    lineContainer.appendChild(clone);
+  }
 
-  document.getElementById('sa-add-visit').addEventListener('click', function() {
-    addVisit();
-  });
+  document.getElementById('sa-add-line').addEventListener('click', addLineItem);
+  // Start with one blank line
+  addLineItem();
+
+  // ── SCHEDULED VISITS ──
+  function addVisit() {
+    var clone = visitTmpl.content.cloneNode(true);
+    clone.querySelector('.sa-visit-rm').addEventListener('click', function() {
+      this.closest('.sa-visit-row').remove();
+    });
+    visitContainer.appendChild(clone);
+  }
+
+  document.getElementById('sa-add-visit').addEventListener('click', addVisit);
+  // Start with 2 empty visit slots
+  addVisit();
+  addVisit();
 })();
 </script>
 
@@ -208,16 +270,24 @@
   .sa-field label { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
   .sa-field input, .sa-field select, .sa-field textarea { width: 100%; }
 
+  /* Line items */
+  .sa-line-row { background: var(--surface-highest); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; margin-bottom: 8px; }
+  .sa-line-grid { display: grid; grid-template-columns: 2fr 1.2fr 60px 90px 80px 28px; gap: 8px; align-items: end; }
+  .sa-line-rm { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 0; align-self: end; margin-bottom: 12px; }
+  .sa-line-rm:hover { color: #ffb4ab; }
+
+  /* Visit rows */
   .sa-visit-row { background: var(--surface-highest); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; margin-bottom: 8px; }
   .sa-visit-grid { display: grid; grid-template-columns: 2fr 1fr 60px 2fr 28px; gap: 8px; align-items: end; }
   .sa-visit-rm { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 0; align-self: end; margin-bottom: 12px; }
   .sa-visit-rm:hover { color: #ffb4ab; }
 
   @media (max-width: 768px) {
+    .sa-line-grid { grid-template-columns: 1fr 1fr; }
     .sa-visit-grid { grid-template-columns: 1fr 1fr; }
-    .sa-visit-rm { grid-column: span 2; text-align: right; }
+    .sa-line-rm, .sa-visit-rm { grid-column: span 2; text-align: right; }
     .sa-field input, .sa-field select, .sa-field textarea { font-size: 16px; min-height: 44px; }
-    .card[style*="max-width:700px"] { max-width: 100% !important; }
+    .card[style*="max-width:720px"] { max-width: 100% !important; }
   }
 </style>
 {% endblock %}

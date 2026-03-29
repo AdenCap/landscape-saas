@@ -162,7 +162,7 @@ def customer_detail(request, customer_id):
         .order_by('-scheduled_date')[:100]
     )
 
-    contracts = customer.contracts.all().order_by('-created_at')
+    contracts = customer.contracts.prefetch_related('line_items').all().order_by('-created_at')
 
     invoices = (
         Invoice.objects.filter(customer=customer)
@@ -713,6 +713,30 @@ def property_measure_lawn(request, customer_id, property_id):
     })
 
 
+def _save_contract_line_items(request, contract):
+    """Parse and save line items from POST data."""
+    from decimal import Decimal
+    from .models import ContractLineItem
+    names = request.POST.getlist("line_name")
+    freqs = request.POST.getlist("line_frequency")
+    qtys = request.POST.getlist("line_qty")
+    prices = request.POST.getlist("line_price")
+    expected = request.POST.getlist("line_expected")
+    for i in range(len(names)):
+        ln = (names[i] or "").strip()
+        if not ln:
+            continue
+        ContractLineItem.objects.create(
+            contract=contract,
+            service_name=ln,
+            frequency=freqs[i] if i < len(freqs) else "per_visit",
+            quantity=Decimal(qtys[i]) if i < len(qtys) and qtys[i] else Decimal("1"),
+            unit_price=Decimal(prices[i]) if i < len(prices) and prices[i] else Decimal("0"),
+            times_expected=int(expected[i]) if i < len(expected) and expected[i] else None,
+            order=i,
+        )
+
+
 @role_required("owner", "manager")
 @require_http_methods(["GET", "POST"])
 def contract_add(request, customer_id):
@@ -729,15 +753,20 @@ def contract_add(request, customer_id):
             contract = form.save(commit=False)
             contract.customer = customer
             contract.save()
+            # Save line items
+            _save_contract_line_items(request, contract)
             messages.success(request, "Contract added.")
             return redirect("customer_detail", customer_id=customer.id)
     else:
         form = ContractForm()
 
+    from pricing.models import ServiceTemplate
+    services = ServiceTemplate.objects.filter(business=business, active=True).order_by("name")
     return render(request, "customers/contract_form.html", {
         "form": form,
         "customer": customer,
         "title": "Add Contract",
+        "services": services,
     })
 
 
@@ -756,16 +785,22 @@ def contract_edit(request, customer_id, contract_id):
         form = ContractForm(request.POST, instance=contract)
         if form.is_valid():
             form.save()
+            # Replace line items
+            contract.line_items.all().delete()
+            _save_contract_line_items(request, contract)
             messages.success(request, "Contract updated.")
             return redirect("customer_detail", customer_id=customer.id)
     else:
         form = ContractForm(instance=contract)
 
+    from pricing.models import ServiceTemplate
+    services = ServiceTemplate.objects.filter(business=business, active=True).order_by("name")
     return render(request, "customers/contract_form.html", {
         "form": form,
         "customer": customer,
         "contract": contract,
         "title": "Edit Contract",
+        "services": services,
     })
 
 

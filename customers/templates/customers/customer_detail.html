@@ -207,15 +207,28 @@ Thank you for choosing {{ business.name }}!">
         <a href="{% url 'contract_add' customer.id %}" class="btn btn-primary btn-sm">+ Add</a>
       </h2>
       {% for c in contracts %}
-      <div class="contract-row">
-        <div>
-          <strong>{{ c.get_contract_type_display }}</strong>
-          <span class="badge badge-{{ c.status }}">{{ c.status|title }}</span>
-          {% if c.amount %} · ${{ c.amount|floatformat:2 }}{% endif %}
-          {% if c.start_date %} · {{ c.start_date }}{% endif %}
-          {% if c.end_date %}–{{ c.end_date }}{% endif %}
+      <div class="contract-row" style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--surface-highest);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:{% if c.line_items.all %}8px{% else %}0{% endif %};">
+          <div>
+            <strong>{{ c.get_contract_type_display }}</strong>
+            <span class="badge badge-{{ c.status }}">{{ c.status|title }}</span>
+            {% if c.amount %} · ${{ c.amount|floatformat:2 }}{% endif %}
+            {% if c.get_billing_frequency_display %} · {{ c.get_billing_frequency_display }}{% endif %}
+            {% if c.prepaid %}<span style="font-size:10px;font-weight:600;background:rgba(34,197,94,0.15);color:var(--primary);padding:2px 6px;border-radius:4px;margin-left:4px;">PREPAID</span>{% endif %}
+          </div>
+          <a href="{% url 'contract_edit' customer.id c.id %}" class="btn btn-secondary btn-sm">Edit</a>
         </div>
-        <a href="{% url 'contract_edit' customer.id c.id %}" class="btn btn-secondary btn-sm">Edit</a>
+        {% if c.start_date %}
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">{{ c.start_date|date:"M j, Y" }}{% if c.end_date %} — {{ c.end_date|date:"M j, Y" }}{% endif %}</div>
+        {% endif %}
+        {% for li in c.line_items.all %}
+        {% if forloop.first %}<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">{% endif %}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:13px;">
+            <span>{{ li.service_name }} <span style="color:var(--text-muted);">· {{ li.get_frequency_display }}{% if li.times_expected %} · {{ li.progress_display }}{% endif %}</span></span>
+            <span style="font-weight:600;">${{ li.line_total|floatformat:2 }}</span>
+          </div>
+        {% if forloop.last %}</div>{% endif %}
+        {% endfor %}
       </div>
       {% empty %}
       <p>No contracts. <a href="{% url 'contract_add' customer.id %}" class="link-primary">Add one</a></p>

@@ -167,6 +167,21 @@ class Contract(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Contract value (optional)')
     notes = models.TextField(blank=True)
 
+    BILLING_FREQUENCY_CHOICES = [
+        ("monthly", "Monthly"),
+        ("quarterly", "Quarterly"),
+        ("semi_annual", "Semi-Annual"),
+        ("annual", "Annual"),
+        ("one_time", "One-Time"),
+    ]
+    billing_frequency = models.CharField(
+        max_length=20, choices=BILLING_FREQUENCY_CHOICES, default="monthly", blank=True,
+    )
+    prepaid = models.BooleanField(
+        default=False,
+        help_text="Client paid upfront — skip auto-invoicing for covered services.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -175,6 +190,49 @@ class Contract(models.Model):
 
     def __str__(self):
         return f"{self.customer.name} - {self.get_contract_type_display()} ({self.status})"
+
+    @property
+    def line_items_total(self):
+        return sum(li.line_total for li in self.line_items.all())
+
+
+class ContractLineItem(models.Model):
+    """Individual service included in a contract."""
+    FREQUENCY_CHOICES = [
+        ("per_visit", "Per Visit"),
+        ("weekly", "Weekly"),
+        ("biweekly", "Bi-Weekly"),
+        ("monthly", "Monthly"),
+        ("quarterly", "Quarterly"),
+        ("seasonal", "Seasonal"),
+        ("annual", "Annual"),
+        ("as_needed", "As Needed"),
+    ]
+
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="line_items")
+    service_name = models.CharField(max_length=200, help_text="e.g. Mowing, Mulch, Spring Cleanup")
+    frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES, default="per_visit")
+    quantity = models.DecimalField(max_digits=8, decimal_places=2, default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    times_expected = models.PositiveSmallIntegerField(null=True, blank=True, help_text="How many times per year")
+    times_completed = models.PositiveSmallIntegerField(default=0)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"{self.service_name} — {self.contract}"
+
+    @property
+    def line_total(self):
+        return self.quantity * self.unit_price
+
+    @property
+    def progress_display(self):
+        if self.times_expected:
+            return f"{self.times_completed}/{self.times_expected}"
+        return ""
 
 
 class Property(models.Model):
