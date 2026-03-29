@@ -57,7 +57,7 @@
   <div style="display:flex;flex-direction:column;gap:4px;">
     {% for item in unscheduled_jobs %}
     <a href="{% url 'job_detail' item.job.id %}" class="fin-inv-row" style="padding:8px 10px;">
-      <span class="fin-inv-name">{{ item.title }}</span>
+      <span class="fin-inv-name"><strong>{{ item.job.property.customer.name }}</strong> <span style="color:var(--text-muted);font-weight:400;">· {{ item.title }}</span></span>
       <span class="fin-inv-amt">${{ item.amount|floatformat:2 }}</span>
     </a>
     {% endfor %}
