@@ -2922,6 +2922,89 @@ def mowing_update_crew(request):
 
 @require_POST
 @role_required("owner", "manager")
+def mowing_update_frequency(request):
+    """Update frequency for a recurring mowing client and optionally reschedule future jobs."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    recurring_id = data.get("recurring_id")
+    new_frequency = data.get("frequency", "").strip()
+    reschedule = data.get("reschedule_from_today", False)
+
+    if not recurring_id or new_frequency not in ("weekly", "biweekly", "monthly"):
+        return JsonResponse({"error": "Invalid parameters"}, status=400)
+
+    rj = get_object_or_404(RecurringJob, id=recurring_id, property__customer__business=business)
+    old_frequency = rj.frequency
+    rj.frequency = new_frequency
+    rj.save(update_fields=["frequency"])
+
+    # Also update the service_snapshot
+    if rj.service_snapshot:
+        rj.save()
+
+    # Reschedule future jobs if frequency changed
+    if reschedule and old_frequency != new_frequency:
+        today = timezone.localdate()
+        # Delete future scheduled (not started/completed) jobs for this property with mowing service
+        future_jobs = Job.objects.filter(
+            property=rj.property,
+            scheduled_date__gt=today,
+            status="scheduled",
+        ).prefetch_related("service_items__service")
+
+        from pricing.models import ServiceTemplate
+        mowing_svcs = set(ServiceTemplate.objects.filter(
+            business=business, active=True, name__icontains="mow"
+        ).values_list("id", flat=True))
+
+        deleted = 0
+        for job in future_jobs:
+            job_svc_ids = set(job.service_items.values_list("service_id", flat=True))
+            if job_svc_ids & mowing_svcs:
+                job.delete()
+                deleted += 1
+
+        # Create new jobs based on new frequency from today through season end
+        from pricing.utils import get_effective_rate
+        season_end_month = getattr(business, "growing_season_end_month", 10) or 10
+        season_end = date(today.year, season_end_month, 28)
+        if season_end < today:
+            season_end = date(today.year + 1, season_end_month, 28)
+
+        mowing_svc = ServiceTemplate.objects.filter(
+            business=business, active=True, name__icontains="mow"
+        ).first()
+
+        interval = 7 if new_frequency == "weekly" else (14 if new_frequency == "biweekly" else 30)
+        current_date = today + timedelta(days=1)  # Start from tomorrow
+        created = 0
+        while current_date <= season_end and mowing_svc:
+            job = Job.objects.create(
+                property=rj.property,
+                scheduled_date=current_date,
+                status="scheduled",
+                notes=f"[Mowing] {rj.property.customer.name}",
+                assigned_crew=rj.assigned_crew,
+            )
+            unit, rate = get_effective_rate(rj.property, mowing_svc)
+            JobServiceItem.objects.create(
+                job=job, service=mowing_svc, description="Mowing",
+                quantity=1, unit=unit, unit_price=rate,
+            )
+            created += 1
+            current_date += timedelta(days=interval)
+
+    return JsonResponse({"ok": True, "deleted": deleted if reschedule else 0, "created": created if reschedule else 0})
+
+
+@require_POST
+@role_required("owner", "manager")
 def mowing_bulk_schedule(request):
     """Batch-create mowing jobs — once or for the entire season based on frequency."""
     business = get_business(request)

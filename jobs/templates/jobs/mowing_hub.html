@@ -304,6 +304,38 @@ function mowEditPrice(el) {
 
 var MOW_CREWS = [{% for crew in crews %}{id:{{ crew.id }},name:"{{ crew.name }}"},{% endfor %}];
 
+function mowEditFreq(el) {
+  var rid = el.dataset.rid;
+  var current = el.dataset.freq;
+  if (!rid) return;
+  var sel = document.createElement('select');
+  sel.style.cssText = 'padding:4px 6px;font-size:12px;border:1px solid var(--primary);border-radius:6px;background:var(--bg);color:var(--text);';
+  [['weekly','Weekly'],['biweekly','Bi-Weekly'],['monthly','Monthly']].forEach(function(opt) {
+    var o = document.createElement('option');
+    o.value = opt[0]; o.textContent = opt[1];
+    if (opt[0] === current) o.selected = true;
+    sel.appendChild(o);
+  });
+  el.style.display = 'none';
+  el.parentNode.appendChild(sel);
+  sel.focus();
+
+  function save() {
+    var newFreq = sel.value;
+    fetch('/jobs/mowing/update-frequency/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+      body: JSON.stringify({ recurring_id: rid, frequency: newFreq, reschedule_from_today: true })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.ok) { location.reload(); }
+      else { el.style.display = ''; sel.remove(); }
+    }).catch(function() { el.style.display = ''; sel.remove(); });
+  }
+  sel.addEventListener('change', save);
+  sel.addEventListener('blur', function() { el.style.display = ''; sel.remove(); });
+}
+
 function mowEditCrew(el) {
   var rid = el.dataset.rid;
   if (!rid) return;
@@ -405,7 +437,8 @@ function mowBulkAssignCrew() {
         <td class="mow-hide-mobile" style="font-size:13px;color:var(--text-secondary);">
           {{ c.properties.0.address|truncatechars:40 }}
         </td>
-        <td>
+        <td onclick="event.stopPropagation()">
+          <span class="mow-freq-display" data-rid="{{ c.recurring_id }}" data-freq="{{ c.frequency_key }}" onclick="mowEditFreq(this)" style="cursor:pointer;" title="Click to change">
           {% if c.frequency_key == "weekly" %}
             <span class="mow-badge mow-badge-weekly">W</span>
           {% elif c.frequency_key == "biweekly" %}
@@ -415,6 +448,7 @@ function mowBulkAssignCrew() {
           {% else %}
             <span class="mow-badge">{{ c.frequency }}</span>
           {% endif %}
+          </span>
         </td>
         <td class="mow-hide-mobile" style="font-size:13px;" onclick="event.stopPropagation()">
           <span class="mow-crew-display" data-rid="{{ c.recurring_id }}" onclick="mowEditCrew(this)" style="cursor:pointer;padding:4px 8px;border-radius:6px;{% if c.crew != 'Unassigned' %}color:var(--text);background:var(--surface-highest);{% else %}color:var(--text-muted);{% endif %}">{{ c.crew }}</span>
