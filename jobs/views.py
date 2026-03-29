@@ -896,7 +896,10 @@ def calendar_quick_create(request):
     color = data.get("color")
     notes = data.get("notes", "")
 
-    if not customer_id or not property_id or not service_id or not scheduled_date_str:
+    services_list = data.get("services", [])
+    has_service = service_id or any(s.get("service_id") or s.get("service_name") for s in services_list)
+
+    if not customer_id or not property_id or not scheduled_date_str or not has_service:
         return JsonResponse({"error": "Customer, property, service, and date are required"}, status=400)
 
     from customers.models import Customer
@@ -907,9 +910,9 @@ def calendar_quick_create(request):
     if not prop:
         return JsonResponse({"error": "Property not found"}, status=404)
     from pricing.models import ServiceTemplate
-    service = ServiceTemplate.objects.filter(business=business, id=service_id, active=True).first()
-    if not service:
-        return JsonResponse({"error": "Service not found"}, status=404)
+    service = None
+    if service_id:
+        service = ServiceTemplate.objects.filter(business=business, id=service_id, active=True).first()
 
     try:
         sched_date = datetime.strptime(scheduled_date_str, "%Y-%m-%d").date()
@@ -956,14 +959,26 @@ def calendar_quick_create(request):
             job.assigned_employees.add(user)
             job.save(update_fields=["assigned_to"])
 
-    # Create service items (supports multiple line items)
-    services_list = data.get("services", [])
+    # Create service items (supports multiple line items + typed service names)
     if services_list:
         for svc_item in services_list:
             svc_id = svc_item.get("service_id")
+            svc_name = svc_item.get("service_name", "").strip()
             svc_qty = svc_item.get("quantity", 1)
             svc_price_override = svc_item.get("unit_price")
-            svc = ServiceTemplate.objects.filter(business=business, id=svc_id, active=True).first()
+
+            svc = None
+            if svc_id:
+                svc = ServiceTemplate.objects.filter(business=business, id=svc_id, active=True).first()
+            elif svc_name:
+                # Try to match by name, or create a new service template
+                svc = ServiceTemplate.objects.filter(business=business, name__iexact=svc_name, active=True).first()
+                if not svc:
+                    svc = ServiceTemplate.objects.create(
+                        business=business, name=svc_name, default_unit="visit",
+                        default_rate=svc_price_override or 0, pricing_method="flat", active=True,
+                    )
+
             if svc:
                 unit, rate = get_effective_rate(prop, svc)
                 if svc_price_override is not None:
@@ -973,7 +988,7 @@ def calendar_quick_create(request):
                     job=job, service=svc, description=svc.name,
                     quantity=svc_qty, unit=unit, unit_price=rate,
                 )
-    else:
+    elif service:
         # Fallback: single service_id
         unit, rate = get_effective_rate(prop, service)
         JobServiceItem.objects.create(

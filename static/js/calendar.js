@@ -1745,10 +1745,17 @@ document.addEventListener('DOMContentLoaded', function () {
       var services = [];
       lineRows.forEach(function(row) {
         var svcId = row.querySelector('.qc-line-service').value;
+        var svcText = row.querySelector('.qc-line-service-text');
+        var svcName = svcText ? svcText.value.trim() : '';
         var qty = parseFloat(row.querySelector('.qc-line-qty').value) || 1;
         var price = row.querySelector('.qc-line-price').value;
         if (svcId) {
           var item = { service_id: parseInt(svcId), quantity: qty };
+          if (price !== '' && price !== null) item.unit_price = parseFloat(price);
+          services.push(item);
+        } else if (svcName) {
+          // Typed service name without matching an existing service
+          var item = { service_name: svcName, quantity: qty };
           if (price !== '' && price !== null) item.unit_price = parseFloat(price);
           services.push(item);
         }
@@ -1761,7 +1768,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var payload = {
         customer_id: parseInt(customerId),
         property_id: parseInt(propertyId),
-        service_id: services[0].service_id,
+        service_id: services[0].service_id || null,
         services: services,
         scheduled_date: dateVal,
         scheduled_time: timeVal || null,
