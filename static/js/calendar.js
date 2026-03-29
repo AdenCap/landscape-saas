@@ -860,40 +860,76 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         var today = formatDateStr(new Date());
-        list.innerHTML = jobs.map(function(j) {
-          return '<div class="unscheduled-item" data-job-id="' + j.id + '">' +
-            '<span class="unscheduled-drag-handle" aria-hidden="true">⋮⋮</span>' +
-            '<div class="unscheduled-item-info">' +
-              '<div class="unscheduled-item-name">' + (j.customer || 'Unknown') + '</div>' +
-              '<div class="unscheduled-item-detail">' + (j.address || '') + (j.services ? ' · ' + j.services : '') + '</div>' +
-            '</div>' +
-            '<div class="unscheduled-item-actions">' +
-              '<input type="date" class="unscheduled-date" data-job-id="' + j.id + '" value="' + today + '">' +
-              '<button type="button" class="btn btn-primary btn-sm schedule-btn" data-job-id="' + j.id + '">Go</button>' +
-            '</div>' +
-          '</div>';
-        }).join('');
+        list.textContent = '';
+        jobs.forEach(function(j) {
+          var isEstimate = j.type === 'estimate';
+          var div = document.createElement('div');
+          div.className = 'unscheduled-item';
+          div.setAttribute('data-job-id', j.id);
+          if (isEstimate) div.setAttribute('data-type', 'estimate');
 
-        // Schedule button clicks
-        list.querySelectorAll('.schedule-btn').forEach(function(btn) {
-          btn.addEventListener('click', function() {
-            var jobId = btn.dataset.jobId;
-            var row = btn.closest('.unscheduled-item');
-            var dateInp = row.querySelector('.unscheduled-date');
-            var dateStr = dateInp ? dateInp.value : '';
-            if (!dateStr) { showToast('Pick a date first', 'warning'); return; }
-            fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
-              method: 'POST', credentials: 'same-origin',
-              headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-              body: JSON.stringify({ scheduled_date: dateStr })
-            }).then(function(r) {
-              if (r.ok) {
-                calendar.refetchEvents();
-                loadUnscheduled();
-                showToast('Job scheduled');
-              }
+          var badge = isEstimate ? '<span style="font-size:9px;font-weight:700;text-transform:uppercase;padding:2px 5px;border-radius:3px;background:rgba(34,197,94,0.15);color:#86efac;margin-right:4px;">Estimate</span>' : '';
+
+          var info = document.createElement('div');
+          info.className = 'unscheduled-item-info';
+          var name = document.createElement('div');
+          name.className = 'unscheduled-item-name';
+          name.textContent = j.customer || 'Unknown';
+          var detail = document.createElement('div');
+          detail.className = 'unscheduled-item-detail';
+          detail.textContent = (j.services || '') + (j.address ? ' · ' + j.address : '');
+          info.appendChild(name);
+          info.appendChild(detail);
+
+          var actions = document.createElement('div');
+          actions.className = 'unscheduled-item-actions';
+          var dateInp = document.createElement('input');
+          dateInp.type = 'date';
+          dateInp.className = 'unscheduled-date';
+          dateInp.value = today;
+          actions.appendChild(dateInp);
+
+          var goBtn = document.createElement('button');
+          goBtn.type = 'button';
+          goBtn.className = 'btn btn-primary btn-sm';
+          goBtn.textContent = 'Schedule';
+
+          if (isEstimate) {
+            // For estimates, POST to schedule_from_estimate
+            goBtn.addEventListener('click', function() {
+              var d = dateInp.value;
+              if (!d) { showToast('Pick a date', 'warning'); return; }
+              var form = document.createElement('form');
+              form.method = 'POST';
+              form.action = '/jobs/schedule-from-estimate/' + j.id + '/';
+              var csrfInp = document.createElement('input');
+              csrfInp.type = 'hidden'; csrfInp.name = 'csrfmiddlewaretoken'; csrfInp.value = csrf;
+              var dateField = document.createElement('input');
+              dateField.type = 'hidden'; dateField.name = 'schedule_date'; dateField.value = d;
+              form.appendChild(csrfInp);
+              form.appendChild(dateField);
+              document.body.appendChild(form);
+              form.submit();
             });
-          });
+          } else {
+            // For jobs, use the reschedule API
+            goBtn.addEventListener('click', function() {
+              var d = dateInp.value;
+              if (!d) { showToast('Pick a date', 'warning'); return; }
+              fetch('/jobs/calendar/job/' + j.id + '/reschedule/', {
+                method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                body: JSON.stringify({ scheduled_date: d })
+              }).then(function(r) {
+                if (r.ok) { calendar.refetchEvents(); loadUnscheduled(); showToast('Job scheduled'); }
+              });
+            });
+          }
+
+          actions.appendChild(goBtn);
+          div.appendChild(info);
+          div.appendChild(actions);
+          list.appendChild(div);
         });
       });
   }

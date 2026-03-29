@@ -514,6 +514,58 @@ def invoice_delete(request, invoice_id):
 
 @require_POST
 @role_required("owner", "manager")
+def convert_estimate_to_invoice(request, estimate_id):
+    """Convert an accepted estimate into a draft invoice with all line items."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    estimate = get_object_or_404(Estimate, id=estimate_id, business=business)
+
+    if estimate.status not in ("accepted", "sent"):
+        messages.error(request, "Only accepted or sent estimates can be converted to invoices.")
+        return redirect("billing:estimate_detail", estimate_id=estimate.id)
+
+    # Create the invoice
+    from datetime import timedelta
+    due_days = getattr(business, "default_invoice_due_days", None) or 30
+    invoice = Invoice.objects.create(
+        business=business,
+        customer=estimate.customer,
+        status="draft",
+        due_date=timezone.localdate() + timedelta(days=int(due_days)),
+    )
+
+    # Copy line items from estimate to invoice
+    for line in estimate.line_items.filter(is_addon=False):
+        InvoiceLineItem.objects.create(
+            invoice=invoice,
+            description=line.description,
+            quantity=line.quantity or 1,
+            unit_price=line.line_total,  # Use the line total as the unit price
+        )
+
+    # Also copy accepted add-ons if they were selected
+    if estimate.accepted_total and estimate.accepted_total > sum(
+        item.line_total for item in estimate.line_items.filter(is_addon=False)
+    ):
+        for line in estimate.line_items.filter(is_addon=True):
+            InvoiceLineItem.objects.create(
+                invoice=invoice,
+                description=f"{line.description} (add-on)",
+                quantity=line.quantity or 1,
+                unit_price=line.line_total,
+            )
+
+    invoice.recompute_totals()
+
+    messages.success(request, f"Invoice #{invoice.id} created from estimate #{estimate.id}. Review and send when ready.")
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+
+@require_POST
+@role_required("owner", "manager")
 def estimate_delete(request, estimate_id):
     """Delete an estimate."""
     business = _get_business(request)

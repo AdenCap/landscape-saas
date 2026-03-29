@@ -33,6 +33,7 @@ urlpatterns = [
     path("estimates/<int:estimate_id>/", views.estimate_detail, name="estimate_detail"),
     path("estimates/<int:estimate_id>/edit/", views.estimate_edit, name="estimate_edit"),
     path("estimates/<int:estimate_id>/delete/", views.estimate_delete, name="estimate_delete"),
+    path("estimates/<int:estimate_id>/convert-to-invoice/", views.convert_estimate_to_invoice, name="convert_estimate_to_invoice"),
     path("estimates/<int:estimate_id>/pdf/", views.estimate_pdf, name="estimate_pdf"),
     path("estimates/<int:estimate_id>/send/", views.estimate_send, name="estimate_send"),
     path("estimates/<int:estimate_id>/send-followup/", views.estimate_send_followup, name="estimate_send_followup"),

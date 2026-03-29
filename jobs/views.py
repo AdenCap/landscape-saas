@@ -1018,24 +1018,47 @@ def calendar_customer_search(request):
 @require_GET
 @role_required("owner", "manager")
 def calendar_unscheduled_jobs(request):
-    """List jobs with no scheduled_date (accepted but not yet on calendar)."""
+    """List unscheduled jobs AND accepted estimates that need scheduling."""
     business = get_business(request)
     if not business:
         return JsonResponse({"jobs": []})
+
+    out = []
+
+    # Unscheduled jobs (created but no date set)
     jobs = Job.objects.filter(
         property__customer__business=business,
         scheduled_date__isnull=True,
-    ).select_related('property', 'property__customer').prefetch_related('service_items__service').order_by('-created_at')[:50]
-    out = []
+    ).select_related('property', 'property__customer').prefetch_related('service_items__service').order_by('-created_at')[:30]
     for j in jobs:
         services = list({si.service.name for si in j.service_items.all() if si.service})
         out.append({
             "id": j.id,
+            "type": "job",
             "address": j.property.address,
             "customer": j.property.customer.name if j.property.customer else "",
             "services": ", ".join(services) if services else "No services",
             "status": j.status,
         })
+
+    # Accepted estimates not yet scheduled as jobs
+    from billing.models import Estimate
+    accepted_estimates = Estimate.objects.filter(
+        business=business,
+        status="accepted",
+        job_scheduled=False,
+    ).select_related("customer").order_by("-accepted_at")[:20]
+    for est in accepted_estimates:
+        out.append({
+            "id": est.id,
+            "type": "estimate",
+            "address": "",
+            "customer": est.customer.name,
+            "services": est.title,
+            "status": "accepted",
+            "estimate_id": est.id,
+        })
+
     return JsonResponse({"jobs": out})
 
 

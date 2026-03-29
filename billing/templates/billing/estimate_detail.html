@@ -40,6 +40,29 @@
         </form>
         {% endif %}
       {% endif %}
+      {% if estimate.status == 'accepted' %}
+      <form method="post" action="{% url 'billing:convert_estimate_to_invoice' estimate.id %}" class="action-inline" onsubmit="return confirm('Create a draft invoice from this estimate?');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">
+          <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:4px;">receipt_long</span>
+          Convert to Invoice
+        </button>
+      </form>
+      {% if not estimate.job_scheduled %}
+      <form method="post" action="{% url 'schedule_from_estimate' estimate.id %}" class="action-inline" style="display:flex;align-items:center;gap:6px;">
+        {% csrf_token %}
+        <input type="date" name="schedule_date" required style="padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:13px;">
+        <button type="submit" class="btn btn-secondary">
+          <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:4px;">calendar_month</span>
+          Schedule Job
+        </button>
+      </form>
+      {% else %}
+      <span style="display:inline-flex;align-items:center;gap:4px;padding:8px 12px;background:rgba(34,197,94,0.1);color:#86efac;border-radius:8px;font-size:13px;font-weight:500;">
+        <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span> Job scheduled
+      </span>
+      {% endif %}
+      {% endif %}
       <form method="post" action="{% url 'billing:estimate_delete' estimate.id %}" style="display:inline;" onsubmit="return confirm('Delete Estimate #{{ estimate.id }}? This cannot be undone.');">
         {% csrf_token %}
         <button type="submit" class="btn btn-secondary" style="color:#ffb4ab;">Delete</button>
