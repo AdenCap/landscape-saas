@@ -388,7 +388,8 @@ document.addEventListener('DOMContentLoaded', function () {
         el.textContent = c > 0 ? c : '';
         el.style.display = c > 0 ? '' : 'none';
       });
-      // Color mode applied only on toggle click, not every event load
+      // Re-apply color mode after every event load so user's selection persists
+      if (typeof window._applyColorMode === 'function') window._applyColorMode();
     }
   });
   calendar.render();
