@@ -491,6 +491,13 @@ function mowBulkAssignCrew() {
         <td style="white-space:nowrap;" onclick="event.stopPropagation()">
           {% if c.has_email %}<a href="mailto:{{ c.customer.email }}" title="{{ c.customer.email }}" style="text-decoration:none;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);vertical-align:-3px;">mail</span></a>{% endif %}
           {% if c.has_phone %}<a href="tel:{{ c.customer.phone }}" title="Call {{ c.customer.phone }}" style="text-decoration:none;margin-left:4px;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);vertical-align:-3px;">phone</span></a><a href="sms:{{ c.customer.phone }}" title="Text {{ c.customer.phone }}" style="text-decoration:none;margin-left:4px;"><span class="material-symbols-outlined" style="font-size:16px;color:#60a5fa;vertical-align:-3px;">sms</span></a>{% endif %}
+          {% if c.recurring_id %}
+          <form method="post" action="{% url 'mowing_remove_client' %}" style="display:inline;margin-left:6px;" onsubmit="return confirm('Remove {{ c.customer.name }} from mowing? They will stay in your CRM.');">
+            {% csrf_token %}
+            <input type="hidden" name="recurring_id" value="{{ c.recurring_id }}">
+            <button type="submit" style="background:none;border:none;cursor:pointer;padding:0;" title="Remove from mowing"><span class="material-symbols-outlined" style="font-size:16px;color:#f87171;vertical-align:-3px;">close</span></button>
+          </form>
+          {% endif %}
         </td>
       </tr>
       {% empty %}

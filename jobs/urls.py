@@ -13,6 +13,7 @@ urlpatterns = [
     path("mowing/update-price/", views.mowing_update_price, name="mowing_update_price"),
     path("mowing/update-crew/", views.mowing_update_crew, name="mowing_update_crew"),
     path("mowing/update-frequency/", views.mowing_update_frequency, name="mowing_update_frequency"),
+    path("mowing/remove-client/", views.mowing_remove_client, name="mowing_remove_client"),
     path("<int:job_id>/billing/", views.job_billing_options, name="job_billing_options"),
     path("<int:job_id>/bill-now/", views.job_bill_now, name="job_bill_now"),
     path("<int:job_id>/add-to-monthly/", views.job_add_to_monthly, name="job_add_to_monthly"),

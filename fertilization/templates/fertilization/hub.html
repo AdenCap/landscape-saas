@@ -204,6 +204,9 @@
                 <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">{{ enr.calc_rounds_completed }}/{{ enr.calc_rounds_total }}</span>
               </div>
             </td>
+            <td style="width:30px;" onclick="event.stopPropagation()">
+              <button type="button" onclick="if(confirm('Remove {{ enr.property.customer.name }} from this program? Client stays in CRM.')){fetch('{% url 'fertilization:enrollment_cancel' enr.id %}',{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value}}).then(function(){location.reload()})}" style="background:none;border:none;cursor:pointer;padding:2px;" title="Remove from program"><span class="material-symbols-outlined" style="font-size:16px;color:#f87171;">close</span></button>
+            </td>
           </tr>
           {% endfor %}
         </tbody>

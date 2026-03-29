@@ -2922,6 +2922,25 @@ def mowing_update_crew(request):
 
 @require_POST
 @role_required("owner", "manager")
+def mowing_remove_client(request):
+    """Remove a client from the mowing hub by deactivating their recurring job. Client stays in CRM."""
+    business = get_business(request)
+    if not business:
+        return redirect("mowing_hub")
+    recurring_id = request.POST.get("recurring_id")
+    if not recurring_id:
+        messages.error(request, "Missing client ID.")
+        return redirect("mowing_hub")
+    rj = get_object_or_404(RecurringJob, id=recurring_id, property__customer__business=business)
+    customer_name = rj.property.customer.name
+    rj.active = False
+    rj.save(update_fields=["active"])
+    messages.success(request, f"Removed {customer_name} from mowing. Client remains in your CRM.")
+    return redirect("mowing_hub")
+
+
+@require_POST
+@role_required("owner", "manager")
 def mowing_update_frequency(request):
     """Update frequency for a recurring mowing client. Does NOT auto-schedule — user schedules manually."""
     business = get_business(request)
