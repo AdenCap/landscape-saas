@@ -2850,6 +2850,49 @@ def add_mowing_client(request):
 
 @require_POST
 @role_required("owner", "manager")
+def mowing_update_price(request):
+    """Update the per-cut price for a mowing client (inline edit from mowing hub)."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    property_id = data.get("property_id")
+    price = data.get("price", "").strip() if data.get("price") else ""
+
+    if not property_id:
+        return JsonResponse({"error": "Missing property_id"}, status=400)
+
+    prop = get_object_or_404(Property, id=property_id, customer__business=business)
+
+    from pricing.models import ServiceTemplate, PropertyServiceRate
+    mowing_svc = ServiceTemplate.objects.filter(
+        business=business, active=True, name__icontains="mow"
+    ).first()
+    if not mowing_svc:
+        return JsonResponse({"error": "No mowing service found"}, status=404)
+
+    if price:
+        from decimal import Decimal
+        try:
+            rate_val = Decimal(price)
+            PropertyServiceRate.objects.update_or_create(
+                property=prop, service=mowing_svc,
+                defaults={"override_rate": rate_val},
+            )
+        except (ValueError, TypeError):
+            return JsonResponse({"error": "Invalid price"}, status=400)
+    else:
+        PropertyServiceRate.objects.filter(property=prop, service=mowing_svc).delete()
+
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+@role_required("owner", "manager")
 def mowing_bulk_schedule(request):
     """Batch-create mowing jobs — once or for the entire season based on frequency."""
     business = get_business(request)
