@@ -13,7 +13,7 @@ from customers.models import Customer, Property
 from jobs.models import Job, JobServiceItem
 from pricing.models import ServiceTemplate
 from pricing.utils import get_effective_rate
-from .models import ServiceAgreement, AgreementVisit
+from .models import ServiceAgreement, AgreementVisit, AgreementLineItem
 
 
 @login_required
@@ -48,17 +48,53 @@ def agreement_create(request):
         customer = get_object_or_404(Customer, id=customer_id, business=business)
         prop = get_object_or_404(Property, id=property_id, customer=customer)
 
+        billing_freq = request.POST.get("billing_frequency", "annual")
+        prepaid = request.POST.get("prepaid") == "on"
+        prepaid_amount = request.POST.get("prepaid_amount", "").strip()
+        start_date_str = request.POST.get("start_date", "")
+        end_date_str = request.POST.get("end_date", "")
+
+        try:
+            start_dt = date.fromisoformat(start_date_str) if start_date_str else date.today()
+        except (ValueError, TypeError):
+            start_dt = date.today()
+        try:
+            end_dt = date.fromisoformat(end_date_str) if end_date_str else None
+        except (ValueError, TypeError):
+            end_dt = None
+
         agreement = ServiceAgreement.objects.create(
             business=business,
             customer=customer,
             name=name,
             agreement_type="maintenance",
             status="active",
-            start_date=date.today(),
-            billing_frequency="annual",
+            start_date=start_dt,
+            end_date=end_dt,
+            billing_frequency=billing_freq,
             price=Decimal(price) if price else Decimal("0"),
+            prepaid=prepaid,
+            prepaid_amount=Decimal(prepaid_amount) if prepaid_amount else None,
             notes=notes,
         )
+
+        # Save line items
+        line_names = request.POST.getlist("line_name")
+        line_freqs = request.POST.getlist("line_frequency")
+        line_prices = request.POST.getlist("line_price")
+        line_expected = request.POST.getlist("line_expected")
+        for i in range(len(line_names)):
+            ln = (line_names[i] or "").strip()
+            if not ln:
+                continue
+            AgreementLineItem.objects.create(
+                agreement=agreement,
+                service_name=ln,
+                frequency=line_freqs[i] if i < len(line_freqs) else "per_visit",
+                unit_price=Decimal(line_prices[i]) if i < len(line_prices) and line_prices[i] else Decimal("0"),
+                times_expected=int(line_expected[i]) if i < len(line_expected) and line_expected[i] else None,
+                order=i,
+            )
 
         # Parse service visits from form
         visit_services = request.POST.getlist("visit_service")

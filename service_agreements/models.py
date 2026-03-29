@@ -41,6 +41,14 @@ class ServiceAgreement(models.Model):
         max_digits=5, decimal_places=2, default=0,
         help_text="Discount % on repairs for agreement holders.",
     )
+    prepaid = models.BooleanField(
+        default=False,
+        help_text="Client paid upfront for the year. Skip auto-invoicing for services covered by this agreement.",
+    )
+    prepaid_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Amount already paid. Used for tracking only.",
+    )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

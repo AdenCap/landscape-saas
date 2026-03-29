@@ -109,10 +109,37 @@ def create_draft_invoice_for_job(job):
     Creates a DRAFT invoice for this job if one doesn't exist.
     Pulls line items from JobServiceItem.
     Does NOT send the invoice.
+    Skips if customer has a prepaid agreement covering this service.
     """
-    # If your Invoice has a FK to job (your choices list shows invoice.job exists)
     business = job.property.customer.business
     customer = job.property.customer
+
+    # Check for prepaid agreements — skip invoicing if all services are covered
+    try:
+        from service_agreements.models import ServiceAgreement, AgreementLineItem
+        prepaid_agreements = ServiceAgreement.objects.filter(
+            customer=customer, business=business, status="active", prepaid=True
+        ).prefetch_related("line_items")
+        if prepaid_agreements.exists():
+            # Get service names from the job
+            job_service_names = set(
+                si.service.name.lower() for si in job.service_items.select_related("service").all() if si.service
+            )
+            # Get service names covered by prepaid agreements
+            covered_names = set()
+            for ag in prepaid_agreements:
+                if ag.is_active:
+                    for li in ag.line_items.all():
+                        covered_names.add(li.service_name.lower())
+            # If ALL job services are covered by prepaid agreements, skip invoicing
+            if job_service_names and job_service_names.issubset(covered_names):
+                import logging
+                logging.getLogger(__name__).info(
+                    "Skipping invoice for job %s — all services covered by prepaid agreement", job.id
+                )
+                return None
+    except Exception:
+        pass
     issue_date = timezone.localdate()
     due_date = get_invoice_due_date(issue_date, business, customer) or issue_date
 
