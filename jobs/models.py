@@ -401,6 +401,7 @@ class JobServiceItem(models.Model):
 class RecurringJob(models.Model):
     FREQUENCY_CHOICES = [
         ("weekly", "Weekly"),
+        ("10day", "Every 10 Days"),
         ("biweekly", "Bi-Weekly"),
         ("monthly", "Monthly"),
         ("custom", "Custom (every N days)"),

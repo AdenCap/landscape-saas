@@ -188,6 +188,7 @@ If you have any questions, please don't hesitate to reach out.
           <label>Frequency</label>
           <select name="frequency">
             <option value="weekly">Weekly</option>
+            <option value="10day">Every 10 Days</option>
             <option value="biweekly">Bi-Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
@@ -310,7 +311,7 @@ function mowEditFreq(el) {
   if (!rid) return;
   var sel = document.createElement('select');
   sel.style.cssText = 'padding:4px 6px;font-size:12px;border:1px solid var(--primary);border-radius:6px;background:var(--bg);color:var(--text);';
-  [['weekly','Weekly'],['biweekly','Bi-Weekly'],['monthly','Monthly']].forEach(function(opt) {
+  [['weekly','Weekly'],['10day','Every 10 Days'],['biweekly','Bi-Weekly'],['monthly','Monthly']].forEach(function(opt) {
     var o = document.createElement('option');
     o.value = opt[0]; o.textContent = opt[1];
     if (opt[0] === current) o.selected = true;
@@ -441,6 +442,8 @@ function mowBulkAssignCrew() {
           <span class="mow-freq-display" data-rid="{{ c.recurring_id }}" data-freq="{{ c.frequency_key }}" onclick="mowEditFreq(this)" style="cursor:pointer;" title="Click to change">
           {% if c.frequency_key == "weekly" %}
             <span class="mow-badge mow-badge-weekly">W</span>
+          {% elif c.frequency_key == "10day" %}
+            <span class="mow-badge" style="background:rgba(96,165,250,0.2);color:#60a5fa;">10D</span>
           {% elif c.frequency_key == "biweekly" %}
             <span class="mow-badge mow-badge-biweekly">BW</span>
           {% elif c.frequency_key == "monthly" %}

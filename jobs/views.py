@@ -2593,7 +2593,7 @@ def mowing_hub(request):
 
     # Build sorted client list
     clients = []
-    freq_order = {"weekly": 0, "biweekly": 1, "monthly": 2, "custom": 3, "one_time": 4}
+    freq_order = {"weekly": 0, "10day": 1, "biweekly": 2, "monthly": 3, "custom": 4, "one_time": 5}
     # Calculate avg duration per property (for all properties in customer_map)
     from django.db.models import Avg, F, ExpressionWrapper, DurationField
     all_prop_ids = set()
@@ -2936,7 +2936,7 @@ def mowing_update_frequency(request):
     new_frequency = data.get("frequency", "").strip()
     reschedule = data.get("reschedule_from_today", False)
 
-    if not recurring_id or new_frequency not in ("weekly", "biweekly", "monthly"):
+    if not recurring_id or new_frequency not in ("weekly", "10day", "biweekly", "monthly"):
         return JsonResponse({"error": "Invalid parameters"}, status=400)
 
     rj = get_object_or_404(RecurringJob, id=recurring_id, property__customer__business=business)
@@ -2981,7 +2981,7 @@ def mowing_update_frequency(request):
             business=business, active=True, name__icontains="mow"
         ).first()
 
-        interval = 7 if new_frequency == "weekly" else (14 if new_frequency == "biweekly" else 30)
+        interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(new_frequency, 14)
         current_date = today + timedelta(days=1)  # Start from tomorrow
         created = 0
         while current_date <= season_end and mowing_svc:
@@ -3059,7 +3059,7 @@ def mowing_bulk_schedule(request):
 
         if schedule_mode == "season":
             # Generate recurring dates from start to season end
-            interval = 7 if freq == "weekly" else (14 if freq == "biweekly" else 30)
+            interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(freq, 14)
             current_date = schedule_date
             while current_date <= season_end:
                 # Skip weekends if needed (keep on weekdays)
