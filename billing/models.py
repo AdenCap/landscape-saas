@@ -196,8 +196,12 @@ class InvoiceLineItem(models.Model):
     )
 
     description = models.CharField(max_length=255)
+    detail_description = models.TextField(
+        blank=True, default='',
+        help_text="Optional detailed description shown below the service name on the invoice."
+    )
     quantity = models.PositiveIntegerField(default=1)
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2)  # Used when importing from jobs
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     material_cost = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         help_text="Cost of materials for this line"
@@ -405,6 +409,10 @@ class EstimateLineItem(models.Model):
         help_text='Stores mowing calculator inputs when item_type=mowing'
     )
     description = models.CharField(max_length=500)
+    detail_description = models.TextField(
+        blank=True, default='',
+        help_text="Optional detailed description shown below the service name on the estimate."
+    )
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
     unit = models.CharField(max_length=50, default='ea')
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)

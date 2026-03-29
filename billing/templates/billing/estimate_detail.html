@@ -129,11 +129,11 @@
           {% for item in estimate.line_items.all %}
           {% if not item.is_addon %}
           <tr>
-            <td>{{ item.description }}</td>
+            <td>{{ item.description }}{% if item.detail_description %}<br><span style="font-size:12px;color:var(--text-muted);">{{ item.detail_description }}</span>{% endif %}</td>
             <td class="num">{{ item.quantity }}</td>
             <td class="num">{{ item.material_cost|currency }}</td>
             <td class="num">{{ item.labor_cost|currency }}</td>
-            <td class="num">{{ item.line_total|currency }}</td>
+            <td class="num">{% if item.line_total %}{{ item.line_total|currency }}{% else %}—{% endif %}</td>
           </tr>
           {% endif %}
           {% endfor %}

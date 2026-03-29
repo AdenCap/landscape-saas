@@ -30,9 +30,13 @@
         </div>
         <div class="line-item-card-body">
           <div class="form-group form-group-desc">
-            <label>Description</label>
+            <label>Service Name</label>
             {{ form.description }}
             {% if form.description.errors %}<span class="field-error">{{ form.description.errors.0 }}</span>{% endif %}
+          </div>
+          <div class="form-group form-group-desc" style="margin-top:8px;">
+            <label>Description <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+            {{ form.detail_description }}
           </div>
           <div class="line-item-numbers">
             <div class="form-group">

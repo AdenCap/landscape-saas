@@ -121,8 +121,8 @@
       <tbody>
         {% for item in base_items %}
         <tr>
-          <td>{{ item.description }}</td>
-          <td class="num">{{ item.line_total|currency }}</td>
+          <td>{{ item.description }}{% if item.detail_description %}<br><span style="font-size:13px;color:#71717a;">{{ item.detail_description }}</span>{% endif %}</td>
+          <td class="num">{% if item.line_total %}{{ item.line_total|currency }}{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>

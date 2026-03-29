@@ -94,14 +94,15 @@ class EstimateForm(forms.ModelForm):
 
 
 class InvoiceLineItemForm(forms.ModelForm):
-    """Owner edit of draft invoice line items: description, quantity, unit_price, material_cost, labor_cost."""
+    """Owner edit of draft invoice line items: description, detail_description, quantity, unit_price, material_cost, labor_cost."""
     class Meta:
         model = InvoiceLineItem
-        fields = ["description", "quantity", "unit_price", "material_cost", "labor_cost"]
+        fields = ["description", "detail_description", "quantity", "unit_price", "material_cost", "labor_cost"]
         widgets = {
-            "description": forms.TextInput(attrs={"placeholder": "Description", "class": "form-control"}),
+            "description": forms.TextInput(attrs={"placeholder": "Service name", "class": "form-control"}),
+            "detail_description": forms.Textarea(attrs={"placeholder": "Optional description of the work...", "class": "form-control", "rows": 2}),
             "quantity": forms.NumberInput(attrs={"min": 1, "step": 1, "class": "form-control"}),
-            "unit_price": forms.NumberInput(attrs={"min": 0, "step": "0.01", "class": "form-control"}),
+            "unit_price": forms.NumberInput(attrs={"min": 0, "step": "0.01", "class": "form-control", "placeholder": "0.00"}),
             "material_cost": forms.NumberInput(attrs={"min": 0, "step": "0.01", "class": "form-control"}),
             "labor_cost": forms.NumberInput(attrs={"min": 0, "step": "0.01", "class": "form-control"}),
         }
@@ -239,13 +240,14 @@ class EstimateLineItemForm(forms.ModelForm):
 
     class Meta:
         model = EstimateLineItem
-        fields = ['item_type', 'fertilizing_config', 'mulch_config', 'mowing_config', 'description', 'quantity', 'material_cost', 'labor_cost', 'total_override', 'is_addon', 'order']
+        fields = ['item_type', 'fertilizing_config', 'mulch_config', 'mowing_config', 'description', 'detail_description', 'quantity', 'material_cost', 'labor_cost', 'total_override', 'is_addon', 'order']
         widgets = {
             'order': forms.HiddenInput(),
             'fertilizing_config': forms.HiddenInput(),
             'mulch_config': forms.HiddenInput(),
             'mowing_config': forms.HiddenInput(),
-            'description': forms.TextInput(attrs={'placeholder': 'Description'}),
+            'description': forms.TextInput(attrs={'placeholder': 'Service name'}),
+            'detail_description': forms.Textarea(attrs={'placeholder': 'Optional description of the work...', 'rows': 2}),
             'quantity': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': ''}),
             'material_cost': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': ''}),
             'labor_cost': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': ''}),

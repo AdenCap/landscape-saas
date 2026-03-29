@@ -103,11 +103,11 @@
         <tbody>
           {% for item in items %}
           <tr>
-            <td>{{ item.description }}</td>
+            <td>{{ item.description }}{% if item.detail_description %}<br><span style="font-size:12px;color:var(--text-muted);">{{ item.detail_description }}</span>{% endif %}</td>
             <td class="num">{{ item.quantity }}</td>
             <td class="num">{{ item.material_cost|currency }}</td>
             <td class="num">{{ item.labor_cost|currency }}</td>
-            <td class="num">{{ item.line_total|currency }}</td>
+            <td class="num">{% if item.line_total %}{{ item.line_total|currency }}{% else %}—{% endif %}</td>
           </tr>
           {% empty %}
           <tr><td colspan="5" class="empty-cell">No line items yet.</td></tr>
@@ -214,27 +214,27 @@
       <a href="{% url 'billing:invoice_pdf' invoice.id %}?inline=1" target="_blank" class="btn btn-secondary" title="Open PDF for printing">
         <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">print</span> Print
       </a>
-      {% if invoice.status == “draft” %}
-      <a href=”{% url 'billing:invoice_edit_line_items' invoice.id %}” class=”btn btn-secondary”>Edit line items</a>
-      <form method=”post” action=”{% url 'billing:send_invoice' invoice.id %}” style=”display: inline;”>
+      {% if invoice.status == "draft" %}
+      <a href="{% url 'billing:invoice_edit_line_items' invoice.id %}" class="btn btn-secondary">Edit line items</a>
+      <form method="post" action="{% url 'billing:send_invoice' invoice.id %}" style="display: inline;">
         {% csrf_token %}
-        <button type=”submit” class=”btn btn-primary”>Approve &amp; send</button>
+        <button type="submit" class="btn btn-primary">Approve &amp; send</button>
       </form>
-      <span class=”invoice-action-hint”>After approving, use “Email invoice to customer” to send the email to the customer.</span>
+      <span class="invoice-action-hint">After approving, use "Email invoice to customer" to send the email to the customer.</span>
       {% endif %}
-      {% if invoice.status == “sent” %}
-      <a href=”{% url 'billing:invoice_edit_line_items' invoice.id %}” class=”btn btn-secondary”>Edit line items</a>
+      {% if invoice.status == "sent" %}
+      <a href="{% url 'billing:invoice_edit_line_items' invoice.id %}" class="btn btn-secondary">Edit line items</a>
       {% endif %}
-      {% if invoice.status == “sent” or invoice.status == “paid” %}
-      <form method=”post” action=”{% url 'billing:resend_invoice' invoice.id %}” style=”display: inline;”>
+      {% if invoice.status == "sent" or invoice.status == "paid" %}
+      <form method="post" action="{% url 'billing:resend_invoice' invoice.id %}" style="display: inline;">
         {% csrf_token %}
-        <button type=”submit” class=”btn btn-secondary”>Email invoice to customer</button>
+        <button type="submit" class="btn btn-secondary">Email invoice to customer</button>
       </form>
       {% endif %}
-      {% if invoice.status == “sent” %}
-      <form method=”post” action=”{% url 'billing:mark_invoice_paid' invoice.id %}” style=”display: inline;”>
+      {% if invoice.status == "sent" %}
+      <form method="post" action="{% url 'billing:mark_invoice_paid' invoice.id %}" style="display: inline;">
         {% csrf_token %}
-        <button type=”submit” class=”btn btn-primary”>Mark as paid</button>
+        <button type="submit" class="btn btn-primary">Mark as paid</button>
       </form>
       {% endif %}
       {% if invoice.status != "paid" %}

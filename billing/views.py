@@ -1059,13 +1059,26 @@ def _build_invoice_pdf(invoice, request):
         lt = item.line_total
         computed_total += lt
         p.setFont(b_font, 9)
-        p.drawString(margin + 10, y, str(item.description)[:48])
+        p.drawString(margin + 10, y, _pdf_safe(str(item.description)[:48]))
         p.drawString(350, y, str(item.quantity or 1))
-        p.drawString(405, y, _fmt_currency(item.unit_price) if item.unit_price else "---")
-        p.setFont(h_font, 9)
-        p.drawRightString(right - 10, y, _fmt_currency(lt))
+        if lt:
+            p.drawString(405, y, _fmt_currency(item.unit_price) if item.unit_price else "")
+            p.setFont(h_font, 9)
+            p.drawRightString(right - 10, y, _fmt_currency(lt))
+        else:
+            p.setFont(h_font, 9)
         y -= row_h
         row_idx += 1
+
+        # Detail description (optional, shown as smaller text below)
+        detail = getattr(item, 'detail_description', '') or ''
+        if detail.strip():
+            p.setFont(b_font, 7.5)
+            p.setFillColorRGB(0.45, 0.45, 0.45)
+            for desc_line in detail.strip().split('\n')[:3]:
+                p.drawString(margin + 14, y, _pdf_safe(desc_line[:70]))
+                y -= 10
+            p.setFillColorRGB(*_PDF_DARK)
 
         # Thin row separator
         p.setStrokeColorRGB(0.90, 0.90, 0.90)
@@ -2034,11 +2047,25 @@ def _build_estimate_pdf(estimate, business, compact=False):
         p.setFillColorRGB(*_PDF_DARK)
         p.setFont(b_font, 9)
         p.drawString(370, y, str(item.quantity or 1))
-        p.drawString(420, y, _fmt_currency(item.unit_price) if item.unit_price else "---")
-        p.setFont(h_font, 9)
-        p.drawRightString(right - 6, y, _fmt_currency(item.line_total))
+        lt = item.line_total
+        if lt:
+            p.drawString(420, y, _fmt_currency(item.unit_price) if item.unit_price else "")
+            p.setFont(h_font, 9)
+            p.drawRightString(right - 6, y, _fmt_currency(lt))
+        else:
+            p.setFont(h_font, 9)
+        y -= 18
 
-        y -= row_h
+        # Detail description (optional)
+        detail = getattr(item, 'detail_description', '') or ''
+        if detail.strip():
+            p.setFont(b_font, 7.5)
+            p.setFillColorRGB(0.45, 0.45, 0.45)
+            for desc_line in detail.strip().split('\n')[:3]:
+                p.drawString(margin + 10, y, _pdf_safe(desc_line[:70]))
+                y -= 10
+            p.setFillColorRGB(*_PDF_DARK)
+
         p.setStrokeColorRGB(0.90, 0.90, 0.90)
         p.setLineWidth(0.3)
         p.line(margin, y + 4, right, y + 4)

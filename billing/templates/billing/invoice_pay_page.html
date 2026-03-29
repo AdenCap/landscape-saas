@@ -62,8 +62,11 @@
       <div class="line-items">
         {% for item in line_items %}
         <div class="line-item">
-          <span class="line-item-name">{{ item.description|default:"Service" }}{% if item.quantity and item.quantity != 1 %} &times; {{ item.quantity }}{% endif %}</span>
-          <span class="line-item-amount">${{ item.line_total|floatformat:2 }}</span>
+          <div>
+            <span class="line-item-name">{{ item.description|default:"Service" }}{% if item.quantity and item.quantity != 1 %} &times; {{ item.quantity }}{% endif %}</span>
+            {% if item.detail_description %}<div style="font-size:12px;color:#71717a;margin-top:2px;">{{ item.detail_description }}</div>{% endif %}
+          </div>
+          <span class="line-item-amount">{% if item.line_total %}${{ item.line_total|floatformat:2 }}{% endif %}</span>
         </div>
         {% endfor %}
         {% if invoice.tax_amount %}
