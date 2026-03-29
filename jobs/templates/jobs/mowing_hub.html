@@ -327,7 +327,7 @@ function mowEditFreq(el) {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-      body: JSON.stringify({ recurring_id: rid, frequency: newFreq, reschedule_from_today: true })
+      body: JSON.stringify({ recurring_id: rid, frequency: newFreq })
     }).then(function(r) { return r.json(); }).then(function(data) {
       if (data.ok) { location.reload(); }
       else { el.style.display = ''; sel.remove(); }
