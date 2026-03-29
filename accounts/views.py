@@ -565,7 +565,7 @@ def notification_mark_read(request, notification_id):
         from django.utils import timezone as tz
         notification.read_at = tz.now()
         notification.save(update_fields=["read_at"])
-    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accepts("application/json"):
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         from django.http import JsonResponse
         return JsonResponse({"ok": True})
     return redirect("notification_inbox")
