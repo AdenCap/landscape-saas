@@ -1550,7 +1550,11 @@ def estimate_create(request):
                 return redirect(next_url)
             return redirect("billing:estimate_edit", estimate_id=estimate.id)
     else:
-        form = EstimateForm(business=business)
+        # Auto-set valid_until from business default
+        from datetime import timedelta
+        valid_days = getattr(business, "default_estimate_valid_days", 30) or 30
+        initial = {"valid_until": timezone.localdate() + timedelta(days=valid_days)}
+        form = EstimateForm(business=business, initial=initial)
         customer_id = request.GET.get("customer")
         if customer_id:
             try:
@@ -1623,10 +1627,13 @@ def estimate_create_from_fertilizer(request):
     sqft = Decimal(str(config.get('total_sqft') or 0))
     total_pounds = (rate / 1000) * sqft
     
+    from datetime import timedelta as _td
+    valid_days = getattr(business, "default_estimate_valid_days", 30) or 30
     estimate = Estimate.objects.create(
         business=business,
         customer=customer,
         title=request.POST.get("title") or "FieldLgx Service Estimate",
+        valid_until=timezone.localdate() + _td(days=valid_days),
     )
 
     line_item = EstimateLineItem.objects.create(
@@ -1716,10 +1723,13 @@ def estimate_create_from_mulch(request):
     if not desc:
         messages.error(request, "Invalid calculator inputs.")
         return redirect("mulch_rock_calculator")
+    from datetime import timedelta as _td2
+    valid_days2 = getattr(business, "default_estimate_valid_days", 30) or 30
     estimate = Estimate.objects.create(
         business=business,
         customer=customer,
         title=request.POST.get("title") or "FieldLgx Service Estimate",
+        valid_until=timezone.localdate() + _td2(days=valid_days2),
     )
     EstimateLineItem.objects.create(
         estimate=estimate,

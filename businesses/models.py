@@ -365,6 +365,10 @@ class Business(models.Model):
         blank=True,
         help_text="Default number of days from issue date until invoice is due (e.g. 30 for Net 30). Leave blank for no default.",
     )
+    default_estimate_valid_days = models.PositiveSmallIntegerField(
+        default=30,
+        help_text="Default number of days an estimate is valid for. Shown on estimate form, owner can override per estimate.",
+    )
 
     # Growing season for fertilization scheduling (month numbers 1–12)
     growing_season_start_month = models.PositiveSmallIntegerField(
