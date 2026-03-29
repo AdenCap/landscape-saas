@@ -61,6 +61,7 @@ class Job(models.Model):
     scheduled_date = models.DateField(null=True, blank=True, help_text='Null = unscheduled (accepted but not yet on calendar)')
     scheduled_time = models.TimeField(null=True, blank=True, help_text='Optional start time for week/day view')
     scheduled_end_time = models.TimeField(null=True, blank=True, help_text='Optional end time — set by calendar resize')
+    schedule_by_date = models.DateField(null=True, blank=True, help_text='Target date to schedule this job by — shows as a reminder')
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,

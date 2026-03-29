@@ -34,6 +34,11 @@ class CreateJobForm(forms.Form):
         widget=forms.DateInput(attrs={"type": "date"}),
         help_text="When should this work be done? Leave empty for unscheduled.",
     )
+    schedule_by_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="Remind me to schedule this by this date (only for unscheduled jobs).",
+    )
     scheduled_end_date = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={"type": "date"}),

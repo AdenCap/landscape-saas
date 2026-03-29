@@ -108,9 +108,15 @@
         <span class="material-symbols-outlined" style="font-size:18px;color:var(--text-muted);">receipt_long</span>
       </a>
     </div>
-    {% if invoices_overdue_count or queue_count or fert_due_count %}
+    {% if invoices_overdue_count or queue_count or fert_due_count or overdue_schedule_count %}
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
       <h5 style="font-size:10px;text-transform:uppercase;font-weight:700;letter-spacing:0.1em;color:var(--text-muted);margin:0 0 10px;">Needs Attention</h5>
+      {% if overdue_schedule_count %}
+      <a href="{% url 'job_list' %}" class="attn-item attn-warn">
+        <span class="attn-dot" style="background:#f87171;"></span>
+        {{ overdue_schedule_count }} job{{ overdue_schedule_count|pluralize }} overdue for scheduling
+      </a>
+      {% endif %}
       {% if invoices_overdue_count %}
       <a href="{% url 'billing:invoice_list' %}" class="attn-item attn-warn">
         <span class="attn-dot" style="background:#ffb4ab;"></span>

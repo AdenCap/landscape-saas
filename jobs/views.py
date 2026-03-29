@@ -1803,6 +1803,7 @@ def create_job(request):
             sched_date = form.cleaned_data.get("scheduled_date")
             sched_end_date = form.cleaned_data.get("scheduled_end_date")
             sched_time = form.cleaned_data.get("scheduled_time") if sched_date else None
+            schedule_by = form.cleaned_data.get("schedule_by_date") if not sched_date else None
             total_price_override = form.cleaned_data.get("total_price")
             from decimal import Decimal
             color_val = (form.cleaned_data.get("color") or "").strip()
@@ -1860,6 +1861,7 @@ def create_job(request):
                     property=prop,
                     scheduled_date=jd,
                     scheduled_time=sched_time,
+                    schedule_by_date=schedule_by,
                     assigned_to=assigned_to,
                     assigned_crew=assigned_crew,
                     notes=form.cleaned_data.get("notes") or "",

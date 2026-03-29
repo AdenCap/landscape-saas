@@ -880,6 +880,15 @@ def owner_dashboard(request):
         **review_stats,
     }
 
+    # Jobs overdue for scheduling (schedule_by_date passed, still unscheduled)
+    overdue_schedule_count = Job.objects.filter(
+        property__customer__business=business,
+        scheduled_date__isnull=True,
+        schedule_by_date__lt=today,
+        status="scheduled",
+    ).count()
+    context["overdue_schedule_count"] = overdue_schedule_count
+
     # Active promotions
     from billing.models import Promotion
     active_promos = Promotion.objects.filter(business=business, status="active").select_related("customer").order_by("-created_at")[:10]

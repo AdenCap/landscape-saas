@@ -55,9 +55,18 @@
     <span style="font-size:11px;font-weight:600;background:var(--surface-highest);padding:2px 6px;border-radius:4px;margin-left:4px;">{{ unscheduled_jobs|length }}</span>
   </h3>
   <div style="display:flex;flex-direction:column;gap:4px;">
+    {% load tz %}
     {% for item in unscheduled_jobs %}
-    <a href="{% url 'job_detail' item.job.id %}" class="fin-inv-row" style="padding:8px 10px;">
-      <span class="fin-inv-name"><strong>{{ item.job.property.customer.name }}</strong> <span style="color:var(--text-muted);font-weight:400;">· {{ item.title }}</span></span>
+    <a href="{% url 'job_detail' item.job.id %}" class="fin-inv-row" style="padding:8px 10px;{% if item.job.schedule_by_date and item.job.schedule_by_date < today %}border-left:3px solid #f87171;{% elif item.job.schedule_by_date %}border-left:3px solid #f59e0b;{% endif %}">
+      <div style="flex:1;min-width:0;">
+        <span class="fin-inv-name"><strong>{{ item.job.property.customer.name }}</strong> <span style="color:var(--text-muted);font-weight:400;">· {{ item.title }}</span></span>
+        {% if item.job.schedule_by_date %}
+        <div style="font-size:11px;margin-top:2px;{% if item.job.schedule_by_date < today %}color:#f87171;font-weight:600;{% else %}color:#f59e0b;{% endif %}">
+          <span class="material-symbols-outlined" style="font-size:12px;vertical-align:-2px;">schedule</span>
+          Schedule by {{ item.job.schedule_by_date|date:"M j" }}{% if item.job.schedule_by_date < today %} — overdue{% endif %}
+        </div>
+        {% endif %}
+      </div>
       <span class="fin-inv-amt">${{ item.amount|floatformat:2 }}</span>
     </a>
     {% endfor %}
