@@ -147,7 +147,10 @@
         <span style="font-size:12px;font-weight:600;"><span id="sched-count-{{ pg.program.id }}">0</span> selected &middot; <span id="sched-mode-label-{{ pg.program.id }}">Next round only</span></span>
         <select id="sched-mode-{{ pg.program.id }}" onchange="updateSchedMode('{{ pg.program.id }}')" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:11px;">
           <option value="next">Next round only</option>
-          <option value="all">All remaining rounds (use target dates)</option>
+          {% for round in pg.program.rounds.all %}
+          <option value="round_{{ round.id }}">Round {{ round.round_number }}: {{ round.name }}</option>
+          {% endfor %}
+          <option value="all">All remaining rounds</option>
         </select>
         <input type="date" name="schedule_date" id="sched-date-{{ pg.program.id }}" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:11px;">
         <button type="submit" class="btn btn-primary" style="font-size:11px;padding:6px 14px;">
@@ -296,25 +299,45 @@ function rebuildSchedInputs(pid) {
   if (!inputs) return;
   var mode = modeEl ? modeEl.value : 'next';
   while (inputs.firstChild) inputs.removeChild(inputs.firstChild);
-  checks.forEach(function(cb) {
-    var rids = mode === 'all' ? (cb.dataset.allRids || '') : (cb.dataset.rids || '');
-    rids.split(',').forEach(function(rid) {
-      if (rid) {
-        var inp = document.createElement('input');
-        inp.type = 'hidden';
-        inp.name = 'round_ids';
-        inp.value = rid;
-        inputs.appendChild(inp);
-      }
+
+  if (mode === 'all') {
+    // All remaining rounds
+    checks.forEach(function(cb) {
+      (cb.dataset.allRids || '').split(',').forEach(function(rid) {
+        if (rid) { var inp = document.createElement('input'); inp.type='hidden'; inp.name='round_ids'; inp.value=rid; inputs.appendChild(inp); }
+      });
     });
-  });
-  // If "all" mode, date is optional (uses target dates)
+  } else if (mode.indexOf('round_') === 0) {
+    // Specific round template selected — find matching scheduled rounds for each client
+    var roundTemplateId = mode.replace('round_', '');
+    // Add the round template ID so backend can match
+    var rtInp = document.createElement('input');
+    rtInp.type = 'hidden'; rtInp.name = 'round_template_id'; rtInp.value = roundTemplateId;
+    inputs.appendChild(rtInp);
+    // Also add all pending round IDs so backend can filter by template
+    checks.forEach(function(cb) {
+      (cb.dataset.allRids || '').split(',').forEach(function(rid) {
+        if (rid) { var inp = document.createElement('input'); inp.type='hidden'; inp.name='round_ids'; inp.value=rid; inputs.appendChild(inp); }
+      });
+    });
+  } else {
+    // Next round only (default)
+    checks.forEach(function(cb) {
+      var rids = cb.dataset.rids || '';
+      rids.split(',').forEach(function(rid) {
+        if (rid) { var inp = document.createElement('input'); inp.type='hidden'; inp.name='round_ids'; inp.value=rid; inputs.appendChild(inp); }
+      });
+    });
+  }
   if (dateEl) dateEl.required = (mode !== 'all');
 }
 function updateSchedMode(pid) {
   var modeEl = document.getElementById('sched-mode-' + pid);
   var labelEl = document.getElementById('sched-mode-label-' + pid);
-  if (labelEl) labelEl.textContent = modeEl.value === 'all' ? 'All remaining rounds' : 'Next round only';
+  var mode = modeEl.value;
+  if (mode === 'all') labelEl.textContent = 'All remaining';
+  else if (mode.indexOf('round_') === 0) labelEl.textContent = modeEl.options[modeEl.selectedIndex].text;
+  else labelEl.textContent = 'Next round only';
   rebuildSchedInputs(pid);
 }
 document.addEventListener('change', function(e) {

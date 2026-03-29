@@ -1874,6 +1874,7 @@ def batch_schedule_rounds(request):
 
     round_ids = request.POST.getlist("round_ids")
     schedule_date_str = request.POST.get("schedule_date", "")
+    round_template_id = request.POST.get("round_template_id", "").strip()
 
     # Deduplicate round IDs
     seen = set()
@@ -1916,11 +1917,17 @@ def batch_schedule_rounds(request):
     created = 0
     skipped = 0
     try:
-        rounds = ScheduledRound.objects.filter(
+        rounds_qs = ScheduledRound.objects.filter(
             id__in=unique_ids,
             enrollment__business=business,
             status='pending',
         ).select_related('enrollment__property__customer', 'enrollment__program', 'round_template')
+
+        # If a specific round template was selected, filter to only those rounds
+        if round_template_id:
+            rounds_qs = rounds_qs.filter(round_template_id=round_template_id)
+
+        rounds = rounds_qs
 
         for sr in rounds:
             # Double-check: skip if already has a job linked
