@@ -6,7 +6,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("businesses", "0037_business_default_estimate_valid_days"),
-        ("customers", "0013_property_yard_sqft"),
+        ("customers", "0013_rename_lawn_square_feet_to_yard_sqft"),
         ("billing", "0031_add_view_tracking"),
     ]
 
