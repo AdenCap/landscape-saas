@@ -8,6 +8,7 @@ from django.core import signing
 from django.core.mail import EmailMultiAlternatives
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods, require_POST
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
@@ -219,6 +220,28 @@ def customer_detail(request, customer_id):
     email_messages = customer.messages.filter(channel=ClientMessage.CHANNEL_EMAIL)[:50]
     sms_messages = customer.messages.filter(channel=ClientMessage.CHANNEL_SMS)[:50]
 
+    # Mowing enrollment
+    from jobs.models import RecurringJob
+    mowing_enrollment = RecurringJob.objects.filter(
+        property__customer=customer, active=True
+    ).select_related("property", "assigned_crew").first()
+    is_mowing_client = mowing_enrollment is not None
+
+    # Fertilization enrollment
+    from fertilization.models import CustomerProgramEnrollment
+    fert_enrollments = CustomerProgramEnrollment.objects.filter(
+        property__customer=customer,
+        status__in=["enrolled", "in_progress"],
+    ).select_related("program", "property").order_by("-year")[:5]
+    is_fert_client = fert_enrollments.exists()
+
+    # Property notes
+    from jobs.models import PropertyNote
+    prop_ids = list(properties.values_list("id", flat=True))
+    property_notes = PropertyNote.objects.filter(
+        property_id__in=prop_ids
+    ).select_related("author").order_by("-created_at")[:20] if prop_ids else []
+
     return render(request, "customers/customer_detail.html", {
         "customer": customer,
         "business": business,
@@ -238,6 +261,11 @@ def customer_detail(request, customer_id):
         "sms_configured": sms_configured,
         "show_fertilization": show_fertilization,
         "show_property_estimator": show_property_estimator,
+        "is_mowing_client": is_mowing_client,
+        "mowing_enrollment": mowing_enrollment,
+        "is_fert_client": is_fert_client,
+        "fert_enrollments": fert_enrollments,
+        "property_notes": property_notes,
     })
 
 
@@ -245,6 +273,30 @@ def _safe_next(request, value):
     if value and url_has_allowed_host_and_scheme(value, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
         return value
     return None
+
+
+@role_required("owner", "manager")
+@require_http_methods(["POST"])
+@login_required
+def api_add_property_note(request):
+    """Add a property note from the CRM profile page."""
+    from django.http import JsonResponse
+    import json as _json
+    from jobs.models import PropertyNote
+    business = _get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    try:
+        data = _json.loads(request.body)
+    except _json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    property_id = data.get("property_id")
+    text = (data.get("text") or "").strip()
+    if not property_id or not text:
+        return JsonResponse({"error": "Property and text required"}, status=400)
+    prop = get_object_or_404(Property, id=property_id, customer__business=business)
+    PropertyNote.objects.create(property=prop, author=request.user, text=text)
+    return JsonResponse({"ok": True})
 
 
 @role_required("owner", "manager")

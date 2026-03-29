@@ -4,7 +4,21 @@
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
   <div>
     <h1>{{ customer.name }}</h1>
-    <p>Client profile</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+      {% if is_mowing_client %}
+      <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(34,197,94,0.12);color:var(--primary);border-radius:6px;font-size:11px;font-weight:600;">
+        <span class="material-symbols-outlined" style="font-size:14px;">grass</span> Mowing · {{ mowing_enrollment.get_frequency_display }}
+      </span>
+      {% endif %}
+      {% if is_fert_client %}
+      <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(139,92,246,0.12);color:#a78bfa;border-radius:6px;font-size:11px;font-weight:600;">
+        <span class="material-symbols-outlined" style="font-size:14px;">eco</span> Fertilization
+      </span>
+      {% endif %}
+      {% if not is_mowing_client and not is_fert_client %}
+      <span style="font-size:13px;color:var(--text-muted);">Client profile</span>
+      {% endif %}
+    </div>
   </div>
   <div style="display: flex; gap: 8px; flex-wrap: wrap;">
     <a href="{% url 'customer_edit' customer.id %}" class="btn btn-secondary">Edit Client</a>
@@ -209,6 +223,96 @@ Thank you for choosing {{ business.name }}!">
     </div>
   </div>
 </div>
+
+<!-- Service Programs + Notes -->
+{% if is_mowing_client or is_fert_client or property_notes %}
+<div style="margin-top:16px;">
+  {% if is_mowing_client %}
+  <div class="card" style="margin-bottom:12px;padding:16px;">
+    <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">
+      <span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">grass</span> Mowing Details
+    </h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;font-size:13px;">
+      <div><span style="color:var(--text-muted);font-size:11px;text-transform:uppercase;display:block;">Frequency</span>{{ mowing_enrollment.get_frequency_display }}</div>
+      <div><span style="color:var(--text-muted);font-size:11px;text-transform:uppercase;display:block;">Crew</span>{% if mowing_enrollment.assigned_crew %}{{ mowing_enrollment.assigned_crew.name }}{% else %}Unassigned{% endif %}</div>
+      <div><span style="color:var(--text-muted);font-size:11px;text-transform:uppercase;display:block;">Property</span>{{ mowing_enrollment.property.address|truncatechars:30 }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if is_fert_client %}
+  <div class="card" style="margin-bottom:12px;padding:16px;">
+    <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">
+      <span class="material-symbols-outlined" style="font-size:18px;color:#a78bfa;">eco</span> Fertilization Programs
+    </h3>
+    {% for enr in fert_enrollments %}
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;{% if not forloop.last %}border-bottom:1px solid var(--border);{% endif %}font-size:13px;">
+      <div style="flex:1;">
+        <strong>{{ enr.program.name }}</strong> ({{ enr.year }})
+        <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">{{ enr.property.address|truncatechars:25 }}</span>
+      </div>
+      <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;{% if enr.status == 'in_progress' %}background:rgba(59,130,246,0.15);color:#60a5fa;{% else %}background:rgba(34,197,94,0.15);color:#86efac;{% endif %}">{{ enr.get_status_display }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Property & Service Notes -->
+  <div class="card" style="padding:16px;">
+    <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">
+      <span class="material-symbols-outlined" style="font-size:18px;color:var(--text-muted);">sticky_note_2</span> Notes
+      <span style="font-size:11px;color:var(--text-muted);font-weight:400;">Visible to employees on their jobs</span>
+    </h3>
+
+    <!-- Add note form -->
+    <div style="margin-bottom:12px;">
+      <textarea id="new-prop-note" rows="2" placeholder="Add a note about this client's property, preferences, access info, gate codes..." style="width:100%;padding:10px;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit;resize:none;"></textarea>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <select id="note-property-id" style="padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);">
+          {% for prop in properties %}
+          <option value="{{ prop.id }}">{{ prop.address|truncatechars:30 }}</option>
+          {% endfor %}
+        </select>
+        <button type="button" class="btn btn-primary btn-sm" onclick="addPropertyNote()">Add Note</button>
+      </div>
+    </div>
+
+    <!-- Existing notes -->
+    <div id="notes-container">
+    {% for note in property_notes %}
+    <div style="padding:8px 0;border-top:1px solid var(--border);font-size:13px;">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">
+        {{ note.author.get_full_name|default:note.author.username }} · {{ note.created_at|timesince }} ago · {{ note.property.address|truncatechars:25 }}
+      </div>
+      <div>{{ note.text }}</div>
+    </div>
+    {% empty %}
+    <p style="color:var(--text-muted);font-size:13px;text-align:center;padding:12px 0;">No notes yet. Add one above — employees will see it on their job cards.</p>
+    {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function addPropertyNote() {
+  var text = document.getElementById('new-prop-note').value.trim();
+  var propId = document.getElementById('note-property-id').value;
+  if (!text) return;
+  // Find any job for this property to use the notes endpoint
+  fetch('{% url "api_add_property_note" %}', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+    body: JSON.stringify({ property_id: propId, text: text })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.ok) {
+      document.getElementById('new-prop-note').value = '';
+      location.reload();
+    }
+  });
+}
+</script>
 
 <!-- ── Communication Tab ───────────────────────────────────────────── -->
 <div class="crm-tab-content" id="tab-communication">
