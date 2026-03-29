@@ -91,6 +91,18 @@
       <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:2px;">mail</span>
       Message
     </button>
+    <span style="width:1px;height:20px;background:var(--border);"></span>
+    <select id="mow-bulk-crew" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:11px;">
+      <option value="">Assign crew...</option>
+      {% for crew in crews %}
+      <option value="{{ crew.id }}">{{ crew.name }}</option>
+      {% endfor %}
+      <option value="unassign">Unassign</option>
+    </select>
+    <button type="button" class="btn btn-secondary" style="font-size:11px;padding:6px 14px;" onclick="mowBulkAssignCrew()">
+      <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:2px;">group</span>
+      Assign
+    </button>
   </form>
 </div>
 <script>
@@ -289,6 +301,76 @@ function mowEditPrice(el) {
     if (e.key === 'Escape') { el.style.display = ''; input.remove(); }
   });
 }
+
+var MOW_CREWS = [{% for crew in crews %}{id:{{ crew.id }},name:"{{ crew.name }}"},{% endfor %}];
+
+function mowEditCrew(el) {
+  var rid = el.dataset.rid;
+  if (!rid) return;
+  var sel = document.createElement('select');
+  sel.style.cssText = 'padding:4px 6px;font-size:12px;border:1px solid var(--primary);border-radius:6px;background:var(--bg);color:var(--text);';
+  var opt0 = document.createElement('option');
+  opt0.value = '';
+  opt0.textContent = 'Unassigned';
+  sel.appendChild(opt0);
+  MOW_CREWS.forEach(function(c) {
+    var o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = c.name;
+    if (el.textContent.trim() === c.name) o.selected = true;
+    sel.appendChild(o);
+  });
+  el.style.display = 'none';
+  el.parentNode.appendChild(sel);
+  sel.focus();
+
+  function save() {
+    var crewId = sel.value;
+    var crewName = sel.options[sel.selectedIndex].textContent;
+    fetch('/jobs/mowing/update-crew/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+      body: JSON.stringify({ recurring_id: rid, crew_id: crewId })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.ok) {
+        el.textContent = crewName;
+        el.style.color = crewId ? 'var(--text)' : 'var(--text-muted)';
+        el.style.background = crewId ? 'var(--surface-highest)' : '';
+      }
+    });
+    el.style.display = '';
+    sel.remove();
+  }
+  sel.addEventListener('change', save);
+  sel.addEventListener('blur', function() { el.style.display = ''; sel.remove(); });
+}
+
+function mowBulkAssignCrew() {
+  var crewSel = document.getElementById('mow-bulk-crew');
+  var crewId = crewSel.value;
+  if (!crewId) return;
+  var checks = document.querySelectorAll('.mow-check:checked');
+  if (checks.length === 0) return;
+  var rids = [];
+  checks.forEach(function(cb) {
+    var row = cb.closest('tr');
+    var crewEl = row.querySelector('.mow-crew-display');
+    if (crewEl && crewEl.dataset.rid) rids.push(crewEl.dataset.rid);
+  });
+  if (rids.length === 0) return;
+  var isUnassign = crewId === 'unassign';
+  Promise.all(rids.map(function(rid) {
+    return fetch('/jobs/mowing/update-crew/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+      body: JSON.stringify({ recurring_id: rid, crew_id: isUnassign ? '' : crewId })
+    }).then(function(r) { return r.json(); });
+  })).then(function() {
+    location.reload();
+  });
+}
 </script>
 
 <!-- Select toggle + Client List -->
@@ -334,7 +416,9 @@ function mowEditPrice(el) {
             <span class="mow-badge">{{ c.frequency }}</span>
           {% endif %}
         </td>
-        <td class="mow-hide-mobile" style="font-size:13px;">{{ c.crew }}</td>
+        <td class="mow-hide-mobile" style="font-size:13px;" onclick="event.stopPropagation()">
+          <span class="mow-crew-display" data-rid="{{ c.recurring_id }}" onclick="mowEditCrew(this)" style="cursor:pointer;padding:4px 8px;border-radius:6px;{% if c.crew != 'Unassigned' %}color:var(--text);background:var(--surface-highest);{% else %}color:var(--text-muted);{% endif %}">{{ c.crew }}</span>
+        </td>
         {% if can_see_pricing %}
         <td class="mow-hide-mobile" style="font-size:13px;" onclick="event.stopPropagation()">
           <span class="mow-price-display" data-propid="{{ c.properties.0.id }}" onclick="mowEditPrice(this)" style="cursor:pointer;font-weight:600;padding:4px 8px;border-radius:6px;{% if c.per_cut_rate %}color:var(--primary);background:rgba(34,197,94,0.08);{% else %}color:var(--text-muted);{% endif %}">{% if c.per_cut_rate %}${{ c.per_cut_rate|floatformat:0 }}{% else %}+ Set{% endif %}</span>

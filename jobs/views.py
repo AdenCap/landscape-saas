@@ -2893,6 +2893,35 @@ def mowing_update_price(request):
 
 @require_POST
 @role_required("owner", "manager")
+def mowing_update_crew(request):
+    """Update crew assignment for a recurring mowing client."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    recurring_id = data.get("recurring_id")
+    crew_id = data.get("crew_id", "")
+
+    if not recurring_id:
+        return JsonResponse({"error": "Missing recurring_id"}, status=400)
+
+    rj = get_object_or_404(RecurringJob, id=recurring_id, property__customer__business=business)
+
+    if crew_id:
+        crew = Crew.objects.filter(id=crew_id, business=business).first()
+        rj.assigned_crew = crew
+    else:
+        rj.assigned_crew = None
+    rj.save(update_fields=["assigned_crew"])
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+@role_required("owner", "manager")
 def mowing_bulk_schedule(request):
     """Batch-create mowing jobs — once or for the entire season based on frequency."""
     business = get_business(request)
