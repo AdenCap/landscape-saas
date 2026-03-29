@@ -789,21 +789,33 @@ def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, p
         if page_width is not None and x is None:
             x = page_width - 50 - max_width
 
-        logo_url = _get_logo_url(business)
+        # Try multiple ways to get the logo image data
+        img_data = None
 
-        if not logo_url:
-            return
+        # Method 1: Try business.logo.url (Supabase returns full URL)
+        try:
+            logo_url = business.logo.url
+            if logo_url and logo_url.startswith("http"):
+                resp = _requests.get(logo_url, timeout=10)
+                resp.raise_for_status()
+                img_data = io.BytesIO(resp.content)
+                logger.info("PDF logo: downloaded from %s (%d bytes)", logo_url[:60], len(resp.content))
+        except Exception as e:
+            logger.warning("PDF logo: URL download failed: %s", e)
 
-        if logo_url.startswith("http"):
-            resp = _requests.get(logo_url, timeout=10)
-            resp.raise_for_status()
-            img_data = io.BytesIO(resp.content)
-        else:
-            import os
-            if not os.path.exists(logo_url):
-                return
-            with open(logo_url, "rb") as f:
+        # Method 2: Try business.logo.open() (Django storage API)
+        if not img_data:
+            try:
+                f = business.logo.open("rb")
                 img_data = io.BytesIO(f.read())
+                f.close()
+                logger.info("PDF logo: read via storage API")
+            except Exception as e:
+                logger.warning("PDF logo: storage open failed: %s", e)
+
+        if not img_data:
+            logger.error("PDF logo: all methods failed for business %s", business.id)
+            return
 
         # Convert to PNG via PIL to handle any format (webp, heic, etc)
         pil_img = PILImage.open(img_data)

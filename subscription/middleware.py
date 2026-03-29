@@ -45,6 +45,7 @@ SUBSCRIPTION_EXEMPT_PREFIXES = (
     "/media/",
     "/book/",
     "/api/db-check",
+    "/settings/logo/",
 )
 
 

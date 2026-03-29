@@ -142,30 +142,66 @@ def test_gmail_connection(request):
 
 
 def serve_logo(request, business_id):
-    """Public endpoint to serve the business logo as PNG. Used in emails where
-    direct Supabase URLs may be blocked or return WebP (unsupported by Gmail)."""
+    """Public endpoint to serve the business logo. Tries PNG conversion via PIL,
+    falls back to serving the original file directly if PIL fails."""
     from django.http import HttpResponse
+    import logging
+    logger = logging.getLogger(__name__)
+
     business = get_object_or_404(Business, id=business_id)
     if not business.logo:
+        logger.warning("serve_logo: business %s has no logo", business_id)
         return HttpResponse(status=404)
+
+    import io
+    url = None
+    raw_bytes = None
+
+    # Step 1: Get the raw image bytes
     try:
-        import requests as _requests
-        from PIL import Image as PILImage
-        import io
-
         url = business.logo.url
-        if url and url.startswith("http"):
-            resp = _requests.get(url, timeout=10)
-            resp.raise_for_status()
-            img_data = io.BytesIO(resp.content)
-        else:
-            img_data = business.logo.open("rb")
+        logger.info("serve_logo: business %s logo url = %s", business_id, url[:100] if url else "None")
+    except Exception as e:
+        logger.error("serve_logo: error getting url: %s", e)
 
+    if url and url.startswith("http"):
+        try:
+            import requests as _requests
+            resp = _requests.get(url, timeout=15)
+            resp.raise_for_status()
+            raw_bytes = resp.content
+            content_type = resp.headers.get("content-type", "image/png")
+            logger.info("serve_logo: downloaded %d bytes, content-type=%s", len(raw_bytes), content_type)
+        except Exception as e:
+            logger.error("serve_logo: download failed: %s", e)
+    else:
+        try:
+            f = business.logo.open("rb")
+            raw_bytes = f.read()
+            f.close()
+            content_type = "image/png"
+            logger.info("serve_logo: read %d bytes from local file", len(raw_bytes))
+        except Exception as e:
+            logger.error("serve_logo: local file read failed: %s", e)
+
+    if not raw_bytes:
+        return HttpResponse(status=404)
+
+    # Step 2: Try to convert to PNG via PIL (handles webp, heic, etc.)
+    try:
+        from PIL import Image as PILImage
+        img_data = io.BytesIO(raw_bytes)
         pil_img = PILImage.open(img_data)
-        pil_img = pil_img.convert("RGBA") if pil_img.mode in ("RGBA", "LA", "P") else pil_img.convert("RGB")
+        if pil_img.mode in ("RGBA", "LA", "P"):
+            pil_img = pil_img.convert("RGBA")
+        else:
+            pil_img = pil_img.convert("RGB")
         buf = io.BytesIO()
         pil_img.save(buf, format="PNG")
         buf.seek(0)
         return HttpResponse(buf.read(), content_type="image/png")
-    except Exception:
-        return HttpResponse(status=404)
+    except Exception as e:
+        logger.warning("serve_logo: PIL conversion failed (%s), serving raw", e)
+
+    # Step 3: Fallback — serve the original bytes as-is
+    return HttpResponse(raw_bytes, content_type=content_type if content_type else "image/png")
