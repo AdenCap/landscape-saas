@@ -211,6 +211,9 @@
       <p class="invoice-send-early-note">Monthly invoice for {{ invoice.period_start|date:"F Y" }}. You can send it early anytime. If you send this and more services are completed later this month, a new invoice will be created for those.</p>
       {% endif %}
       <a href="{% url 'billing:invoice_pdf' invoice.id %}" class="btn btn-primary">Download PDF</a>
+      <a href="{% url 'billing:invoice_pdf' invoice.id %}?inline=1" target="_blank" class="btn btn-secondary" title="Open PDF for printing">
+        <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">print</span> Print
+      </a>
       {% if invoice.status == “draft” %}
       <a href=”{% url 'billing:invoice_edit_line_items' invoice.id %}” class=”btn btn-secondary”>Edit line items</a>
       <form method=”post” action=”{% url 'billing:send_invoice' invoice.id %}” style=”display: inline;”>

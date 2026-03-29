@@ -24,6 +24,9 @@
     </div>
     <div class="estimate-detail-actions">
       <a href="{% url 'billing:estimate_pdf' estimate.id %}" class="btn btn-secondary">Download PDF</a>
+      <a href="{% url 'billing:estimate_pdf' estimate.id %}?inline=1" target="_blank" class="btn btn-secondary" title="Open PDF for printing">
+        <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">print</span> Print
+      </a>
       {% if estimate.status == 'draft' %}
       <a href="{% url 'billing:estimate_edit' estimate.id %}" class="btn btn-secondary">Edit</a>
       {% endif %}

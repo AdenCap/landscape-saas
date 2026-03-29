@@ -1203,7 +1203,11 @@ def invoice_pdf(request, invoice_id):
     invoice = get_object_or_404(qs)
     invoice.recompute_totals()
     pdf_bytes = _build_invoice_pdf(invoice, request)
-    return FileResponse(BytesIO(pdf_bytes), as_attachment=True, filename=f"invoice_{invoice.id}.pdf")
+    inline = request.GET.get("inline") == "1"
+    response = FileResponse(BytesIO(pdf_bytes), as_attachment=not inline, filename=f"invoice_{invoice.id}.pdf")
+    if inline:
+        response["Content-Type"] = "application/pdf"
+    return response
 
 
 @require_POST
@@ -2300,8 +2304,12 @@ def estimate_pdf(request, estimate_id):
 
     estimate = get_object_or_404(Estimate, id=estimate_id, business=business)
     compact = request.GET.get("compact") == "1"
+    inline = request.GET.get("inline") == "1"
     pdf_bytes = _build_estimate_pdf(estimate, business, compact=compact)
-    return FileResponse(BytesIO(pdf_bytes), as_attachment=True, filename=f"estimate_{estimate.id}.pdf")
+    response = FileResponse(BytesIO(pdf_bytes), as_attachment=not inline, filename=f"estimate_{estimate.id}.pdf")
+    if inline:
+        response["Content-Type"] = "application/pdf"
+    return response
 
 
 @require_POST
