@@ -1994,10 +1994,15 @@ def job_delete(request, job_id):
     except Exception:
         pass
 
+    customer_id = job.property.customer_id
     job.delete()
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return JsonResponse({"status": "ok"})
     messages.success(request, "Job deleted.")
+    # Redirect back to referring page if available, otherwise calendar
+    referer = request.META.get("HTTP_REFERER", "")
+    if referer and "/clients/" in referer:
+        return redirect("customer_detail", customer_id=customer_id)
     return redirect("calendar")
 
 
