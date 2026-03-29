@@ -1801,7 +1801,10 @@ def create_job(request):
                     assigned_to = assigned_employees_list[0]
 
             sched_date = form.cleaned_data.get("scheduled_date")
+            sched_end_date = form.cleaned_data.get("scheduled_end_date")
             sched_time = form.cleaned_data.get("scheduled_time") if sched_date else None
+            total_price_override = form.cleaned_data.get("total_price")
+            from decimal import Decimal
             color_val = (form.cleaned_data.get("color") or "").strip()
             if color_val and not color_val.startswith("#"):
                 color_val = "#" + color_val
@@ -1842,17 +1845,31 @@ def create_job(request):
                     service_snapshot=service_snapshot,
                 )
 
-            job = Job.objects.create(
-                property=prop,
-                scheduled_date=sched_date,
-                scheduled_time=sched_time,
-                assigned_to=assigned_to,
-                assigned_crew=assigned_crew,
-                notes=form.cleaned_data.get("notes") or "",
-                status="scheduled",
-                color=color_val if color_val else None,
-                recurring_job=recurring_job,
-            )
+            # Create job(s) — multiple for date range
+            job_dates = [sched_date] if sched_date else [None]
+            if sched_date and sched_end_date and sched_end_date > sched_date:
+                job_dates = []
+                d = sched_date
+                while d <= sched_end_date:
+                    job_dates.append(d)
+                    d += timedelta(days=1)
+
+            jobs_created = []
+            for jd in job_dates:
+                job = Job.objects.create(
+                    property=prop,
+                    scheduled_date=jd,
+                    scheduled_time=sched_time,
+                    assigned_to=assigned_to,
+                    assigned_crew=assigned_crew,
+                    notes=form.cleaned_data.get("notes") or "",
+                    status="scheduled",
+                    color=color_val if color_val else None,
+                    recurring_job=recurring_job,
+                )
+                jobs_created.append(job)
+            # Use first job for the rest of the setup
+            job = jobs_created[0]
             # Set M2M employees (after job is saved)
             if assigned_employees_list:
                 job.assigned_employees.set(assigned_employees_list)
@@ -1861,23 +1878,34 @@ def create_job(request):
             assignee_names = ", ".join(e.get_full_name() or e.username for e in assigned_employees_list) if assigned_employees_list else None
             assignee = assigned_crew.name if assigned_crew else (assignee_names or (assigned_to.get_full_name() or assigned_to.username if assigned_to else "Unassigned"))
             JobAssignmentLog.objects.create(job=job, user=request.user, details=f"Job created; assigned to {assignee}")
-            for form_data in formset:
-                if form_data.cleaned_data.get("service"):
-                    service = form_data.cleaned_data["service"]
-                    qty = form_data.cleaned_data["quantity"]
-                    unit, rate = get_effective_rate(prop, service)
-                    override_price = form_data.cleaned_data.get("unit_price")
-                    if override_price is not None:
-                        rate = override_price
-                    unit = getattr(service, "default_unit", None) or unit
-                    JobServiceItem.objects.create(
-                        job=job,
-                        service=service,
-                        quantity=qty,
-                        unit=unit,
-                        unit_price=rate,
-                    )
-            if recurring_job:
+            # Create service items for ALL jobs in the date range
+            for j in jobs_created:
+                first_item = True
+                for form_data in formset:
+                    if form_data.cleaned_data.get("service"):
+                        service = form_data.cleaned_data["service"]
+                        qty = form_data.cleaned_data["quantity"]
+                        unit, rate = get_effective_rate(prop, service)
+                        override_price = form_data.cleaned_data.get("unit_price")
+                        if override_price is not None:
+                            rate = override_price
+                        # Total price override: apply to first item, zero out the rest
+                        if total_price_override and first_item:
+                            rate = total_price_override
+                            first_item = False
+                        elif total_price_override:
+                            rate = Decimal("0")
+                        unit = getattr(service, "default_unit", None) or unit
+                        JobServiceItem.objects.create(
+                            job=j,
+                            service=service,
+                            quantity=qty,
+                            unit=unit,
+                            unit_price=rate,
+                        )
+            if len(jobs_created) > 1:
+                msg = f"{len(jobs_created)} jobs created for {prop.address} ({sched_date} to {sched_end_date})"
+            elif recurring_job:
                 msg = f"Recurring job created for {prop.address} ({recurring_job.get_frequency_display()}); first date {sched_date}. Future dates will be generated automatically."
             else:
                 msg = f"Job created for {prop.address}" + (f" on {job.scheduled_date}" if job.scheduled_date else " (unscheduled)")
@@ -1885,9 +1913,7 @@ def create_job(request):
             next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
             if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
                 return redirect(next_url)
-            if job.scheduled_date:
-                return redirect("job_detail", job_id=job.id)
-            return redirect("calendar")
+            return redirect("job_detail", job_id=job.id)
     else:
         from customers.models import Property
         initial = {}

@@ -34,10 +34,23 @@ class CreateJobForm(forms.Form):
         widget=forms.DateInput(attrs={"type": "date"}),
         help_text="When should this work be done? Leave empty for unscheduled.",
     )
+    scheduled_end_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="Optional end date for multi-day jobs. Leave empty for single-day.",
+    )
     scheduled_time = forms.TimeField(
         required=False,
         widget=forms.TimeInput(attrs={"type": "time"}),
         help_text="Optional start time (for week/day calendar view)",
+    )
+    total_price = forms.DecimalField(
+        required=False,
+        min_value=0,
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"placeholder": "e.g. 250", "step": "0.01"}),
+        help_text="Set one total price for the whole job. Overrides individual line item pricing.",
     )
     assignee_type = forms.ChoiceField(
         choices=[('', '— Unassigned —'), ('crew', 'Crew'), ('employee', 'Employee / Owner')],
