@@ -71,7 +71,7 @@
         <div class="today-info">
           <span class="today-addr">{{ job.property.address|truncatewords:5 }}</span>
           <span class="today-svc">
-            {% for si in job.service_items.all %}{{ si.service.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            {% for si in job.service_items.all %}{{ si.description|default:si.service.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
           </span>
         </div>
         <span class="today-status today-status-{{ job.status }}">{{ job.status }}</span>

@@ -42,7 +42,7 @@
       {% if services %}
       <div class="jc-services">
         {% for si in services %}
-        <span class="jc-service-tag">{{ si.service.name }}</span>
+        <span class="jc-service-tag">{{ si.description|default:si.service.name }}</span>
         {% endfor %}
       </div>
       {% endif %}

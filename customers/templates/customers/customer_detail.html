@@ -517,7 +517,7 @@ function addPropertyNote() {
           </td>
           <td>
             {% for si in job.service_items.all %}
-              <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:rgba(169,255,172,0.08);color:var(--primary);margin:1px 2px;">{{ si.service.name }}</span>
+              <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:rgba(169,255,172,0.08);color:var(--primary);margin:1px 2px;">{{ si.description|default:si.service.name }}</span>
               {% if si.quantity != 1 %}<span style="font-size:10px;color:var(--text-muted);">&times;{{ si.quantity }}</span>{% endif %}
             {% empty %}
               <span style="color:var(--text-muted);font-size:12px;">&mdash;</span>
