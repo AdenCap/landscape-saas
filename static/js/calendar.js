@@ -751,6 +751,8 @@ document.addEventListener('DOMContentLoaded', function () {
           var enRouteBtn = document.getElementById('modal-en-route');
           if (enRouteBtn) enRouteBtn.style.display = job.status === 'scheduled' ? '' : 'none';
           document.getElementById('modal-complete').style.display = job.status !== 'completed' ? '' : 'none';
+          var uncompleteBtn = document.getElementById('modal-uncomplete');
+          if (uncompleteBtn) uncompleteBtn.style.display = job.status === 'completed' ? '' : 'none';
           var canBill = job.status === 'completed' && job.has_unbilled_items && job.has_services;
           document.getElementById('modal-bill-now').style.display = canBill ? '' : 'none';
           document.getElementById('modal-add-monthly').style.display = canBill ? '' : 'none';
@@ -865,6 +867,17 @@ document.addEventListener('DOMContentLoaded', function () {
     ajaxPost('/jobs/' + jobId + '/complete/').then(function() {
       calendar.refetchEvents(); if (isOwner) loadUnscheduled(); closeModal('job-modal');
       showToast('Job marked complete');
+    }).catch(function(e) { showToast(e.message, 'error'); });
+  });
+
+  var uncompleteBtn = document.getElementById('modal-uncomplete');
+  if (uncompleteBtn) uncompleteBtn.addEventListener('click', function() {
+    var jobId = document.getElementById('job-modal').dataset.jobId;
+    if (!jobId) return;
+    if (!confirm('Revert this job back to scheduled?')) return;
+    ajaxPost('/jobs/' + jobId + '/uncomplete/').then(function() {
+      calendar.refetchEvents(); if (isOwner) loadUnscheduled(); closeModal('job-modal');
+      showToast('Job reverted to scheduled');
     }).catch(function(e) { showToast(e.message, 'error'); });
   });
 

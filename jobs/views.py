@@ -1627,6 +1627,43 @@ def complete_job(request, job_id):
     return redirect("crew_today")
 
 
+@require_POST
+@role_required("owner", "manager")
+def uncomplete_job(request, job_id):
+    """Revert a completed job back to scheduled status (undo accidental completion)."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "Forbidden"}, status=403) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else redirect("/")
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
+
+    if job.status != "completed":
+        msg = "Job is not completed — nothing to undo."
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": msg}, status=400)
+        messages.warning(request, msg)
+        return redirect("job_detail", job_id=job.id)
+
+    job.status = "scheduled"
+    job.completed_by = None
+    job.completed_at = None
+    job.save(update_fields=["status", "completed_by", "completed_at"])
+
+    # Revert any linked fertilization rounds back to scheduled
+    try:
+        from fertilization.models import ScheduledRound as FertScheduledRound
+        for sr in FertScheduledRound.objects.filter(job=job, status='completed'):
+            sr.status = 'scheduled'
+            sr.save(update_fields=['status'])
+    except Exception:
+        pass
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"status": "ok"})
+
+    messages.success(request, "Job reverted to scheduled.")
+    return redirect("job_detail", job_id=job.id)
+
+
 @role_required("owner", "manager", "crew")
 def report_issue(request, job_id):
     """Crew or owner reports an issue on a job (type, description, optional photo)."""

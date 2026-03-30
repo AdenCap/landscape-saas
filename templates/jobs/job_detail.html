@@ -9,6 +9,15 @@
 <div class="quick-actions" style="margin-bottom: 24px;">
   <a href="/jobs/calendar/" class="btn btn-secondary">← Back to Calendar</a>
   <a href="/" class="btn btn-secondary">Dashboard</a>
+  {% if job.status == "completed" %}
+  <form method="post" action="{% url 'uncomplete_job' job.id %}" style="display:inline;" onsubmit="return confirm('Revert this job back to scheduled?')">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-secondary btn-sm" style="color:#f59e0b;">
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">undo</span>
+      Mark Uncomplete
+    </button>
+  </form>
+  {% endif %}
   {% if job.property.address %}
   <div style="display: inline-flex; gap: 8px; margin-left: auto; flex-wrap: wrap;">
     <a href="https://www.google.com/maps/search/?api=1&query={{ job.property.address|urlencode }}" 
