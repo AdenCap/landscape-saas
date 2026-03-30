@@ -2920,11 +2920,35 @@ def mowing_hub(request):
     missed_count = sum(1 for c in clients if c.get("is_missed"))
 
     # Stats
+    from decimal import Decimal
     weekly_count = sum(1 for c in clients if c["frequency_key"] == "weekly")
     biweekly_count = sum(1 for c in clients if c["frequency_key"] == "biweekly")
+    tenday_count = sum(1 for c in clients if c["frequency_key"] == "10day")
     scheduled_this_week = sum(1 for c in clients if c["this_week_jobs"])
     total_est_minutes = sum(c.get("avg_duration_mins", 0) for c in clients if c["this_week_jobs"])
     est_day_display = f"{total_est_minutes // 60}h {total_est_minutes % 60}m" if total_est_minutes else "—"
+
+    # Revenue projections
+    freq_cuts_per_week = {"weekly": Decimal("1"), "10day": Decimal("0.7"), "biweekly": Decimal("0.5"), "monthly": Decimal("0.23")}
+    weekly_revenue = Decimal("0")
+    for c in clients:
+        rate = c.get("per_cut_rate") or Decimal("0")
+        freq = c.get("frequency_key", "weekly")
+        weekly_revenue += rate * freq_cuts_per_week.get(freq, Decimal("0.5"))
+    monthly_revenue = (weekly_revenue * Decimal("4.33")).quantize(Decimal("0.01"))
+    season_revenue = (weekly_revenue * Decimal("30")).quantize(Decimal("0.01"))
+    weekly_revenue = weekly_revenue.quantize(Decimal("0.01"))
+
+    # Actual mowing revenue earned this year
+    year_start = date(today.year, 1, 1)
+    actual_mowing_revenue = Decimal("0")
+    if mowing_services.exists():
+        actual_mowing_revenue = JobServiceItem.objects.filter(
+            service__in=mowing_services,
+            job__property__customer__business=business,
+            job__status="completed",
+            job__scheduled_date__gte=year_start,
+        ).aggregate(total=Sum(F("quantity") * F("unit_price")))["total"] or Decimal("0")
 
     # Customers + crews for "Add Mowing Client" modal
     from customers.models import Customer
@@ -2942,6 +2966,7 @@ def mowing_hub(request):
         "total_count": len(clients),
         "weekly_count": weekly_count,
         "biweekly_count": biweekly_count,
+        "tenday_count": tenday_count,
         "scheduled_this_week": scheduled_this_week,
         "missed_count": missed_count,
         "est_day_display": est_day_display,
@@ -2951,6 +2976,10 @@ def mowing_hub(request):
         "customers_json": customers_json,
         "crews": crews,
         "can_see_pricing": can_see_pricing,
+        "weekly_revenue": weekly_revenue,
+        "monthly_revenue": monthly_revenue,
+        "season_revenue": season_revenue,
+        "actual_mowing_revenue": actual_mowing_revenue,
     })
 
 

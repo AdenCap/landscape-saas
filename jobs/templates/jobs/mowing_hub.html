@@ -52,6 +52,54 @@
   {% endif %}
 </div>
 
+{% if can_see_pricing %}
+<!-- Revenue Projections -->
+<div class="card" style="margin-bottom:14px;padding:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <h3 style="margin:0;font-size:14px;font-weight:700;font-family:var(--font-headline);">
+      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;color:var(--primary);">trending_up</span>
+      Mowing Revenue
+    </h3>
+    <div style="display:flex;gap:4px;" id="rev-toggle">
+      <button type="button" class="rev-btn active" data-view="weekly" onclick="showRevView('weekly')">Weekly</button>
+      <button type="button" class="rev-btn" data-view="monthly" onclick="showRevView('monthly')">Monthly</button>
+      <button type="button" class="rev-btn" data-view="season" onclick="showRevView('season')">Season</button>
+    </div>
+  </div>
+  <div class="rev-cards">
+    <div class="rev-card" id="rev-projected">
+      <span class="rev-card-label">Projected</span>
+      <span class="rev-card-value" data-weekly="${{ weekly_revenue|floatformat:0 }}" data-monthly="${{ monthly_revenue|floatformat:0 }}" data-season="${{ season_revenue|floatformat:0 }}">${{ weekly_revenue|floatformat:0 }}</span>
+    </div>
+    <div class="rev-card">
+      <span class="rev-card-label">Earned This Year</span>
+      <span class="rev-card-value" style="color:var(--primary);">${{ actual_mowing_revenue|floatformat:0 }}</span>
+    </div>
+    <div class="rev-card">
+      <span class="rev-card-label">Avg Per Cut</span>
+      <span class="rev-card-value">{% if total_count %}${{ weekly_revenue|floatformat:0 }}{% else %}—{% endif %}</span>
+    </div>
+  </div>
+</div>
+<style>
+  .rev-btn { font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all .15s; }
+  .rev-btn:hover { border-color:var(--text-muted);color:var(--text); }
+  .rev-btn.active { background:var(--primary);color:var(--on-primary);border-color:var(--primary); }
+  .rev-cards { display:grid;grid-template-columns:repeat(3,1fr);gap:10px; }
+  .rev-card { background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;padding:12px 14px;text-align:center; }
+  .rev-card-label { display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:4px; }
+  .rev-card-value { display:block;font-size:20px;font-weight:800;font-family:var(--font-headline);color:var(--text); }
+  @media (max-width:768px) { .rev-cards { grid-template-columns:1fr; } .rev-card-value { font-size:18px; } }
+</style>
+<script>
+function showRevView(view) {
+  document.querySelectorAll('.rev-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.view === view); });
+  var el = document.querySelector('#rev-projected .rev-card-value');
+  if (el) el.textContent = el.dataset[view] || '$0';
+}
+</script>
+{% endif %}
+
 {% if missed_count %}
 <div style="padding:10px 14px;margin-bottom:14px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:8px;font-size:13px;color:#fca5a5;">
   <strong>{{ missed_count }} client{{ missed_count|pluralize }} may have been missed</strong> — not scheduled this week and overdue based on their frequency. Use the "Missed" filter to see them.

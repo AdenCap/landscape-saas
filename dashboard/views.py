@@ -583,6 +583,34 @@ def owner_dashboard(request):
         .order_by('scheduled_time', 'route_order')[:15]
     )
 
+    # --- Today's anticipated revenue (all jobs scheduled today, regardless of completion) ---
+    todays_anticipated_revenue = (
+        JobServiceItem.objects.filter(
+            job__property__customer__business=business,
+            job__scheduled_date=today,
+        ).aggregate(
+            total=Coalesce(
+                Sum(F("quantity") * F("unit_price")),
+                Decimal("0.00"),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+        )["total"]
+    )
+    # Today's earned revenue (completed jobs today only)
+    todays_earned_revenue = (
+        JobServiceItem.objects.filter(
+            job__property__customer__business=business,
+            job__scheduled_date=today,
+            job__status="completed",
+        ).aggregate(
+            total=Coalesce(
+                Sum(F("quantity") * F("unit_price")),
+                Decimal("0.00"),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+        )["total"]
+    )
+
     # --- Work completed this month (total $ of completed jobs, not payments received) ---
     work_completed_this_month = (
         JobServiceItem.objects.filter(
@@ -895,6 +923,8 @@ def owner_dashboard(request):
     ready_promos = [p for p in active_promos if p.is_ready_to_redeem]
     context["active_promos"] = active_promos
     context["ready_promos_count"] = len(ready_promos)
+    context["todays_anticipated_revenue"] = todays_anticipated_revenue
+    context["todays_earned_revenue"] = todays_earned_revenue
 
     return render(request, "dashboard/owner_dashboard.html", context)
 

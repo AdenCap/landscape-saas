@@ -16,6 +16,48 @@
 {# Global CSRF token for AJAX #}
 <form id="fert-csrf-form" style="display:none;">{% csrf_token %}</form>
 
+{% if can_see_pricing %}
+<div class="card" style="margin-bottom:14px;padding:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <h3 style="margin:0;font-size:14px;font-weight:700;font-family:var(--font-headline);">
+      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;color:#a78bfa;">trending_up</span>
+      Fertilization Revenue
+    </h3>
+    <div style="display:flex;gap:4px;" id="fert-rev-toggle">
+      <button type="button" class="frev-btn" data-view="monthly" onclick="showFertRev('monthly')">Monthly</button>
+      <button type="button" class="frev-btn active" data-view="annual" onclick="showFertRev('annual')">Annual</button>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+    <div style="background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;padding:12px 14px;text-align:center;">
+      <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:4px;">Projected</span>
+      <span id="fert-rev-val" style="display:block;font-size:20px;font-weight:800;font-family:var(--font-headline);color:var(--text);" data-monthly="${{ fert_monthly_revenue|floatformat:0 }}" data-annual="${{ fert_annual_revenue|floatformat:0 }}">${{ fert_annual_revenue|floatformat:0 }}</span>
+    </div>
+    <div style="background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;padding:12px 14px;text-align:center;">
+      <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:4px;">Earned This Year</span>
+      <span style="display:block;font-size:20px;font-weight:800;font-family:var(--font-headline);color:#a78bfa;">${{ fert_actual_revenue|floatformat:0 }}</span>
+    </div>
+    <div style="background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;padding:12px 14px;text-align:center;">
+      <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:4px;">Enrollments</span>
+      <span style="display:block;font-size:20px;font-weight:800;font-family:var(--font-headline);color:var(--text);">{{ total_enrollments }}</span>
+    </div>
+  </div>
+</div>
+<style>
+  .frev-btn { font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all .15s; }
+  .frev-btn:hover { border-color:var(--text-muted);color:var(--text); }
+  .frev-btn.active { background:#a78bfa;color:#fff;border-color:#a78bfa; }
+  @media (max-width:768px) { div[style*="grid-template-columns:repeat(3"] { grid-template-columns:1fr !important; } }
+</style>
+<script>
+function showFertRev(view) {
+  document.querySelectorAll('.frev-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.view === view); });
+  var el = document.getElementById('fert-rev-val');
+  if (el) el.textContent = el.dataset[view] || '$0';
+}
+</script>
+{% endif %}
+
 <!-- ═══════════════════════════════════════════════════════════
      TAB NAVIGATION
      ═══════════════════════════════════════════════════════════ -->

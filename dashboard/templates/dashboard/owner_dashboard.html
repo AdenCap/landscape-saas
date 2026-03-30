@@ -32,11 +32,11 @@
   </a>
   <a href="{% url 'calendar' %}" class="kpi-card kpi-link">
     <div class="kpi-top-row">
-      <span class="kpi-tag">Jobs Today</span>
+      <span class="kpi-tag">Today</span>
       <span class="material-symbols-outlined kpi-icon" style="color:var(--tertiary);">calendar_today</span>
     </div>
-    <span class="kpi-big">{{ jobs_today }}</span>
-    <p class="kpi-sub">Tap to view calendar</p>
+    <span class="kpi-big">${{ todays_anticipated_revenue|floatformat:0 }}</span>
+    <p class="kpi-sub">{{ jobs_today }} jobs{% if todays_earned_revenue %} &middot; ${{ todays_earned_revenue|floatformat:0 }} earned{% endif %}</p>
   </a>
   <a href="{% url 'billing:outstanding_invoices' %}" class="kpi-card kpi-link">
     <div class="kpi-top-row">

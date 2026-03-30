@@ -462,6 +462,41 @@ def hub(request):
 
     can_see_pricing = request.user.role in ("owner", "manager")
 
+    # Revenue projections for fertilization
+    from decimal import Decimal
+    fert_annual_revenue = Decimal("0")
+    fert_per_app_revenue = Decimal("0")
+    total_enrollments = 0
+    for enr in enrollments:
+        total_enrollments += 1
+        if enr.annual_price and enr.annual_price > 0:
+            fert_annual_revenue += enr.annual_price
+        elif enr.price_per_application and enr.price_per_application > 0:
+            num_rounds = enr.program.rounds.count() if enr.program else 1
+            fert_annual_revenue += enr.price_per_application * num_rounds
+            fert_per_app_revenue += enr.price_per_application
+        elif enr.price_per_sqft and enr.price_per_sqft > 0 and enr.property.yard_sqft:
+            num_rounds = enr.program.rounds.count() if enr.program else 1
+            per_app = enr.price_per_sqft * Decimal(str(enr.property.yard_sqft)) / Decimal("1000")
+            fert_annual_revenue += per_app * num_rounds
+    fert_monthly_revenue = (fert_annual_revenue / Decimal("12")).quantize(Decimal("0.01")) if fert_annual_revenue else Decimal("0")
+
+    # Actual fert revenue earned this year
+    from jobs.models import JobServiceItem
+    from django.db.models import Sum, F
+    fert_actual_revenue = Decimal("0")
+    fert_svc_names = ["fertiliz", "fert", "weed control", "lawn treatment"]
+    from pricing.models import ServiceTemplate
+    fert_svcs = ServiceTemplate.objects.filter(business=business, active=True)
+    fert_svc_ids = [s.id for s in fert_svcs if any(n in s.name.lower() for n in fert_svc_names)]
+    if fert_svc_ids:
+        fert_actual_revenue = JobServiceItem.objects.filter(
+            service_id__in=fert_svc_ids,
+            job__property__customer__business=business,
+            job__status="completed",
+            job__scheduled_date__gte=date(today.year, 1, 1),
+        ).aggregate(total=Sum(F("quantity") * F("unit_price")))["total"] or Decimal("0")
+
     context = {
         'programs': programs,
         'products': products,
@@ -475,6 +510,10 @@ def hub(request):
         'growing_season_start': business.growing_season_start_month or 3,
         'growing_season_end': business.growing_season_end_month or 10,
         'can_see_pricing': can_see_pricing,
+        'fert_annual_revenue': fert_annual_revenue,
+        'fert_monthly_revenue': fert_monthly_revenue,
+        'fert_actual_revenue': fert_actual_revenue,
+        'total_enrollments': total_enrollments,
     }
 
     return render(request, "fertilization/hub.html", context)
