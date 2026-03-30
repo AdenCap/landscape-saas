@@ -333,6 +333,18 @@ def calendar_view(request):
     })
 
 
+def _build_user_colors(business):
+    """Build a dict of user_id -> hex color for all crew/owner users.
+    Users with a custom color get that; others get a unique palette color."""
+    colors = {}
+    for i, u in enumerate(User.objects.filter(business=business, role__in=["crew", "owner"]).order_by("first_name", "id")):
+        if u.color and u.color.strip():
+            colors[u.id] = u.color.strip()
+        else:
+            colors[u.id] = CREW_COLORS[i % len(CREW_COLORS)]
+    return colors
+
+
 def _color_for_assignee(job, crew_colors, user_colors):
     """Get color for job: custom override > status-based default.
     Crew/employee colors are still used as the crew dot indicator."""
@@ -416,11 +428,7 @@ def calendar_events(request):
         ).distinct()
 
     crew_colors = {c.id: (c.color or CREW_COLORS[i % len(CREW_COLORS)]) for i, c in enumerate(Crew.objects.filter(business=business).order_by("name"))} if business else {}
-    user_colors = {}
-    if business:
-        for u in User.objects.filter(business=business, role__in=["crew", "owner"]):
-            if u.color and u.color.strip():
-                user_colors[u.id] = u.color.strip()
+    user_colors = _build_user_colors(business) if business else {}
 
     events = []
     for job in jobs:
@@ -756,11 +764,7 @@ def calendar_job_update(request, job_id):
     user_colors = {}
     if business:
         crew_colors = {c.id: (c.color or CREW_COLORS[i % len(CREW_COLORS)]) for i, c in enumerate(Crew.objects.filter(business=business).order_by("name"))}
-        for u in User.objects.filter(business=business, role__in=["crew", "owner"]):
-            if u.color and u.color.strip():
-                user_colors[u.id] = u.color.strip()
-            else:
-                user_colors[u.id] = CREW_COLORS[0]
+        user_colors = _build_user_colors(business)
     job.refresh_from_db()
     if job.assigned_crew:
         assignee_name = job.assigned_crew.name
@@ -1113,11 +1117,7 @@ def daily_route_view(request):
     date_param = date_str or timezone.now().strftime('%Y-%m-%d')
 
     crew_colors = {c.id: (c.color or CREW_COLORS[i % len(CREW_COLORS)]) for i, c in enumerate(Crew.objects.filter(business=business).order_by("name"))} if business else {}
-    user_colors = {}
-    if business:
-        for u in User.objects.filter(business=business, role__in=["crew", "owner"]):
-            if u.color and u.color.strip():
-                user_colors[u.id] = u.color.strip()
+    user_colors = _build_user_colors(business) if business else {}
 
     # Calculate average duration per property for route time estimation
     from django.db.models import Avg, F, ExpressionWrapper, DurationField
