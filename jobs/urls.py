@@ -35,6 +35,7 @@ urlpatterns = [
 
     path('routes/', views.daily_route_view, name='daily_route'),
     path('routes/update/', views.update_route_order, name='update_route'),
+    path('routes/apply-to-calendar/', views.apply_route_to_calendar, name='apply_route_to_calendar'),
 
     path('crew/', views.crew_today_view, name='crew_today'),
     path('crew/quick/', views.crew_quick_view, name='crew_quick'),

@@ -1142,10 +1142,28 @@ def daily_route_view(request):
     if business:
         jobs = jobs.filter(property__customer__business=business)
 
-    jobs = jobs.select_related('property', 'assigned_to', 'assigned_crew').order_by('route_order')
+    # Filters: crew, employee, service type
+    crew_filter = request.GET.get('crew', '').strip()
+    emp_filter = request.GET.get('employee', '').strip()
+    svc_filter = request.GET.get('service', '').strip()
+    if crew_filter:
+        jobs = jobs.filter(assigned_crew_id=crew_filter)
+    if emp_filter:
+        jobs = jobs.filter(Q(assigned_to_id=emp_filter) | Q(assigned_employees__id=emp_filter)).distinct()
+    if svc_filter:
+        jobs = jobs.filter(service_items__service__name__icontains=svc_filter).distinct()
+
+    jobs = jobs.select_related('property', 'assigned_to', 'assigned_crew').prefetch_related('service_items__service').order_by('route_order')
     date_param = date_str or timezone.now().strftime('%Y-%m-%d')
 
-    crew_colors = {c.id: (c.color or CREW_COLORS[i % len(CREW_COLORS)]) for i, c in enumerate(Crew.objects.filter(business=business).order_by("name"))} if business else {}
+    # Build filter options for the template
+    crews = list(Crew.objects.filter(business=business).order_by("name")) if business else []
+    employees = list(User.objects.filter(business=business, role__in=["crew", "owner"]).order_by("first_name")) if business else []
+    # Get unique service names for the day
+    from pricing.models import ServiceTemplate
+    service_types = list(ServiceTemplate.objects.filter(business=business, active=True).order_by("name").values_list("name", flat=True)) if business else []
+
+    crew_colors = {c.id: (c.color or CREW_COLORS[i % len(CREW_COLORS)]) for i, c in enumerate(crews)} if business else {}
     user_colors = _build_user_colors(business) if business else {}
 
     # Calculate average duration per property for route time estimation
@@ -1189,6 +1207,12 @@ def daily_route_view(request):
         "google_maps_api_key": getattr(settings, "GOOGLE_MAPS_API_KEY", ""),
         "total_est_minutes": total_est_minutes,
         "est_work_display": est_work_display,
+        "crews": crews,
+        "employees": employees,
+        "service_types": service_types,
+        "crew_filter": crew_filter,
+        "emp_filter": emp_filter,
+        "svc_filter": svc_filter,
     })
 
 
@@ -1202,6 +1226,69 @@ def update_route_order(request):
     for item in data:
         Job.objects.filter(id=item["id"], property__customer__business=business).update(route_order=item["order"])
     return JsonResponse({"status": "ok"})
+
+
+@require_POST
+@role_required("owner", "manager")
+def apply_route_to_calendar(request):
+    """After route optimization, update scheduled_time on each job based on route order and estimated durations."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+    data = json.loads(request.body) if request.body else {}
+    job_ids = data.get("job_ids", [])
+    start_time_str = data.get("start_time", "08:00")
+    travel_minutes = int(data.get("travel_minutes_between", 15))
+
+    if not job_ids:
+        return JsonResponse({"error": "No jobs"}, status=400)
+
+    from datetime import time as dt_time
+    try:
+        parts = start_time_str.split(":")
+        current_hour = int(parts[0])
+        current_min = int(parts[1]) if len(parts) > 1 else 0
+    except (ValueError, IndexError):
+        current_hour, current_min = 8, 0
+
+    # Get average durations per property
+    from django.db.models import Avg, F, ExpressionWrapper, DurationField
+    jobs = list(Job.objects.filter(id__in=job_ids, property__customer__business=business).select_related('property').order_by('route_order'))
+    prop_ids = [j.property_id for j in jobs]
+    prop_avg = {}
+    if prop_ids:
+        avgs = Job.objects.filter(
+            property_id__in=prop_ids, status="completed",
+            started_at__isnull=False, completed_at__isnull=False,
+        ).values('property_id').annotate(
+            avg_dur=Avg(ExpressionWrapper(F('completed_at') - F('started_at'), output_field=DurationField()))
+        )
+        for row in avgs:
+            if row['avg_dur']:
+                prop_avg[row['property_id']] = int(row['avg_dur'].total_seconds() / 60)
+
+    # Sort jobs in order they appear in job_ids (optimized order)
+    job_map = {j.id: j for j in jobs}
+    ordered = [job_map[jid] for jid in job_ids if jid in job_map]
+
+    updated = 0
+    for i, job in enumerate(ordered):
+        job.scheduled_time = dt_time(current_hour, current_min)
+        job.route_order = i
+        job.save(update_fields=["scheduled_time", "route_order"])
+        updated += 1
+        # Advance time by estimated duration + travel
+        est_dur = prop_avg.get(job.property_id, 30)  # default 30 min if no history
+        total_advance = est_dur + (travel_minutes if i < len(ordered) - 1 else 0)
+        current_min += total_advance
+        while current_min >= 60:
+            current_min -= 60
+            current_hour += 1
+        if current_hour >= 21:  # Don't schedule past 9pm
+            current_hour = 21
+            current_min = 0
+
+    return JsonResponse({"status": "ok", "updated": updated})
 
 
 @role_required("owner", "manager", "crew")

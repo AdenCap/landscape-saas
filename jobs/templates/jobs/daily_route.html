@@ -13,8 +13,26 @@
     <p class="route-subtitle">Drag to reorder or optimize automatically.</p>
   </div>
   <div class="route-actions">
-    <form method="get" action="{% url 'daily_route' %}" class="route-date-form">
+    <form method="get" action="{% url 'daily_route' %}" class="route-date-form" id="route-filter-form">
       <input type="date" name="date" value="{{ date_param }}" class="route-date-input" aria-label="Route date">
+      <select name="crew" class="route-filter-select" onchange="this.form.submit()">
+        <option value="">All Crews</option>
+        {% for c in crews %}
+        <option value="{{ c.id }}" {% if crew_filter == c.id|stringformat:"d" %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="employee" class="route-filter-select" onchange="this.form.submit()">
+        <option value="">All Employees</option>
+        {% for e in employees %}
+        <option value="{{ e.id }}" {% if emp_filter == e.id|stringformat:"d" %}selected{% endif %}>{{ e.get_full_name|default:e.username }}</option>
+        {% endfor %}
+      </select>
+      <select name="service" class="route-filter-select" onchange="this.form.submit()">
+        <option value="">All Services</option>
+        {% for s in service_types %}
+        <option value="{{ s }}" {% if svc_filter == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
       <button type="submit" class="btn btn-secondary">Go</button>
     </form>
     <div class="route-buttons">
@@ -22,6 +40,10 @@
       <button type="button" id="optimize-btn" class="btn btn-primary" title="Optimize route for shortest distance">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg>
         Optimize
+      </button>
+      <button type="button" id="apply-calendar-btn" class="btn btn-secondary" style="display:none;" title="Update calendar times based on route order">
+        <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">calendar_month</span>
+        Apply to Calendar
       </button>
       <button type="button" id="map-toggle-btn" class="btn btn-secondary" title="Show/hide map">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
@@ -261,6 +283,52 @@
         }
 
         showToast('Route optimized \u2014 ' + miles + ' mi, ~' + mins + ' min');
+
+        // Show "Apply to Calendar" button after optimization
+        var applyBtn = document.getElementById('apply-calendar-btn');
+        if (applyBtn) applyBtn.style.display = '';
+      });
+    });
+  }
+
+  // ── Apply optimized route to calendar times ──
+  var applyCalBtn = document.getElementById('apply-calendar-btn');
+  if (applyCalBtn) {
+    applyCalBtn.addEventListener('click', function() {
+      var items = list.querySelectorAll('li[data-id]');
+      if (items.length === 0) return;
+      var jobIds = [];
+      items.forEach(function(item) { if (item.dataset.id) jobIds.push(parseInt(item.dataset.id)); });
+
+      var startTime = prompt('What time should the first job start? (e.g. 8:00)', '08:00');
+      if (!startTime) return;
+      var travelMin = prompt('Estimated travel time between stops (minutes)?', '15');
+      if (travelMin === null) return;
+
+      applyCalBtn.disabled = true;
+      applyCalBtn.textContent = 'Applying\u2026';
+
+      fetch('{% url "apply_route_to_calendar" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+        body: JSON.stringify({
+          job_ids: jobIds,
+          start_time: startTime,
+          travel_minutes_between: parseInt(travelMin) || 15
+        })
+      }).then(function(r) { return r.json(); })
+      .then(function(data) {
+        applyCalBtn.disabled = false;
+        applyCalBtn.textContent = 'Apply to Calendar';
+        if (data.status === 'ok') {
+          showToast('Calendar updated \u2014 ' + data.updated + ' jobs rescheduled');
+        } else {
+          showToast(data.error || 'Failed', 'error');
+        }
+      }).catch(function() {
+        applyCalBtn.disabled = false;
+        applyCalBtn.textContent = 'Apply to Calendar';
+        showToast('Network error', 'error');
       });
     });
   }
@@ -279,6 +347,7 @@
   .route-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
   .route-date-form { display: flex; gap: 8px; align-items: center; }
   .route-date-input { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-size: 15px; }
+  .route-filter-select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-size: 13px; min-width: 100px; }
   .route-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
   .route-summary { display: flex; align-items: center; gap: 10px; padding: 12px 16px; margin-bottom: 16px; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); border-radius: 10px; font-size: 14px; font-weight: 600; }
   .route-stat { color: var(--text); }
