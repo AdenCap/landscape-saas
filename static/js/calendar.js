@@ -389,7 +389,8 @@ document.addEventListener('DOMContentLoaded', function () {
         el.style.display = c > 0 ? '' : 'none';
       });
       // Re-apply color mode after every event load so user's selection persists
-      if (typeof window._applyColorMode === 'function') window._applyColorMode();
+      // Use guard flag to prevent infinite loop (setProp triggers eventsSet again)
+      if (!window._applyingColorMode && typeof window._applyColorMode === 'function') window._applyColorMode();
     }
   });
   calendar.render();
@@ -1840,22 +1841,29 @@ document.addEventListener('DOMContentLoaded', function () {
   var colorMode = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_COLOR_MODE)) || 'status';
 
   // Global reference for eventsSet callback integration (no setOption chaining needed)
+  window._applyingColorMode = false;
   window._applyColorMode = function() {
-    calendar.getEvents().forEach(function(event) {
-      var props = event.extendedProps || {};
-      if (props.type === 'meeting') return;
-      var override = props.jobColorOverride;
-      var color;
-      if (override) {
-        color = override;
-      } else if (colorMode === 'assignee') {
-        color = props.assigneeColor || props.crewColor || '#94a3b8';
-      } else {
-        color = props.statusColor || '#3b82f6';
-      }
-      event.setProp('backgroundColor', color);
-      event.setProp('borderColor', color);
-    });
+    if (window._applyingColorMode) return; // Prevent infinite loop
+    window._applyingColorMode = true;
+    try {
+      calendar.getEvents().forEach(function(event) {
+        var props = event.extendedProps || {};
+        if (props.type === 'meeting') return;
+        var override = props.jobColorOverride;
+        var color;
+        if (override) {
+          color = override;
+        } else if (colorMode === 'assignee') {
+          color = props.assigneeColor || props.crewColor || '#94a3b8';
+        } else {
+          color = props.statusColor || '#3b82f6';
+        }
+        event.setProp('backgroundColor', color);
+        event.setProp('borderColor', color);
+      });
+    } finally {
+      window._applyingColorMode = false;
+    }
   };
 
   var toggleContainer = document.getElementById('color-mode-toggle');
