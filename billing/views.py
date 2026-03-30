@@ -812,11 +812,10 @@ def create_invoice_checkout_session(request, invoice_id, token):
 
 
 def _fmt_currency(val):
-    """Format decimal as currency, trimming trailing zeros. 150.00 -> $150, 150.50 -> $150.50"""
+    """Format decimal as currency with commas. 1349.50 -> $1,349.50, 150.00 -> $150.00"""
     if val is None:
-        return "$0"
-    s = f"{float(val):.2f}".rstrip("0").rstrip(".")
-    return f"${s}" if s else "$0"
+        return "$0.00"
+    return f"${float(val):,.2f}"
 
 
 def _get_reportlab():
@@ -2167,89 +2166,95 @@ def _build_estimate_pdf(estimate, business, compact=False):
 
     # Table header: accent background, white text
     header_h = 20
+    col_item = margin + 6       # Item name start
+    col_desc = margin + 110     # Description start
+    col_qty = 390               # Qty
+    col_unit = 430              # Unit
+    col_total = right - 6       # Total (right-aligned)
+
     p.setFillColorRGB(*accent)
     p.rect(margin, y - 4, right - margin, header_h, fill=True, stroke=False)
     p.setFillColorRGB(1, 1, 1)
     p.setFont(h_font, 8)
-    p.drawString(margin + 6, y + 2, "ITEM")
-    p.drawString(margin + 100, y + 2, "DESCRIPTION")
-    p.drawString(370, y + 2, "QTY")
-    p.drawString(420, y + 2, "UNIT")
-    p.drawRightString(right - 6, y + 2, "TOTAL")
+    p.drawString(col_item, y + 2, "ITEM")
+    p.drawString(col_desc, y + 2, "DESCRIPTION")
+    p.drawString(col_qty, y + 2, "QTY")
+    p.drawString(col_unit, y + 2, "UNIT")
+    p.drawRightString(col_total, y + 2, "TOTAL")
     y -= 22
 
     # Data rows
     for idx, item in enumerate(base_items):
         if y < 100:
             y = _new_page()
-            p.setFont(b_font, 9)
-            p.setFillColorRGB(*_PDF_DARK)
 
-        desc = str(item.description or "")
-        # Split item name vs description at " - " or newline
-        if " - " in desc or "\n" in desc:
-            item_name = desc.split(" - ")[0].split("\n")[0][:25]
-            item_desc = desc[len(item_name):].lstrip(" -\n")[:50]
-        else:
-            item_name = desc[:25]
-            item_desc = ""
-
-        # Detail description present?
+        item_name = _pdf_safe(str(item.description or ""), 30)
         detail = (getattr(item, "detail_description", "") or "").strip()
-        has_detail = bool(item_desc or detail)
-        row_h = 18
+
+        # Calculate row height
+        detail_lines = []
+        if detail:
+            # Wrap long description into multiple lines (~55 chars per line)
+            words = detail.split()
+            line = ""
+            for w in words:
+                test = (line + " " + w).strip()
+                if len(test) > 55:
+                    detail_lines.append(line)
+                    line = w
+                else:
+                    line = test
+            if line:
+                detail_lines.append(line)
+            detail_lines = detail_lines[:3]  # Max 3 lines
+
+        row_h = 20 + (len(detail_lines) * 11)
 
         # Alternating row shading
-        shade_h = row_h
-        if has_detail:
-            detail_lines = detail.split("\n")[:3] if detail else []
-            shade_h = row_h + (10 * len(detail_lines)) + (10 if item_desc else 0)
         if idx % 2 == 1:
             p.setFillColorRGB(0.97, 0.97, 0.97)
-            p.rect(margin, y - shade_h + row_h - 5, right - margin, shade_h, fill=True, stroke=False)
+            p.rect(margin, y - row_h + 14, right - margin, row_h, fill=True, stroke=False)
 
         # Item name (bold)
         p.setFillColorRGB(*_PDF_DARK)
         p.setFont(h_font, 9)
-        p.drawString(margin + 6, y, _pdf_safe(item_name))
+        p.drawString(col_item, y, item_name)
 
-        # Description (lighter)
-        if item_desc:
+        # Description (first line, lighter, next to item or on same row)
+        if detail_lines:
             p.setFont(b_font, 8)
             p.setFillColorRGB(*_PDF_MUTED)
-            p.drawString(margin + 100, y, _pdf_safe(item_desc))
+            p.drawString(col_desc, y, _pdf_safe(detail_lines[0], 55))
 
-        # Qty
+        # Qty + Unit
         p.setFillColorRGB(*_PDF_DARK)
         p.setFont(b_font, 9)
-        p.drawString(370, y, str(item.quantity or 1))
-
-        # Unit
-        unit_str = getattr(item, "unit", "ea") or "ea"
-        p.drawString(420, y, _pdf_safe(str(unit_str)[:10]))
+        qty_val = item.quantity or 1
+        qty_str = f"{int(qty_val)}" if qty_val == int(qty_val) else f"{qty_val}"
+        unit_str = _pdf_safe(str(getattr(item, "unit", "ea") or "ea")[:8])
+        p.drawString(col_qty, y, f"{qty_str} {unit_str}")
 
         # Total
         lt = item.line_total
         if lt:
             p.setFont(h_font, 9)
-            p.drawRightString(right - 6, y, _fmt_currency(lt))
-        y -= row_h
+            p.drawRightString(col_total, y, _fmt_currency(lt))
 
-        # Detail description (smaller gray text below)
-        if detail:
-            p.setFont(b_font, 7.5)
-            p.setFillColorRGB(0.45, 0.45, 0.45)
-            for desc_line in detail.split("\n")[:3]:
-                if y < 80:
-                    y = _new_page()
-                p.drawString(margin + 10, y, _pdf_safe(desc_line[:70]))
-                y -= 10
-            p.setFillColorRGB(*_PDF_DARK)
+        # Additional description lines below
+        if len(detail_lines) > 1:
+            desc_y = y - 13
+            p.setFont(b_font, 8)
+            p.setFillColorRGB(*_PDF_MUTED)
+            for dl in detail_lines[1:]:
+                p.drawString(col_desc, desc_y, _pdf_safe(dl, 55))
+                desc_y -= 11
+
+        y -= row_h
 
         # Thin row separator
         p.setStrokeColorRGB(0.90, 0.90, 0.90)
         p.setLineWidth(0.3)
-        p.line(margin, y + 4, right, y + 4)
+        p.line(margin, y + 6, right, y + 6)
 
     # ══════════════════════════════════════════════════════════════════
     # SECTION 5: OPTIONAL UPGRADES  (only if addon items exist)
@@ -2402,12 +2407,13 @@ def _build_estimate_pdf(estimate, business, compact=False):
     p.drawRightString(right - 6, ty, "\u2014")  # em-dash
     ty -= 18
 
-    # Estimated total (bold, larger)
+    # Estimated total (bold, larger) — includes addons
+    grand_total = base_total + addon_total
     p.setFont(h_font, 11)
     p.setFillColorRGB(*_PDF_DARK)
     p.drawString(totals_x + 4, ty, "Estimated total")
     p.setFont(h_font, 14)
-    p.drawRightString(right - 6, ty - 2, _fmt_currency(base_total))
+    p.drawRightString(right - 6, ty - 2, _fmt_currency(grand_total))
     ty -= 24
 
     # Separator before signatures
