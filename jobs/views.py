@@ -3327,7 +3327,7 @@ def mowing_bulk_schedule(request):
                     JobServiceItem.objects.create(
                         job=job,
                         service=mowing_svc,
-                        description="Mowing",
+                        description=mowing_svc.name,
                         quantity=1,
                         unit=job_unit,
                         unit_price=job_rate,
@@ -3348,7 +3348,7 @@ def mowing_bulk_schedule(request):
                 JobServiceItem.objects.create(
                     job=job,
                     service=mowing_svc,
-                    description="Mowing",
+                    description=mowing_svc.name,
                     quantity=1,
                     unit=job_unit,
                     unit_price=job_rate,
