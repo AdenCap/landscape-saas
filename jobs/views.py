@@ -1271,20 +1271,41 @@ def apply_route_to_calendar(request):
     job_map = {j.id: j for j in jobs}
     ordered = [job_map[jid] for jid in job_ids if jid in job_map]
 
+    def round_to_15(h, m):
+        """Round minutes to nearest 15-minute mark (0, 15, 30, 45)."""
+        m = int(round(m / 15.0)) * 15
+        while m >= 60:
+            m -= 60
+            h += 1
+        return h, m
+
+    # Round start time to nearest 15
+    current_hour, current_min = round_to_15(current_hour, current_min)
+
     updated = 0
     for i, job in enumerate(ordered):
-        job.scheduled_time = dt_time(current_hour, current_min)
-        job.route_order = i
-        job.save(update_fields=["scheduled_time", "route_order"])
-        updated += 1
-        # Advance time by estimated duration + travel
+        job.scheduled_time = dt_time(min(current_hour, 20), current_min)
+        # Set end time based on estimated duration
         est_dur = prop_avg.get(job.property_id, 30)  # default 30 min if no history
+        end_min = current_min + est_dur
+        end_hour = current_hour
+        while end_min >= 60:
+            end_min -= 60
+            end_hour += 1
+        end_hour, end_min = round_to_15(end_hour, end_min)
+        job.scheduled_end_time = dt_time(min(end_hour, 21), end_min)
+        job.route_order = i
+        job.save(update_fields=["scheduled_time", "scheduled_end_time", "route_order"])
+        updated += 1
+        # Advance to next job: end time + travel
         total_advance = est_dur + (travel_minutes if i < len(ordered) - 1 else 0)
         current_min += total_advance
         while current_min >= 60:
             current_min -= 60
             current_hour += 1
-        if current_hour >= 21:  # Don't schedule past 9pm
+        # Round to 15-minute boundary
+        current_hour, current_min = round_to_15(current_hour, current_min)
+        if current_hour >= 21:
             current_hour = 21
             current_min = 0
 

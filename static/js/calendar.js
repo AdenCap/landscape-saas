@@ -172,6 +172,7 @@ document.addEventListener('DOMContentLoaded', function () {
     slotMinTime: '06:00:00',
     slotMaxTime: '21:00:00',
     slotDuration: '00:30:00',
+    snapDuration: '00:05:00',
     scrollTime: '07:00:00',
     scrollTimeReset: false,
     stickyHeaderDates: true,
