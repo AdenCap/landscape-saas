@@ -3302,7 +3302,7 @@ def mowing_remove_client(request):
 @require_POST
 @role_required("owner", "manager")
 def mowing_update_frequency(request):
-    """Update frequency for a recurring mowing client. Does NOT auto-schedule — user schedules manually."""
+    """Update frequency for a recurring mowing client and reschedule future jobs."""
     business = get_business(request)
     if not business:
         return JsonResponse({"error": "No business"}, status=403)
@@ -3318,10 +3318,111 @@ def mowing_update_frequency(request):
         return JsonResponse({"error": "Invalid parameters"}, status=400)
 
     rj = get_object_or_404(RecurringJob, id=recurring_id, property__customer__business=business)
+    old_frequency = rj.frequency
     rj.frequency = new_frequency
     rj.save(update_fields=["frequency"])
 
-    return JsonResponse({"ok": True})
+    # If frequency actually changed, reschedule future jobs
+    deleted = 0
+    created = 0
+    if old_frequency != new_frequency:
+        from decimal import Decimal
+        from pricing.models import ServiceTemplate
+        from pricing.utils import get_effective_rate
+
+        today = timezone.now().date()
+        prop = rj.property
+
+        # Find the mowing service
+        mowing_svc = ServiceTemplate.objects.filter(
+            business=business, active=True, name__icontains="mow"
+        ).first()
+
+        # Delete all future unstarted mowing jobs for this property
+        future_jobs = Job.objects.filter(
+            property=prop,
+            scheduled_date__gt=today,
+            status__in=["scheduled"],
+            recurring_job=rj,
+        )
+        deleted = future_jobs.count()
+        # Also delete their service items
+        JobServiceItem.objects.filter(job__in=future_jobs).delete()
+        future_jobs.delete()
+
+        # Find the season end (last scheduled job date, or Oct 31)
+        last_job = Job.objects.filter(
+            property=prop,
+            recurring_job=rj,
+            scheduled_date__gte=today,
+        ).order_by('-scheduled_date').first()
+        if last_job:
+            season_end = last_job.scheduled_date
+        else:
+            # Use Oct 31 of this year or next if past Oct
+            season_end = date(today.year, 10, 31)
+            if season_end < today:
+                season_end = date(today.year + 1, 10, 31)
+
+        # Find the next scheduled date (first job from today onward, or today + interval)
+        next_existing = Job.objects.filter(
+            property=prop,
+            recurring_job=rj,
+            scheduled_date__gte=today,
+            status__in=["scheduled", "en_route", "in_progress"],
+        ).order_by('scheduled_date').first()
+
+        interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(new_frequency, 7)
+
+        if next_existing:
+            # Start from the day after the next existing job
+            start_date = next_existing.scheduled_date + timedelta(days=interval)
+        else:
+            start_date = today + timedelta(days=1)
+
+        # Get price
+        job_unit = "visit"
+        job_rate = Decimal("0")
+        if mowing_svc:
+            job_unit, job_rate = get_effective_rate(prop, mowing_svc)
+            if job_rate == 0 and rj.service_snapshot:
+                for snap in rj.service_snapshot:
+                    sp = snap.get("unit_price")
+                    if sp and Decimal(str(sp)) > 0:
+                        job_rate = Decimal(str(sp))
+                        job_unit = snap.get("unit", "visit")
+                        break
+
+        # Create new jobs with new frequency
+        current_date = start_date
+        while current_date <= season_end:
+            job = Job.objects.create(
+                property=prop,
+                scheduled_date=current_date,
+                status="scheduled",
+                notes=f"[Mowing] {prop.customer.name}",
+                assigned_crew=rj.assigned_crew,
+                assigned_to=rj.assigned_to,
+                recurring_job=rj,
+            )
+            if mowing_svc:
+                JobServiceItem.objects.create(
+                    job=job,
+                    service=mowing_svc,
+                    description="Mowing",
+                    quantity=1,
+                    unit=job_unit,
+                    unit_price=job_rate,
+                )
+            created += 1
+            current_date += timedelta(days=interval)
+
+    return JsonResponse({
+        "ok": True,
+        "deleted": deleted,
+        "created": created,
+        "message": f"Changed to {new_frequency}. Removed {deleted} old jobs, created {created} new ones." if deleted or created else "",
+    })
 
 
 @require_POST

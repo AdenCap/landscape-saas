@@ -378,6 +378,10 @@ function mowEditFreq(el) {
 
   function save() {
     var newFreq = sel.value;
+    if (newFreq === current) { el.style.display = ''; sel.remove(); return; }
+    if (!confirm('Change frequency to ' + sel.options[sel.selectedIndex].text + '? This will reschedule all future mowing jobs for this client.')) {
+      el.style.display = ''; sel.remove(); return;
+    }
     fetch('/jobs/mowing/update-frequency/', {
       method: 'POST',
       credentials: 'same-origin',
