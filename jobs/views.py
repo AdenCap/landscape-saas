@@ -145,11 +145,11 @@ def job_list(request):
         ).order_by('-scheduled_date', 'scheduled_time', 'id'))
         filter_label = "This Month (Past)"
     elif filter_type == 'completed':
-        # All completed jobs, regardless of date
+        # Completed jobs — limit to most recent 100 for performance
         past_jobs = list(qs.filter(
             status='completed'
-        ).order_by('-scheduled_date', 'scheduled_time', 'id'))
-        filter_label = "All Completed Jobs"
+        ).order_by('-scheduled_date', 'scheduled_time', 'id')[:100])
+        filter_label = "Completed Jobs (Recent 100)"
     elif filter_type == 'date' and filter_date:
         # Specific date filter
         try:
@@ -166,8 +166,12 @@ def job_list(request):
     # Default: show upcoming and unscheduled
     unscheduled_with_details = []
     if not filter_type:
-        upcoming_qs = qs.filter(scheduled_date__gte=today).order_by('scheduled_date', 'scheduled_time', 'id')
-        upcoming = list(upcoming_qs)
+        # Limit upcoming to next 14 days to avoid loading entire season
+        upcoming_end = today + timedelta(days=14)
+        upcoming_qs = qs.filter(
+            scheduled_date__gte=today, scheduled_date__lte=upcoming_end
+        ).order_by('scheduled_date', 'scheduled_time', 'id')
+        upcoming = list(upcoming_qs[:100])
         unscheduled_qs = qs.filter(scheduled_date__isnull=True).order_by('-created_at')[:30]
         for job in unscheduled_qs:
             details = _get_job_details(job)
@@ -178,36 +182,31 @@ def job_list(request):
                 'is_paid': details['is_paid'],
                 'invoice_status': details['invoice_status'],
             })
-    
-    # Get counts for filter badges
-    completed_count = qs.filter(status='completed').count()
-    past_7_days_count = qs.filter(scheduled_date__gte=today - timedelta(days=7), scheduled_date__lt=today).count()
-    past_30_days_count = qs.filter(scheduled_date__gte=today - timedelta(days=30), scheduled_date__lt=today).count()
+
+    # Get counts for filter badges — single query with conditional aggregation
+    from django.db.models import Count, Case, When, IntegerField
     month_start = today.replace(day=1)
-    this_month_past_count = qs.filter(scheduled_date__gte=month_start, scheduled_date__lt=today).count()
-    
-    # Add job details to all job lists
-    upcoming_with_details = []
-    for job in upcoming:
-        details = _get_job_details(job)
-        upcoming_with_details.append({
-            'job': job,
-            'title': details['title'],
-            'amount': details['amount'],
-            'is_paid': details['is_paid'],
-            'invoice_status': details['invoice_status'],
-        })
-    
-    past_jobs_with_details = []
-    for job in past_jobs:
-        details = _get_job_details(job)
-        past_jobs_with_details.append({
-            'job': job,
-            'title': details['title'],
-            'amount': details['amount'],
-            'is_paid': details['is_paid'],
-            'invoice_status': details['invoice_status'],
-        })
+    counts = qs.aggregate(
+        completed_count=Count(Case(When(status='completed', then=1), output_field=IntegerField())),
+        past_7=Count(Case(When(scheduled_date__gte=today - timedelta(days=7), scheduled_date__lt=today, then=1), output_field=IntegerField())),
+        past_30=Count(Case(When(scheduled_date__gte=today - timedelta(days=30), scheduled_date__lt=today, then=1), output_field=IntegerField())),
+        this_month=Count(Case(When(scheduled_date__gte=month_start, scheduled_date__lt=today, then=1), output_field=IntegerField())),
+    )
+    completed_count = counts['completed_count']
+    past_7_days_count = counts['past_7']
+    past_30_days_count = counts['past_30']
+    this_month_past_count = counts['this_month']
+
+    # Add job details — uses prefetched service_items (no extra queries)
+    upcoming_with_details = [
+        {**_get_job_details(job), 'job': job}
+        for job in upcoming
+    ]
+
+    past_jobs_with_details = [
+        {**_get_job_details(job), 'job': job}
+        for job in past_jobs
+    ]
     
     # Accepted estimates that need scheduling (no job created yet)
     from billing.models import Estimate
@@ -234,6 +233,7 @@ def job_list(request):
         'past_7_days_count': past_7_days_count,
         'past_30_days_count': past_30_days_count,
         'this_month_past_count': this_month_past_count,
+        'upcoming_window_days': 14,
     })
 
 
