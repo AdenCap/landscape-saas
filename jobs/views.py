@@ -2961,12 +2961,19 @@ def mowing_hub(request):
     # Actual mowing revenue earned this year
     year_start = date(today.year, 1, 1)
     actual_mowing_revenue = Decimal("0")
+    todays_mowing_revenue = Decimal("0")
     if mowing_services.exists():
         actual_mowing_revenue = JobServiceItem.objects.filter(
             service__in=mowing_services,
             job__property__customer__business=business,
             job__status="completed",
             job__scheduled_date__gte=year_start,
+        ).aggregate(total=Sum(F("quantity") * F("unit_price")))["total"] or Decimal("0")
+        # Today's projected mowing revenue (all mowing jobs scheduled today)
+        todays_mowing_revenue = JobServiceItem.objects.filter(
+            service__in=mowing_services,
+            job__property__customer__business=business,
+            job__scheduled_date=today,
         ).aggregate(total=Sum(F("quantity") * F("unit_price")))["total"] or Decimal("0")
 
     # Customers + crews for "Add Mowing Client" modal
@@ -2999,6 +3006,7 @@ def mowing_hub(request):
         "monthly_revenue": monthly_revenue,
         "season_revenue": season_revenue,
         "actual_mowing_revenue": actual_mowing_revenue,
+        "todays_mowing_revenue": todays_mowing_revenue,
     })
 
 

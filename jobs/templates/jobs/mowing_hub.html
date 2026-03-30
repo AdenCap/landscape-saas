@@ -76,8 +76,8 @@
       <span class="rev-card-value" style="color:var(--primary);">${{ actual_mowing_revenue|floatformat:0 }}</span>
     </div>
     <div class="rev-card">
-      <span class="rev-card-label">Avg Per Cut</span>
-      <span class="rev-card-value">{% if total_count %}${{ weekly_revenue|floatformat:0 }}{% else %}—{% endif %}</span>
+      <span class="rev-card-label">Today's Projected</span>
+      <span class="rev-card-value">${{ todays_mowing_revenue|floatformat:0 }}</span>
     </div>
   </div>
 </div>
