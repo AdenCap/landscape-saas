@@ -2603,6 +2603,16 @@ def estimate_pdf(request, estimate_id):
     return response
 
 
+def estimate_client_pdf(request, estimate_id, token):
+    """Public PDF download for clients — uses view_token, no login required."""
+    estimate = get_object_or_404(Estimate, id=estimate_id, view_token=token)
+    if not estimate.view_token:
+        return redirect("/")
+    business = estimate.business
+    pdf_bytes = _build_estimate_pdf(estimate, business, compact=False)
+    return FileResponse(BytesIO(pdf_bytes), as_attachment=True, filename=f"Estimate_{estimate.id}.pdf")
+
+
 @require_POST
 @role_required("owner", "manager")
 def estimate_send(request, estimate_id):

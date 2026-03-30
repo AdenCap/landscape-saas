@@ -210,6 +210,12 @@
       {% csrf_token %}
       <button type="submit" class="btn-accept">Accept Estimate{% if estimate.deposit_required and estimate.deposit_amount %} &amp; Agree to Deposit{% endif %}</button>
     </form>
+    <div style="text-align:center;margin-top:16px;">
+      <a href="{% url 'billing:estimate_client_pdf' estimate.id token %}" style="color:var(--accent);font-size:14px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF
+      </a>
+    </div>
   </div>
 
   <div class="powered-by">Powered by FieldLgx</div>
