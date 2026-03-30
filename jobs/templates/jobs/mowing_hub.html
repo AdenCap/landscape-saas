@@ -489,6 +489,7 @@ function mowBulkAssignCrew() {
         <td class="mow-sel-col" style="display:none;" onclick="event.stopPropagation()"><input type="checkbox" class="mow-check" value="{{ c.customer.id }}" data-propid="{{ c.properties.0.id }}" style="accent-color:var(--primary);width:16px;height:16px;"></td>
         <td>
           <strong>{{ c.customer.name }}</strong>
+          {% if c.property_address %}<span class="mow-hide-desktop" style="display:none;font-size:11px;color:var(--text-muted);font-weight:400;"> · {{ c.property_address|truncatechars:25 }}</span>{% endif %}
         </td>
         <td class="mow-hide-mobile" style="font-size:13px;color:var(--text-secondary);">
           {{ c.properties.0.address|truncatechars:40 }}

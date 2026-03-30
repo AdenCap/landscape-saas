@@ -2767,21 +2767,20 @@ def mowing_hub(request):
         if is_mowing:
             mowing_recurrences.append(rj)
 
-    # Gather unique customers from recurring mowing jobs
-    customer_map = {}  # customer_id -> {customer, properties, frequency, crew, recurring_id}
+    # Gather entries per property (not per customer) so multi-property clients show separate rows
+    customer_map = {}  # key = recurring_job_id -> {customer, properties, frequency, crew, recurring_id}
     for rj in mowing_recurrences:
         cust = rj.property.customer
-        cid = cust.id
-        if cid not in customer_map:
-            customer_map[cid] = {
-                "customer": cust,
-                "properties": [],
-                "frequency": rj.get_frequency_display(),
-                "frequency_key": rj.frequency,
-                "crew": rj.assigned_crew.name if rj.assigned_crew else (rj.assigned_to.get_full_name() if rj.assigned_to else "Unassigned"),
-                "recurring_id": rj.id,
-            }
-        customer_map[cid]["properties"].append(rj.property)
+        key = rj.id  # Key by RecurringJob so each property is a separate entry
+        customer_map[key] = {
+            "customer": cust,
+            "properties": [rj.property],
+            "frequency": rj.get_frequency_display(),
+            "frequency_key": rj.frequency,
+            "crew": rj.assigned_crew.name if rj.assigned_crew else (rj.assigned_to.get_full_name() if rj.assigned_to else "Unassigned"),
+            "recurring_id": rj.id,
+            "property_address": rj.property.address,
+        }
 
     # Also find customers with mowing jobs this week (even without recurring setup)
     this_week_jobs = Job.objects.filter(
@@ -2791,21 +2790,33 @@ def mowing_hub(request):
         service_items__service__in=mowing_services,
     ).select_related("property__customer", "assigned_crew", "assigned_to").distinct()
 
-    # Build week schedule: {customer_id: [job, ...]}
+    # Build week schedule keyed by property_id (not customer_id)
     week_schedule = {}
+    # Also build customer-level schedule for fallback
+    week_schedule_by_customer = {}
     for job in this_week_jobs:
+        pid = job.property_id
         cid = job.property.customer_id
-        if cid not in week_schedule:
-            week_schedule[cid] = []
-        week_schedule[cid].append(job)
+        if pid not in week_schedule:
+            week_schedule[pid] = []
+        week_schedule[pid].append(job)
+        if cid not in week_schedule_by_customer:
+            week_schedule_by_customer[cid] = []
+        week_schedule_by_customer[cid].append(job)
 
     # Also add one-off mowing clients from this week who aren't in recurring
-    for cid, jobs in week_schedule.items():
-        if cid not in customer_map:
+    # Check if any property from this week's jobs is NOT already in customer_map
+    existing_prop_ids = set()
+    for key, data in customer_map.items():
+        for prop in data["properties"]:
+            existing_prop_ids.add(prop.id)
+    for pid, jobs in week_schedule.items():
+        if pid not in existing_prop_ids:
             cust = jobs[0].property.customer
-            customer_map[cid] = {
+            customer_map[f"oneoff_{pid}"] = {
                 "customer": cust,
                 "properties": [jobs[0].property],
+                "property_address": jobs[0].property.address,
                 "frequency": "One-time",
                 "frequency_key": "one_time",
                 "crew": (jobs[0].assigned_crew.name if jobs[0].assigned_crew
@@ -2857,9 +2868,17 @@ def mowing_hub(request):
             "date": job.scheduled_date,
         })
 
-    for cid, data in customer_map.items():
-        data["this_week_jobs"] = week_schedule.get(cid, [])
-        data["next_job_date"] = data["this_week_jobs"][0].scheduled_date if data["this_week_jobs"] else None
+    for key, data in customer_map.items():
+        # Get this week's jobs by property ID (not customer ID)
+        prop_ids = [p.id for p in data["properties"]]
+        this_week = []
+        for pid in prop_ids:
+            this_week.extend(week_schedule.get(pid, []))
+        if not this_week:
+            # Fallback: check customer-level schedule
+            this_week = week_schedule_by_customer.get(data["customer"].id, [])
+        data["this_week_jobs"] = this_week
+        data["next_job_date"] = this_week[0].scheduled_date if this_week else None
         data["has_email"] = bool(data["customer"].email)
         data["has_phone"] = bool(data["customer"].phone)
         # Average duration from all property history
