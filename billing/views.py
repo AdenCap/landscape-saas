@@ -826,11 +826,10 @@ def _get_reportlab():
 
 
 def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, page_width=None):
-    """Draw business logo on ReportLab canvas if present. Supports both local files and URL-based storage."""
+    """Draw business logo on ReportLab canvas if present. Tries multiple methods to load the image."""
     if not business or not business.logo:
         return
     try:
-        import requests as _requests
         from reportlab.lib.utils import ImageReader
         from PIL import Image as PILImage
         import io
@@ -840,21 +839,21 @@ def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, p
         if page_width is not None and x is None:
             x = page_width - 50 - max_width
 
-        # Try multiple ways to get the logo image data
         img_data = None
 
-        # Method 1: Try business.logo.url (Supabase returns full URL)
+        # Method 1: Direct file path (works if logo is stored locally)
         try:
-            logo_url = business.logo.url
-            if logo_url and logo_url.startswith("http"):
-                resp = _requests.get(logo_url, timeout=10)
-                resp.raise_for_status()
-                img_data = io.BytesIO(resp.content)
-                logger.info("PDF logo: downloaded from %s (%d bytes)", logo_url[:60], len(resp.content))
+            if hasattr(business.logo, 'path'):
+                import os
+                fpath = business.logo.path
+                if os.path.exists(fpath):
+                    with open(fpath, 'rb') as f:
+                        img_data = io.BytesIO(f.read())
+                    logger.info("PDF logo: read from local path %s", fpath)
         except Exception as e:
-            logger.warning("PDF logo: URL download failed: %s", e)
+            logger.debug("PDF logo: local path failed: %s", e)
 
-        # Method 2: Try business.logo.open() (Django storage API)
+        # Method 2: Django storage API
         if not img_data:
             try:
                 f = business.logo.open("rb")
@@ -862,10 +861,46 @@ def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, p
                 f.close()
                 logger.info("PDF logo: read via storage API")
             except Exception as e:
-                logger.warning("PDF logo: storage open failed: %s", e)
+                logger.debug("PDF logo: storage open failed: %s", e)
+
+        # Method 3: Download from URL (Supabase / S3 / any remote storage)
+        if not img_data:
+            try:
+                logo_url = business.logo.url
+                if logo_url:
+                    # Handle relative URLs
+                    if not logo_url.startswith("http"):
+                        from django.conf import settings
+                        base = getattr(settings, 'SUPABASE_URL', '') or ''
+                        if base:
+                            logo_url = base.rstrip('/') + '/storage/v1/object/public/' + logo_url.lstrip('/')
+                    if logo_url.startswith("http"):
+                        import requests as _requests
+                        resp = _requests.get(logo_url, timeout=10)
+                        resp.raise_for_status()
+                        if len(resp.content) > 100:  # Sanity check
+                            img_data = io.BytesIO(resp.content)
+                            logger.info("PDF logo: downloaded from URL (%d bytes)", len(resp.content))
+            except Exception as e:
+                logger.warning("PDF logo: URL download failed: %s", e)
+
+        # Method 4: Try the proxy endpoint (last resort)
+        if not img_data:
+            try:
+                from django.conf import settings
+                site_url = getattr(settings, 'SITE_URL', '') or getattr(settings, 'BASE_URL', '')
+                if site_url:
+                    proxy_url = f"{site_url.rstrip('/')}/settings/logo/{business.id}.png"
+                    import requests as _requests
+                    resp = _requests.get(proxy_url, timeout=10)
+                    if resp.status_code == 200 and len(resp.content) > 100:
+                        img_data = io.BytesIO(resp.content)
+                        logger.info("PDF logo: fetched from proxy endpoint")
+            except Exception as e:
+                logger.debug("PDF logo: proxy failed: %s", e)
 
         if not img_data:
-            logger.error("PDF logo: all methods failed for business %s", business.id)
+            logger.error("PDF logo: all 4 methods failed for business %s (logo=%s)", business.id, str(business.logo)[:50])
             return
 
         # Convert to PNG via PIL to handle any format (webp, heic, etc)
@@ -881,9 +916,10 @@ def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, p
         img_reader = ImageReader(png_buf)
         p.drawImage(img_reader, x, y_top - max_height, width=max_width, height=max_height,
                     preserveAspectRatio=True, mask='auto')
+        logger.info("PDF logo: drawn successfully at (%s, %s)", x, y_top - max_height)
     except Exception as exc:
         import logging
-        logging.getLogger(__name__).warning("PDF logo failed: %s", exc)
+        logging.getLogger(__name__).warning("PDF logo draw failed: %s", exc, exc_info=True)
 
 
 def _pdf_safe(text, max_len=200):
@@ -2440,17 +2476,16 @@ def _build_estimate_pdf(estimate, business, compact=False):
     # ══════════════════════════════════════════════════════════════════
     _page_footer()
 
-    # ── Compact mode: skip page 2 ────────────────────────────────────
-    if compact:
-        p.showPage()
-        p.save()
-        buffer.seek(0)
-        return buffer.read()
+    # Always single page — clients accept online, no need for paper approval page
+
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return buffer.read()
 
     # ══════════════════════════════════════════════════════════════════
-    # PAGE 2: Approval & Terms  (non-compact only)
+    # PAGE 2 (REMOVED — single page only)
     # ══════════════════════════════════════════════════════════════════
-    p.showPage()
     y = height - 50
 
     p.setFont(h_font, 22)
