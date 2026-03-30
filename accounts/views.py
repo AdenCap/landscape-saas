@@ -1,3 +1,4 @@
+import json
 import logging
 from urllib.parse import urlencode
 
@@ -7,6 +8,7 @@ from django.contrib.auth import get_user_model, login
 from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.views import LoginView as AuthLoginView
 from django.core.cache import cache
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
@@ -372,6 +374,26 @@ def employee_add(request):
         "title": "Add Employee",
         "is_create": True,
     })
+
+
+@require_POST
+@role_required("owner", "manager")
+def employee_update_color(request, user_id):
+    """AJAX endpoint to update an employee's calendar color."""
+    business = _get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    emp = get_object_or_404(User, id=user_id, business=business)
+    data = json.loads(request.body) if request.body else {}
+    color = (data.get("color") or "").strip()
+    if color and not color.startswith("#"):
+        color = "#" + color
+    if color and len(color) in (4, 7) and all(c in "#0123456789abcdefABCDEF" for c in color):
+        emp.color = color
+    else:
+        emp.color = ""
+    emp.save(update_fields=["color"])
+    return JsonResponse({"status": "ok", "color": emp.color})
 
 
 @role_required("owner", "manager")
