@@ -27,6 +27,10 @@ document.addEventListener('DOMContentLoaded', function () {
   // Always start on today — don't restore saved date
   var initialDate = null;
 
+  // ── Color mode (must be before calendar init so eventDidMount can read it) ──
+  var STORAGE_COLOR_MODE = 'fieldlgx_calendar_color_mode';
+  var colorMode = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_COLOR_MODE)) || 'status';
+
   // ── Helper functions ──
   function pad2(n) { return String(n).padStart(2, '0'); }
 
@@ -1852,9 +1856,6 @@ document.addEventListener('DOMContentLoaded', function () {
   // ══════════════════════════════════════════════════════════════
   // Color Mode Toggle (By Status vs By Crew/Employee)
   // ══════════════════════════════════════════════════════════════
-
-  var STORAGE_COLOR_MODE = 'fieldlgx_calendar_color_mode';
-  var colorMode = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_COLOR_MODE)) || 'status';
 
   // Apply color mode by refetching events (eventDidMount applies colors on re-render)
   window._applyColorMode = function() {

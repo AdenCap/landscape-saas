@@ -3057,31 +3057,45 @@ def mowing_bulk_schedule(request):
         id__in=property_ids, customer__business=business
     ).select_related("customer")
 
-    # Get frequency per property from their RecurringJob
+    # Get frequency per property from their mowing RecurringJob
+    # Filter to only mowing-related jobs (service_snapshot contains mowing service)
     prop_frequencies = {}
-    for rj in RecurringJob.objects.filter(property_id__in=property_ids, active=True):
-        prop_frequencies[rj.property_id] = rj.frequency
+    prop_crews = {}
+    for rj in RecurringJob.objects.filter(property_id__in=property_ids, active=True).select_related('assigned_crew', 'assigned_to'):
+        is_mowing = False
+        if mowing_svc and rj.service_snapshot:
+            for snap in rj.service_snapshot:
+                if str(snap.get("service_id")) == str(mowing_svc.id):
+                    is_mowing = True
+                    break
+        if not rj.service_snapshot:
+            is_mowing = True  # Legacy: no snapshot, assume mowing
+        if is_mowing:
+            prop_frequencies[rj.property_id] = rj.frequency
+            prop_crews[rj.property_id] = rj
 
     created = 0
     for prop in properties:
         freq = prop_frequencies.get(prop.id, "weekly")
+        rj = prop_crews.get(prop.id)
 
         if schedule_mode == "season":
             # Generate recurring dates from start to season end
-            interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(freq, 14)
+            interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(freq, 7)
             current_date = schedule_date
             while current_date <= season_end:
-                # Skip weekends if needed (keep on weekdays)
-                Job.objects.create(
+                job = Job.objects.create(
                     property=prop,
                     scheduled_date=current_date,
                     status="scheduled",
                     notes=f"[Mowing] {prop.customer.name}",
+                    assigned_crew=rj.assigned_crew if rj else None,
+                    assigned_to=rj.assigned_to if rj else None,
                 )
                 if mowing_svc:
                     unit, rate = get_effective_rate(prop, mowing_svc)
                     JobServiceItem.objects.create(
-                        job=Job.objects.filter(property=prop, scheduled_date=current_date).last(),
+                        job=job,
                         service=mowing_svc,
                         description="Mowing",
                         quantity=1,
