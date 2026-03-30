@@ -285,11 +285,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Mount hooks ──
     eventDidMount: function(info) {
-      var bg = info.event.backgroundColor;
-      var border = info.event.borderColor;
-      if (bg) info.el.style.backgroundColor = bg;
-      if (border) info.el.style.borderColor = border;
       var p = info.event.extendedProps || {};
+      // Apply color mode directly on mount (avoids expensive setProp calls)
+      if (p.type !== 'meeting') {
+        var override = p.jobColorOverride;
+        var color;
+        if (override) {
+          color = override;
+        } else if (colorMode === 'assignee') {
+          color = p.assigneeColor || p.crewColor || '#94a3b8';
+        } else {
+          color = p.statusColor || info.event.backgroundColor || '#3b82f6';
+        }
+        if (color) {
+          info.el.style.backgroundColor = color;
+          info.el.style.borderColor = color;
+        }
+      } else {
+        var bg = info.event.backgroundColor;
+        if (bg) {
+          info.el.style.backgroundColor = bg;
+          info.el.style.borderColor = bg;
+        }
+      }
       // Rich tooltip with all job details for quick glance
       if (p.type === 'meeting') {
         info.el.title = (p.customer ? p.customer + ' — ' : '') + (info.event.title || 'Meeting');
@@ -388,9 +406,7 @@ document.addEventListener('DOMContentLoaded', function () {
         el.textContent = c > 0 ? c : '';
         el.style.display = c > 0 ? '' : 'none';
       });
-      // Re-apply color mode after every event load so user's selection persists
-      // Use guard flag to prevent infinite loop (setProp triggers eventsSet again)
-      if (!window._applyingColorMode && typeof window._applyColorMode === 'function') window._applyColorMode();
+      // Colors are applied in eventDidMount — no need to call _applyColorMode here
     }
   });
   calendar.render();
@@ -1840,30 +1856,9 @@ document.addEventListener('DOMContentLoaded', function () {
   var STORAGE_COLOR_MODE = 'fieldlgx_calendar_color_mode';
   var colorMode = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_COLOR_MODE)) || 'status';
 
-  // Global reference for eventsSet callback integration (no setOption chaining needed)
-  window._applyingColorMode = false;
+  // Apply color mode by refetching events (eventDidMount applies colors on re-render)
   window._applyColorMode = function() {
-    if (window._applyingColorMode) return; // Prevent infinite loop
-    window._applyingColorMode = true;
-    try {
-      calendar.getEvents().forEach(function(event) {
-        var props = event.extendedProps || {};
-        if (props.type === 'meeting') return;
-        var override = props.jobColorOverride;
-        var color;
-        if (override) {
-          color = override;
-        } else if (colorMode === 'assignee') {
-          color = props.assigneeColor || props.crewColor || '#94a3b8';
-        } else {
-          color = props.statusColor || '#3b82f6';
-        }
-        event.setProp('backgroundColor', color);
-        event.setProp('borderColor', color);
-      });
-    } finally {
-      window._applyingColorMode = false;
-    }
+    calendar.refetchEvents();
   };
 
   var toggleContainer = document.getElementById('color-mode-toggle');
