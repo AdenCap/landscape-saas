@@ -21,8 +21,7 @@
   --fc-button-hover-border-color: var(--border-hover);
   --fc-button-active-bg-color: var(--primary);
   --fc-button-active-border-color: var(--primary);
-  --fc-event-bg-color: var(--primary);
-  --fc-event-border-color: var(--primary);
+  /* Event colors controlled by eventDidMount in JS — do NOT set CSS defaults here */
   --fc-event-text-color: #fff;
   --fc-non-business-color: rgba(0, 0, 0, 0.15);
   font-family: var(--font-family);
