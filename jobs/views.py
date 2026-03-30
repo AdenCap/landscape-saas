@@ -2821,8 +2821,9 @@ def mowing_hub(request):
         data["mow_skipped"] = sum(1 for h in history if h["status"] == "skipped")
         data["mow_total"] = len(history)
         data["mow_history"] = history
-        # Per-cut pricing from service template or property override
+        # Per-cut pricing from property override, then RecurringJob snapshot, then service default
         from pricing.utils import get_effective_rate
+        from decimal import Decimal as _Dec
         data["per_cut_rate"] = None
         if prop_ids and mowing_services.exists():
             mow_svc = mowing_services.first()
@@ -2831,6 +2832,15 @@ def mowing_hub(request):
                 _unit, _rate = get_effective_rate(prop_obj, mow_svc)
                 if _rate > 0:
                     data["per_cut_rate"] = _rate
+                else:
+                    # Fallback: check RecurringJob snapshot for saved price
+                    rj_obj = next((r for r in mowing_recurrences if r.property_id == prop_obj.id), None)
+                    if rj_obj and rj_obj.service_snapshot:
+                        for snap in rj_obj.service_snapshot:
+                            sp = snap.get("unit_price")
+                            if sp and _Dec(str(sp)) > 0:
+                                data["per_cut_rate"] = _Dec(str(sp))
+                                break
 
         # Missed client detection: no job this week + last mow was too long ago
         data["is_missed"] = False
@@ -3047,6 +3057,16 @@ def mowing_update_price(request):
                 property=prop, service=mowing_svc,
                 defaults={"override_rate": rate_val},
             )
+            # Also update RecurringJob service_snapshot so price persists even if PropertyServiceRate is lost
+            for rj in RecurringJob.objects.filter(property=prop, active=True):
+                if rj.service_snapshot:
+                    updated = False
+                    for snap in rj.service_snapshot:
+                        if str(snap.get("service_id")) == str(mowing_svc.id):
+                            snap["unit_price"] = str(rate_val)
+                            updated = True
+                    if updated:
+                        rj.save(update_fields=["service_snapshot"])
         except (ValueError, TypeError):
             return JsonResponse({"error": "Invalid price"}, status=400)
     else:
@@ -3136,6 +3156,7 @@ def mowing_bulk_schedule(request):
     if not business:
         return redirect("/")
 
+    from decimal import Decimal
     from pricing.models import ServiceTemplate
     from pricing.utils import get_effective_rate
 
@@ -3195,6 +3216,20 @@ def mowing_bulk_schedule(request):
         freq = prop_frequencies.get(prop.id, "weekly")
         rj = prop_crews.get(prop.id)
 
+        # Get price: prefer PropertyServiceRate override, then RecurringJob snapshot, then service default
+        job_unit = "visit"
+        job_rate = Decimal("0")
+        if mowing_svc:
+            job_unit, job_rate = get_effective_rate(prop, mowing_svc)
+            # If rate is 0, check RecurringJob service_snapshot for a saved price
+            if job_rate == 0 and rj and rj.service_snapshot:
+                for snap in rj.service_snapshot:
+                    snap_price = snap.get("unit_price")
+                    if snap_price and Decimal(str(snap_price)) > 0:
+                        job_rate = Decimal(str(snap_price))
+                        job_unit = snap.get("unit", "visit")
+                        break
+
         if schedule_mode == "season":
             # Generate recurring dates from start to season end
             interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(freq, 7)
@@ -3209,14 +3244,13 @@ def mowing_bulk_schedule(request):
                     assigned_to=rj.assigned_to if rj else None,
                 )
                 if mowing_svc:
-                    unit, rate = get_effective_rate(prop, mowing_svc)
                     JobServiceItem.objects.create(
                         job=job,
                         service=mowing_svc,
                         description="Mowing",
                         quantity=1,
-                        unit=unit,
-                        unit_price=rate,
+                        unit=job_unit,
+                        unit_price=job_rate,
                     )
                 created += 1
                 current_date += timedelta(days=interval)
@@ -3227,16 +3261,17 @@ def mowing_bulk_schedule(request):
                 scheduled_date=schedule_date,
                 status="scheduled",
                 notes=f"[Mowing] {prop.customer.name}",
+                assigned_crew=rj.assigned_crew if rj else None,
+                assigned_to=rj.assigned_to if rj else None,
             )
             if mowing_svc:
-                unit, rate = get_effective_rate(prop, mowing_svc)
                 JobServiceItem.objects.create(
                     job=job,
                     service=mowing_svc,
                     description="Mowing",
                     quantity=1,
-                    unit=unit,
-                    unit_price=rate,
+                    unit=job_unit,
+                    unit_price=job_rate,
                 )
             created += 1
 
