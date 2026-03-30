@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=14">
+<link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=15">
 <style>
   /* Quick-create line items */
   .qc-line-row { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
@@ -165,6 +165,11 @@
   </select>
   <span style="width:1px;height:20px;background:var(--border);"></span>
   <input type="text" id="calendar-search" placeholder="Search..." style="padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);width:140px;">
+  <span style="width:1px;height:20px;background:var(--border);"></span>
+  <button type="button" id="cal-refresh-btn" class="btn btn-ghost btn-sm" style="font-size:11px;padding:4px 8px;display:flex;align-items:center;gap:3px;" title="Refresh calendar">
+    <span class="material-symbols-outlined" style="font-size:14px;">refresh</span>
+    <span class="cal-refresh-label">Refresh</span>
+  </button>
 </div>
 
 
@@ -533,5 +538,5 @@ document.getElementById('cal-mobile-fab').addEventListener('click', function() {
   var QC_CREWS = [{% for c in filter_crews %}{id:{{ c.id }},name:"{{ c.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
   var QC_EMPLOYEES = [{% for e in filter_employees %}{id:{{ e.id }},name:"{{ e.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
 </script>
-<script src="{% static 'js/calendar.js' %}?v=13"></script>
+<script src="{% static 'js/calendar.js' %}?v=15"></script>
 {% endblock %}

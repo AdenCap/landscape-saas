@@ -541,6 +541,27 @@ document.addEventListener('DOMContentLoaded', function () {
     if (gotoInp) gotoInp.value = formatDateStr(calendar.getDate());
   });
 
+  // ── Refresh button + auto-refresh ──
+  var refreshBtn = document.getElementById('cal-refresh-btn');
+  var refreshLabel = refreshBtn ? refreshBtn.querySelector('.cal-refresh-label') : null;
+  function doRefresh() {
+    calendar.refetchEvents();
+    if (isOwner && typeof loadUnscheduled === 'function') loadUnscheduled();
+    // Spin animation on icon
+    if (refreshBtn) {
+      var icon = refreshBtn.querySelector('.material-symbols-outlined');
+      if (icon) { icon.style.animation = 'spin 0.5s ease'; setTimeout(function() { icon.style.animation = ''; }, 600); }
+    }
+  }
+  if (refreshBtn) refreshBtn.addEventListener('click', doRefresh);
+
+  // Auto-refresh every 60 seconds when tab is visible
+  var autoRefreshInterval = setInterval(function() {
+    if (!document.hidden) doRefresh();
+  }, 60000);
+  // Clean up on page unload
+  window.addEventListener('beforeunload', function() { clearInterval(autoRefreshInterval); });
+
   // Search (debounced)
   var searchInput = document.getElementById('calendar-search');
   var searchTimer = null;
