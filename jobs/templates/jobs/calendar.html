@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=15">
+<link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=16">
 <style>
   /* Quick-create line items */
   .qc-line-row { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
@@ -89,6 +89,8 @@
     .cal-desktop-hide { display: flex !important; }
     .cal-header { padding: 6px 0; }
     .cal-header-title { font-size: 18px; }
+    /* Hide full legend on mobile — too many names */
+    .cal-legend { display: none !important; }
 
     /* Form modals */
     .modal-body input, .modal-body select, .modal-body textarea { font-size: 16px; min-height: 44px; }
