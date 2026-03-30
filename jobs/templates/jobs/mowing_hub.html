@@ -11,6 +11,13 @@
       <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">person_add</span>
       Add Client
     </button>
+    <form method="post" action="{% url 'mowing_fix_prices' %}" style="display:inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-secondary" title="Update all $0 mowing jobs with correct per-cut prices">
+        <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">price_change</span>
+        Fix Prices
+      </button>
+    </form>
     <button type="button" class="btn btn-secondary" id="bulk-msg-btn" disabled style="display:none;">Message Selected</button>
   </div>
 </div>

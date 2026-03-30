@@ -10,6 +10,7 @@ urlpatterns = [
     path("mowing/bulk-message/", views.mowing_bulk_message, name="mowing_bulk_message"),
     path("mowing/add-client/", views.add_mowing_client, name="add_mowing_client"),
     path("mowing/bulk-schedule/", views.mowing_bulk_schedule, name="mowing_bulk_schedule"),
+    path("mowing/fix-prices/", views.mowing_fix_prices, name="mowing_fix_prices"),
     path("mowing/update-price/", views.mowing_update_price, name="mowing_update_price"),
     path("mowing/update-crew/", views.mowing_update_crew, name="mowing_update_crew"),
     path("mowing/update-frequency/", views.mowing_update_frequency, name="mowing_update_frequency"),

@@ -3024,6 +3024,65 @@ def add_mowing_client(request):
 
 @require_POST
 @role_required("owner", "manager")
+def mowing_fix_prices(request):
+    """One-click fix: update all $0 mowing JobServiceItems with the correct price from PropertyServiceRate or RecurringJob snapshot."""
+    business = get_business(request)
+    if not business:
+        return redirect("mowing_hub")
+
+    from decimal import Decimal
+    from pricing.models import ServiceTemplate
+    from pricing.utils import get_effective_rate
+
+    mowing_svcs = ServiceTemplate.objects.filter(business=business, active=True, name__icontains="mow")
+    mowing_svc_ids = set(mowing_svcs.values_list("id", flat=True))
+    if not mowing_svc_ids:
+        messages.warning(request, "No mowing service found.")
+        return redirect("mowing_hub")
+
+    # Find all $0 mowing JobServiceItems for this business
+    zero_items = JobServiceItem.objects.filter(
+        service_id__in=mowing_svc_ids,
+        unit_price=Decimal("0"),
+        job__property__customer__business=business,
+        job__status__in=["scheduled", "en_route"],
+    ).select_related("job__property__customer", "service")
+
+    fixed = 0
+    for item in zero_items:
+        prop = item.job.property
+        svc = item.service
+        new_price = None
+
+        # 1. PropertyServiceRate
+        _unit, _rate = get_effective_rate(prop, svc)
+        if _rate > 0:
+            new_price = _rate
+
+        # 2. RecurringJob snapshot
+        if not new_price:
+            rj = RecurringJob.objects.filter(property=prop, active=True).first()
+            if rj and rj.service_snapshot:
+                for snap in rj.service_snapshot:
+                    sp = snap.get("unit_price")
+                    if sp and Decimal(str(sp)) > 0:
+                        new_price = Decimal(str(sp))
+                        break
+
+        if new_price:
+            item.unit_price = new_price
+            item.save(update_fields=["unit_price"])
+            fixed += 1
+
+    if fixed:
+        messages.success(request, f"Fixed prices on {fixed} scheduled mowing jobs.")
+    else:
+        messages.info(request, "No $0 mowing jobs found to fix. Set prices on the mowing hub first, then click Fix Prices.")
+    return redirect("mowing_hub")
+
+
+@require_POST
+@role_required("owner", "manager")
 def mowing_update_price(request):
     """Update the per-cut price for a mowing client (inline edit from mowing hub)."""
     business = get_business(request)
