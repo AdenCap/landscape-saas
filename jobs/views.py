@@ -3146,39 +3146,42 @@ def mowing_fix_prices(request):
         messages.warning(request, "No mowing service found.")
         return redirect("mowing_hub")
 
-    # Find all $0 mowing JobServiceItems for this business
+    # Find all $0 or NULL mowing JobServiceItems for this business
     zero_items = JobServiceItem.objects.filter(
         service_id__in=mowing_svc_ids,
-        unit_price=Decimal("0"),
         job__property__customer__business=business,
         job__status__in=["scheduled", "en_route"],
-    ).select_related("job__property__customer", "service")
+    ).filter(
+        Q(unit_price=Decimal("0")) | Q(unit_price__isnull=True)
+    ).select_related("job__property", "service")
 
     fixed = 0
     for item in zero_items:
-        prop = item.job.property
-        svc = item.service
-        new_price = None
+        try:
+            prop = item.job.property
+            svc = item.service
+            new_price = None
 
-        # 1. PropertyServiceRate
-        _unit, _rate = get_effective_rate(prop, svc)
-        if _rate > 0:
-            new_price = _rate
+            # 1. PropertyServiceRate
+            _unit, _rate = get_effective_rate(prop, svc)
+            if _rate > 0:
+                new_price = _rate
 
-        # 2. RecurringJob snapshot
-        if not new_price:
-            rj = RecurringJob.objects.filter(property=prop, active=True).first()
-            if rj and rj.service_snapshot:
-                for snap in rj.service_snapshot:
-                    sp = snap.get("unit_price")
-                    if sp and Decimal(str(sp)) > 0:
-                        new_price = Decimal(str(sp))
-                        break
-
-        if new_price:
-            item.unit_price = new_price
-            item.save(update_fields=["unit_price"])
-            fixed += 1
+            # 2. RecurringJob snapshot
+            if not new_price:
+                rj = RecurringJob.objects.filter(property=prop, active=True).first()
+                if rj and rj.service_snapshot:
+                    for snap in rj.service_snapshot:
+                        sp = snap.get("unit_price")
+                        if sp and Decimal(str(sp)) > 0:
+                            new_price = Decimal(str(sp))
+                            break
+            if new_price:
+                item.unit_price = new_price
+                item.save(update_fields=["unit_price"])
+                fixed += 1
+        except Exception:
+            continue
 
     if fixed:
         messages.success(request, f"Fixed prices on {fixed} scheduled mowing jobs.")
