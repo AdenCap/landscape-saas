@@ -59,7 +59,7 @@ def _get_job_details(job):
     # Job title: use services if available, otherwise property address
     services = list(job.service_items.select_related('service').all())
     if services:
-        service_names = [si.service.name if si.service else "Service" for si in services[:3]]
+        service_names = [si.description or (si.service.name if si.service else "Service") for si in services[:3]]
         title = ", ".join(service_names)
         if len(services) > 3:
             title += f" +{len(services) - 3} more"
@@ -452,8 +452,8 @@ def calendar_events(request):
             assignee_name = 'Unassigned'
 
         customer_name = job.property.customer.name if job.property.customer else ""
-        # Use prefetched data — do NOT re-query with select_related here
-        service_names = list({si.service.name for si in job.service_items.all() if si.service})
+        # Use prefetched data — prefer description (user-facing label) over service.name (internal template name)
+        service_names = list({si.description or (si.service.name if si.service else "Service") for si in job.service_items.all()})
         services_str = ", ".join(service_names) if service_names else "No services"
 
         # Title: service type + customer name (e.g. "Mowing · John Smith")
@@ -3327,7 +3327,7 @@ def mowing_bulk_schedule(request):
                     JobServiceItem.objects.create(
                         job=job,
                         service=mowing_svc,
-                        description=mowing_svc.name,
+                        description="Mowing",
                         quantity=1,
                         unit=job_unit,
                         unit_price=job_rate,
