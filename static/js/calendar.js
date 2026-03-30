@@ -91,6 +91,63 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(function() { toast.remove(); }, 4000);
   }
 
+  // ── Recurring event dialog ──
+  function showRecurringDialog(onThisOnly, onAllFuture, onCancel) {
+    // Remove any existing dialog
+    var existing = document.getElementById('recurring-dialog-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'recurring-dialog-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
+
+    var card = document.createElement('div');
+    card.style.cssText = 'background:var(--surface,#1a1a1a);border:1px solid var(--border,#333);border-radius:12px;padding:24px;max-width:340px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+
+    var title = document.createElement('div');
+    title.style.cssText = 'font-size:16px;font-weight:700;margin-bottom:6px;color:var(--text,#fff);';
+    title.textContent = 'Recurring Job';
+    card.appendChild(title);
+
+    var desc = document.createElement('div');
+    desc.style.cssText = 'font-size:13px;color:var(--text-muted,#999);margin-bottom:20px;';
+    desc.textContent = 'This is a recurring job. How do you want to apply this change?';
+    card.appendChild(desc);
+
+    var btnWrap = document.createElement('div');
+    btnWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+    var btnThis = document.createElement('button');
+    btnThis.className = 'btn btn-secondary';
+    btnThis.style.cssText = 'width:100%;text-align:left;padding:12px 16px;font-size:13px;';
+    btnThis.textContent = 'Just this one';
+    btnThis.addEventListener('click', function() { overlay.remove(); onThisOnly(); });
+
+    var btnFuture = document.createElement('button');
+    btnFuture.className = 'btn btn-primary';
+    btnFuture.style.cssText = 'width:100%;text-align:left;padding:12px 16px;font-size:13px;';
+    btnFuture.textContent = 'This and all future jobs';
+    btnFuture.addEventListener('click', function() { overlay.remove(); onAllFuture(); });
+
+    var btnCancel = document.createElement('button');
+    btnCancel.style.cssText = 'width:100%;text-align:center;padding:10px;font-size:12px;color:var(--text-muted,#999);background:none;border:none;cursor:pointer;margin-top:4px;';
+    btnCancel.textContent = 'Cancel';
+    btnCancel.addEventListener('click', function() { overlay.remove(); onCancel(); });
+
+    btnWrap.appendChild(btnThis);
+    btnWrap.appendChild(btnFuture);
+    btnWrap.appendChild(btnCancel);
+    card.appendChild(btnWrap);
+    overlay.appendChild(card);
+
+    // Close on backdrop click
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) { overlay.remove(); onCancel(); }
+    });
+
+    document.body.appendChild(overlay);
+  }
+
   // ══════════════════════════════════════════════════════════════
   // FullCalendar Initialization
   // ══════════════════════════════════════════════════════════════
@@ -242,19 +299,42 @@ document.addEventListener('DOMContentLoaded', function () {
     eventDrop: function(info) {
       var jobId = info.event.extendedProps?.jobId;
       if (!jobId) return;
+      var props = info.event.extendedProps || {};
       var start = info.event.start;
       var end = info.event.end;
       var payload = { scheduled_date: info.event.allDay ? formatDateStr(start) : formatDateTimeStr(start) };
       if (end && !info.event.allDay) payload.scheduled_end = formatDateTimeStr(end);
-      fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-        body: JSON.stringify(payload)
-      }).then(function(r) {
-        if (!r.ok) { info.revert(); return; }
-        showToast('Job rescheduled');
-      }).catch(function() { info.revert(); });
+
+      function doReschedule(applyFuture) {
+        payload.apply_to_future = !!applyFuture;
+        fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          body: JSON.stringify(payload)
+        }).then(function(r) {
+          if (!r.ok) { info.revert(); return r.json().then(function() {}); }
+          return r.json();
+        }).then(function(data) {
+          if (!data) return;
+          calendar.refetchEvents();
+          if (data.future_moved > 0) {
+            showToast('Moved this + ' + data.future_moved + ' future jobs');
+          } else {
+            showToast('Job rescheduled');
+          }
+        }).catch(function() { info.revert(); });
+      }
+
+      // If recurring, ask user whether to move just this one or all future
+      if (props.recurring) {
+        showRecurringDialog(
+          function() { doReschedule(false); },
+          function() { doReschedule(true); },
+          function() { info.revert(); }
+        );
+      } else {
+        doReschedule(false);
+      }
     },
 
     // ── Resize event (change duration) ──

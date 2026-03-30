@@ -785,7 +785,8 @@ def calendar_job_update(request, job_id):
 @require_POST
 @role_required("owner", "manager")
 def calendar_job_reschedule(request, job_id):
-    """Update job scheduled_date when dragged to new date."""
+    """Update job scheduled_date when dragged to new date.
+    For recurring jobs, supports apply_to_future to shift all future jobs."""
     business = get_business(request)
     if not business:
         return JsonResponse({"error": "No business"}, status=403)
@@ -811,7 +812,12 @@ def calendar_job_reschedule(request, job_id):
                     tparts = (time_part + ":0:0").split(":")[:3]
                     h, m, s = int(tparts[0] or 0), int(tparts[1] or 0), int(tparts[2] or 0)
                     time_obj = dt_time(h, m, s)
-        job.scheduled_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+        old_date = job.scheduled_date
+        new_parsed = datetime.strptime(date_str, "%Y-%m-%d").date()
+        apply_to_future = data.get("apply_to_future", False)
+
+        job.scheduled_date = new_parsed
         job.scheduled_time = time_obj
 
         # Parse end time if provided (from resize or drag)
@@ -826,6 +832,23 @@ def calendar_job_reschedule(request, job_id):
                     job.scheduled_end_time = dt_time(eh, em, es)
 
         job.save()
+
+        # If recurring and user chose to apply to all future jobs
+        future_moved = 0
+        is_recurring = bool(job.recurring_job_id)
+        if is_recurring and apply_to_future and old_date:
+            day_delta = (new_parsed - old_date).days
+            if day_delta != 0:
+                future_jobs = Job.objects.filter(
+                    recurring_job_id=job.recurring_job_id,
+                    scheduled_date__gt=old_date,
+                    status__in=["scheduled", "en_route"],
+                ).exclude(id=job.id)
+                for fj in future_jobs:
+                    fj.scheduled_date = fj.scheduled_date + timedelta(days=day_delta)
+                    fj.save(update_fields=["scheduled_date"])
+                    future_moved += 1
+
         # Sync linked fertilization round date
         try:
             from fertilization.models import ScheduledRound as FertScheduledRound
@@ -834,7 +857,13 @@ def calendar_job_reschedule(request, job_id):
                 sr.save(update_fields=['scheduled_date'])
         except Exception:
             pass
-        return JsonResponse({"status": "ok", "scheduled_date": date_str})
+
+        return JsonResponse({
+            "status": "ok",
+            "scheduled_date": date_str,
+            "is_recurring": is_recurring,
+            "future_moved": future_moved,
+        })
     except (ValueError, TypeError) as e:
         return JsonResponse({"error": str(e)}, status=400)
 
