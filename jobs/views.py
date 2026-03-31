@@ -3338,13 +3338,18 @@ def mowing_update_frequency(request):
             business=business, active=True, name__icontains="mow"
         ).first()
 
-        # Find future unstarted jobs BEFORE deleting — capture the date window
+        # Find future unstarted mowing jobs BEFORE deleting — capture the date window
+        # Match by recurring_job OR by property + mowing service (for legacy jobs without recurring_job link)
+        mowing_svc_ids = set(ServiceTemplate.objects.filter(
+            business=business, active=True, name__icontains="mow"
+        ).values_list("id", flat=True))
         future_jobs = Job.objects.filter(
             property=prop,
             scheduled_date__gt=today,
             status__in=["scheduled"],
-            recurring_job=rj,
-        ).order_by('scheduled_date')
+        ).filter(
+            Q(recurring_job=rj) | Q(service_items__service_id__in=mowing_svc_ids)
+        ).distinct().order_by('scheduled_date')
 
         # Capture the original start and end dates from the existing schedule
         first_future = future_jobs.first()
