@@ -480,17 +480,24 @@ def invoice_pay_page(request, invoice_id, token):
 @require_POST
 @role_required("owner", "manager")
 def mark_invoice_paid(request, invoice_id):
-    """Owner marks a sent invoice as paid (after customer has paid via Venmo/Zelle/Cash App)."""
+    """Owner marks an invoice as paid with a selected payment method."""
     business = _get_business(request)
     qs = Invoice.objects.filter(id=invoice_id)
     if business:
         qs = qs.filter(business=business)
     invoice = get_object_or_404(qs)
-    if invoice.status == "sent":
+    if invoice.status != "paid":
+        payment_method = request.POST.get("payment_method", "").strip()
         invoice.status = "paid"
-        invoice.save(update_fields=["status"])
+        invoice.payment_method = payment_method
+        invoice.paid_at = timezone.now()
+        invoice.save(update_fields=["status", "payment_method", "paid_at"])
         _log_invoice_audit(invoice, "paid", request=request)
-        messages.success(request, f"Invoice #{invoice.id} marked as paid.")
+        method_label = dict(Invoice.PAYMENT_METHOD_CHOICES).get(payment_method, payment_method) if payment_method else ""
+        msg = f"Invoice #{invoice.id} marked as paid"
+        if method_label:
+            msg += f" via {method_label}"
+        messages.success(request, msg + ".")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 

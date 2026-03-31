@@ -58,6 +58,7 @@ urlpatterns = [
     path("<int:job_id>/items/<int:item_id>/update/", views.update_job_service_item, name="update_job_service_item"),
     path("<int:job_id>/items/<int:item_id>/remove/", views.remove_job_service_item, name="remove_job_service_item"),
     path("<int:job_id>/costs/", views.job_update_costs, name="job_update_costs"),
+    path("<int:job_id>/mark-paid/", views.mark_job_paid, name="mark_job_paid"),
     
     # Notes (all roles)
     path("<int:job_id>/notes/", views.get_job_notes, name="get_job_notes"),

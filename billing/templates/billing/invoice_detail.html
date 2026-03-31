@@ -14,7 +14,7 @@
     </div>
     <div class="invoice-title-block">
       <h1 class="invoice-title">Invoice #{{ invoice.id }}</h1>
-      <div class="invoice-status status-{{ invoice.status|lower }}">{{ invoice.status }}</div>
+      <div class="invoice-status status-{{ invoice.status|lower }}">{{ invoice.status }}{% if invoice.payment_method %} · {{ invoice.get_payment_method_display }}{% endif %}</div>
     </div>
   </div>
 
@@ -31,6 +31,12 @@
       <span class="meta-label">Total</span>
       <span class="meta-value">{{ invoice.total|currency }}</span>
     </div>
+    {% if invoice.paid_at %}
+    <div class="meta-group">
+      <span class="meta-label">Paid on</span>
+      <span class="meta-value">{{ invoice.paid_at|date:"M j, Y" }}</span>
+    </div>
+    {% endif %}
     {% if invoice.approved_at %}
     <div class="meta-group">
       <span class="meta-label">Approved &amp; sent</span>
@@ -231,10 +237,22 @@
         <button type="submit" class="btn btn-secondary">Email invoice to customer</button>
       </form>
       {% endif %}
-      {% if invoice.status == "sent" %}
-      <form method="post" action="{% url 'billing:mark_invoice_paid' invoice.id %}" style="display: inline;">
+      {% if invoice.status != "paid" %}
+      <form method="post" action="{% url 'billing:mark_invoice_paid' invoice.id %}" style="display:inline-flex;align-items:center;gap:6px;">
         {% csrf_token %}
-        <button type="submit" class="btn btn-primary">Mark as paid</button>
+        <select name="payment_method" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;">
+          <option value="">Payment method...</option>
+          <option value="cash">Cash</option>
+          <option value="check">Check</option>
+          <option value="venmo">Venmo</option>
+          <option value="zelle">Zelle</option>
+          <option value="cashapp">Cash App</option>
+          <option value="card">Credit/Debit Card</option>
+          <option value="ach">ACH/Bank Transfer</option>
+          <option value="paypal">PayPal</option>
+          <option value="other">Other</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Mark as Paid</button>
       </form>
       {% endif %}
       {% if invoice.status != "paid" %}

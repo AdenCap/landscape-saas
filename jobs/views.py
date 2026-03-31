@@ -2376,6 +2376,39 @@ def job_billing_options(request, job_id):
 
 @require_POST
 @role_required("owner", "manager")
+def mark_job_paid(request, job_id):
+    """Quick mark a job as paid — creates a paid invoice with the selected payment method."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
+    payment_method = request.POST.get("payment_method", "cash")
+
+    # Create a paid invoice from this job
+    invoice = create_draft_invoice_for_job(job)
+    if invoice:
+        invoice.status = "paid"
+        invoice.payment_method = payment_method
+        invoice.paid_at = timezone.now()
+        invoice.approved_at = timezone.now()
+        invoice.approved_by = request.user
+        invoice.save(update_fields=["status", "payment_method", "paid_at", "approved_at", "approved_by"])
+        from billing.models import InvoiceAuditLog
+        InvoiceAuditLog.objects.create(
+            invoice=invoice,
+            action="paid",
+            user=request.user,
+            details={"payment_method": payment_method, "source": "quick_mark_paid"},
+        )
+        method_label = dict(invoice.PAYMENT_METHOD_CHOICES).get(payment_method, payment_method)
+        messages.success(request, f"Job marked as paid via {method_label}. Invoice #{invoice.id} created.")
+    else:
+        messages.warning(request, "Could not create invoice — no service items on this job.")
+    return redirect("job_detail", job_id=job.id)
+
+
+@require_POST
+@role_required("owner", "manager")
 def job_bill_now(request, job_id):
     """Create and send invoice immediately for completed job."""
     business = get_business(request)

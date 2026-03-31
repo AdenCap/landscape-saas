@@ -165,9 +165,23 @@
 {% if job.status == "completed" and has_unbilled_items %}
   <div class="card" style="margin-bottom: 20px; background: var(--primary-light); border-color: var(--primary);">
     <h2 class="card-title">Billing</h2>
-    <p style="margin-bottom: 16px;">This job is completed but not yet billed. Choose how to invoice:</p>
-    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+    <p style="margin-bottom: 16px;">This job is completed but not yet billed. Choose how to invoice or mark as paid:</p>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
       <a href="{% url 'job_billing_options' job.id %}" class="btn btn-primary">Choose billing option</a>
+      <span style="color:var(--text-muted);font-size:12px;">or</span>
+      <form method="post" action="{% url 'mark_job_paid' job.id %}" style="display:inline-flex;align-items:center;gap:6px;">
+        {% csrf_token %}
+        <select name="payment_method" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;">
+          <option value="cash">Cash</option>
+          <option value="check">Check</option>
+          <option value="venmo">Venmo</option>
+          <option value="zelle">Zelle</option>
+          <option value="cashapp">Cash App</option>
+          <option value="card">Card</option>
+          <option value="other">Other</option>
+        </select>
+        <button type="submit" class="btn btn-secondary" style="font-size:12px;">Mark Paid</button>
+      </form>
     </div>
   </div>
 {% endif %}

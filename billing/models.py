@@ -130,6 +130,30 @@ class Invoice(models.Model):
         help_text="Allow credit card payment via Stripe for this invoice. Uncheck to disable card payments.",
     )
 
+    PAYMENT_METHOD_CHOICES = [
+        ("", "Not specified"),
+        ("card", "Credit/Debit Card"),
+        ("cash", "Cash"),
+        ("check", "Check"),
+        ("venmo", "Venmo"),
+        ("zelle", "Zelle"),
+        ("cashapp", "Cash App"),
+        ("paypal", "PayPal"),
+        ("ach", "ACH/Bank Transfer"),
+        ("other", "Other"),
+    ]
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        blank=True,
+        default="",
+        help_text="How the client paid this invoice.",
+    )
+    paid_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When the invoice was marked as paid.",
+    )
+
     # ── View tracking ──────────────────────────────────────
     first_viewed_at = models.DateTimeField(null=True, blank=True, help_text="First time the client opened this invoice")
     last_viewed_at = models.DateTimeField(null=True, blank=True, help_text="Most recent time the client viewed this invoice")
