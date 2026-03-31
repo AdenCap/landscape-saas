@@ -3338,47 +3338,28 @@ def mowing_update_frequency(request):
             business=business, active=True, name__icontains="mow"
         ).first()
 
-        # Delete all future unstarted mowing jobs for this property
+        # Find future unstarted jobs BEFORE deleting — capture the date window
         future_jobs = Job.objects.filter(
             property=prop,
             scheduled_date__gt=today,
             status__in=["scheduled"],
             recurring_job=rj,
-        )
+        ).order_by('scheduled_date')
+
+        # Capture the original start and end dates from the existing schedule
+        first_future = future_jobs.first()
+        last_future = future_jobs.last()
+        season_start = first_future.scheduled_date if first_future else (today + timedelta(days=1))
+        season_end = last_future.scheduled_date if last_future else date(today.year, 10, 31)
+        if season_end < today:
+            season_end = date(today.year + 1, 10, 31)
+
+        # Now delete them
         deleted = future_jobs.count()
-        # Also delete their service items
         JobServiceItem.objects.filter(job__in=future_jobs).delete()
         future_jobs.delete()
 
-        # Find the season end (last scheduled job date, or Oct 31)
-        last_job = Job.objects.filter(
-            property=prop,
-            recurring_job=rj,
-            scheduled_date__gte=today,
-        ).order_by('-scheduled_date').first()
-        if last_job:
-            season_end = last_job.scheduled_date
-        else:
-            # Use Oct 31 of this year or next if past Oct
-            season_end = date(today.year, 10, 31)
-            if season_end < today:
-                season_end = date(today.year + 1, 10, 31)
-
-        # Find the next scheduled date (first job from today onward, or today + interval)
-        next_existing = Job.objects.filter(
-            property=prop,
-            recurring_job=rj,
-            scheduled_date__gte=today,
-            status__in=["scheduled", "en_route", "in_progress"],
-        ).order_by('scheduled_date').first()
-
         interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(new_frequency, 7)
-
-        if next_existing:
-            # Start from the day after the next existing job
-            start_date = next_existing.scheduled_date + timedelta(days=interval)
-        else:
-            start_date = today + timedelta(days=1)
 
         # Get price
         job_unit = "visit"
@@ -3393,8 +3374,8 @@ def mowing_update_frequency(request):
                         job_unit = snap.get("unit", "visit")
                         break
 
-        # Create new jobs with new frequency
-        current_date = start_date
+        # Re-generate jobs from the same start date to the same end date with new frequency
+        current_date = season_start
         while current_date <= season_end:
             job = Job.objects.create(
                 property=prop,
