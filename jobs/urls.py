@@ -44,6 +44,7 @@ urlpatterns = [
     path('<int:job_id>/en-route/', views.notify_en_route, name='notify_en_route'),
     path('<int:job_id>/complete/', views.complete_job, name='complete_job'),
     path('<int:job_id>/uncomplete/', views.uncomplete_job, name='uncomplete_job'),
+    path('<int:job_id>/skip/', views.skip_job, name='skip_job'),
     path('<int:job_id>/report-issue/', views.report_issue, name='report_issue'),
     path('<int:job_id>/upload-completion-photo/', views.upload_completion_photo, name='upload_completion_photo'),
     path('<int:job_id>/field-request/', views.crew_field_request, name='crew_field_request'),

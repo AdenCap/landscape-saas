@@ -156,6 +156,9 @@ class Job(models.Model):
         help_text="Set when this job was auto-generated from a recurring schedule.",
     )
     
+    skip_reason = models.CharField(max_length=255, blank=True, default="", help_text="Reason the job was skipped.")
+    skipped_at = models.DateTimeField(null=True, blank=True)
+
     # Real-time tracking for owner use (customers cannot see this)
     technician_latitude = models.DecimalField(
         max_digits=10,

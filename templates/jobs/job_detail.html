@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
   <h1>{{ job.property.address }}</h1>
-  <p>Scheduled: {{ job.scheduled_date }} · <span class="badge badge-{{ job.status|cut:'_' }}">{{ job.status }}</span></p>
+  <p>Scheduled: {{ job.scheduled_date }} · <span class="badge badge-{{ job.status|cut:'_' }}">{{ job.status }}</span>{% if job.skip_reason %} · <span style="color:var(--text-muted);font-size:13px;">Skipped: {{ job.skip_reason }}</span>{% endif %}</p>
 </div>
 
 <div class="quick-actions" style="margin-bottom: 24px;">
@@ -17,6 +17,12 @@
       Mark Uncomplete
     </button>
   </form>
+  {% endif %}
+  {% if job.status == "scheduled" or job.status == "en_route" %}
+  <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('skip-dialog').style.display='flex'" style="color:var(--text-muted);">
+    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">skip_next</span>
+    Skip
+  </button>
   {% endif %}
   {% if job.property.address %}
   <div style="display: inline-flex; gap: 8px; margin-left: auto; flex-wrap: wrap;">
@@ -410,6 +416,77 @@
       });
     });
   });
+})();
+</script>
+
+<!-- Skip Job Dialog -->
+<div id="skip-dialog" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+  <div style="background:var(--surface,#1a1a1a);border:1px solid var(--border,#333);border-radius:12px;padding:24px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <h3 style="margin:0 0 6px;font-size:16px;font-weight:700;">Skip Job</h3>
+    <p style="margin:0 0 16px;font-size:13px;color:var(--text-muted);">This will mark the job as skipped. A reason is required.</p>
+    <form method="post" action="{% url 'skip_job' job.id %}">
+      {% csrf_token %}
+      <div style="margin-bottom:12px;">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;">Reason</label>
+        <select name="reason" id="skip-reason-select" required style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;background:var(--bg);color:var(--text);">
+          <option value="">Select a reason...</option>
+          <option value="Rain">Rain</option>
+          <option value="Weather">Bad Weather</option>
+          <option value="Customer request">Customer Request</option>
+          <option value="Equipment issue">Equipment Issue</option>
+          <option value="Crew unavailable">Crew Unavailable</option>
+          <option value="Property inaccessible">Property Inaccessible</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div id="skip-other-wrap" style="display:none;margin-bottom:12px;">
+        <input type="text" id="skip-other-input" placeholder="Enter reason..." style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;background:var(--bg);color:var(--text);">
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;">What should happen?</label>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;">
+            <input type="radio" name="action" value="skip" checked style="accent-color:var(--primary);"> Skip only (don't reschedule)
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;">
+            <input type="radio" name="action" value="push_tomorrow" style="accent-color:var(--primary);"> Push to tomorrow
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;">
+            <input type="radio" name="action" value="push_next_week" style="accent-color:var(--primary);"> Push to next week
+          </label>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button type="submit" class="btn btn-primary" style="flex:1;">Skip Job</button>
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('skip-dialog').style.display='none'" style="flex:1;">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function() {
+  var sel = document.getElementById('skip-reason-select');
+  var otherWrap = document.getElementById('skip-other-wrap');
+  var otherInput = document.getElementById('skip-other-input');
+  if (sel) {
+    sel.addEventListener('change', function() {
+      if (this.value === 'Other') {
+        otherWrap.style.display = '';
+        otherInput.focus();
+        otherInput.required = true;
+        sel.name = '';
+        otherInput.name = 'reason';
+      } else {
+        otherWrap.style.display = 'none';
+        otherInput.required = false;
+        sel.name = 'reason';
+        otherInput.name = '';
+      }
+    });
+  }
+  // Close on backdrop click
+  var dialog = document.getElementById('skip-dialog');
+  if (dialog) dialog.addEventListener('click', function(e) { if (e.target === dialog) dialog.style.display = 'none'; });
 })();
 </script>
 

@@ -774,6 +774,8 @@ document.addEventListener('DOMContentLoaded', function () {
           document.getElementById('modal-complete').style.display = job.status !== 'completed' ? '' : 'none';
           var uncompleteBtn = document.getElementById('modal-uncomplete');
           if (uncompleteBtn) uncompleteBtn.style.display = job.status === 'completed' ? '' : 'none';
+          var skipBtn = document.getElementById('modal-skip');
+          if (skipBtn) skipBtn.style.display = (job.status === 'scheduled' || job.status === 'en_route') ? '' : 'none';
           var canBill = job.status === 'completed' && job.has_unbilled_items && job.has_services;
           document.getElementById('modal-bill-now').style.display = canBill ? '' : 'none';
           document.getElementById('modal-add-monthly').style.display = canBill ? '' : 'none';
@@ -910,6 +912,30 @@ document.addEventListener('DOMContentLoaded', function () {
       calendar.refetchEvents(); if (isOwner) loadUnscheduled(); closeModal('job-modal');
       showToast('Invoice sent');
     }).catch(function(e) { showToast(e.message, 'error'); });
+  });
+
+  var skipModalBtn = document.getElementById('modal-skip');
+  if (skipModalBtn) skipModalBtn.addEventListener('click', function() {
+    var jobId = document.getElementById('job-modal').dataset.jobId;
+    if (!jobId) return;
+    var reason = prompt('Reason for skipping (required):');
+    if (!reason || !reason.trim()) { showToast('A reason is required', 'error'); return; }
+    var action = prompt('What should happen?\n1 = Skip only\n2 = Push to tomorrow\n3 = Push to next week\n\nEnter 1, 2, or 3:', '1');
+    var actionMap = { '1': 'skip', '2': 'push_tomorrow', '3': 'push_next_week' };
+    var actionVal = actionMap[action] || 'skip';
+    fetch('/jobs/' + jobId + '/skip/', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ reason: reason.trim(), action: actionVal })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.status === 'ok') {
+        calendar.refetchEvents(); if (isOwner) loadUnscheduled(); closeModal('job-modal');
+        var msg = 'Job skipped';
+        if (data.action === 'push_tomorrow') msg += ' — pushed to tomorrow';
+        else if (data.action === 'push_next_week') msg += ' — pushed to next week';
+        showToast(msg);
+      } else { showToast(data.error || 'Failed', 'error'); }
+    }).catch(function() { showToast('Network error', 'error'); });
   });
 
   var monthlyBtn = document.getElementById('modal-add-monthly');

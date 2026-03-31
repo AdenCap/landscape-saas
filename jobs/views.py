@@ -1677,6 +1677,94 @@ def uncomplete_job(request, job_id):
     return redirect("job_detail", job_id=job.id)
 
 
+@require_POST
+@role_required("owner", "manager", "crew")
+def skip_job(request, job_id):
+    """Skip a job with a required reason. Optionally push to next day or next week."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "Forbidden"}, status=403) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else redirect("/")
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
+
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+    if is_ajax:
+        data = json.loads(request.body) if request.body else {}
+        reason = (data.get("reason") or "").strip()
+        action = (data.get("action") or "skip").strip()  # skip, push_tomorrow, push_next_week
+    else:
+        reason = request.POST.get("reason", "").strip()
+        action = request.POST.get("action", "skip").strip()
+
+    if not reason:
+        if is_ajax:
+            return JsonResponse({"error": "A reason is required to skip a job."}, status=400)
+        messages.error(request, "A reason is required to skip a job.")
+        return redirect("job_detail", job_id=job.id)
+
+    # Mark this job as skipped
+    job.status = "skipped"
+    job.skip_reason = reason
+    job.skipped_at = timezone.now()
+    job.save(update_fields=["status", "skip_reason", "skipped_at"])
+
+    # Sync any linked fertilization rounds
+    try:
+        from fertilization.models import ScheduledRound as FertScheduledRound
+        for sr in FertScheduledRound.objects.filter(job=job, status__in=["pending", "scheduled"]):
+            sr.status = "skipped"
+            sr.save(update_fields=["status"])
+    except Exception:
+        pass
+
+    # If pushing to another day, create a new job
+    new_job = None
+    if action in ("push_tomorrow", "push_next_week"):
+        if action == "push_tomorrow":
+            new_date = job.scheduled_date + timedelta(days=1)
+        else:
+            new_date = job.scheduled_date + timedelta(days=7)
+
+        new_job = Job.objects.create(
+            property=job.property,
+            scheduled_date=new_date,
+            scheduled_time=job.scheduled_time,
+            scheduled_end_time=job.scheduled_end_time,
+            status="scheduled",
+            notes=job.notes,
+            assigned_crew=job.assigned_crew,
+            assigned_to=job.assigned_to,
+            recurring_job=job.recurring_job,
+        )
+        # Copy service items
+        for si in job.service_items.all():
+            JobServiceItem.objects.create(
+                job=new_job,
+                service=si.service,
+                description=si.description,
+                quantity=si.quantity,
+                unit=si.unit,
+                unit_price=si.unit_price,
+                material_cost=si.material_cost,
+                labor_cost=si.labor_cost,
+            )
+
+    if is_ajax:
+        result = {"status": "ok", "skipped": True}
+        if new_job:
+            result["new_job_id"] = new_job.id
+            result["new_date"] = new_job.scheduled_date.isoformat()
+            result["action"] = action
+        return JsonResponse(result)
+
+    if new_job:
+        action_label = "tomorrow" if action == "push_tomorrow" else "next week"
+        messages.success(request, f"Job skipped ({reason}). Rescheduled to {action_label} ({new_job.scheduled_date.strftime('%b %d')}).")
+    else:
+        messages.success(request, f"Job skipped ({reason}).")
+    return redirect("job_detail", job_id=job.id)
+
+
 @role_required("owner", "manager", "crew")
 def report_issue(request, job_id):
     """Crew or owner reports an issue on a job (type, description, optional photo)."""
