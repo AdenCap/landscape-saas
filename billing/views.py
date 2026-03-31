@@ -1428,7 +1428,20 @@ def resend_invoice(request, invoice_id):
     body_text = intro + "\n\n"
     body_text += f"Invoice #{invoice.id} · Total: ${invoice.total}\n\n"
     if pay_url:
-        body_text += f"Pay online: {pay_url}\n\n"
+        if invoice.enable_card_payment:
+            body_text += f"Pay online: {pay_url}\n\n"
+        else:
+            body_text += f"View invoice: {pay_url}\n\n"
+    # Include alternative payment methods in plain text
+    alt_methods = []
+    if business.venmo_username:
+        alt_methods.append(f"Venmo: @{business.venmo_username}")
+    if business.zelle_email_or_phone:
+        alt_methods.append(f"Zelle: {business.zelle_email_or_phone}")
+    if business.cashapp_cashtag:
+        alt_methods.append(f"Cash App: ${business.cashapp_cashtag}")
+    if alt_methods:
+        body_text += "Payment options: " + " | ".join(alt_methods) + "\n\n"
     body_text += closing + "\n\n" + business.name
 
     logo_url = _get_logo_url(business, request)
@@ -1439,6 +1452,7 @@ def resend_invoice(request, invoice_id):
         "invoice": invoice,
         "business": business,
         "pay_url": pay_url,
+        "enable_card_payment": invoice.enable_card_payment,
         "logo_url": logo_url,
         "email_intro": intro,
         "email_closing": closing,
@@ -1519,6 +1533,7 @@ def send_reminder(request, invoice_id):
         "invoice": invoice,
         "business": business,
         "pay_url": pay_url,
+        "enable_card_payment": invoice.enable_card_payment,
         "logo_url": logo_url,
         "email_intro": intro,
         "email_closing": closing,
