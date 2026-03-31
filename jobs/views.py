@@ -495,7 +495,7 @@ def calendar_events(request):
                     "assigneeColor": crew_dot_color,
                     "jobColorOverride": (job.color or "").strip() or None,
                     "serviceAbbr": service_names[0] if service_names else "",
-                    "recurring": bool(job.recurring_job_id),
+                    "recurring": bool(job.recurring_job_id) or "[Mowing]" in (job.notes or "") or "[Fertilization]" in (job.notes or ""),
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
                     "startedAt": job.started_at.isoformat() if job.started_at else None,
                     "completedAt": job.completed_at.isoformat() if job.completed_at else None,
@@ -526,7 +526,7 @@ def calendar_events(request):
                     "assigneeColor": crew_dot_color,
                     "jobColorOverride": (job.color or "").strip() or None,
                     "serviceAbbr": service_names[0] if service_names else "",
-                    "recurring": bool(job.recurring_job_id),
+                    "recurring": bool(job.recurring_job_id) or "[Mowing]" in (job.notes or "") or "[Fertilization]" in (job.notes or ""),
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
                     "duration": job.duration_display,
                     "noTimeSet": True,
@@ -835,15 +835,27 @@ def calendar_job_reschedule(request, job_id):
 
         # If recurring and user chose to apply to all future jobs
         future_moved = 0
-        is_recurring = bool(job.recurring_job_id)
+        notes = job.notes or ""
+        is_recurring = bool(job.recurring_job_id) or "[Mowing]" in notes or "[Fertilization]" in notes
         if is_recurring and apply_to_future and old_date:
             day_delta = (new_parsed - old_date).days
             if day_delta != 0:
-                future_jobs = Job.objects.filter(
-                    recurring_job_id=job.recurring_job_id,
-                    scheduled_date__gt=old_date,
-                    status__in=["scheduled", "en_route"],
-                ).exclude(id=job.id)
+                if job.recurring_job_id:
+                    # Find by recurring_job FK
+                    future_jobs = Job.objects.filter(
+                        recurring_job_id=job.recurring_job_id,
+                        scheduled_date__gt=old_date,
+                        status__in=["scheduled", "en_route"],
+                    ).exclude(id=job.id)
+                else:
+                    # Legacy: find by same property + same service types
+                    svc_ids = list(job.service_items.values_list("service_id", flat=True))
+                    future_jobs = Job.objects.filter(
+                        property=job.property,
+                        scheduled_date__gt=old_date,
+                        status__in=["scheduled", "en_route"],
+                        service_items__service_id__in=svc_ids,
+                    ).exclude(id=job.id).distinct() if svc_ids else Job.objects.none()
                 for fj in future_jobs:
                     fj.scheduled_date = fj.scheduled_date + timedelta(days=day_delta)
                     fj.save(update_fields=["scheduled_date"])
