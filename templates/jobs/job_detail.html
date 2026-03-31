@@ -292,42 +292,116 @@
   </form>
 </div>
 
+<!-- Edit Job Details -->
+<div class="card" style="margin-bottom:20px;">
+  <h2 class="card-title">Edit Job Details</h2>
+  <form method="post" action="{% url 'edit_job' job.id %}">
+    {% csrf_token %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" name="scheduled_date" value="{{ job.scheduled_date|date:'Y-m-d' }}" style="width:100%;">
+      </div>
+      <div class="form-group">
+        <label>Time</label>
+        <input type="time" name="scheduled_time" value="{% if job.scheduled_time %}{{ job.scheduled_time|time:'H:i' }}{% endif %}" style="width:100%;">
+      </div>
+      <div class="form-group">
+        <label>Crew</label>
+        <select name="assigned_crew" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">
+          <option value="">No crew</option>
+          {% for c in job.property.customer.business.crews.all %}
+          <option value="{{ c.id }}" {% if job.assigned_crew_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select name="status" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">
+          <option value="scheduled" {% if job.status == "scheduled" %}selected{% endif %}>Scheduled</option>
+          <option value="skipped" {% if job.status == "skipped" %}selected{% endif %}>Skipped</option>
+          <option value="cancelled" {% if job.status == "cancelled" %}selected{% endif %}>Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:8px;">
+      <label>Notes</label>
+      <textarea name="notes" rows="2" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;font-family:inherit;">{{ job.notes }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top:10px;">Save Changes</button>
+  </form>
+</div>
+
+<!-- Job Items (editable) -->
 <div class="card">
-  <h2 class="card-title">Job items</h2>
+  <h2 class="card-title">Job Items</h2>
   <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
   <table class="data-table">
     <thead>
       <tr>
         <th>Service</th>
-        <th class="num">Qty</th>
-        <th class="num">Rate</th>
+        <th class="num" style="width:70px;">Qty</th>
+        <th class="num" style="width:90px;">Rate</th>
         <th class="num">Total</th>
-        <th></th>
+        <th style="width:60px;"></th>
       </tr>
     </thead>
     <tbody>
       {% for i in items %}
-      <tr>
-        <td>{{ i.service.name }}</td>
-        <td class="num">{{ i.quantity }} {{ i.unit }}</td>
-        <td class="num">${{ i.unit_price|floatformat:2 }}</td>
-        <td class="num">${{ i.line_total|floatformat:2 }}</td>
+      <tr data-item-id="{{ i.id }}">
+        <td>{{ i.description|default:i.service.name }}</td>
+        <td class="num">
+          <input type="number" class="inline-edit" data-field="quantity" value="{{ i.quantity }}" min="1" step="1" style="width:55px;text-align:right;">
+        </td>
+        <td class="num">
+          <input type="number" class="inline-edit" data-field="unit_price" value="{{ i.unit_price }}" min="0" step="0.01" style="width:75px;text-align:right;">
+        </td>
+        <td class="num item-total">${{ i.line_total|floatformat:2 }}</td>
         <td>
-          <form method="post" action="{% url 'remove_job_service_item' job.id i.id %}" style="display: inline;">
+          <form method="post" action="{% url 'remove_job_service_item' job.id i.id %}" style="display:inline;" onsubmit="return confirm('Remove this item?')">
             {% csrf_token %}
-            <button type="submit" class="btn btn-secondary btn-sm">Remove</button>
+            <button type="submit" class="btn btn-secondary btn-sm" style="color:#f87171;padding:4px 8px;font-size:11px;">✕</button>
           </form>
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No items yet.</td></tr>
+      <tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No items yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
   </div>
 </div>
+<script>
+(function() {
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+  var csrfVal = csrf ? csrf.value : (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+  document.querySelectorAll('.inline-edit').forEach(function(inp) {
+    inp.addEventListener('change', function() {
+      var tr = this.closest('tr');
+      var itemId = tr.dataset.itemId;
+      var field = this.dataset.field;
+      var val = this.value;
+      var payload = {};
+      payload[field] = val;
+      fetch('/jobs/{{ job.id }}/items/' + itemId + '/update/', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfVal },
+        body: JSON.stringify(payload)
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.ok) {
+          tr.querySelector('.item-total').textContent = '$' + parseFloat(data.line_total).toFixed(2);
+          inp.style.borderColor = 'var(--primary)';
+          setTimeout(function() { inp.style.borderColor = ''; }, 800);
+        }
+      });
+    });
+  });
+})();
+</script>
 
 <style>
+  .inline-edit { padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;transition:border-color .2s; }
+  .inline-edit:focus { outline:none;border-color:var(--primary); }
   .form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
   .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
   .form-group input, .form-group select { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; }

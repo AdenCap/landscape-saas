@@ -2510,6 +2510,85 @@ def add_job_service_item(request, job_id):
 
 @require_POST
 @role_required("owner", "manager")
+def update_job_service_item(request, job_id, item_id):
+    """Update an existing service item's qty, price, or description."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
+    item = get_object_or_404(JobServiceItem, id=item_id, job=job)
+    data = json.loads(request.body) if request.body else {}
+    from decimal import Decimal
+    if "quantity" in data:
+        try:
+            item.quantity = int(data["quantity"]) if data["quantity"] else 1
+        except (ValueError, TypeError):
+            pass
+    if "unit_price" in data:
+        try:
+            item.unit_price = Decimal(str(data["unit_price"])) if data["unit_price"] else Decimal("0")
+        except (ValueError, TypeError):
+            pass
+    if "description" in data:
+        item.description = (data["description"] or "")[:255]
+    if "unit" in data:
+        item.unit = (data["unit"] or "ea")[:50]
+    item.save()
+    return JsonResponse({"ok": True, "line_total": str(item.line_total())})
+
+
+@require_POST
+@role_required("owner", "manager")
+def edit_job(request, job_id):
+    """Update job details: date, time, crew, notes, status."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
+
+    scheduled_date = request.POST.get("scheduled_date", "").strip()
+    scheduled_time = request.POST.get("scheduled_time", "").strip()
+    crew_id = request.POST.get("assigned_crew", "").strip()
+    employee_id = request.POST.get("assigned_to", "").strip()
+    notes = request.POST.get("notes")
+    status = request.POST.get("status", "").strip()
+
+    if scheduled_date:
+        try:
+            job.scheduled_date = date.fromisoformat(scheduled_date)
+        except (ValueError, TypeError):
+            pass
+    if scheduled_time:
+        try:
+            from datetime import time as dt_time
+            parts = scheduled_time.split(":")
+            job.scheduled_time = dt_time(int(parts[0]), int(parts[1]) if len(parts) > 1 else 0)
+        except (ValueError, TypeError, IndexError):
+            pass
+    elif scheduled_time == "":
+        job.scheduled_time = None
+
+    if crew_id:
+        job.assigned_crew = Crew.objects.filter(id=crew_id, business=business).first()
+        job.assigned_to = None
+    elif crew_id == "":
+        job.assigned_crew = None
+    if employee_id:
+        from accounts.models import User
+        job.assigned_to = User.objects.filter(id=employee_id, business=business).first()
+        job.assigned_crew = None
+    if notes is not None:
+        job.notes = notes[:2000]
+    if status and status in ("scheduled", "skipped", "cancelled"):
+        job.status = status
+
+    job.save()
+    messages.success(request, "Job updated.")
+    return redirect("job_detail", job_id=job.id)
+
+
+@require_POST
+@role_required("owner", "manager")
 def remove_job_service_item(request, job_id, item_id):
     business = get_business(request)
     if not business:

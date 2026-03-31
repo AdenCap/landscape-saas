@@ -53,7 +53,9 @@ urlpatterns = [
 
     path("<int:job_id>/", views.job_detail, name="job_detail"),
     path("<int:job_id>/delete/", views.job_delete, name="job_delete"),
+    path("<int:job_id>/edit/", views.edit_job, name="edit_job"),
     path("<int:job_id>/items/add/", views.add_job_service_item, name="add_job_service_item"),
+    path("<int:job_id>/items/<int:item_id>/update/", views.update_job_service_item, name="update_job_service_item"),
     path("<int:job_id>/items/<int:item_id>/remove/", views.remove_job_service_item, name="remove_job_service_item"),
     path("<int:job_id>/costs/", views.job_update_costs, name="job_update_costs"),
     
