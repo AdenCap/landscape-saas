@@ -115,6 +115,12 @@
             {{ form.contact_phone.errors }}
           </div>
         </div>
+        <div class="settings-field">
+          <label for="{{ form.shop_address.id_for_label }}">Shop / Office Address</label>
+          {{ form.shop_address }}
+          {{ form.shop_address.errors }}
+          <span class="help-text">Used as start and end point for route optimization</span>
+        </div>
       </div>
 
       <div class="panel-card">

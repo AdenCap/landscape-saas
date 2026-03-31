@@ -23,6 +23,7 @@ class BusinessSettingsForm(forms.ModelForm):
             "from_email",
             "contact_email",
             "contact_phone",
+            "shop_address",
             "require_completion_photo",
             "default_invoice_automation_mode",
             "auto_invoice_send_behavior",

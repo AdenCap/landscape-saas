@@ -1217,6 +1217,7 @@ def daily_route_view(request):
         "jobs_with_colors": jobs_with_colors,
         "date_param": date_param,
         "google_maps_api_key": getattr(settings, "GOOGLE_MAPS_API_KEY", ""),
+        "shop_address": business.shop_address if business else "",
         "total_est_minutes": total_est_minutes,
         "est_work_display": est_work_display,
         "crews": crews,

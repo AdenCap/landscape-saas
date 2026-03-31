@@ -127,6 +127,11 @@ class Business(models.Model):
         blank=True,
         help_text="Phone number clients can use to reach you (shown in estimates/emails)"
     )
+    shop_address = models.CharField(
+        max_length=300,
+        blank=True,
+        help_text="Shop/office address used as start and end point for route optimization"
+    )
 
     # Online booking
     booking_enabled = models.BooleanField(

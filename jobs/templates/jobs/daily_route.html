@@ -208,11 +208,22 @@
         stops.push({ location: loc, element: item });
       });
 
-      var origin = stops[0].location;
-      var destination = stops[stops.length - 1].location;
-      var waypoints = [];
-      for (var i = 1; i < stops.length - 1; i++) {
-        waypoints.push({ location: stops[i].location, stopover: true });
+      // Use shop address as start/end if configured, otherwise first/last stop
+      var shopAddr = '{{ shop_address|escapejs }}'.trim();
+      var origin, destination, waypoints = [];
+      if (shopAddr) {
+        // Round trip: shop → all stops (optimized) → shop
+        origin = shopAddr;
+        destination = shopAddr;
+        for (var i = 0; i < stops.length; i++) {
+          waypoints.push({ location: stops[i].location, stopover: true });
+        }
+      } else {
+        origin = stops[0].location;
+        destination = stops[stops.length - 1].location;
+        for (var i = 1; i < stops.length - 1; i++) {
+          waypoints.push({ location: stops[i].location, stopover: true });
+        }
       }
 
       optimizeBtn.disabled = true;
@@ -238,22 +249,26 @@
           return;
         }
 
-        // Rebuild order: origin, then optimized waypoints, then destination
+        // Rebuild order based on optimized waypoint order
         var waypointOrder = result.routes[0].waypoint_order;
-        var middleStops = [];
-        for (var j = 1; j < stops.length - 1; j++) {
-          middleStops.push(stops[j]);
-        }
-
-        // Reorder DOM: origin first
-        list.appendChild(stops[0].element);
-        // Then optimized middle stops
-        waypointOrder.forEach(function(idx) {
-          list.appendChild(middleStops[idx].element);
-        });
-        // Then destination last
-        if (stops.length > 1) {
-          list.appendChild(stops[stops.length - 1].element);
+        if (shopAddr) {
+          // All stops are waypoints — reorder all by optimized order
+          waypointOrder.forEach(function(idx) {
+            list.appendChild(stops[idx].element);
+          });
+        } else {
+          // First stop is origin, last is destination, middle are waypoints
+          var middleStops = [];
+          for (var j = 1; j < stops.length - 1; j++) {
+            middleStops.push(stops[j]);
+          }
+          list.appendChild(stops[0].element);
+          waypointOrder.forEach(function(idx) {
+            list.appendChild(middleStops[idx].element);
+          });
+          if (stops.length > 1) {
+            list.appendChild(stops[stops.length - 1].element);
+          }
         }
 
         updateNumbers();
