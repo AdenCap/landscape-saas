@@ -865,4 +865,27 @@
   } catch(e) {}
 })();
 </script>
+{% if google_maps_api_key %}
+<script>
+function initShopAutocomplete() {
+  var input = document.getElementById('{{ form.shop_address.id_for_label }}');
+  if (!input) return;
+  var autocomplete = new google.maps.places.Autocomplete(input, {
+    componentRestrictions: { country: 'us' },
+    fields: ['formatted_address'],
+    types: ['address']
+  });
+  autocomplete.addListener('place_changed', function() {
+    var place = autocomplete.getPlace();
+    if (place.formatted_address) input.value = place.formatted_address;
+  });
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && document.querySelector('.pac-container:not([style*="display: none"])')) {
+      e.preventDefault();
+    }
+  });
+}
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initShopAutocomplete" async defer></script>
+{% endif %}
 {% endblock %}

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.core.mail import EmailMessage
 from django.shortcuts import render, redirect, get_object_or_404
@@ -80,6 +81,7 @@ def business_settings(request):
         "stripe_connect_enabled": stripe_connect_enabled,
         "gmail_oauth_connected": gmail_oauth_connected,
         "gmail_oauth_email": gmail_oauth_email,
+        "google_maps_api_key": getattr(settings, "GOOGLE_MAPS_API_KEY", ""),
     })
 
 
