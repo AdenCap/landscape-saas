@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>Pay Period</h1>
+    <p>{{ period_start|date:"M j" }} — {{ period_end|date:"M j, Y" }} · {{ pay_frequency }}{% if next_pay_date %} · Next payday: {{ next_pay_date|date:"M j" }}{% endif %}</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'time_entry_add' %}" class="btn btn-primary" style="font-size:13px;">+ Add Entry</a>
+    <a href="{% url 'time_entries_list' %}" class="btn btn-secondary" style="font-size:13px;">All Entries</a>
+    <a href="{% url 'time_entries_pending' %}" class="btn btn-secondary" style="font-size:13px;">Pending</a>
+  </div>
+</div>
+
+<!-- Summary -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+  <div class="card" style="padding:14px;text-align:center;">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Total Hours</span>
+    <span style="display:block;font-size:22px;font-weight:800;font-family:var(--font-headline);">{{ grand_total_display }}</span>
+  </div>
+  <div class="card" style="padding:14px;text-align:center;">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Total Labor Cost</span>
+    <span style="display:block;font-size:22px;font-weight:800;font-family:var(--font-headline);color:var(--primary);">${{ grand_total_cost|floatformat:2 }}</span>
+  </div>
+  <div class="card" style="padding:14px;text-align:center;">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Employees</span>
+    <span style="display:block;font-size:22px;font-weight:800;font-family:var(--font-headline);">{{ employee_data|length }}</span>
+  </div>
+</div>
+
+<!-- Employee Timesheets -->
+{% for data in employee_data %}
+<div class="card" style="margin-bottom:14px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <h3 style="margin:0;font-size:15px;font-weight:700;">{{ data.employee.get_full_name|default:data.employee.username }}</h3>
+    <div style="font-size:13px;font-weight:600;">
+      {{ data.total_display }} · <span style="color:var(--primary);">${{ data.total_cost|floatformat:2 }}</span>
+      {% if data.employee.hourly_rate %}<span style="color:var(--text-muted);font-weight:400;"> @ ${{ data.employee.hourly_rate|floatformat:2 }}/hr</span>{% endif %}
+    </div>
+  </div>
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+  <table class="data-table" style="font-size:13px;">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Clock In</th>
+        <th>Clock Out</th>
+        <th class="num">Hours</th>
+        <th>Status</th>
+        <th style="width:80px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in data.entries %}
+      <tr>
+        <td>{{ entry.clock_in|date:"D, M j" }}</td>
+        <td>{{ entry.clock_in|time:"g:i A" }}</td>
+        <td>{% if entry.clock_out %}{{ entry.clock_out|time:"g:i A" }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
+        <td class="num">{{ entry.duration_display }}</td>
+        <td>
+          <span class="badge badge-{{ entry.status }}" style="font-size:10px;{% if entry.status == 'approved' %}background:rgba(34,197,94,0.15);color:#86efac;{% elif entry.status == 'rejected' %}background:rgba(255,180,171,0.15);color:#ffb4ab;{% else %}background:rgba(245,158,11,0.15);color:#fbbf24;{% endif %}">{{ entry.status }}</span>
+        </td>
+        <td style="white-space:nowrap;">
+          <a href="{% url 'time_entry_edit' entry.id %}" class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 8px;">Edit</a>
+          <form method="post" action="{% url 'time_entry_delete' entry.id %}" style="display:inline;" onsubmit="return confirm('Delete this time entry?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 8px;color:#f87171;">Del</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% empty %}
+<div class="card" style="text-align:center;padding:40px;">
+  <p style="color:var(--text-muted);">No time entries for this pay period.</p>
+  <a href="{% url 'time_entry_add' %}" class="btn btn-primary" style="margin-top:12px;">+ Add Entry</a>
+</div>
+{% endfor %}
+
+<style>
+  @media (max-width:768px) {
+    div[style*="grid-template-columns:repeat(3"] { grid-template-columns:1fr !important; }
+    .btn-sm { min-height:36px; }
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Add Time Entry</h1>
+  <p>Manually add a timesheet entry for an employee who forgot to clock in.</p>
+</div>
+
+<div class="card" style="max-width:500px;">
+  <form method="post">
+    {% csrf_token %}
+    <div class="field">
+      <label>Employee</label>
+      <select name="employee_id" required style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">
+        <option value="">Select employee...</option>
+        {% for e in employees %}
+        <option value="{{ e.id }}">{{ e.get_full_name|default:e.username }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label>Date</label>
+      <input type="date" name="date" required style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="field">
+        <label>Clock In Time</label>
+        <input type="time" name="clock_in_time" required style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">
+      </div>
+      <div class="field">
+        <label>Clock Out Time</label>
+        <input type="time" name="clock_out_time" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;">
+        <span style="font-size:11px;color:var(--text-muted);">Leave blank if still working</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button type="submit" class="btn btn-primary">Add Entry</button>
+      <a href="{% url 'time_entries_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<style>
+  .field { margin-bottom:14px; }
+  .field label { display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em; }
+  @media (max-width:768px) {
+    .field input, .field select { font-size:16px;min-height:44px; }
+  }
+</style>
+{% endblock %}

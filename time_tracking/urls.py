@@ -8,10 +8,13 @@ urlpatterns = [
     path('clock-out/', views.clock_out, name='time_clock_out'),
     path('timesheets/', RedirectView.as_view(url='/employee-management/', permanent=False), name='time_timesheets'),
     path('entries/', views.time_entries_list, name='time_entries_list'),
+    path('entries/add/', views.time_entry_add, name='time_entry_add'),
     path('entries/pending/', views.time_entries_pending, name='time_entries_pending'),
     path('entries/<int:entry_id>/edit/', views.time_entry_edit, name='time_entry_edit'),
     path('entries/<int:entry_id>/approve/', views.time_entry_approve, name='time_entry_approve'),
     path('entries/<int:entry_id>/reject/', views.time_entry_reject, name='time_entry_reject'),
+    path('entries/<int:entry_id>/delete/', views.time_entry_delete, name='time_entry_delete'),
+    path('pay-period/', views.pay_period_view, name='pay_period'),
     # Time off and schedule live on Employee Management; redirect list/view to there
     path('requests/', RedirectView.as_view(url='/employee-management/#timeoff', permanent=False), name='time_off_list'),
     path('requests/new/', views.time_off_create, name='time_off_create'),

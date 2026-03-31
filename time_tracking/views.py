@@ -381,6 +381,178 @@ def time_entries_list(request):
     })
 
 
+@role_required("owner", "manager")
+def time_entry_add(request):
+    """Owner manually adds a time entry for an employee who forgot to clock in."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    employees = User.objects.filter(business=business, role__in=["crew", "owner"]).order_by("first_name")
+
+    if request.method == "POST":
+        employee_id = request.POST.get("employee_id")
+        date_str = request.POST.get("date", "").strip()
+        clock_in_str = request.POST.get("clock_in_time", "").strip()
+        clock_out_str = request.POST.get("clock_out_time", "").strip()
+        notes = request.POST.get("notes", "").strip()
+
+        if not employee_id or not date_str or not clock_in_str:
+            messages.error(request, "Employee, date, and clock-in time are required.")
+            return redirect("time_entry_add")
+
+        from datetime import datetime as dt, date as dt_date, time as dt_time
+        try:
+            entry_date = dt_date.fromisoformat(date_str)
+            ci_parts = clock_in_str.split(":")
+            ci_time = dt_time(int(ci_parts[0]), int(ci_parts[1]))
+            clock_in_dt = timezone.make_aware(dt.combine(entry_date, ci_time))
+
+            clock_out_dt = None
+            if clock_out_str:
+                co_parts = clock_out_str.split(":")
+                co_time = dt_time(int(co_parts[0]), int(co_parts[1]))
+                clock_out_dt = timezone.make_aware(dt.combine(entry_date, co_time))
+        except (ValueError, TypeError, IndexError):
+            messages.error(request, "Invalid date or time format.")
+            return redirect("time_entry_add")
+
+        employee = get_object_or_404(User, id=employee_id, business=business)
+        entry = TimeEntry.objects.create(
+            user=employee,
+            clock_in=clock_in_dt,
+            clock_out=clock_out_dt,
+            status="approved",
+            approved_at=timezone.now(),
+            approved_by=request.user,
+        )
+        dur = entry.duration_display if entry.clock_out else "open"
+        messages.success(request, f"Time entry added for {employee.get_full_name() or employee.username} ({dur}).")
+        return redirect("time_entries_list")
+
+    return render(request, "time_tracking/time_entry_add.html", {
+        "employees": employees,
+    })
+
+
+@role_required("owner", "manager")
+def pay_period_view(request):
+    """View current pay period timesheets with totals, edit/delete actions."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+
+    from datetime import date as dt_date
+    today = timezone.localdate()
+
+    # Determine pay period dates
+    pay_freq = business.pay_frequency or "biweekly"
+    if pay_freq == "weekly":
+        period_start = today - timedelta(days=today.weekday())  # Monday
+        period_end = period_start + timedelta(days=6)
+    elif pay_freq == "biweekly":
+        if business.next_pay_date:
+            # Work backwards from next pay date
+            period_end = business.next_pay_date - timedelta(days=1)
+            period_start = period_end - timedelta(days=13)
+        else:
+            period_start = today - timedelta(days=today.weekday())
+            period_end = period_start + timedelta(days=13)
+    elif pay_freq in ("semimonthly", "custom_dates"):
+        days = business.pay_specific_days or [1, 15]
+        sorted_days = sorted(days)
+        # Find the current period
+        for i, d in enumerate(sorted_days):
+            if today.day < d:
+                period_end = today.replace(day=d) - timedelta(days=1)
+                if i == 0:
+                    prev_month = today.month - 1 or 12
+                    prev_year = today.year if today.month > 1 else today.year - 1
+                    from calendar import monthrange
+                    last_day = monthrange(prev_year, prev_month)[1]
+                    period_start = dt_date(prev_year, prev_month, min(sorted_days[-1], last_day))
+                else:
+                    period_start = today.replace(day=sorted_days[i - 1])
+                break
+        else:
+            period_start = today.replace(day=sorted_days[-1])
+            if today.month == 12:
+                period_end = dt_date(today.year + 1, 1, min(sorted_days[0], 28)) - timedelta(days=1)
+            else:
+                period_end = today.replace(month=today.month + 1, day=min(sorted_days[0], 28)) - timedelta(days=1)
+    elif pay_freq == "monthly":
+        period_start = today.replace(day=1)
+        if today.month == 12:
+            period_end = dt_date(today.year + 1, 1, 1) - timedelta(days=1)
+        else:
+            period_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+    else:
+        period_start = today - timedelta(days=today.weekday())
+        period_end = period_start + timedelta(days=6)
+
+    # Get all entries for this period
+    entries = TimeEntry.objects.filter(
+        user__business=business,
+        clock_in__date__gte=period_start,
+        clock_in__date__lte=period_end,
+        clock_out__isnull=False,
+    ).select_related("user").order_by("user__first_name", "clock_in")
+
+    # Group by employee
+    from collections import OrderedDict
+    employee_data = OrderedDict()
+    for entry in entries:
+        uid = entry.user_id
+        if uid not in employee_data:
+            employee_data[uid] = {
+                "employee": entry.user,
+                "entries": [],
+                "total_minutes": 0,
+                "total_cost": Decimal("0"),
+            }
+        mins = entry.duration_minutes or 0
+        rate = entry.user.hourly_rate or Decimal("0")
+        cost = Decimal(str(mins)) / Decimal("60") * rate
+        employee_data[uid]["entries"].append(entry)
+        if entry.status == "approved":
+            employee_data[uid]["total_minutes"] += mins
+            employee_data[uid]["total_cost"] += cost
+
+    # Format totals
+    for data in employee_data.values():
+        hrs = data["total_minutes"] // 60
+        mins = data["total_minutes"] % 60
+        data["total_display"] = f"{hrs}h {mins}m" if hrs else f"{mins}m"
+        data["total_cost"] = data["total_cost"].quantize(Decimal("0.01"))
+
+    grand_total_minutes = sum(d["total_minutes"] for d in employee_data.values())
+    grand_total_cost = sum(d["total_cost"] for d in employee_data.values())
+    grand_hrs = grand_total_minutes // 60
+    grand_mins = grand_total_minutes % 60
+
+    return render(request, "time_tracking/pay_period.html", {
+        "period_start": period_start,
+        "period_end": period_end,
+        "pay_frequency": business.get_pay_frequency_display() if hasattr(business, 'get_pay_frequency_display') else pay_freq,
+        "next_pay_date": business.next_pay_date,
+        "employee_data": employee_data.values(),
+        "grand_total_display": f"{grand_hrs}h {grand_mins}m" if grand_hrs else f"{grand_mins}m",
+        "grand_total_cost": grand_total_cost,
+    })
+
+
+@require_POST
+@role_required("owner", "manager")
+def time_entry_delete(request, entry_id):
+    """Owner deletes a time entry."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    entry = get_object_or_404(TimeEntry, id=entry_id, user__business=business)
+    entry.delete()
+    messages.success(request, "Time entry deleted.")
+    return redirect("time_entries_list")
+
+
 def _get_business(request):
     """Business for current context (owner's business or platform-selected)."""
     user = request.user

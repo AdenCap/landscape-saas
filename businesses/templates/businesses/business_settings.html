@@ -123,6 +123,32 @@
         </div>
       </div>
 
+      <!-- Payroll Settings -->
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <h2>Payroll</h2>
+          <p>Set how often you pay your crew and when the pay period starts.</p>
+        </div>
+        <div class="panel-card-body">
+          <div class="field-row">
+            <div class="settings-field">
+              <label for="{{ form.pay_frequency.id_for_label }}">Pay frequency</label>
+              {{ form.pay_frequency }}
+              {{ form.pay_frequency.errors }}
+            </div>
+            <div class="settings-field">
+              <label for="{{ form.next_pay_date.id_for_label }}">Next pay date</label>
+              {{ form.next_pay_date }}
+              {{ form.next_pay_date.errors }}
+              <span class="help-text">Used to calculate pay period cutoff dates</span>
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            <a href="{% url 'pay_period' %}" style="font-size:13px;color:var(--primary);text-decoration:none;font-weight:600;">View current pay period →</a>
+          </div>
+        </div>
+      </div>
+
       <div class="panel-card">
         <div class="panel-card-header">
           <h2>Operations</h2>
