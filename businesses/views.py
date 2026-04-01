@@ -85,6 +85,44 @@ def business_settings(request):
     })
 
 
+@role_required("owner")
+def storage_diagnostic(request):
+    """Diagnostic page to check if file storage (Supabase) is configured correctly."""
+    from django.http import JsonResponse
+    import os
+    from django.core.files.storage import default_storage
+
+    business = _get_business(request)
+    result = {
+        "storage_backend": default_storage.__class__.__name__,
+        "SUPABASE_PROJECT_URL": bool(os.environ.get("SUPABASE_PROJECT_URL", "").strip()),
+        "SUPABASE_SERVICE_KEY": bool(os.environ.get("SUPABASE_SERVICE_KEY", "").strip()),
+        "SUPABASE_STORAGE_BUCKET": os.environ.get("SUPABASE_STORAGE_BUCKET", "uploads"),
+        "BLOB_READ_WRITE_TOKEN": bool(os.environ.get("BLOB_READ_WRITE_TOKEN", "").strip()),
+        "logo_field": str(business.logo) if business and business.logo else "Not set",
+        "logo_url": None,
+    }
+    if business and business.logo:
+        try:
+            result["logo_url"] = business.logo.url
+        except Exception as e:
+            result["logo_url"] = f"Error: {e}"
+
+    # Test write if Supabase is configured
+    if result["SUPABASE_PROJECT_URL"] and result["SUPABASE_SERVICE_KEY"]:
+        try:
+            from django.core.files.base import ContentFile
+            test_name = default_storage.save("_diagnostic_test.txt", ContentFile(b"test"))
+            result["write_test"] = f"OK — saved as {test_name}"
+            default_storage.delete(test_name)
+        except Exception as e:
+            result["write_test"] = f"FAILED: {e}"
+    else:
+        result["write_test"] = "Skipped — Supabase not configured"
+
+    return JsonResponse(result, json_dumps_params={"indent": 2})
+
+
 @require_POST
 @role_required("owner")
 def disconnect_gmail(request):
