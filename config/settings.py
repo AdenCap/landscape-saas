@@ -37,6 +37,9 @@ SECRET_KEY = _secret or "django-insecure-dev-only-do-not-use-in-production"
 # Default to True so you see full error pages in development; set DJANGO_DEBUG=0 to disable.
 DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 
+# Site URL for self-referencing (logo proxy, emails, etc.)
+SITE_URL = os.environ.get("SITE_URL", "").strip() or "https://fieldlgx.com"
+
 # In production, set ALLOWED_HOSTS (comma-separated) or leave unset.
 # When PORT is set (e.g. App Platform, Render), allow .ondigitalocean.app so the app accepts requests.
 _allowed = os.environ.get("ALLOWED_HOSTS", "").strip()

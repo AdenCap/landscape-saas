@@ -834,7 +834,11 @@ def _get_reportlab():
 
 def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, page_width=None):
     """Draw business logo on ReportLab canvas if present. Tries multiple methods to load the image."""
-    if not business or not business.logo:
+    if not business:
+        return
+    # Check if logo exists — field could be empty string, None, or a URL
+    has_logo = bool(business.logo) if hasattr(business, 'logo') else False
+    if not has_logo:
         return
     try:
         from reportlab.lib.utils import ImageReader
@@ -891,18 +895,29 @@ def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, p
             except Exception as e:
                 logger.warning("PDF logo: URL download failed: %s", e)
 
-        # Method 4: Try the proxy endpoint (last resort)
+        # Method 4: Try the proxy endpoint (self-request to the logo serve view)
         if not img_data:
             try:
-                from django.conf import settings
-                site_url = getattr(settings, 'SITE_URL', '') or getattr(settings, 'BASE_URL', '')
-                if site_url:
+                from django.conf import settings as _settings
+                import requests as _requests
+                # Try multiple possible site URLs
+                for site_url in [
+                    getattr(_settings, 'SITE_URL', ''),
+                    getattr(_settings, 'BASE_URL', ''),
+                    'https://fieldlgx.com',
+                    'http://localhost:8000',
+                ]:
+                    if not site_url:
+                        continue
                     proxy_url = f"{site_url.rstrip('/')}/settings/logo/{business.id}.png"
-                    import requests as _requests
-                    resp = _requests.get(proxy_url, timeout=10)
-                    if resp.status_code == 200 and len(resp.content) > 100:
-                        img_data = io.BytesIO(resp.content)
-                        logger.info("PDF logo: fetched from proxy endpoint")
+                    try:
+                        resp = _requests.get(proxy_url, timeout=8)
+                        if resp.status_code == 200 and len(resp.content) > 100:
+                            img_data = io.BytesIO(resp.content)
+                            logger.info("PDF logo: fetched from proxy %s (%d bytes)", proxy_url[:60], len(resp.content))
+                            break
+                    except Exception:
+                        continue
             except Exception as e:
                 logger.debug("PDF logo: proxy failed: %s", e)
 
