@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Account</h1>
+  <p>{{ request.user.get_full_name|default:request.user.username }} · {{ request.user.email }}</p>
+</div>
+
+<div class="card" style="max-width:500px;margin-bottom:20px;">
+  <h2 class="card-title">Account Info</h2>
+  <div style="font-size:14px;margin-bottom:8px;">
+    <strong>Name:</strong> {{ request.user.get_full_name|default:"Not set" }}
+  </div>
+  <div style="font-size:14px;margin-bottom:8px;">
+    <strong>Email:</strong> {{ request.user.email|default:"Not set" }}
+  </div>
+  <div style="font-size:14px;margin-bottom:8px;">
+    <strong>Role:</strong> {{ request.user.get_role_display|default:"User" }}
+  </div>
+  {% if request.user.business %}
+  <div style="font-size:14px;">
+    <strong>Business:</strong> {{ request.user.business.name }}
+  </div>
+  {% endif %}
+</div>
+
+<div class="card" style="max-width:500px;border-color:rgba(255,180,171,0.3);background:rgba(255,180,171,0.03);">
+  <h2 class="card-title" style="color:#ffb4ab;">Delete Account</h2>
+  <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+    Permanently delete your account and all associated data. This action <strong>cannot be undone</strong>.
+  </p>
+  {% if request.user.role == "owner" %}
+  <div style="padding:10px 12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;margin-bottom:14px;">
+    <p style="font-size:12px;color:#f59e0b;margin:0;">
+      <strong>Warning:</strong> As the business owner, deleting your account will also permanently delete your entire business, all clients, jobs, invoices, and employee data.
+    </p>
+  </div>
+  {% endif %}
+  <form method="post" action="{% url 'delete_account' %}" onsubmit="return validateDelete(this);">
+    {% csrf_token %}
+    <div style="margin-bottom:12px;">
+      <label style="display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;">Type DELETE to confirm</label>
+      <input type="text" name="confirm" id="delete-confirm" placeholder="DELETE" autocomplete="off" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,180,171,0.3);font-size:14px;background:var(--bg);color:var(--text);">
+    </div>
+    <button type="submit" class="btn" style="background:#dc2626;color:#fff;width:100%;">Delete My Account</button>
+  </form>
+</div>
+
+<script>
+function validateDelete(form) {
+  var val = form.querySelector('#delete-confirm').value.trim();
+  if (val !== 'DELETE') {
+    alert('Please type DELETE to confirm.');
+    return false;
+  }
+  return confirm('Are you absolutely sure? This will permanently delete your account and ALL your data. This cannot be undone.');
+}
+</script>
+
+<style>
+  .card-title { font-family: var(--font-headline); font-weight: 700; font-size: 16px; margin: 0 0 12px; }
+  @media (max-width: 768px) {
+    input { font-size: 16px !important; min-height: 44px; }
+    .btn { min-height: 44px; }
+  }
+</style>
+{% endblock %}

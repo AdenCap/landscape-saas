@@ -884,6 +884,7 @@
             <svg class="nav-icon theme-icon-system" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
             <span class="theme-label">System</span>
           </button>
+          <a href="{% url 'account_profile' %}" class="btn btn-nav" style="text-decoration:none;display:block;margin-bottom:4px;">Account</a>
           <form action="{% url 'logout' %}" method="post">
             {% csrf_token %}
             <button type="submit" class="btn btn-nav">Log out</button>

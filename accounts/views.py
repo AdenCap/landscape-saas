@@ -376,6 +376,46 @@ def employee_add(request):
     })
 
 
+@login_required
+def account_profile(request):
+    """User profile page with account deletion option."""
+    return render(request, "accounts/profile.html")
+
+
+@require_POST
+@login_required
+def delete_account(request):
+    """Permanently delete the user's account and all associated data."""
+    user = request.user
+    confirm = request.POST.get("confirm", "").strip()
+
+    if confirm != "DELETE":
+        messages.error(request, "Please type DELETE to confirm account deletion.")
+        return redirect("account_profile")
+
+    business = getattr(user, "business", None)
+
+    # If owner, check if they're the only owner
+    if user.role == "owner" and business:
+        other_owners = User.objects.filter(business=business, role="owner").exclude(id=user.id).count()
+        if other_owners == 0:
+            # This is the sole owner — delete the entire business
+            business_name = business.name
+            business.delete()  # CASCADE deletes all related data
+            from django.contrib.auth import logout
+            logout(request)
+            messages.success(request, f"Your account and business '{business_name}' have been permanently deleted.")
+            return redirect("/")
+
+    # For crew/managers or owners with co-owners — just delete the user
+    username = user.username
+    from django.contrib.auth import logout
+    logout(request)
+    user.delete()
+    messages.success(request, f"Your account '{username}' has been permanently deleted.")
+    return redirect("/")
+
+
 @require_POST
 @role_required("owner", "manager")
 def employee_update_color(request, user_id):

@@ -3,7 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from accounts import twofa_views
-from accounts.views import LoginView, signup, social_signup_complete, invite_accept
+from accounts.views import LoginView, signup, social_signup_complete, invite_accept, account_profile, delete_account
 from accounts.ratelimit import ratelimit
 
 # Rate limit sensitive auth endpoints (per IP)
@@ -32,4 +32,6 @@ urlpatterns = [
     path("verify/", twofa_views.twofa_verify, name="twofa_verify"),
     path("2fa/disable/", twofa_views.twofa_disable, name="twofa_disable"),
     path("2fa/revoke-device/", twofa_views.twofa_revoke_device, name="twofa_revoke_device"),
+    path("profile/", account_profile, name="account_profile"),
+    path("delete-account/", delete_account, name="delete_account"),
 ]
