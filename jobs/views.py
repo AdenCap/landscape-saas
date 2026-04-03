@@ -22,6 +22,18 @@ from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset
 from pricing.utils import get_effective_rate
 from accounts.models import User
 
+def _business_today(business):
+    """Get today's date in the business's timezone (not server UTC)."""
+    if business and hasattr(business, 'timezone') and business.timezone:
+        try:
+            import zoneinfo
+            biz_tz = zoneinfo.ZoneInfo(business.timezone)
+            return datetime.now(biz_tz).date()
+        except Exception:
+            pass
+    return timezone.localdate()
+
+
 CREW_COLORS = [
     '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
     '#ec4899', '#06b6d4', '#84cc16', '#22c55e',
@@ -96,8 +108,8 @@ def job_list(request):
     business = get_business(request)
     if not business:
         return redirect("/")
-    today = timezone.now().date()
-    
+    today = _business_today(business)
+
     # Base queryset
     qs = Job.objects.filter(
         property__customer__business=business,
@@ -1142,13 +1154,12 @@ def calendar_meeting_data(request, meeting_id):
 
 @role_required("owner", "manager", "crew")
 def daily_route_view(request):
+    business = get_business(request) if request.user.is_authenticated else None
     date_str = request.GET.get('date')
     if date_str:
         jobs = Job.objects.filter(scheduled_date=date_str)
     else:
-        jobs = Job.objects.filter(scheduled_date=timezone.now().date())
-
-    business = get_business(request) if request.user.is_authenticated else None
+        jobs = Job.objects.filter(scheduled_date=_business_today(business))
     if business:
         jobs = jobs.filter(property__customer__business=business)
 
@@ -1346,8 +1357,9 @@ def crew_today_view(request):
     from time_tracking.models import TimeEntry
     from django.db.models import Count
 
-    today = timezone.now().date()
     business = get_business(request)
+    # Use business timezone for "today" — server may be in UTC
+    today = _business_today(business)
 
     jobs = Job.objects.filter(scheduled_date=today).select_related(
         "property", "property__customer", "assigned_to", "assigned_crew"
