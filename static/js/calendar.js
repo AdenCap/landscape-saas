@@ -5,12 +5,14 @@
 
 document.addEventListener('DOMContentLoaded', function () {
   // ── Global refs from inline template vars ──
-  var csrf = CSRF_TOKEN || (function() {
+  // Read CSRF fresh every time (cookie can change after session refresh)
+  function getCSRF() {
     var el = document.querySelector('[name=csrfmiddlewaretoken]');
     if (el && el.value) return el.value;
     var match = document.cookie.match(/csrftoken=([^;]+)/);
     return match ? decodeURIComponent(match[1]) : '';
-  })();
+  }
+  var csrf = (typeof CSRF_TOKEN !== 'undefined' && CSRF_TOKEN) ? CSRF_TOKEN : getCSRF();
   var isOwner = typeof IS_OWNER !== 'undefined' ? IS_OWNER : false;
   var weatherData = typeof WEATHER_DATA !== 'undefined' ? WEATHER_DATA : {};
 
@@ -312,25 +314,26 @@ document.addEventListener('DOMContentLoaded', function () {
         payload.apply_to_future = !!applyFuture;
         fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
           method: 'POST', credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
           body: JSON.stringify(payload)
         }).then(function(r) {
-          return r.json().then(function(data) { return { ok: r.ok, data: data }; });
-        }).then(function(result) {
-          if (!result.ok) {
+          if (!r.ok) {
             info.revert();
-            showToast(result.data.error || 'Could not move job', 'error');
+            showToast('Could not move job (status ' + r.status + ')', 'error');
             return;
           }
+          return r.json();
+        }).then(function(data) {
+          if (!data) return; // Already handled above
           calendar.refetchEvents();
-          if (result.data.future_moved > 0) {
-            showToast('Moved this + ' + result.data.future_moved + ' future jobs');
+          if (data.future_moved > 0) {
+            showToast('Moved this + ' + data.future_moved + ' future jobs');
           } else {
             showToast('Job rescheduled');
           }
         }).catch(function(err) {
           info.revert();
-          showToast('Network error — could not move job', 'error');
+          showToast('Error: ' + (err.message || 'could not move job'), 'error');
         });
       }
 
