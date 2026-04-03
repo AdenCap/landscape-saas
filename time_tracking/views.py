@@ -333,51 +333,103 @@ def time_entry_edit(request, entry_id):
 
 @role_required("owner", "manager")
 def time_entries_list(request):
-    """Owner: list time entries (all statuses) with optional employee filter; links to edit."""
+    """Owner: list time entries with filters, totals, and quick presets."""
     business = _get_business(request)
     if not business:
         return redirect("/")
-    from datetime import timedelta
-    employees = User.objects.filter(business=business, role="crew").order_by("first_name", "last_name", "username")
+    from django.utils import timezone
+    today = timezone.localdate()
+
+    employees = User.objects.filter(business=business, role__in=["crew", "owner"]).order_by("first_name", "last_name", "username")
     employee_id = request.GET.get("employee_id")
+
+    # Quick filter presets
+    preset = request.GET.get("preset", "").strip()
+    if preset == "this_week":
+        start_date = today - timedelta(days=today.weekday())  # Monday
+        end_date = today
+    elif preset == "last_week":
+        monday = today - timedelta(days=today.weekday())
+        start_date = monday - timedelta(days=7)
+        end_date = monday - timedelta(days=1)
+    elif preset == "this_month":
+        start_date = today.replace(day=1)
+        end_date = today
+    elif preset == "last_month":
+        first_this_month = today.replace(day=1)
+        end_date = first_this_month - timedelta(days=1)
+        start_date = end_date.replace(day=1)
+    elif preset == "all":
+        start_date = None
+        end_date = None
+    else:
+        # Custom date range from form
+        start_str = request.GET.get("start", "")
+        end_str = request.GET.get("end", "")
+        from django.utils.dateparse import parse_date
+        if start_str:
+            start_date = parse_date(start_str) or (today - timedelta(days=30))
+        else:
+            start_date = today - timedelta(days=30)  # Default: last 30 days
+        if end_str:
+            end_date = parse_date(end_str) or today
+        else:
+            end_date = today
+
     if employee_id:
-        entries_qs = TimeEntry.objects.filter(
-            user_id=employee_id,
-            user__business_id=business.id,
-        )
+        entries_qs = TimeEntry.objects.filter(user_id=employee_id, user__business_id=business.id)
     else:
         entries_qs = TimeEntry.objects.filter(user__business_id=business.id)
     entries_qs = entries_qs.select_related("user").order_by("-clock_in")
-    # Default: last 90 days
-    from django.utils import timezone
-    today = timezone.localdate()
-    default_start = today - timedelta(days=90)
-    start_str = request.GET.get("start", default_start.isoformat())
-    end_str = request.GET.get("end", today.isoformat())
-    try:
-        from django.utils.dateparse import parse_date
-        start_date = parse_date(start_str) or default_start
-        end_date = parse_date(end_str) or today
-    except Exception:
-        start_date = default_start
-        end_date = today
+
     if start_date:
         entries_qs = entries_qs.filter(clock_in__date__gte=start_date)
     if end_date:
         entries_qs = entries_qs.filter(clock_in__date__lte=end_date)
-    entries = list(entries_qs[:200])
+
+    entries = list(entries_qs[:500])
+
+    # Calculate period totals
+    total_minutes = 0
+    total_cost = Decimal("0")
+    approved_minutes = 0
+    approved_cost = Decimal("0")
+    for e in entries:
+        mins = e.duration_minutes or 0
+        rate = e.user.hourly_rate or Decimal("0")
+        cost = Decimal(str(mins)) / Decimal("60") * rate
+        total_minutes += mins
+        total_cost += cost
+        if e.status == "approved":
+            approved_minutes += mins
+            approved_cost += cost
+
+    total_hrs = total_minutes // 60
+    total_mins_rem = total_minutes % 60
+    total_display = f"{total_hrs}h {total_mins_rem}m" if total_hrs else f"{total_mins_rem}m"
+    approved_hrs = approved_minutes // 60
+    approved_mins_rem = approved_minutes % 60
+    approved_display = f"{approved_hrs}h {approved_mins_rem}m" if approved_hrs else f"{approved_mins_rem}m"
+
     selected_employee = None
     if employee_id:
         try:
-            selected_employee = User.objects.get(pk=employee_id, business=business, role="crew")
+            selected_employee = User.objects.get(pk=employee_id, business=business)
         except User.DoesNotExist:
             selected_employee = None
+
     return render(request, "time_tracking/time_entries_list.html", {
         "entries": entries,
         "employees": employees,
         "selected_employee": selected_employee,
         "start_date": start_date,
         "end_date": end_date,
+        "preset": preset,
+        "total_display": total_display,
+        "total_cost": total_cost.quantize(Decimal("0.01")),
+        "approved_display": approved_display,
+        "approved_cost": approved_cost.quantize(Decimal("0.01")),
+        "entry_count": len(entries),
     })
 
 

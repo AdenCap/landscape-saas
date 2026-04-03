@@ -1,94 +1,138 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
   <div>
-    <h1>Time entries</h1>
-    <p>View and edit employee clock-in/clock-out. Adjust times here if they were recorded incorrectly.</p>
+    <h1>Timesheets</h1>
+    <p>View, filter, and manage employee time entries</p>
   </div>
-  <a href="{% url 'employee_management' %}#timesheets" class="btn btn-secondary">← Employee Management</a>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{% url 'time_entry_add' %}" class="btn btn-primary" style="font-size:13px;">+ Add Entry</a>
+    <a href="{% url 'pay_period' %}" class="btn btn-secondary" style="font-size:13px;">Pay Period</a>
+    <a href="{% url 'time_entries_pending' %}" class="btn btn-secondary" style="font-size:13px;">Pending</a>
+  </div>
 </div>
 
-<div class="card" style="margin-bottom: 20px; padding: 16px;">
-  <form method="get" action="{% url 'time_entries_list' %}" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
-    <div class="form-group" style="margin-bottom: 0;">
-      <label for="employee_id" style="font-size: 13px;">Employee</label>
-      <select name="employee_id" id="employee_id" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); width: 100%; max-width: 280px; min-width: 180px;">
+<!-- Quick Filter Presets -->
+<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+  <a href="{% url 'time_entries_list' %}?preset=this_week{% if selected_employee %}&employee_id={{ selected_employee.id }}{% endif %}" class="qf-btn {% if preset == 'this_week' %}active{% endif %}">This Week</a>
+  <a href="{% url 'time_entries_list' %}?preset=last_week{% if selected_employee %}&employee_id={{ selected_employee.id }}{% endif %}" class="qf-btn {% if preset == 'last_week' %}active{% endif %}">Last Week</a>
+  <a href="{% url 'time_entries_list' %}?preset=this_month{% if selected_employee %}&employee_id={{ selected_employee.id }}{% endif %}" class="qf-btn {% if preset == 'this_month' %}active{% endif %}">This Month</a>
+  <a href="{% url 'time_entries_list' %}?preset=last_month{% if selected_employee %}&employee_id={{ selected_employee.id }}{% endif %}" class="qf-btn {% if preset == 'last_month' %}active{% endif %}">Last Month</a>
+  <a href="{% url 'time_entries_list' %}?preset=all{% if selected_employee %}&employee_id={{ selected_employee.id }}{% endif %}" class="qf-btn {% if preset == 'all' %}active{% endif %}">All Time</a>
+</div>
+
+<!-- Custom Filters -->
+<div class="card" style="margin-bottom:16px;padding:14px;">
+  <form method="get" action="{% url 'time_entries_list' %}" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+    <div style="min-width:160px;">
+      <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Employee</label>
+      <select name="employee_id" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;background:var(--bg);color:var(--text);">
         <option value="">All employees</option>
         {% for emp in employees %}
         <option value="{{ emp.id }}" {% if selected_employee and selected_employee.id == emp.id %}selected{% endif %}>{{ emp.get_full_name|default:emp.username }}</option>
         {% endfor %}
       </select>
     </div>
-    <div class="form-group" style="margin-bottom: 0;">
-      <label for="start" style="font-size: 13px;">From</label>
-      <input type="date" name="start" id="start" value="{{ start_date|date:'Y-m-d' }}" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">From</label>
+      <input type="date" name="start" value="{% if start_date %}{{ start_date|date:'Y-m-d' }}{% endif %}" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;background:var(--bg);color:var(--text);">
     </div>
-    <div class="form-group" style="margin-bottom: 0;">
-      <label for="end" style="font-size: 13px;">To</label>
-      <input type="date" name="end" id="end" value="{{ end_date|date:'Y-m-d' }}" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);">
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">To</label>
+      <input type="date" name="end" value="{% if end_date %}{{ end_date|date:'Y-m-d' }}{% endif %}" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;background:var(--bg);color:var(--text);">
     </div>
-    <button type="submit" class="btn btn-primary">Filter</button>
+    <button type="submit" class="btn btn-primary" style="font-size:13px;">Filter</button>
   </form>
 </div>
 
+<!-- Period Totals -->
 {% if entries %}
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+  <div class="card" style="padding:12px;text-align:center;">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Entries</span>
+    <span style="display:block;font-size:20px;font-weight:800;font-family:var(--font-headline);">{{ entry_count }}</span>
+  </div>
+  <div class="card" style="padding:12px;text-align:center;">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Total Hours</span>
+    <span style="display:block;font-size:20px;font-weight:800;font-family:var(--font-headline);">{{ total_display }}</span>
+  </div>
+  <div class="card" style="padding:12px;text-align:center;">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Approved Hours</span>
+    <span style="display:block;font-size:20px;font-weight:800;font-family:var(--font-headline);color:var(--primary);">{{ approved_display }}</span>
+  </div>
+  <div class="card" style="padding:12px;text-align:center;">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Labor Cost</span>
+    <span style="display:block;font-size:20px;font-weight:800;font-family:var(--font-headline);color:var(--primary);">${{ approved_cost|floatformat:2 }}</span>
+  </div>
+</div>
+
+<!-- Date Range Label -->
+<p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
+  {% if start_date and end_date %}{{ start_date|date:"M j, Y" }} — {{ end_date|date:"M j, Y" }}{% elif start_date %}From {{ start_date|date:"M j, Y" }}{% elif end_date %}Through {{ end_date|date:"M j, Y" }}{% else %}All time{% endif %}
+  {% if selected_employee %} · {{ selected_employee.get_full_name|default:selected_employee.username }}{% endif %}
+</p>
+
+<!-- Entries Table -->
 <div class="card">
-  <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-  <table class="data-table">
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+  <table class="data-table" style="font-size:13px;">
     <thead>
       <tr>
         <th>Employee</th>
-        <th class="hide-mobile">Clock in</th>
-        <th class="hide-mobile">Clock out</th>
-        <th class="num">Duration</th>
+        <th>Date</th>
+        <th class="hide-mobile">Clock In</th>
+        <th class="hide-mobile">Clock Out</th>
+        <th class="num">Hours</th>
         <th>Status</th>
-        <th></th>
+        <th style="width:100px;"></th>
       </tr>
     </thead>
     <tbody>
       {% for e in entries %}
       <tr>
         <td>{{ e.user.get_full_name|default:e.user.username }}</td>
-        <td class="hide-mobile">{{ e.clock_in|date:"M j, Y g:i A" }}</td>
-        <td class="hide-mobile">{% if e.clock_out %}{{ e.clock_out|date:"M j, Y g:i A" }}{% else %}— (in progress){% endif %}</td>
+        <td>{{ e.clock_in|date:"M j" }}</td>
+        <td class="hide-mobile">{{ e.clock_in|time:"g:i A" }}</td>
+        <td class="hide-mobile">{% if e.clock_out %}{{ e.clock_out|time:"g:i A" }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
         <td class="num">{{ e.duration_display }}</td>
         <td>
-          <span class="badge badge-{% if e.status == 'approved' %}success{% elif e.status == 'rejected' %}danger{% else %}warning{% endif %}">
-            {{ e.get_status_display }}
-          </span>
+          <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;{% if e.status == 'approved' %}background:rgba(34,197,94,0.15);color:#86efac;{% elif e.status == 'rejected' %}background:rgba(255,180,171,0.15);color:#ffb4ab;{% else %}background:rgba(245,158,11,0.15);color:#fbbf24;{% endif %}">{{ e.get_status_display }}</span>
         </td>
-        <td>
-          <a href="{% url 'time_entry_edit' e.id %}" class="btn btn-secondary btn-sm">Edit</a>
+        <td style="white-space:nowrap;">
+          <a href="{% url 'time_entry_edit' e.id %}" class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 8px;">Edit</a>
+          {% if e.status == 'pending_approval' %}
+          <form method="post" action="{% url 'time_entry_approve' e.id %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 8px;color:var(--primary);" title="Approve">&#10003;</button>
+          </form>
+          {% endif %}
+          <form method="post" action="{% url 'time_entry_delete' e.id %}" style="display:inline;" onsubmit="return confirm('Delete this entry?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 8px;color:#f87171;" title="Delete">&#10005;</button>
+          </form>
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   </div>
-  <p style="margin: 12px 0 0; font-size: 13px; color: var(--text-muted);">Showing up to 200 entries. Use filters to narrow by employee or date range.</p>
 </div>
 {% else %}
-<div class="card">
-  <div class="empty-state">
-    <i data-lucide="clock" class="empty-state-icon"></i>
-    <div class="empty-state-title">No time entries</div>
-    <div class="empty-state-desc">No time entries in this range. Try a different employee or date range.</div>
-  </div>
+<div class="card" style="text-align:center;padding:40px;">
+  <p style="color:var(--text-muted);margin-bottom:12px;">No time entries found for this period.</p>
+  <a href="{% url 'time_entry_add' %}" class="btn btn-primary">+ Add Entry</a>
 </div>
 {% endif %}
 
 <style>
-.data-table tbody tr{animation:slideUp var(--motion-slow) var(--motion-ease-out) both}
-.data-table tbody tr:nth-child(1){animation-delay:0ms}
-.data-table tbody tr:nth-child(2){animation-delay:40ms}
-.data-table tbody tr:nth-child(3){animation-delay:80ms}
-.data-table tbody tr:nth-child(4){animation-delay:120ms}
-.data-table tbody tr:nth-child(n+5){animation-delay:160ms}
-@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@media (max-width: 768px) {
-  .form-group select, .form-group input { font-size: 16px; min-height: 44px; }
-  .btn { min-height: 44px; }
-}
+  .qf-btn { display:inline-block;padding:6px 14px;font-size:12px;font-weight:600;border-radius:20px;text-decoration:none;color:var(--text-muted);background:var(--surface);border:1px solid var(--border);transition:all .15s; }
+  .qf-btn:hover { color:var(--text);border-color:var(--text-muted); }
+  .qf-btn.active { border-color:var(--primary);color:var(--primary);background:rgba(157,216,80,0.08); }
+  @media (max-width:768px) {
+    div[style*="grid-template-columns:repeat(4"] { grid-template-columns:1fr 1fr !important; }
+    select, input[type="date"] { font-size:16px !important;min-height:44px; }
+    .btn { min-height:44px; }
+  }
 </style>
 {% endblock %}
