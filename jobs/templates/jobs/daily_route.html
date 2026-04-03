@@ -41,10 +41,12 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg>
         Optimize
       </button>
-      <button type="button" id="apply-calendar-btn" class="btn btn-secondary" style="display:none;" title="Update calendar times based on route order">
+      {% endif %}
+      <button type="button" id="apply-calendar-btn" class="btn btn-secondary" title="Set calendar times based on current route order">
         <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">calendar_month</span>
         Apply to Calendar
       </button>
+      {% if google_maps_api_key %}
       <button type="button" id="map-toggle-btn" class="btn btn-secondary" title="Show/hide map">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
         Map
@@ -328,10 +330,10 @@
       var jobIds = [];
       items.forEach(function(item) { if (item.dataset.id) jobIds.push(parseInt(item.dataset.id)); });
 
-      var startTime = prompt('What time should the first job start? (e.g. 8:00)', '08:00');
+      var startTime = prompt('Start time for first job? (e.g. 8:00)', '08:00');
       if (!startTime) return;
-      var travelMin = prompt('Estimated travel time between stops (minutes)?', '15');
-      if (travelMin === null) return;
+      var travelMin = prompt('Travel time between stops (minutes)?', '15');
+      if (travelMin === null) travelMin = '15';
 
       applyCalBtn.disabled = true;
       applyCalBtn.textContent = 'Applying\u2026';
