@@ -785,6 +785,8 @@ document.addEventListener('DOMContentLoaded', function () {
           var canBill = job.status === 'completed' && job.has_unbilled_items && job.has_services;
           document.getElementById('modal-bill-now').style.display = canBill ? '' : 'none';
           document.getElementById('modal-add-monthly').style.display = canBill ? '' : 'none';
+          var markPaidWrap = document.getElementById('modal-mark-paid-wrap');
+          if (markPaidWrap) markPaidWrap.style.display = canBill ? 'flex' : 'none';
         }
 
         document.getElementById('modal-save').style.display = ownerMode ? '' : 'none';
@@ -952,6 +954,25 @@ document.addEventListener('DOMContentLoaded', function () {
       calendar.refetchEvents(); if (isOwner) loadUnscheduled(); closeModal('job-modal');
       if (d && d.invoice_id) window.location.href = '/billing/' + d.invoice_id + '/';
     }).catch(function(e) { showToast(e.message, 'error'); });
+  });
+
+  var markPaidBtn = document.getElementById('modal-mark-paid');
+  if (markPaidBtn) markPaidBtn.addEventListener('click', function() {
+    var jobId = document.getElementById('job-modal').dataset.jobId;
+    if (!jobId) return;
+    var method = document.getElementById('modal-pay-method').value;
+    // Submit as a form POST to the mark_job_paid endpoint
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/jobs/' + jobId + '/mark-paid/';
+    var csrfInp = document.createElement('input');
+    csrfInp.type = 'hidden'; csrfInp.name = 'csrfmiddlewaretoken'; csrfInp.value = csrf;
+    var methodInp = document.createElement('input');
+    methodInp.type = 'hidden'; methodInp.name = 'payment_method'; methodInp.value = method;
+    form.appendChild(csrfInp);
+    form.appendChild(methodInp);
+    document.body.appendChild(form);
+    form.submit();
   });
 
   var deleteForm = document.getElementById('modal-delete-form');

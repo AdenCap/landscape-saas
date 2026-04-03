@@ -308,6 +308,18 @@
           <button type="button" id="modal-skip" class="btn btn-secondary btn-sm" style="display: none; color: var(--text-muted);">Skip</button>
           <button type="button" id="modal-bill-now" class="btn btn-primary btn-sm" style="display: none;">Send invoice</button>
           <button type="button" id="modal-add-monthly" class="btn btn-secondary btn-sm" style="display: none;">Add to monthly</button>
+          <div id="modal-mark-paid-wrap" style="display:none;align-items:center;gap:4px;">
+            <select id="modal-pay-method" style="padding:4px 6px;font-size:11px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);">
+              <option value="cash">Cash</option>
+              <option value="check">Check</option>
+              <option value="venmo">Venmo</option>
+              <option value="zelle">Zelle</option>
+              <option value="cashapp">Cash App</option>
+              <option value="card">Card</option>
+              <option value="other">Other</option>
+            </select>
+            <button type="button" id="modal-mark-paid" class="btn btn-secondary btn-sm">Mark Paid</button>
+          </div>
           <form id="modal-delete-form" method="post" action="" style="display: inline;">
             {% csrf_token %}
             <button type="submit" id="modal-delete" class="btn btn-secondary btn-sm btn-danger">Delete job</button>
@@ -541,5 +553,5 @@ document.getElementById('cal-mobile-fab').addEventListener('click', function() {
   var QC_CREWS = [{% for c in filter_crews %}{id:{{ c.id }},name:"{{ c.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
   var QC_EMPLOYEES = [{% for e in filter_employees %}{id:{{ e.id }},name:"{{ e.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
 </script>
-<script src="{% static 'js/calendar.js' %}?v=16"></script>
+<script src="{% static 'js/calendar.js' %}?v=17"></script>
 {% endblock %}
