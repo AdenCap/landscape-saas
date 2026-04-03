@@ -103,16 +103,14 @@ def job_list(request):
         property__customer__business=business,
     ).select_related('property', 'property__customer', 'assigned_to', 'assigned_crew', 'completed_by', 'invoice').prefetch_related('service_items__service')
     
-    # Crew filter: show jobs assigned to them or their crew
+    # Crew filter: show jobs assigned to them via any assignment method
     if getattr(request.user, 'role', None) == 'crew':
-        is_in_crew = request.user.crew_memberships.exists() or request.user.led_crews.exists()
-        if is_in_crew:
-            qs = qs.filter(
-                Q(assigned_to=request.user) |
-                Q(assigned_crew__members=request.user) |
-                Q(assigned_crew__crew_leader=request.user)
-            ).distinct()
-        # If not in any crew, they see all business jobs
+        qs = qs.filter(
+            Q(assigned_to=request.user) |
+            Q(assigned_employees=request.user) |
+            Q(assigned_crew__members=request.user) |
+            Q(assigned_crew__crew_leader=request.user)
+        ).distinct()
     
     # Get filter parameter
     filter_type = request.GET.get('filter', '').strip()
@@ -1349,27 +1347,31 @@ def crew_today_view(request):
     from django.db.models import Count
 
     today = timezone.now().date()
+    business = get_business(request)
 
-    jobs = Job.objects.filter(scheduled_date=today).select_related("property", "assigned_to", "assigned_crew").annotate(
+    jobs = Job.objects.filter(scheduled_date=today).select_related(
+        "property", "property__customer", "assigned_to", "assigned_crew"
+    ).prefetch_related("service_items__service", "assigned_employees").annotate(
         site_photo_count=Count("site_photos"),
     )
 
-    if request.user.role == "crew":
-        from django.db.models import Q
-        is_in_crew = request.user.crew_memberships.exists() or request.user.led_crews.exists()
-        if is_in_crew:
-            jobs = jobs.filter(
-                Q(assigned_to=request.user) |
-                Q(assigned_crew__members=request.user) |
-                Q(assigned_crew__crew_leader=request.user)
-            ).distinct()
-        # If not in any crew, show all business jobs for today
+    # Always filter by business first
+    if business:
+        jobs = jobs.filter(property__customer__business=business)
 
-    jobs = list(jobs.order_by("route_order"))
+    if request.user.role == "crew":
+        # Show jobs assigned to this user via ANY assignment method
+        jobs = jobs.filter(
+            Q(assigned_to=request.user) |                    # Direct assignment
+            Q(assigned_employees=request.user) |             # M2M assignment
+            Q(assigned_crew__members=request.user) |         # Crew member
+            Q(assigned_crew__crew_leader=request.user)       # Crew leader
+        ).distinct()
+
+    jobs = list(jobs.order_by("route_order", "scheduled_time"))
     job_ids_with_photos = set(
         JobCompletionPhoto.objects.filter(job__in=jobs).values_list("job_id", flat=True)
     ) if jobs else set()
-    business = get_business(request)
     require_completion_photo = bool(business and getattr(business, "require_completion_photo", False))
 
     # For clock in/out widget
