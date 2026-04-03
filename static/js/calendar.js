@@ -189,6 +189,8 @@ document.addEventListener('DOMContentLoaded', function () {
     navLinkDayClick: 'timeGridDay',
     height: isMobile ? 'calc(100vh - 130px)' : 'calc(100vh - 120px)',
     dayMaxEvents: isMobile ? 3 : 5,
+    slotEventOverlap: false,
+    eventMaxStack: isMobile ? 2 : 3,
 
     // ── Event source (date-range filtered + AbortController) ──
     events: function(info, successCallback, failureCallback) {

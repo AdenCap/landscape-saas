@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=16">
+<link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=18">
 <style>
   /* Quick-create line items */
   .qc-line-row { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
@@ -553,5 +553,5 @@ document.getElementById('cal-mobile-fab').addEventListener('click', function() {
   var QC_CREWS = [{% for c in filter_crews %}{id:{{ c.id }},name:"{{ c.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
   var QC_EMPLOYEES = [{% for e in filter_employees %}{id:{{ e.id }},name:"{{ e.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
 </script>
-<script src="{% static 'js/calendar.js' %}?v=17"></script>
+<script src="{% static 'js/calendar.js' %}?v=18"></script>
 {% endblock %}
