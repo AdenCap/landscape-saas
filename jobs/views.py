@@ -1380,19 +1380,15 @@ def crew_today_view(request):
             Q(assigned_crew__crew_leader=request.user)       # Crew leader
         ).distinct()
 
-    # Sort: active jobs first (scheduled, en_route, in_progress), completed/skipped at bottom
+    # Sort: match the owner's calendar order (time + route), but push done jobs to bottom
     from django.db.models import Case, When, IntegerField, Value
     jobs = list(jobs.annotate(
-        status_order=Case(
-            When(status="in_progress", then=Value(0)),
-            When(status="en_route", then=Value(1)),
-            When(status="scheduled", then=Value(2)),
-            When(status="completed", then=Value(8)),
-            When(status="skipped", then=Value(9)),
-            default=Value(5),
+        is_done=Case(
+            When(status__in=["completed", "skipped", "cancelled"], then=Value(1)),
+            default=Value(0),
             output_field=IntegerField(),
         )
-    ).order_by("status_order", "route_order", "scheduled_time"))
+    ).order_by("is_done", "scheduled_time", "route_order"))
     job_ids_with_photos = set(
         JobCompletionPhoto.objects.filter(job__in=jobs).values_list("job_id", flat=True)
     ) if jobs else set()
