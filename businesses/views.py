@@ -33,6 +33,10 @@ def business_settings(request):
                 )
             obj.save()
             messages.success(request, "Business settings updated.")
+        else:
+            # Show which fields have errors so user knows what to fix
+            error_fields = ", ".join(form.errors.keys())
+            messages.error(request, f"Could not save — please fix errors in: {error_fields}")
             next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
             if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
                 return redirect(next_url)
