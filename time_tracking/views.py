@@ -363,18 +363,21 @@ def time_entries_list(request):
         start_date = None
         end_date = None
     else:
-        # Custom date range from form
+        # Custom date range from form, or default to this week
         start_str = request.GET.get("start", "")
         end_str = request.GET.get("end", "")
         from django.utils.dateparse import parse_date
+        default_start = today - timedelta(days=today.weekday())  # Monday of this week
         if start_str:
-            start_date = parse_date(start_str) or (today - timedelta(days=30))
+            start_date = parse_date(start_str) or default_start
         else:
-            start_date = today - timedelta(days=30)  # Default: last 30 days
+            start_date = default_start
         if end_str:
             end_date = parse_date(end_str) or today
         else:
             end_date = today
+        if not start_str and not end_str:
+            preset = "this_week"  # Show as active preset
 
     if employee_id:
         entries_qs = TimeEntry.objects.filter(user_id=employee_id, user__business_id=business.id)
@@ -387,14 +390,16 @@ def time_entries_list(request):
     if end_date:
         entries_qs = entries_qs.filter(clock_in__date__lte=end_date)
 
-    entries = list(entries_qs[:500])
+    # Calculate totals from ALL matching entries (not truncated)
+    all_entries = list(entries_qs)
+    entries = all_entries  # Show all — no artificial limit
 
     # Calculate period totals
     total_minutes = 0
     total_cost = Decimal("0")
     approved_minutes = 0
     approved_cost = Decimal("0")
-    for e in entries:
+    for e in all_entries:
         mins = e.duration_minutes or 0
         rate = e.user.hourly_rate or Decimal("0")
         cost = Decimal(str(mins)) / Decimal("60") * rate
