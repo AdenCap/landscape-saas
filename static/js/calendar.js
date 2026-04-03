@@ -313,17 +313,23 @@ document.addEventListener('DOMContentLoaded', function () {
           headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
           body: JSON.stringify(payload)
         }).then(function(r) {
-          if (!r.ok) { info.revert(); return r.json().then(function() {}); }
-          return r.json();
-        }).then(function(data) {
-          if (!data) return;
+          return r.json().then(function(data) { return { ok: r.ok, data: data }; });
+        }).then(function(result) {
+          if (!result.ok) {
+            info.revert();
+            showToast(result.data.error || 'Could not move job', 'error');
+            return;
+          }
           calendar.refetchEvents();
-          if (data.future_moved > 0) {
-            showToast('Moved this + ' + data.future_moved + ' future jobs');
+          if (result.data.future_moved > 0) {
+            showToast('Moved this + ' + result.data.future_moved + ' future jobs');
           } else {
             showToast('Job rescheduled');
           }
-        }).catch(function() { info.revert(); });
+        }).catch(function(err) {
+          info.revert();
+          showToast('Network error — could not move job', 'error');
+        });
       }
 
       // If recurring, ask user whether to move just this one or all future

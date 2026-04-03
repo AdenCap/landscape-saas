@@ -58,7 +58,12 @@
 {% if shop_address %}
 <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);margin-bottom:8px;">
   <span class="material-symbols-outlined" style="font-size:14px;">home_work</span>
-  <span>Base: {{ shop_address|truncatechars:50 }}</span>
+  <span>Base: {{ shop_address|truncatechars:50 }} (route starts &amp; ends here)</span>
+</div>
+{% else %}
+<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);margin-bottom:8px;">
+  <span class="material-symbols-outlined" style="font-size:14px;">info</span>
+  <span>No shop address set — route uses first/last stop. <a href="{% url 'business_settings' %}" style="color:var(--primary);">Set shop address in Settings</a></span>
 </div>
 {% endif %}
 
