@@ -384,14 +384,13 @@ document.addEventListener('DOMContentLoaded', function () {
       var p = info.event.extendedProps || {};
       // Apply color mode directly on mount (avoids expensive setProp calls)
       if (p.type !== 'meeting') {
-        var override = p.jobColorOverride;
         var color;
-        if (override) {
-          color = override;
-        } else if (colorMode === 'assignee') {
-          color = p.assigneeColor || p.crewColor || '#94a3b8';
+        if (colorMode === 'assignee') {
+          // Crew/employee mode: use custom override > assignee color > fallback
+          color = p.jobColorOverride || p.assigneeColor || p.crewColor || '#94a3b8';
         } else {
-          color = p.statusColor || info.event.backgroundColor || '#3b82f6';
+          // Status mode: ALWAYS use status color — ignore custom overrides
+          color = p.statusColor || '#3b82f6';
         }
         if (color) {
           info.el.style.backgroundColor = color;
