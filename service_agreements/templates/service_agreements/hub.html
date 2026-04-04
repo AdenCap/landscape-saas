@@ -3,10 +3,13 @@
 {% block content %}
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
   <div>
-    <h1>Maintenance Plans</h1>
-    <p>Manage yearly maintenance plans, service contracts, and recurring service schedules</p>
+    <h1>Service Agreements</h1>
+    <p>Manage maintenance plans and service contracts</p>
   </div>
-  <a href="{% url 'service_agreements:agreement_create' %}" class="btn btn-primary">+ Create Plan</a>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'service_agreements:agreement_create' %}" class="btn btn-primary">+ Create Contract</a>
+    <a href="{% url 'service_agreements:maintenance_hub' %}" class="btn btn-secondary">Maintenance Hub</a>
+  </div>
 </div>
 
 {% if agreements %}
@@ -68,8 +71,11 @@
 {% else %}
 <div class="card" style="text-align:center;padding:48px 24px;">
   <span class="material-symbols-outlined" style="font-size:48px;color:var(--text-muted);margin-bottom:12px;">event_repeat</span>
-  <p style="color:var(--text-muted);margin-bottom:16px;">No maintenance plans yet. Create a plan to auto-schedule seasonal services on the calendar.</p>
-  <a href="{% url 'service_agreements:agreement_create' %}" class="btn btn-primary">+ Create Maintenance Plan</a>
+  <p style="color:var(--text-muted);margin-bottom:16px;">No contracts yet. Create a maintenance contract to track services like mowing, mulching, bush trimming, and more.</p>
+  <div style="display:flex;gap:8px;justify-content:center;">
+    <a href="{% url 'service_agreements:agreement_create' %}" class="btn btn-primary">+ Create Contract</a>
+    <a href="{% url 'service_agreements:maintenance_hub' %}" class="btn btn-secondary">Go to Maintenance Hub</a>
+  </div>
 </div>
 {% endif %}
 {% endblock %}
