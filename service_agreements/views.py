@@ -19,6 +19,7 @@ from jobs.models import RecurringJob
 
 def _sync_contract_to_hubs(agreement, prop, business):
     """Auto-enroll in Mowing Hub and Fertilization Hub based on contract line items.
+    Skips if the client is already enrolled in the respective hub.
     If a line item contains 'mow' → create RecurringJob for Mowing Hub.
     If a line item contains 'fert', 'weed control', or 'lawn treatment' → create Fertilization enrollment."""
 
@@ -27,21 +28,15 @@ def _sync_contract_to_hubs(agreement, prop, business):
 
         # ── Mowing sync ──
         if "mow" in svc_lower:
-            # Check if already enrolled
-            existing = RecurringJob.objects.filter(property=prop, active=True)
-            # See if any existing RecurringJob is mowing-related
+            # Check if this property already has an active mowing RecurringJob
+            already_mowing = RecurringJob.objects.filter(property=prop, active=True).exists()
+            if already_mowing:
+                continue  # Already a mowing client — skip
+
             mowing_svc = ServiceTemplate.objects.filter(
                 business=business, active=True, name__icontains="mow"
             ).first()
-            has_mowing = False
-            if mowing_svc:
-                for rj in existing:
-                    if rj.service_snapshot:
-                        for snap in rj.service_snapshot:
-                            if str(snap.get("service_id")) == str(mowing_svc.id):
-                                has_mowing = True
-                                break
-            if not has_mowing:
+            if True:  # Always create since we checked already_mowing above
                 # Create mowing service if it doesn't exist
                 if not mowing_svc:
                     mowing_svc = ServiceTemplate.objects.create(
@@ -71,12 +66,18 @@ def _sync_contract_to_hubs(agreement, prop, business):
         if any(kw in svc_lower for kw in fert_keywords):
             try:
                 from fertilization.models import FertilizationProgram, CustomerProgramEnrollment
-                # Find a matching program or skip
+                # Check if already enrolled in ANY fertilization program this year
+                already_fert = CustomerProgramEnrollment.objects.filter(
+                    property=prop, year=date.today().year,
+                    status__in=["enrolled", "in_progress"],
+                ).exists()
+                if already_fert:
+                    continue  # Already a fertilization client — skip
+
+                # Find a matching program
                 program = FertilizationProgram.objects.filter(business=business, is_active=True).first()
                 if program:
-                    existing_enrollment = CustomerProgramEnrollment.objects.filter(
-                        property=prop, program=program, year=date.today().year
-                    ).exists()
+                    existing_enrollment = False  # We already checked above
                     if not existing_enrollment:
                         enrollment = CustomerProgramEnrollment.objects.create(
                             business=business, property=prop, program=program,
