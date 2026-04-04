@@ -202,3 +202,181 @@ def agreement_delete(request, agreement_id):
     agreement.delete()
     messages.success(request, f"Agreement '{name}' deleted.")
     return redirect("service_agreements:hub")
+
+
+@role_required("owner", "manager")
+def maintenance_hub(request):
+    """Maintenance hub — track all contract services, progress, and scheduling."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+
+    today = date.today()
+
+    # Get all active agreements with line items
+    agreements = ServiceAgreement.objects.filter(
+        business=business,
+        status="active",
+    ).select_related("customer").prefetch_related("line_items", "visits__job").order_by("customer__name")
+
+    # Build contract data with service tracking
+    contracts = []
+    total_contract_value = Decimal("0")
+    total_services = 0
+    completed_services = 0
+    overdue_services = 0
+
+    for agreement in agreements:
+        line_items = list(agreement.line_items.all())
+        visits = list(agreement.visits.select_related("job").all())
+
+        contract_data = {
+            "agreement": agreement,
+            "customer": agreement.customer,
+            "line_items": [],
+            "total_value": Decimal("0"),
+            "completed_count": 0,
+            "total_count": 0,
+            "progress_pct": 0,
+            "visits": visits,
+            "upcoming_visits": [v for v in visits if v.scheduled_date and v.scheduled_date >= today and v.status == "scheduled"],
+            "completed_visits": [v for v in visits if v.status == "completed"],
+        }
+
+        for li in line_items:
+            total_services += 1
+            expected = li.times_expected or 0
+            completed = li.times_completed or 0
+            contract_data["total_count"] += expected
+            contract_data["completed_count"] += completed
+            completed_services += completed
+
+            # Check if overdue (expected > 0, season is active, behind schedule)
+            is_overdue = False
+            if expected > 0 and completed < expected:
+                # Simple heuristic: if past midpoint of year and less than half done
+                month = today.month
+                if li.frequency in ("monthly", "per_visit") and month > 6 and completed < expected / 2:
+                    is_overdue = True
+                elif li.frequency == "seasonal" and month > 8 and completed == 0:
+                    is_overdue = True
+
+            if is_overdue:
+                overdue_services += 1
+
+            contract_data["line_items"].append({
+                "item": li,
+                "expected": expected,
+                "completed": completed,
+                "remaining": max(0, expected - completed),
+                "progress_pct": int(completed / expected * 100) if expected > 0 else 0,
+                "is_overdue": is_overdue,
+                "is_complete": li.is_complete,
+            })
+
+            contract_data["total_value"] += li.line_total
+            total_contract_value += li.line_total
+
+        if contract_data["total_count"] > 0:
+            contract_data["progress_pct"] = int(contract_data["completed_count"] / contract_data["total_count"] * 100)
+
+        contracts.append(contract_data)
+
+    # Revenue tracking
+    actual_revenue = Decimal("0")
+    # Sum of paid invoices linked to agreements
+    from billing.models import Invoice
+    year_start = date(today.year, 1, 1)
+    # Get revenue from completed agreement visits
+    completed_visit_job_ids = []
+    for agreement in agreements:
+        for visit in agreement.visits.filter(status="completed", job__isnull=False):
+            completed_visit_job_ids.append(visit.job_id)
+    if completed_visit_job_ids:
+        from django.db.models import Sum, F
+        actual_revenue = JobServiceItem.objects.filter(
+            job_id__in=completed_visit_job_ids,
+        ).aggregate(
+            total=Sum(F("quantity") * F("unit_price"))
+        )["total"] or Decimal("0")
+
+    return render(request, "service_agreements/maintenance_hub.html", {
+        "contracts": contracts,
+        "total_contracts": len(contracts),
+        "total_contract_value": total_contract_value,
+        "total_services": total_services,
+        "completed_services": completed_services,
+        "overdue_services": overdue_services,
+        "actual_revenue": actual_revenue,
+        "today": today,
+    })
+
+
+@require_POST
+@role_required("owner", "manager")
+def complete_service(request, line_item_id):
+    """Mark a service line item as completed (increment times_completed)."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    li = get_object_or_404(AgreementLineItem, id=line_item_id, agreement__business=business)
+    li.times_completed += 1
+    li.save(update_fields=["times_completed"])
+    messages.success(request, f"'{li.service_name}' marked complete ({li.progress_display}).")
+    return redirect("service_agreements:maintenance_hub")
+
+
+@require_POST
+@role_required("owner", "manager")
+def schedule_service(request, line_item_id):
+    """Schedule a service line item as a job on the calendar."""
+    business = get_business(request)
+    if not business:
+        return redirect("/")
+    li = get_object_or_404(AgreementLineItem, id=line_item_id, agreement__business=business)
+    schedule_date_str = request.POST.get("schedule_date", "").strip()
+    if not schedule_date_str:
+        messages.error(request, "Please select a date.")
+        return redirect("service_agreements:maintenance_hub")
+    try:
+        schedule_date = date.fromisoformat(schedule_date_str)
+    except (ValueError, TypeError):
+        messages.error(request, "Invalid date.")
+        return redirect("service_agreements:maintenance_hub")
+
+    agreement = li.agreement
+    prop = agreement.customer.properties.first()
+    if not prop:
+        messages.error(request, f"No property found for {agreement.customer.name}.")
+        return redirect("service_agreements:maintenance_hub")
+
+    # Create the job
+    job = Job.objects.create(
+        property=prop,
+        scheduled_date=schedule_date,
+        status="scheduled",
+        notes=f"[{agreement.name}] {li.service_name}",
+    )
+
+    # Add service item
+    svc = ServiceTemplate.objects.filter(business=business, active=True, name__icontains=li.service_name[:10]).first()
+    JobServiceItem.objects.create(
+        job=job,
+        service=svc,
+        description=li.service_name,
+        quantity=li.quantity,
+        unit=li.unit or "visit",
+        unit_price=li.unit_price,
+    )
+
+    # Create agreement visit record
+    AgreementVisit.objects.create(
+        agreement=agreement,
+        scheduled_date=schedule_date,
+        job=job,
+        status="scheduled",
+        notes=li.service_name,
+    )
+
+    messages.success(request, f"'{li.service_name}' scheduled for {schedule_date.strftime('%b %d, %Y')}.")
+    return redirect("service_agreements:maintenance_hub")

@@ -865,6 +865,7 @@
             {% endif %}
             {% if show_service_agreements %}
             <a href="{% url 'service_agreements:hub' %}"><i data-lucide="file-check" class="nav-icon"></i>Agreements</a>
+            <a href="{% url 'service_agreements:maintenance_hub' %}"><i data-lucide="wrench" class="nav-icon"></i>Maintenance</a>
             {% endif %}
             {# Checklists hidden until feature is fleshed out #}
             {% if show_inspections %}

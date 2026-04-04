@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>Maintenance Hub</h1>
+    <p>Track all contract services — weed control, bush trimming, mulching, and more</p>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{% url 'service_agreements:agreement_create' %}" class="btn btn-primary" style="font-size:13px;">+ New Contract</a>
+    <a href="{% url 'service_agreements:hub' %}" class="btn btn-secondary" style="font-size:13px;">All Agreements</a>
+  </div>
+</div>
+
+<!-- Stats -->
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;">
+  <div class="card" style="padding:12px;text-align:center;">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Active Contracts</span>
+    <span style="display:block;font-size:22px;font-weight:800;font-family:var(--font-headline);">{{ total_contracts }}</span>
+  </div>
+  <div class="card" style="padding:12px;text-align:center;">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Contract Value</span>
+    <span style="display:block;font-size:22px;font-weight:800;font-family:var(--font-headline);color:var(--primary);">${{ total_contract_value|floatformat:0 }}</span>
+  </div>
+  <div class="card" style="padding:12px;text-align:center;">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Services Done</span>
+    <span style="display:block;font-size:22px;font-weight:800;font-family:var(--font-headline);">{{ completed_services }}/{{ total_services }}</span>
+  </div>
+  <div class="card" style="padding:12px;text-align:center;">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Revenue Earned</span>
+    <span style="display:block;font-size:22px;font-weight:800;font-family:var(--font-headline);color:var(--primary);">${{ actual_revenue|floatformat:0 }}</span>
+  </div>
+  {% if overdue_services %}
+  <div class="card" style="padding:12px;text-align:center;border-color:rgba(248,113,113,0.3);">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:#f87171;margin-bottom:3px;">Overdue</span>
+    <span style="display:block;font-size:22px;font-weight:800;font-family:var(--font-headline);color:#f87171;">{{ overdue_services }}</span>
+  </div>
+  {% else %}
+  <div class="card" style="padding:12px;text-align:center;">
+    <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Overdue</span>
+    <span style="display:block;font-size:22px;font-weight:800;font-family:var(--font-headline);">0</span>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Contract Cards -->
+{% for c in contracts %}
+<div class="card" style="margin-bottom:14px;">
+  <!-- Contract Header -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <div>
+      <h3 style="margin:0;font-size:15px;font-weight:700;">
+        <a href="{% url 'customer_detail' c.customer.id %}" style="text-decoration:none;color:inherit;">{{ c.customer.name }}</a>
+        <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:6px;">{{ c.agreement.name }}</span>
+      </h3>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+        {{ c.agreement.start_date|date:"M j, Y" }}{% if c.agreement.end_date %} — {{ c.agreement.end_date|date:"M j, Y" }}{% endif %}
+        · {{ c.agreement.get_billing_frequency_display }}
+        · ${{ c.total_value|floatformat:2 }}
+        {% if c.agreement.prepaid %}<span style="font-size:9px;font-weight:600;background:rgba(34,197,94,0.15);color:var(--primary);padding:1px 5px;border-radius:3px;">PREPAID</span>{% endif %}
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <!-- Progress circle -->
+      <div style="text-align:center;">
+        <span style="font-size:18px;font-weight:800;color:{% if c.progress_pct == 100 %}var(--primary){% elif c.progress_pct > 50 %}var(--text){% else %}#f59e0b{% endif %};">{{ c.progress_pct }}%</span>
+        <div style="font-size:9px;color:var(--text-muted);">complete</div>
+      </div>
+      <a href="{% url 'service_agreements:agreement_detail' c.agreement.id %}" class="btn btn-secondary btn-sm" style="font-size:11px;">Details</a>
+    </div>
+  </div>
+
+  <!-- Service Line Items -->
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+  <table class="data-table" style="font-size:13px;">
+    <thead>
+      <tr>
+        <th>Service</th>
+        <th>Frequency</th>
+        <th class="num">Price</th>
+        <th class="num">Progress</th>
+        <th style="width:200px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for li in c.line_items %}
+      <tr style="{% if li.is_complete %}opacity:0.5;{% elif li.is_overdue %}border-left:3px solid #f87171;{% endif %}">
+        <td>
+          <strong>{{ li.item.service_name }}</strong>
+          {% if li.item.description %}<div style="font-size:11px;color:var(--text-muted);">{{ li.item.description|truncatechars:50 }}</div>{% endif %}
+        </td>
+        <td>{{ li.item.get_frequency_display }}</td>
+        <td class="num">${{ li.item.line_total|floatformat:2 }}</td>
+        <td class="num">
+          {% if li.expected > 0 %}
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="flex:1;height:6px;background:var(--surface-highest);border-radius:3px;overflow:hidden;min-width:40px;">
+              <div style="height:100%;width:{{ li.progress_pct }}%;background:{% if li.is_complete %}var(--primary){% elif li.is_overdue %}#f87171{% else %}#3b82f6{% endif %};border-radius:3px;"></div>
+            </div>
+            <span style="font-size:11px;font-weight:600;white-space:nowrap;">{{ li.completed }}/{{ li.expected }}</span>
+          </div>
+          {% else %}
+          <span style="color:var(--text-muted);">—</span>
+          {% endif %}
+        </td>
+        <td style="white-space:nowrap;">
+          {% if not li.is_complete %}
+          <div style="display:flex;gap:4px;align-items:center;">
+            <form method="post" action="{% url 'service_agreements:schedule_service' li.item.id %}" style="display:inline-flex;align-items:center;gap:3px;">
+              {% csrf_token %}
+              <input type="date" name="schedule_date" value="{{ today|date:'Y-m-d' }}" style="padding:3px 5px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);width:110px;">
+              <button type="submit" class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 6px;">Schedule</button>
+            </form>
+            <form method="post" action="{% url 'service_agreements:complete_service' li.item.id %}" style="display:inline;" onsubmit="return confirm('Mark {{ li.item.service_name }} as completed?')">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 6px;color:var(--primary);" title="Mark complete">&#10003;</button>
+            </form>
+          </div>
+          {% else %}
+          <span style="font-size:11px;color:var(--primary);font-weight:600;">&#10003; Done</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <!-- Upcoming Visits -->
+  {% if c.upcoming_visits %}
+  <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+    <span style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Upcoming:</span>
+    {% for v in c.upcoming_visits %}
+    <span style="font-size:12px;margin-left:6px;">{{ v.scheduled_date|date:"M j" }}{% if v.notes %} ({{ v.notes }}){% endif %}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% empty %}
+<div class="card" style="text-align:center;padding:40px;">
+  <p style="color:var(--text-muted);margin-bottom:12px;">No active maintenance contracts.</p>
+  <a href="{% url 'service_agreements:agreement_create' %}" class="btn btn-primary">+ Create Contract</a>
+</div>
+{% endfor %}
+
+<style>
+  @media (max-width:768px) {
+    div[style*="grid-template-columns:repeat(5"] { grid-template-columns: 1fr 1fr !important; }
+    .btn-sm { min-height: 36px; }
+  }
+</style>
+{% endblock %}
