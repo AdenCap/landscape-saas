@@ -21,7 +21,7 @@ class Business(models.Model):
     ]
 
     MODULE_DEFAULTS = {
-        "landscaping": ["fertilization", "property_estimator", "growing_season", "checklists"],
+        "landscaping": ["fertilization", "property_estimator", "growing_season", "checklists", "service_agreements"],
     }
 
     business_type = models.CharField(

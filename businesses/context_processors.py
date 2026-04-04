@@ -91,7 +91,7 @@ def navigation(request):
     flags["show_fertilization"] = "fertilization" in modules
     flags["show_pricebook"] = "pricebook" in modules
     flags["show_equipment"] = "equipment" in modules
-    flags["show_service_agreements"] = "service_agreements" in modules
+    flags["show_service_agreements"] = "service_agreements" in modules or business.business_type == "landscaping"
     flags["show_inspections"] = "inspections" in modules
     flags["show_property_estimator"] = "property_estimator" in modules
     flags["show_checklists"] = "checklists" in modules
