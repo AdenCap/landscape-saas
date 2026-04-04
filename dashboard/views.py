@@ -627,6 +627,22 @@ def owner_dashboard(request):
         )["total"]
     )
 
+    # --- Work completed this year ---
+    work_completed_this_year = (
+        JobServiceItem.objects.filter(
+            job__property__customer__business=business,
+            job__status="completed",
+            job__scheduled_date__gte=year_start,
+            job__scheduled_date__lt=year_end,
+        ).aggregate(
+            total=Coalesce(
+                Sum(F("quantity") * F("unit_price")),
+                Decimal("0.00"),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+        )["total"]
+    )
+
     # --- Profit this month (revenue − costs) ---
     from financials.models import Receipt
     from time_tracking.models import TimeEntry
@@ -877,6 +893,7 @@ def owner_dashboard(request):
         "revenue_this_month": revenue_this_month,
         "revenue_this_year": revenue_this_year,
         "work_completed_this_month": work_completed_this_month,
+        "work_completed_this_year": work_completed_this_year,
         "year_start": year_start,
         "year_end": year_end,
         "profit_this_month": profit_this_month,

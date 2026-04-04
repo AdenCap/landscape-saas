@@ -46,13 +46,13 @@
     <span class="kpi-big">${{ ar_outstanding|floatformat:0 }}</span>
     <p class="kpi-sub">Tap to view outstanding</p>
   </a>
-  <a href="{% url 'billing:invoice_list' %}" class="kpi-card kpi-link {% if invoices_overdue_count %}kpi-alert{% endif %}">
+  <a href="{% url 'job_list' %}" class="kpi-card kpi-link">
     <div class="kpi-top-row">
-      <span class="kpi-tag">Overdue</span>
-      <span class="material-symbols-outlined kpi-icon" style="color:{% if invoices_overdue_count %}#ffb4ab{% else %}var(--text-muted){% endif %};">warning</span>
+      <span class="kpi-tag">Work Completed</span>
+      <span class="material-symbols-outlined kpi-icon" style="color:var(--primary);">check_circle</span>
     </div>
-    <span class="kpi-big" {% if invoices_overdue_count %}style="color:#ffb4ab;"{% endif %}>{{ invoices_overdue_count }}</span>
-    <p class="kpi-sub">${{ invoices_overdue_total|floatformat:0 }} past due</p>
+    <span class="kpi-big">${{ work_completed_this_month|floatformat:0 }}</span>
+    <p class="kpi-sub">This month · YTD: ${{ work_completed_this_year|floatformat:0 }}</p>
   </a>
 </div>
 
