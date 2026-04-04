@@ -338,7 +338,16 @@ def time_entries_list(request):
     if not business:
         return redirect("/")
     from django.utils import timezone
+    # Use business timezone for accurate "today" and "this week"
     today = timezone.localdate()
+    if business and hasattr(business, 'timezone') and business.timezone:
+        try:
+            import zoneinfo
+            biz_tz = zoneinfo.ZoneInfo(business.timezone)
+            from datetime import datetime as _dt
+            today = _dt.now(biz_tz).date()
+        except Exception:
+            pass
 
     employees = User.objects.filter(business=business, role__in=["crew", "owner"]).order_by("first_name", "last_name", "username")
     employee_id = request.GET.get("employee_id")
@@ -385,10 +394,21 @@ def time_entries_list(request):
         entries_qs = TimeEntry.objects.filter(user__business_id=business.id)
     entries_qs = entries_qs.select_related("user").order_by("-clock_in")
 
-    if start_date:
-        entries_qs = entries_qs.filter(clock_in__date__gte=start_date)
-    if end_date:
-        entries_qs = entries_qs.filter(clock_in__date__lte=end_date)
+    # Use timezone-aware datetime range to handle UTC vs business timezone correctly
+    if start_date or end_date:
+        import zoneinfo
+        biz_tz_name = business.timezone if business and hasattr(business, 'timezone') and business.timezone else 'America/New_York'
+        try:
+            biz_tz = zoneinfo.ZoneInfo(biz_tz_name)
+        except Exception:
+            biz_tz = zoneinfo.ZoneInfo('America/New_York')
+        from datetime import datetime as _dt, time as _time
+        if start_date:
+            start_aware = _dt.combine(start_date, _time.min).replace(tzinfo=biz_tz)
+            entries_qs = entries_qs.filter(clock_in__gte=start_aware)
+        if end_date:
+            end_aware = _dt.combine(end_date, _time.max).replace(tzinfo=biz_tz)
+            entries_qs = entries_qs.filter(clock_in__lte=end_aware)
 
     # Calculate totals from ALL matching entries (not truncated)
     all_entries = list(entries_qs)
