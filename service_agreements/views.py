@@ -230,9 +230,20 @@ def maintenance_hub(request):
         line_items = list(agreement.line_items.all())
         visits = list(agreement.visits.select_related("job").all())
 
+        # Check if client also has mowing/fertilization
+        from jobs.models import RecurringJob
+        from fertilization.models import CustomerProgramEnrollment
+        cust = agreement.customer
+        has_mowing = RecurringJob.objects.filter(property__customer=cust, active=True).exists()
+        has_fert = CustomerProgramEnrollment.objects.filter(
+            property__customer=cust, status__in=["enrolled", "in_progress"]
+        ).exists()
+
         contract_data = {
             "agreement": agreement,
-            "customer": agreement.customer,
+            "customer": cust,
+            "has_mowing": has_mowing,
+            "has_fert": has_fert,
             "line_items": [],
             "total_value": Decimal("0"),
             "completed_count": 0,

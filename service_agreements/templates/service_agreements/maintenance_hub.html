@@ -59,6 +59,10 @@
         · ${{ c.total_value|floatformat:2 }}
         {% if c.agreement.prepaid %}<span style="font-size:9px;font-weight:600;background:rgba(34,197,94,0.15);color:var(--primary);padding:1px 5px;border-radius:3px;">PREPAID</span>{% endif %}
       </div>
+      <div style="display:flex;gap:4px;margin-top:3px;">
+        {% if c.has_mowing %}<a href="{% url 'mowing_hub' %}" style="font-size:9px;font-weight:600;padding:1px 6px;background:rgba(34,197,94,0.1);color:var(--primary);border-radius:3px;text-decoration:none;">Mowing</a>{% endif %}
+        {% if c.has_fert %}<a href="{% url 'fertilization:hub' %}" style="font-size:9px;font-weight:600;padding:1px 6px;background:rgba(139,92,246,0.1);color:#a78bfa;border-radius:3px;text-decoration:none;">Fertilization</a>{% endif %}
+      </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <!-- Progress circle -->
