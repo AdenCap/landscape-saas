@@ -1630,35 +1630,31 @@ document.addEventListener('DOMContentLoaded', function () {
       moreLink.href = '/jobs/create/?date=' + dateOnly + '&time=' + (timeInput.value || '08:00');
     }
 
-    // Position near click
-    if (mouseEvent && !isMobile) {
-      var x = mouseEvent.clientX;
-      var y = mouseEvent.clientY;
-      var pw = 360, ph = 480;
-      var vw = window.innerWidth, vh = window.innerHeight;
-      if (x + pw > vw - 20) x = vw - pw - 20;
-      if (x < 20) x = 20;
-      if (y + ph > vh - 20) y = Math.max(20, vh - ph - 20);
-      qcPopover.style.position = 'fixed';
-      qcPopover.style.left = x + 'px';
-      qcPopover.style.top = y + 'px';
-      qcPopover.style.bottom = '';
-      qcPopover.style.right = '';
-      qcPopover.style.width = '';
-      qcPopover.style.borderRadius = '';
-      qcPopover.classList.remove('qc-bottom-sheet');
-    } else {
-      qcPopover.style.position = 'fixed';
-      qcPopover.style.left = '0';
-      qcPopover.style.right = '0';
-      qcPopover.style.bottom = '0';
-      qcPopover.style.top = '';
-      qcPopover.style.width = '100%';
-      qcPopover.style.borderRadius = '20px 20px 0 0';
-      qcPopover.classList.add('qc-bottom-sheet');
-    }
+    // Always show as centered modal with backdrop
+    qcPopover.style.position = '';
+    qcPopover.style.left = '';
+    qcPopover.style.right = '';
+    qcPopover.style.top = '';
+    qcPopover.style.bottom = '';
+    qcPopover.style.width = '';
+    qcPopover.style.borderRadius = '';
+    qcPopover.classList.remove('qc-bottom-sheet');
 
-    qcPopover.style.display = 'block';
+    // Show backdrop
+    var backdrop = document.getElementById('qc-backdrop');
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.id = 'qc-backdrop';
+      backdrop.style.cssText = 'position:fixed;inset:0;z-index:1199;background:rgba(0,0,0,0.5);';
+      backdrop.addEventListener('click', function() {
+        qcPopover.style.display = 'none';
+        backdrop.style.display = 'none';
+        qcOpen = false;
+      });
+      document.body.appendChild(backdrop);
+    }
+    backdrop.style.display = 'block';
+    qcPopover.style.display = 'flex';
     qcOpen = true;
     setTimeout(function() { searchInput.focus(); }, 100);
   }
@@ -1737,6 +1733,8 @@ document.addEventListener('DOMContentLoaded', function () {
   function closeQuickCreate() {
     if (!qcPopover) return;
     qcPopover.style.display = 'none';
+    var backdrop = document.getElementById('qc-backdrop');
+    if (backdrop) backdrop.style.display = 'none';
     qcOpen = false;
   }
 
