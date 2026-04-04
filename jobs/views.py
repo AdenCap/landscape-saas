@@ -828,7 +828,9 @@ def calendar_job_reschedule(request, job_id):
         apply_to_future = data.get("apply_to_future", False)
 
         job.scheduled_date = new_parsed
-        job.scheduled_time = time_obj
+        # Only update time if one was provided — don't clear existing time on date-only drags
+        if time_obj is not None:
+            job.scheduled_time = time_obj
 
         # Parse end time if provided (from resize or drag)
         new_end = data.get("scheduled_end")
