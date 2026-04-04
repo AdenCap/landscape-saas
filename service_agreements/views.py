@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST, require_http_methods
 
-from accounts.decorators import role_required, module_required
+from accounts.decorators import role_required
 from accounts.utils import get_business
 from customers.models import Customer, Property
 from jobs.models import Job, JobServiceItem
@@ -104,7 +104,6 @@ def _sync_contract_to_hubs(agreement, prop, business):
 
 
 @login_required
-@module_required("service_agreements")
 def hub(request):
     biz = request.user.business
     agreements = ServiceAgreement.objects.filter(business=biz).select_related("customer").order_by("-created_at")
