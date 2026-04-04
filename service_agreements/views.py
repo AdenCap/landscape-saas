@@ -14,6 +14,92 @@ from jobs.models import Job, JobServiceItem
 from pricing.models import ServiceTemplate
 from pricing.utils import get_effective_rate
 from .models import ServiceAgreement, AgreementVisit, AgreementLineItem
+from jobs.models import RecurringJob
+
+
+def _sync_contract_to_hubs(agreement, prop, business):
+    """Auto-enroll in Mowing Hub and Fertilization Hub based on contract line items.
+    If a line item contains 'mow' → create RecurringJob for Mowing Hub.
+    If a line item contains 'fert', 'weed control', or 'lawn treatment' → create Fertilization enrollment."""
+
+    for li in agreement.line_items.all():
+        svc_lower = li.service_name.lower()
+
+        # ── Mowing sync ──
+        if "mow" in svc_lower:
+            # Check if already enrolled
+            existing = RecurringJob.objects.filter(property=prop, active=True)
+            # See if any existing RecurringJob is mowing-related
+            mowing_svc = ServiceTemplate.objects.filter(
+                business=business, active=True, name__icontains="mow"
+            ).first()
+            has_mowing = False
+            if mowing_svc:
+                for rj in existing:
+                    if rj.service_snapshot:
+                        for snap in rj.service_snapshot:
+                            if str(snap.get("service_id")) == str(mowing_svc.id):
+                                has_mowing = True
+                                break
+            if not has_mowing:
+                # Create mowing service if it doesn't exist
+                if not mowing_svc:
+                    mowing_svc = ServiceTemplate.objects.create(
+                        business=business, name="Mowing",
+                        default_unit="visit", default_rate=0, pricing_method="flat", active=True,
+                    )
+                # Map frequency
+                freq_map = {"per_visit": "weekly", "monthly": "monthly", "quarterly": "monthly",
+                            "seasonal": "biweekly", "annual": "monthly", "as_needed": "weekly"}
+                freq = freq_map.get(li.frequency, "weekly")
+                # Save per-cut price
+                if li.unit_price > 0:
+                    from pricing.models import PropertyServiceRate
+                    PropertyServiceRate.objects.update_or_create(
+                        property=prop, service=mowing_svc,
+                        defaults={"override_rate": li.unit_price},
+                    )
+                unit, rate = get_effective_rate(prop, mowing_svc)
+                snapshot = [{"service_id": mowing_svc.id, "quantity": "1", "unit": unit, "unit_price": str(rate)}]
+                RecurringJob.objects.create(
+                    property=prop, frequency=freq, start_date=agreement.start_date or date.today(),
+                    active=True, service_snapshot=snapshot,
+                )
+
+        # ── Fertilization sync ──
+        fert_keywords = ["fert", "weed control", "lawn treatment", "lawn care program"]
+        if any(kw in svc_lower for kw in fert_keywords):
+            try:
+                from fertilization.models import FertilizationProgram, CustomerProgramEnrollment
+                # Find a matching program or skip
+                program = FertilizationProgram.objects.filter(business=business, is_active=True).first()
+                if program:
+                    existing_enrollment = CustomerProgramEnrollment.objects.filter(
+                        property=prop, program=program, year=date.today().year
+                    ).exists()
+                    if not existing_enrollment:
+                        enrollment = CustomerProgramEnrollment.objects.create(
+                            business=business, property=prop, program=program,
+                            year=date.today().year, status="enrolled",
+                            pricing_method="per_application",
+                            price_per_application=li.unit_price if li.unit_price > 0 else None,
+                        )
+                        # Auto-create scheduled rounds from program template
+                        for rnd in program.rounds.all().order_by("round_number"):
+                            from fertilization.models import ScheduledRound
+                            target_month = rnd.target_month_start or 4
+                            sched_date = date(date.today().year, target_month, 15)
+                            if sched_date < date.today():
+                                sched_date = date(date.today().year + 1, target_month, 15)
+                            ScheduledRound.objects.create(
+                                enrollment=enrollment,
+                                round_template=rnd,
+                                round_number=rnd.round_number,
+                                scheduled_date=sched_date,
+                                status="pending",
+                            )
+            except Exception:
+                pass  # Fertilization module might not be fully set up
 
 
 @login_required
@@ -98,6 +184,9 @@ def agreement_create(request):
                 times_expected=int(line_expected[i]) if i < len(line_expected) and line_expected[i] else None,
                 order=i,
             )
+
+        # Auto-sync: enroll in Mowing Hub and/or Fertilization Hub based on services
+        _sync_contract_to_hubs(agreement, prop, business)
 
         # Parse service visits from form
         visit_services = request.POST.getlist("visit_service")
