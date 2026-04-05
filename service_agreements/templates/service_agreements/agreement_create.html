@@ -20,12 +20,14 @@
       <select id="sa-customer" onchange="saUpdateProps()">
         <option value="">Select customer...</option>
       </select>
+      <button type="button" onclick="openQuickAddClient()" style="margin-top:4px;background:none;border:none;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;padding:0;">+ Add New Client</button>
     </div>
     <div class="sa-field" id="sa-prop-wrap" style="display:none;">
       <label>Property</label>
       <select id="sa-property" name="property_id">
         <option value="">Select property...</option>
       </select>
+      <button type="button" onclick="openQuickAddProperty(document.getElementById('sa-customer-id').value)" style="margin-top:4px;background:none;border:none;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;padding:0;">+ Add Property</button>
     </div>
     <input type="hidden" name="customer_id" id="sa-customer-id">
   </div>

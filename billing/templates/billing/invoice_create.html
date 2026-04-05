@@ -19,9 +19,10 @@
         <option value="{{ c.id }}">{{ c.name }}</option>
         {% endfor %}
       </select>
+      <button type="button" onclick="openQuickAddClient()" style="margin-top:4px;background:none;border:none;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;padding:0;">+ Add New Client</button>
       {% if not customers %}
       <p style="margin-top: 8px; font-size: 13px; color: var(--text-muted);">
-        No customers yet. <a href="{% url 'customer_create' %}" class="link-primary">Add a customer first</a>.
+        No customers yet — click "+ Add New Client" above.
       </p>
       {% endif %}
     </div>

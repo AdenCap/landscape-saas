@@ -21,13 +21,14 @@
         <label for="id_customer">Customer</label>
         {{ form.customer }}
         {{ form.customer.errors }}
-        <a href="{% url 'customer_create' %}?next=estimate_and_select" class="form-add-link">+ Add new client</a>
+        <button type="button" onclick="openQuickAddClient()" style="margin-top:4px;background:none;border:none;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;padding:0;">+ Add New Client</button>
       </div>
       <div class="form-group" id="property-group" style="display: none;">
         <label for="id_property">Property</label>
         <select name="property" id="id_property">
           <option value="">-- Select property --</option>
         </select>
+        <button type="button" onclick="openQuickAddProperty(document.getElementById('id_customer').value)" style="margin-top:4px;background:none;border:none;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;padding:0;">+ Add Property</button>
       </div>
       <div class="form-group">
         <label for="id_title">Title</label>

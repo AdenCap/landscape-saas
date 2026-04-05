@@ -25,6 +25,8 @@ urlpatterns = [
     path("<int:customer_id>/contracts/<int:contract_id>/edit/", views.contract_edit, name="contract_edit"),
     path("<int:customer_id>/properties/<int:property_id>/photos/", views.property_photo_gallery, name="property_photo_gallery"),
     path("api/add-property-note/", views.api_add_property_note, name="api_add_property_note"),
+    path("api/quick-create-customer/", views.api_quick_create_customer, name="api_quick_create_customer"),
+    path("api/quick-create-property/", views.api_quick_create_property, name="api_quick_create_property"),
     path("reviews/confirm/<str:token>/", views.review_mark_done, name="review_mark_done"),
     path("reviews/opt-out/<str:token>/", views.review_opt_out, name="review_opt_out"),
     

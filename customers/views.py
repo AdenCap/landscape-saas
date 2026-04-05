@@ -1,7 +1,7 @@
 import csv
 
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib import messages
 from django.core import signing
@@ -710,6 +710,69 @@ def property_measure_lawn(request, customer_id, property_id):
         "lng": lng,
         "google_maps_key": google_maps_key,
         "saved_polygons_json": json.dumps(prop.lawn_polygons) if prop.lawn_polygons else "null",
+    })
+
+
+@require_POST
+@role_required("owner", "manager")
+def api_quick_create_customer(request):
+    """AJAX endpoint: create a customer inline without leaving the page."""
+    business = _get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    import json
+    data = json.loads(request.body) if request.body else {}
+    name = (data.get("name") or "").strip()
+    email = (data.get("email") or "").strip()
+    phone = (data.get("phone") or "").strip()
+    address = (data.get("address") or "").strip()
+
+    if not name:
+        return JsonResponse({"error": "Client name is required."}, status=400)
+
+    customer = Customer.objects.create(
+        business=business,
+        name=name,
+        email=email,
+        phone=phone,
+        address_line1=address,
+    )
+    # Auto-create property from address
+    prop = None
+    if address:
+        prop = Property.objects.create(customer=customer, address=address)
+
+    result = {
+        "ok": True,
+        "customer": {"id": customer.id, "name": customer.name},
+        "properties": [],
+    }
+    if prop:
+        result["properties"].append({"id": prop.id, "address": prop.address})
+    return JsonResponse(result)
+
+
+@require_POST
+@role_required("owner", "manager")
+def api_quick_create_property(request):
+    """AJAX endpoint: create a property for an existing customer inline."""
+    business = _get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    import json
+    data = json.loads(request.body) if request.body else {}
+    customer_id = data.get("customer_id")
+    address = (data.get("address") or "").strip()
+
+    if not customer_id or not address:
+        return JsonResponse({"error": "Customer and address are required."}, status=400)
+
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+    prop = Property.objects.create(customer=customer, address=address)
+
+    return JsonResponse({
+        "ok": True,
+        "property": {"id": prop.id, "address": prop.address},
     })
 
 

@@ -228,7 +228,7 @@ If you have any questions, please don't hesitate to reach out.
         <select id="add-customer" onchange="addUpdateProps()">
           <option value="">Select a customer...</option>
         </select>
-        <a href="{% url 'customer_create' %}?next={% url 'mowing_hub' %}" style="display:inline-block;margin-top:6px;font-size:13px;font-weight:600;color:var(--primary);text-decoration:none;">+ Add new client</a>
+        <button type="button" onclick="openQuickAddClient()" style="display:inline-block;margin-top:6px;background:none;border:none;font-size:13px;font-weight:600;color:var(--primary);cursor:pointer;padding:0;">+ Add new client</button>
       </div>
 
       <div class="add-field" id="add-prop-wrap" style="display:none;">

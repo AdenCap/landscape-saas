@@ -19,12 +19,13 @@
     <div class="form-group">
       <label for="id_customer">Client</label>
       {{ form.customer }}
-      <span class="form-help">Select the client first, then choose a property</span>
+      <button type="button" onclick="openQuickAddClient()" style="margin-top:4px;background:none;border:none;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;padding:0;">+ Add New Client</button>
       {% if form.customer.errors %}<span class="form-error">{{ form.customer.errors.0 }}</span>{% endif %}
     </div>
     <div class="form-group">
       <label for="id_property">Property / Address</label>
       {{ form.property }}
+      <button type="button" onclick="openQuickAddProperty(document.getElementById('id_customer').value)" style="margin-top:4px;background:none;border:none;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;padding:0;">+ Add Property</button>
       {% if form.property.errors %}<span class="form-error">{{ form.property.errors.0 }}</span>{% endif %}
     </div>
 
@@ -542,5 +543,30 @@
     i1.focus();
   });
 })();
+
+// Handle quick-add client/property events
+window.addEventListener('quickClientCreated', function(e) {
+  var data = e.detail;
+  var sel = document.getElementById('id_customer');
+  if (sel && data.customer) {
+    var opt = document.createElement('option');
+    opt.value = data.customer.id;
+    opt.textContent = data.customer.name;
+    opt.selected = true;
+    sel.appendChild(opt);
+    sel.dispatchEvent(new Event('change'));
+  }
+});
+window.addEventListener('quickPropertyCreated', function(e) {
+  var data = e.detail;
+  var sel = document.getElementById('id_property');
+  if (sel && data.property) {
+    var opt = document.createElement('option');
+    opt.value = data.property.id;
+    opt.textContent = data.property.address;
+    opt.selected = true;
+    sel.appendChild(opt);
+  }
+});
 </script>
 {% endblock %}
