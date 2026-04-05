@@ -158,6 +158,10 @@ class BusinessSettingsForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             if self.instance.email_smtp_password:
                 self.fields["email_smtp_password"].widget.attrs["placeholder"] = "•••••••• (saved)"
+        # Make all fields optional — settings are spread across multiple tabs
+        # and empty fields on hidden tabs should not block saving
+        for field_name, field in self.fields.items():
+            field.required = False
 
     def save(self, commit=True):
         # Capture the existing password BEFORE super().save() overwrites it with
