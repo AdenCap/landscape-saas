@@ -4,8 +4,8 @@ from . import views
 app_name = "service_agreements"
 
 urlpatterns = [
-    path("", views.hub, name="hub"),
-    path("maintenance/", views.maintenance_hub, name="maintenance_hub"),
+    path("", views.maintenance_hub, name="hub"),
+    path("list/", views.hub, name="agreement_list"),
     path("create/", views.agreement_create, name="agreement_create"),
     path("<int:agreement_id>/", views.agreement_detail, name="agreement_detail"),
     path("<int:agreement_id>/delete/", views.agreement_delete, name="agreement_delete"),
