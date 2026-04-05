@@ -360,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function () {
       fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
         body: JSON.stringify(payload)
       }).then(function(r) {
         if (!r.ok) { info.revert(); return; }
@@ -877,7 +877,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function ajaxPost(url) {
     return fetch(url, {
       method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF(), 'X-Requested-With': 'XMLHttpRequest' },
       body: JSON.stringify({})
     }).then(function(r) {
       if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Failed'); });
@@ -937,7 +937,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var actionVal = actionMap[action] || 'skip';
     fetch('/jobs/' + jobId + '/skip/', {
       method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF(), 'X-Requested-With': 'XMLHttpRequest' },
       body: JSON.stringify({ reason: reason.trim(), action: actionVal })
     }).then(function(r) { return r.json(); }).then(function(data) {
       if (data.status === 'ok') {
@@ -1005,7 +1005,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     fetch('/jobs/calendar/job/' + jobId + '/update/', {
       method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
       body: JSON.stringify(payload)
     }).then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('Update failed')); })
       .then(function(data) {
@@ -1112,7 +1112,7 @@ document.addEventListener('DOMContentLoaded', function () {
               if (!d) { showToast('Pick a date', 'warning'); return; }
               fetch('/jobs/calendar/job/' + j.id + '/reschedule/', {
                 method: 'POST', credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
                 body: JSON.stringify({ scheduled_date: d })
               }).then(function(r) {
                 if (r.ok) { calendar.refetchEvents(); loadUnscheduled(); showToast('Job scheduled'); }
@@ -1291,7 +1291,7 @@ document.addEventListener('DOMContentLoaded', function () {
               // For jobs, use the reschedule API
               fetch('/jobs/calendar/job/' + dragState.jobId + '/reschedule/', {
                 method: 'POST', credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
                 body: JSON.stringify({ scheduled_date: dateStr })
               }).then(function(r) {
                 if (r.ok) {
@@ -1422,7 +1422,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     fetch('/jobs/calendar/bulk-reschedule/', {
       method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
       body: JSON.stringify({ from_date: rainFromDate, to_date: toDate, job_ids: jobIds, skip_weekends: true })
     }).then(function(r) {
       if (!r.ok) throw new Error('Failed');
@@ -1914,7 +1914,7 @@ document.addEventListener('DOMContentLoaded', function () {
         fetch('/jobs/meetings/create/', {
           method: 'POST',
           credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
           body: JSON.stringify(payload)
         }).then(function(r) { return r.json().then(function(d) { return {ok:r.ok,data:d}; }); })
         .then(function(result) {
@@ -1941,7 +1941,7 @@ document.addEventListener('DOMContentLoaded', function () {
         fetch('/jobs/meetings/create/', {
           method: 'POST',
           credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
           body: JSON.stringify(payload)
         }).then(function(r) { return r.json().then(function(d) { return {ok:r.ok,data:d}; }); })
         .then(function(result) {
@@ -2000,7 +2000,7 @@ document.addEventListener('DOMContentLoaded', function () {
       fetch('/jobs/calendar/quick-create/', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
         body: JSON.stringify(payload)
       })
       .then(function(r) { return r.json().then(function(d) { return {ok:r.ok, data:d}; }); })
