@@ -204,12 +204,12 @@ def get_job_service_formset(business, extra=0):
             if any(self.errors):
                 return
             has_service = any(
-                f.cleaned_data.get("service")
+                f.cleaned_data.get("service") or (f.cleaned_data.get("service_name") or "").strip()
                 for f in self.forms
                 if f.cleaned_data
             )
             if not has_service:
-                raise forms.ValidationError("Add at least one service (type or select from the list).")
+                raise forms.ValidationError("Add at least one service.")
 
     class ServiceFormWithBusiness(JobServiceInlineForm):
         def __init__(self, *args, **kwargs):

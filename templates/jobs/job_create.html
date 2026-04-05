@@ -158,9 +158,16 @@
       </div>
     </div>
 
+    <!-- Total price override — set one price for the whole job -->
+    <div class="form-group" style="margin-top:16px;padding:12px 14px;background:var(--surface-highest,#1a1a1a);border:1px solid var(--border);border-radius:8px;">
+      <label for="id_total_price" style="font-size:12px;font-weight:600;">Total Price Override <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+      {{ form.total_price }}
+      <span class="form-help">Set one total price for the whole job. Leave blank to use the sum of line item prices above.</span>
+    </div>
+
     <div style="margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap;">
-      <button type="submit" class="btn btn-primary">Create Job</button>
-      <a href="/" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary" style="min-height:48px;font-size:15px;padding:12px 28px;">Create Job</button>
+      <a href="/" class="btn btn-secondary" style="min-height:48px;padding:12px 20px;">Cancel</a>
     </div>
   </form>
 </div>

@@ -2215,6 +2215,11 @@ def create_job(request):
             if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
                 return redirect(next_url)
             return redirect("job_detail", job_id=job.id)
+        else:
+            # Form had errors — show them
+            error_fields = list(form.errors.keys()) + list(formset.errors[0].keys() if formset.errors else [])
+            if error_fields:
+                messages.error(request, f"Please fix errors in: {', '.join(error_fields)}")
     else:
         from customers.models import Property
         initial = {}
