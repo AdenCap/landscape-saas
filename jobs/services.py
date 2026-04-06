@@ -51,11 +51,15 @@ def _add_service_items_to_job(job, service_snapshot):
 
 
 def generate_jobs(days_ahead=14):
-    today = _biz_today()
-    end_date = today + timedelta(days=days_ahead)
-    recurring_jobs = RecurringJob.objects.filter(active=True).select_related("property", "assigned_to", "assigned_crew")
+    recurring_jobs = RecurringJob.objects.filter(active=True).select_related(
+        "property", "property__customer", "property__customer__business",
+        "assigned_to", "assigned_crew",
+    )
 
     for rj in recurring_jobs:
+        biz = getattr(getattr(rj.property, 'customer', None), 'business', None) if rj.property else None
+        today = _biz_today(biz)
+        end_date = today + timedelta(days=days_ahead)
         current_date = rj.start_date
         while current_date <= end_date:
             if current_date >= today:

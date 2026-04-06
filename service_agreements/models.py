@@ -66,7 +66,8 @@ class ServiceAgreement(models.Model):
     @property
     def is_active(self):
         from accounts.timezone_utils import business_today
-        today = business_today()
+        biz = getattr(self.customer, 'business', None) if self.customer_id else None
+        today = business_today(biz)
         return self.status == "active" and self.start_date <= today and (not self.end_date or self.end_date >= today)
 
 
