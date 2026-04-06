@@ -2242,13 +2242,42 @@ body.is-dragging * {
   text-decoration: underline;
 }
 
-/* Mobile: bottom sheet */
+/* Mobile: full-screen scrollable modal that works with keyboard */
 @media (max-width: 768px) {
-  .quick-create-popover.qc-bottom-sheet {
+  .quick-create-popover {
+    /* Full-screen overlay instead of centered modal */
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    transform: none !important;
     width: 100% !important;
-    max-height: 85vh;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    display: flex !important;
+    flex-direction: column !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .quick-create-popover .qc-body {
+    flex: 1;
     overflow-y: auto;
-    border-radius: 20px 20px 0 0 !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 120px; /* Space for keyboard */
+  }
+
+  .quick-create-popover .qc-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-elevated, #1a1a1a);
+    border-top: 1px solid var(--border);
+    padding: 14px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+    z-index: 10;
   }
 
   .color-mode-toggle {
@@ -2263,15 +2292,11 @@ body.is-dragging * {
     text-align: center;
   }
 
-  .quick-create-popover {
-    width: calc(100vw - 24px) !important;
-    max-width: 100% !important;
-  }
-
   .qc-field input[type="text"],
   .qc-field input[type="time"],
+  .qc-field input[type="number"],
   .qc-field select {
-    font-size: 16px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
     min-height: 44px;
     padding: 12px 14px;
   }
@@ -2291,15 +2316,28 @@ body.is-dragging * {
   .qc-close {
     width: 44px;
     height: 44px;
+    font-size: 24px;
   }
 
   .qc-footer .btn {
-    min-height: 44px;
-    padding: 12px 20px;
+    min-height: 48px;
+    padding: 12px 24px;
+    font-size: 15px;
   }
 
-  .qc-footer {
-    padding: 14px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+  .qc-header {
+    padding: 16px 18px 8px;
+    position: sticky;
+    top: 0;
+    background: var(--bg-elevated, #1a1a1a);
+    z-index: 10;
+  }
+
+  /* Scroll focused input into view */
+  .qc-field input:focus,
+  .qc-field select:focus,
+  .qc-field textarea:focus {
+    scroll-margin-bottom: 200px;
   }
 }
 

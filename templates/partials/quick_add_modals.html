@@ -9,7 +9,7 @@
       <label>Name *</label>
       <input type="text" id="qa-client-name" placeholder="Client name" required>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div class="qa-row-grid">
       <div class="qa-field">
         <label>Email</label>
         <input type="email" id="qa-client-email" placeholder="email@example.com">
@@ -54,11 +54,28 @@
 <style>
   .qa-field { margin-bottom:12px; }
   .qa-field label { display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em; }
-  .qa-field input { width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg,#111);color:var(--text,#fff);font-size:14px;font-family:inherit; }
-  .qa-field input:focus { outline:none;border-color:var(--primary); }
+  .qa-field input, .qa-field select { width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg,#111);color:var(--text,#fff);font-size:14px;font-family:inherit;box-sizing:border-box; }
+  .qa-field input:focus, .qa-field select:focus { outline:none;border-color:var(--primary); }
+  .qa-row-grid { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
+  .qa-field input:focus { scroll-margin-bottom:200px; }
   @media (max-width:768px) {
-    .qa-field input { font-size:16px;min-height:44px; }
-    #quick-add-client-modal > div, #quick-add-property-modal > div { max-width:100%;width:calc(100vw - 24px); }
+    .qa-field input, .qa-field select { font-size:16px;min-height:44px; }
+    /* Full-screen scrollable on mobile so keyboard doesn't hide fields */
+    #quick-add-client-modal, #quick-add-property-modal {
+      align-items:flex-end !important;
+    }
+    #quick-add-client-modal > div, #quick-add-property-modal > div {
+      max-width:100% !important;
+      width:100% !important;
+      max-height:100vh;
+      max-height:100dvh;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+      border-radius:16px 16px 0 0 !important;
+      padding-bottom:calc(24px + env(safe-area-inset-bottom, 0px));
+    }
+    /* Email/phone stacked on mobile */
+    .qa-row-grid { grid-template-columns:1fr; }
   }
 </style>
 
