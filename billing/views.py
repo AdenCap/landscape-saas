@@ -412,8 +412,65 @@ def send_invoice(request, invoice_id):
 
         if charged:
             messages.success(request, f"Invoice #{invoice.id} sent and auto-charged to {customer.card_brand} ****{customer.card_last4}.")
+            return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+        # Send the invoice email
+        if invoice.customer.email:
+            from businesses.email_sender import send_business_email, is_email_configured
+            if is_email_configured(business):
+                invoice.recompute_totals()
+                pay_url = ""
+                if invoice.payment_token:
+                    pay_url = request.build_absolute_uri(
+                        reverse("billing:invoice_pay_page", args=[invoice.id, invoice.payment_token])
+                    )
+                logo_url = _get_logo_url(business, request)
+                doc_template = DocumentTemplate.get_default_for_business(business, "invoice")
+                accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
+                subject = _email_template_vars(
+                    (business.invoice_email_subject or "").strip(),
+                    invoice_id=invoice.id, customer_name=invoice.customer.name, business_name=business.name,
+                ) or f"Invoice #{invoice.id} from {business.name}"
+                intro = _email_template_vars(
+                    (business.invoice_email_intro or "").strip() or f"Hi {invoice.customer.name}, please find your invoice from {business.name} below.",
+                    invoice_id=invoice.id, customer_name=invoice.customer.name, business_name=business.name,
+                )
+                closing = _email_template_vars(
+                    (business.invoice_email_closing or "").strip() or "Thank you for your business.",
+                    customer_name=invoice.customer.name, business_name=business.name,
+                )
+                html_content = render_to_string("billing/invoice_email.html", {
+                    "invoice": invoice,
+                    "business": business,
+                    "pay_url": pay_url,
+                    "enable_card_payment": invoice.enable_card_payment,
+                    "logo_url": logo_url,
+                    "email_intro": intro,
+                    "email_closing": closing,
+                    "accent_color": accent_color,
+                    "template_style": doc_template.template_key if doc_template else "modern_dark",
+                    "header_text": doc_template.header_text if doc_template else "",
+                    "footer_text": doc_template.footer_text if doc_template else "",
+                    "terms_text": doc_template.terms_and_conditions if doc_template else "",
+                })
+                body_text = intro + f"\n\nInvoice #{invoice.id} · Total: ${invoice.total}\n\n"
+                if pay_url:
+                    body_text += f"{'Pay online' if invoice.enable_card_payment else 'View invoice'}: {pay_url}\n\n"
+                body_text += closing + "\n\n" + business.name
+                reply_to = [business.contact_email] if business.contact_email else None
+                ok, detail = send_business_email(
+                    business=business, to=invoice.customer.email,
+                    subject=subject, body_text=body_text, body_html=html_content,
+                    reply_to=reply_to,
+                )
+                if ok:
+                    messages.success(request, f"Invoice #{invoice.id} approved and emailed to {invoice.customer.email}.")
+                else:
+                    messages.warning(request, f"Invoice #{invoice.id} approved but email failed: {detail}")
+            else:
+                messages.success(request, f"Invoice #{invoice.id} approved. Email not configured — set up Gmail in Settings to send invoices by email.")
         else:
-            messages.success(request, "Invoice approved and sent. Customer can pay via the link below.")
+            messages.success(request, f"Invoice #{invoice.id} approved. Customer has no email — share the pay link below.")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
@@ -1337,14 +1394,14 @@ def _build_invoice_pdf(invoice, request):
         ty -= 18
 
     # Total Due / PAID -- accent background box
-    total_row_h = 28
+    total_row_h = 32
     p.setFillColorRGB(*accent)
-    p.rect(totals_x - 6, ty - 6, right - totals_x + 12, total_row_h, fill=True, stroke=False)
+    p.rect(totals_x - 6, ty - 8, right - totals_x + 12, total_row_h, fill=True, stroke=False)
     total_label = "PAID" if invoice.status == "paid" else "Total Due"
     p.setFillColorRGB(1, 1, 1)
     p.setFont(h_font, 10)
     p.drawString(totals_x + 4, ty + 4, total_label)
-    p.setFont(h_font, 14)
+    p.setFont(h_font, 13)
     p.drawRightString(right - 6, ty + 2, _fmt_currency(total_to_show))
 
     # ── PAID STAMP OVERLAY ───────────────────────────────────────────
