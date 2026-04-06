@@ -3886,34 +3886,35 @@ def mowing_bulk_schedule(request):
             # Generate recurring dates from start to season end
             interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(freq, 7)
 
-            # Step 1: Delete ALL "scheduled" jobs for this property in the date range.
-            # Use property_id directly to avoid any ORM join issues.
+            # Step 1: Delete ALL "scheduled" jobs for this property through the season.
+            # Includes jobs BEFORE the start date (stale scheduled jobs that should
+            # have been completed but weren't — e.g. jobs 1-4 when job 5 is completed).
+            year_begin = date(schedule_date.year, 1, 1)
             all_scheduled = Job.objects.filter(
                 property_id=prop.id,
-                scheduled_date__gte=schedule_date,
+                scheduled_date__gte=year_begin,
                 scheduled_date__lte=season_end,
                 status="scheduled",
             )
             sched_count = all_scheduled.count()
             logger.warning(
-                "MOWING BULK SCHEDULE: prop_id=%s, prop=%s, date_range=%s to %s, "
+                "MOWING BULK SCHEDULE: prop_id=%s, prop=%s, delete_range=%s to %s, "
                 "found %d scheduled jobs to delete, freq=%s, interval=%d",
-                prop.id, prop.address, schedule_date, season_end, sched_count, freq, interval
+                prop.id, prop.address, year_begin, season_end, sched_count, freq, interval
             )
             if sched_count > 0:
                 deleted += sched_count
-                # Get IDs, delete service items, then delete jobs
                 sched_ids = list(all_scheduled.values_list("id", flat=True))
                 JobServiceItem.objects.filter(job_id__in=sched_ids).delete()
                 del_count, _ = Job.objects.filter(id__in=sched_ids).delete()
                 logger.warning("MOWING BULK SCHEDULE: actually deleted %d jobs", del_count)
 
-            # Step 2: Find dates with completed/in_progress/skipped jobs so we don't
+            # Step 2: Find ALL completed/in_progress/skipped jobs this year so we don't
             # create new jobs on those dates, and pick up scheduling after the last one.
             done_dates = list(
                 Job.objects.filter(
-                    property=prop,
-                    scheduled_date__gte=schedule_date,
+                    property_id=prop.id,
+                    scheduled_date__gte=year_begin,
                     scheduled_date__lte=season_end,
                     status__in=["completed", "in_progress", "skipped"],
                 ).values_list("scheduled_date", flat=True)
