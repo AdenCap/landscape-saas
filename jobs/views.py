@@ -3807,17 +3807,22 @@ def mowing_bulk_schedule(request):
     ).select_related("customer")
 
     # Get frequency per property from their mowing RecurringJob
-    # Filter to only mowing-related jobs (service_snapshot contains mowing service)
+    # Match broadly: service_snapshot contains ANY mowing service, or notes/no-snapshot fallback
+    all_mowing_svc_ids = set(ServiceTemplate.objects.filter(
+        business=business, active=True, name__icontains="mow"
+    ).values_list("id", flat=True))
+
     prop_frequencies = {}
     prop_crews = {}
     for rj in RecurringJob.objects.filter(property_id__in=property_ids, active=True).select_related('assigned_crew', 'assigned_to'):
         is_mowing = False
-        if mowing_svc and rj.service_snapshot:
+        if rj.service_snapshot:
             for snap in rj.service_snapshot:
-                if str(snap.get("service_id")) == str(mowing_svc.id):
+                sid = snap.get("service_id")
+                if sid and int(sid) in all_mowing_svc_ids:
                     is_mowing = True
                     break
-        if not rj.service_snapshot:
+        if not is_mowing and not rj.service_snapshot:
             is_mowing = True  # Legacy: no snapshot, assume mowing
         if is_mowing:
             prop_frequencies[rj.property_id] = rj.frequency
@@ -3829,8 +3834,29 @@ def mowing_bulk_schedule(request):
     created = 0
     deleted = 0
     for prop in properties:
-        freq = prop_frequencies.get(prop.id, "weekly")
+        freq = prop_frequencies.get(prop.id)
         rj = prop_crews.get(prop.id)
+        if not freq:
+            # No mowing RecurringJob found — check if there's ANY RecurringJob for this property
+            any_rj = RecurringJob.objects.filter(property_id=prop.id, active=True).first()
+            if any_rj:
+                freq = any_rj.frequency
+                rj = any_rj
+                logger.warning(
+                    "MOWING SCHEDULE: prop_id=%s fell through mowing filter, using RecurringJob %s freq=%s",
+                    prop.id, any_rj.id, any_rj.frequency,
+                )
+            else:
+                freq = "weekly"
+                logger.warning(
+                    "MOWING SCHEDULE: prop_id=%s has NO RecurringJob at all, defaulting to weekly",
+                    prop.id,
+                )
+        logger.warning(
+            "MOWING SCHEDULE: prop_id=%s (%s) → freq=%s, interval=%d days",
+            prop.id, prop.address, freq,
+            {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(freq, 7),
+        )
 
         # Get price: prefer PropertyServiceRate override, then RecurringJob snapshot, then service default
         job_unit = "visit"
