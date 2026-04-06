@@ -3147,14 +3147,12 @@ def mowing_hub(request):
         })
 
     for key, data in customer_map.items():
-        # Get this week's jobs by property ID (not customer ID)
+        # Get this week's jobs by property ID only — no customer-level fallback
+        # (fallback would mix jobs from different properties for the same client)
         prop_ids = [p.id for p in data["properties"]]
         this_week = []
         for pid in prop_ids:
             this_week.extend(week_schedule.get(pid, []))
-        if not this_week:
-            # Fallback: check customer-level schedule
-            this_week = week_schedule_by_customer.get(data["customer"].id, [])
         data["this_week_jobs"] = this_week
         data["next_job_date"] = this_week[0].scheduled_date if this_week else None
         data["has_email"] = bool(data["customer"].email)
