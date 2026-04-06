@@ -556,6 +556,14 @@ window.addEventListener('quickClientCreated', function(e) {
   var data = e.detail;
   var sel = document.getElementById('id_customer');
   if (sel && data.customer) {
+    // Add the new customer + properties to the JS data so the property dropdown works
+    if (typeof customersWithProperties !== 'undefined') {
+      customersWithProperties.push({
+        id: data.customer.id,
+        name: data.customer.name,
+        properties: data.properties || []
+      });
+    }
     var opt = document.createElement('option');
     opt.value = data.customer.id;
     opt.textContent = data.customer.name;
