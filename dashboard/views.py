@@ -488,8 +488,9 @@ def reliability_center(request):
 
 @role_required("owner", "manager")
 def owner_dashboard(request):
-    today = timezone.localdate()
     business = get_business(request)
+    from accounts.timezone_utils import business_today
+    today = business_today(business)
     if not business:
         if request.user.is_superuser:
             return redirect("platform_home")

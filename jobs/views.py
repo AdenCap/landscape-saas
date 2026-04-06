@@ -24,14 +24,8 @@ from accounts.models import User
 
 def _business_today(business):
     """Get today's date in the business's timezone (not server UTC)."""
-    if business and hasattr(business, 'timezone') and business.timezone:
-        try:
-            import zoneinfo
-            biz_tz = zoneinfo.ZoneInfo(business.timezone)
-            return datetime.now(biz_tz).date()
-        except Exception:
-            pass
-    return timezone.localdate()
+    from accounts.timezone_utils import business_today
+    return business_today(business)
 
 
 CREW_COLORS = [
@@ -1375,7 +1369,7 @@ def apply_route_to_calendar(request):
 @role_required("owner", "manager", "crew")
 def crew_quick_view(request):
     """Three-tap optimized crew workflow screen."""
-    today = timezone.now().date()
+    today = _business_today(get_business(request))
     jobs = Job.objects.filter(scheduled_date=today).select_related("property", "assigned_to", "assigned_crew")
 
     if request.user.role == "crew":
@@ -3606,7 +3600,7 @@ def mowing_update_frequency(request):
         from pricing.models import ServiceTemplate
         from pricing.utils import get_effective_rate
 
-        today = timezone.now().date()
+        today = _business_today(business)
         prop = rj.property
 
         # Find the mowing service

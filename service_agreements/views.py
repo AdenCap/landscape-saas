@@ -300,7 +300,8 @@ def maintenance_hub(request):
     if not business:
         return redirect("/")
 
-    today = date.today()
+    from accounts.timezone_utils import business_today
+    today = business_today(business)
 
     # Get all active agreements with line items
     agreements = ServiceAgreement.objects.filter(

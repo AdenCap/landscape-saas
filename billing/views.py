@@ -173,7 +173,8 @@ def outstanding_invoices(request):
     if not business:
         messages.error(request, "You must be associated with a business.")
         return redirect("/")
-    today = timezone.localdate()
+    from accounts.timezone_utils import business_today
+    today = business_today(business)
     from datetime import timedelta
     day_30 = today - timedelta(days=30)
     day_60 = today - timedelta(days=60)

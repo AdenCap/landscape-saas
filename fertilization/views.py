@@ -295,8 +295,9 @@ def hub(request):
     products = FertilizerProduct.objects.filter(business=business).order_by('name')
 
     # Customers tab data — organized BY PROGRAM
-    current_year = date.today().year
-    today = date.today()
+    from accounts.timezone_utils import business_today
+    today = business_today(business)
+    current_year = today.year
     current_month = today.month
 
     # --- Auto-fix orphaned rounds ---
