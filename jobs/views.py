@@ -472,12 +472,13 @@ def calendar_events(request):
         # Use actual started_at/completed_at for accurate calendar display
         if job.scheduled_time:
             dt = datetime.combine(job.scheduled_date, job.scheduled_time)
-            # If job was actually started, use started_at as the real start
-            if job.started_at:
+            # Only use started_at for completed/in_progress jobs — NOT scheduled ones
+            # (a rescheduled job must show at its new scheduled_date, not old started_at)
+            if job.started_at and job.status in ("completed", "in_progress"):
                 dt = datetime.combine(job.started_at.date(), job.started_at.time())
             start_str = dt.strftime("%Y-%m-%dT%H:%M:%S")
             # End time: completed > scheduled_end_time > default 1 hour
-            if job.completed_at and job.started_at:
+            if job.completed_at and job.started_at and job.status == "completed":
                 end_str = datetime.combine(job.completed_at.date(), job.completed_at.time()).strftime("%Y-%m-%dT%H:%M:%S")
             elif job.scheduled_end_time:
                 end_str = datetime.combine(job.scheduled_date, job.scheduled_end_time).strftime("%Y-%m-%dT%H:%M:%S")
@@ -825,6 +826,12 @@ def calendar_job_reschedule(request, job_id):
         # Only update time if one was provided — don't clear existing time on date-only drags
         if time_obj is not None:
             job.scheduled_time = time_obj
+
+        # Clear started_at/completed_at if the job is being rescheduled while in "scheduled" status
+        # This prevents the calendar from showing the event at the old started_at position
+        if job.status == "scheduled":
+            job.started_at = None
+            job.completed_at = None
 
         # Parse end time if provided (from resize or drag)
         new_end = data.get("scheduled_end")
