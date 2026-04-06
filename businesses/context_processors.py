@@ -97,4 +97,8 @@ def navigation(request):
     flags["show_checklists"] = "checklists" in modules
     flags["show_growing_season"] = "growing_season" in modules
 
+    # Google Maps API key — available on every page for Places Autocomplete
+    from django.conf import settings as _settings
+    flags["google_maps_api_key"] = getattr(_settings, "GOOGLE_MAPS_API_KEY", "")
+
     return flags

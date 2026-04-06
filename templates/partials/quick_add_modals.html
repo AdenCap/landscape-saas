@@ -21,7 +21,7 @@
     </div>
     <div class="qa-field">
       <label>Address</label>
-      <input type="text" id="qa-client-address" placeholder="123 Main St, City, ST 12345">
+      <input type="text" id="qa-client-address" placeholder="Start typing an address..." autocomplete="off">
     </div>
     <div style="display:flex;gap:8px;margin-top:16px;">
       <button type="button" id="qa-client-save" class="btn btn-primary" style="flex:1;">Add Client</button>
@@ -41,7 +41,7 @@
     <input type="hidden" id="qa-prop-customer-id">
     <div class="qa-field">
       <label>Property Address *</label>
-      <input type="text" id="qa-prop-address" placeholder="456 Oak Dr, City, ST 12345">
+      <input type="text" id="qa-prop-address" placeholder="Start typing an address..." autocomplete="off">
     </div>
     <div style="display:flex;gap:8px;margin-top:16px;">
       <button type="button" id="qa-prop-save" class="btn btn-primary" style="flex:1;">Add Property</button>
@@ -171,3 +171,76 @@
   };
 })();
 </script>
+
+{% if google_maps_api_key %}
+<script>
+function initQuickAddAutocomplete() {
+  var opts = { types: ['address'], componentRestrictions: { country: 'us' } };
+
+  // Client address autocomplete
+  var clientAddr = document.getElementById('qa-client-address');
+  if (clientAddr && google.maps.places) {
+    var ac1 = new google.maps.places.Autocomplete(clientAddr, opts);
+    ac1.addListener('place_changed', function() {
+      var place = ac1.getPlace();
+      if (place && place.formatted_address) {
+        clientAddr.value = place.formatted_address;
+      }
+    });
+    // Prevent form submit on Enter when autocomplete dropdown is open
+    clientAddr.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        var pac = document.querySelector('.pac-container');
+        if (pac && pac.style.display !== 'none') e.preventDefault();
+      }
+    });
+  }
+
+  // Property address autocomplete
+  var propAddr = document.getElementById('qa-prop-address');
+  if (propAddr && google.maps.places) {
+    var ac2 = new google.maps.places.Autocomplete(propAddr, opts);
+    ac2.addListener('place_changed', function() {
+      var place = ac2.getPlace();
+      if (place && place.formatted_address) {
+        propAddr.value = place.formatted_address;
+      }
+    });
+    propAddr.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        var pac = document.querySelector('.pac-container');
+        if (pac && pac.style.display !== 'none') e.preventDefault();
+      }
+    });
+  }
+}
+
+// Load Google Maps Places if not already loaded
+if (typeof google !== 'undefined' && google.maps && google.maps.places) {
+  initQuickAddAutocomplete();
+} else {
+  // Check if script is already loading (from another page)
+  var existing = document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]');
+  if (!existing) {
+    var s = document.createElement('script');
+    s.src = 'https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initQuickAddAutocomplete';
+    s.async = true;
+    s.defer = true;
+    document.body.appendChild(s);
+  } else {
+    // Script already loading from another template — wait for it
+    var checkInterval = setInterval(function() {
+      if (typeof google !== 'undefined' && google.maps && google.maps.places) {
+        clearInterval(checkInterval);
+        initQuickAddAutocomplete();
+      }
+    }, 200);
+    setTimeout(function() { clearInterval(checkInterval); }, 10000); // Safety timeout
+  }
+}
+</script>
+<style>
+  /* Ensure Google Places dropdown shows above modals */
+  .pac-container { z-index: 10001 !important; }
+</style>
+{% endif %}
