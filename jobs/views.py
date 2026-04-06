@@ -3073,11 +3073,14 @@ def mowing_hub(request):
         }
 
     # Also find customers with mowing jobs this week (even without recurring setup)
+    # Match broadly: mowing service items OR "[Mowing]" in notes
     this_week_jobs = Job.objects.filter(
         property__customer__business=business,
         scheduled_date__gte=week_start,
         scheduled_date__lte=week_end,
-        service_items__service__in=mowing_services,
+    ).filter(
+        Q(service_items__service__in=mowing_services) |
+        Q(notes__icontains="[Mowing]")
     ).select_related("property__customer", "assigned_crew", "assigned_to").distinct()
 
     # Build week schedule keyed by property_id (not customer_id)
@@ -3140,18 +3143,25 @@ def mowing_hub(request):
                 prop_avg_durations[row['property_id']] = int(dur.total_seconds() / 60)
 
     # Query mowing job history for the current year per property (for progress tracker)
+    # Match broadly: mowing service items OR "[Mowing]" in notes (same as how jobs are created)
     from decimal import Decimal
     year_start_date = today.replace(month=1, day=1)
     mow_jobs_this_year = Job.objects.filter(
         property_id__in=all_prop_ids,
         scheduled_date__gte=year_start_date,
-        service_items__service__in=mowing_services,
+    ).filter(
+        Q(service_items__service__in=mowing_services) |
+        Q(notes__icontains="[Mowing]")
     ).select_related("property").prefetch_related("service_items").order_by("scheduled_date").distinct()
 
-    # Build per-property mow history: [{status, date, revenue}, ...]
+    # Deduplicate — the Q with OR + JOIN can produce duplicate job rows
+    seen_job_ids = set()
     prop_mow_history = {}
     prop_earned_revenue = {}  # per-property earned revenue (completed mowing jobs)
     for job in mow_jobs_this_year:
+        if job.id in seen_job_ids:
+            continue
+        seen_job_ids.add(job.id)
         pid = job.property_id
         if pid not in prop_mow_history:
             prop_mow_history[pid] = []
