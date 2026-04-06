@@ -548,12 +548,10 @@ function addPropertyNote() {
             <span class="badge badge-{{ job.status|cut:'_' }}" style="font-size:10px;">{{ job.status }}</span>
           </td>
           <td style="width:30px;">
-            {% if job.status == "scheduled" %}
-            <form method="post" action="{% url 'job_delete' job.id %}" style="display:inline;" onsubmit="return confirm('Delete this job? This cannot be undone.');">
+            <form method="post" action="{% url 'job_delete' job.id %}" style="display:inline;" onsubmit="return confirm('Delete this {{ job.status }} job from {{ job.scheduled_date|date:\'M j\' }}? This cannot be undone.');">
               {% csrf_token %}
               <button type="submit" style="background:none;border:none;cursor:pointer;padding:0;" title="Delete job"><span class="material-symbols-outlined" style="font-size:16px;color:#f87171;">delete</span></button>
             </form>
-            {% endif %}
           </td>
         </tr>
         {% empty %}
