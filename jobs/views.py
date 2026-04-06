@@ -3624,9 +3624,27 @@ def mowing_remove_client(request):
         return redirect("mowing_hub")
     rj = get_object_or_404(RecurringJob, id=recurring_id, property__customer__business=business)
     customer_name = rj.property.customer.name
+    prop = rj.property
+
+    # Deactivate recurring job
     rj.active = False
     rj.save(update_fields=["active"])
-    messages.success(request, f"Removed {customer_name} from mowing. Client remains in your CRM.")
+
+    # Delete all future scheduled jobs for this property (keep completed/skipped)
+    today = _business_today(business)
+    future_scheduled = Job.objects.filter(
+        property_id=prop.id,
+        scheduled_date__gte=today,
+        status="scheduled",
+    )
+    del_count = future_scheduled.count()
+    if del_count:
+        sched_ids = list(future_scheduled.values_list("id", flat=True))
+        JobServiceItem.objects.filter(job_id__in=sched_ids).delete()
+        Job.objects.filter(id__in=sched_ids).delete()
+
+    del_msg = f" Removed {del_count} scheduled job{'s' if del_count != 1 else ''} from the calendar." if del_count else ""
+    messages.success(request, f"Removed {customer_name} from mowing. Client remains in your CRM.{del_msg}")
     return redirect("mowing_hub")
 
 
