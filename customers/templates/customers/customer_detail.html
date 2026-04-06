@@ -16,7 +16,7 @@
       </span>
       {% endif %}
       {% if active_agreements %}
-      <a href="{% url 'service_agreements:maintenance_hub' %}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(59,130,246,0.12);color:#60a5fa;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">
+      <a href="{% url 'service_agreements:hub' %}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(59,130,246,0.12);color:#60a5fa;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">
         <span class="material-symbols-outlined" style="font-size:14px;">build</span> Maintenance · {{ active_agreements|length }} contract{{ active_agreements|length|pluralize }}
       </a>
       {% endif %}
