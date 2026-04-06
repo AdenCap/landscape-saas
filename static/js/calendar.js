@@ -207,9 +207,11 @@ document.addEventListener('DOMContentLoaded', function () {
       var crew = document.getElementById('filter-crews');
       var emp = document.getElementById('filter-employees');
       var searchEl = document.getElementById('calendar-search');
+      var payFilter = document.getElementById('filter-payment');
       if (svc && svc.value) params.push('services=' + encodeURIComponent(svc.value));
       if (crew && crew.value) params.push('crews=' + encodeURIComponent(crew.value));
       if (emp && emp.value) params.push('employees=' + encodeURIComponent(emp.value));
+      if (payFilter && payFilter.value) params.push('payment=' + encodeURIComponent(payFilter.value));
       if (searchEl && searchEl.value.trim()) params.push('search=' + encodeURIComponent(searchEl.value.trim()));
       var qs = '?' + params.join('&');
       fetch('/jobs/calendar/events/' + qs, { signal: window._calFetchCtrl.signal })
@@ -385,7 +387,10 @@ document.addEventListener('DOMContentLoaded', function () {
       // Apply color mode directly on mount (avoids expensive setProp calls)
       if (p.type !== 'meeting') {
         var color;
-        if (colorMode === 'assignee') {
+        if (colorMode === 'payment') {
+          // Payment mode: show paid/invoiced/draft/not_invoiced
+          color = p.paymentColor || '#6b7280';
+        } else if (colorMode === 'assignee') {
           // Crew/employee mode: use custom override > assignee color > fallback
           color = p.jobColorOverride || p.assigneeColor || p.crewColor || '#94a3b8';
         } else {
@@ -415,6 +420,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (p.status) parts.push('Status: ' + p.status);
         if (p.recurring && p.frequency) parts.push('Recurring: ' + p.frequency);
         if (p.duration) parts.push('Duration: ' + p.duration);
+        if (p.paymentStatus) {
+          var payLabels = { paid: 'Paid', invoiced: 'Invoice Sent', draft: 'Invoice Draft', not_invoiced: 'Not Invoiced' };
+          parts.push('Payment: ' + (payLabels[p.paymentStatus] || p.paymentStatus));
+        }
         info.el.title = parts.join('\n');
       }
     },
@@ -586,7 +595,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // Auto-apply filters on change & highlight active selections
-  ['filter-crews', 'filter-employees', 'filter-services'].forEach(function(id) {
+  ['filter-crews', 'filter-employees', 'filter-services', 'filter-payment'].forEach(function(id) {
     var sel = document.getElementById(id);
     if (sel) {
       sel.addEventListener('change', function() {
@@ -2078,8 +2087,10 @@ document.addEventListener('DOMContentLoaded', function () {
   function updateLegend() {
     var statusLegend = document.getElementById('cal-legend-status');
     var crewLegend = document.getElementById('cal-legend-crew');
+    var paymentLegend = document.getElementById('cal-legend-payment');
     if (statusLegend) statusLegend.style.display = colorMode === 'status' ? 'flex' : 'none';
     if (crewLegend) crewLegend.style.display = colorMode === 'assignee' ? 'flex' : 'none';
+    if (paymentLegend) paymentLegend.style.display = colorMode === 'payment' ? 'flex' : 'none';
   }
   updateLegend();
 

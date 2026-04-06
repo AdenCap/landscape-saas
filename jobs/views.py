@@ -450,11 +450,72 @@ def calendar_events(request):
             | Q(service_items__service__name__icontains=search)
         ).distinct()
 
+    # Payment status filter
+    payment_filter = request.GET.get("payment", "").strip()
+
     crew_colors = {c.id: (c.color or CREW_COLORS[i % len(CREW_COLORS)]) for i, c in enumerate(Crew.objects.filter(business=business).order_by("name"))} if business else {}
     user_colors = _build_user_colors(business) if business else {}
 
+    # Batch-load payment status for all jobs to avoid N+1 queries
+    # job_id → payment_status: "paid", "invoiced" (sent), "draft", "not_invoiced"
+    from billing.models import Invoice
+    job_list = list(jobs)
+    job_ids = [j.id for j in job_list]
+    job_payment = {}
+    if job_ids:
+        # Check via Invoice.job (OneToOne) and Invoice.jobs (M2M)
+        # OneToOne: Invoice.job_id → invoice status
+        oto_invoices = Invoice.objects.filter(job_id__in=job_ids).values_list("job_id", "status")
+        for jid, inv_status in oto_invoices:
+            if inv_status == "paid":
+                job_payment[jid] = "paid"
+            elif inv_status == "sent":
+                job_payment[jid] = "invoiced"
+            elif inv_status == "draft":
+                job_payment.setdefault(jid, "draft")
+        # M2M: Invoice.jobs
+        m2m_invoices = Invoice.objects.filter(jobs__id__in=job_ids).values_list("jobs__id", "status")
+        for jid, inv_status in m2m_invoices:
+            if inv_status == "paid":
+                job_payment[jid] = "paid"
+            elif inv_status == "sent":
+                job_payment.setdefault(jid, "invoiced")
+            elif inv_status == "draft":
+                job_payment.setdefault(jid, "draft")
+        # Also check via JobServiceItem.billed_invoice
+        billed_items = JobServiceItem.objects.filter(
+            job_id__in=job_ids, billed_invoice__isnull=False
+        ).select_related("billed_invoice").values_list("job_id", "billed_invoice__status")
+        for jid, inv_status in billed_items:
+            if inv_status == "paid":
+                job_payment[jid] = "paid"
+            elif inv_status == "sent":
+                job_payment.setdefault(jid, "invoiced")
+            elif inv_status == "draft":
+                job_payment.setdefault(jid, "draft")
+
+    PAYMENT_COLORS = {
+        "paid": "#10b981",       # Green — money received
+        "invoiced": "#3b82f6",   # Blue — invoice sent, awaiting payment
+        "draft": "#f59e0b",      # Amber — invoice drafted but not sent
+        "not_invoiced": "#6b7280",  # Gray — no invoice created
+    }
+
     events = []
-    for job in jobs:
+    for job in job_list:
+        # Determine payment status
+        pay_status = job_payment.get(job.id, "not_invoiced")
+        # Apply payment filter
+        if payment_filter and payment_filter != "all":
+            if payment_filter == "paid" and pay_status != "paid":
+                continue
+            elif payment_filter == "unpaid" and pay_status == "paid":
+                continue
+            elif payment_filter == "invoiced" and pay_status not in ("invoiced", "draft"):
+                continue
+            elif payment_filter == "not_invoiced" and pay_status != "not_invoiced":
+                continue
+
         base_color = _color_for_assignee(job, crew_colors, user_colors)
         crew_dot_color = _crew_color_for_job(job, crew_colors, user_colors)
         is_completed = job.status == 'completed'
@@ -524,6 +585,8 @@ def calendar_events(request):
                     "startedAt": job.started_at.isoformat() if job.started_at else None,
                     "completedAt": job.completed_at.isoformat() if job.completed_at else None,
                     "duration": job.duration_display,
+                    "paymentStatus": pay_status,
+                    "paymentColor": PAYMENT_COLORS.get(pay_status, '#6b7280'),
                 },
             }
         else:
@@ -554,6 +617,8 @@ def calendar_events(request):
                     "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
                     "duration": job.duration_display,
                     "noTimeSet": True,
+                    "paymentStatus": pay_status,
+                    "paymentColor": PAYMENT_COLORS.get(pay_status, '#6b7280'),
                 },
             }
         events.append(evt)

@@ -125,6 +125,13 @@
       {% endfor %}
       <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#94a3b8;"></span>Unassigned</span>
     </div>
+    <!-- Legend (payment status — hidden by default) -->
+    <div class="cal-legend" id="cal-legend-payment" style="display:none;">
+      <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#10b981;"></span>Paid</span>
+      <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#3b82f6;"></span>Invoice Sent</span>
+      <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#f59e0b;"></span>Draft</span>
+      <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#6b7280;"></span>Not Invoiced</span>
+    </div>
   </div>
   <div class="cal-header-right">
     <div class="cal-color-toggle" id="cal-color-toggle">
@@ -133,6 +140,9 @@
       </button>
       <button type="button" class="cal-color-btn" data-mode="assignee" title="Color by crew/employee">
         <span class="material-symbols-outlined" style="font-size:18px;">group</span>
+      </button>
+      <button type="button" class="cal-color-btn" data-mode="payment" title="Color by payment status">
+        <span class="material-symbols-outlined" style="font-size:18px;">payments</span>
       </button>
     </div>
     <button type="button" id="calendar-today-btn" class="cal-header-icon" title="Go to today" style="font-size:12px;font-weight:700;width:auto;padding:0 8px;">
@@ -164,6 +174,13 @@
   <select id="filter-services" style="padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);">
     <option value="">All Services</option>
     {% for s in filter_services %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+  </select>
+  <select id="filter-payment" style="padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);">
+    <option value="">All Payment</option>
+    <option value="paid">Paid</option>
+    <option value="unpaid">Unpaid</option>
+    <option value="invoiced">Invoice Sent</option>
+    <option value="not_invoiced">Not Invoiced</option>
   </select>
   <span style="width:1px;height:20px;background:var(--border);"></span>
   <input type="text" id="calendar-search" placeholder="Search..." style="padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);width:140px;">
@@ -555,5 +572,5 @@ document.getElementById('cal-mobile-fab').addEventListener('click', function() {
   var QC_CREWS = [{% for c in filter_crews %}{id:{{ c.id }},name:"{{ c.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
   var QC_EMPLOYEES = [{% for e in filter_employees %}{id:{{ e.id }},name:"{{ e.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
 </script>
-<script src="{% static 'js/calendar.js' %}?v=23"></script>
+<script src="{% static 'js/calendar.js' %}?v=24"></script>
 {% endblock %}
