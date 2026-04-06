@@ -2244,8 +2244,9 @@ body.is-dragging * {
 
 /* Mobile: full-screen scrollable modal that works with keyboard */
 @media (max-width: 768px) {
-  .quick-create-popover {
-    /* Full-screen overlay instead of centered modal */
+  /* Only apply full-screen layout when the popover is OPEN (display:flex set by JS) */
+  .quick-create-popover[style*="display: flex"],
+  .quick-create-popover[style*="display:flex"] {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -2259,7 +2260,6 @@ body.is-dragging * {
     border-radius: 0 !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
-    display: flex !important;
     flex-direction: column !important;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
