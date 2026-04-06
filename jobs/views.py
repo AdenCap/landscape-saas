@@ -1164,6 +1164,8 @@ def daily_route_view(request):
         jobs = Job.objects.filter(scheduled_date=_business_today(business))
     if business:
         jobs = jobs.filter(property__customer__business=business)
+    # Only show active jobs in route — exclude completed/skipped/cancelled
+    jobs = jobs.filter(status__in=["scheduled", "en_route", "in_progress"]).distinct()
 
     # Filters: crew, employee, service type
     crew_filter = request.GET.get('crew', '').strip()
