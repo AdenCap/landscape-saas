@@ -226,7 +226,7 @@
 
       // Use shop address as start/end if configured, otherwise first/last stop
       var origin, destination, waypoints = [];
-      console.log('[Route Optimizer] Shop address:', shopAddr || '(not set)');
+      console.log('[Route Optimizer] Shop address:', shopAddr || '(not set)', '| Stops:', stops.length);
       if (shopAddr) {
         // Round trip: shop → all stops (optimized) → shop
         origin = shopAddr;
@@ -234,12 +234,19 @@
         for (var i = 0; i < stops.length; i++) {
           waypoints.push({ location: stops[i].location, stopover: true });
         }
+        console.log('[Route Optimizer] Round trip mode: shop → ' + stops.length + ' waypoints → shop');
       } else {
         origin = stops[0].location;
         destination = stops[stops.length - 1].location;
         for (var i = 1; i < stops.length - 1; i++) {
           waypoints.push({ location: stops[i].location, stopover: true });
         }
+        console.log('[Route Optimizer] Linear mode: first stop → ' + waypoints.length + ' waypoints → last stop');
+      }
+
+      // Google limits optimizeWaypoints to 25 waypoints
+      if (waypoints.length > 25) {
+        showToast('Warning: Google only optimizes first 25 stops. You have ' + waypoints.length + '.', 'warning');
       }
 
       optimizeBtn.disabled = true;
@@ -267,6 +274,7 @@
 
         // Rebuild order based on optimized waypoint order
         var waypointOrder = result.routes[0].waypoint_order;
+        console.log('[Route Optimizer] Optimized order:', waypointOrder, '| Original stops:', stops.length);
         if (shopAddr) {
           // All stops are waypoints — reorder all by optimized order
           waypointOrder.forEach(function(idx) {
