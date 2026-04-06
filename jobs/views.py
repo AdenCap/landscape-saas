@@ -3008,8 +3008,9 @@ def mowing_hub(request):
         return redirect("/")
 
     today = _business_today(business)
-    week_start = today - timedelta(days=today.weekday())  # Monday
-    week_end = week_start + timedelta(days=6)
+    # Week starts on Sunday (isoweekday: Sun=7, so offset = weekday+1 mod 7)
+    week_start = today - timedelta(days=(today.weekday() + 1) % 7)  # Sunday
+    week_end = week_start + timedelta(days=6)  # Saturday
 
     # Find mowing-related services (name contains "mow" case-insensitive)
     from pricing.models import ServiceTemplate
