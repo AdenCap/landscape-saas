@@ -3012,7 +3012,7 @@ def mowing_hub(request):
     if not business:
         return redirect("/")
 
-    today = timezone.localdate()
+    today = _business_today(business)
     week_start = today - timedelta(days=today.weekday())  # Monday
     week_end = week_start + timedelta(days=6)
 
