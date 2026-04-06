@@ -336,43 +336,55 @@
     applyCalBtn.addEventListener('click', function() {
       var items = list.querySelectorAll('li[data-id]');
       if (items.length === 0) return;
-      var jobIds = [];
-      items.forEach(function(item) { if (item.dataset.id) jobIds.push(parseInt(item.dataset.id)); });
+      document.getElementById('apply-cal-modal').style.display = 'flex';
+    });
+  }
 
-      var startTime = prompt('Start time for first job? (e.g. 8:00)', '08:00');
-      if (!startTime) return;
-      var travelMin = prompt('Travel time between stops (minutes)?', '15');
-      if (travelMin === null) travelMin = '15';
-      var applyFuture = confirm('Apply these times to ALL future recurring jobs for these clients?\n\nYes = same schedule every week\nNo = just today');
+  // Apply Calendar modal actions
+  var applyModal = document.getElementById('apply-cal-modal');
+  if (applyModal) {
+    applyModal.addEventListener('click', function(e) { if (e.target === applyModal) applyModal.style.display = 'none'; });
+    document.getElementById('acm-cancel').addEventListener('click', function() { applyModal.style.display = 'none'; });
 
-      applyCalBtn.disabled = true;
-      applyCalBtn.textContent = 'Applying\u2026';
+    document.getElementById('acm-today').addEventListener('click', function() { submitApplyRoute(false); });
+    document.getElementById('acm-future').addEventListener('click', function() { submitApplyRoute(true); });
+  }
 
-      fetch('{% url "apply_route_to_calendar" %}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-        body: JSON.stringify({
-          job_ids: jobIds,
-          start_time: startTime,
-          travel_minutes_between: parseInt(travelMin) || 15,
-          apply_to_future: applyFuture
-        })
-      }).then(function(r) { return r.json(); })
-      .then(function(data) {
-        applyCalBtn.disabled = false;
-        applyCalBtn.textContent = 'Apply to Calendar';
-        if (data.status === 'ok') {
-          var msg = 'Calendar updated \u2014 ' + data.updated + ' jobs rescheduled';
-          if (data.future_updated > 0) msg += ' + ' + data.future_updated + ' future jobs updated';
-          showToast(msg);
-        } else {
-          showToast(data.error || 'Failed', 'error');
-        }
-      }).catch(function() {
-        applyCalBtn.disabled = false;
-        applyCalBtn.textContent = 'Apply to Calendar';
-        showToast('Network error', 'error');
-      });
+  function submitApplyRoute(applyFuture) {
+    var items = list.querySelectorAll('li[data-id]');
+    var jobIds = [];
+    items.forEach(function(item) { if (item.dataset.id) jobIds.push(parseInt(item.dataset.id)); });
+    var startTime = document.getElementById('acm-start-time').value || '08:00';
+    var travelMin = document.getElementById('acm-travel-min').value || '15';
+
+    document.getElementById('apply-cal-modal').style.display = 'none';
+    applyCalBtn.disabled = true;
+    applyCalBtn.textContent = 'Applying\u2026';
+
+    fetch('{% url "apply_route_to_calendar" %}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify({
+        job_ids: jobIds,
+        start_time: startTime,
+        travel_minutes_between: parseInt(travelMin) || 15,
+        apply_to_future: applyFuture
+      })
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+      applyCalBtn.disabled = false;
+      applyCalBtn.textContent = 'Apply to Calendar';
+      if (data.status === 'ok') {
+        var msg = 'Calendar updated \u2014 ' + data.updated + ' jobs rescheduled';
+        if (data.future_updated > 0) msg += ' + ' + data.future_updated + ' future jobs updated';
+        showToast(msg);
+      } else {
+        showToast(data.error || 'Failed', 'error');
+      }
+    }).catch(function() {
+      applyCalBtn.disabled = false;
+      applyCalBtn.textContent = 'Apply to Calendar';
+      showToast('Network error', 'error');
     });
   }
 })();
@@ -437,4 +449,38 @@
     .route-map { height: 280px; }
   }
 </style>
+
+<!-- Apply to Calendar Modal -->
+<div id="apply-cal-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+  <div style="background:var(--surface,#1a1a1a);border:1px solid var(--border,#333);border-radius:12px;padding:24px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-size:16px;font-weight:700;">Apply Route to Calendar</h3>
+      <button type="button" id="acm-cancel" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;">&times;</button>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;">Start time</label>
+      <input type="time" id="acm-start-time" value="08:00" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg,#111);color:var(--text,#fff);font-size:14px;">
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;">Travel time between stops</label>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="number" id="acm-travel-min" value="15" min="0" max="120" style="width:80px;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg,#111);color:var(--text,#fff);font-size:14px;">
+        <span style="font-size:13px;color:var(--text-muted);">minutes</span>
+      </div>
+    </div>
+
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Apply these times to future recurring jobs too?</p>
+
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button type="button" id="acm-future" class="btn btn-primary" style="width:100%;justify-content:center;">
+        Yes — same schedule every week
+      </button>
+      <button type="button" id="acm-today" class="btn btn-secondary" style="width:100%;justify-content:center;">
+        No — just today
+      </button>
+    </div>
+  </div>
+</div>
 {% endblock %}
