@@ -783,7 +783,7 @@ document.addEventListener('DOMContentLoaded', function () {
           if (enRouteBtn) enRouteBtn.style.display = job.status === 'scheduled' ? '' : 'none';
           document.getElementById('modal-complete').style.display = job.status !== 'completed' ? '' : 'none';
           var uncompleteBtn = document.getElementById('modal-uncomplete');
-          if (uncompleteBtn) uncompleteBtn.style.display = job.status === 'completed' ? '' : 'none';
+          if (uncompleteBtn) uncompleteBtn.style.display = (job.status === 'completed' || job.status === 'in_progress') ? '' : 'none';
           var skipBtn = document.getElementById('modal-skip');
           if (skipBtn) skipBtn.style.display = (job.status === 'scheduled' || job.status === 'en_route') ? '' : 'none';
           var canBill = job.status === 'completed' && job.has_unbilled_items && job.has_services;

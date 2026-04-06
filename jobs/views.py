@@ -1697,14 +1697,14 @@ def complete_job(request, job_id):
 @require_POST
 @role_required("owner", "manager")
 def uncomplete_job(request, job_id):
-    """Revert a completed job back to scheduled status (undo accidental completion)."""
+    """Revert a completed or in-progress job back to scheduled status."""
     business = get_business(request)
     if not business:
         return JsonResponse({"error": "Forbidden"}, status=403) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else redirect("/")
     job = get_object_or_404(Job, id=job_id, property__customer__business=business)
 
-    if job.status != "completed":
-        msg = "Job is not completed — nothing to undo."
+    if job.status not in ("completed", "in_progress"):
+        msg = "Job is not completed or in progress — nothing to undo."
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return JsonResponse({"error": msg}, status=400)
         messages.warning(request, msg)
@@ -1713,7 +1713,8 @@ def uncomplete_job(request, job_id):
     job.status = "scheduled"
     job.completed_by = None
     job.completed_at = None
-    job.save(update_fields=["status", "completed_by", "completed_at"])
+    job.started_at = None
+    job.save(update_fields=["status", "completed_by", "completed_at", "started_at"])
 
     # Revert any linked fertilization rounds back to scheduled
     try:
