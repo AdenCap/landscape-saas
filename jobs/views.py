@@ -1263,6 +1263,7 @@ def apply_route_to_calendar(request):
     job_ids = data.get("job_ids", [])
     start_time_str = data.get("start_time", "08:00")
     travel_minutes = int(data.get("travel_minutes_between", 15))
+    apply_to_future = data.get("apply_to_future", False)
 
     if not job_ids:
         return JsonResponse({"error": "No jobs"}, status=400)
@@ -1333,7 +1334,40 @@ def apply_route_to_calendar(request):
             current_hour = 21
             current_min = 0
 
-    return JsonResponse({"status": "ok", "updated": updated})
+    # Apply same times to all future recurring jobs for these properties
+    future_updated = 0
+    if apply_to_future and ordered:
+        # Build a map: property_id -> {scheduled_time, scheduled_end_time, route_order}
+        prop_schedule = {}
+        for job in ordered:
+            prop_schedule[job.property_id] = {
+                "time": job.scheduled_time,
+                "end_time": job.scheduled_end_time,
+                "route_order": job.route_order,
+            }
+
+        # Find the date of the jobs we just updated
+        today_date = ordered[0].scheduled_date
+        prop_ids = list(prop_schedule.keys())
+
+        # Get all future scheduled jobs for these properties
+        future_jobs = Job.objects.filter(
+            property_id__in=prop_ids,
+            property__customer__business=business,
+            scheduled_date__gt=today_date,
+            status__in=["scheduled"],
+        ).select_related("property")
+
+        for fj in future_jobs:
+            sched = prop_schedule.get(fj.property_id)
+            if sched:
+                fj.scheduled_time = sched["time"]
+                fj.scheduled_end_time = sched["end_time"]
+                fj.route_order = sched["route_order"]
+                fj.save(update_fields=["scheduled_time", "scheduled_end_time", "route_order"])
+                future_updated += 1
+
+    return JsonResponse({"status": "ok", "updated": updated, "future_updated": future_updated})
 
 
 @role_required("owner", "manager", "crew")

@@ -334,6 +334,7 @@
       if (!startTime) return;
       var travelMin = prompt('Travel time between stops (minutes)?', '15');
       if (travelMin === null) travelMin = '15';
+      var applyFuture = confirm('Apply these times to ALL future recurring jobs for these clients?\n\nYes = same schedule every week\nNo = just today');
 
       applyCalBtn.disabled = true;
       applyCalBtn.textContent = 'Applying\u2026';
@@ -344,14 +345,17 @@
         body: JSON.stringify({
           job_ids: jobIds,
           start_time: startTime,
-          travel_minutes_between: parseInt(travelMin) || 15
+          travel_minutes_between: parseInt(travelMin) || 15,
+          apply_to_future: applyFuture
         })
       }).then(function(r) { return r.json(); })
       .then(function(data) {
         applyCalBtn.disabled = false;
         applyCalBtn.textContent = 'Apply to Calendar';
         if (data.status === 'ok') {
-          showToast('Calendar updated \u2014 ' + data.updated + ' jobs rescheduled');
+          var msg = 'Calendar updated \u2014 ' + data.updated + ' jobs rescheduled';
+          if (data.future_updated > 0) msg += ' + ' + data.future_updated + ' future jobs updated';
+          showToast(msg);
         } else {
           showToast(data.error || 'Failed', 'error');
         }
