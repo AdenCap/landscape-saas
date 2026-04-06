@@ -3761,6 +3761,12 @@ def mowing_bulk_schedule(request):
     schedule_mode = request.POST.get("schedule_mode", "once")
     season_end_str = request.POST.get("season_end", "")
 
+    import logging as _log
+    _log.getLogger(__name__).warning(
+        "MOWING BULK SCHEDULE REQUEST: property_ids=%s, mode=%s, date=%s, end=%s",
+        property_ids, schedule_mode, schedule_date_str, season_end_str,
+    )
+
     if not property_ids or not schedule_date_str:
         messages.error(request, "Select clients and pick a start date.")
         return redirect("mowing_hub")
@@ -3807,6 +3813,9 @@ def mowing_bulk_schedule(request):
             prop_frequencies[rj.property_id] = rj.frequency
             prop_crews[rj.property_id] = rj
 
+    import logging
+    logger = logging.getLogger(__name__)
+
     created = 0
     deleted = 0
     for prop in properties:
@@ -3832,20 +3841,26 @@ def mowing_bulk_schedule(request):
             interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(freq, 7)
 
             # Step 1: Delete ALL "scheduled" jobs for this property in the date range.
-            # This is safe because the user explicitly selected this property for mowing
-            # season scheduling. Completed/in_progress/skipped jobs are NOT touched.
-            sched_ids = list(
-                Job.objects.filter(
-                    property=prop,
-                    scheduled_date__gte=schedule_date,
-                    scheduled_date__lte=season_end,
-                    status="scheduled",
-                ).values_list("id", flat=True)
+            # Use property_id directly to avoid any ORM join issues.
+            all_scheduled = Job.objects.filter(
+                property_id=prop.id,
+                scheduled_date__gte=schedule_date,
+                scheduled_date__lte=season_end,
+                status="scheduled",
             )
-            if sched_ids:
-                deleted += len(sched_ids)
+            sched_count = all_scheduled.count()
+            logger.warning(
+                "MOWING BULK SCHEDULE: prop_id=%s, prop=%s, date_range=%s to %s, "
+                "found %d scheduled jobs to delete, freq=%s, interval=%d",
+                prop.id, prop.address, schedule_date, season_end, sched_count, freq, interval
+            )
+            if sched_count > 0:
+                deleted += sched_count
+                # Get IDs, delete service items, then delete jobs
+                sched_ids = list(all_scheduled.values_list("id", flat=True))
                 JobServiceItem.objects.filter(job_id__in=sched_ids).delete()
-                Job.objects.filter(id__in=sched_ids).delete()
+                del_count, _ = Job.objects.filter(id__in=sched_ids).delete()
+                logger.warning("MOWING BULK SCHEDULE: actually deleted %d jobs", del_count)
 
             # Step 2: Find dates with completed/in_progress/skipped jobs so we don't
             # create new jobs on those dates, and pick up scheduling after the last one.
@@ -3916,8 +3931,8 @@ def mowing_bulk_schedule(request):
             created += 1
 
     if schedule_mode == "season":
-        del_msg = f" (replaced {deleted} old)" if deleted else ""
-        messages.success(request, f"Scheduled {created} mowing job{'' if created == 1 else 's'} through {season_end.strftime('%b %d')}{del_msg}.")
+        del_msg = f" Deleted {deleted} old scheduled jobs first." if deleted else " No old jobs found to delete."
+        messages.success(request, f"Scheduled {created} new mowing jobs through {season_end.strftime('%b %d')}.{del_msg}")
     else:
         messages.success(request, f"Scheduled {created} mowing job{'' if created == 1 else 's'} for {schedule_date.strftime('%b %d')}.")
     return redirect("mowing_hub")
