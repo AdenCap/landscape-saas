@@ -226,6 +226,7 @@
 
       // Use shop address as start/end if configured, otherwise first/last stop
       var origin, destination, waypoints = [];
+      console.log('[Route Optimizer] Shop address:', shopAddr || '(not set)');
       if (shopAddr) {
         // Round trip: shop → all stops (optimized) → shop
         origin = shopAddr;
