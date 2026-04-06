@@ -3678,9 +3678,36 @@ def mowing_update_frequency(request):
                         job_unit = snap.get("unit", "visit")
                         break
 
-        # Re-generate jobs from the same start date to the same end date with new frequency
-        current_date = season_start
+        # Find completed/in_progress/skipped mowing jobs in the season window
+        # so we schedule around them (not on top of them)
+        existing_done_dates = set()
+        last_done_date = None
+        if mowing_svc:
+            done_dates = list(
+                Job.objects.filter(
+                    property=prop,
+                    scheduled_date__gte=season_start,
+                    scheduled_date__lte=season_end,
+                    status__in=["completed", "in_progress", "skipped"],
+                    service_items__service=mowing_svc,
+                ).values_list("scheduled_date", flat=True).distinct()
+            )
+            existing_done_dates = set(done_dates)
+            if done_dates:
+                last_done_date = max(done_dates)
+
+        # Start scheduling from the last completed job + interval (or season_start)
+        if last_done_date and last_done_date >= season_start:
+            next_start = last_done_date + timedelta(days=interval)
+        else:
+            next_start = season_start
+
+        # Re-generate jobs with new frequency, flowing from last completed job
+        current_date = next_start
         while current_date <= season_end:
+            if current_date in existing_done_dates:
+                current_date += timedelta(days=interval)
+                continue
             job = Job.objects.create(
                 property=prop,
                 scheduled_date=current_date,
@@ -3796,8 +3823,7 @@ def mowing_bulk_schedule(request):
             # Generate recurring dates from start to season end
             interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(freq, 7)
 
-            # SAFETY: Remove only future SCHEDULED (not completed/skipped) mowing jobs
-            # to prevent duplicates when re-scheduling
+            # Step 1: Delete ALL future scheduled (not completed/in_progress/skipped) mowing jobs
             if mowing_svc:
                 existing_scheduled = Job.objects.filter(
                     property=prop,
@@ -3809,11 +3835,12 @@ def mowing_bulk_schedule(request):
                 JobServiceItem.objects.filter(job__in=existing_scheduled).delete()
                 existing_scheduled.delete()
 
-            # Find dates that already have completed/in-progress/skipped mowing jobs
-            # so we don't create duplicates on those dates
+            # Step 2: Get all completed/in_progress/skipped mowing jobs in the season
+            # These are preserved — we schedule around them
             existing_done_dates = set()
+            last_done_date = None
             if mowing_svc:
-                existing_done_dates = set(
+                done_dates = list(
                     Job.objects.filter(
                         property=prop,
                         scheduled_date__gte=schedule_date,
@@ -3822,10 +3849,22 @@ def mowing_bulk_schedule(request):
                         service_items__service=mowing_svc,
                     ).values_list("scheduled_date", flat=True).distinct()
                 )
+                existing_done_dates = set(done_dates)
+                if done_dates:
+                    last_done_date = max(done_dates)
 
-            current_date = schedule_date
+            # Step 3: Determine where to start scheduling new jobs
+            # If there are completed jobs, start the next job one interval after
+            # the LAST completed job. This keeps the schedule flowing from actual work done.
+            if last_done_date and last_done_date >= schedule_date:
+                next_start = last_done_date + timedelta(days=interval)
+            else:
+                next_start = schedule_date
+
+            # Step 4: Generate new scheduled jobs from next_start to season_end
+            current_date = next_start
             while current_date <= season_end:
-                # Skip dates that already have a completed/skipped job
+                # Double-check: skip if a completed/skipped job already exists on this date
                 if current_date in existing_done_dates:
                     current_date += timedelta(days=interval)
                     continue
