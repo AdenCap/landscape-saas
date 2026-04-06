@@ -3823,35 +3823,43 @@ def mowing_bulk_schedule(request):
             # Generate recurring dates from start to season end
             interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(freq, 7)
 
-            # Step 1: Delete ALL future scheduled (not completed/in_progress/skipped) mowing jobs
-            if mowing_svc:
-                existing_scheduled = Job.objects.filter(
-                    property=prop,
-                    scheduled_date__gte=schedule_date,
-                    scheduled_date__lte=season_end,
-                    status="scheduled",
-                    service_items__service=mowing_svc,
-                ).distinct()
-                JobServiceItem.objects.filter(job__in=existing_scheduled).delete()
-                existing_scheduled.delete()
+            # Build the full set of mowing service IDs (catches "Mowing", "Field Mowing", etc.)
+            all_mowing_svc_ids = set(ServiceTemplate.objects.filter(
+                business=business, active=True, name__icontains="mow"
+            ).values_list("id", flat=True))
+
+            # Step 1: Delete ALL scheduled mowing jobs for this property in the date range
+            # Match broadly: by mowing service items OR by "[Mowing]" in notes (legacy)
+            existing_scheduled = Job.objects.filter(
+                property=prop,
+                scheduled_date__gte=schedule_date,
+                scheduled_date__lte=season_end,
+                status="scheduled",
+            ).filter(
+                Q(service_items__service_id__in=all_mowing_svc_ids) |
+                Q(notes__icontains="[Mowing]")
+            ).distinct()
+            # Delete service items first, then jobs
+            sched_ids = list(existing_scheduled.values_list("id", flat=True))
+            if sched_ids:
+                JobServiceItem.objects.filter(job_id__in=sched_ids).delete()
+                Job.objects.filter(id__in=sched_ids).delete()
 
             # Step 2: Get all completed/in_progress/skipped mowing jobs in the season
             # These are preserved — we schedule around them
-            existing_done_dates = set()
-            last_done_date = None
-            if mowing_svc:
-                done_dates = list(
-                    Job.objects.filter(
-                        property=prop,
-                        scheduled_date__gte=schedule_date,
-                        scheduled_date__lte=season_end,
-                        status__in=["completed", "in_progress", "skipped"],
-                        service_items__service=mowing_svc,
-                    ).values_list("scheduled_date", flat=True).distinct()
-                )
-                existing_done_dates = set(done_dates)
-                if done_dates:
-                    last_done_date = max(done_dates)
+            done_dates = list(
+                Job.objects.filter(
+                    property=prop,
+                    scheduled_date__gte=schedule_date,
+                    scheduled_date__lte=season_end,
+                    status__in=["completed", "in_progress", "skipped"],
+                ).filter(
+                    Q(service_items__service_id__in=all_mowing_svc_ids) |
+                    Q(notes__icontains="[Mowing]")
+                ).values_list("scheduled_date", flat=True).distinct()
+            )
+            existing_done_dates = set(done_dates)
+            last_done_date = max(done_dates) if done_dates else None
 
             # Step 3: Determine where to start scheduling new jobs
             # If there are completed jobs, start the next job one interval after
