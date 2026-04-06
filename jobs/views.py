@@ -3773,23 +3773,39 @@ def mowing_bulk_schedule(request):
             # Generate recurring dates from start to season end
             interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(freq, 7)
 
-            # SAFETY: Remove any existing scheduled mowing jobs in this date range
-            # to prevent duplicates from running bulk schedule multiple times
+            # SAFETY: Remove only future SCHEDULED (not completed/skipped) mowing jobs
+            # to prevent duplicates when re-scheduling
             if mowing_svc:
-                existing_in_range = Job.objects.filter(
+                existing_scheduled = Job.objects.filter(
                     property=prop,
                     scheduled_date__gte=schedule_date,
                     scheduled_date__lte=season_end,
                     status="scheduled",
                     service_items__service=mowing_svc,
                 ).distinct()
-                dup_count = existing_in_range.count()
-                if dup_count > 0:
-                    JobServiceItem.objects.filter(job__in=existing_in_range).delete()
-                    existing_in_range.delete()
+                JobServiceItem.objects.filter(job__in=existing_scheduled).delete()
+                existing_scheduled.delete()
+
+            # Find dates that already have completed/in-progress/skipped mowing jobs
+            # so we don't create duplicates on those dates
+            existing_done_dates = set()
+            if mowing_svc:
+                existing_done_dates = set(
+                    Job.objects.filter(
+                        property=prop,
+                        scheduled_date__gte=schedule_date,
+                        scheduled_date__lte=season_end,
+                        status__in=["completed", "in_progress", "skipped"],
+                        service_items__service=mowing_svc,
+                    ).values_list("scheduled_date", flat=True).distinct()
+                )
 
             current_date = schedule_date
             while current_date <= season_end:
+                # Skip dates that already have a completed/skipped job
+                if current_date in existing_done_dates:
+                    current_date += timedelta(days=interval)
+                    continue
                 job = Job.objects.create(
                     property=prop,
                     scheduled_date=current_date,
