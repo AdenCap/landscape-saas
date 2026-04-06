@@ -161,14 +161,35 @@ def clock_out(request):
 
 @role_required("owner", "manager")
 def timesheets_view(request):
-    """Owner view: all employees' timesheets with weekly and yearly costs."""
-    today = _biz_today(getattr(request.user, 'business', None))
-    week_start = today - timedelta(days=today.weekday())
-    week_end = week_start + timedelta(days=7)
+    """Owner view: all employees' timesheets with weekly navigation and date filters."""
+    business = getattr(request.user, 'business', None)
+    today = _biz_today(business)
+
+    # ── Determine the active week from query params ──
+    from django.utils.dateparse import parse_date
+    week_param = request.GET.get("week", "")
+    if week_param:
+        parsed = parse_date(week_param)
+        if parsed:
+            # Snap to Sunday start of that week
+            anchor = parsed
+        else:
+            anchor = today
+    else:
+        anchor = today
+
+    # Week starts on Sunday
+    week_start = anchor - timedelta(days=(anchor.weekday() + 1) % 7)
+    week_end = week_start + timedelta(days=6)  # Saturday
+
+    prev_week = (week_start - timedelta(days=7)).isoformat()
+    next_week = (week_start + timedelta(days=7)).isoformat()
+    is_current_week = (week_start <= today <= week_end)
+
     year_start = today.replace(month=1, day=1)
     year_end = today.replace(year=today.year + 1, month=1, day=1)
 
-    # Get all crew members (employees) - filter by business if owner has one
+    # Get all crew members (employees) - filter by business
     crew_users = User.objects.filter(role='crew').order_by('username')
     if request.user.business_id:
         crew_users = crew_users.filter(business_id=request.user.business_id)
@@ -177,13 +198,13 @@ def timesheets_view(request):
     for user in crew_users:
         rate = user.hourly_rate or Decimal("0")
 
-        # Week: only approved entries count for payroll
+        # Selected week: only approved entries count for payroll
         week_entries = TimeEntry.objects.filter(
             user=user,
             status="approved",
             clock_out__isnull=False,
             clock_in__date__gte=week_start,
-            clock_in__date__lt=week_end,
+            clock_in__date__lte=week_end,
         )
         week_minutes = sum(e.duration_minutes or 0 for e in week_entries)
         week_hours = _hours_from_minutes(week_minutes)
@@ -201,6 +222,18 @@ def timesheets_view(request):
         year_hours = _hours_from_minutes(year_minutes)
         year_cost = year_hours * rate
 
+        # Per-day breakdown for the selected week
+        daily = []
+        for d in range(7):
+            day_date = week_start + timedelta(days=d)
+            day_entries = [e for e in week_entries if e.clock_in and e.clock_in.date() == day_date]
+            day_mins = sum(e.duration_minutes or 0 for e in day_entries)
+            daily.append({
+                "date": day_date,
+                "minutes": day_mins,
+                "display": f"{day_mins // 60}h {day_mins % 60}m" if day_mins else "—",
+            })
+
         week_display = f"{week_minutes // 60}h {week_minutes % 60}m"
         year_display = f"{year_minutes // 60}h {year_minutes % 60}m"
 
@@ -215,12 +248,15 @@ def timesheets_view(request):
             'year_hours': year_hours,
             'year_display': year_display,
             'year_cost': year_cost,
+            'daily': daily,
         })
 
     total_week_cost = sum(s['week_cost'] for s in employee_stats)
     total_year_cost = sum(s['year_cost'] for s in employee_stats)
+    total_week_minutes = sum(s['week_minutes'] for s in employee_stats)
+    total_week_display = f"{total_week_minutes // 60}h {total_week_minutes % 60}m"
 
-    # Count pending time entries (complete entries awaiting approval)
+    # Count pending time entries
     pending_count = 0
     if request.user.business_id:
         pending_count = TimeEntry.objects.filter(
@@ -229,15 +265,24 @@ def timesheets_view(request):
             clock_out__isnull=False,
         ).count()
 
+    # Day labels for table header
+    day_labels = [(week_start + timedelta(days=d)) for d in range(7)]
+
     return render(request, 'time_tracking/timesheets.html', {
         'employee_stats': employee_stats,
         'week_start': week_start,
         'week_end': week_end,
+        'prev_week': prev_week,
+        'next_week': next_week,
+        'is_current_week': is_current_week,
+        'day_labels': day_labels,
         'year_start': year_start,
         'year_end': year_end,
         'total_week_cost': total_week_cost,
         'total_year_cost': total_year_cost,
+        'total_week_display': total_week_display,
         'pending_count': pending_count,
+        'today': today,
     })
 
 

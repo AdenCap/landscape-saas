@@ -6,7 +6,7 @@ urlpatterns = [
     path('', views.clock_view, name='time_clock'),
     path('clock-in/', views.clock_in, name='time_clock_in'),
     path('clock-out/', views.clock_out, name='time_clock_out'),
-    path('timesheets/', RedirectView.as_view(url='/employee-management/', permanent=False), name='time_timesheets'),
+    path('timesheets/', views.timesheets_view, name='time_timesheets'),
     path('entries/', views.time_entries_list, name='time_entries_list'),
     path('entries/add/', views.time_entry_add, name='time_entry_add'),
     path('entries/pending/', views.time_entries_pending, name='time_entries_pending'),

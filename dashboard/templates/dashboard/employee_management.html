@@ -117,11 +117,17 @@
   <div class="section-header">
     <div>
       <h2 class="card-title">Timesheets</h2>
-      <p class="section-desc">Weekly and yearly labor costs. Only approved time entries count for payroll.</p>
+      <p class="section-desc">Only approved time entries count for payroll.</p>
     </div>
     <span class="header-actions">
-      <a href="{% url 'time_entries_list' %}" class="btn btn-secondary btn-sm">All entries</a>
+      <a href="{% url 'time_entries_list' %}" class="btn btn-secondary btn-sm">All Entries</a>
+      <a href="{% url 'time_entry_add' %}" class="btn btn-primary btn-sm">+ Add Entry</a>
     </span>
+  </div>
+
+  {# Week Navigation — fully inline, no page reload for employee management #}
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+    <a href="{% url 'time_timesheets' %}" class="btn btn-secondary btn-sm" style="font-size:11px;">Open full view &rarr;</a>
   </div>
 
   {# KPI Cards #}
@@ -129,13 +135,20 @@
     <div class="kpi-card card">
       <div class="kpi-label">This Week's Labor Cost</div>
       <div class="kpi-value">${{ total_week_cost|floatformat:2 }}</div>
-      <div class="kpi-sub">{{ week_start }} → {{ week_end }}</div>
+      <div class="kpi-sub">{{ week_start|date:"M j" }} → {{ week_end|date:"M j" }}</div>
     </div>
     <div class="kpi-card card">
       <div class="kpi-label">This Year's Labor Cost</div>
       <div class="kpi-value">${{ total_year_cost|floatformat:2 }}</div>
-      <div class="kpi-sub">{{ year_start }} → {{ year_end }}</div>
+      <div class="kpi-sub">{{ year_start|date:"M j" }} → now</div>
     </div>
+    {% if pending_time_entries_count %}
+    <div class="kpi-card card" style="border-left:3px solid #f59e0b;">
+      <div class="kpi-label">Pending Approval</div>
+      <div class="kpi-value">{{ pending_time_entries_count }}</div>
+      <div class="kpi-sub"><a href="{% url 'time_entries_pending' %}" class="link-primary">Review &rarr;</a></div>
+    </div>
+    {% endif %}
   </div>
 
   {# Per-Employee Summary #}
@@ -154,7 +167,7 @@
       {% for stat in employee_stats %}
       <tr class="expandable-row" onclick="toggleTimeEntries(this, {{ stat.user.id }}, '{{ stat.user.get_full_name|default:stat.user.username|escapejs }}')" style="cursor:pointer;" title="Click to view time entries">
         <td>
-          <span class="expand-icon">▶</span>
+          <span class="expand-icon">&#9654;</span>
           {{ stat.user.get_full_name|default:stat.user.username }}
         </td>
         <td class="num">${{ stat.hourly_rate|floatformat:2 }}/hr</td>
