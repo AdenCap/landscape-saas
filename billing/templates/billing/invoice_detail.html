@@ -137,11 +137,29 @@
     </div>
     <script>
     document.getElementById('card-payment-toggle').addEventListener('change', function() {
-      var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+      var toggle = this;
+      var csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+      var csrfToken = csrfEl ? csrfEl.value : (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
       fetch('{% url "billing:invoice_toggle_card_payment" invoice.id %}', {
         method: 'POST',
-        headers: {'Content-Type':'application/json', 'X-CSRFToken': csrf ? csrf.value : '{{ csrf_token }}'},
-        body: JSON.stringify({enable: this.checked})
+        headers: {'Content-Type':'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({enable: toggle.checked})
+      }).then(function(r) {
+        if (r.ok) {
+          toggle.parentElement.querySelector('span.toggle-status')?.remove();
+          var status = document.createElement('span');
+          status.className = 'toggle-status';
+          status.style.cssText = 'font-size:11px;color:var(--primary);margin-left:6px;';
+          status.textContent = toggle.checked ? 'Card enabled' : 'Card disabled';
+          toggle.parentElement.appendChild(status);
+          setTimeout(function() { status.remove(); }, 2000);
+        } else {
+          toggle.checked = !toggle.checked;
+          alert('Could not save — please try again');
+        }
+      }).catch(function() {
+        toggle.checked = !toggle.checked;
+        alert('Network error — could not save');
       });
     });
     </script>
