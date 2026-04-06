@@ -3801,6 +3801,7 @@ def mowing_bulk_schedule(request):
             prop_crews[rj.property_id] = rj
 
     created = 0
+    deleted = 0
     for prop in properties:
         freq = prop_frequencies.get(prop.id, "weekly")
         rj = prop_crews.get(prop.id)
@@ -3823,40 +3824,31 @@ def mowing_bulk_schedule(request):
             # Generate recurring dates from start to season end
             interval = {"weekly": 7, "10day": 10, "biweekly": 14, "monthly": 30}.get(freq, 7)
 
-            # Build the full set of mowing service IDs (catches "Mowing", "Field Mowing", etc.)
-            all_mowing_svc_ids = set(ServiceTemplate.objects.filter(
-                business=business, active=True, name__icontains="mow"
-            ).values_list("id", flat=True))
-
-            # Step 1: Delete ALL scheduled mowing jobs for this property in the date range
-            # Match broadly: by mowing service items OR by "[Mowing]" in notes (legacy)
-            existing_scheduled = Job.objects.filter(
-                property=prop,
-                scheduled_date__gte=schedule_date,
-                scheduled_date__lte=season_end,
-                status="scheduled",
-            ).filter(
-                Q(service_items__service_id__in=all_mowing_svc_ids) |
-                Q(notes__icontains="[Mowing]")
-            ).distinct()
-            # Delete service items first, then jobs
-            sched_ids = list(existing_scheduled.values_list("id", flat=True))
+            # Step 1: Delete ALL "scheduled" jobs for this property in the date range.
+            # This is safe because the user explicitly selected this property for mowing
+            # season scheduling. Completed/in_progress/skipped jobs are NOT touched.
+            sched_ids = list(
+                Job.objects.filter(
+                    property=prop,
+                    scheduled_date__gte=schedule_date,
+                    scheduled_date__lte=season_end,
+                    status="scheduled",
+                ).values_list("id", flat=True)
+            )
             if sched_ids:
+                deleted += len(sched_ids)
                 JobServiceItem.objects.filter(job_id__in=sched_ids).delete()
                 Job.objects.filter(id__in=sched_ids).delete()
 
-            # Step 2: Get all completed/in_progress/skipped mowing jobs in the season
-            # These are preserved — we schedule around them
+            # Step 2: Find dates with completed/in_progress/skipped jobs so we don't
+            # create new jobs on those dates, and pick up scheduling after the last one.
             done_dates = list(
                 Job.objects.filter(
                     property=prop,
                     scheduled_date__gte=schedule_date,
                     scheduled_date__lte=season_end,
                     status__in=["completed", "in_progress", "skipped"],
-                ).filter(
-                    Q(service_items__service_id__in=all_mowing_svc_ids) |
-                    Q(notes__icontains="[Mowing]")
-                ).values_list("scheduled_date", flat=True).distinct()
+                ).values_list("scheduled_date", flat=True)
             )
             existing_done_dates = set(done_dates)
             last_done_date = max(done_dates) if done_dates else None
@@ -3917,7 +3909,8 @@ def mowing_bulk_schedule(request):
             created += 1
 
     if schedule_mode == "season":
-        messages.success(request, f"Scheduled {created} mowing job{'' if created == 1 else 's'} through {season_end.strftime('%b %d')}.")
+        del_msg = f" (replaced {deleted} old)" if deleted else ""
+        messages.success(request, f"Scheduled {created} mowing job{'' if created == 1 else 's'} through {season_end.strftime('%b %d')}{del_msg}.")
     else:
         messages.success(request, f"Scheduled {created} mowing job{'' if created == 1 else 's'} for {schedule_date.strftime('%b %d')}.")
     return redirect("mowing_hub")
