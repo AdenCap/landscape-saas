@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from decimal import Decimal
 from django.utils import timezone
+from accounts.timezone_utils import business_today as _biz_today
 from .models import RecurringJob, Job, JobServiceItem
 from pricing.models import ServiceTemplate
 
@@ -50,7 +51,7 @@ def _add_service_items_to_job(job, service_snapshot):
 
 
 def generate_jobs(days_ahead=14):
-    today = timezone.now().date()
+    today = _biz_today()
     end_date = today + timedelta(days=days_ahead)
     recurring_jobs = RecurringJob.objects.filter(active=True).select_related("property", "assigned_to", "assigned_crew")
 

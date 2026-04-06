@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from accounts.decorators import role_required
 from accounts.utils import get_business as _get_business
+from accounts.timezone_utils import business_today as _biz_today
 from .models import Receipt, RevenueCategory
 from .forms import ReceiptForm, PayScheduleForm
 from .receipt_parser import parse_receipt_image
@@ -23,7 +24,7 @@ def financials_dashboard(request):
         messages.error(request, "You must be associated with a business to view financials.")
         return redirect("/")
 
-    today = timezone.localdate()
+    today = _biz_today(business)
     year_start = today.replace(month=1, day=1)
     year_end = today.replace(year=today.year + 1, month=1, day=1)
     month_start = today.replace(day=1)
@@ -203,7 +204,7 @@ def revenue_breakdown(request):
     from billing.models import Invoice, InvoiceLineItem
 
     year = request.GET.get("year", "").strip()
-    today = timezone.localdate()
+    today = _biz_today(business)
     if year and year.isdigit():
         year = int(year)
     else:

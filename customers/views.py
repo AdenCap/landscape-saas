@@ -16,6 +16,7 @@ from django.utils import timezone
 from accounts.decorators import role_required
 from accounts.ratelimit import ratelimit
 from accounts.utils import get_business as _get_business
+from accounts.timezone_utils import business_today as _biz_today
 from billing.models import Invoice
 from jobs.models import Job
 from .models import Customer, Property, Contract, ClientMessage
@@ -60,13 +61,13 @@ def customer_list(request):
     # Filter by status (active = job in last 90 days)
     if status_filter == "active":
         from datetime import timedelta
-        cutoff = timezone.now().date() - timedelta(days=90)
+        cutoff = _biz_today(business) - timedelta(days=90)
         customers = customers.filter(
             properties__jobs__scheduled_date__gte=cutoff
         ).distinct()
     elif status_filter == "inactive":
         from datetime import timedelta
-        cutoff = timezone.now().date() - timedelta(days=90)
+        cutoff = _biz_today(business) - timedelta(days=90)
         customers = customers.exclude(
             properties__jobs__scheduled_date__gte=cutoff
         ).distinct()

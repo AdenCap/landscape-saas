@@ -1,6 +1,7 @@
 from datetime import date
 from django.db import transaction
 from django.utils import timezone
+from accounts.timezone_utils import business_today as _biz_today
 
 from .models import Invoice, InvoiceLineItem, InvoiceAuditLog
 from .services import get_invoice_due_date
@@ -31,7 +32,7 @@ def generate_monthly_invoice_for_customer(customer, year, month, include_job=Non
     ).first()
 
     if not invoice:
-        issue_date = timezone.localdate()
+        issue_date = _biz_today(customer.business)
         due_date = get_invoice_due_date(issue_date, customer.business, customer)
         invoice = Invoice.objects.create(
             business=customer.business,

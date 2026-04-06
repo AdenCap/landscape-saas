@@ -17,6 +17,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.decorators import role_required
 from accounts.utils import get_business as _get_business
+from accounts.timezone_utils import business_today as _biz_today
 from customers.models import Customer, ClientMessage, Property
 
 
@@ -599,7 +600,7 @@ def convert_estimate_to_invoice(request, estimate_id):
         business=business,
         customer=estimate.customer,
         status="draft",
-        due_date=timezone.localdate() + timedelta(days=int(due_days)),
+        due_date=_biz_today(business) + timedelta(days=int(due_days)),
     )
 
     # Copy line items from estimate to invoice
@@ -1689,7 +1690,7 @@ def estimate_list(request):
         "tab": tab,
         "queue": queue,
         "queue_count": queue.count(),
-        "today": timezone.localdate(),
+        "today": _biz_today(business),
     })
 
 
@@ -1806,7 +1807,7 @@ def estimate_create(request):
         # Auto-set valid_until from business default
         from datetime import timedelta
         valid_days = getattr(business, "default_estimate_valid_days", 30) or 30
-        initial = {"valid_until": timezone.localdate() + timedelta(days=valid_days)}
+        initial = {"valid_until": _biz_today(business) + timedelta(days=valid_days)}
         form = EstimateForm(business=business, initial=initial)
         customer_id = request.GET.get("customer")
         if customer_id:
@@ -1886,7 +1887,7 @@ def estimate_create_from_fertilizer(request):
         business=business,
         customer=customer,
         title=request.POST.get("title") or "FieldLgx Service Estimate",
-        valid_until=timezone.localdate() + _td(days=valid_days),
+        valid_until=_biz_today(business) + _td(days=valid_days),
     )
 
     line_item = EstimateLineItem.objects.create(
@@ -1914,7 +1915,7 @@ def estimate_create_from_fertilizer(request):
                 property=property_obj,
                 product=product,
                 estimate=estimate,
-                application_date=timezone.now().date(),
+                application_date=_biz_today(business),
                 pounds_used=total_pounds,
                 square_feet=sqft,
                 lbs_per_1000_sqft=rate,
@@ -1935,7 +1936,7 @@ def estimate_create_from_fertilizer(request):
                     property=property_obj,
                     product=product,
                     estimate=estimate,
-                    application_date=timezone.now().date(),
+                    application_date=_biz_today(business),
                     pounds_used=total_pounds,
                     square_feet=sqft,
                     lbs_per_1000_sqft=rate,
@@ -1982,7 +1983,7 @@ def estimate_create_from_mulch(request):
         business=business,
         customer=customer,
         title=request.POST.get("title") or "FieldLgx Service Estimate",
-        valid_until=timezone.localdate() + _td2(days=valid_days2),
+        valid_until=_biz_today(business) + _td2(days=valid_days2),
     )
     EstimateLineItem.objects.create(
         estimate=estimate,
@@ -3426,7 +3427,7 @@ def field_capture(request):
             messages.success(request, f"Site visit saved for {estimate.customer.name}{photo_msg}.")
             return redirect("billing:estimate_queue")
     else:
-        initial = {"site_visit_date": timezone.localdate()}
+        initial = {"site_visit_date": _biz_today(business)}
         form = FieldCaptureForm(business=business, initial=initial)
         customer_id = request.GET.get("customer")
         if customer_id:

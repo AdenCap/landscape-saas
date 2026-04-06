@@ -653,9 +653,9 @@ class GoogleMapsApiUsage(models.Model):
     @classmethod
     def increment_usage(cls, business=None, request_type='directions', date=None):
         """Increment usage counter for a given business/date/type."""
-        from django.utils import timezone
         if date is None:
-            date = timezone.now().date()
+            from accounts.timezone_utils import business_today
+            date = business_today(business)
         
         usage, created = cls.objects.get_or_create(
             business=business,
@@ -670,8 +670,8 @@ class GoogleMapsApiUsage(models.Model):
     @classmethod
     def get_usage_today(cls, business=None, request_type='directions'):
         """Get today's usage count."""
-        from django.utils import timezone
-        today = timezone.now().date()
+        from accounts.timezone_utils import business_today
+        today = business_today(business)
         try:
             usage = cls.objects.get(
                 business=business,
@@ -685,10 +685,10 @@ class GoogleMapsApiUsage(models.Model):
     @classmethod
     def get_usage_this_month(cls, business=None, request_type='directions'):
         """Get this month's total usage count."""
-        from django.utils import timezone
         from datetime import date
         from django.db.models import Sum
-        today = timezone.now().date()
+        from accounts.timezone_utils import business_today
+        today = business_today(business)
         first_of_month = date(today.year, today.month, 1)
         
         return cls.objects.filter(

@@ -14,6 +14,7 @@ from django.core.management import call_command
 from accounts.decorators import role_required
 from accounts.utils import get_business
 from accounts.models import User
+from accounts.timezone_utils import business_today as _biz_today
 from businesses.models import Business
 from jobs.models import Job, JobServiceItem, Crew, JobIssue
 from billing.models import Invoice, Estimate
@@ -289,7 +290,7 @@ def dispatch_command_center(request):
             return redirect("platform_home")
         return redirect("/accounts/login/")
 
-    today = timezone.localdate()
+    today = _biz_today(business)
     now_local = timezone.localtime()
 
     delayed_jobs = Job.objects.filter(
@@ -403,7 +404,7 @@ def crew_locations_api(request):
     business = get_business(request)
     if not business:
         return JsonResponse({"crews": []})
-    today = timezone.localdate()
+    today = _biz_today(business)
     active_jobs = Job.objects.filter(
         property__customer__business=business,
         scheduled_date=today,
@@ -980,7 +981,7 @@ def employee_management(request):
     is_owner = getattr(request.user, "role", None) in ("owner", "manager")
 
     # Owner-only data (crew gets empty)
-    today = timezone.localdate()
+    today = _biz_today(business)
     if is_owner:
         employees = User.objects.filter(business=business).order_by("role", "first_name", "last_name", "username")
         week_start = today - timedelta(days=today.weekday())
@@ -1097,9 +1098,9 @@ def crew_day_detail(request, user_id):
 
     # optional ?date=YYYY-MM-DD
     date_str = request.GET.get("date")
-    day = parse_date(date_str) if date_str else timezone.localdate()
+    day = parse_date(date_str) if date_str else _biz_today(business)
     if day is None:
-        day = timezone.localdate()
+        day = _biz_today(business)
 
     jobs = (
         Job.objects.select_related("property")
@@ -1126,7 +1127,7 @@ def morning_brief(request):
     if not business:
         return redirect("owner_dashboard")
 
-    today = timezone.localdate()
+    today = _biz_today(business)
 
     # 1. Today's schedule
     todays_jobs = (

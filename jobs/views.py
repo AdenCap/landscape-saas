@@ -1681,7 +1681,7 @@ def complete_job(request, job_id):
             return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
         if has_items and freq == "monthly":
-            d = job.scheduled_date or timezone.now().date()
+            d = job.scheduled_date or _business_today(business)
             invoice = generate_monthly_invoice_for_customer(customer, d.year, d.month, include_job=job)
             messages.success(
                 request,
@@ -2599,7 +2599,7 @@ def job_add_to_monthly(request, job_id):
         messages.error(request, "Only completed jobs can be added to monthly invoice.")
         return redirect("job_detail", job_id=job_id)
 
-    d = job.scheduled_date or timezone.now().date()
+    d = job.scheduled_date or _business_today(request.user.business if hasattr(request.user, 'business') else None)
     customer = job.property.customer
     invoice = generate_monthly_invoice_for_customer(customer, d.year, d.month, include_job=job)
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -2882,7 +2882,7 @@ def fertilization_schedule(request):
             for prop in properties:
                 n = prop.fertilization_services_per_year
                 for d in dates_by_n.get(n, []):
-                    if d < timezone.now().date():
+                    if d < _business_today(business):
                         continue
                     job, created_job = Job.objects.get_or_create(
                         property=prop,
@@ -3397,7 +3397,7 @@ def add_mowing_client(request):
     RecurringJob.objects.create(
         property=prop,
         frequency=frequency,
-        start_date=timezone.now().date(),
+        start_date=_business_today(business),
         active=True,
         assigned_crew=crew,
         service_snapshot=service_snapshot,

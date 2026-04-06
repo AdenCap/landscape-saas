@@ -65,8 +65,8 @@ class ServiceAgreement(models.Model):
 
     @property
     def is_active(self):
-        from django.utils import timezone
-        today = timezone.localdate()
+        from accounts.timezone_utils import business_today
+        today = business_today()
         return self.status == "active" and self.start_date <= today and (not self.end_date or self.end_date >= today)
 
 

@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST, require_GET
 
 from accounts.decorators import role_required
 from accounts.models import User
+from accounts.timezone_utils import business_today as _biz_today
 from .models import TimeEntry, TimeOffRequest, EmployeeSchedule, ScheduleChangeLog
 from .forms import TimeOffRequestForm, EmployeeScheduleFormSet, TimeEntryEditForm
 
@@ -161,7 +162,7 @@ def clock_out(request):
 @role_required("owner", "manager")
 def timesheets_view(request):
     """Owner view: all employees' timesheets with weekly and yearly costs."""
-    today = timezone.localdate()
+    today = _biz_today(getattr(request.user, 'business', None))
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=7)
     year_start = today.replace(month=1, day=1)
@@ -337,17 +338,8 @@ def time_entries_list(request):
     business = _get_business(request)
     if not business:
         return redirect("/")
-    from django.utils import timezone
     # Use business timezone for accurate "today" and "this week"
-    today = timezone.localdate()
-    if business and hasattr(business, 'timezone') and business.timezone:
-        try:
-            import zoneinfo
-            biz_tz = zoneinfo.ZoneInfo(business.timezone)
-            from datetime import datetime as _dt
-            today = _dt.now(biz_tz).date()
-        except Exception:
-            pass
+    today = _biz_today(business)
 
     employees = User.objects.filter(business=business, role__in=["crew", "owner"]).order_by("first_name", "last_name", "username")
     employee_id = request.GET.get("employee_id")
@@ -519,7 +511,7 @@ def pay_period_view(request):
         return redirect("/")
 
     from datetime import date as dt_date
-    today = timezone.localdate()
+    today = _biz_today(business)
 
     # Determine pay period dates
     pay_freq = business.pay_frequency or "biweekly"

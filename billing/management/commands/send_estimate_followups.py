@@ -64,7 +64,8 @@ class Command(BaseCommand):
                 continue
 
             for estimate in estimates:
-                days_since_sent = (timezone.localdate() - estimate.sent_at.date()).days if estimate.sent_at else 0
+                from accounts.timezone_utils import business_today as _bt
+                days_since_sent = (_bt(business) - estimate.sent_at.date()).days if estimate.sent_at else 0
                 if days_since_sent not in cadence_days:
                     continue
                 if estimate.last_follow_up_at and (timezone.now() - estimate.last_follow_up_at).days < 2:
