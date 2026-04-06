@@ -527,7 +527,7 @@ function mowBulkAssignCrew() {
             {% for mow in c.mow_history %}
             <span title="{{ mow.date|date:'M j' }} — {{ mow.status }}" style="width:14px;height:14px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;{% if mow.status == 'completed' %}background:var(--primary);color:#111;{% elif mow.status == 'skipped' %}background:rgba(248,113,113,0.3);color:#f87171;{% elif mow.status == 'scheduled' %}background:#3b82f6;color:#fff;{% else %}background:var(--surface-highest);color:var(--text-muted);border:1px solid var(--border);{% endif %}">{{ forloop.counter }}</span>
             {% endfor %}
-            <span style="font-size:10px;color:var(--text-muted);margin-left:3px;">{{ c.mow_completed }}/{{ c.mow_total }}</span>
+            <span style="font-size:10px;color:var(--text-muted);margin-left:3px;">{{ c.mow_completed }}/{{ c.mow_total }}{% if c.earned_revenue %} · ${{ c.earned_revenue|floatformat:0 }}{% endif %}</span>
           </div>
           {% else %}
           <span style="color:var(--text-muted);font-size:11px;">No history</span>

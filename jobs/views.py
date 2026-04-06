@@ -3046,6 +3046,13 @@ def mowing_hub(request):
     for rj in mowing_recurrences:
         cust = rj.property.customer
         key = rj.id  # Key by RecurringJob so each property is a separate entry
+        # Find the specific mowing service ID from this RecurringJob's snapshot
+        rj_mow_svc_id = None
+        for snap in (rj.service_snapshot or []):
+            sid = snap.get("service_id")
+            if sid and int(sid) in mowing_svc_ids:
+                rj_mow_svc_id = int(sid)
+                break
         customer_map[key] = {
             "customer": cust,
             "properties": [rj.property],
@@ -3053,7 +3060,9 @@ def mowing_hub(request):
             "frequency_key": rj.frequency,
             "crew": rj.assigned_crew.name if rj.assigned_crew else (rj.assigned_to.get_full_name() if rj.assigned_to else "Unassigned"),
             "recurring_id": rj.id,
+            "recurring_job": rj,
             "property_address": rj.property.address,
+            "mow_svc_id": rj_mow_svc_id,
         }
 
     # Also find customers with mowing jobs this week (even without recurring setup)
@@ -3124,23 +3133,34 @@ def mowing_hub(request):
                 prop_avg_durations[row['property_id']] = int(dur.total_seconds() / 60)
 
     # Query mowing job history for the current year per property (for progress tracker)
+    from decimal import Decimal
     year_start_date = today.replace(month=1, day=1)
     mow_jobs_this_year = Job.objects.filter(
         property_id__in=all_prop_ids,
         scheduled_date__gte=year_start_date,
         service_items__service__in=mowing_services,
-    ).select_related("property").order_by("scheduled_date").distinct()
+    ).select_related("property").prefetch_related("service_items").order_by("scheduled_date").distinct()
 
-    # Build per-property mow history: [{num, status, date}, ...]
+    # Build per-property mow history: [{status, date, revenue}, ...]
     prop_mow_history = {}
+    prop_earned_revenue = {}  # per-property earned revenue (completed mowing jobs)
     for job in mow_jobs_this_year:
         pid = job.property_id
         if pid not in prop_mow_history:
             prop_mow_history[pid] = []
+        # Sum mowing service item revenue for this job
+        job_rev = sum(
+            (si.quantity or 1) * (si.unit_price or 0)
+            for si in job.service_items.all()
+            if si.service_id in mowing_svc_ids
+        )
         prop_mow_history[pid].append({
             "status": job.status,
             "date": job.scheduled_date,
+            "revenue": job_rev,
         })
+        if job.status == "completed":
+            prop_earned_revenue[pid] = prop_earned_revenue.get(pid, Decimal("0")) + job_rev
 
     for key, data in customer_map.items():
         # Get this week's jobs by property ID only — no customer-level fallback
@@ -3163,33 +3183,40 @@ def mowing_hub(request):
         else:
             data["avg_duration"] = None
             data["avg_duration_mins"] = 0
-        # Mowing progress for the year
-        history = prop_mow_history.get(prop_ids[0], []) if prop_ids else []
+        # Mowing progress for the year (per-property)
+        prop_id = prop_ids[0] if prop_ids else None
+        history = prop_mow_history.get(prop_id, []) if prop_id else []
         data["mow_completed"] = sum(1 for h in history if h["status"] == "completed")
         data["mow_scheduled"] = sum(1 for h in history if h["status"] == "scheduled")
         data["mow_skipped"] = sum(1 for h in history if h["status"] == "skipped")
         data["mow_total"] = len(history)
         data["mow_history"] = history
-        # Per-cut pricing from property override, then RecurringJob snapshot, then service default
+        data["earned_revenue"] = prop_earned_revenue.get(prop_id, Decimal("0")) if prop_id else Decimal("0")
+        # Per-cut pricing: use the specific mowing service from this RecurringJob's snapshot
+        # Priority: PropertyServiceRate override → RecurringJob snapshot price → service default
         from pricing.utils import get_effective_rate
         from decimal import Decimal as _Dec
         data["per_cut_rate"] = None
-        if prop_ids and mowing_services.exists():
+        prop_obj = data["properties"][0] if data["properties"] else None
+        rj_obj = data.get("recurring_job")
+        # Resolve the specific mowing service for this property
+        mow_svc = None
+        if data.get("mow_svc_id"):
+            mow_svc = mowing_services.filter(id=data["mow_svc_id"]).first()
+        if not mow_svc:
             mow_svc = mowing_services.first()
-            prop_obj = data["properties"][0] if data["properties"] else None
-            if prop_obj and mow_svc:
-                _unit, _rate = get_effective_rate(prop_obj, mow_svc)
-                if _rate > 0:
-                    data["per_cut_rate"] = _rate
-                else:
-                    # Fallback: check RecurringJob snapshot for saved price
-                    rj_obj = next((r for r in mowing_recurrences if r.property_id == prop_obj.id), None)
-                    if rj_obj and rj_obj.service_snapshot:
-                        for snap in rj_obj.service_snapshot:
-                            sp = snap.get("unit_price")
-                            if sp and _Dec(str(sp)) > 0:
-                                data["per_cut_rate"] = _Dec(str(sp))
-                                break
+        if prop_obj and mow_svc:
+            _unit, _rate = get_effective_rate(prop_obj, mow_svc)
+            if _rate > 0:
+                data["per_cut_rate"] = _rate
+            else:
+                # Fallback: check RecurringJob snapshot for saved price
+                if rj_obj and rj_obj.service_snapshot:
+                    for snap in rj_obj.service_snapshot:
+                        sp = snap.get("unit_price")
+                        if sp and _Dec(str(sp)) > 0:
+                            data["per_cut_rate"] = _Dec(str(sp))
+                            break
 
         # Missed client detection: no job this week + last mow was too long ago
         data["is_missed"] = False
