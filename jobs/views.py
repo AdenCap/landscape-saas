@@ -28,6 +28,25 @@ def _business_today(business):
     return business_today(business)
 
 
+def _get_mowing_service(business):
+    """Get the PRIMARY mowing service for a business.
+    Prefers exact 'Mowing' match, falls back to first service containing 'mow'."""
+    from pricing.models import ServiceTemplate
+    svc = ServiceTemplate.objects.filter(business=business, active=True, name__iexact="mowing").first()
+    if not svc:
+        svc = ServiceTemplate.objects.filter(business=business, active=True, name__icontains="mow").first()
+    return svc
+
+
+def _get_mowing_service_ids(business):
+    """Get IDs of ALL mowing-related services (for matching existing jobs).
+    This is broader than _get_mowing_service — used for lookups, not creation."""
+    from pricing.models import ServiceTemplate
+    return set(ServiceTemplate.objects.filter(
+        business=business, active=True, name__icontains="mow"
+    ).values_list("id", flat=True))
+
+
 CREW_COLORS = [
     '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
     '#ec4899', '#06b6d4', '#84cc16', '#22c55e',
@@ -3019,7 +3038,7 @@ def mowing_hub(request):
     week_start = today - timedelta(days=(today.weekday() + 1) % 7)  # Sunday
     week_end = week_start + timedelta(days=6)  # Saturday
 
-    # Find mowing-related services (name contains "mow" case-insensitive)
+    # Find mowing-related services — broad match for lookups (catches "Mowing", "Field Mowing", etc.)
     from pricing.models import ServiceTemplate
     mowing_services = ServiceTemplate.objects.filter(
         business=business, active=True, name__icontains="mow"
@@ -3405,10 +3424,8 @@ def add_mowing_client(request):
     customer = get_object_or_404(Customer, id=customer_id, business=business)
     prop = get_object_or_404(Property, id=property_id, customer=customer)
 
-    # Find or auto-create mowing service
-    mowing_svc = ServiceTemplate.objects.filter(
-        business=business, active=True, name__icontains="mow"
-    ).first()
+    # Find or auto-create mowing service (exact "Mowing" preferred)
+    mowing_svc = _get_mowing_service(business)
     if not mowing_svc:
         mowing_svc = ServiceTemplate.objects.create(
             business=business,
@@ -3535,9 +3552,7 @@ def mowing_update_price(request):
     prop = get_object_or_404(Property, id=property_id, customer__business=business)
 
     from pricing.models import ServiceTemplate, PropertyServiceRate
-    mowing_svc = ServiceTemplate.objects.filter(
-        business=business, active=True, name__icontains="mow"
-    ).first()
+    mowing_svc = _get_mowing_service(business)
     if not mowing_svc:
         return JsonResponse({"error": "No mowing service found"}, status=404)
 
@@ -3649,10 +3664,8 @@ def mowing_update_frequency(request):
         today = _business_today(business)
         prop = rj.property
 
-        # Find the mowing service
-        mowing_svc = ServiceTemplate.objects.filter(
-            business=business, active=True, name__icontains="mow"
-        ).first()
+        # Find the primary mowing service (for creating new jobs)
+        mowing_svc = _get_mowing_service(business)
 
         # Find future unstarted mowing jobs BEFORE deleting — capture the date window
         # Match by recurring_job OR by property + mowing service (for legacy jobs without recurring_job link)
@@ -3798,19 +3811,16 @@ def mowing_bulk_schedule(request):
         # Default: end of October
         season_end = date(schedule_date.year, 10, 31)
 
-    mowing_svc = ServiceTemplate.objects.filter(
-        business=business, active=True, name__icontains="mow"
-    ).first()
+    # Use primary "Mowing" service for creating new jobs
+    mowing_svc = _get_mowing_service(business)
+    # Broad match for finding existing jobs (catches "Mowing", "Field Mowing", etc.)
+    all_mowing_svc_ids = _get_mowing_service_ids(business)
 
     properties = Property.objects.filter(
         id__in=property_ids, customer__business=business
     ).select_related("customer")
 
     # Get frequency per property from their mowing RecurringJob
-    # Match broadly: service_snapshot contains ANY mowing service, or notes/no-snapshot fallback
-    all_mowing_svc_ids = set(ServiceTemplate.objects.filter(
-        business=business, active=True, name__icontains="mow"
-    ).values_list("id", flat=True))
 
     prop_frequencies = {}
     prop_crews = {}
