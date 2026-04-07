@@ -123,10 +123,11 @@ def job_list(request):
         return redirect("/")
     today = _business_today(business)
 
-    # Base queryset
+    # Base queryset — avoid select_related on reverse OneToOne ('invoice')
+    # as it can cause duplicate rows with data integrity issues in Postgres
     qs = Job.objects.filter(
         property__customer__business=business,
-    ).select_related('property', 'property__customer', 'assigned_to', 'assigned_crew', 'completed_by', 'invoice').prefetch_related('service_items__service')
+    ).select_related('property', 'property__customer', 'assigned_to', 'assigned_crew', 'completed_by').prefetch_related('service_items__service')
     
     # Crew filter: show jobs assigned to them via any assignment method
     if getattr(request.user, 'role', None) == 'crew':
@@ -195,7 +196,9 @@ def job_list(request):
             scheduled_date__gte=today, scheduled_date__lte=upcoming_end
         ).order_by('scheduled_date', 'scheduled_time', 'id')
         upcoming = list(upcoming_qs[:100])
-        unscheduled_qs = qs.filter(scheduled_date__isnull=True).order_by('-created_at')[:30]
+        unscheduled_qs = qs.filter(
+            scheduled_date__isnull=True,
+        ).distinct().order_by('-created_at')[:50]
         for job in unscheduled_qs:
             details = _get_job_details(job)
             unscheduled_with_details.append({
