@@ -318,6 +318,18 @@ def customer_create(request):
     if request.method == "POST":
         form = CustomerForm(request.POST)
         if form.is_valid():
+            name = form.cleaned_data.get("name", "").strip()
+            # Warn if duplicate name exists (but still allow creation)
+            dupe = Customer.objects.filter(business=business, name__iexact=name).first()
+            if dupe and not request.POST.get("confirm_duplicate"):
+                messages.warning(
+                    request,
+                    f"A client named '{dupe.name}' already exists. "
+                    f"If this is a different person, submit again to confirm."
+                )
+                form.data = form.data.copy()
+                form.data["confirm_duplicate"] = "1"
+                return render(request, "customers/customer_form.html", {"form": form, "business": business})
             customer = form.save(commit=False)
             customer.business = business
             customer.save()
@@ -730,6 +742,17 @@ def api_quick_create_customer(request):
 
     if not name:
         return JsonResponse({"error": "Client name is required."}, status=400)
+
+    # Prevent duplicates: if a client with the same name already exists, return them
+    existing = Customer.objects.filter(business=business, name__iexact=name).first()
+    if existing:
+        props = list(existing.properties.all().values("id", "address"))
+        return JsonResponse({
+            "ok": True,
+            "customer": {"id": existing.id, "name": existing.name},
+            "properties": [{"id": p["id"], "address": p["address"]} for p in props],
+            "existing": True,
+        })
 
     customer = Customer.objects.create(
         business=business,
