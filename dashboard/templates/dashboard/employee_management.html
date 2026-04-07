@@ -55,6 +55,8 @@
       <button type="button" class="btn btn-primary btn-sm" onclick="EmModal.addEmployee()">+ Add Employee</button>
     </span>
   </div>
+  <!-- Desktop table -->
+  <div class="em-desktop-only">
   <table class="data-table">
     <thead>
       <tr>
@@ -106,6 +108,35 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
+
+  <!-- Mobile card list -->
+  <div class="em-mobile-only">
+    {% for emp in employees %}
+    <div class="em-card {% if not emp.is_active %}em-card-inactive{% endif %}">
+      <div class="em-card-top">
+        <div>
+          <strong class="em-card-name">{{ emp.get_full_name|default:emp.username }}</strong>
+          <div class="em-card-meta">
+            <span class="badge badge-{{ emp.role }}">{{ emp.get_role_display }}</span>
+            {% if emp.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-danger">Inactive</span>{% endif %}
+            {% if emp.hourly_rate %}<span style="color:var(--text-muted);font-size:12px;">${{ emp.hourly_rate|floatformat:2 }}/hr</span>{% endif %}
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="EmModal.editEmployee({{ emp.id }})" style="align-self:flex-start;">Edit</button>
+      </div>
+      {% if emp.phone or emp.email %}
+      <div class="em-card-contact">
+        {% if emp.phone %}<a href="tel:{{ emp.phone }}" style="color:var(--text-muted);text-decoration:none;font-size:13px;">{{ emp.phone }}</a>{% endif %}
+        {% if emp.phone and emp.email %}<span style="color:var(--border);margin:0 6px;">·</span>{% endif %}
+        {% if emp.email %}<a href="mailto:{{ emp.email }}" style="color:var(--text-muted);text-decoration:none;font-size:13px;">{{ emp.email|truncatechars:25 }}</a>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <p style="text-align:center;color:var(--text-muted);padding:24px;">No employees yet. <button type="button" class="link-primary" onclick="EmModal.addEmployee()" style="background:none;border:none;cursor:pointer;color:var(--primary);text-decoration:underline;">Add your first employee</button></p>
+    {% endfor %}
+  </div>
 </section>
 {% endif %}
 
@@ -152,15 +183,16 @@
   </div>
 
   {# Per-Employee Summary #}
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
   <table class="data-table">
     <thead>
       <tr>
         <th>Employee</th>
-        <th class="num">Rate</th>
-        <th class="num">Week Hours</th>
-        <th class="num">Week Cost</th>
-        <th class="num">Year Hours</th>
-        <th class="num">Year Cost</th>
+        <th class="num em-hide-sm">Rate</th>
+        <th class="num">Week Hrs</th>
+        <th class="num">Week $</th>
+        <th class="num em-hide-sm">Year Hrs</th>
+        <th class="num em-hide-sm">Year $</th>
       </tr>
     </thead>
     <tbody>
@@ -170,11 +202,11 @@
           <span class="expand-icon">&#9654;</span>
           {{ stat.user.get_full_name|default:stat.user.username }}
         </td>
-        <td class="num">${{ stat.hourly_rate|floatformat:2 }}/hr</td>
+        <td class="num em-hide-sm">${{ stat.hourly_rate|floatformat:2 }}/hr</td>
         <td class="num">{{ stat.week_display }}</td>
         <td class="num">${{ stat.week_cost|floatformat:2 }}</td>
-        <td class="num">{{ stat.year_display }}</td>
-        <td class="num">${{ stat.year_cost|floatformat:2 }}</td>
+        <td class="num em-hide-sm">{{ stat.year_display }}</td>
+        <td class="num em-hide-sm">${{ stat.year_cost|floatformat:2 }}</td>
       </tr>
       <tr class="time-entries-detail" data-user="{{ stat.user.id }}" hidden>
         <td colspan="6">
@@ -183,10 +215,11 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="6">No crew members. Add employees with the "Crew" role to see timesheets.</td></tr>
+      <tr><td colspan="4">No crew members. Add employees with the "Crew" role to see timesheets.</td></tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 
   {# Pending Approvals Section #}
   {% if pending_time_entries %}
@@ -685,8 +718,41 @@
 .checkbox-list input { width: auto; }
 .calc-helper { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
 
+/* --- Mobile card layout for employees --- */
+.em-desktop-only { display: block; }
+.em-mobile-only { display: none; }
+.em-card {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.em-card:last-child { border-bottom: none; }
+.em-card-inactive { opacity: 0.5; }
+.em-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.em-card-name { font-size: 15px; }
+.em-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.em-card-contact {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 /* --- Mobile --- */
 @media (max-width: 768px) {
+  .em-desktop-only { display: none !important; }
+  .em-mobile-only { display: block !important; }
+  .em-hide-sm { display: none !important; }
   .emp-tab svg { display: none; }
   .emp-tab { padding: 10px 14px; font-size: 13px; min-height: 44px; }
   .emp-mgmt-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; gap: 6px; padding-bottom: 2px; }
@@ -694,7 +760,7 @@
   .modal-form-grid .field-row-3 { grid-template-columns: 1fr; }
   .modal-form-grid .field input,
   .modal-form-grid .field select { font-size: 16px; min-height: 44px; padding: 10px 14px; }
-  .em-modal-card { width: calc(100% - 32px); max-width: 100%; border-radius: 16px 16px 0 0; align-self: flex-end; max-height: 90vh; }
+  .em-modal-card { width: 100%; max-width: 100%; border-radius: 16px 16px 0 0; align-self: flex-end; max-height: 90vh; }
   .em-modal-overlay { padding: 0; align-items: flex-end; }
   .em-modal-footer { flex-direction: column; }
   .em-modal-footer .btn { width: 100%; min-height: 44px; justify-content: center; }
@@ -707,6 +773,8 @@
   .dropdown-menu { position: fixed; left: 16px; right: 16px; bottom: 0; top: auto; border-radius: 16px 16px 0 0; min-width: auto; z-index: 1100; }
   .dropdown-menu button { padding: 14px 18px; font-size: 15px; min-height: 44px; }
   .btn-icon { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+  /* Timesheets: show only employee, week hrs, week cost on mobile */
+  .data-table th, .data-table td { font-size: 13px; padding: 8px 10px; }
 }
 </style>
 
