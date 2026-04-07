@@ -715,6 +715,18 @@
   </form>
 </div>
 
+<!-- Account Management -->
+<div class="settings-page" style="margin-top:24px;">
+  <div style="padding:20px;border:1px solid rgba(239,68,68,0.2);border-radius:12px;background:rgba(239,68,68,0.03);">
+    <h3 style="font-size:15px;font-weight:700;color:#fca5a5;margin:0 0 8px;">Account</h3>
+    <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Manage your personal account, change your password, or permanently delete your account.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a href="{% url 'account_profile' %}" class="btn btn-secondary" style="font-size:13px;">Manage Account</a>
+      <a href="{% url 'password_change' %}" class="btn btn-secondary" style="font-size:13px;">Change Password</a>
+    </div>
+  </div>
+</div>
+
 <style>
   .settings-page { max-width: 780px; margin: 0 auto; }
   .settings-header { margin-bottom: 20px; }
