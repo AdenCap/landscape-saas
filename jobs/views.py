@@ -1717,6 +1717,10 @@ def complete_job(request, job_id):
 
         if has_items and freq == "per_service":
             invoice = create_draft_invoice_for_job(job)
+            if invoice is None:
+                # Prepaid service agreement covers all services — no invoice needed
+                messages.success(request, f"Job completed. All services covered by a prepaid agreement — no invoice created.")
+                return redirect("job_detail", job_id=job_id)
             send_behavior = (getattr(business, "auto_invoice_send_behavior", "draft") if business else "draft")
             if send_behavior == "send":
                 import secrets
@@ -2670,6 +2674,11 @@ def job_bill_now(request, job_id):
         return redirect("job_detail", job_id=job_id)
 
     invoice = create_draft_invoice_for_job(job)
+    if invoice is None:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"status": "ok", "message": "Covered by prepaid agreement — no invoice needed."})
+        messages.success(request, "All services covered by a prepaid agreement — no invoice created.")
+        return redirect("job_detail", job_id=job_id)
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return JsonResponse({"status": "ok", "invoice_id": invoice.id})
     messages.success(
