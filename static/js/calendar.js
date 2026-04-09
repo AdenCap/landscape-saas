@@ -1658,12 +1658,14 @@ document.addEventListener('DOMContentLoaded', function () {
         qcPopover.style.display = 'none';
         backdrop.style.display = 'none';
         qcOpen = false;
+        document.body.classList.remove('modal-open');
       });
       document.body.appendChild(backdrop);
     }
     backdrop.style.display = 'block';
     qcPopover.style.display = 'flex';
     qcOpen = true;
+    document.body.classList.add('modal-open');
     setTimeout(function() { searchInput.focus(); }, 100);
   }
 
@@ -1744,6 +1746,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var backdrop = document.getElementById('qc-backdrop');
     if (backdrop) backdrop.style.display = 'none';
     qcOpen = false;
+    document.body.classList.remove('modal-open');
   }
 
   var qcCloseBtn = document.getElementById('qc-close');

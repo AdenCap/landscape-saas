@@ -1146,6 +1146,21 @@ body.is-dragging * {
    Modals
    ========================================================================== */
 
+/* Lock background scroll when any modal/popover is open */
+body.modal-open {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+/* On mobile, block calendar scroll behind modals */
+@media (max-width: 768px) {
+  body.modal-open .fc,
+  body.modal-open .fc-scroller,
+  body.modal-open #calendar-wrapper {
+    touch-action: none !important;
+    overflow: hidden !important;
+  }
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1157,6 +1172,9 @@ body.is-dragging * {
   padding: 20px;
   opacity: 0;
   visibility: hidden;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  touch-action: none;
   transition: opacity var(--motion-base) var(--motion-ease),
               visibility var(--motion-base);
 }
@@ -1175,6 +1193,9 @@ body.is-dragging * {
   box-shadow: 0 20px 60px rgba(0,0,0,0.3);
   max-height: 90vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;  /* Allow vertical scroll inside modal only */
   transform: translateY(16px) scale(0.97);
   opacity: 0;
   transition: transform var(--motion-slow) var(--motion-ease-out),
@@ -2043,7 +2064,9 @@ body.is-dragging * {
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03) inset;
   animation: qcFadeIn 0.15s ease-out;
-  overflow: visible;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   flex-direction: column;
 }
 
