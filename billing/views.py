@@ -3013,7 +3013,59 @@ def estimate_client_accept(request, estimate_id, token):
     estimate.accepted_at = timezone.now()
     estimate.accepted_total = total
     estimate.save()
-    
+
+    # Notify business owner(s) that estimate was accepted
+    try:
+        from accounts.models import User, Notification
+        business = estimate.business
+        owners = User.objects.filter(business=business, role__in=["owner", "manager"], is_active=True)
+
+        # In-app notification
+        system_user = owners.first()
+        if system_user:
+            for owner in owners:
+                Notification.objects.create(
+                    business=business,
+                    from_user=system_user,
+                    to_user=owner,
+                    message=(
+                        f"Estimate #{estimate.id} accepted by {estimate.customer.name} "
+                        f"for ${total:,.2f}. View at /billing/estimates/{estimate.id}/"
+                    ),
+                )
+
+        # Email notification to owner
+        from businesses.email_sender import send_business_email, is_email_configured
+        if is_email_configured(business):
+            owner_email = business.contact_email or (system_user.email if system_user else None)
+            if owner_email:
+                line_items = estimate.line_items.all().order_by("order", "id")
+                lines_text = ""
+                for li in line_items:
+                    desc = li.description or "Service"
+                    amt = f"${li.line_total:,.2f}" if li.line_total else ""
+                    addon_tag = " (add-on)" if li.is_addon else ""
+                    lines_text += f"  - {desc}{addon_tag}: {amt}\n"
+
+                body_text = (
+                    f"Great news! {estimate.customer.name} has accepted your estimate.\n\n"
+                    f"Estimate #{estimate.id}: {estimate.title or 'Service Estimate'}\n"
+                    f"Customer: {estimate.customer.name}\n"
+                    f"Accepted Total: ${total:,.2f}\n\n"
+                    f"Line Items:\n{lines_text}\n"
+                    f"Accepted at: {estimate.accepted_at.strftime('%B %d, %Y at %I:%M %p')}\n\n"
+                    f"Next steps: Convert to invoice or schedule the work.\n"
+                    f"View estimate: {getattr(settings, 'SITE_URL', 'https://fieldlgx.com').rstrip('/')}/billing/estimates/{estimate.id}/\n"
+                )
+                send_business_email(
+                    business=business,
+                    to=owner_email,
+                    subject=f"Estimate #{estimate.id} Accepted — {estimate.customer.name} (${total:,.2f})",
+                    body_text=body_text,
+                )
+    except Exception:
+        pass  # Notification failure should never block the client acceptance flow
+
     # Update FertilizerApplication records with charge amount
     if estimate.accepted_total:
         for app in estimate.fertilizer_applications.all():
