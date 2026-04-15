@@ -1233,27 +1233,56 @@ def _build_invoice_pdf(invoice, request):
     y -= 18
 
     # ── TABLE HEADER (accent bg, white text) ─────────────────────────
+    # Column positions — give description more room, push numbers right
+    col_qty = right - 170
+    col_rate = right - 115
+    col_amt = right - 6
+
     header_h = 20
     p.setFillColorRGB(*accent)
     p.rect(margin, y - 4, right - margin, header_h, fill=True, stroke=False)
     p.setFillColorRGB(1, 1, 1)
     p.setFont(h_font, 8)
     p.drawString(margin + 6, y + 2, "DESCRIPTION")
-    p.drawString(350, y + 2, "QTY")
-    p.drawString(405, y + 2, "RATE")
-    p.drawRightString(right - 6, y + 2, "AMOUNT")
+    p.drawRightString(col_qty + 30, y + 2, "QTY")
+    p.drawRightString(col_rate + 45, y + 2, "RATE")
+    p.drawRightString(col_amt, y + 2, "AMOUNT")
     y -= 22
 
     # ── LINE ITEM ROWS ───────────────────────────────────────────────
+    # Max description width in characters (based on available space before QTY column)
+    max_desc_chars = 65
+
     computed_total = Decimal("0.00")
     row_idx = 0
     for item in items:
-        if y < 120:
+        if y < 140:
             y = _new_page()
             p.setFont(b_font, 9)
             p.setFillColorRGB(*_PDF_DARK)
 
-        row_h = 18
+        # Calculate row height — taller for wrapped descriptions
+        desc_text = _pdf_safe(str(item.description), max_desc_chars * 2)
+        desc_lines_list = []
+        if len(desc_text) > max_desc_chars:
+            # Word-wrap long descriptions
+            words = desc_text.split()
+            current_line = ""
+            for word in words:
+                test = (current_line + " " + word).strip()
+                if len(test) <= max_desc_chars:
+                    current_line = test
+                else:
+                    if current_line:
+                        desc_lines_list.append(current_line)
+                    current_line = word
+            if current_line:
+                desc_lines_list.append(current_line)
+        else:
+            desc_lines_list = [desc_text]
+
+        row_h = 18 + max(0, (len(desc_lines_list) - 1)) * 12
+
         # Alternating row shading
         if row_idx % 2 == 1:
             p.setFillColorRGB(*accent_lighter)
@@ -1264,12 +1293,19 @@ def _build_invoice_pdf(invoice, request):
 
         p.setFillColorRGB(*_PDF_DARK)
         p.setFont(b_font, 9)
-        p.drawString(margin + 6, y, _pdf_safe(str(item.description)[:48]))
-        p.drawString(350, y, str(item.quantity or 1))
+
+        # Draw description (potentially multi-line)
+        desc_y = y
+        for dl in desc_lines_list:
+            p.drawString(margin + 6, desc_y, dl)
+            desc_y -= 12
+
+        # Numbers on the first line
+        p.drawRightString(col_qty + 30, y, str(item.quantity or 1))
         if lt:
-            p.drawString(405, y, _fmt_currency(item.unit_price) if item.unit_price else "")
+            p.drawRightString(col_rate + 45, y, _fmt_currency(item.unit_price) if item.unit_price else "")
             p.setFont(h_font, 9)
-            p.drawRightString(right - 6, y, _fmt_currency(lt))
+            p.drawRightString(col_amt, y, _fmt_currency(lt))
         y -= row_h
         row_idx += 1
 
@@ -1278,10 +1314,10 @@ def _build_invoice_pdf(invoice, request):
         if detail.strip():
             p.setFont(b_font, 7.5)
             p.setFillColorRGB(0.45, 0.45, 0.45)
-            for desc_line in detail.strip().split("\n")[:3]:
+            for desc_line in detail.strip().split("\n")[:5]:
                 if y < 100:
                     y = _new_page()
-                p.drawString(margin + 10, y, _pdf_safe(desc_line[:70]))
+                p.drawString(margin + 10, y, _pdf_safe(desc_line, 90))
                 y -= 10
             p.setFillColorRGB(*_PDF_DARK)
 
@@ -1396,15 +1432,18 @@ def _build_invoice_pdf(invoice, request):
         ty -= 18
 
     # Total Due / PAID -- accent background box
-    total_row_h = 32
+    total_row_h = 36
+    total_str = _fmt_currency(total_to_show)
+    # Use smaller font for large amounts to prevent clipping
+    total_font_size = 13 if len(total_str) < 12 else 11
     p.setFillColorRGB(*accent)
-    p.rect(totals_x - 6, ty - 8, right - totals_x + 12, total_row_h, fill=True, stroke=False)
+    p.rect(totals_x - 6, ty - 10, right - totals_x + 12, total_row_h, fill=True, stroke=False)
     total_label = "PAID" if invoice.status == "paid" else "Total Due"
     p.setFillColorRGB(1, 1, 1)
-    p.setFont(h_font, 10)
+    p.setFont(h_font, 11)
     p.drawString(totals_x + 4, ty + 4, total_label)
-    p.setFont(h_font, 13)
-    p.drawRightString(right - 6, ty + 2, _fmt_currency(total_to_show))
+    p.setFont(h_font, total_font_size)
+    p.drawRightString(right - 6, ty + 2, total_str)
 
     # ── PAID STAMP OVERLAY ───────────────────────────────────────────
     if invoice.status == "paid":
