@@ -551,12 +551,47 @@ def calendar_events(request):
         if is_completed:
             title = '✓ ' + title
 
-        # Timed events (week/day view) vs all-day (month view)
-        # Use actual started_at/completed_at for accurate calendar display
-        if job.scheduled_time:
+        # Multi-day jobs: render as all-day spanning events
+        is_multi_day = job.scheduled_end_date and job.scheduled_end_date > job.scheduled_date
+
+        # Build shared extended props (same for all event types)
+        ext_props = {
+            "status": job.status, "crew": assignee_name, "jobId": job.id,
+            "customer": customer_name, "services": services_str,
+            "crewColor": crew_dot_color,
+            "statusColor": STATUS_COLORS.get(job.status, '#3b82f6'),
+            "assigneeColor": crew_dot_color,
+            "jobColorOverride": (job.color or "").strip() or None,
+            "serviceAbbr": service_names[0] if service_names else "",
+            "recurring": bool(job.recurring_job_id) or "[Mowing]" in (job.notes or "") or "[Fertilization]" in (job.notes or ""),
+            "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
+            "startedAt": job.started_at.isoformat() if job.started_at else None,
+            "completedAt": job.completed_at.isoformat() if job.completed_at else None,
+            "duration": job.duration_display,
+            "paymentStatus": pay_status,
+            "paymentColor": PAYMENT_COLORS.get(pay_status, '#6b7280'),
+            "multiDay": is_multi_day,
+        }
+
+        if is_multi_day:
+            # Multi-day: all-day event spanning from start date to end date
+            # FullCalendar uses exclusive end dates, so add 1 day
+            start_str = job.scheduled_date.strftime("%Y-%m-%d")
+            end_str = (job.scheduled_end_date + timedelta(days=1)).strftime("%Y-%m-%d")
+            evt = {
+                "id": str(job.id),
+                "title": title,
+                "start": start_str,
+                "end": end_str,
+                "allDay": True,
+                "backgroundColor": bg,
+                "borderColor": bg,
+                "extendedProps": ext_props,
+            }
+        elif job.scheduled_time:
+            # Timed event (week/day view)
             dt = datetime.combine(job.scheduled_date, job.scheduled_time)
             # Only use started_at for completed/in_progress jobs — NOT scheduled ones
-            # (a rescheduled job must show at its new scheduled_date, not old started_at)
             if job.started_at and job.status in ("completed", "in_progress"):
                 dt = datetime.combine(job.started_at.date(), job.started_at.time())
             start_str = dt.strftime("%Y-%m-%dT%H:%M:%S")
@@ -575,32 +610,17 @@ def calendar_events(request):
                 "end": end_str,
                 "backgroundColor": bg,
                 "borderColor": bg,
-                "extendedProps": {
-                    "status": job.status, "crew": assignee_name, "jobId": job.id,
-                    "customer": customer_name, "services": services_str,
-                    "crewColor": crew_dot_color,
-                    "statusColor": STATUS_COLORS.get(job.status, '#3b82f6'),
-                    "assigneeColor": crew_dot_color,
-                    "jobColorOverride": (job.color or "").strip() or None,
-                    "serviceAbbr": service_names[0] if service_names else "",
-                    "recurring": bool(job.recurring_job_id) or "[Mowing]" in (job.notes or "") or "[Fertilization]" in (job.notes or ""),
-                    "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
-                    "startedAt": job.started_at.isoformat() if job.started_at else None,
-                    "completedAt": job.completed_at.isoformat() if job.completed_at else None,
-                    "duration": job.duration_display,
-                    "paymentStatus": pay_status,
-                    "paymentColor": PAYMENT_COLORS.get(pay_status, '#6b7280'),
-                },
+                "extendedProps": ext_props,
             }
         else:
-            # No scheduled_time — show as a timed event at 8 AM so it appears
-            # in week/day timeGrid views (allDay events hide in the collapsed header)
+            # No scheduled_time — show as a timed event at 8 AM
             default_start = datetime.combine(job.scheduled_date, datetime.min.time().replace(hour=8))
             start_str = default_start.strftime("%Y-%m-%dT%H:%M:%S")
             if job.scheduled_end_time:
                 end_str = datetime.combine(job.scheduled_date, job.scheduled_end_time).strftime("%Y-%m-%dT%H:%M:%S")
             else:
                 end_str = (default_start + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S")
+            ext_props["noTimeSet"] = True
             evt = {
                 "id": str(job.id),
                 "title": title,
@@ -608,21 +628,7 @@ def calendar_events(request):
                 "end": end_str,
                 "backgroundColor": bg,
                 "borderColor": bg,
-                "extendedProps": {
-                    "status": job.status, "crew": assignee_name, "jobId": job.id,
-                    "customer": customer_name, "services": services_str,
-                    "crewColor": crew_dot_color,
-                    "statusColor": STATUS_COLORS.get(job.status, '#3b82f6'),
-                    "assigneeColor": crew_dot_color,
-                    "jobColorOverride": (job.color or "").strip() or None,
-                    "serviceAbbr": service_names[0] if service_names else "",
-                    "recurring": bool(job.recurring_job_id) or "[Mowing]" in (job.notes or "") or "[Fertilization]" in (job.notes or ""),
-                    "frequency": job.recurring_job.frequency if job.recurring_job_id else None,
-                    "duration": job.duration_display,
-                    "noTimeSet": True,
-                    "paymentStatus": pay_status,
-                    "paymentColor": PAYMENT_COLORS.get(pay_status, '#6b7280'),
-                },
+                "extendedProps": ext_props,
             }
         events.append(evt)
 
@@ -919,6 +925,19 @@ def calendar_job_reschedule(request, job_id):
         if job.status == "scheduled":
             job.started_at = None
             job.completed_at = None
+
+        # Parse end date for multi-day jobs (from drag in month view)
+        new_end_date_str = data.get("scheduled_end_date")
+        if new_end_date_str:
+            try:
+                end_date_parsed = datetime.strptime(new_end_date_str, "%Y-%m-%d").date()
+                # Only set if it's actually a different day (multi-day)
+                if end_date_parsed > new_parsed:
+                    job.scheduled_end_date = end_date_parsed
+                else:
+                    job.scheduled_end_date = None  # Same day = single-day job
+            except (ValueError, TypeError):
+                pass
 
         # Parse end time if provided (from resize or drag)
         new_end = data.get("scheduled_end")
@@ -2274,20 +2293,12 @@ def create_job(request):
                     service_snapshot=service_snapshot,
                 )
 
-            # Create job(s) — multiple for date range
-            job_dates = [sched_date] if sched_date else [None]
-            if sched_date and sched_end_date and sched_end_date > sched_date:
-                job_dates = []
-                d = sched_date
-                while d <= sched_end_date:
-                    job_dates.append(d)
-                    d += timedelta(days=1)
-
+            # Create single job — if end date is set, it spans multiple days
             jobs_created = []
-            for jd in job_dates:
-                job = Job.objects.create(
+            job = Job.objects.create(
                     property=prop,
-                    scheduled_date=jd,
+                    scheduled_date=sched_date,
+                    scheduled_end_date=sched_end_date if (sched_date and sched_end_date and sched_end_date > sched_date) else None,
                     scheduled_time=sched_time,
                     schedule_by_date=schedule_by,
                     assigned_to=assigned_to,
@@ -2297,9 +2308,7 @@ def create_job(request):
                     color=color_val if color_val else None,
                     recurring_job=recurring_job,
                 )
-                jobs_created.append(job)
-            # Use first job for the rest of the setup
-            job = jobs_created[0]
+            jobs_created.append(job)
             # Set M2M employees (after job is saved)
             if assigned_employees_list:
                 job.assigned_employees.set(assigned_employees_list)
@@ -2308,33 +2317,32 @@ def create_job(request):
             assignee_names = ", ".join(e.get_full_name() or e.username for e in assigned_employees_list) if assigned_employees_list else None
             assignee = assigned_crew.name if assigned_crew else (assignee_names or (assigned_to.get_full_name() or assigned_to.username if assigned_to else "Unassigned"))
             JobAssignmentLog.objects.create(job=job, user=request.user, details=f"Job created; assigned to {assignee}")
-            # Create service items for ALL jobs in the date range
-            for j in jobs_created:
-                first_item = True
-                for form_data in formset:
-                    if form_data.cleaned_data.get("service"):
-                        service = form_data.cleaned_data["service"]
-                        qty = form_data.cleaned_data["quantity"]
-                        unit, rate = get_effective_rate(prop, service)
-                        override_price = form_data.cleaned_data.get("unit_price")
-                        if override_price is not None:
-                            rate = override_price
-                        # Total price override: apply to first item, zero out the rest
-                        if total_price_override and first_item:
-                            rate = total_price_override
-                            first_item = False
-                        elif total_price_override:
-                            rate = Decimal("0")
-                        unit = getattr(service, "default_unit", None) or unit
-                        JobServiceItem.objects.create(
-                            job=j,
-                            service=service,
-                            quantity=qty,
-                            unit=unit,
-                            unit_price=rate,
-                        )
-            if len(jobs_created) > 1:
-                msg = f"{len(jobs_created)} jobs created for {prop.address} ({sched_date} to {sched_end_date})"
+            # Create service items
+            first_item = True
+            for form_data in formset:
+                if form_data.cleaned_data.get("service"):
+                    service = form_data.cleaned_data["service"]
+                    qty = form_data.cleaned_data["quantity"]
+                    unit, rate = get_effective_rate(prop, service)
+                    override_price = form_data.cleaned_data.get("unit_price")
+                    if override_price is not None:
+                        rate = override_price
+                    # Total price override: apply to first item, zero out the rest
+                    if total_price_override and first_item:
+                        rate = total_price_override
+                        first_item = False
+                    elif total_price_override:
+                        rate = Decimal("0")
+                    unit = getattr(service, "default_unit", None) or unit
+                    JobServiceItem.objects.create(
+                        job=job,
+                        service=service,
+                        quantity=qty,
+                        unit=unit,
+                        unit_price=rate,
+                    )
+            if job.scheduled_end_date:
+                msg = f"Multi-day job created for {prop.address} ({sched_date.strftime('%b %d')} — {job.scheduled_end_date.strftime('%b %d')})"
             elif recurring_job:
                 msg = f"Recurring job created for {prop.address} ({recurring_job.get_frequency_display()}); first date {sched_date}. Future dates will be generated automatically."
             else:

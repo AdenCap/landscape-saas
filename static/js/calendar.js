@@ -311,6 +311,14 @@ document.addEventListener('DOMContentLoaded', function () {
       var end = info.event.end;
       var payload = { scheduled_date: info.event.allDay ? formatDateStr(start) : formatDateTimeStr(start) };
       if (end && !info.event.allDay) payload.scheduled_end = formatDateTimeStr(end);
+      // Multi-day: send end date for all-day spanning events
+      if (end && info.event.allDay) {
+        // FullCalendar exclusive end — subtract 1 day to get the actual last day
+        var lastDay = new Date(end.getTime() - 86400000);
+        if (lastDay > start) {
+          payload.scheduled_end_date = formatDateStr(lastDay);
+        }
+      }
 
       function doReschedule(applyFuture) {
         payload.apply_to_future = !!applyFuture;
@@ -357,8 +365,20 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!jobId) return;
       var start = info.event.start;
       var end = info.event.end;
-      var payload = { scheduled_date: formatDateTimeStr(start) };
-      if (end) payload.scheduled_end = formatDateTimeStr(end);
+      var payload = {};
+      if (info.event.allDay) {
+        // Multi-day resize in month view
+        payload.scheduled_date = formatDateStr(start);
+        if (end) {
+          var lastDay = new Date(end.getTime() - 86400000);
+          if (lastDay > start) {
+            payload.scheduled_end_date = formatDateStr(lastDay);
+          }
+        }
+      } else {
+        payload.scheduled_date = formatDateTimeStr(start);
+        if (end) payload.scheduled_end = formatDateTimeStr(end);
+      }
       fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
         method: 'POST',
         credentials: 'same-origin',
