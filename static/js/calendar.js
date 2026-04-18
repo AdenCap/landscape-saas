@@ -306,6 +306,11 @@ document.addEventListener('DOMContentLoaded', function () {
     eventDrop: function(info) {
       var jobId = info.event.extendedProps?.jobId;
       if (!jobId) return;
+      // Guard against rapid double-fires (debounce at 120ms)
+      if (window._calDropBusy) { info.revert(); return; }
+      window._calDropBusy = true;
+      setTimeout(function() { window._calDropBusy = false; }, 120);
+
       var props = info.event.extendedProps || {};
       var start = info.event.start;
       var end = info.event.end;
@@ -335,9 +340,12 @@ document.addEventListener('DOMContentLoaded', function () {
           return r.json();
         }).then(function(data) {
           if (!data) return; // Already handled above
-          calendar.refetchEvents();
-          if (data.future_moved > 0) {
-            showToast('Moved this + ' + data.future_moved + ' future jobs');
+          // Optimistic update: the event already moved locally from the drag.
+          // Only refetch when multiple events changed (bulk future-shift) or when
+          // the recurring parent was shifted (so next generate_jobs() is correct).
+          if (data.future_moved > 0 || data.parent_shifted) {
+            calendar.refetchEvents();
+            showToast('Moved this + ' + (data.future_moved || 0) + ' future jobs');
           } else {
             showToast('Job rescheduled');
           }

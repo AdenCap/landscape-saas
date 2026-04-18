@@ -954,6 +954,7 @@ def calendar_job_reschedule(request, job_id):
 
         # If recurring and user chose to apply to all future jobs
         future_moved = 0
+        parent_shifted = False
         notes = job.notes or ""
         is_recurring = bool(job.recurring_job_id) or "[Mowing]" in notes or "[Fertilization]" in notes
         if is_recurring and apply_to_future and old_date:
@@ -980,6 +981,17 @@ def calendar_job_reschedule(request, job_id):
                     fj.save(update_fields=["scheduled_date"])
                     future_moved += 1
 
+                # Shift parent RecurringJob.start_date by the same delta so that
+                # generate_jobs() does NOT recreate jobs at the original cadence.
+                # Without this, moving all future jobs forward N days would cause
+                # the next generation cycle to insert duplicates at the old dates.
+                if job.recurring_job_id:
+                    rj = job.recurring_job
+                    if rj and rj.start_date:
+                        rj.start_date = rj.start_date + timedelta(days=day_delta)
+                        rj.save(update_fields=["start_date"])
+                        parent_shifted = True
+
         # Sync linked fertilization round date
         try:
             from fertilization.models import ScheduledRound as FertScheduledRound
@@ -994,6 +1006,7 @@ def calendar_job_reschedule(request, job_id):
             "scheduled_date": date_str,
             "is_recurring": is_recurring,
             "future_moved": future_moved,
+            "parent_shifted": parent_shifted,
         })
     except (ValueError, TypeError) as e:
         return JsonResponse({"error": str(e)}, status=400)
