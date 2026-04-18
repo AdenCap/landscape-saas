@@ -145,6 +145,9 @@
         <span class="material-symbols-outlined" style="font-size:18px;">payments</span>
       </button>
     </div>
+    <button type="button" id="cal-split-crews" class="cal-header-icon cal-mobile-hide" title="Split by crew — show overlapping jobs side-by-side" style="font-size:11px;font-weight:700;width:auto;padding:0 10px;">
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;">view_column</span>
+    </button>
     <button type="button" id="calendar-today-btn" class="cal-header-icon" title="Go to today" style="font-size:12px;font-weight:700;width:auto;padding:0 8px;">
       {{ today.day }}
     </button>
@@ -572,5 +575,5 @@ document.getElementById('cal-mobile-fab').addEventListener('click', function() {
   var QC_CREWS = [{% for c in filter_crews %}{id:{{ c.id }},name:"{{ c.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
   var QC_EMPLOYEES = [{% for e in filter_employees %}{id:{{ e.id }},name:"{{ e.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
 </script>
-<script src="{% static 'js/calendar.js' %}?v=28"></script>
+<script src="{% static 'js/calendar.js' %}?v=29"></script>
 {% endblock %}

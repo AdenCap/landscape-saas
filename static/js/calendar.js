@@ -33,6 +33,14 @@ document.addEventListener('DOMContentLoaded', function () {
   var STORAGE_COLOR_MODE = 'fieldlgx_calendar_color_mode';
   var colorMode = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_COLOR_MODE)) || 'status';
 
+  // ── Split by crew (side-by-side lanes for overlapping jobs at same time) ──
+  // Raises eventMaxStack from 3 → 12 so all overlapping crews are visible in a single time slot
+  // rather than being collapsed into a "+N more" indicator. Also auto-switches colorMode to
+  // 'assignee' so each crew has a distinct color. No multi-calendar instances — uses
+  // FullCalendar's native side-by-side overlap layout.
+  var STORAGE_CREW_LANES = 'fieldlgx_calendar_crew_lanes';
+  var crewLanesMode = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_CREW_LANES) === '1');
+
   // ── Helper functions ──
   function pad2(n) { return String(n).padStart(2, '0'); }
 
@@ -192,7 +200,9 @@ document.addEventListener('DOMContentLoaded', function () {
     height: isMobile ? 'calc(100vh - 130px)' : 'calc(100vh - 120px)',
     dayMaxEvents: isMobile ? 3 : 5,
     slotEventOverlap: false,
-    eventMaxStack: isMobile ? 2 : 3,
+    // When crew-lanes mode is ON, raise the cap so all overlapping crews render side-by-side.
+    // On mobile, lanes mode is ignored (screen too narrow for useful side-by-side layout).
+    eventMaxStack: isMobile ? 2 : (crewLanesMode ? 12 : 3),
 
     // ── Event source (date-range filtered + AbortController) ──
     events: function(info, successCallback, failureCallback) {
@@ -2112,6 +2122,51 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       _applyColorMode();
       updateLegend();
+    });
+  }
+
+  // ── "Split by crew" toggle — raises eventMaxStack so overlapping crews render side-by-side ──
+  var splitCrewsBtn = document.getElementById('cal-split-crews');
+  if (splitCrewsBtn) {
+    function _applyLanesBtnStyle() {
+      if (crewLanesMode) {
+        splitCrewsBtn.style.background = 'var(--primary)';
+        splitCrewsBtn.style.color = '#0a0a0a';
+      } else {
+        splitCrewsBtn.style.background = '';
+        splitCrewsBtn.style.color = '';
+      }
+    }
+    _applyLanesBtnStyle();
+
+    splitCrewsBtn.addEventListener('click', function() {
+      // Mobile: no-op — button is hidden via cal-hide-mobile, but guard anyway
+      if (isMobile) return;
+      crewLanesMode = !crewLanesMode;
+      try { localStorage.setItem(STORAGE_CREW_LANES, crewLanesMode ? '1' : '0'); } catch(ex) {}
+      // Apply new stack limit without rebuilding the calendar
+      calendar.setOption('eventMaxStack', crewLanesMode ? 12 : 3);
+      // Auto-switch to assignee color mode when turning ON, so each crew has a distinct color.
+      // Only switch from 'status' → 'assignee' (leave 'payment' alone if the user chose it).
+      if (crewLanesMode && colorMode === 'status') {
+        colorMode = 'assignee';
+        try { localStorage.setItem(STORAGE_COLOR_MODE, colorMode); } catch(ex) {}
+        // Sync both color-mode toggle UIs
+        if (toggleContainer) {
+          toggleContainer.querySelectorAll('.color-mode-btn').forEach(function(b) {
+            b.classList.toggle('active', b.dataset.mode === colorMode);
+          });
+        }
+        if (calColorToggle) {
+          calColorToggle.querySelectorAll('.cal-color-btn').forEach(function(b) {
+            b.classList.toggle('active', b.dataset.mode === colorMode);
+          });
+        }
+        if (typeof _applyColorMode === 'function') _applyColorMode();
+        if (typeof updateLegend === 'function') updateLegend();
+      }
+      _applyLanesBtnStyle();
+      showToast(crewLanesMode ? 'Split by crew — ON' : 'Split by crew — OFF');
     });
   }
 
