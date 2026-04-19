@@ -399,7 +399,7 @@ def calendar_events(request):
     jobs = Job.objects.select_related(
         'property', 'property__customer', 'assigned_to', 'assigned_crew',
         'recurring_job'
-    ).prefetch_related('service_items__service', 'assigned_employees').filter(scheduled_date__isnull=False)
+    ).prefetch_related('service_items__service', 'assigned_employees', 'crews').filter(scheduled_date__isnull=False)
 
     # Filter by visible date range (critical for performance)
     start_date = request.GET.get("start")
@@ -437,7 +437,13 @@ def calendar_events(request):
     if crew_ids:
         cids = [int(x) for x in crew_ids.split(",") if x.strip().isdigit()]
         if cids:
-            jobs = jobs.filter(assigned_crew_id__in=cids)
+            # Match jobs where the crew is either the primary (assigned_crew FK)
+            # OR one of the additional crews (crews M2M). Wave 3: preserves existing
+            # behavior for single-crew jobs — the 0029 data migration backfilled the
+            # primary into the M2M, so both clauses match the same rows for legacy data.
+            jobs = jobs.filter(
+                Q(assigned_crew_id__in=cids) | Q(crews__id__in=cids)
+            ).distinct()
     if employee_ids:
         eids = [int(x) for x in employee_ids.split(",") if x.strip().isdigit()]
         if eids:
@@ -554,6 +560,18 @@ def calendar_events(request):
         # Multi-day jobs: render as all-day spanning events
         is_multi_day = job.scheduled_end_date and job.scheduled_end_date > job.scheduled_date
 
+        # Wave 3: additional crews (excluding primary, which is already shown as the main crew)
+        # Uses prefetched .crews — no extra queries. Empty list for single-crew jobs.
+        additional_crews = []
+        if job.assigned_crew_id:
+            for c in job.crews.all():
+                if c.id != job.assigned_crew_id:
+                    additional_crews.append({
+                        "id": c.id,
+                        "name": c.name,
+                        "color": crew_colors.get(c.id, UNASSIGNED_COLOR),
+                    })
+
         # Build shared extended props (same for all event types)
         ext_props = {
             "status": job.status, "crew": assignee_name, "jobId": job.id,
@@ -571,6 +589,7 @@ def calendar_events(request):
             "paymentStatus": pay_status,
             "paymentColor": PAYMENT_COLORS.get(pay_status, '#6b7280'),
             "multiDay": is_multi_day,
+            "additionalCrews": additional_crews,
         }
 
         if is_multi_day:
@@ -2327,8 +2346,18 @@ def create_job(request):
                 job.assigned_employees.set(assigned_employees_list)
             elif assigned_to:
                 job.assigned_employees.set([assigned_to])
+            # Wave 3: multi-crew M2M. Seed with primary crew (if any), then add
+            # any additional crews from the form. Keeps the invariant that the
+            # primary crew is always in the crews M2M.
+            crew_list = list(form.cleaned_data.get("crews") or [])
+            if assigned_crew and assigned_crew not in crew_list:
+                crew_list = [assigned_crew] + crew_list
+            if crew_list:
+                job.crews.set(crew_list)
             assignee_names = ", ".join(e.get_full_name() or e.username for e in assigned_employees_list) if assigned_employees_list else None
             assignee = assigned_crew.name if assigned_crew else (assignee_names or (assigned_to.get_full_name() or assigned_to.username if assigned_to else "Unassigned"))
+            if len(crew_list) > 1:
+                assignee += f" (+{len(crew_list) - 1} more crews)"
             JobAssignmentLog.objects.create(job=job, user=request.user, details=f"Job created; assigned to {assignee}")
             # Create service items
             first_item = True
@@ -2873,8 +2902,13 @@ def edit_job(request, job_id):
     elif scheduled_time == "":
         job.scheduled_time = None
 
+    primary_crew_changed = False
+    new_primary_crew = None
     if crew_id:
-        job.assigned_crew = Crew.objects.filter(id=crew_id, business=business).first()
+        new_primary_crew = Crew.objects.filter(id=crew_id, business=business).first()
+        if new_primary_crew and new_primary_crew.id != job.assigned_crew_id:
+            primary_crew_changed = True
+        job.assigned_crew = new_primary_crew
         job.assigned_to = None
     elif crew_id == "":
         job.assigned_crew = None
@@ -2888,6 +2922,12 @@ def edit_job(request, job_id):
         job.status = status
 
     job.save()
+    # Wave 3: keep crews M2M invariant — primary crew is always in the list.
+    # If user changed primary via this form, add the new primary. We do NOT
+    # remove the old primary or any other crews — that's what the create-job
+    # form's "Additional crews" field is for.
+    if primary_crew_changed and new_primary_crew:
+        job.crews.add(new_primary_crew)
     messages.success(request, "Job updated.")
     return redirect("job_detail", job_id=job.id)
 

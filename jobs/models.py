@@ -91,6 +91,12 @@ class Job(models.Model):
         related_name='multi_assigned_jobs',
         help_text='All assigned employees (supports multiple). Primary + additional.'
     )
+    crews = models.ManyToManyField(
+        Crew,
+        blank=True,
+        related_name='multi_assigned_jobs',
+        help_text='All crews assigned to this job. assigned_crew remains the primary for backward compat.'
+    )
 
     notes = models.TextField(blank=True)
 

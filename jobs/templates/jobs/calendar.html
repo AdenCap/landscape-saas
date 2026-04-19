@@ -575,5 +575,5 @@ document.getElementById('cal-mobile-fab').addEventListener('click', function() {
   var QC_CREWS = [{% for c in filter_crews %}{id:{{ c.id }},name:"{{ c.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
   var QC_EMPLOYEES = [{% for e in filter_employees %}{id:{{ e.id }},name:"{{ e.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
 </script>
-<script src="{% static 'js/calendar.js' %}?v=29"></script>
+<script src="{% static 'js/calendar.js' %}?v=30"></script>
 {% endblock %}

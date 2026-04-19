@@ -68,6 +68,13 @@ class CreateJobForm(forms.Form):
         required=False,
         label="Crew",
     )
+    crews = forms.ModelMultipleChoiceField(
+        queryset=Crew.objects.none(),
+        required=False,
+        label="Additional crews",
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'crew-checkbox-list'}),
+        help_text="Optional — assign more crews alongside the primary crew.",
+    )
     assigned_to = forms.ModelChoiceField(
         queryset=User.objects.none(),
         required=False,
@@ -126,6 +133,7 @@ class CreateJobForm(forms.Form):
             # Property queryset set in clean; initial empty for client-first flow
             self.fields["property"].queryset = Property.objects.none()
             self.fields["assigned_crew"].queryset = Crew.objects.filter(business=business).order_by("name")
+            self.fields["crews"].queryset = Crew.objects.filter(business=business).order_by("name")
             emp_qs = User.objects.filter(
                 business=business, role__in=["crew", "owner"]
             ).order_by("first_name", "username")
