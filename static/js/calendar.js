@@ -22,7 +22,9 @@ document.addEventListener('DOMContentLoaded', function () {
   var STORAGE_VIEW = isMobile ? 'fieldlgx_calendar_view_mobile' : (isTablet ? 'fieldlgx_calendar_view_tablet' : 'fieldlgx_calendar_view');
   var STORAGE_DATE = 'fieldlgx_calendar_date';
 
-  var defaultView = isMobile ? 'listMonth' : (isTablet ? 'timeGridWeek' : 'timeGridWeek');
+  // Wave 4: mobile default is now Day view (was listMonth) — matches Jobber/Housecall Pro patterns.
+  // Users who already have a saved view preference keep it (savedView wins over defaultView).
+  var defaultView = isMobile ? 'timeGridDay' : (isTablet ? 'timeGridWeek' : 'timeGridWeek');
   var savedView = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_VIEW)) || null;
   var initialView = savedView || defaultView;
 
@@ -192,7 +194,8 @@ document.addEventListener('DOMContentLoaded', function () {
     eventDisplay: 'block',
     editable: isOwner,
     eventDurationEditable: isOwner,
-    longPressDelay: 500,
+    // Wave 4: faster long-press on mobile for quicker drag engagement (500ms felt sluggish)
+    longPressDelay: isMobile ? 300 : 500,
     selectable: isOwner,
     selectMirror: true,
     navLinks: true,
