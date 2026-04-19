@@ -402,6 +402,16 @@ class JobServiceItem(models.Model):
         )
         billed_at = models.DateTimeField(null=True, blank=True)
 
+        # Wave 5: per-day scheduling for multi-day jobs. Null means the item spans the
+        # entire job (shown on every day of the crew daily list). Must fall within the
+        # parent Job's [scheduled_date, scheduled_end_date] range — enforced in views,
+        # not via DB constraint (date ranges can shift after the item is created).
+        scheduled_date = models.DateField(
+            null=True,
+            blank=True,
+            help_text="For multi-day jobs: which day this line item runs. Null = spans entire job.",
+        )
+
         def line_total(self):
             return self.quantity * self.unit_price
 

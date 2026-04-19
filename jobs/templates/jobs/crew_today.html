@@ -38,7 +38,11 @@
     <div class="jc-info">
       <div class="jc-customer">{{ job.property.customer.name }}</div>
       <div class="jc-address">{{ job.property.address }}</div>
-      {% with services=job.service_items.all %}
+      {# Wave 5: filtered_service_items is set by crew_today_view.
+         - Single-day jobs: equals service_items.all() (same behavior as before)
+         - Multi-day jobs: only items scheduled for today OR with no specific day
+         Fallback to service_items.all for any view that doesn't set the attribute. #}
+      {% with services=job.filtered_service_items|default:job.service_items.all %}
       {% if services %}
       <div class="jc-services">
         {% for si in services %}

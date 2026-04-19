@@ -1538,11 +1538,18 @@ def crew_today_view(request):
     # Use business timezone for "today" — server may be in UTC
     today = _business_today(business)
 
-    jobs = Job.objects.filter(scheduled_date=today).select_related(
+    # Wave 5: include multi-day jobs where today falls between scheduled_date and
+    # scheduled_end_date, not just single-day jobs starting today. Single-day jobs
+    # continue to match via the first Q clause (scheduled_end_date is NULL, second
+    # clause never matches them).
+    jobs = Job.objects.filter(
+        Q(scheduled_date=today) |
+        Q(scheduled_date__lte=today, scheduled_end_date__gte=today)
+    ).select_related(
         "property", "property__customer", "assigned_to", "assigned_crew"
     ).prefetch_related("service_items__service", "assigned_employees").annotate(
         site_photo_count=Count("site_photos"),
-    )
+    ).distinct()
 
     # Always filter by business first
     if business:
@@ -1566,6 +1573,23 @@ def crew_today_view(request):
             output_field=IntegerField(),
         )
     ).order_by("is_done", "scheduled_time", "route_order"))
+
+    # Wave 5: for each job, compute filtered_service_items for today.
+    #   - Single-day job: all items (same as before)
+    #   - Multi-day job: only items with scheduled_date == today OR scheduled_date IS NULL
+    # Uses prefetched service_items — no extra queries per job.
+    for job in jobs:
+        all_items = list(job.service_items.all())
+        if job.scheduled_end_date and job.scheduled_end_date > job.scheduled_date:
+            # Multi-day: filter by today. Items with scheduled_date=None span the whole job.
+            job.filtered_service_items = [
+                si for si in all_items
+                if si.scheduled_date is None or si.scheduled_date == today
+            ]
+        else:
+            # Single-day: all items (unchanged behavior)
+            job.filtered_service_items = all_items
+
     job_ids_with_photos = set(
         JobCompletionPhoto.objects.filter(job__in=jobs).values_list("job_id", flat=True)
     ) if jobs else set()
