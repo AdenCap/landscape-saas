@@ -1004,12 +1004,22 @@ def calendar_job_reschedule(request, job_id):
                 # generate_jobs() does NOT recreate jobs at the original cadence.
                 # Without this, moving all future jobs forward N days would cause
                 # the next generation cycle to insert duplicates at the old dates.
+                rj_to_shift = None
                 if job.recurring_job_id:
-                    rj = job.recurring_job
-                    if rj and rj.start_date:
-                        rj.start_date = rj.start_date + timedelta(days=day_delta)
-                        rj.save(update_fields=["start_date"])
-                        parent_shifted = True
+                    rj_to_shift = job.recurring_job
+                elif "[Mowing]" in notes or "[Fertilization]" in notes:
+                    # Wave 6: legacy mowing/fertilization jobs that were bulk-scheduled
+                    # before Fix A1 don't have recurring_job_id set. Find the RecurringJob
+                    # for this property (active, same service family) and shift its
+                    # start_date too, so generate_jobs() respects the new cadence.
+                    rj_to_shift = RecurringJob.objects.filter(
+                        property=job.property,
+                        active=True,
+                    ).order_by('-id').first()
+                if rj_to_shift and rj_to_shift.start_date:
+                    rj_to_shift.start_date = rj_to_shift.start_date + timedelta(days=day_delta)
+                    rj_to_shift.save(update_fields=["start_date"])
+                    parent_shifted = True
 
         # Sync linked fertilization round date
         try:
@@ -2905,6 +2915,7 @@ def edit_job(request, job_id):
     job = get_object_or_404(Job, id=job_id, property__customer__business=business)
 
     scheduled_date = request.POST.get("scheduled_date", "").strip()
+    scheduled_end_date_str = request.POST.get("scheduled_end_date", "").strip()
     scheduled_time = request.POST.get("scheduled_time", "").strip()
     crew_id = request.POST.get("assigned_crew", "").strip()
     employee_id = request.POST.get("assigned_to", "").strip()
@@ -2916,6 +2927,22 @@ def edit_job(request, job_id):
             job.scheduled_date = date.fromisoformat(scheduled_date)
         except (ValueError, TypeError):
             pass
+    # Wave 6: accept optional end-date to make a job span multiple days without
+    # recreating it. Empty string clears the end date (single-day job).
+    if "scheduled_end_date" in request.POST:
+        if scheduled_end_date_str:
+            try:
+                parsed_end = date.fromisoformat(scheduled_end_date_str)
+                # Only set if strictly after the start date; same day = single-day (clear it).
+                if job.scheduled_date and parsed_end > job.scheduled_date:
+                    job.scheduled_end_date = parsed_end
+                else:
+                    job.scheduled_end_date = None
+            except (ValueError, TypeError):
+                pass
+        else:
+            # Empty string means user cleared the field → single-day job.
+            job.scheduled_end_date = None
     if scheduled_time:
         try:
             from datetime import time as dt_time
@@ -4117,6 +4144,9 @@ def mowing_bulk_schedule(request):
                 if current_date in existing_done_dates:
                     current_date += timedelta(days=interval)
                     continue
+                # Wave 6: link back to the RecurringJob so calendar_job_reschedule
+                # can shift RecurringJob.start_date when user selects "apply to all future".
+                # rj may be None for legacy flows — the FK is nullable.
                 job = Job.objects.create(
                     property=prop,
                     scheduled_date=current_date,
@@ -4124,6 +4154,7 @@ def mowing_bulk_schedule(request):
                     notes=f"[Mowing] {prop.customer.name}",
                     assigned_crew=rj.assigned_crew if rj else None,
                     assigned_to=rj.assigned_to if rj else None,
+                    recurring_job=rj,
                 )
                 if mowing_svc:
                     JobServiceItem.objects.create(
@@ -4138,6 +4169,7 @@ def mowing_bulk_schedule(request):
                 current_date += timedelta(days=interval)
         else:
             # Single job
+            # Wave 6: link to RecurringJob (same rationale as the season branch above).
             job = Job.objects.create(
                 property=prop,
                 scheduled_date=schedule_date,
@@ -4145,6 +4177,7 @@ def mowing_bulk_schedule(request):
                 notes=f"[Mowing] {prop.customer.name}",
                 assigned_crew=rj.assigned_crew if rj else None,
                 assigned_to=rj.assigned_to if rj else None,
+                recurring_job=rj,
             )
             if mowing_svc:
                 JobServiceItem.objects.create(

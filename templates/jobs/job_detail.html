@@ -319,11 +319,15 @@
     {% csrf_token %}
     <div class="job-edit-grid">
       <div class="form-group">
-        <label>Date</label>
+        <label>Start date</label>
         <input type="date" name="scheduled_date" value="{{ job.scheduled_date|date:'Y-m-d' }}" class="form-input">
       </div>
       <div class="form-group">
-        <label>Time</label>
+        <label>End date <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(optional, for multi-day jobs)</span></label>
+        <input type="date" name="scheduled_end_date" value="{{ job.scheduled_end_date|date:'Y-m-d' }}" class="form-input" min="{{ job.scheduled_date|date:'Y-m-d' }}">
+      </div>
+      <div class="form-group">
+        <label>Start time</label>
         <input type="time" name="scheduled_time" value="{% if job.scheduled_time %}{{ job.scheduled_time|time:'H:i' }}{% endif %}" class="form-input">
       </div>
       <div class="form-group">
