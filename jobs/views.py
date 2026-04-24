@@ -933,10 +933,14 @@ def calendar_job_reschedule(request, job_id):
         old_date = job.scheduled_date
         new_parsed = datetime.strptime(date_str, "%Y-%m-%d").date()
         apply_to_future = data.get("apply_to_future", False)
+        all_day = data.get("all_day", False)
 
         job.scheduled_date = new_parsed
+        if all_day:
+            job.scheduled_time = None
+            job.scheduled_end_time = None
         # Only update time if one was provided — don't clear existing time on date-only drags
-        if time_obj is not None:
+        elif time_obj is not None:
             job.scheduled_time = time_obj
 
         # Clear started_at/completed_at if the job is being rescheduled while in "scheduled" status
@@ -946,15 +950,19 @@ def calendar_job_reschedule(request, job_id):
             job.completed_at = None
 
         # Parse end date for multi-day jobs (from drag in month view)
+        new_end_date_provided = "scheduled_end_date" in data
         new_end_date_str = data.get("scheduled_end_date")
-        if new_end_date_str:
+        if new_end_date_provided:
             try:
-                end_date_parsed = datetime.strptime(new_end_date_str, "%Y-%m-%d").date()
-                # Only set if it's actually a different day (multi-day)
-                if end_date_parsed > new_parsed:
-                    job.scheduled_end_date = end_date_parsed
+                if new_end_date_str:
+                    end_date_parsed = datetime.strptime(new_end_date_str, "%Y-%m-%d").date()
+                    # Only set if it's actually a different day (multi-day)
+                    if end_date_parsed > new_parsed:
+                        job.scheduled_end_date = end_date_parsed
+                    else:
+                        job.scheduled_end_date = None  # Same day = single-day job
                 else:
-                    job.scheduled_end_date = None  # Same day = single-day job
+                    job.scheduled_end_date = None
             except (ValueError, TypeError):
                 pass
 
@@ -978,7 +986,13 @@ def calendar_job_reschedule(request, job_id):
         is_recurring = bool(job.recurring_job_id) or "[Mowing]" in notes or "[Fertilization]" in notes
         if is_recurring and apply_to_future and old_date:
             day_delta = (new_parsed - old_date).days
-            if day_delta != 0:
+            future_schedule_changed = (
+                day_delta != 0
+                or time_obj is not None
+                or (new_end and isinstance(new_end, str) and "T" in new_end)
+                or new_end_date_provided
+            )
+            if future_schedule_changed:
                 if job.recurring_job_id:
                     # Find by recurring_job FK
                     future_jobs = Job.objects.filter(
@@ -996,30 +1010,54 @@ def calendar_job_reschedule(request, job_id):
                         service_items__service_id__in=svc_ids,
                     ).exclude(id=job.id).distinct() if svc_ids else Job.objects.none()
                 for fj in future_jobs:
-                    fj.scheduled_date = fj.scheduled_date + timedelta(days=day_delta)
-                    fj.save(update_fields=["scheduled_date"])
-                    future_moved += 1
+                    update_fields = []
+                    if day_delta != 0:
+                        fj.scheduled_date = fj.scheduled_date + timedelta(days=day_delta)
+                        update_fields.append("scheduled_date")
+                    if new_end_date_provided:
+                        if job.scheduled_end_date:
+                            duration_days = (job.scheduled_end_date - job.scheduled_date).days
+                            fj.scheduled_end_date = fj.scheduled_date + timedelta(days=duration_days)
+                        else:
+                            fj.scheduled_end_date = None
+                        update_fields.append("scheduled_end_date")
+                    if time_obj is not None:
+                        fj.scheduled_time = time_obj
+                        update_fields.append("scheduled_time")
+                    elif all_day:
+                        fj.scheduled_time = None
+                        update_fields.append("scheduled_time")
+                    if new_end and isinstance(new_end, str) and "T" in new_end:
+                        fj.scheduled_end_time = job.scheduled_end_time
+                        update_fields.append("scheduled_end_time")
+                    elif all_day:
+                        fj.scheduled_end_time = None
+                        update_fields.append("scheduled_end_time")
+                    if update_fields:
+                        fj.save(update_fields=update_fields)
+                        future_moved += 1
 
                 # Shift parent RecurringJob.start_date by the same delta so that
                 # generate_jobs() does NOT recreate jobs at the original cadence.
                 # Without this, moving all future jobs forward N days would cause
                 # the next generation cycle to insert duplicates at the old dates.
                 rj_to_shift = None
-                if job.recurring_job_id:
-                    rj_to_shift = job.recurring_job
-                elif "[Mowing]" in notes or "[Fertilization]" in notes:
-                    # Wave 6: legacy mowing/fertilization jobs that were bulk-scheduled
-                    # before Fix A1 don't have recurring_job_id set. Find the RecurringJob
-                    # for this property (active, same service family) and shift its
-                    # start_date too, so generate_jobs() respects the new cadence.
-                    rj_to_shift = RecurringJob.objects.filter(
-                        property=job.property,
-                        active=True,
-                    ).order_by('-id').first()
-                if rj_to_shift and rj_to_shift.start_date:
-                    rj_to_shift.start_date = rj_to_shift.start_date + timedelta(days=day_delta)
-                    rj_to_shift.save(update_fields=["start_date"])
-                    parent_shifted = True
+                if day_delta != 0:
+                    if job.recurring_job_id:
+                        rj_to_shift = job.recurring_job
+                    elif "[Mowing]" in notes or "[Fertilization]" in notes:
+                        # Wave 6: legacy mowing/fertilization jobs that were bulk-scheduled
+                        # before Fix A1 don't have recurring_job_id set. Find the RecurringJob
+                        # for this property (active, same service family) and shift its
+                        # start_date too, so generate_jobs() respects the new cadence.
+                        rj_to_shift = RecurringJob.objects.filter(
+                            property=job.property,
+                            active=True,
+                        ).order_by('-id').first()
+                    if rj_to_shift and rj_to_shift.start_date:
+                        rj_to_shift.start_date = rj_to_shift.start_date + timedelta(days=day_delta)
+                        rj_to_shift.save(update_fields=["start_date"])
+                        parent_shifted = True
 
         # Sync linked fertilization round date
         try:

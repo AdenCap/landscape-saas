@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function () {
     scrollTime: '07:00:00',
     scrollTimeReset: false,
     stickyHeaderDates: true,
-    allDaySlot: false,
+    allDaySlot: true,
     expandRows: true,
     nowIndicator: true,
     eventDisplay: 'block',
@@ -328,13 +328,19 @@ document.addEventListener('DOMContentLoaded', function () {
       var start = info.event.start;
       var end = info.event.end;
       var payload = { scheduled_date: info.event.allDay ? formatDateStr(start) : formatDateTimeStr(start) };
-      if (end && !info.event.allDay) payload.scheduled_end = formatDateTimeStr(end);
+      if (info.event.allDay) payload.all_day = true;
+      if (end && !info.event.allDay) {
+        payload.scheduled_end = formatDateTimeStr(end);
+        payload.scheduled_end_date = formatDateStr(end) > formatDateStr(start) ? formatDateStr(end) : null;
+      }
       // Multi-day: send end date for all-day spanning events
       if (end && info.event.allDay) {
         // FullCalendar exclusive end — subtract 1 day to get the actual last day
         var lastDay = new Date(end.getTime() - 86400000);
         if (lastDay > start) {
           payload.scheduled_end_date = formatDateStr(lastDay);
+        } else {
+          payload.scheduled_end_date = null;
         }
       }
 
@@ -390,15 +396,21 @@ document.addEventListener('DOMContentLoaded', function () {
       if (info.event.allDay) {
         // Multi-day resize in month view
         payload.scheduled_date = formatDateStr(start);
+        payload.all_day = true;
         if (end) {
           var lastDay = new Date(end.getTime() - 86400000);
           if (lastDay > start) {
             payload.scheduled_end_date = formatDateStr(lastDay);
+          } else {
+            payload.scheduled_end_date = null;
           }
         }
       } else {
         payload.scheduled_date = formatDateTimeStr(start);
-        if (end) payload.scheduled_end = formatDateTimeStr(end);
+        if (end) {
+          payload.scheduled_end = formatDateTimeStr(end);
+          payload.scheduled_end_date = formatDateStr(end) > formatDateStr(start) ? formatDateStr(end) : null;
+        }
       }
       fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
         method: 'POST',
@@ -407,6 +419,9 @@ document.addEventListener('DOMContentLoaded', function () {
         body: JSON.stringify(payload)
       }).then(function(r) {
         if (!r.ok) { info.revert(); return; }
+        if (Object.prototype.hasOwnProperty.call(payload, 'scheduled_end_date')) {
+          calendar.refetchEvents();
+        }
         showToast('Duration updated');
       }).catch(function() { info.revert(); });
     },
