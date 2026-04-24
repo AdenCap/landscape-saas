@@ -745,6 +745,8 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('modal-notes').readOnly = !ownerMode;
         document.getElementById('modal-time').readOnly = !ownerMode;
         document.getElementById('modal-view-job').href = '/jobs/' + jobId + '/';
+        renderJobSummary(job, data);
+        loadModalNotes(jobId);
 
         // Owner-only sections
         var ownerOnly = document.getElementById('modal-owner-only');
@@ -866,6 +868,128 @@ document.addEventListener('DOMContentLoaded', function () {
       .catch(function(e) {
         closeModal('job-modal');
         showToast(e.message || 'Failed to load job', 'error');
+      });
+  }
+
+  function titleCaseStatus(status) {
+    return (status || 'scheduled').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  }
+
+  function escapeHtml(value) {
+    var el = document.createElement('div');
+    el.textContent = value == null ? '' : String(value);
+    return el.innerHTML;
+  }
+
+  function formatJobTimeLabel(value) {
+    if (!value) return '';
+    var parts = value.split(':');
+    var h = parseInt(parts[0], 10);
+    var m = parts[1] || '00';
+    var suffix = h >= 12 ? 'PM' : 'AM';
+    var hour = h % 12 || 12;
+    return hour + ':' + m + ' ' + suffix;
+  }
+
+  function renderJobSummary(job, data) {
+    var statusPill = document.getElementById('modal-status-pill');
+    var customerEl = document.getElementById('modal-customer-name');
+    var addressLink = document.getElementById('modal-address-link');
+    var scheduleEl = document.getElementById('modal-schedule-summary');
+    var assignmentEl = document.getElementById('modal-assignment-summary');
+    var servicesEl = document.getElementById('modal-services-summary');
+    var notesWrap = document.getElementById('modal-notes-summary-wrap');
+    var notesEl = document.getElementById('modal-notes-summary');
+    if (!statusPill || !customerEl || !addressLink || !scheduleEl || !assignmentEl || !servicesEl) return;
+
+    statusPill.textContent = titleCaseStatus(job.status);
+    statusPill.className = 'job-status-pill job-status-pill--' + (job.status || 'scheduled').replace(/[^a-z0-9_-]/gi, '');
+
+    customerEl.textContent = job.customer_name || (data.customer && data.customer.name) || 'Client';
+    addressLink.textContent = job.address || 'No address';
+    addressLink.href = job.address ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(job.address) : '#';
+
+    var scheduleParts = [];
+    if (job.scheduled_date) {
+      scheduleParts.push(job.scheduled_date + (job.scheduled_end_date ? ' to ' + job.scheduled_end_date : ''));
+    } else {
+      scheduleParts.push('Unscheduled');
+    }
+    if (job.scheduled_time) {
+      scheduleParts.push(formatJobTimeLabel(job.scheduled_time) + (job.scheduled_end_time ? ' - ' + formatJobTimeLabel(job.scheduled_end_time) : ''));
+    }
+    scheduleEl.textContent = scheduleParts.join(' · ');
+
+    var assignment = job.assigned_crew_name || '';
+    if (!assignment && job.assigned_employee_names && job.assigned_employee_names.length) {
+      assignment = job.assigned_employee_names.join(', ');
+    }
+    if (!assignment && job.assigned_to_name) {
+      assignment = job.assigned_to_name;
+    }
+    if (!assignment && data.crews && job.assigned_crew_id) {
+      var crewMatch = data.crews.find(function(c) { return c.id === job.assigned_crew_id; });
+      assignment = crewMatch ? crewMatch.name : '';
+    }
+    if (!assignment && data.employees && job.assigned_employee_ids && job.assigned_employee_ids.length) {
+      assignment = data.employees.filter(function(e) {
+        return job.assigned_employee_ids.indexOf(e.id) !== -1;
+      }).map(function(e) { return e.name; }).join(', ');
+    }
+    assignmentEl.textContent = assignment || 'Unassigned';
+
+    if (job.services && job.services.length) {
+      servicesEl.textContent = job.services.map(function(s) { return s.name || 'Service'; }).join(', ');
+    } else {
+      servicesEl.textContent = 'No services';
+    }
+
+    if (job.notes && job.notes.trim()) {
+      notesWrap.style.display = '';
+      notesEl.textContent = job.notes.trim();
+    } else {
+      notesWrap.style.display = 'none';
+      notesEl.textContent = '';
+    }
+  }
+
+  function noteBadgeClass(type) {
+    return 'note-badge note-badge--' + (type || 'job');
+  }
+
+  function noteTypeLabel(type) {
+    if (type === 'property') return 'property';
+    if (type === 'recurring') return 'recurring';
+    return 'job';
+  }
+
+  function renderModalNotes(notes) {
+    var list = document.getElementById('modal-notes-list');
+    if (!list) return;
+    if (!notes || !notes.length) {
+      list.innerHTML = '<p class="job-notes-empty">No notes yet.</p>';
+      return;
+    }
+    list.innerHTML = notes.map(function(n) {
+      var type = n.note_type || n.type || 'job';
+      var created = n.created_at ? new Date(n.created_at) : null;
+      var time = created && !isNaN(created.getTime()) ? created.toLocaleDateString() + ' ' + created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      return '<div class="job-note-item">' +
+        '<div class="job-note-meta"><span class="' + noteBadgeClass(type) + '">' + noteTypeLabel(type) + '</span>' +
+        escapeHtml(n.author || '') + (time ? ' · ' + escapeHtml(time) : '') + '</div>' +
+        '<p>' + escapeHtml(n.text || '') + '</p>' +
+      '</div>';
+    }).join('');
+  }
+
+  function loadModalNotes(jobId) {
+    var list = document.getElementById('modal-notes-list');
+    if (list) list.innerHTML = '<p class="job-notes-empty">Loading notes...</p>';
+    fetch('/jobs/' + jobId + '/notes/', { credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { renderModalNotes(data.notes || []); })
+      .catch(function() {
+        if (list) list.innerHTML = '<p class="job-notes-empty">Could not load notes.</p>';
       });
   }
 
@@ -1047,6 +1171,31 @@ document.addEventListener('DOMContentLoaded', function () {
   var deleteForm = document.getElementById('modal-delete-form');
   if (deleteForm) deleteForm.addEventListener('submit', function(e) {
     if (!confirm('Delete this job? This cannot be undone.')) e.preventDefault();
+  });
+
+  var modalNoteAdd = document.getElementById('modal-note-add');
+  if (modalNoteAdd) modalNoteAdd.addEventListener('click', function() {
+    var jobId = document.getElementById('job-modal').dataset.jobId;
+    var textEl = document.getElementById('modal-note-text');
+    var scopeEl = document.getElementById('modal-note-scope');
+    var text = textEl ? textEl.value.trim() : '';
+    if (!jobId || !text) return;
+    fetch('/jobs/' + jobId + '/notes/add/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ text: text, scope: scopeEl ? scopeEl.value : 'job' })
+    }).then(function(r) {
+      if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Failed to save note'); });
+      return r.json();
+    }).then(function() {
+      textEl.value = '';
+      loadModalNotes(jobId);
+      calendar.refetchEvents();
+      showToast('Note saved');
+    }).catch(function(e) {
+      showToast(e.message || 'Failed to save note', 'error');
+    });
   });
 
   // ── Save job modal ──

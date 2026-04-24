@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=26">
+<link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=28">
 <style>
   /* Quick-create line items */
   .qc-line-row { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
@@ -239,6 +239,41 @@
       <button type="button" class="modal-close" aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
+      <div class="job-mobile-summary" id="modal-job-summary" aria-label="Job summary">
+        <div class="job-summary-topline">
+          <span class="job-status-pill" id="modal-status-pill">Scheduled</span>
+          <span class="job-summary-schedule" id="modal-schedule-summary">—</span>
+        </div>
+        <h4 id="modal-customer-name">Client</h4>
+        <a id="modal-address-link" class="job-summary-address" href="#" target="_blank" rel="noopener"></a>
+        <div class="job-summary-grid">
+          <div>
+            <span class="job-summary-label">Assigned</span>
+            <strong id="modal-assignment-summary">Unassigned</strong>
+          </div>
+          <div>
+            <span class="job-summary-label">Services</span>
+            <strong id="modal-services-summary">No services</strong>
+          </div>
+        </div>
+        <div class="job-summary-notes" id="modal-notes-summary-wrap">
+          <span class="job-summary-label">Notes</span>
+          <p id="modal-notes-summary"></p>
+        </div>
+      </div>
+      <div class="job-note-composer" id="modal-note-composer">
+        <label for="modal-note-text">Add crew-visible note</label>
+        <select id="modal-note-scope" class="job-note-scope">
+          <option value="job">This job only</option>
+          <option value="recurring">This recurring service / future visits</option>
+          <option value="property">This property / client permanently</option>
+        </select>
+        <div class="job-note-entry">
+          <textarea id="modal-note-text" rows="2" placeholder="Add a note the crew can see..."></textarea>
+          <button type="button" id="modal-note-add" class="btn btn-primary btn-sm">Add</button>
+        </div>
+      </div>
+      <div class="job-notes-list" id="modal-notes-list" aria-live="polite"></div>
       <div class="form-group">
         <label>Address</label>
         <p id="modal-address" class="modal-readonly"></p>
@@ -575,5 +610,5 @@ document.getElementById('cal-mobile-fab').addEventListener('click', function() {
   var QC_CREWS = [{% for c in filter_crews %}{id:{{ c.id }},name:"{{ c.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
   var QC_EMPLOYEES = [{% for e in filter_employees %}{id:{{ e.id }},name:"{{ e.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
 </script>
-<script src="{% static 'js/calendar.js' %}?v=34"></script>
+<script src="{% static 'js/calendar.js' %}?v=36"></script>
 {% endblock %}

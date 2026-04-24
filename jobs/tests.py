@@ -7,7 +7,7 @@ from django.urls import reverse
 from accounts.models import User
 from businesses.models import Business
 from customers.models import Customer, Property
-from jobs.models import Job, RecurringJob
+from jobs.models import Job, JobNote, PropertyNote, RecurringJob
 
 
 class CalendarRecurringRescheduleTests(TestCase):
@@ -208,3 +208,56 @@ class CalendarRecurringRescheduleTests(TestCase):
         self.assertEqual(job.scheduled_end_date, date(2026, 5, 6))
         self.assertIsNone(job.scheduled_time)
         self.assertIsNone(job.scheduled_end_time)
+
+    def test_add_note_to_job_scope_creates_one_time_job_note(self):
+        job = self._create_job(date(2026, 5, 4))
+
+        response = self.client.post(
+            reverse("add_job_note", args=[job.id]),
+            data=json.dumps({"text": "Trim by the mailbox today.", "scope": "job"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(JobNote.objects.filter(job=job).count(), 1)
+        self.assertEqual(PropertyNote.objects.filter(property=self.property).count(), 0)
+        self.recurring_job.refresh_from_db()
+        self.assertEqual(self.recurring_job.notes, "")
+
+    def test_add_note_to_property_scope_creates_permanent_property_note(self):
+        job = self._create_job(date(2026, 5, 4))
+
+        response = self.client.post(
+            reverse("add_job_note", args=[job.id]),
+            data=json.dumps({"text": "Gate code is 2481.", "scope": "property"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(JobNote.objects.filter(job=job).count(), 0)
+        note = PropertyNote.objects.get(property=self.property)
+        self.assertEqual(note.text, "Gate code is 2481.")
+
+    def test_add_note_to_recurring_scope_updates_series_and_future_jobs(self):
+        selected_job = self._create_job(date(2026, 5, 4))
+        future_job = self._create_job(date(2026, 5, 11))
+        completed_future_job = self._create_job(date(2026, 5, 18))
+        completed_future_job.status = "completed"
+        completed_future_job.save(update_fields=["status"])
+
+        response = self.client.post(
+            reverse("add_job_note", args=[selected_job.id]),
+            data=json.dumps({"text": "Always bag clippings by the pool.", "scope": "recurring"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.recurring_job.refresh_from_db()
+        selected_job.refresh_from_db()
+        future_job.refresh_from_db()
+        completed_future_job.refresh_from_db()
+
+        self.assertEqual(self.recurring_job.notes, "Always bag clippings by the pool.")
+        self.assertEqual(selected_job.notes, "Always bag clippings by the pool.")
+        self.assertEqual(future_job.notes, "Always bag clippings by the pool.")
+        self.assertEqual(completed_future_job.notes, "")

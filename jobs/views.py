@@ -22,6 +22,25 @@ from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset
 from pricing.utils import get_effective_rate
 from accounts.models import User
 
+def _request_data(request):
+    if (request.content_type or "").startswith("application/json"):
+        try:
+            return json.loads(request.body or "{}")
+        except (TypeError, ValueError):
+            return {}
+    return request.POST
+
+
+def _append_note_text(existing, text):
+    existing = (existing or "").strip()
+    text = (text or "").strip()
+    if not text:
+        return existing
+    if text in existing.splitlines():
+        return existing
+    return f"{existing}\n{text}".strip() if existing else text
+
+
 def _business_today(business):
     """Get today's date in the business's timezone (not server UTC)."""
     from accounts.timezone_utils import business_today
@@ -741,8 +760,11 @@ def calendar_job_data(request, job_id):
         "job": {
             "id": job.id,
             "address": job.property.address,
+            "customer_name": job.property.customer.name if job.property.customer else "",
             "scheduled_date": job.scheduled_date.isoformat() if job.scheduled_date else "",
+            "scheduled_end_date": job.scheduled_end_date.isoformat() if job.scheduled_end_date else "",
             "scheduled_time": job.scheduled_time.strftime("%H:%M") if job.scheduled_time else "",
+            "scheduled_end_time": job.scheduled_end_time.strftime("%H:%M") if job.scheduled_end_time else "",
             "status": job.status,
             "notes": job.notes or "",
             "services": services,
@@ -750,6 +772,12 @@ def calendar_job_data(request, job_id):
             "assigned_crew_id": job.assigned_crew_id if is_owner else None,
             "assigned_to_id": job.assigned_to_id if is_owner else None,
             "assigned_employee_ids": list(job.assigned_employees.values_list('id', flat=True)) if is_owner else [],
+            "assigned_crew_name": job.assigned_crew.name if job.assigned_crew else "",
+            "assigned_to_name": (job.assigned_to.get_full_name() or job.assigned_to.username) if job.assigned_to else "",
+            "assigned_employee_names": [
+                u.get_full_name() or u.username
+                for u in job.assigned_employees.all()
+            ],
             "color": job.color or "",
             "has_unbilled_items": job.service_items.filter(billed_at__isnull=True).exists() if is_owner else False,
             "has_services": job.service_items.exists(),
@@ -2194,18 +2222,56 @@ def upload_completion_photo(request, job_id):
 @require_POST
 @role_required("owner", "manager", "crew")
 def add_job_note(request, job_id):
-    """Add a timestamped note to a job. Crew must be assigned to the job."""
+    """Add a note scoped to this job, the recurring series, or the property."""
     business = get_business(request)
     if not business:
         return JsonResponse({"error": "No business"}, status=403)
     job = get_object_or_404(Job, id=job_id, property__customer__business=business)
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
         return JsonResponse({"error": "Not assigned to this job"}, status=403)
-    text = (request.POST.get("text") or "").strip()
+    data = _request_data(request)
+    text = (data.get("text") or "").strip()
+    scope = (data.get("scope") or "job").strip().lower()
     if not text:
         return JsonResponse({"error": "Note text is required"}, status=400)
+    if scope == "property":
+        note = PropertyNote.objects.create(property=job.property, author=request.user, text=text)
+        return JsonResponse({
+            "status": "ok",
+            "scope": "property",
+            "id": note.id,
+            "text": note.text,
+            "author": note.author.get_full_name() or note.author.username,
+            "created_at": note.created_at.isoformat(),
+            "property_address": job.property.address,
+        })
+    if scope == "recurring":
+        if not job.recurring_job_id:
+            return JsonResponse({"error": "This job is not linked to a recurring schedule"}, status=400)
+        recurring_job = job.recurring_job
+        recurring_job.notes = _append_note_text(recurring_job.notes, text)
+        recurring_job.save(update_fields=["notes"])
+        future_jobs = Job.objects.filter(
+            recurring_job=recurring_job,
+            scheduled_date__gte=job.scheduled_date,
+            status__in=["scheduled", "en_route"],
+        )
+        for future_job in future_jobs:
+            future_job.notes = _append_note_text(future_job.notes, text)
+            future_job.save(update_fields=["notes"])
+        return JsonResponse({
+            "status": "ok",
+            "scope": "recurring",
+            "id": recurring_job.id,
+            "text": text,
+            "author": request.user.get_full_name() or request.user.username,
+            "created_at": "",
+            "future_updated": future_jobs.count(),
+        })
     note = JobNote.objects.create(job=job, author=request.user, text=text)
     return JsonResponse({
+        "status": "ok",
+        "scope": "job",
         "id": note.id,
         "text": note.text,
         "author": note.author.get_full_name() or note.author.username,
@@ -2314,11 +2380,25 @@ def get_job_notes(request, job_id):
         out = []
         for nid, text, first, last, uname, created in rows:
             name = f"{first} {last}".strip() or uname
-            out.append({"id": nid, "text": text, "author": name, "created_at": created.isoformat(), "type": note_type})
+            out.append({"id": nid, "text": text, "author": name, "created_at": created.isoformat(), "type": note_type, "note_type": note_type})
         return out
+    recurring_notes = []
+    if job.recurring_job_id and (job.recurring_job.notes or "").strip():
+        recurring_notes.append({
+            "id": job.recurring_job_id,
+            "text": job.recurring_job.notes.strip(),
+            "author": "Recurring schedule",
+            "created_at": "",
+            "type": "recurring",
+            "note_type": "recurring",
+        })
+    job_note_items = fmt(job_notes, "job")
+    property_note_items = fmt(property_notes, "property")
     return JsonResponse({
-        "job_notes": fmt(job_notes, "job"),
-        "property_notes": fmt(property_notes, "property"),
+        "job_notes": job_note_items,
+        "property_notes": property_note_items,
+        "recurring_notes": recurring_notes,
+        "notes": recurring_notes + property_note_items + job_note_items,
     })
 
 

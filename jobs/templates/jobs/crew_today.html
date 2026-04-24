@@ -152,7 +152,12 @@
 
       <!-- Add notes -->
       <div class="jc-tool-section">
-        <label class="jc-tool-label">Add Job Note</label>
+        <label class="jc-tool-label">Add Note</label>
+        <select id="note-scope-{{ job.id }}" class="jc-select" style="margin-bottom:6px;">
+          <option value="job">This job only</option>
+          <option value="recurring">This recurring service / future visits</option>
+          <option value="property">This property / client permanently</option>
+        </select>
         <div class="jc-note-form">
           <textarea id="note-{{ job.id }}" rows="2" placeholder="Leave a note about this job..." class="jc-textarea"></textarea>
           <button type="button" class="jc-note-submit" onclick="submitNote({{ job.id }})">
@@ -294,13 +299,14 @@ function toggleTools(jobId) {
 
 function submitNote(jobId) {
   var textarea = document.getElementById('note-' + jobId);
+  var scope = document.getElementById('note-scope-' + jobId);
   var text = textarea.value.trim();
   if (!text) return;
   fetch('/jobs/' + jobId + '/notes/add/', {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-    body: JSON.stringify({ text: text })
+    body: JSON.stringify({ text: text, scope: scope ? scope.value : 'job' })
   }).then(function(r) { return r.json(); }).then(function(data) {
     textarea.value = '';
     if (data.status === 'ok') {
@@ -341,7 +347,12 @@ function toggleNotes(jobId) {
         meta.textContent = (n.author || 'Unknown') + ' · ' + (n.created_at || '');
         if (n.note_type) {
           var badge = document.createElement('span');
-          badge.style.cssText = 'font-size:9px;font-weight:700;text-transform:uppercase;padding:1px 5px;border-radius:3px;margin-right:4px;' + (n.note_type === 'job' ? 'background:rgba(34,197,94,0.2);color:#6ee7b7;' : 'background:rgba(168,85,247,0.2);color:#c4b5fd;');
+          var badgeColor = n.note_type === 'job'
+            ? 'background:rgba(34,197,94,0.2);color:#6ee7b7;'
+            : (n.note_type === 'recurring'
+              ? 'background:rgba(59,130,246,0.2);color:#93c5fd;'
+              : 'background:rgba(168,85,247,0.2);color:#c4b5fd;');
+          badge.style.cssText = 'font-size:9px;font-weight:700;text-transform:uppercase;padding:1px 5px;border-radius:3px;margin-right:4px;' + badgeColor;
           badge.textContent = n.note_type;
           meta.prepend(badge);
         }
