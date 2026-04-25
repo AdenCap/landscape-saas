@@ -7,7 +7,7 @@ from django.urls import reverse
 from accounts.models import User
 from businesses.models import Business
 from customers.models import Customer, Property
-from jobs.models import Job, JobNote, PropertyNote, RecurringJob
+from jobs.models import Crew, Job, JobNote, PropertyNote, RecurringJob
 
 
 class CalendarRecurringRescheduleTests(TestCase):
@@ -261,3 +261,104 @@ class CalendarRecurringRescheduleTests(TestCase):
         self.assertEqual(selected_job.notes, "Always bag clippings by the pool.")
         self.assertEqual(future_job.notes, "Always bag clippings by the pool.")
         self.assertEqual(completed_future_job.notes, "")
+
+    def test_update_recurring_job_crew_this_only_leaves_future_jobs_unchanged(self):
+        old_crew = Crew.objects.create(business=self.business, name="Crew A")
+        new_crew = Crew.objects.create(business=self.business, name="Crew B")
+        self.recurring_job.assigned_crew = old_crew
+        self.recurring_job.save(update_fields=["assigned_crew"])
+        selected_job = self._create_job(date(2026, 5, 4))
+        future_job = self._create_job(date(2026, 5, 11))
+        selected_job.assigned_crew = old_crew
+        selected_job.save(update_fields=["assigned_crew"])
+        future_job.assigned_crew = old_crew
+        future_job.save(update_fields=["assigned_crew"])
+
+        response = self.client.post(
+            reverse("calendar_job_update", args=[selected_job.id]),
+            data=json.dumps({
+                "assigned_crew_id": new_crew.id,
+                "apply_assignment_to_future": False,
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        selected_job.refresh_from_db()
+        future_job.refresh_from_db()
+        self.recurring_job.refresh_from_db()
+        self.assertEqual(selected_job.assigned_crew_id, new_crew.id)
+        self.assertEqual(future_job.assigned_crew_id, old_crew.id)
+        self.assertEqual(self.recurring_job.assigned_crew_id, old_crew.id)
+
+    def test_update_recurring_job_crew_future_updates_series_and_future_jobs(self):
+        old_crew = Crew.objects.create(business=self.business, name="Crew A")
+        new_crew = Crew.objects.create(business=self.business, name="Crew B")
+        self.recurring_job.assigned_crew = old_crew
+        self.recurring_job.save(update_fields=["assigned_crew"])
+        selected_job = self._create_job(date(2026, 5, 4))
+        future_job = self._create_job(date(2026, 5, 11))
+        completed_future_job = self._create_job(date(2026, 5, 18))
+        for job in (selected_job, future_job, completed_future_job):
+            job.assigned_crew = old_crew
+            job.save(update_fields=["assigned_crew"])
+        completed_future_job.status = "completed"
+        completed_future_job.save(update_fields=["status"])
+
+        response = self.client.post(
+            reverse("calendar_job_update", args=[selected_job.id]),
+            data=json.dumps({
+                "assigned_crew_id": new_crew.id,
+                "apply_assignment_to_future": True,
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        selected_job.refresh_from_db()
+        future_job.refresh_from_db()
+        completed_future_job.refresh_from_db()
+        self.recurring_job.refresh_from_db()
+        self.assertEqual(selected_job.assigned_crew_id, new_crew.id)
+        self.assertEqual(future_job.assigned_crew_id, new_crew.id)
+        self.assertEqual(completed_future_job.assigned_crew_id, old_crew.id)
+        self.assertEqual(self.recurring_job.assigned_crew_id, new_crew.id)
+
+    def test_update_recurring_job_employee_future_updates_series_and_future_jobs(self):
+        old_crew = Crew.objects.create(business=self.business, name="Crew A")
+        employee = User.objects.create_user(
+            username="crew1",
+            password="password",
+            role="crew",
+            business=self.business,
+        )
+        self.recurring_job.assigned_crew = old_crew
+        self.recurring_job.save(update_fields=["assigned_crew"])
+        selected_job = self._create_job(date(2026, 5, 4))
+        future_job = self._create_job(date(2026, 5, 11))
+        for job in (selected_job, future_job):
+            job.assigned_crew = old_crew
+            job.save(update_fields=["assigned_crew"])
+
+        response = self.client.post(
+            reverse("calendar_job_update", args=[selected_job.id]),
+            data=json.dumps({
+                "assigned_crew_id": None,
+                "assigned_to_id": employee.id,
+                "assigned_employee_ids": [employee.id],
+                "apply_assignment_to_future": True,
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        selected_job.refresh_from_db()
+        future_job.refresh_from_db()
+        self.recurring_job.refresh_from_db()
+        self.assertIsNone(selected_job.assigned_crew_id)
+        self.assertEqual(selected_job.assigned_to_id, employee.id)
+        self.assertIsNone(future_job.assigned_crew_id)
+        self.assertEqual(future_job.assigned_to_id, employee.id)
+        self.assertEqual(list(future_job.assigned_employees.values_list("id", flat=True)), [employee.id])
+        self.assertIsNone(self.recurring_job.assigned_crew_id)
+        self.assertEqual(self.recurring_job.assigned_to_id, employee.id)

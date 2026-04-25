@@ -861,7 +861,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         document.getElementById('modal-save').style.display = ownerMode ? '' : 'none';
-        document.getElementById('job-modal').dataset.jobId = jobId;
+        var modal = document.getElementById('job-modal');
+        modal.dataset.jobId = jobId;
+        modal.dataset.isRecurring = job.is_recurring ? '1' : '0';
+        modal.dataset.originalCrewId = job.assigned_crew_id ? String(job.assigned_crew_id) : '';
+        modal.dataset.originalAssignedToId = job.assigned_to_id ? String(job.assigned_to_id) : '';
+        modal.dataset.originalEmployeeIds = (job.assigned_employee_ids || []).map(function(id) {
+          return String(id);
+        }).sort().join(',');
         var delForm = document.getElementById('modal-delete-form');
         if (delForm) delForm.action = '/jobs/' + jobId + '/delete/';
       })
@@ -1201,12 +1208,14 @@ document.addEventListener('DOMContentLoaded', function () {
   // ── Save job modal ──
   var saveBtn = document.getElementById('modal-save');
   if (saveBtn) saveBtn.addEventListener('click', function() {
-    var jobId = document.getElementById('job-modal').dataset.jobId;
+    var modal = document.getElementById('job-modal');
+    var jobId = modal.dataset.jobId;
     if (!jobId) return;
     // Collect multi-employee checkboxes
     var empCheckboxes = document.querySelectorAll('input[name="modal_emp_cb"]:checked');
     var selectedEmpIds = [];
     empCheckboxes.forEach(function(cb) { selectedEmpIds.push(parseInt(cb.value, 10)); });
+    selectedEmpIds.sort(function(a, b) { return a - b; });
     var payload = {
       assigned_crew_id: crewSel && crewSel.value ? parseInt(crewSel.value, 10) : null,
       assigned_to_id: selectedEmpIds.length ? selectedEmpIds[0] : (empSel && empSel.value ? parseInt(empSel.value, 10) : null),
@@ -1217,26 +1226,53 @@ document.addEventListener('DOMContentLoaded', function () {
       customer_phone: document.getElementById('modal-customer-phone').value,
       color: (colorInput ? colorInput.value.trim() : '') || null
     };
-    fetch('/jobs/calendar/job/' + jobId + '/update/', {
-      method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
-      body: JSON.stringify(payload)
-    }).then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('Update failed')); })
-      .then(function(data) {
-        var event = calendar.getEventById(String(jobId));
-        if (event && data.backgroundColor) {
-          event.setProp('backgroundColor', data.backgroundColor);
-          event.setProp('borderColor', data.borderColor || data.backgroundColor);
-          if (data.crew != null) event.setExtendedProp('crew', data.crew);
-        }
-        calendar.refetchEvents();
-        if (isOwner) loadUnscheduled();
-        closeModal('job-modal');
-        showToast('Job updated');
-      }).catch(function() {
-        calendar.refetchEvents();
-        showToast('Update failed', 'error');
-      });
+    var currentCrewId = payload.assigned_crew_id ? String(payload.assigned_crew_id) : '';
+    var currentAssignedToId = payload.assigned_to_id ? String(payload.assigned_to_id) : '';
+    var currentEmployeeIds = selectedEmpIds.map(function(id) { return String(id); }).join(',');
+    var assignmentChanged = (
+      currentCrewId !== (modal.dataset.originalCrewId || '') ||
+      currentAssignedToId !== (modal.dataset.originalAssignedToId || '') ||
+      currentEmployeeIds !== (modal.dataset.originalEmployeeIds || '')
+    );
+
+    function submitUpdate(applyAssignmentToFuture) {
+      if (applyAssignmentToFuture) payload.apply_assignment_to_future = true;
+      fetch('/jobs/calendar/job/' + jobId + '/update/', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+        body: JSON.stringify(payload)
+      }).then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('Update failed')); })
+        .then(function(data) {
+          var event = calendar.getEventById(String(jobId));
+          if (event && data.backgroundColor) {
+            event.setProp('backgroundColor', data.backgroundColor);
+            event.setProp('borderColor', data.borderColor || data.backgroundColor);
+            if (data.crew != null) event.setExtendedProp('crew', data.crew);
+          }
+          calendar.refetchEvents();
+          if (isOwner) loadUnscheduled();
+          closeModal('job-modal');
+          if (data.future_assignment_updated) {
+            showToast('Job updated + ' + data.future_assignment_updated + ' future jobs reassigned');
+          } else {
+            showToast('Job updated');
+          }
+        }).catch(function() {
+          calendar.refetchEvents();
+          showToast('Update failed', 'error');
+        });
+    }
+
+    if (modal.dataset.isRecurring === '1' && assignmentChanged) {
+      showRecurringDialog(
+        function() { submitUpdate(false); },
+        function() { submitUpdate(true); },
+        function() {}
+      );
+      return;
+    }
+
+    submitUpdate(false);
   });
 
   // ══════════════════════════════════════════════════════════════

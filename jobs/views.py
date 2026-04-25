@@ -769,6 +769,8 @@ def calendar_job_data(request, job_id):
             "notes": job.notes or "",
             "services": services,
             "images": images,
+            "is_recurring": bool(job.recurring_job_id),
+            "recurring_job_id": job.recurring_job_id if is_owner else None,
             "assigned_crew_id": job.assigned_crew_id if is_owner else None,
             "assigned_to_id": job.assigned_to_id if is_owner else None,
             "assigned_employee_ids": list(job.assigned_employees.values_list('id', flat=True)) if is_owner else [],
@@ -815,20 +817,29 @@ def calendar_job_update(request, job_id):
     if not business:
         return JsonResponse({"error": "No business"}, status=403)
     job = get_object_or_404(
-        Job.objects.select_related('property', 'property__customer'),
+        Job.objects.select_related('property', 'property__customer', 'recurring_job'),
         id=job_id,
         property__customer__business=business,
     )
     data = json.loads(request.body) if request.body else {}
+    assignment_fields_present = any(k in data for k in ("assigned_crew_id", "assigned_to_id", "assigned_employee_ids"))
+    apply_assignment_to_future = bool(data.get("apply_assignment_to_future"))
+    selected_crew = None
+    selected_employee = None
+    selected_employees = None
     # Crew and employee are mutually exclusive
     if "assigned_crew_id" in data:
         vid = data["assigned_crew_id"]
         if vid is None or vid == "":
             job.assigned_crew = None
+            job.assigned_to = None
+            job.assigned_employees.clear()
         else:
             crew = Crew.objects.filter(business=business, id=vid).first()
             job.assigned_crew = crew
             job.assigned_to = None  # clear employee when crew selected
+            job.assigned_employees.clear()
+            selected_crew = crew
     if "assigned_to_id" in data:
         vid = data["assigned_to_id"]
         if vid is None or vid == "":
@@ -841,14 +852,18 @@ def calendar_job_update(request, job_id):
             # Add to M2M if not already there
             if user and not job.assigned_employees.filter(id=user.id).exists():
                 job.assigned_employees.add(user)
+            selected_employee = user
     if "assigned_employee_ids" in data:
         eids = data["assigned_employee_ids"]
         if isinstance(eids, list):
             employees = User.objects.filter(business=business, role__in=["crew", "owner"], id__in=eids)
+            selected_employees = list(employees)
             job.assigned_employees.set(employees)
             if employees.exists():
                 job.assigned_to = employees.first()
                 job.assigned_crew = None
+            else:
+                job.assigned_to = None
     if "notes" in data:
         job.notes = (data["notes"] or "")[:2000]
     if "scheduled_time" in data:
@@ -895,7 +910,46 @@ def calendar_job_update(request, job_id):
                     pass
     job.save()
 
-    if "assigned_crew_id" in data or "assigned_to_id" in data:
+    future_assignment_updated = 0
+    if apply_assignment_to_future and assignment_fields_present and job.recurring_job_id and job.scheduled_date:
+        recurring_job = job.recurring_job
+        if "assigned_employee_ids" in data:
+            recurring_job.assigned_crew = None
+            recurring_job.assigned_to = selected_employees[0] if selected_employees else None
+            recurring_job.save(update_fields=["assigned_crew", "assigned_to"])
+        elif "assigned_crew_id" in data:
+            recurring_job.assigned_crew = selected_crew
+            recurring_job.assigned_to = None
+            recurring_job.save(update_fields=["assigned_crew", "assigned_to"])
+        elif "assigned_to_id" in data:
+            recurring_job.assigned_crew = None
+            recurring_job.assigned_to = selected_employee
+            recurring_job.save(update_fields=["assigned_crew", "assigned_to"])
+
+        future_jobs = Job.objects.filter(
+            recurring_job=recurring_job,
+            scheduled_date__gt=job.scheduled_date,
+            status__in=["scheduled", "en_route"],
+        )
+        for future_job in future_jobs:
+            if "assigned_employee_ids" in data:
+                future_job.assigned_crew = None
+                future_job.assigned_to = selected_employees[0] if selected_employees else None
+                future_job.save(update_fields=["assigned_crew", "assigned_to"])
+                future_job.assigned_employees.set(selected_employees or [])
+            elif "assigned_crew_id" in data:
+                future_job.assigned_crew = selected_crew
+                future_job.assigned_to = None
+                future_job.save(update_fields=["assigned_crew", "assigned_to"])
+                future_job.assigned_employees.clear()
+            elif "assigned_to_id" in data:
+                future_job.assigned_crew = None
+                future_job.assigned_to = selected_employee
+                future_job.save(update_fields=["assigned_crew", "assigned_to"])
+                future_job.assigned_employees.set([selected_employee] if selected_employee else [])
+            future_assignment_updated += 1
+
+    if "assigned_crew_id" in data or "assigned_to_id" in data or "assigned_employee_ids" in data:
         assignee = job.assigned_crew.name if job.assigned_crew else (job.assigned_to.get_full_name() or job.assigned_to.username if job.assigned_to else "Unassigned")
         JobAssignmentLog.objects.create(
             job=job,
@@ -924,6 +978,7 @@ def calendar_job_update(request, job_id):
         "backgroundColor": bg,
         "borderColor": bg,
         "crew": assignee_name,
+        "future_assignment_updated": future_assignment_updated,
     })
 
 
