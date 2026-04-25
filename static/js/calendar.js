@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function () {
     scrollTime: '07:00:00',
     scrollTimeReset: false,
     stickyHeaderDates: true,
-    allDaySlot: false,
+    allDaySlot: true,
     expandRows: true,
     nowIndicator: true,
     eventDisplay: 'block',
@@ -328,13 +328,19 @@ document.addEventListener('DOMContentLoaded', function () {
       var start = info.event.start;
       var end = info.event.end;
       var payload = { scheduled_date: info.event.allDay ? formatDateStr(start) : formatDateTimeStr(start) };
-      if (end && !info.event.allDay) payload.scheduled_end = formatDateTimeStr(end);
+      if (info.event.allDay) payload.all_day = true;
+      if (end && !info.event.allDay) {
+        payload.scheduled_end = formatDateTimeStr(end);
+        payload.scheduled_end_date = formatDateStr(end) > formatDateStr(start) ? formatDateStr(end) : null;
+      }
       // Multi-day: send end date for all-day spanning events
       if (end && info.event.allDay) {
         // FullCalendar exclusive end — subtract 1 day to get the actual last day
         var lastDay = new Date(end.getTime() - 86400000);
         if (lastDay > start) {
           payload.scheduled_end_date = formatDateStr(lastDay);
+        } else {
+          payload.scheduled_end_date = null;
         }
       }
 
@@ -384,31 +390,68 @@ document.addEventListener('DOMContentLoaded', function () {
     eventResize: function(info) {
       var jobId = info.event.extendedProps?.jobId;
       if (!jobId) return;
+      var props = info.event.extendedProps || {};
       var start = info.event.start;
       var end = info.event.end;
       var payload = {};
       if (info.event.allDay) {
         // Multi-day resize in month view
         payload.scheduled_date = formatDateStr(start);
+        payload.all_day = true;
         if (end) {
           var lastDay = new Date(end.getTime() - 86400000);
           if (lastDay > start) {
             payload.scheduled_end_date = formatDateStr(lastDay);
+          } else {
+            payload.scheduled_end_date = null;
           }
         }
       } else {
         payload.scheduled_date = formatDateTimeStr(start);
-        if (end) payload.scheduled_end = formatDateTimeStr(end);
+        if (end) {
+          payload.scheduled_end = formatDateTimeStr(end);
+          payload.scheduled_end_date = formatDateStr(end) > formatDateStr(start) ? formatDateStr(end) : null;
+        }
       }
-      fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
-        body: JSON.stringify(payload)
-      }).then(function(r) {
-        if (!r.ok) { info.revert(); return; }
-        showToast('Duration updated');
-      }).catch(function() { info.revert(); });
+      function doResize(applyFuture) {
+        payload.apply_to_future = !!applyFuture;
+        fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+          body: JSON.stringify(payload)
+        }).then(function(r) {
+          if (!r.ok) {
+            info.revert();
+            showToast('Could not update duration (status ' + r.status + ')', 'error');
+            return null;
+          }
+          return r.json();
+        }).then(function(data) {
+          if (!data) return;
+          if (Object.prototype.hasOwnProperty.call(payload, 'scheduled_end_date') || data.future_moved > 0) {
+            calendar.refetchEvents();
+          }
+          if (data.future_moved > 0) {
+            showToast('Updated this + ' + data.future_moved + ' future jobs');
+          } else {
+            showToast('Duration updated');
+          }
+        }).catch(function() {
+          info.revert();
+          showToast('Could not update duration', 'error');
+        });
+      }
+
+      if (props.recurring) {
+        showRecurringDialog(
+          function() { doResize(false); },
+          function() { doResize(true); },
+          function() { info.revert(); }
+        );
+      } else {
+        doResize(false);
+      }
     },
 
     // ── Click event → open modal ──
@@ -730,6 +773,8 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('modal-notes').readOnly = !ownerMode;
         document.getElementById('modal-time').readOnly = !ownerMode;
         document.getElementById('modal-view-job').href = '/jobs/' + jobId + '/';
+        renderJobSummary(job, data);
+        loadModalNotes(jobId);
 
         // Owner-only sections
         var ownerOnly = document.getElementById('modal-owner-only');
@@ -844,13 +889,142 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         document.getElementById('modal-save').style.display = ownerMode ? '' : 'none';
-        document.getElementById('job-modal').dataset.jobId = jobId;
+        var modal = document.getElementById('job-modal');
+        modal.dataset.jobId = jobId;
+        modal.dataset.isRecurring = job.is_recurring ? '1' : '0';
+        modal.dataset.originalCrewId = job.assigned_crew_id ? String(job.assigned_crew_id) : '';
+        modal.dataset.originalAssignedToId = job.assigned_to_id ? String(job.assigned_to_id) : '';
+        modal.dataset.originalEmployeeIds = (job.assigned_employee_ids || []).map(function(id) {
+          return String(id);
+        }).sort().join(',');
         var delForm = document.getElementById('modal-delete-form');
         if (delForm) delForm.action = '/jobs/' + jobId + '/delete/';
       })
       .catch(function(e) {
         closeModal('job-modal');
         showToast(e.message || 'Failed to load job', 'error');
+      });
+  }
+
+  function titleCaseStatus(status) {
+    return (status || 'scheduled').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  }
+
+  function escapeHtml(value) {
+    var el = document.createElement('div');
+    el.textContent = value == null ? '' : String(value);
+    return el.innerHTML;
+  }
+
+  function formatJobTimeLabel(value) {
+    if (!value) return '';
+    var parts = value.split(':');
+    var h = parseInt(parts[0], 10);
+    var m = parts[1] || '00';
+    var suffix = h >= 12 ? 'PM' : 'AM';
+    var hour = h % 12 || 12;
+    return hour + ':' + m + ' ' + suffix;
+  }
+
+  function renderJobSummary(job, data) {
+    var statusPill = document.getElementById('modal-status-pill');
+    var customerEl = document.getElementById('modal-customer-name');
+    var addressLink = document.getElementById('modal-address-link');
+    var scheduleEl = document.getElementById('modal-schedule-summary');
+    var assignmentEl = document.getElementById('modal-assignment-summary');
+    var servicesEl = document.getElementById('modal-services-summary');
+    var notesWrap = document.getElementById('modal-notes-summary-wrap');
+    var notesEl = document.getElementById('modal-notes-summary');
+    if (!statusPill || !customerEl || !addressLink || !scheduleEl || !assignmentEl || !servicesEl) return;
+
+    statusPill.textContent = titleCaseStatus(job.status);
+    statusPill.className = 'job-status-pill job-status-pill--' + (job.status || 'scheduled').replace(/[^a-z0-9_-]/gi, '');
+
+    customerEl.textContent = job.customer_name || (data.customer && data.customer.name) || 'Client';
+    addressLink.textContent = job.address || 'No address';
+    addressLink.href = job.address ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(job.address) : '#';
+
+    var scheduleParts = [];
+    if (job.scheduled_date) {
+      scheduleParts.push(job.scheduled_date + (job.scheduled_end_date ? ' to ' + job.scheduled_end_date : ''));
+    } else {
+      scheduleParts.push('Unscheduled');
+    }
+    if (job.scheduled_time) {
+      scheduleParts.push(formatJobTimeLabel(job.scheduled_time) + (job.scheduled_end_time ? ' - ' + formatJobTimeLabel(job.scheduled_end_time) : ''));
+    }
+    scheduleEl.textContent = scheduleParts.join(' · ');
+
+    var assignment = job.assigned_crew_name || '';
+    if (!assignment && job.assigned_employee_names && job.assigned_employee_names.length) {
+      assignment = job.assigned_employee_names.join(', ');
+    }
+    if (!assignment && job.assigned_to_name) {
+      assignment = job.assigned_to_name;
+    }
+    if (!assignment && data.crews && job.assigned_crew_id) {
+      var crewMatch = data.crews.find(function(c) { return c.id === job.assigned_crew_id; });
+      assignment = crewMatch ? crewMatch.name : '';
+    }
+    if (!assignment && data.employees && job.assigned_employee_ids && job.assigned_employee_ids.length) {
+      assignment = data.employees.filter(function(e) {
+        return job.assigned_employee_ids.indexOf(e.id) !== -1;
+      }).map(function(e) { return e.name; }).join(', ');
+    }
+    assignmentEl.textContent = assignment || 'Unassigned';
+
+    if (job.services && job.services.length) {
+      servicesEl.textContent = job.services.map(function(s) { return s.name || 'Service'; }).join(', ');
+    } else {
+      servicesEl.textContent = 'No services';
+    }
+
+    if (job.notes && job.notes.trim()) {
+      notesWrap.style.display = '';
+      notesEl.textContent = job.notes.trim();
+    } else {
+      notesWrap.style.display = 'none';
+      notesEl.textContent = '';
+    }
+  }
+
+  function noteBadgeClass(type) {
+    return 'note-badge note-badge--' + (type || 'job');
+  }
+
+  function noteTypeLabel(type) {
+    if (type === 'property') return 'property';
+    if (type === 'recurring') return 'recurring';
+    return 'job';
+  }
+
+  function renderModalNotes(notes) {
+    var list = document.getElementById('modal-notes-list');
+    if (!list) return;
+    if (!notes || !notes.length) {
+      list.innerHTML = '<p class="job-notes-empty">No notes yet.</p>';
+      return;
+    }
+    list.innerHTML = notes.map(function(n) {
+      var type = n.note_type || n.type || 'job';
+      var created = n.created_at ? new Date(n.created_at) : null;
+      var time = created && !isNaN(created.getTime()) ? created.toLocaleDateString() + ' ' + created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      return '<div class="job-note-item">' +
+        '<div class="job-note-meta"><span class="' + noteBadgeClass(type) + '">' + noteTypeLabel(type) + '</span>' +
+        escapeHtml(n.author || '') + (time ? ' · ' + escapeHtml(time) : '') + '</div>' +
+        '<p>' + escapeHtml(n.text || '') + '</p>' +
+      '</div>';
+    }).join('');
+  }
+
+  function loadModalNotes(jobId) {
+    var list = document.getElementById('modal-notes-list');
+    if (list) list.innerHTML = '<p class="job-notes-empty">Loading notes...</p>';
+    fetch('/jobs/' + jobId + '/notes/', { credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { renderModalNotes(data.notes || []); })
+      .catch(function() {
+        if (list) list.innerHTML = '<p class="job-notes-empty">Could not load notes.</p>';
       });
   }
 
@@ -1034,15 +1208,42 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!confirm('Delete this job? This cannot be undone.')) e.preventDefault();
   });
 
+  var modalNoteAdd = document.getElementById('modal-note-add');
+  if (modalNoteAdd) modalNoteAdd.addEventListener('click', function() {
+    var jobId = document.getElementById('job-modal').dataset.jobId;
+    var textEl = document.getElementById('modal-note-text');
+    var scopeEl = document.getElementById('modal-note-scope');
+    var text = textEl ? textEl.value.trim() : '';
+    if (!jobId || !text) return;
+    fetch('/jobs/' + jobId + '/notes/add/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ text: text, scope: scopeEl ? scopeEl.value : 'job' })
+    }).then(function(r) {
+      if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Failed to save note'); });
+      return r.json();
+    }).then(function() {
+      textEl.value = '';
+      loadModalNotes(jobId);
+      calendar.refetchEvents();
+      showToast('Note saved');
+    }).catch(function(e) {
+      showToast(e.message || 'Failed to save note', 'error');
+    });
+  });
+
   // ── Save job modal ──
   var saveBtn = document.getElementById('modal-save');
   if (saveBtn) saveBtn.addEventListener('click', function() {
-    var jobId = document.getElementById('job-modal').dataset.jobId;
+    var modal = document.getElementById('job-modal');
+    var jobId = modal.dataset.jobId;
     if (!jobId) return;
     // Collect multi-employee checkboxes
     var empCheckboxes = document.querySelectorAll('input[name="modal_emp_cb"]:checked');
     var selectedEmpIds = [];
     empCheckboxes.forEach(function(cb) { selectedEmpIds.push(parseInt(cb.value, 10)); });
+    selectedEmpIds.sort(function(a, b) { return a - b; });
     var payload = {
       assigned_crew_id: crewSel && crewSel.value ? parseInt(crewSel.value, 10) : null,
       assigned_to_id: selectedEmpIds.length ? selectedEmpIds[0] : (empSel && empSel.value ? parseInt(empSel.value, 10) : null),
@@ -1053,26 +1254,53 @@ document.addEventListener('DOMContentLoaded', function () {
       customer_phone: document.getElementById('modal-customer-phone').value,
       color: (colorInput ? colorInput.value.trim() : '') || null
     };
-    fetch('/jobs/calendar/job/' + jobId + '/update/', {
-      method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
-      body: JSON.stringify(payload)
-    }).then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('Update failed')); })
-      .then(function(data) {
-        var event = calendar.getEventById(String(jobId));
-        if (event && data.backgroundColor) {
-          event.setProp('backgroundColor', data.backgroundColor);
-          event.setProp('borderColor', data.borderColor || data.backgroundColor);
-          if (data.crew != null) event.setExtendedProp('crew', data.crew);
-        }
-        calendar.refetchEvents();
-        if (isOwner) loadUnscheduled();
-        closeModal('job-modal');
-        showToast('Job updated');
-      }).catch(function() {
-        calendar.refetchEvents();
-        showToast('Update failed', 'error');
-      });
+    var currentCrewId = payload.assigned_crew_id ? String(payload.assigned_crew_id) : '';
+    var currentAssignedToId = payload.assigned_to_id ? String(payload.assigned_to_id) : '';
+    var currentEmployeeIds = selectedEmpIds.map(function(id) { return String(id); }).join(',');
+    var assignmentChanged = (
+      currentCrewId !== (modal.dataset.originalCrewId || '') ||
+      currentAssignedToId !== (modal.dataset.originalAssignedToId || '') ||
+      currentEmployeeIds !== (modal.dataset.originalEmployeeIds || '')
+    );
+
+    function submitUpdate(applyAssignmentToFuture) {
+      if (applyAssignmentToFuture) payload.apply_assignment_to_future = true;
+      fetch('/jobs/calendar/job/' + jobId + '/update/', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+        body: JSON.stringify(payload)
+      }).then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('Update failed')); })
+        .then(function(data) {
+          var event = calendar.getEventById(String(jobId));
+          if (event && data.backgroundColor) {
+            event.setProp('backgroundColor', data.backgroundColor);
+            event.setProp('borderColor', data.borderColor || data.backgroundColor);
+            if (data.crew != null) event.setExtendedProp('crew', data.crew);
+          }
+          calendar.refetchEvents();
+          if (isOwner) loadUnscheduled();
+          closeModal('job-modal');
+          if (data.future_assignment_updated) {
+            showToast('Job updated + ' + data.future_assignment_updated + ' future jobs reassigned');
+          } else {
+            showToast('Job updated');
+          }
+        }).catch(function() {
+          calendar.refetchEvents();
+          showToast('Update failed', 'error');
+        });
+    }
+
+    if (modal.dataset.isRecurring === '1' && assignmentChanged) {
+      showRecurringDialog(
+        function() { submitUpdate(false); },
+        function() { submitUpdate(true); },
+        function() {}
+      );
+      return;
+    }
+
+    submitUpdate(false);
   });
 
   // ══════════════════════════════════════════════════════════════

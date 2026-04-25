@@ -22,6 +22,25 @@ from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset
 from pricing.utils import get_effective_rate
 from accounts.models import User
 
+def _request_data(request):
+    if (request.content_type or "").startswith("application/json"):
+        try:
+            return json.loads(request.body or "{}")
+        except (TypeError, ValueError):
+            return {}
+    return request.POST
+
+
+def _append_note_text(existing, text):
+    existing = (existing or "").strip()
+    text = (text or "").strip()
+    if not text:
+        return existing
+    if text in existing.splitlines():
+        return existing
+    return f"{existing}\n{text}".strip() if existing else text
+
+
 def _business_today(business):
     """Get today's date in the business's timezone (not server UTC)."""
     from accounts.timezone_utils import business_today
@@ -741,15 +760,26 @@ def calendar_job_data(request, job_id):
         "job": {
             "id": job.id,
             "address": job.property.address,
+            "customer_name": job.property.customer.name if job.property.customer else "",
             "scheduled_date": job.scheduled_date.isoformat() if job.scheduled_date else "",
+            "scheduled_end_date": job.scheduled_end_date.isoformat() if job.scheduled_end_date else "",
             "scheduled_time": job.scheduled_time.strftime("%H:%M") if job.scheduled_time else "",
+            "scheduled_end_time": job.scheduled_end_time.strftime("%H:%M") if job.scheduled_end_time else "",
             "status": job.status,
             "notes": job.notes or "",
             "services": services,
             "images": images,
+            "is_recurring": bool(job.recurring_job_id),
+            "recurring_job_id": job.recurring_job_id if is_owner else None,
             "assigned_crew_id": job.assigned_crew_id if is_owner else None,
             "assigned_to_id": job.assigned_to_id if is_owner else None,
             "assigned_employee_ids": list(job.assigned_employees.values_list('id', flat=True)) if is_owner else [],
+            "assigned_crew_name": job.assigned_crew.name if job.assigned_crew else "",
+            "assigned_to_name": (job.assigned_to.get_full_name() or job.assigned_to.username) if job.assigned_to else "",
+            "assigned_employee_names": [
+                u.get_full_name() or u.username
+                for u in job.assigned_employees.all()
+            ],
             "color": job.color or "",
             "has_unbilled_items": job.service_items.filter(billed_at__isnull=True).exists() if is_owner else False,
             "has_services": job.service_items.exists(),
@@ -787,20 +817,29 @@ def calendar_job_update(request, job_id):
     if not business:
         return JsonResponse({"error": "No business"}, status=403)
     job = get_object_or_404(
-        Job.objects.select_related('property', 'property__customer'),
+        Job.objects.select_related('property', 'property__customer', 'recurring_job'),
         id=job_id,
         property__customer__business=business,
     )
     data = json.loads(request.body) if request.body else {}
+    assignment_fields_present = any(k in data for k in ("assigned_crew_id", "assigned_to_id", "assigned_employee_ids"))
+    apply_assignment_to_future = bool(data.get("apply_assignment_to_future"))
+    selected_crew = None
+    selected_employee = None
+    selected_employees = None
     # Crew and employee are mutually exclusive
     if "assigned_crew_id" in data:
         vid = data["assigned_crew_id"]
         if vid is None or vid == "":
             job.assigned_crew = None
+            job.assigned_to = None
+            job.assigned_employees.clear()
         else:
             crew = Crew.objects.filter(business=business, id=vid).first()
             job.assigned_crew = crew
             job.assigned_to = None  # clear employee when crew selected
+            job.assigned_employees.clear()
+            selected_crew = crew
     if "assigned_to_id" in data:
         vid = data["assigned_to_id"]
         if vid is None or vid == "":
@@ -813,14 +852,18 @@ def calendar_job_update(request, job_id):
             # Add to M2M if not already there
             if user and not job.assigned_employees.filter(id=user.id).exists():
                 job.assigned_employees.add(user)
+            selected_employee = user
     if "assigned_employee_ids" in data:
         eids = data["assigned_employee_ids"]
         if isinstance(eids, list):
             employees = User.objects.filter(business=business, role__in=["crew", "owner"], id__in=eids)
+            selected_employees = list(employees)
             job.assigned_employees.set(employees)
             if employees.exists():
                 job.assigned_to = employees.first()
                 job.assigned_crew = None
+            else:
+                job.assigned_to = None
     if "notes" in data:
         job.notes = (data["notes"] or "")[:2000]
     if "scheduled_time" in data:
@@ -867,7 +910,46 @@ def calendar_job_update(request, job_id):
                     pass
     job.save()
 
-    if "assigned_crew_id" in data or "assigned_to_id" in data:
+    future_assignment_updated = 0
+    if apply_assignment_to_future and assignment_fields_present and job.recurring_job_id and job.scheduled_date:
+        recurring_job = job.recurring_job
+        if "assigned_employee_ids" in data:
+            recurring_job.assigned_crew = None
+            recurring_job.assigned_to = selected_employees[0] if selected_employees else None
+            recurring_job.save(update_fields=["assigned_crew", "assigned_to"])
+        elif "assigned_crew_id" in data:
+            recurring_job.assigned_crew = selected_crew
+            recurring_job.assigned_to = None
+            recurring_job.save(update_fields=["assigned_crew", "assigned_to"])
+        elif "assigned_to_id" in data:
+            recurring_job.assigned_crew = None
+            recurring_job.assigned_to = selected_employee
+            recurring_job.save(update_fields=["assigned_crew", "assigned_to"])
+
+        future_jobs = Job.objects.filter(
+            recurring_job=recurring_job,
+            scheduled_date__gt=job.scheduled_date,
+            status__in=["scheduled", "en_route"],
+        )
+        for future_job in future_jobs:
+            if "assigned_employee_ids" in data:
+                future_job.assigned_crew = None
+                future_job.assigned_to = selected_employees[0] if selected_employees else None
+                future_job.save(update_fields=["assigned_crew", "assigned_to"])
+                future_job.assigned_employees.set(selected_employees or [])
+            elif "assigned_crew_id" in data:
+                future_job.assigned_crew = selected_crew
+                future_job.assigned_to = None
+                future_job.save(update_fields=["assigned_crew", "assigned_to"])
+                future_job.assigned_employees.clear()
+            elif "assigned_to_id" in data:
+                future_job.assigned_crew = None
+                future_job.assigned_to = selected_employee
+                future_job.save(update_fields=["assigned_crew", "assigned_to"])
+                future_job.assigned_employees.set([selected_employee] if selected_employee else [])
+            future_assignment_updated += 1
+
+    if "assigned_crew_id" in data or "assigned_to_id" in data or "assigned_employee_ids" in data:
         assignee = job.assigned_crew.name if job.assigned_crew else (job.assigned_to.get_full_name() or job.assigned_to.username if job.assigned_to else "Unassigned")
         JobAssignmentLog.objects.create(
             job=job,
@@ -896,6 +978,7 @@ def calendar_job_update(request, job_id):
         "backgroundColor": bg,
         "borderColor": bg,
         "crew": assignee_name,
+        "future_assignment_updated": future_assignment_updated,
     })
 
 
@@ -933,10 +1016,14 @@ def calendar_job_reschedule(request, job_id):
         old_date = job.scheduled_date
         new_parsed = datetime.strptime(date_str, "%Y-%m-%d").date()
         apply_to_future = data.get("apply_to_future", False)
+        all_day = data.get("all_day", False)
 
         job.scheduled_date = new_parsed
+        if all_day:
+            job.scheduled_time = None
+            job.scheduled_end_time = None
         # Only update time if one was provided — don't clear existing time on date-only drags
-        if time_obj is not None:
+        elif time_obj is not None:
             job.scheduled_time = time_obj
 
         # Clear started_at/completed_at if the job is being rescheduled while in "scheduled" status
@@ -946,15 +1033,19 @@ def calendar_job_reschedule(request, job_id):
             job.completed_at = None
 
         # Parse end date for multi-day jobs (from drag in month view)
+        new_end_date_provided = "scheduled_end_date" in data
         new_end_date_str = data.get("scheduled_end_date")
-        if new_end_date_str:
+        if new_end_date_provided:
             try:
-                end_date_parsed = datetime.strptime(new_end_date_str, "%Y-%m-%d").date()
-                # Only set if it's actually a different day (multi-day)
-                if end_date_parsed > new_parsed:
-                    job.scheduled_end_date = end_date_parsed
+                if new_end_date_str:
+                    end_date_parsed = datetime.strptime(new_end_date_str, "%Y-%m-%d").date()
+                    # Only set if it's actually a different day (multi-day)
+                    if end_date_parsed > new_parsed:
+                        job.scheduled_end_date = end_date_parsed
+                    else:
+                        job.scheduled_end_date = None  # Same day = single-day job
                 else:
-                    job.scheduled_end_date = None  # Same day = single-day job
+                    job.scheduled_end_date = None
             except (ValueError, TypeError):
                 pass
 
@@ -978,7 +1069,13 @@ def calendar_job_reschedule(request, job_id):
         is_recurring = bool(job.recurring_job_id) or "[Mowing]" in notes or "[Fertilization]" in notes
         if is_recurring and apply_to_future and old_date:
             day_delta = (new_parsed - old_date).days
-            if day_delta != 0:
+            future_schedule_changed = (
+                day_delta != 0
+                or time_obj is not None
+                or (new_end and isinstance(new_end, str) and "T" in new_end)
+                or new_end_date_provided
+            )
+            if future_schedule_changed:
                 if job.recurring_job_id:
                     # Find by recurring_job FK
                     future_jobs = Job.objects.filter(
@@ -996,30 +1093,54 @@ def calendar_job_reschedule(request, job_id):
                         service_items__service_id__in=svc_ids,
                     ).exclude(id=job.id).distinct() if svc_ids else Job.objects.none()
                 for fj in future_jobs:
-                    fj.scheduled_date = fj.scheduled_date + timedelta(days=day_delta)
-                    fj.save(update_fields=["scheduled_date"])
-                    future_moved += 1
+                    update_fields = []
+                    if day_delta != 0:
+                        fj.scheduled_date = fj.scheduled_date + timedelta(days=day_delta)
+                        update_fields.append("scheduled_date")
+                    if new_end_date_provided:
+                        if job.scheduled_end_date:
+                            duration_days = (job.scheduled_end_date - job.scheduled_date).days
+                            fj.scheduled_end_date = fj.scheduled_date + timedelta(days=duration_days)
+                        else:
+                            fj.scheduled_end_date = None
+                        update_fields.append("scheduled_end_date")
+                    if time_obj is not None:
+                        fj.scheduled_time = time_obj
+                        update_fields.append("scheduled_time")
+                    elif all_day:
+                        fj.scheduled_time = None
+                        update_fields.append("scheduled_time")
+                    if new_end and isinstance(new_end, str) and "T" in new_end:
+                        fj.scheduled_end_time = job.scheduled_end_time
+                        update_fields.append("scheduled_end_time")
+                    elif all_day:
+                        fj.scheduled_end_time = None
+                        update_fields.append("scheduled_end_time")
+                    if update_fields:
+                        fj.save(update_fields=update_fields)
+                        future_moved += 1
 
                 # Shift parent RecurringJob.start_date by the same delta so that
                 # generate_jobs() does NOT recreate jobs at the original cadence.
                 # Without this, moving all future jobs forward N days would cause
                 # the next generation cycle to insert duplicates at the old dates.
                 rj_to_shift = None
-                if job.recurring_job_id:
-                    rj_to_shift = job.recurring_job
-                elif "[Mowing]" in notes or "[Fertilization]" in notes:
-                    # Wave 6: legacy mowing/fertilization jobs that were bulk-scheduled
-                    # before Fix A1 don't have recurring_job_id set. Find the RecurringJob
-                    # for this property (active, same service family) and shift its
-                    # start_date too, so generate_jobs() respects the new cadence.
-                    rj_to_shift = RecurringJob.objects.filter(
-                        property=job.property,
-                        active=True,
-                    ).order_by('-id').first()
-                if rj_to_shift and rj_to_shift.start_date:
-                    rj_to_shift.start_date = rj_to_shift.start_date + timedelta(days=day_delta)
-                    rj_to_shift.save(update_fields=["start_date"])
-                    parent_shifted = True
+                if day_delta != 0:
+                    if job.recurring_job_id:
+                        rj_to_shift = job.recurring_job
+                    elif "[Mowing]" in notes or "[Fertilization]" in notes:
+                        # Wave 6: legacy mowing/fertilization jobs that were bulk-scheduled
+                        # before Fix A1 don't have recurring_job_id set. Find the RecurringJob
+                        # for this property (active, same service family) and shift its
+                        # start_date too, so generate_jobs() respects the new cadence.
+                        rj_to_shift = RecurringJob.objects.filter(
+                            property=job.property,
+                            active=True,
+                        ).order_by('-id').first()
+                    if rj_to_shift and rj_to_shift.start_date:
+                        rj_to_shift.start_date = rj_to_shift.start_date + timedelta(days=day_delta)
+                        rj_to_shift.save(update_fields=["start_date"])
+                        parent_shifted = True
 
         # Sync linked fertilization round date
         try:
@@ -2156,18 +2277,56 @@ def upload_completion_photo(request, job_id):
 @require_POST
 @role_required("owner", "manager", "crew")
 def add_job_note(request, job_id):
-    """Add a timestamped note to a job. Crew must be assigned to the job."""
+    """Add a note scoped to this job, the recurring series, or the property."""
     business = get_business(request)
     if not business:
         return JsonResponse({"error": "No business"}, status=403)
     job = get_object_or_404(Job, id=job_id, property__customer__business=business)
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
         return JsonResponse({"error": "Not assigned to this job"}, status=403)
-    text = (request.POST.get("text") or "").strip()
+    data = _request_data(request)
+    text = (data.get("text") or "").strip()
+    scope = (data.get("scope") or "job").strip().lower()
     if not text:
         return JsonResponse({"error": "Note text is required"}, status=400)
+    if scope == "property":
+        note = PropertyNote.objects.create(property=job.property, author=request.user, text=text)
+        return JsonResponse({
+            "status": "ok",
+            "scope": "property",
+            "id": note.id,
+            "text": note.text,
+            "author": note.author.get_full_name() or note.author.username,
+            "created_at": note.created_at.isoformat(),
+            "property_address": job.property.address,
+        })
+    if scope == "recurring":
+        if not job.recurring_job_id:
+            return JsonResponse({"error": "This job is not linked to a recurring schedule"}, status=400)
+        recurring_job = job.recurring_job
+        recurring_job.notes = _append_note_text(recurring_job.notes, text)
+        recurring_job.save(update_fields=["notes"])
+        future_jobs = Job.objects.filter(
+            recurring_job=recurring_job,
+            scheduled_date__gte=job.scheduled_date,
+            status__in=["scheduled", "en_route"],
+        )
+        for future_job in future_jobs:
+            future_job.notes = _append_note_text(future_job.notes, text)
+            future_job.save(update_fields=["notes"])
+        return JsonResponse({
+            "status": "ok",
+            "scope": "recurring",
+            "id": recurring_job.id,
+            "text": text,
+            "author": request.user.get_full_name() or request.user.username,
+            "created_at": "",
+            "future_updated": future_jobs.count(),
+        })
     note = JobNote.objects.create(job=job, author=request.user, text=text)
     return JsonResponse({
+        "status": "ok",
+        "scope": "job",
         "id": note.id,
         "text": note.text,
         "author": note.author.get_full_name() or note.author.username,
@@ -2276,11 +2435,25 @@ def get_job_notes(request, job_id):
         out = []
         for nid, text, first, last, uname, created in rows:
             name = f"{first} {last}".strip() or uname
-            out.append({"id": nid, "text": text, "author": name, "created_at": created.isoformat(), "type": note_type})
+            out.append({"id": nid, "text": text, "author": name, "created_at": created.isoformat(), "type": note_type, "note_type": note_type})
         return out
+    recurring_notes = []
+    if job.recurring_job_id and (job.recurring_job.notes or "").strip():
+        recurring_notes.append({
+            "id": job.recurring_job_id,
+            "text": job.recurring_job.notes.strip(),
+            "author": "Recurring schedule",
+            "created_at": "",
+            "type": "recurring",
+            "note_type": "recurring",
+        })
+    job_note_items = fmt(job_notes, "job")
+    property_note_items = fmt(property_notes, "property")
     return JsonResponse({
-        "job_notes": fmt(job_notes, "job"),
-        "property_notes": fmt(property_notes, "property"),
+        "job_notes": job_note_items,
+        "property_notes": property_note_items,
+        "recurring_notes": recurring_notes,
+        "notes": recurring_notes + property_note_items + job_note_items,
     })
 
 
