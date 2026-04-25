@@ -209,6 +209,29 @@ class CalendarRecurringRescheduleTests(TestCase):
         self.assertIsNone(job.scheduled_time)
         self.assertIsNone(job.scheduled_end_time)
 
+    def test_resize_recurring_job_to_future_updates_future_end_dates(self):
+        selected_job = self._create_job(date(2026, 5, 4), start_time=None, end_time=None)
+        future_job = self._create_job(date(2026, 5, 11), start_time=None, end_time=None)
+
+        response = self.client.post(
+            reverse("calendar_job_reschedule", args=[selected_job.id]),
+            data=json.dumps(
+                {
+                    "scheduled_date": "2026-05-04",
+                    "scheduled_end_date": "2026-05-06",
+                    "all_day": True,
+                    "apply_to_future": True,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        selected_job.refresh_from_db()
+        future_job.refresh_from_db()
+        self.assertEqual(selected_job.scheduled_end_date, date(2026, 5, 6))
+        self.assertEqual(future_job.scheduled_end_date, date(2026, 5, 13))
+
     def test_add_note_to_job_scope_creates_one_time_job_note(self):
         job = self._create_job(date(2026, 5, 4))
 

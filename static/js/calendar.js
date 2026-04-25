@@ -390,6 +390,7 @@ document.addEventListener('DOMContentLoaded', function () {
     eventResize: function(info) {
       var jobId = info.event.extendedProps?.jobId;
       if (!jobId) return;
+      var props = info.event.extendedProps || {};
       var start = info.event.start;
       var end = info.event.end;
       var payload = {};
@@ -412,18 +413,45 @@ document.addEventListener('DOMContentLoaded', function () {
           payload.scheduled_end_date = formatDateStr(end) > formatDateStr(start) ? formatDateStr(end) : null;
         }
       }
-      fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
-        body: JSON.stringify(payload)
-      }).then(function(r) {
-        if (!r.ok) { info.revert(); return; }
-        if (Object.prototype.hasOwnProperty.call(payload, 'scheduled_end_date')) {
-          calendar.refetchEvents();
-        }
-        showToast('Duration updated');
-      }).catch(function() { info.revert(); });
+      function doResize(applyFuture) {
+        payload.apply_to_future = !!applyFuture;
+        fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+          body: JSON.stringify(payload)
+        }).then(function(r) {
+          if (!r.ok) {
+            info.revert();
+            showToast('Could not update duration (status ' + r.status + ')', 'error');
+            return null;
+          }
+          return r.json();
+        }).then(function(data) {
+          if (!data) return;
+          if (Object.prototype.hasOwnProperty.call(payload, 'scheduled_end_date') || data.future_moved > 0) {
+            calendar.refetchEvents();
+          }
+          if (data.future_moved > 0) {
+            showToast('Updated this + ' + data.future_moved + ' future jobs');
+          } else {
+            showToast('Duration updated');
+          }
+        }).catch(function() {
+          info.revert();
+          showToast('Could not update duration', 'error');
+        });
+      }
+
+      if (props.recurring) {
+        showRecurringDialog(
+          function() { doResize(false); },
+          function() { doResize(true); },
+          function() { info.revert(); }
+        );
+      } else {
+        doResize(false);
+      }
     },
 
     // ── Click event → open modal ──
