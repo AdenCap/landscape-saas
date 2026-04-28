@@ -33,10 +33,14 @@ struct AuthScreen: View {
                         .keyboardType(.emailAddress)
                         .textContentType(.username)
                         .fieldLGXInput()
+                        .accessibilityLabel("Email")
+                        .accessibilityIdentifier("auth.email")
 
                     SecureField("Password", text: $password)
                         .textContentType(.password)
                         .fieldLGXInput()
+                        .accessibilityLabel("Password")
+                        .accessibilityIdentifier("auth.password")
 
                     Button {
                         Task {
@@ -56,6 +60,8 @@ struct AuthScreen: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     .disabled(session.isLoading)
+                    .accessibilityLabel("Sign in")
+                    .accessibilityIdentifier("auth.signIn")
 
                     if let errorMessage = session.errorMessage {
                         Text(errorMessage)
