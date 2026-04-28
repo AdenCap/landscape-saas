@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from jobs.models import Job, JobCompletionPhoto, JobIssue, JobNote, JobPhoto, PropertyNote
-from time_tracking.models import TimeEntry
+from time_tracking.models import TimeEntry, TimeEntryLocationPing
 
 from . import auth as mobile_auth
 from .auth import issue_access_token, session_from_refresh_token, session_from_request, user_by_email
@@ -98,6 +98,16 @@ def _time_clock_payload(user):
         "today_minutes": today_minutes,
         "today_display": f"{today_minutes // 60}h {today_minutes % 60}m",
         "server_time": now.isoformat(),
+    }
+
+
+def _location_ping_payload(ping):
+    return {
+        "id": ping.id,
+        "latitude": str(ping.latitude),
+        "longitude": str(ping.longitude),
+        "accuracy_meters": str(ping.accuracy_meters) if ping.accuracy_meters is not None else None,
+        "recorded_at": ping.recorded_at.isoformat(),
     }
 
 
@@ -255,6 +265,39 @@ def time_clock_out(request):
         update_fields.extend(["clock_out_latitude", "clock_out_longitude"])
     entry.save(update_fields=update_fields)
     return JsonResponse(_time_clock_payload(session.user))
+
+
+@csrf_exempt
+@require_POST
+def time_clock_location(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    entry = _active_time_entry(session.user)
+    if not entry:
+        return JsonResponse({"error": "Clock in before sharing location."}, status=400)
+
+    data = _json_body(request)
+    latitude = _parse_decimal(data.get("latitude"))
+    longitude = _parse_decimal(data.get("longitude"))
+    if latitude is None or longitude is None:
+        return JsonResponse({"error": "Latitude and longitude are required."}, status=400)
+
+    ping_data = {
+        "time_entry": entry,
+        "user": session.user,
+        "latitude": latitude,
+        "longitude": longitude,
+    }
+    accuracy = _parse_decimal(data.get("accuracy"))
+    if accuracy is not None:
+        ping_data["accuracy_meters"] = accuracy
+    ping = TimeEntryLocationPing.objects.create(**ping_data)
+    return JsonResponse({
+        "ok": True,
+        "location": _location_ping_payload(ping),
+        "time_clock": _time_clock_payload(session.user),
+    })
 
 
 SUPPORTED_SYNC_ENTITIES = {

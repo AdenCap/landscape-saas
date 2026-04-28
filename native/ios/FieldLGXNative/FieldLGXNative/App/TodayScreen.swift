@@ -60,6 +60,10 @@ struct TodayScreen: View {
             await loadToday()
             await loadTimeClock()
         }
+        .task(id: timeClock?.isClockedIn ?? false) {
+            guard timeClock?.isClockedIn == true else { return }
+            await runLocationPingLoop()
+        }
     }
 
     private var header: some View {
@@ -271,10 +275,35 @@ struct TodayScreen: View {
                     latitude: coordinate?.latitude,
                     longitude: coordinate?.longitude
                 )
+                if let coordinate {
+                    await sendLocationPing(coordinate: coordinate)
+                }
                 timeClockMessage = "Clocked in. Location attached when available."
             }
         } catch {
             timeClockMessage = "Could not update time clock. Try again with service."
+        }
+    }
+
+    private func runLocationPingLoop() async {
+        while !Task.isCancelled && timeClock?.isClockedIn == true {
+            if let coordinate = await locationProvider.currentCoordinate() {
+                await sendLocationPing(coordinate: coordinate)
+            }
+            try? await Task.sleep(for: .seconds(120))
+        }
+    }
+
+    private func sendLocationPing(coordinate: CLLocationCoordinate2D) async {
+        guard accessToken != nil, accessToken != "preview-token" else { return }
+        do {
+            let response = try await apiClient.sendTimeClockLocation(
+                latitude: coordinate.latitude,
+                longitude: coordinate.longitude
+            )
+            timeClock = response.timeClock
+        } catch {
+            timeClockMessage = "Location will update again when service is available."
         }
     }
 

@@ -36,6 +36,14 @@ struct APIClient {
         try await post(path: "/api/mobile/v1/time-clock/clock-out/", body: coordinateBody(latitude: latitude, longitude: longitude))
     }
 
+    func sendTimeClockLocation(latitude: Double, longitude: Double, accuracy: Double? = nil) async throws -> TimeClockLocationResponse {
+        var body = coordinateBody(latitude: latitude, longitude: longitude)
+        if let accuracy {
+            body["accuracy"] = String(format: "%.2f", accuracy)
+        }
+        return try await post(path: "/api/mobile/v1/time-clock/location/", body: body)
+    }
+
     func jobDetail(id: Int) async throws -> JobDetailResponse {
         try await get(path: "/api/mobile/v1/jobs/\(id)/")
     }

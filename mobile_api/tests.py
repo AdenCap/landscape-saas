@@ -11,7 +11,7 @@ from businesses.models import Business
 from customers.models import Customer, Property
 from jobs.models import Crew, Job, JobCompletionPhoto, JobIssue, JobNote, JobPhoto, JobServiceItem, PropertyNote
 from pricing.models import ServiceTemplate
-from time_tracking.models import TimeEntry
+from time_tracking.models import TimeEntry, TimeEntryLocationPing
 
 
 class MobileHealthTests(TestCase):
@@ -374,6 +374,35 @@ class MobileTimeClockTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["error"], "No active clock-in found.")
+
+    def test_location_ping_records_against_active_time_entry(self):
+        entry = TimeEntry.objects.create(user=self.crew_user, clock_in=timezone.now())
+
+        response = self.client.post(
+            reverse("mobile_api:time_clock_location"),
+            data={"latitude": "39.7684", "longitude": "-86.1581", "accuracy": "14.2"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        ping = TimeEntryLocationPing.objects.get(time_entry=entry)
+        self.assertEqual(ping.user, self.crew_user)
+        self.assertEqual(str(ping.latitude), "39.7684000")
+        self.assertEqual(str(ping.longitude), "-86.1581000")
+        self.assertEqual(str(ping.accuracy_meters), "14.20")
+        self.assertEqual(response.json()["location"]["id"], ping.id)
+
+    def test_location_ping_requires_active_time_entry(self):
+        response = self.client.post(
+            reverse("mobile_api:time_clock_location"),
+            data={"latitude": "39.7684", "longitude": "-86.1581"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "Clock in before sharing location.")
 
     def test_time_clock_requires_authentication(self):
         response = self.client.get(reverse("mobile_api:time_clock_status"))

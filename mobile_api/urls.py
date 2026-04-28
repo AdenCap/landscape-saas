@@ -10,6 +10,7 @@ urlpatterns = [
     path("time-clock/", views.time_clock_status, name="time_clock_status"),
     path("time-clock/clock-in/", views.time_clock_in, name="time_clock_in"),
     path("time-clock/clock-out/", views.time_clock_out, name="time_clock_out"),
+    path("time-clock/location/", views.time_clock_location, name="time_clock_location"),
     path("today/", views.today, name="today"),
     path("jobs/<int:job_id>/", views.job_detail, name="job_detail"),
     path("jobs/<int:job_id>/start/", views.job_start, name="job_start"),

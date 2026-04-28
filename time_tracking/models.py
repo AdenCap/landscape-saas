@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class TimeOffRequest(models.Model):
@@ -147,3 +148,32 @@ class TimeEntry(models.Model):
         if m is None:
             return "In progress"
         return f"{m // 60}h {m % 60}m"
+
+
+class TimeEntryLocationPing(models.Model):
+    """Periodic crew location captured while a time entry is active."""
+    time_entry = models.ForeignKey(
+        TimeEntry,
+        on_delete=models.CASCADE,
+        related_name="location_pings",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="time_location_pings",
+    )
+    latitude = models.DecimalField(max_digits=10, decimal_places=7)
+    longitude = models.DecimalField(max_digits=10, decimal_places=7)
+    accuracy_meters = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    recorded_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-recorded_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["user", "-recorded_at"]),
+            models.Index(fields=["time_entry", "-recorded_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} @ {self.recorded_at}"

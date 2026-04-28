@@ -115,6 +115,34 @@ struct TimeClockEntry: Codable, Equatable, Identifiable {
     }
 }
 
+struct TimeClockLocationResponse: Codable, Equatable {
+    let ok: Bool
+    let location: TimeClockLocationPing
+    let timeClock: TimeClockResponse
+
+    enum CodingKeys: String, CodingKey {
+        case ok
+        case location
+        case timeClock = "time_clock"
+    }
+}
+
+struct TimeClockLocationPing: Codable, Equatable, Identifiable {
+    let id: Int
+    let latitude: String
+    let longitude: String
+    let accuracyMeters: String?
+    let recordedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case latitude
+        case longitude
+        case accuracyMeters = "accuracy_meters"
+        case recordedAt = "recorded_at"
+    }
+}
+
 struct TodayJob: Codable, Equatable, Identifiable {
     let id: Int
     let status: String
