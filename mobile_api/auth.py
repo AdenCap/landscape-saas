@@ -74,3 +74,19 @@ def session_from_refresh_token(refresh_token):
 def user_by_email(email):
     User = get_user_model()
     return User.objects.filter(email__iexact=(email or "").strip(), is_active=True).first()
+
+
+def verify_apple_identity_token(identity_token):
+    """
+    Verify an Apple identity token and return {"email": str, "sub": str}.
+    The full JWKS validation belongs in the production social-auth pass.
+    """
+    raise NotImplementedError("Apple identity token verification is not configured yet.")
+
+
+def verify_google_identity_token(identity_token):
+    """
+    Verify a Google identity token and return {"email": str, "sub": str}.
+    The full Google token validation belongs in the production social-auth pass.
+    """
+    raise NotImplementedError("Google identity token verification is not configured yet.")

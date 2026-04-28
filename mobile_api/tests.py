@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from unittest.mock import patch
 
 from businesses.models import Business
 
@@ -104,3 +105,54 @@ class MobileAuthTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(MobileDeviceSession.objects.filter(user=self.user, revoked_at__isnull=True).exists())
+
+
+class MobileSocialAuthTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(name="QA Native Social")
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username="socialowner",
+            email="social@example.com",
+            password="testpass123",
+            business=self.business,
+            role="owner",
+        )
+
+    @patch("mobile_api.auth.verify_apple_identity_token")
+    def test_apple_login_issues_tokens_for_existing_user(self, mock_verify):
+        mock_verify.return_value = {"email": "social@example.com", "sub": "apple-sub-1"}
+
+        response = self.client.post(
+            reverse("mobile_api:apple_login"),
+            data={"identity_token": "apple.jwt", "device_name": "Aden iPhone"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access_token", response.json())
+
+    @patch("mobile_api.auth.verify_google_identity_token")
+    def test_google_login_issues_tokens_for_existing_user(self, mock_verify):
+        mock_verify.return_value = {"email": "social@example.com", "sub": "google-sub-1"}
+
+        response = self.client.post(
+            reverse("mobile_api:google_login"),
+            data={"identity_token": "google.jwt", "device_name": "Aden iPhone"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access_token", response.json())
+
+    @patch("mobile_api.auth.verify_apple_identity_token")
+    def test_social_login_requires_existing_business_user(self, mock_verify):
+        mock_verify.return_value = {"email": "not-linked@example.com", "sub": "apple-sub-2"}
+
+        response = self.client.post(
+            reverse("mobile_api:apple_login"),
+            data={"identity_token": "apple.jwt"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 404)
