@@ -1,328 +1,920 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Create Job</h1>
-  <p>Schedule a new landscaping job for a property</p>
-</div>
+<section class="job-create-command">
+  <header class="jcreate-hero">
+    <div class="jcreate-hero-copy">
+      <div class="jcreate-backline">
+        <a href="{% url 'calendar' %}" class="jcreate-quiet-action">
+          <span class="material-symbols-outlined">arrow_back</span>
+          Calendar
+        </a>
+        <a href="{% url 'job_list' %}" class="jcreate-quiet-action">Jobs</a>
+      </div>
+      <div class="jcreate-kicker"><span></span>Job Command</div>
+      <h1>Create job</h1>
+      <p>Schedule the visit, assign the right team, add field notes, and price the work in one focused flow.</p>
+    </div>
+  </header>
 
-<div class="quick-actions" style="margin-bottom: 24px;">
-  <a href="{% url 'calendar' %}" class="btn btn-secondary">← Back to Calendar</a>
-  <a href="/" class="btn btn-secondary">Dashboard</a>
-</div>
-
-<div class="card" style="max-width: 640px;">
-  <form method="post">
+  <form method="post" class="jcreate-form">
     {% csrf_token %}
     {% if next_value %}<input type="hidden" name="next" value="{{ next_value }}">{% endif %}
 
-    <div class="form-group">
-      <label for="id_customer">Client</label>
-      {{ form.customer }}
-      <button type="button" onclick="openQuickAddClient()" style="margin-top:4px;background:none;border:none;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;padding:0;">+ Add New Client</button>
-      {% if form.customer.errors %}<span class="form-error">{{ form.customer.errors.0 }}</span>{% endif %}
-    </div>
-    <div class="form-group">
-      <label for="id_property">Property / Address</label>
-      {{ form.property }}
-      <button type="button" onclick="openQuickAddProperty(document.getElementById('id_customer').value)" style="margin-top:4px;background:none;border:none;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;padding:0;">+ Add Property</button>
-      {% if form.property.errors %}<span class="form-error">{{ form.property.errors.0 }}</span>{% endif %}
-    </div>
-
-    <div class="job-create-datetime-row">
-      <div class="form-group">
-        <label for="id_scheduled_date">Scheduled Date</label>
-        {{ form.scheduled_date }}
-        <span class="form-help">Leave empty to add to unscheduled. Required if repeating.</span>
-        {% if form.scheduled_date.errors %}<span class="form-error">{{ form.scheduled_date.errors.0 }}</span>{% endif %}
-      </div>
-      <div class="form-group">
-        <label for="id_scheduled_time">Time (optional)</label>
-        {{ form.scheduled_time }}
-        <span class="form-help">For week/day view</span>
-      </div>
-    </div>
-
-    <div class="form-group repeat-group" style="margin-bottom: 20px;">
-      <label>Repeat</label>
-      <div class="repeat-options" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
-        {{ form.repeat_frequency }}
-        <span id="custom-interval-wrap" style="display: none;">
-          <label for="id_custom_interval_days" style="margin: 0 4px 0 8px;">Every</label>
-          {{ form.custom_interval_days }}
-          <span style="color: var(--text-muted); font-size: 13px;">days</span>
-        </span>
-      </div>
-      <span class="form-help">Choose how often this job repeats. Future occurrences are generated automatically. Requires a scheduled date above.</span>
-      {% if form.repeat_frequency.errors %}<span class="form-error">{{ form.repeat_frequency.errors.0 }}</span>{% endif %}
-      {% if form.custom_interval_days.errors %}<span class="form-error">{{ form.custom_interval_days.errors.0 }}</span>{% endif %}
-    </div>
-
-    <div class="form-group">
-      <label>Assignment</label>
-      <div class="assignee-type" style="display: flex; gap: 16px; margin-bottom: 12px;">
-        {{ form.assignee_type }}
-      </div>
-      <div class="assignee-crew" style="display: none;">
-        <label for="id_assigned_crew">Primary crew</label>
-        {{ form.assigned_crew }}
-        <div style="margin-top: 10px;">
-          <label style="font-size: 13px; color: var(--text-muted);">Additional crews <span style="font-weight: 400;">(optional)</span></label>
-          <div style="max-height: 180px; overflow-y: auto; padding: 8px; background: var(--bg-surface-hover, #f1f5f9); border-radius: 8px; border: 1px solid var(--border, #e2e8f0); margin-top: 4px;">
-            {{ form.crews }}
+    <div class="jcreate-form-layout">
+      <main class="jcreate-main">
+        <section class="jcreate-panel">
+          <div class="jcreate-panel-head">
+            <div>
+              <span class="jcreate-panel-kicker">Step 1</span>
+              <h2>Client and property</h2>
+            </div>
           </div>
-          <span class="form-help">Leave empty for single-crew jobs. Jobs show up on every assigned crew's schedule.</span>
-        </div>
-      </div>
-      <div class="assignee-employee" style="display: none;">
-        <label>Employees</label>
-        <div class="employee-select-wrap" style="max-height: 200px; overflow-y: auto; padding: 8px; background: var(--bg-surface-hover, #f1f5f9); border-radius: 8px; border: 1px solid var(--border, #e2e8f0);">
-          {{ form.assigned_employees }}
-        </div>
-        <span class="form-help">Select one or more employees for this job</span>
-      </div>
-    </div>
+          <div class="jcreate-field-grid">
+            <div class="form-group">
+              <label for="id_customer">Client</label>
+              {{ form.customer }}
+              <button type="button" onclick="openQuickAddClient()" class="jcreate-inline-link">+ Add new client</button>
+              {% if form.customer.errors %}<span class="form-error">{{ form.customer.errors.0 }}</span>{% endif %}
+            </div>
+            <div class="form-group">
+              <label for="id_property">Property / Address</label>
+              {{ form.property }}
+              <button type="button" onclick="openQuickAddProperty(document.getElementById('id_customer').value)" class="jcreate-inline-link">+ Add property</button>
+              {% if form.property.errors %}<span class="form-error">{{ form.property.errors.0 }}</span>{% endif %}
+            </div>
+          </div>
+        </section>
 
-    <div class="form-group">
-      <label>Job color</label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="color" id="id_color_picker" value="#22c55e" style="width: 48px; height: 36px; padding: 4px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border, #e2e8f0);">
-        {{ form.color }}
-      </div>
-      <span class="form-help">Optional. Leave empty for crew/employee default.</span>
-    </div>
+        <section class="jcreate-panel">
+          <div class="jcreate-panel-head">
+            <div>
+              <span class="jcreate-panel-kicker">Step 2</span>
+              <h2>Schedule</h2>
+            </div>
+          </div>
+          <div class="jcreate-field-grid jcreate-field-grid-three">
+            <div class="form-group">
+              <label for="id_scheduled_date">Start date</label>
+              {{ form.scheduled_date }}
+              <span class="form-help">Leave empty to send this job to needs scheduled. Required if repeating.</span>
+              {% if form.scheduled_date.errors %}<span class="form-error">{{ form.scheduled_date.errors.0 }}</span>{% endif %}
+            </div>
+            <div class="form-group">
+              <label for="id_scheduled_end_date">End date</label>
+              {{ form.scheduled_end_date }}
+              <span class="form-help">Use for multi-day work. Leave blank for same-day jobs.</span>
+              {% if form.scheduled_end_date.errors %}<span class="form-error">{{ form.scheduled_end_date.errors.0 }}</span>{% endif %}
+            </div>
+            <div class="form-group">
+              <label for="id_scheduled_time">Time</label>
+              {{ form.scheduled_time }}
+              <span class="form-help">Shows on day and week calendar views.</span>
+            </div>
+          </div>
+          <div class="jcreate-field-grid">
+            <div class="form-group">
+              <label for="id_schedule_by_date">Schedule by</label>
+              {{ form.schedule_by_date }}
+              <span class="form-help">Only used when the start date is blank.</span>
+              {% if form.schedule_by_date.errors %}<span class="form-error">{{ form.schedule_by_date.errors.0 }}</span>{% endif %}
+            </div>
+            <div class="form-group repeat-group">
+              <label>Repeat</label>
+              <div class="repeat-options">
+                {{ form.repeat_frequency }}
+                <span id="custom-interval-wrap" class="jcreate-custom-repeat">
+                  <label for="id_custom_interval_days">Every</label>
+                  {{ form.custom_interval_days }}
+                  <span>days</span>
+                </span>
+              </div>
+              <span class="form-help">Future occurrences are generated automatically from the start date.</span>
+              {% if form.repeat_frequency.errors %}<span class="form-error">{{ form.repeat_frequency.errors.0 }}</span>{% endif %}
+              {% if form.custom_interval_days.errors %}<span class="form-error">{{ form.custom_interval_days.errors.0 }}</span>{% endif %}
+            </div>
+          </div>
+        </section>
 
-    <div class="form-group">
-      <label for="id_notes">Notes</label>
-      {{ form.notes }}
-      <span class="form-help">Gate codes, dog on premises, access instructions, special requests</span>
-    </div>
+        <section class="jcreate-panel">
+          <div class="jcreate-panel-head">
+            <div>
+              <span class="jcreate-panel-kicker">Step 3</span>
+              <h2>Crew and field notes</h2>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Assignment</label>
+            <div class="assignee-type">
+              {{ form.assignee_type }}
+            </div>
+            <div class="assignee-crew">
+              <div class="jcreate-field-grid">
+                <div>
+                  <label for="id_assigned_crew">Primary crew</label>
+                  {{ form.assigned_crew }}
+                </div>
+                <div>
+                  <label>Additional crews <span>(optional)</span></label>
+                  <div class="jcreate-check-list">
+                    {{ form.crews }}
+                  </div>
+                  <span class="form-help">Jobs appear on every assigned crew schedule.</span>
+                </div>
+              </div>
+            </div>
+            <div class="assignee-employee">
+              <div class="jcreate-field-grid">
+                <div>
+                  <label for="id_assigned_to">Primary employee</label>
+                  {{ form.assigned_to }}
+                </div>
+                <div>
+                  <label>Employees</label>
+                  <div class="jcreate-check-list employee-select-wrap">
+                    {{ form.assigned_employees }}
+                  </div>
+                  <span class="form-help">Select one or more employees for this job.</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-    <h3 style="font-size: 16px; font-weight: 600; margin: 24px 0 8px;">Line Items</h3>
-    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Add services and set pricing. Leave price blank to use the default rate.</p>
+          <div class="jcreate-field-grid">
+            <div class="form-group">
+              <label>Job color</label>
+              <div class="jcreate-color-row">
+                <input type="color" id="id_color_picker" value="#22c55e" aria-label="Job color picker">
+                {{ form.color }}
+              </div>
+              <span class="form-help">Optional. Leave empty for crew or employee default.</span>
+            </div>
+            <div class="form-group">
+              <label for="id_notes">Job notes</label>
+              {{ form.notes }}
+              <span class="form-help">Gate codes, pets, access instructions, or special requests.</span>
+            </div>
+          </div>
+        </section>
 
-    {% if accepted_estimates %}
-    <div class="estimate-transfer" style="margin-bottom: 20px; padding: 12px; background: var(--bg-surface, #1a1a1a); border-radius: 8px; border: 1px solid var(--border);">
-      <label style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;">Load from estimate</label>
-      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <select id="estimate-select" style="flex: 1; width: 100%; min-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text); font-size: 14px;">
-          <option value="">Select an estimate</option>
-          {% for est in accepted_estimates %}
-          <option value="{{ est.id }}" data-customer="{{ est.customer_id }}" {% if loaded_estimate_id and loaded_estimate_id|stringformat:"s" == est.id|stringformat:"s" %}selected{% endif %}>#{{ est.id }} {{ est.title }} — ${{ est.total|floatformat:2 }} ({{ est.customer_name }})</option>
-          {% endfor %}
-        </select>
-        <a id="load-estimate-btn" href="#" class="btn btn-secondary btn-sm">Load</a>
-      </div>
-    </div>
-    {% endif %}
+        <section class="jcreate-panel" id="line-items">
+          <div class="jcreate-panel-head">
+            <div>
+              <span class="jcreate-panel-kicker">Step 4</span>
+              <h2>Line items</h2>
+              <p>Add services and set pricing. Leave price blank to use the default rate.</p>
+            </div>
+          </div>
 
-    <datalist id="services-datalist">
-      {% for s in service_templates %}
-      <option value="{{ s.name }}"></option>
-      {% endfor %}
-    </datalist>
-
-    <!-- Line items table header -->
-    <div class="line-items-header">
-      <span class="li-col-service">Service</span>
-      <span class="li-col-qty">Qty</span>
-      <span class="li-col-price">Price</span>
-      <span class="li-col-total">Total</span>
-      <span class="li-col-remove"></span>
-    </div>
-
-    {{ formset.management_form }}
-    <div id="service-rows">
-      {% for f in formset %}
-      <div class="line-item-row" data-row="{{ forloop.counter0 }}">
-        <div class="li-col-service">
-          {{ f.service_name }}
-          {% if f.service_name.errors %}<span class="form-error">{{ f.service_name.errors.0 }}</span>{% endif %}
-        </div>
-        <div class="li-col-qty">
-          {{ f.quantity }}
-        </div>
-        <div class="li-col-price">
-          {{ f.unit_price }}
-        </div>
-        <div class="li-col-total">
-          <span class="row-total">$0.00</span>
-        </div>
-        <div class="li-col-remove">
-          {% if not forloop.first %}
-          <button type="button" class="btn-remove-row" title="Remove" aria-label="Remove line item">&times;</button>
+          {% if accepted_estimates %}
+          <div class="estimate-transfer">
+            <label>Load from estimate</label>
+            <div>
+              <select id="estimate-select">
+                <option value="">Select an estimate</option>
+                {% for est in accepted_estimates %}
+                <option value="{{ est.id }}" data-customer="{{ est.customer_id }}" {% if loaded_estimate_id and loaded_estimate_id|stringformat:"s" == est.id|stringformat:"s" %}selected{% endif %}>#{{ est.id }} {{ est.title }} - ${{ est.total|floatformat:2 }} ({{ est.customer_name }})</option>
+                {% endfor %}
+              </select>
+              <a id="load-estimate-btn" href="#" class="jcreate-quiet-action">Load</a>
+            </div>
+          </div>
           {% endif %}
+
+          <datalist id="services-datalist">
+            {% for s in service_templates %}
+            <option value="{{ s.name }}"></option>
+            {% endfor %}
+          </datalist>
+
+          <div class="line-items-header">
+            <span class="li-col-service">Service</span>
+            <span class="li-col-qty">Qty</span>
+            <span class="li-col-price">Price</span>
+            <span class="li-col-total">Total</span>
+            <span class="li-col-remove"></span>
+          </div>
+
+          {{ formset.management_form }}
+          <div id="service-rows">
+            {% for f in formset %}
+            <div class="line-item-row" data-row="{{ forloop.counter0 }}">
+              <div class="li-col-service">
+                {{ f.service_name }}
+                {{ f.detail_description }}
+                {% if f.service_name.errors %}<span class="form-error">{{ f.service_name.errors.0 }}</span>{% endif %}
+                {% if f.detail_description.errors %}<span class="form-error">{{ f.detail_description.errors.0 }}</span>{% endif %}
+              </div>
+              <div class="li-col-qty">
+                {{ f.quantity }}
+              </div>
+              <div class="li-col-price">
+                {{ f.unit_price }}
+              </div>
+              <div class="li-col-total">
+                <span class="row-total">$0.00</span>
+              </div>
+              <div class="li-col-remove">
+                {% if not forloop.first %}
+                <button type="button" class="btn-remove-row" title="Remove" aria-label="Remove line item">&times;</button>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="line-items-footer">
+            <button type="button" id="add-service-row" class="btn-add-service" title="Add another line item">
+              <span class="material-symbols-outlined">add</span>
+              Add line item
+            </button>
+            <div class="job-total-display">
+              <span class="job-total-label">Estimated total</span>
+              <span class="job-total-value" id="job-running-total">$0.00</span>
+            </div>
+          </div>
+
+          <div class="form-group jcreate-total-override">
+            <label for="id_total_price">Total price override <span>(optional)</span></label>
+            {{ form.total_price }}
+            <span class="form-help">Set one total price for the whole job. Leave blank to use the line-item total.</span>
+          </div>
+        </section>
+      </main>
+
+      <aside class="jcreate-side">
+        <div class="jcreate-side-panel">
+          <span class="jcreate-panel-kicker">Ready to create</span>
+          <h2>What happens next</h2>
+          <ul>
+            <li><span class="material-symbols-outlined">calendar_month</span> Scheduled jobs appear on calendar and routes.</li>
+            <li><span class="material-symbols-outlined">groups</span> Assigned crews can see the job and field notes.</li>
+            <li><span class="material-symbols-outlined">receipt_long</span> Line items carry forward into billing.</li>
+            <li><span class="material-symbols-outlined">event_repeat</span> Recurring jobs generate future visits only when scheduled.</li>
+          </ul>
         </div>
-      </div>
-      {% endfor %}
-    </div>
 
-    <div class="line-items-footer">
-      <button type="button" id="add-service-row" class="btn-add-service" title="Add another line item">+ Add line item</button>
-      <div class="job-total-display">
-        <span class="job-total-label">Estimated Total</span>
-        <span class="job-total-value" id="job-running-total">$0.00</span>
-      </div>
-    </div>
-
-    <!-- Total price override — set one price for the whole job -->
-    <div class="form-group" style="margin-top:16px;padding:12px 14px;background:var(--surface-highest,#1a1a1a);border:1px solid var(--border);border-radius:8px;">
-      <label for="id_total_price" style="font-size:12px;font-weight:600;">Total Price Override <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
-      {{ form.total_price }}
-      <span class="form-help">Set one total price for the whole job. Leave blank to use the sum of line item prices above.</span>
-    </div>
-
-    <div style="margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap;">
-      <button type="submit" class="btn btn-primary" style="min-height:48px;font-size:15px;padding:12px 28px;">Create Job</button>
-      <a href="/" class="btn btn-secondary" style="min-height:48px;padding:12px 20px;">Cancel</a>
+        <div class="jcreate-submit-panel">
+          <button type="submit" class="jcreate-submit">Create job</button>
+          <a href="{% url 'job_list' %}" class="jcreate-cancel">Cancel</a>
+        </div>
+      </aside>
     </div>
   </form>
-</div>
+</section>
 
 <style>
-  .job-create-datetime-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: var(--space-5);
+  .job-create-command {
+    --jcreate-ink: #f4f5f0;
+    --jcreate-muted: #a0a49c;
+    --jcreate-dim: #676c64;
+    --jcreate-line: rgba(255,255,255,.11);
+    --jcreate-line-strong: rgba(255,255,255,.19);
+    --jcreate-card: rgba(255,255,255,.08);
+    --jcreate-card-soft: rgba(255,255,255,.045);
+    --jcreate-accent: #b9ff65;
+    --jcreate-warn: #ff7979;
+    --jcreate-ease: cubic-bezier(.2,.9,.18,1);
+    position: relative;
+    color: var(--jcreate-ink);
+    isolation: isolate;
+    padding-bottom: 54px;
   }
-  .job-create-datetime-row .form-group { margin-bottom: 0; }
-  /* Line items table */
+  .job-create-command:before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 22% 8%, rgba(185,255,101,.17), transparent 32%),
+      radial-gradient(circle at 86% 28%, rgba(185,255,101,.11), transparent 30%),
+      linear-gradient(135deg, rgba(255,255,255,.03), transparent 38%);
+    opacity: .88;
+  }
+  .jcreate-hero,
+  .jcreate-form-layout {
+    max-width: 1580px;
+    margin-inline: auto;
+  }
+  .jcreate-hero {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 6px 0 14px;
+    animation: jcreate-rise .65s var(--jcreate-ease) both;
+  }
+  .jcreate-hero-copy {
+    max-width: 880px;
+  }
+  .jcreate-backline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .jcreate-quiet-action,
+  .jcreate-submit,
+  .jcreate-cancel,
+  .jcreate-inline-link,
+  .btn-add-service {
+    font: inherit;
+    text-decoration: none;
+    transition: transform .24s var(--jcreate-ease), border-color .24s var(--jcreate-ease), background .24s var(--jcreate-ease), color .24s var(--jcreate-ease);
+  }
+  .jcreate-quiet-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 18px;
+    border: 1px solid var(--jcreate-line);
+    border-radius: 999px;
+    background: rgba(255,255,255,.055);
+    color: var(--jcreate-ink);
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .jcreate-quiet-action:hover,
+  .btn-add-service:hover,
+  .jcreate-cancel:hover {
+    transform: translateY(-1px);
+    border-color: var(--jcreate-line-strong);
+    background: rgba(255,255,255,.09);
+  }
+  .jcreate-kicker,
+  .jcreate-panel-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--jcreate-muted);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+  .jcreate-kicker span {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--jcreate-accent);
+    box-shadow: 0 0 24px rgba(185,255,101,.55);
+  }
+  .jcreate-hero h1 {
+    margin: 8px 0 6px;
+    font-size: clamp(38px, 5vw, 72px);
+    line-height: .95;
+    letter-spacing: 0;
+  }
+  .jcreate-hero p {
+    max-width: 760px;
+    margin: 0;
+    color: var(--jcreate-muted);
+    font-size: clamp(17px, 1.4vw, 22px);
+    line-height: 1.45;
+  }
+  .jcreate-panel,
+  .jcreate-side-panel,
+  .jcreate-submit-panel {
+    border: 1px solid var(--jcreate-line);
+    background: linear-gradient(145deg, rgba(255,255,255,.105), rgba(255,255,255,.045));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 24px 70px rgba(0,0,0,.28);
+    backdrop-filter: blur(22px);
+  }
+  .jcreate-form-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 22px;
+    align-items: start;
+  }
+  .jcreate-main {
+    display: grid;
+    gap: 18px;
+  }
+  .jcreate-panel,
+  .jcreate-side-panel,
+  .jcreate-submit-panel {
+    border-radius: 30px;
+    padding: 26px;
+  }
+  .jcreate-panel {
+    animation: jcreate-rise .65s var(--jcreate-ease) both;
+  }
+  .jcreate-panel-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+  .jcreate-panel h2,
+  .jcreate-side-panel h2 {
+    margin: 8px 0 0;
+    font-size: clamp(28px, 3vw, 46px);
+    line-height: 1;
+    letter-spacing: 0;
+  }
+  .jcreate-panel-head p {
+    margin: 8px 0 0;
+    color: var(--jcreate-muted);
+    font-size: 15px;
+  }
+  .jcreate-field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .jcreate-field-grid-three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .job-create-command .form-group {
+    margin: 0;
+  }
+  .job-create-command label {
+    display: block;
+    margin: 0 0 9px;
+    color: var(--jcreate-muted);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+  }
+  .job-create-command label span {
+    color: var(--jcreate-dim);
+    font-weight: 800;
+  }
+  .job-create-command input,
+  .job-create-command select,
+  .job-create-command textarea {
+    width: 100%;
+    min-height: 56px;
+    border: 1px solid var(--jcreate-line);
+    border-radius: 18px;
+    background: rgba(5,7,5,.7);
+    color: var(--jcreate-ink);
+    padding: 14px 16px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 750;
+    outline: none;
+    transition: border-color .22s var(--jcreate-ease), box-shadow .22s var(--jcreate-ease), background .22s var(--jcreate-ease);
+  }
+  .job-create-command textarea {
+    min-height: 132px;
+    resize: vertical;
+    line-height: 1.45;
+  }
+  .job-create-command input:focus,
+  .job-create-command select:focus,
+  .job-create-command textarea:focus {
+    border-color: rgba(185,255,101,.78);
+    background: rgba(5,7,5,.86);
+    box-shadow: 0 0 0 4px rgba(185,255,101,.12);
+  }
+  .form-help {
+    display: block;
+    margin-top: 8px;
+    color: var(--jcreate-muted);
+    font-size: 13px;
+    line-height: 1.35;
+  }
+  .form-error {
+    display: block;
+    margin-top: 8px;
+    color: var(--jcreate-warn);
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .jcreate-inline-link {
+    display: inline-flex;
+    margin-top: 10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--jcreate-accent);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 900;
+  }
+  .repeat-options,
+  .jcreate-custom-repeat {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .jcreate-custom-repeat label {
+    margin: 0;
+    font-size: 12px;
+  }
+  .jcreate-custom-repeat input {
+    width: 100px;
+  }
+  .jcreate-custom-repeat span {
+    color: var(--jcreate-muted);
+    font-weight: 800;
+  }
+  .assignee-type-radio {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px;
+  }
+  .assignee-type-radio li {
+    display: flex;
+  }
+  .assignee-type-radio label {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 48px;
+    margin: 0;
+    padding: 0 16px;
+    border: 1px solid var(--jcreate-line);
+    border-radius: 999px;
+    background: rgba(0,0,0,.2);
+    color: var(--jcreate-ink);
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: pointer;
+  }
+  .job-create-command input[type="radio"],
+  .job-create-command input[type="checkbox"] {
+    width: 18px;
+    min-height: auto;
+    height: 18px;
+    padding: 0;
+    accent-color: var(--jcreate-accent);
+  }
+  .assignee-crew,
+  .assignee-employee {
+    margin-top: 16px;
+  }
+  .jcreate-check-list {
+    max-height: 210px;
+    overflow-y: auto;
+    padding: 12px;
+    border: 1px solid var(--jcreate-line);
+    border-radius: 18px;
+    background: rgba(0,0,0,.22);
+  }
+  .jcreate-check-list ul,
+  .employee-checkbox-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .jcreate-check-list li,
+  .employee-checkbox-list li {
+    border-bottom: 1px solid var(--jcreate-line);
+  }
+  .jcreate-check-list li:last-child,
+  .employee-checkbox-list li:last-child {
+    border-bottom: 0;
+  }
+  .jcreate-check-list label,
+  .employee-checkbox-list label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    margin: 0;
+    color: var(--jcreate-ink);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .jcreate-color-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  #id_color_picker {
+    width: 58px;
+    min-width: 58px;
+    height: 56px;
+    padding: 5px;
+    cursor: pointer;
+  }
+  #id_color {
+    max-width: 160px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  .estimate-transfer {
+    margin-bottom: 20px;
+    padding: 16px;
+    border: 1px solid var(--jcreate-line);
+    border-radius: 22px;
+    background: rgba(0,0,0,.22);
+  }
+  .estimate-transfer > div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .estimate-transfer select {
+    flex: 1 1 280px;
+  }
   .line-items-header {
     display: grid;
-    grid-template-columns: 1fr 80px 100px 90px 36px;
-    gap: 10px;
-    padding: 8px 0;
-    border-bottom: 2px solid var(--border);
-    margin-bottom: 4px;
+    grid-template-columns: minmax(220px, 1fr) 96px 128px 116px 42px;
+    gap: 12px;
+    padding: 0 8px 12px;
+    border-bottom: 1px solid var(--jcreate-line);
+    margin-bottom: 6px;
   }
   .line-items-header span {
-    font-size: 11px;
-    font-weight: 600;
+    color: var(--jcreate-muted);
+    font-size: 12px;
+    font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-muted);
+    letter-spacing: .15em;
   }
   .line-item-row {
     display: grid;
-    grid-template-columns: 1fr 80px 100px 90px 36px;
-    gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border);
+    grid-template-columns: minmax(220px, 1fr) 96px 128px 116px 42px;
+    gap: 12px;
+    padding: 12px 8px;
+    border-bottom: 1px solid var(--jcreate-line);
     align-items: center;
   }
   .line-item-row input {
-    width: 100%;
-    padding: 8px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--bg-elevated);
-    color: var(--text);
-    font-size: 14px;
-    font-family: inherit;
+    min-height: 50px;
+    border-radius: 16px;
   }
-  .line-item-row input:focus {
-    border-color: var(--primary);
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(34,197,94,0.12);
+  .line-item-row textarea {
+    min-height: 78px;
+    margin-top: 10px;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 700;
   }
   .row-total {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text);
+    color: var(--jcreate-ink);
+    font-size: 16px;
+    font-weight: 900;
     font-variant-numeric: tabular-nums;
   }
   .btn-remove-row {
-    width: 28px;
-    height: 28px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: none;
-    background: none;
-    color: var(--text-muted);
-    font-size: 18px;
+    border: 1px solid var(--jcreate-line);
+    background: rgba(255,255,255,.05);
+    color: var(--jcreate-muted);
+    font-size: 24px;
     cursor: pointer;
-    border-radius: 6px;
-    transition: all 0.15s;
+    border-radius: 14px;
+    transition: all .18s var(--jcreate-ease);
   }
   .btn-remove-row:hover {
-    background: rgba(239,68,68,0.12);
-    color: #fca5a5;
+    background: rgba(255,121,121,.12);
+    border-color: rgba(255,121,121,.38);
+    color: #ffc1c1;
   }
   .line-items-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 12px;
+    margin-top: 18px;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 14px;
   }
   .btn-add-service {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 14px;
-    background: transparent; border: 1px dashed var(--border);
-    border-radius: 8px; font-size: 13px; color: var(--primary);
-    cursor: pointer; font-weight: 500; font-family: inherit;
-    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 52px;
+    padding: 0 18px;
+    background: rgba(255,255,255,.04);
+    border: 1px dashed var(--jcreate-line-strong);
+    border-radius: 18px;
+    color: var(--jcreate-accent);
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 900;
   }
-  .btn-add-service:hover { background: rgba(34,197,94,0.06); border-color: var(--primary); }
+  .btn-add-service .material-symbols-outlined {
+    font-size: 20px;
+  }
   .job-total-display {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 16px;
-    background: rgba(34,197,94,0.06);
-    border: 1px solid rgba(34,197,94,0.15);
-    border-radius: 10px;
+    padding: 14px 18px;
+    background: rgba(185,255,101,.08);
+    border: 1px solid rgba(185,255,101,.22);
+    border-radius: 18px;
   }
   .job-total-label {
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
+    letter-spacing: .12em;
+    color: var(--jcreate-muted);
   }
   .job-total-value {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--primary);
+    font-size: 26px;
+    font-weight: 950;
+    color: var(--jcreate-accent);
     font-variant-numeric: tabular-nums;
   }
+  .jcreate-total-override {
+    margin-top: 18px !important;
+    padding: 18px;
+    border: 1px solid var(--jcreate-line);
+    border-radius: 22px;
+    background: rgba(0,0,0,.22);
+  }
+  .jcreate-side {
+    position: sticky;
+    top: 92px;
+    display: grid;
+    gap: 14px;
+  }
+  .jcreate-side-panel ul {
+    display: grid;
+    gap: 12px;
+    list-style: none;
+    padding: 0;
+    margin: 20px 0 0;
+  }
+  .jcreate-side-panel li {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--jcreate-line);
+    border-radius: 18px;
+    background: rgba(0,0,0,.18);
+    color: var(--jcreate-muted);
+    font-size: 14px;
+    font-weight: 750;
+    line-height: 1.35;
+  }
+  .jcreate-side-panel .material-symbols-outlined {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.08);
+    color: var(--jcreate-accent);
+    font-size: 20px;
+  }
+  .jcreate-submit-panel {
+    display: grid;
+    gap: 10px;
+  }
+  .jcreate-submit,
+  .jcreate-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 58px;
+    border-radius: 999px;
+    font-size: 16px;
+    font-weight: 950;
+    cursor: pointer;
+  }
+  .jcreate-submit {
+    border: 0;
+    background: var(--jcreate-accent);
+    color: #071006;
+    box-shadow: 0 16px 42px rgba(185,255,101,.25);
+  }
+  .jcreate-submit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 20px 52px rgba(185,255,101,.34);
+  }
+  .jcreate-cancel {
+    border: 1px solid var(--jcreate-line);
+    background: rgba(255,255,255,.045);
+    color: var(--jcreate-ink);
+  }
+  @keyframes jcreate-rise {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @media (max-width: 1180px) {
+    .jcreate-form-layout {
+      grid-template-columns: 1fr;
+    }
+    .jcreate-side {
+      position: static;
+    }
+    .jcreate-side-panel {
+      display: none;
+    }
+    .jcreate-submit-panel {
+      position: sticky;
+      bottom: 18px;
+      z-index: 8;
+    }
+  }
   @media (max-width: 768px) {
-    .job-create-datetime-row { grid-template-columns: 1fr; gap: 0; }
-    .job-create-datetime-row .form-group { margin-bottom: var(--space-5); }
-    .form-group input, .form-group select, .form-group textarea { font-size: 16px; min-height: 44px; }
-    .line-items-header { display: none; }
+    .job-create-command {
+      padding-bottom: 110px;
+    }
+    .jcreate-hero {
+      gap: 18px;
+      padding: 4px 0 14px;
+    }
+    .jcreate-backline {
+      margin-bottom: 10px;
+    }
+    .jcreate-hero h1 {
+      font-size: clamp(42px, 13vw, 64px);
+    }
+    .jcreate-field-grid,
+    .jcreate-field-grid-three {
+      grid-template-columns: 1fr;
+    }
+    .jcreate-panel {
+      padding: 24px 18px;
+      border-radius: 28px;
+    }
+    .jcreate-panel h2 {
+      font-size: 34px;
+    }
+    .job-create-command input,
+    .job-create-command select,
+    .job-create-command textarea {
+      font-size: 16px;
+      min-height: 58px;
+    }
+    .line-items-header {
+      display: none;
+    }
     .line-item-row {
       grid-template-columns: 1fr;
-      gap: 8px;
-      padding: 14px 0;
+      gap: 10px;
+      padding: 16px 0;
       position: relative;
     }
-    .line-item-row input { font-size: 16px; min-height: 44px; padding: 12px; }
-    .li-col-qty::before { content: 'Qty: '; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
-    .li-col-price::before { content: 'Price: '; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
-    .li-col-total { text-align: right; }
-    .li-col-remove { position: absolute; top: 14px; right: 0; }
-    .btn-remove-row { width: 44px; height: 44px; }
-    .btn { min-height: 44px; }
-    .line-items-footer { flex-direction: column; align-items: stretch; }
-    .job-total-display { justify-content: space-between; }
+    .li-col-service input {
+      padding-right: 54px;
+    }
+    .li-col-qty::before,
+    .li-col-price::before {
+      display: block;
+      margin: 0 0 8px;
+      color: var(--jcreate-muted);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    .li-col-qty::before { content: 'Qty'; }
+    .li-col-price::before { content: 'Price'; }
+    .li-col-total {
+      text-align: right;
+    }
+    .li-col-remove {
+      position: absolute;
+      top: 16px;
+      right: 0;
+    }
+    .btn-remove-row {
+      width: 46px;
+      height: 46px;
+    }
+    .line-items-footer {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .job-total-display {
+      justify-content: space-between;
+    }
+    .jcreate-submit-panel {
+      bottom: 92px;
+      padding: 14px;
+      border-radius: 24px;
+    }
+    .jcreate-submit,
+    .jcreate-cancel {
+      min-height: 56px;
+    }
   }
-  .assignee-type-radio { list-style: none; padding: 0; margin: 0; display: flex; gap: 16px; flex-wrap: wrap; }
-  .assignee-type-radio li { display: flex; align-items: center; gap: 6px; }
-  #id_color { width: 110px !important; font-family: monospace; }
-  .employee-checkbox-list { list-style: none; padding: 0; margin: 0; }
-  .employee-checkbox-list li { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--border, #e2e8f0); }
-  .employee-checkbox-list li:last-child { border-bottom: none; }
-  .employee-checkbox-list li label { margin: 0; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-  .employee-checkbox-list input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary, #22c55e); cursor: pointer; }
 </style>
 {{ customers_with_properties|json_script:"customers-data" }}
 <script>
 (function() {
   var customersWithProperties = JSON.parse(document.getElementById('customers-data').textContent);
+  window.customersWithProperties = customersWithProperties;
 
   function updateAssigneeVisibility() {
     var val = document.querySelector('input[name="assignee_type"]:checked');
@@ -506,6 +1098,14 @@
     i1.id = 'id_form-' + n + '-service_name';
     g1.appendChild(i1);
 
+    var d1 = document.createElement('textarea');
+    d1.name = 'form-' + n + '-detail_description';
+    d1.maxLength = 1000;
+    d1.rows = 2;
+    d1.placeholder = 'Optional description for this line item...';
+    d1.id = 'id_form-' + n + '-detail_description';
+    g1.appendChild(d1);
+
     // Quantity
     var g2 = document.createElement('div');
     g2.className = 'li-col-qty';
@@ -564,8 +1164,8 @@ window.addEventListener('quickClientCreated', function(e) {
   var sel = document.getElementById('id_customer');
   if (sel && data.customer) {
     // Add the new customer + properties to the JS data so the property dropdown works
-    if (typeof customersWithProperties !== 'undefined') {
-      customersWithProperties.push({
+    if (Array.isArray(window.customersWithProperties)) {
+      window.customersWithProperties.push({
         id: data.customer.id,
         name: data.customer.name,
         properties: data.properties || []
@@ -583,6 +1183,15 @@ window.addEventListener('quickPropertyCreated', function(e) {
   var data = e.detail;
   var sel = document.getElementById('id_property');
   if (sel && data.property) {
+    if (Array.isArray(window.customersWithProperties)) {
+      var customerId = data.customer && data.customer.id ? data.customer.id : document.getElementById('id_customer').value;
+      var cust = window.customersWithProperties.find(function(c) { return String(c.id) === String(customerId); });
+      if (cust) {
+        cust.properties = cust.properties || [];
+        var exists = cust.properties.some(function(p) { return String(p.id) === String(data.property.id); });
+        if (!exists) cust.properties.push({ id: data.property.id, address: data.property.address });
+      }
+    }
     var opt = document.createElement('option');
     opt.value = data.property.id;
     opt.textContent = data.property.address;

@@ -105,6 +105,11 @@ def _checkout_session_completed(event):
         return  # Only handle payment mode, not subscription mode
     
     metadata = session.get("metadata") or {}
+    estimate_id = metadata.get("estimate_id")
+    if estimate_id:
+        _estimate_deposit_checkout_completed(event, session, estimate_id)
+        return
+
     invoice_id = metadata.get("invoice_id")
     if not invoice_id:
         return
@@ -176,3 +181,44 @@ def _checkout_session_completed(event):
         )
     except Exception:
         pass  # Don't fail the payment flow over audit logging
+
+
+def _estimate_deposit_checkout_completed(event, session, estimate_id):
+    """When an estimate deposit Checkout Session completes, mark the deposit paid."""
+    from billing.models import Estimate
+
+    try:
+        estimate = Estimate.objects.get(pk=int(estimate_id))
+    except (Estimate.DoesNotExist, ValueError, TypeError):
+        return
+
+    payment_intent_id = session.get("payment_intent") or ""
+    charge_id = ""
+    if payment_intent_id:
+        try:
+            import stripe
+            from django.conf import settings
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            account_id = event.get("account")
+            if account_id:
+                pi = stripe.PaymentIntent.retrieve(payment_intent_id, stripe_account=account_id)
+            else:
+                pi = stripe.PaymentIntent.retrieve(payment_intent_id)
+            charges = pi.get("charges", {}).get("data", [])
+            if charges:
+                charge_id = charges[0].get("id", "")
+        except Exception:
+            pass
+
+    estimate.deposit_paid = True
+    estimate.deposit_paid_at = timezone.now()
+    estimate.stripe_deposit_checkout_session_id = session.get("id", "")
+    estimate.stripe_deposit_payment_intent_id = payment_intent_id
+    estimate.stripe_deposit_charge_id = charge_id
+    estimate.save(update_fields=[
+        "deposit_paid",
+        "deposit_paid_at",
+        "stripe_deposit_checkout_session_id",
+        "stripe_deposit_payment_intent_id",
+        "stripe_deposit_charge_id",
+    ])

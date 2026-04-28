@@ -1,39 +1,60 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}FieldLgx Pricing{% endblock %}
+{% block title %}Lawn Care Software Pricing | FIELDLGX{% endblock %}
+{% block meta_description %}Start FIELDLGX with a 14-day free trial. Pricing for lawn care and landscaping software with scheduling, CRM, jobs, estimates, invoices, payments, mowing, fertilization, crews, and financial dashboards.{% endblock %}
+{% block og_title %}FIELDLGX Pricing for Lawn Care and Landscaping Companies{% endblock %}
+{% block og_description %}Compare FIELDLGX Solo Starter and Pro All-Access plans for scheduling, CRM, route planning, invoicing, payments, crews, mowing, fertilization, and financial visibility.{% endblock %}
+{% block extra_css %}
+<style>
+.pricing-shell{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:stretch}
+.pricing-card{position:relative;overflow:hidden;min-height:520px}
+.pricing-card.featured{border-color:rgba(157,216,80,.42);box-shadow:0 0 90px rgba(157,216,80,.10)}
+.pricing-card.featured::before{content:"Most popular";position:absolute;top:18px;right:18px;border:1px solid rgba(157,216,80,.28);border-radius:999px;color:var(--primary);padding:7px 10px;font-size:11px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;background:rgba(157,216,80,.08)}
+.price-number{font-size:clamp(48px,7vw,72px);font-weight:900;letter-spacing:-.06em;margin:18px 0 6px;color:var(--text)}
+.price-number span{font-size:15px;color:var(--text-muted);font-weight:650;letter-spacing:0}
+.price-list{list-style:none;padding:0;margin:24px 0;display:grid;gap:12px;color:var(--text-secondary)}
+.price-list li{position:relative;padding-left:24px;line-height:1.45}
+.price-list li::before{content:"";position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:50%;background:var(--primary);box-shadow:0 0 16px rgba(157,216,80,.55)}
+.pricing-note{margin-top:18px;text-align:center;color:var(--text-muted);font-size:14px}
+@media(max-width:850px){.pricing-shell{grid-template-columns:1fr}.pricing-card{min-height:auto}}
+</style>
+{% endblock %}
 {% block content %}
-<section class="hero"><div class="shell" data-r><h1>Simple pricing that scales with your business.</h1><p class="sub">One platform for your landscaping business. Start lean, then grow into full operations.</p></div></section>
+<section class="hero" style="padding-top:120px;"><div class="shell" data-r>
+  <p class="eyebrow">PRICING</p>
+  <h1>Simple lawn care software pricing that scales with your business.</h1>
+  <p class="sub">Start with a 14-day free trial, then choose the FIELDLGX plan that matches how your landscaping company schedules crews, manages clients, sends estimates, invoices work, and collects payments.</p>
+</div></section>
 <section class="section"><div class="shell" data-r>
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));">
-    <article class="card">
+  <div class="pricing-shell">
+    <article class="card pricing-card">
       <h3>Solo Starter</h3>
-      <p style="font-size:36px;font-weight:800;margin:8px 0;">${{ pricing.solo_price }}<span style="font-size:14px;font-weight:500;color:var(--muted)">/mo</span></p>
-      <p>For one-person operations that need scheduling and client tracking without complexity.</p>
-      <ul style="color:var(--muted);line-height:1.7; padding-left:18px;">
-        <li>Calendar scheduling</li>
-        <li>Client management</li>
-        <li>Job tracking</li>
-        <li>Basic invoicing</li>
+      <p class="price-number">${{ pricing.solo_price }} <span>/ month</span></p>
+      <p>For owner-operators that need professional scheduling, customer management, job tracking, estimates, and invoices without extra complexity.</p>
+      <ul class="price-list">
+        <li>Calendar and recurring job scheduling</li>
+        <li>Client and property CRM</li>
+        <li>Job details, notes, photos, and costs</li>
+        <li>Estimates, invoices, and payment links</li>
+        <li>14-day free trial</li>
       </ul>
       <a class="btn" href="/accounts/signup/">Start Solo trial</a>
     </article>
-    <article class="card" style="border-color:#4d4d4d;">
+    <article class="card pricing-card featured">
       <h3>Pro All-Access</h3>
-      <p style="font-size:36px;font-weight:800;margin:8px 0;">${{ pricing.pro_price }}<span style="font-size:14px;font-weight:500;color:var(--muted)">/mo</span></p>
-      <p>All features for teams serious about operational performance and growth.</p>
-      <ul style="color:var(--muted);line-height:1.7; padding-left:18px;">
+      <p class="price-number">${{ pricing.pro_price }} <span>/ month</span></p>
+      <p>For growing landscaping companies that want the full operations system for crews, routes, billing, recurring services, and financial visibility.</p>
+      <ul class="price-list">
         <li>Everything in Solo</li>
-        <li>Dispatch command center</li>
-        <li>Invoicing + automation</li>
-        <li>Pricebook & equipment tracking</li>
-        <li>Inspections & checklists</li>
+        <li>Field Command dashboard and dispatch workflows</li>
+        <li>Monthly and batch invoicing workflows</li>
+        <li>Mowing and fertilization operations</li>
         <li>Service agreements</li>
-        <li>Online booking portal</li>
-        <li>SMS notifications</li>
         <li>Employee management</li>
+        <li>Financial dashboards and payment workflows</li>
       </ul>
       <a class="btn btn-primary" href="/accounts/signup/">Start Pro trial</a>
     </article>
   </div>
-  <p style="text-align:center;color:var(--muted);margin-top:18px;font-size:14px;">All plans include vertical-specific modules for HVAC, plumbing, electrical, cleaning, and landscaping.</p>
+  <p class="pricing-note">Both plans are built for lawn care, mowing, landscaping, fertilization, and field crews. No credit card required to start the trial.</p>
 </div></section>
 {% endblock %}

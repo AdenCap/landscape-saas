@@ -234,6 +234,40 @@ class InvoiceLineItem(models.Model):
         max_digits=10, decimal_places=2, default=0,
         help_text="Cost of labor for this line"
     )
+    is_paid = models.BooleanField(
+        default=False,
+        help_text="Whether this specific invoice line item has been paid.",
+    )
+    paid_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this line item was marked paid.",
+    )
+    paid_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invoice_line_items_marked_paid",
+    )
+    payment_method = models.CharField(
+        max_length=20,
+        choices=Invoice.PAYMENT_METHOD_CHOICES,
+        blank=True,
+        default="",
+        help_text="How the client paid this specific line item.",
+    )
+    is_discount = models.BooleanField(
+        default=False,
+        help_text="This line item represents an applied discount or promotion.",
+    )
+    promotion = models.ForeignKey(
+        "Promotion",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invoice_line_items",
+    )
 
     @property
     def line_total(self):
@@ -260,6 +294,8 @@ class InvoiceAuditLog(models.Model):
         ("approved_sent", "Approved & sent"),
         ("sent", "Sent"),
         ("paid", "Marked paid"),
+        ("auto_charged", "Auto-charged"),
+        ("auto_charge_failed", "Auto-charge failed"),
         ("void", "Voided"),
         ("line_items_edited", "Line items edited"),
         ("dates_updated", "Dates updated"),
@@ -311,7 +347,7 @@ class Estimate(models.Model):
         related_name='estimates_at_property',
     )
 
-    title = models.CharField(max_length=255, default='FieldLgx Service Estimate')
+    title = models.CharField(max_length=255, default='FIELDLGX Service Estimate')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     valid_until = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
@@ -359,6 +395,27 @@ class Estimate(models.Model):
     )
     deposit_paid = models.BooleanField(default=False)
     deposit_paid_at = models.DateTimeField(null=True, blank=True)
+    stripe_deposit_checkout_session_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Stripe Checkout Session ID for this estimate deposit payment.",
+    )
+    stripe_deposit_payment_intent_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Stripe Payment Intent ID for this estimate deposit payment.",
+    )
+    stripe_deposit_charge_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Stripe Charge ID for this estimate deposit payment.",
+    )
 
     # ── View tracking ──────────────────────────────────────
     first_viewed_at = models.DateTimeField(null=True, blank=True, help_text="First time the client opened this estimate")
@@ -1030,6 +1087,7 @@ class Promotion(models.Model):
         null=True, blank=True, help_text="Leave blank for a business-wide promotion."
     )
     name = models.CharField(max_length=200, help_text="e.g. Buy 5 Fertilization Treatments, Get 6th Free")
+    code = models.CharField(max_length=50, blank=True, db_index=True, help_text="Optional promo code customers mention at signup.")
     promo_type = models.CharField(max_length=20, choices=PROMO_TYPE_CHOICES, default="buy_x_get_free")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
 
@@ -1074,3 +1132,27 @@ class Promotion(models.Model):
                 and self.current_count >= self.buy_quantity
                 and self.status == "active")
 
+
+class PromotionRedemption(models.Model):
+    """A customer using a promotion on a specific invoice."""
+    promotion = models.ForeignKey(Promotion, on_delete=models.CASCADE, related_name="redemptions")
+    business = models.ForeignKey("businesses.Business", on_delete=models.CASCADE, related_name="promotion_redemptions")
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="promotion_redemptions")
+    invoice = models.ForeignKey(Invoice, on_delete=models.SET_NULL, null=True, blank=True, related_name="promotion_redemptions")
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    code_used = models.CharField(max_length=50, blank=True)
+    redeemed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="promotion_redemptions_recorded",
+    )
+    redeemed_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-redeemed_at"]
+
+    def __str__(self):
+        return f"{self.promotion.name} — {self.customer.name} — ${self.discount_amount}"

@@ -4,6 +4,8 @@ from django.conf import settings
 
 
 def _marketing_redirect_for_auth(request):
+    if request.GET.get("preview_marketing") == "1":
+        return None
     user = request.user
     if not user.is_authenticated:
         return None
@@ -25,7 +27,7 @@ def _marketing_context():
 
 def marketing_home(request):
     """
-    Public landing page for the FieldLgx platform.
+    Public landing page for the FIELDLGX platform.
 
     - Anonymous visitors see the marketing site with features and pricing overview.
     - Authenticated users are redirected into the app so `/` still behaves like
@@ -39,10 +41,10 @@ def marketing_home(request):
 
 FEATURE_PAGES = {
     "dashboard": {
-        "title": "Dashboard Command Center",
+        "title": "Field Command Dashboard",
         "subtitle": "Run the day from one operational control surface.",
-        "seo_description": "FieldLgx Dashboard centralizes schedule, revenue, invoices, and team activity for landscaping operators.",
-        "bullets": ["Today's schedule and blockers", "Revenue and collections at a glance", "Live team activity stream"],
+        "seo_description": "FIELDLGX Field Command gives lawn care and landscaping companies one dashboard for schedules, unassigned jobs, crew activity, billing status, invoices, and daily operations.",
+        "bullets": ["Today's schedule and blockers", "Revenue and collections at a glance", "Crew, job, and billing visibility"],
         "roles": {
             "Owner": "See today's performance and decide fast with KPI-level visibility.",
             "Dispatcher": "Prioritize issues and keep schedule pressure under control.",
@@ -50,24 +52,28 @@ FEATURE_PAGES = {
         }
     },
     "jobs": {
-        "title": "Job Management",
+        "title": "Lawn Care Job Management",
         "subtitle": "Track work from scheduled to completed with zero guesswork.",
-        "bullets": ["Status-first workflow", "Fast job editing", "Clear ownership across crews"],
+        "seo_description": "Manage lawn care and landscaping jobs with FIELDLGX. Track scheduled, completed, skipped, recurring, and billable work with notes, photos, line items, crews, and job history.",
+        "bullets": ["Status-first job workflow", "Fast job editing from the field", "Clear ownership across crews"],
     },
     "calendar": {
-        "title": "Scheduling Calendar",
+        "title": "Lawn Care Scheduling Calendar",
         "subtitle": "Drag, drop, and rebalance your workload in seconds.",
-        "bullets": ["Day/week/month views", "Reschedule with confidence", "Crew-aware planning"],
+        "seo_description": "FIELDLGX scheduling software helps lawn care and landscaping companies manage day, week, month, and schedule views for recurring jobs, multi-day work, crews, and route planning.",
+        "bullets": ["Day, week, month, and schedule views", "Recurring job scheduling", "Crew-aware calendar planning"],
     },
     "daily-routes": {
-        "title": "Daily Routes",
+        "title": "Daily Route Planning",
         "subtitle": "Turn schedules into efficient route execution.",
-        "bullets": ["Route clarity for crews", "Reduce travel waste", "Faster first-job starts"],
+        "seo_description": "Plan daily routes for lawn care and landscaping crews with FIELDLGX. Keep property details, maps, crew notes, job items, and completion status connected to the schedule.",
+        "bullets": ["Route clarity for crews", "Map and property context", "Faster first-job starts"],
     },
     "clients": {
-        "title": "Client CRM",
+        "title": "Landscaping Client CRM",
         "subtitle": "Keep every customer record, property, and conversation in sync.",
-        "bullets": ["Unified customer profiles", "Service + invoice history", "Quick lookup from field and office"],
+        "seo_description": "FIELDLGX landscaping CRM keeps customer profiles, property addresses, crew-visible notes, internal notes, billing preferences, job history, estimates, and invoices in one place.",
+        "bullets": ["Unified customer profiles", "Service and invoice history", "Quick lookup from field and office"],
     },
     "messaging": {
         "title": "Client Messaging",
@@ -75,14 +81,16 @@ FEATURE_PAGES = {
         "bullets": ["Inbox-style message flow", "Context tied to jobs", "Faster response operations"],
     },
     "estimator": {
-        "title": "Estimator Tools",
+        "title": "Landscape Estimate Builder",
         "subtitle": "Quote faster with structured estimating workflows.",
+        "seo_description": "Create professional landscaping estimates and lawn care quotes with FIELDLGX. Build line items, preview customer-facing documents, send follow-ups, and convert approved estimates into jobs.",
         "bullets": ["Guided estimate creation", "Service-level pricing clarity", "Smoother quote-to-job handoff"],
     },
     "invoices": {
-        "title": "Invoice Builder",
+        "title": "Lawn Care Invoice Builder",
         "subtitle": "Professional invoices that speed up payment.",
-        "bullets": ["Clean line-item editing", "Payment-state visibility", "Faster closeout after completion"],
+        "seo_description": "FIELDLGX lawn care invoicing software helps landscaping companies edit line items, add descriptions, track payment status, send reminders, manage monthly invoice batches, and collect payments.",
+        "bullets": ["Clean line-item editing", "Payment-state visibility", "Monthly and batch invoice workflows"],
     },
     "estimates": {
         "title": "Estimates",
@@ -97,6 +105,7 @@ FEATURE_PAGES = {
     "financials": {
         "title": "Financials & Analytics",
         "subtitle": "Track performance, margins, and trends with confidence.",
+        "seo_description": "FIELDLGX financial dashboards help lawn care and landscaping owners track revenue, outstanding invoices, completed work, collections, and business health from one operations platform.",
         "bullets": ["Revenue trend visibility", "Collection performance", "Business health metrics"],
     },
 }
@@ -159,11 +168,11 @@ VERTICAL_PAGES = {
     "landscaping": {
         "type_label": "Landscaping",
         "headline": "The operating system for landscaping businesses",
-        "subheadline": "Schedule crews, optimize routes, send invoices, and grow your lawn care business.",
-        "seo_title": "FieldLgx for Landscaping — Crew Scheduling & Route Software",
-        "seo_description": "FieldLgx helps landscaping and lawn care businesses schedule crews, plan routes, send invoices, and manage clients from one platform.",
+        "subheadline": "Schedule crews, plan routes, manage recurring lawn services, send estimates and invoices, collect payments, and grow your lawn care business.",
+        "seo_title": "Lawn Care & Landscaping Software for Scheduling, CRM & Invoicing | FIELDLGX",
+        "seo_description": "FIELDLGX helps landscaping and lawn care businesses schedule crews, plan routes, manage recurring jobs, create estimates, send invoices, collect payments, and manage clients from one platform.",
         "pain_points": [
-            ("Route inefficiency", "Optimize daily routes so crews spend more time mowing and less time driving."),
+            ("Route inefficiency", "Plan cleaner daily routes so crews spend more time mowing and less time driving."),
             ("Crew communication gaps", "Everyone sees the same schedule. Updates happen in real-time, not via group text."),
             ("Seasonal revenue dips", "Sell fertilization and maintenance plans to keep cash flowing year-round."),
         ],
@@ -198,10 +207,17 @@ def robots_txt(request):
 def sitemap_xml(request):
     base = getattr(settings, "CANONICAL_BASE_URL", "https://fieldlgx.com").rstrip("/")
     urls = [
-        "/", "/features/", "/pricing/", "/automation/", "/terms/", "/privacy/",
-    ] + [f"/features/{slug}/" for slug in FEATURE_PAGES.keys()] + [f"/{v}/" for v in VERTICAL_PAGES.keys()]
+        ("/", "daily", "1.0"),
+        ("/features/", "weekly", "0.9"),
+        ("/pricing/", "weekly", "0.9"),
+        ("/automation/", "weekly", "0.8"),
+        ("/terms/", "monthly", "0.3"),
+        ("/privacy/", "monthly", "0.3"),
+    ]
+    urls += [(f"/features/{slug}/", "weekly", "0.75") for slug in FEATURE_PAGES.keys()]
+    urls += [(f"/{v}/", "weekly", "0.85") for v in VERTICAL_PAGES.keys()]
     xml = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
-    for path in urls:
-        xml.append(f"<url><loc>{base}{path}</loc></url>")
+    for path, changefreq, priority in urls:
+        xml.append(f"<url><loc>{base}{path}</loc><changefreq>{changefreq}</changefreq><priority>{priority}</priority></url>")
     xml.append("</urlset>")
     return HttpResponse("".join(xml), content_type="application/xml")

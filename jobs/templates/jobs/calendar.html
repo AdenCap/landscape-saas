@@ -6,14 +6,26 @@
 <link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=28">
 <style>
   /* Quick-create line items */
-  .qc-line-row { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
+  .qc-line-row { display:grid;grid-template-columns:minmax(0,1fr) 58px 72px 28px;gap:8px;margin-bottom:8px;align-items:start; }
+  .qc-line-main { display:grid;gap:6px;min-width:0; }
   .qc-line-row select { flex:1; }
-  .qc-line-row input { font-size:12px; }
-  .qc-line-remove { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; padding:0 4px; line-height:1; }
+  .qc-line-row input { font-size:13px; }
+  .qc-line-row .qc-line-description { min-height:46px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-surface);color:var(--text);font:inherit;font-size:12px;resize:vertical; }
+  .qc-line-row .qc-line-description:focus { border-color:var(--primary);box-shadow:0 0 0 3px rgba(157,216,80,.12);outline:none; }
+  .qc-line-remove { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; padding:8px 4px 0; line-height:1; }
   .qc-line-remove:hover { color:#ffb4ab; }
 
   /* Full-width calendar — no context panel */
   .workspace-shell { grid-template-columns: minmax(0, 1fr); }
+
+  .calendar-command {
+    display:grid;
+    gap:14px;
+    width:100%;
+    max-width:1700px;
+    margin:0 auto;
+    padding:6px 0 24px;
+  }
 
   /* Unscheduled jobs — bottom collapsible */
   .unscheduled-bottom { background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden; }
@@ -61,7 +73,7 @@
   .qc-type-btn.active { background:var(--surface);color:var(--primary);box-shadow:0 1px 3px rgba(0,0,0,0.2); }
 
   /* Google Calendar-style header */
-  .cal-header { display:flex;justify-content:space-between;align-items:center;padding:8px 4px;margin-bottom:8px; }
+  .cal-header { display:flex;justify-content:space-between;align-items:center;gap:14px;padding:18px 22px;border:1px solid rgba(255,255,255,.12);border-radius:24px;background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.025));box-shadow:0 24px 70px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06); }
   .cal-header-left { display:flex;align-items:center;gap:4px; }
   .cal-header-right { display:flex;align-items:center;gap:6px; }
   .cal-header-title { display:flex;align-items:center;gap:2px;background:none;border:none;color:var(--text);font-size:20px;font-weight:600;font-family:var(--font-headline);cursor:pointer;padding:4px 8px;border-radius:8px; }
@@ -80,6 +92,29 @@
   .cal-legend { display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--text-muted); }
   .cal-legend-item { display:flex;align-items:center;gap:4px;white-space:nowrap; }
   .cal-legend-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+  .cal-filters { display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0; }
+  .cal-filter-input,
+  .cal-filter-select {
+    min-height:38px;
+    padding:8px 11px;
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:999px;
+    background:rgba(255,255,255,.045);
+    color:var(--text);
+    font-size:12px;
+    font-family:inherit;
+    outline:none;
+  }
+  .cal-filter-input:focus,
+  .cal-filter-select:focus { border-color:var(--primary);box-shadow:0 0 0 3px rgba(157,216,80,.12); }
+  .cal-filter-separator { width:1px;height:24px;background:rgba(255,255,255,.12); }
+  #calendar-wrapper {
+    padding:14px !important;
+    border-radius:24px;
+    border-color:rgba(255,255,255,.13);
+    background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.025));
+    box-shadow:0 24px 70px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.05);
+  }
 
   .cal-desktop-hide { display:none; }
   .cal-mobile-hide { display:flex; }
@@ -87,10 +122,13 @@
   @media (max-width: 768px) {
     .cal-mobile-hide { display: none !important; }
     .cal-desktop-hide { display: flex !important; }
-    .cal-header { padding: 6px 0; }
+    .calendar-command { padding:0 0 18px;gap:10px; }
+    .cal-header { padding: 12px 14px;border-radius:18px; }
     .cal-header-title { font-size: 18px; }
     /* Hide full legend on mobile — too many names */
     .cal-legend { display: none !important; }
+    #calendar-wrapper { padding:8px !important;border-radius:18px; }
+    .qc-line-row { grid-template-columns:minmax(0,1fr) 64px 72px 24px; }
 
     /* Form modals */
     .modal-body input, .modal-body select, .modal-body textarea { font-size: 16px; min-height: 44px; }
@@ -102,6 +140,7 @@
 {% block context_panel %}{% endblock %}
 
 {% block content %}
+<section class="calendar-command">
 <!-- Calendar header: legend + controls -->
 <div class="cal-header">
   <div class="cal-header-left">
@@ -162,32 +201,32 @@
 <span id="cal-month-label" style="display:none;"></span>
 
 <!-- Compact filter bar (desktop only) -->
-<div class="cal-filters cal-mobile-hide" style="display:flex;align-items:center;gap:8px;padding:0 4px 8px;flex-wrap:wrap;">
-  <input type="date" id="calendar-goto-date" style="padding:6px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);width:130px;">
-  <button type="button" id="calendar-goto-btn" class="btn btn-ghost btn-sm" style="font-size:11px;padding:4px 8px;">GO</button>
-  <span style="width:1px;height:20px;background:var(--border);"></span>
-  <select id="filter-crews" style="padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);">
+<div class="cal-filters cal-mobile-hide">
+  <input type="date" id="calendar-goto-date" class="cal-filter-input" style="width:140px;">
+  <button type="button" id="calendar-goto-btn" class="btn btn-ghost btn-sm">GO</button>
+  <span class="cal-filter-separator"></span>
+  <select id="filter-crews" class="cal-filter-select">
     <option value="">All Crews</option>
     {% for c in filter_crews %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
   </select>
-  <select id="filter-employees" style="padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);">
+  <select id="filter-employees" class="cal-filter-select">
     <option value="">All Employees</option>
     {% for e in filter_employees %}<option value="{{ e.id }}">{{ e.name }}</option>{% endfor %}
   </select>
-  <select id="filter-services" style="padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);">
+  <select id="filter-services" class="cal-filter-select">
     <option value="">All Services</option>
     {% for s in filter_services %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
   </select>
-  <select id="filter-payment" style="padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);">
+  <select id="filter-payment" class="cal-filter-select">
     <option value="">All Payment</option>
     <option value="paid">Paid</option>
     <option value="unpaid">Unpaid</option>
     <option value="invoiced">Invoice Sent</option>
     <option value="not_invoiced">Not Invoiced</option>
   </select>
-  <span style="width:1px;height:20px;background:var(--border);"></span>
-  <input type="text" id="calendar-search" placeholder="Search..." style="padding:5px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);width:140px;">
-  <span style="width:1px;height:20px;background:var(--border);"></span>
+  <span class="cal-filter-separator"></span>
+  <input type="text" id="calendar-search" class="cal-filter-input" placeholder="Search jobs..." style="width:160px;">
+  <span class="cal-filter-separator"></span>
   <button type="button" id="cal-refresh-btn" class="btn btn-ghost btn-sm" style="font-size:11px;padding:4px 8px;display:flex;align-items:center;gap:3px;" title="Refresh calendar">
     <span class="material-symbols-outlined" style="font-size:14px;">refresh</span>
     <span class="cal-refresh-label">Refresh</span>
@@ -230,6 +269,7 @@
   </div>
 </div>
 {% endif %}
+</section>
 
 <!-- Job Modal -->
 <div id="job-modal" class="modal-overlay" role="dialog" aria-modal="true">
@@ -500,10 +540,13 @@
       <datalist id="qc-service-datalist"></datalist>
       <div id="qc-lines">
         <div class="qc-line-row">
-          <input type="text" class="qc-line-service-text" list="qc-service-datalist" placeholder="Type or select service..." style="flex:1;">
+          <div class="qc-line-main">
+            <input type="text" class="qc-line-service-text" list="qc-service-datalist" placeholder="Type or select service...">
+            <textarea class="qc-line-description" rows="2" placeholder="Optional line details for the crew or invoice"></textarea>
+          </div>
           <input type="hidden" class="qc-line-service" value="">
-          <input type="number" class="qc-line-qty" value="1" min="0.01" step="0.01" placeholder="Qty" style="width:50px;">
-          <input type="number" class="qc-line-price" min="0" step="0.01" placeholder="$" style="width:60px;">
+          <input type="number" class="qc-line-qty" value="1" min="0.01" step="0.01" placeholder="Qty">
+          <input type="number" class="qc-line-price" min="0" step="0.01" placeholder="$">
         </div>
       </div>
     </div>

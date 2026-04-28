@@ -3,17 +3,182 @@
    Uses design-system.css variables for consistency
    ══════════════════════════════════════════════════════════════ */
 
+/* ── Command Shell ───────────────────────────────────────── */
+.fert-command {
+  --fert-ink: #f4f5f0;
+  --fert-muted: #9b9f98;
+  --fert-dim: #646963;
+  --fert-line: rgba(255,255,255,.11);
+  --fert-line-strong: rgba(255,255,255,.18);
+  --fert-accent: #b9ff65;
+  --fert-purple: #a78bfa;
+  --fert-ease: cubic-bezier(.2,.9,.18,1);
+  max-width: 1480px;
+  margin: -4px auto 0;
+  color: var(--fert-ink);
+  font-family: var(--font-family);
+}
+
+.fert-command:before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 56% -12%, rgba(255,255,255,.08), transparent 32%),
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px);
+  background-size: auto, 72px 72px, 72px 72px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.72), transparent 70%);
+}
+
+.fert-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.fert-kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fert-muted);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-spacing);
+  text-transform: uppercase;
+}
+
+.fert-kicker span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--fert-accent);
+  box-shadow: 0 0 18px rgba(185,255,101,.45);
+}
+
+.fert-hero h1 {
+  margin: 12px 0 8px;
+  font-size: clamp(40px, 7vw, 86px);
+  line-height: .92;
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+.fert-hero p {
+  margin: 0;
+  max-width: 760px;
+  color: var(--fert-muted);
+  font-size: var(--type-body-size);
+}
+
+.fert-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  min-width: min(520px, 100%);
+}
+
+.fert-action,
+.fert-tab {
+  min-height: 46px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.055);
+  color: var(--fert-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  font-size: var(--text-sm);
+  font-weight: var(--type-strong-weight);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform .28s var(--fert-ease), border-color .28s var(--fert-ease), background .28s var(--fert-ease);
+}
+
+.fert-action:hover,
+.fert-tab:hover {
+  transform: translateY(-2px);
+  border-color: var(--fert-line-strong);
+  background: rgba(255,255,255,.075);
+}
+
+.fert-action-hot,
+.fert-tab.active {
+  background: var(--fert-accent);
+  border-color: transparent;
+  color: #050605;
+}
+
+.fert-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.fert-stat,
+.fert-panel,
+.fert-tabs,
+.calc-card,
+.fert-modal {
+  border: 1px solid var(--fert-line);
+  background: linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.04));
+  box-shadow: 0 28px 90px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.10);
+  backdrop-filter: blur(28px) saturate(120%);
+}
+
+.fert-stat {
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 17px;
+  border-radius: 28px;
+  text-align: left;
+}
+
+.fert-stat-num {
+  display: block;
+  margin-top: 12px;
+  font-size: var(--type-metric-size);
+  font-weight: var(--type-strong-weight);
+  font-family: var(--font-headline);
+  line-height: 1;
+}
+
+.fert-stat-label {
+  display: block;
+  order: -1;
+  color: var(--fert-muted);
+  font-size: var(--type-label-size);
+  text-transform: uppercase;
+  letter-spacing: var(--type-label-spacing);
+  font-weight: var(--type-label-weight);
+}
+
+.fert-stat-sub {
+  display: block;
+  margin-top: 8px;
+  color: var(--fert-dim);
+  font-size: var(--text-sm);
+}
+
 /* ── Tab Navigation ──────────────────────────────────────── */
 .fert-tabs {
   display: flex;
-  gap: 4px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 14px;
   flex-wrap: wrap;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0;
+  padding: 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  border-radius: 999px;
 }
 
 .fert-tabs::-webkit-scrollbar {
@@ -21,29 +186,11 @@
 }
 
 .fert-tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  border-radius: 10px 10px 0 0;
-  text-decoration: none;
   color: var(--text-muted);
-  font-weight: 500;
-  font-size: 14px;
   white-space: nowrap;
-  border-bottom: 2px solid transparent;
-  transition: all var(--motion-fast) var(--motion-ease);
-}
-
-.fert-tab:hover {
-  color: var(--text);
-  background: var(--glass);
-}
-
-.fert-tab.active {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
-  background: var(--primary-light);
+  flex: 0 0 auto;
+  min-height: 36px;
+  background: transparent;
 }
 
 .fert-tab svg,
@@ -75,6 +222,9 @@
 /* ── Panel Container ─────────────────────────────────────── */
 .fert-panel {
   animation: fadeIn var(--motion-slow) var(--motion-ease-out);
+  border-radius: 30px;
+  padding: 20px;
+  margin-bottom: 14px;
 }
 
 /* ── Panel Header ────────────────────────────────────────── */
@@ -102,15 +252,13 @@
 }
 
 .calc-card {
-  background: var(--gradient-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: 28px;
   padding: var(--space-6);
   transition: all var(--motion-base) var(--motion-ease);
 }
 
 .calc-card:hover {
-  border-color: var(--border-hover);
+  border-color: var(--fert-line-strong);
   box-shadow: var(--shadow-sm);
 }
 
@@ -259,6 +407,46 @@
   white-space: nowrap;
 }
 
+.fert-command .data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 10px;
+}
+
+.fert-command .data-table th {
+  padding: 0 14px 8px;
+  color: var(--fert-muted);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-spacing);
+  text-transform: uppercase;
+}
+
+.fert-command .data-table td {
+  padding: 15px 14px;
+  background: rgba(0,0,0,.22);
+  border-top: 1px solid rgba(255,255,255,.08);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  vertical-align: middle;
+}
+
+.fert-command .data-table td:first-child {
+  border-left: 1px solid rgba(255,255,255,.08);
+  border-radius: 22px 0 0 22px;
+}
+
+.fert-command .data-table td:last-child {
+  border-right: 1px solid rgba(255,255,255,.08);
+  border-radius: 0 22px 22px 0;
+}
+
+.fert-program-card {
+  border-radius: 28px;
+  overflow: hidden;
+  border: 1px solid var(--fert-line);
+  background: rgba(0,0,0,.12);
+}
+
 /* ── Colored Text Utilities ──────────────────────────────── */
 .text-success {
   color: #86efac;
@@ -347,6 +535,40 @@
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 767px) {
+  .fert-command {
+    margin: 0;
+    padding-bottom: 112px;
+  }
+
+  .fert-hero {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .fert-hero h1 {
+    font-size: 44px;
+  }
+
+  .fert-actions {
+    grid-template-columns: 1fr;
+    min-width: 0;
+  }
+
+  .fert-stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .fert-stat {
+    min-width: 0;
+    min-height: 108px;
+    padding: 15px;
+  }
+
+  .fert-stat-num {
+    font-size: 32px;
+  }
+
   .calc-grid {
     grid-template-columns: 1fr !important;
   }
@@ -363,10 +585,13 @@
     align-items: flex-end;
   }
 
-  .fert-tabs { flex-wrap: nowrap; gap: 2px; }
+  .fert-tabs {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
 
   .fert-tab {
-    padding: 10px 14px;
+    padding: 10px 12px;
     font-size: 13px;
     min-height: 44px;
   }
@@ -385,6 +610,11 @@
     font-size: 18px;
   }
 
+  .fert-panel {
+    padding: 16px;
+    border-radius: 28px;
+  }
+
   .panel-header .btn { min-height: 44px; width: 100%; justify-content: center; }
 
   .fert-modal-footer { flex-direction: column; }
@@ -398,6 +628,16 @@
   /* Product checkboxes: single column on mobile */
   .round-products-wrap { grid-template-columns: 1fr; }
   .product-check-label { min-height: 44px; }
+
+  .fert-command .data-table {
+    border-spacing: 0 8px;
+  }
+
+  .fert-command .data-table td,
+  .fert-command .data-table th {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
 
   /* Round row fields stack on mobile */
   .fert-round-row > div:first-child {

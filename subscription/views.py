@@ -89,7 +89,7 @@ def create_checkout_session(request):
         from datetime import timedelta
         business = get_business(request)
         if business and not business.has_active_subscription():
-            trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
+            trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_SOLO", 14) if plan_tier == "solo" else getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
             business.subscription_status = "trialing"
             business.subscription_plan_tier = plan_tier
             business.subscription_current_period_end = tz.now() + timedelta(days=trial_days)
@@ -110,7 +110,7 @@ def create_checkout_session(request):
     # Generate idempotency key to prevent duplicate sessions
     idempotency_key = f"subscription:{business.id}:{plan_tier}:{hashlib.md5(f'{business.id}:{price_id}'.encode()).hexdigest()[:16]}"
     
-    trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_SOLO", 7) if plan_tier == "solo" else getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
+    trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_SOLO", 14) if plan_tier == "solo" else getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
 
     try:
         # Ensure we have a Stripe customer ID
@@ -175,7 +175,7 @@ def checkout_success(request):
         except Exception:
             pass  # Webhook will catch it eventually
 
-    messages.success(request, "Subscription started. You now have full access to FieldLgx.")
+    messages.success(request, "Subscription started. You now have full access to FIELDLGX.")
     return redirect("/")
 
 
@@ -211,12 +211,12 @@ def start_free_trial(request):
         plan_tier = "core"
 
     try:
-        trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
+        trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_SOLO", 14) if plan_tier == "solo" else getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
         business.subscription_status = "trialing"
         business.subscription_plan_tier = plan_tier
         business.subscription_current_period_end = tz.now() + timedelta(days=trial_days)
         business.save(update_fields=["subscription_status", "subscription_plan_tier", "subscription_current_period_end"])
-        messages.success(request, f"Your {trial_days}-day free trial has started! Welcome to FieldLgx.")
+        messages.success(request, f"Your {trial_days}-day free trial has started! Welcome to FIELDLGX.")
         logger.info("start_free_trial: started %d-day trial for business %s (id=%s, plan=%s)",
                      trial_days, business.name, business.id, plan_tier)
     except Exception as e:

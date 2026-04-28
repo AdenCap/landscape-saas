@@ -44,6 +44,8 @@ def _add_service_items_to_job(job, service_snapshot):
         JobServiceItem.objects.create(
             job=job,
             service=service,
+            description=item.get("description") or service.name,
+            detail_description=item.get("detail_description") or "",
             quantity=quantity,
             unit=unit,
             unit_price=unit_price,

@@ -1,35 +1,418 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header">
-  <a href="{% url 'billing:invoice_list' %}" class="link-primary" style="font-size: 14px; margin-bottom: 4px; display: inline-block;">&larr; All invoices</a>
-  <h1>Create Invoice</h1>
-  <p>Select a customer to create a new draft invoice.</p>
-</div>
+<section class="invoice-create-command">
+  <div class="icc-shell">
+    <a href="{% url 'billing:invoice_list' %}" class="icc-back-link">
+      <span class="material-symbols-outlined">arrow_back</span>
+      <span>Invoices</span>
+    </a>
 
-<div class="card" style="max-width: 560px;">
-  <form method="post">
-    {% csrf_token %}
-    <div style="margin-bottom: 20px;">
-      <label for="customer" style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--text);">Customer</label>
-      <select name="customer" id="customer" required
-        style="width: 100%; padding: 10px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 15px; transition: border-color var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease);">
-        <option value="">— Choose a customer —</option>
-        {% for c in customers %}
-        <option value="{{ c.id }}">{{ c.name }}</option>
-        {% endfor %}
-      </select>
-      <button type="button" onclick="openQuickAddClient()" style="margin-top:4px;background:none;border:none;color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;padding:0;">+ Add New Client</button>
-      {% if not customers %}
-      <p style="margin-top: 8px; font-size: 13px; color: var(--text-muted);">
-        No customers yet — click "+ Add New Client" above.
-      </p>
-      {% endif %}
+    <header class="icc-hero">
+      <div>
+        <p class="icc-eyebrow"><span></span> New invoice</p>
+        <h1>Start with the client.</h1>
+        <p>Pick an existing customer or add one without leaving this screen. Line items, payment options, and preview come next.</p>
+      </div>
+      <div class="icc-steps" aria-label="Invoice creation steps">
+        <div class="active">
+          <span>1</span>
+          <strong>Client</strong>
+        </div>
+        <div>
+          <span>2</span>
+          <strong>Items</strong>
+        </div>
+        <div>
+          <span>3</span>
+          <strong>Send</strong>
+        </div>
+      </div>
+    </header>
+
+    <div class="icc-grid">
+      <form method="post" class="icc-panel icc-form">
+        {% csrf_token %}
+        <div class="icc-panel-head">
+          <div>
+            <p>Invoice setup</p>
+            <h2>Who is this for?</h2>
+          </div>
+          <span class="material-symbols-outlined">receipt_long</span>
+        </div>
+
+        <div class="icc-field">
+          <div class="icc-label-row">
+            <label for="customer">Customer</label>
+            <button type="button" onclick="openQuickAddClient()">Add client</button>
+          </div>
+          <select name="customer" id="customer" required>
+            <option value="">Choose a customer</option>
+            {% for c in customers %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+          {% if not customers %}
+          <small>No customers yet. Add a client here and continue building the invoice.</small>
+          {% else %}
+          <small>After this, you will add services, descriptions, discounts, and payment settings.</small>
+          {% endif %}
+        </div>
+
+        <div class="icc-actions">
+          <button type="submit" class="icc-primary-action"{% if not customers %} disabled{% endif %}>
+            <span class="material-symbols-outlined">arrow_forward</span>
+            <span>Create draft invoice</span>
+          </button>
+          <a href="{% url 'billing:invoice_list' %}" class="icc-secondary-action">Cancel</a>
+        </div>
+      </form>
+
+      <aside class="icc-panel icc-assist">
+        <div class="icc-panel-head">
+          <div>
+            <p>Fast path</p>
+            <h2>Keep billing moving</h2>
+          </div>
+          <span class="material-symbols-outlined">bolt</span>
+        </div>
+        <div class="icc-assist-list">
+          <a href="{% url 'billing:invoice_list' %}">
+            <span class="material-symbols-outlined">fact_check</span>
+            <div>
+              <strong>Review invoice queue</strong>
+              <small>See drafts, sent invoices, overdue balances, and paid work.</small>
+            </div>
+          </a>
+          <a href="{% url 'billing:promotion_list' %}">
+            <span class="material-symbols-outlined">sell</span>
+            <div>
+              <strong>Apply promotions later</strong>
+              <small>Track promo codes and discounts after line items are added.</small>
+            </div>
+          </a>
+          <a href="{% url 'business_settings' %}#integrations">
+            <span class="material-symbols-outlined">credit_card</span>
+            <div>
+              <strong>Payment settings</strong>
+              <small>Control card checkout, saved cards, and manual methods.</small>
+            </div>
+          </a>
+        </div>
+      </aside>
     </div>
-    <div style="display: flex; gap: 8px;">
-      <button type="submit" class="btn btn-primary"{% if not customers %} disabled{% endif %}>Create Draft Invoice</button>
-      <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary">Cancel</a>
-    </div>
-  </form>
-</div>
+  </div>
+</section>
+
+<style>
+  .invoice-create-command {
+    --icc-bg: #070807;
+    --icc-panel: rgba(32, 34, 32, .92);
+    --icc-line: rgba(255, 255, 255, .14);
+    --icc-line-strong: rgba(255, 255, 255, .22);
+    --icc-text: #f4f4f0;
+    --icc-muted: rgba(244, 244, 240, .62);
+    --icc-accent: #9bef45;
+    min-height: calc(100vh - 80px);
+    margin: -24px;
+    padding: clamp(18px, 3vw, 42px);
+    color: var(--icc-text);
+    background:
+      radial-gradient(circle at 18% 8%, rgba(155, 239, 69, .16), transparent 28rem),
+      linear-gradient(135deg, #111310, var(--icc-bg) 58%);
+  }
+  .icc-shell {
+    width: min(1380px, 100%);
+    margin: 0 auto;
+  }
+  .icc-back-link {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    border: 1px solid var(--icc-line);
+    border-radius: 999px;
+    color: var(--icc-text);
+    text-decoration: none;
+    font-weight: 850;
+    margin-bottom: 18px;
+    background: rgba(255,255,255,.05);
+  }
+  .icc-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+    gap: 18px;
+    align-items: stretch;
+    margin-bottom: 18px;
+  }
+  .icc-hero > div:first-child,
+  .icc-steps,
+  .icc-panel {
+    border: 1px solid var(--icc-line);
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.09), rgba(255,255,255,.03)),
+      var(--icc-panel);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 24px 70px rgba(0,0,0,.28);
+  }
+  .icc-hero > div:first-child {
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: clamp(24px, 5vw, 46px);
+    border-radius: 34px;
+  }
+  .icc-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 14px;
+    color: var(--icc-muted);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+  .icc-eyebrow span {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--icc-accent);
+    box-shadow: 0 0 24px rgba(155, 239, 69, .75);
+  }
+  .icc-hero h1 {
+    margin: 0 0 14px;
+    font-size: clamp(56px, 8vw, 110px);
+    line-height: .88;
+    letter-spacing: 0;
+  }
+  .icc-hero p {
+    max-width: 780px;
+    margin: 0;
+    color: var(--icc-muted);
+    font-size: 17px;
+    line-height: 1.55;
+  }
+  .icc-steps {
+    display: grid;
+    gap: 10px;
+    padding: 18px;
+    border-radius: 34px;
+  }
+  .icc-steps div {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 70px;
+    padding: 12px;
+    border: 1px solid var(--icc-line);
+    border-radius: 22px;
+    color: var(--icc-muted);
+    background: rgba(0,0,0,.18);
+  }
+  .icc-steps .active {
+    border-color: rgba(155,239,69,.5);
+    color: var(--icc-text);
+    background: rgba(155,239,69,.1);
+  }
+  .icc-steps span {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(255,255,255,.09);
+    font-weight: 900;
+  }
+  .icc-steps .active span {
+    color: #071005;
+    background: var(--icc-accent);
+  }
+  .icc-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    gap: 18px;
+    align-items: start;
+  }
+  .icc-panel {
+    border-radius: 30px;
+    padding: clamp(22px, 3vw, 30px);
+  }
+  .icc-panel-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .icc-panel-head p {
+    margin: 0;
+    color: var(--icc-muted);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .icc-panel-head h2 {
+    margin: 6px 0 0;
+    color: var(--icc-text);
+    font-size: clamp(28px, 4vw, 42px);
+    line-height: 1;
+  }
+  .icc-panel-head > span {
+    color: var(--icc-accent);
+    font-size: 34px;
+  }
+  .icc-field {
+    display: grid;
+    gap: 8px;
+  }
+  .icc-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .icc-label-row label {
+    color: var(--icc-muted);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .icc-label-row button {
+    border: 0;
+    background: none;
+    color: var(--icc-accent);
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 900;
+  }
+  .icc-field select {
+    width: 100%;
+    min-height: 58px;
+    border: 1px solid var(--icc-line);
+    border-radius: 18px;
+    background: rgba(0,0,0,.28);
+    color: var(--icc-text);
+    padding: 0 16px;
+    font: inherit;
+    font-size: 16px;
+    outline: 0;
+  }
+  .icc-field select:focus {
+    border-color: rgba(155,239,69,.72);
+    box-shadow: 0 0 0 3px rgba(155,239,69,.14);
+  }
+  .icc-field small {
+    color: var(--icc-muted);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .icc-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 22px;
+  }
+  .icc-primary-action,
+  .icc-secondary-action {
+    min-height: 54px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 999px;
+    padding: 0 20px;
+    font: inherit;
+    font-weight: 900;
+    text-decoration: none;
+  }
+  .icc-primary-action {
+    border: 0;
+    background: var(--icc-accent);
+    color: #071005;
+    cursor: pointer;
+    box-shadow: 0 18px 42px rgba(155, 239, 69, .22);
+  }
+  .icc-primary-action:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .icc-secondary-action {
+    border: 1px solid var(--icc-line);
+    color: var(--icc-text);
+    background: rgba(255,255,255,.05);
+  }
+  .icc-assist-list {
+    display: grid;
+    gap: 10px;
+  }
+  .icc-assist-list a {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    min-height: 86px;
+    padding: 14px;
+    border: 1px solid var(--icc-line);
+    border-radius: 20px;
+    color: var(--icc-text);
+    text-decoration: none;
+    background: rgba(0,0,0,.18);
+  }
+  .icc-assist-list .material-symbols-outlined {
+    color: var(--icc-accent);
+  }
+  .icc-assist-list strong {
+    display: block;
+    margin-bottom: 4px;
+  }
+  .icc-assist-list small {
+    color: var(--icc-muted);
+    line-height: 1.4;
+  }
+  @media (max-width: 980px) {
+    .invoice-create-command { margin: -18px; }
+    .icc-hero,
+    .icc-grid { grid-template-columns: 1fr; }
+    .icc-hero > div:first-child { min-height: 260px; }
+    .icc-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .icc-steps div {
+      display: grid;
+      justify-items: center;
+      text-align: center;
+    }
+  }
+  @media (max-width: 640px) {
+    .invoice-create-command { padding: 14px 14px 120px; }
+    .icc-hero h1 { font-size: clamp(48px, 15vw, 72px); }
+    .icc-steps { grid-template-columns: 1fr; }
+    .icc-actions > * { width: 100%; }
+  }
+</style>
+
+<script>
+window.addEventListener('quickClientCreated', function(e) {
+  var data = e.detail || {};
+  var sel = document.getElementById('customer');
+  if (!sel || !data.customer) return;
+  var existing = Array.prototype.find.call(sel.options, function(opt) {
+    return String(opt.value) === String(data.customer.id);
+  });
+  if (!existing) {
+    existing = document.createElement('option');
+    existing.value = data.customer.id;
+    existing.textContent = data.customer.name;
+    sel.appendChild(existing);
+  }
+  existing.selected = true;
+  var submit = document.querySelector('button[type="submit"]');
+  if (submit) submit.disabled = false;
+});
+</script>
 {% endblock %}

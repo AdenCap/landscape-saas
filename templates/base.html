@@ -5,23 +5,23 @@
     // Apply saved theme before paint to prevent flash
     (function(){var t=localStorage.getItem('fo-theme')||'system';document.documentElement.setAttribute('data-theme',t);})();
   </script>
-  <title>{% block title %}FieldLgx{% endblock %}</title>
+  <title>{% block title %}FIELDLGX{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0a0a0a" id="theme-color-meta">
   {% load static %}
-  <link rel="icon" href="{% static 'img/fieldlgx-icon.png' %}?v=3" type="image/svg+xml">
-  <link rel="icon" href="{% static 'img/favicon.ico' %}?v=3" sizes="48x48" type="image/x-icon">
-  <link rel="icon" href="{% static 'img/icon-192.png' %}?v=3" sizes="192x192" type="image/png">
-  <link rel="shortcut icon" href="{% static 'img/favicon.ico' %}?v=3">
-  <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=3">
-  <link rel="mask-icon" href="{% static 'img/fieldlgx-icon.png' %}?v=3" color="#22c55e">
-  <link rel="manifest" href="{% static 'manifest.json' %}?v=3">
+  <link rel="icon" href="{% static 'img/fieldlgx-icon.png' %}?v=4" type="image/png">
+  <link rel="icon" href="{% static 'img/favicon.ico' %}?v=4" sizes="48x48" type="image/x-icon">
+  <link rel="icon" href="{% static 'img/icon-192.png' %}?v=4" sizes="192x192" type="image/png">
+  <link rel="shortcut icon" href="{% static 'img/favicon.ico' %}?v=4">
+  <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=4">
+  <link rel="mask-icon" href="{% static 'img/logo-icon.svg' %}?v=4" color="#9dd850">
+  <link rel="manifest" href="{% static 'manifest.json' %}?v=4">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <style>.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:-4px;}</style>
-  <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=13">
+  <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=14">
   <link rel="stylesheet" href="{% static 'css/messaging.css' %}?v=13">
 
   <style>
@@ -634,8 +634,8 @@
     <aside class="sidebar">
       <a href="/" class="sidebar-brand" style="text-decoration: none; display: block;">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <img src="{% static 'img/fieldlgx-icon.png' %}" alt="" width="28" height="28">
-          <span>FieldLgx</span>
+          <img src="{% static 'img/fieldlgx-icon.png' %}?v=4" alt="" width="28" height="28">
+          <span>FIELDLGX</span>
         </div>
       </a>
       <span class="sidebar-brand-sub">Landscape Operations</span>
@@ -800,7 +800,7 @@
     <!-- Mobile: top bar + bottom nav + drawer -->
     <header class="topbar-mobile">
       <a href="/" class="brand" style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
-        <img src="{% static 'img/fieldlgx-icon.png' %}" alt="" width="28" height="28">
+        <img src="{% static 'img/fieldlgx-icon.png' %}?v=4" alt="" width="28" height="28">
         <span>FIELDLGX</span>
       </a>
       <button type="button" class="menu-btn" id="mobile-menu-btn" aria-label="Open menu">

@@ -1,13 +1,46 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}FieldLgx Automation{% endblock %}
+{% block title %}Landscape Business Automation Software | FIELDLGX{% endblock %}
+{% block meta_description %}FIELDLGX automation helps lawn care and landscaping companies reduce manual follow-up across estimates, invoices, payment reminders, batch invoicing, recurring jobs, and owner-controlled workflows.{% endblock %}
+{% block og_title %}FIELDLGX Automation for Lawn Care and Landscaping Companies{% endblock %}
+{% block og_description %}Use owner-controlled automation for estimate follow-ups, invoice reminders, payment workflows, recurring services, and operational visibility.{% endblock %}
+{% block extra_css %}
+<style>
+.automation-rail{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.automation-card{min-height:230px;position:relative;overflow:hidden}
+.automation-card::after{content:"";position:absolute;inset:auto -20% -45% 20%;height:130px;background:radial-gradient(circle,rgba(157,216,80,.14),transparent 65%);pointer-events:none}
+.automation-card small{color:var(--primary);font-weight:850;letter-spacing:.14em;text-transform:uppercase}
+.automation-card h3{margin-top:18px}
+.automation-strip{display:grid;gap:10px;margin-top:18px}
+.automation-row{display:flex;justify-content:space-between;gap:12px;border:1px solid var(--border);border-radius:16px;background:rgba(255,255,255,.035);padding:13px 14px;color:var(--text-secondary)}
+.automation-row b{color:var(--text)}
+.automation-row em{font-style:normal;color:var(--primary);font-weight:800}
+@media(max-width:900px){.automation-rail{grid-template-columns:1fr}}
+</style>
+{% endblock %}
 {% block content %}
-<section class="hero"><div class="shell" data-r><h1>Automation that protects margin and saves time.</h1><p class="sub">Reduce manual follow-ups with owner-controlled automation that keeps your team in command.</p></div></section>
-<section class="section"><div class="shell" data-r><div class="grid">
-  <article class="card"><h3>Cash Flow Autopilot</h3><p>Trigger reminder cadence, risk flags, and owner approval gates before sends.</p></article>
-  <article class="card"><h3>Estimate Follow-up Cadence</h3><p>Consistent follow-up sequence with optional upsell blocks to lift conversion.</p></article>
-  <article class="card"><h3>Webhook Retry Queue</h3><p>Recover failed events with clear retry/backoff visibility and one-click retry.</p></article>
-  <article class="card"><h3>Fix My Day Actions</h3><p>Generate and apply same-day operational suggestions from command center.</p></article>
-  <article class="card"><h3>Onboarding Wizard</h3><p>Guided setup flow that gets new companies live faster with less churn risk.</p></article>
-  <article class="card"><h3>Operational Guardrails</h3><p>Approvals, signals, and visibility that keep automation safe and predictable.</p></article>
-</div></div></section>
+<section class="hero" style="padding-top:120px;"><div class="shell" data-r>
+  <p class="eyebrow">AUTOMATION</p>
+  <h1>Owner-controlled automation for the work that usually gets chased.</h1>
+  <p class="sub">FIELDLGX keeps lawn care and landscaping teams in control while reducing manual estimate follow-ups, invoice reminders, monthly invoice batches, payment collection steps, and recurring service reviews.</p>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;">
+    <a class="btn btn-primary" href="/accounts/signup/">Start 14-day free trial</a>
+    <a class="btn btn-secondary" href="/features/">Explore features</a>
+  </div>
+</div></section>
+<section class="section"><div class="shell" data-r>
+  <div class="automation-rail">
+    <article class="card automation-card"><small>Billing</small><h3>Invoice reminders and payment visibility</h3><p>Keep open invoices, monthly batches, overdue balances, card payment settings, and reminder actions in one clean workflow.</p></article>
+    <article class="card automation-card"><small>Sales</small><h3>Estimate follow-ups that do not get forgotten</h3><p>Track estimates needing attention, send follow-ups, preview professional documents, and turn approved quotes into scheduled work.</p></article>
+    <article class="card automation-card"><small>Operations</small><h3>Recurring service workflows stay aligned</h3><p>Mowing frequency changes, future recurring jobs, fertilization programs, route planning, crew notes, and completion status stay connected.</p></article>
+  </div>
+  <div class="card" style="margin-top:16px;padding:24px;">
+    <h2 class="title" style="margin-bottom:10px;">What automation looks like inside FIELDLGX</h2>
+    <div class="automation-strip">
+      <div class="automation-row"><b>Accepted estimate</b><span>Create scheduled work</span><em>Review</em></div>
+      <div class="automation-row"><b>Completed mowing visit</b><span>Move line items toward invoice queue</span><em>Ready</em></div>
+      <div class="automation-row"><b>Monthly customer</b><span>Batch invoice waits for owner approval</span><em>Approve</em></div>
+      <div class="automation-row"><b>Open balance</b><span>Send reminder or charge card when enabled</span><em>Optional</em></div>
+    </div>
+  </div>
+</div></section>
 {% endblock %}

@@ -3,6 +3,7 @@ import secrets
 import stripe
 from io import BytesIO
 from decimal import Decimal
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib import messages
@@ -14,6 +15,8 @@ from django.urls import reverse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
+from django.db.models import Count, Q, Sum
+from django.db.models.functions import Coalesce
 
 from accounts.decorators import role_required
 from accounts.utils import get_business as _get_business
@@ -51,6 +54,8 @@ from .models import (
     Invoice,
     InvoiceAuditLog,
     InvoiceLineItem,
+    Promotion,
+    PromotionRedemption,
     Estimate,
     EstimateLineItem,
     EstimateImage,
@@ -68,6 +73,7 @@ from .forms import (
     _compute_fertilizing,
     _compute_mulch,
 )
+from .services import auto_charge_invoice_card
 
 @role_required("owner", "manager")
 def invoice_list_view(request):
@@ -84,11 +90,93 @@ def invoice_list_view(request):
 @role_required("owner", "manager")
 def invoice_list(request):
     business = getattr(request.user, "business", None)
-    qs = Invoice.objects.select_related("customer")
+    today = _biz_today(business) if business else timezone.localdate()
+    month_start = today.replace(day=1)
+
+    base_qs = Invoice.objects.select_related("customer")
     if business:
-        qs = qs.filter(business=business)
+        base_qs = base_qs.filter(business=business)
+
+    stats = base_qs.aggregate(
+        total_count=Count("id"),
+        draft_count=Count("id", filter=Q(status="draft")),
+        sent_count=Count("id", filter=Q(status="sent")),
+        paid_count=Count("id", filter=Q(status="paid")),
+        outstanding_total=Coalesce(Sum("total", filter=Q(status="sent")), Decimal("0")),
+        overdue_total=Coalesce(Sum("total", filter=Q(status="sent", due_date__lt=today)), Decimal("0")),
+        paid_month_total=Coalesce(Sum("total", filter=Q(status="paid", paid_at__date__gte=month_start)), Decimal("0")),
+    )
+    overdue_count = base_qs.filter(status="sent", due_date__lt=today).count()
+    due_soon_count = base_qs.filter(status="sent", due_date__gte=today, due_date__lte=today + timedelta(days=7)).count()
+
+    qs = base_qs
+    status_filter = (request.GET.get("status") or "all").strip().lower()
+    if status_filter in {"draft", "sent", "paid", "void"}:
+        qs = qs.filter(status=status_filter)
+    elif status_filter == "overdue":
+        qs = qs.filter(status="sent", due_date__lt=today)
+    elif status_filter == "due_soon":
+        qs = qs.filter(status="sent", due_date__gte=today, due_date__lte=today + timedelta(days=7))
+
+    search_query = (request.GET.get("q") or "").strip()
+    if search_query:
+        search_filter = (
+            Q(customer__name__icontains=search_query)
+            | Q(customer__email__icontains=search_query)
+            | Q(status__icontains=search_query)
+        )
+        if search_query.isdigit():
+            search_filter |= Q(id=int(search_query))
+        qs = qs.filter(search_filter)
+
     invoices = qs.order_by("-issue_date", "-id")[:100]
-    return render(request, "billing/invoice_list.html", {"invoices": invoices})
+    invoice_rows = []
+    for invoice in invoices:
+        due_state = "none"
+        due_label = "No due date"
+        if invoice.status == "paid":
+            due_state = "paid"
+            due_label = f"Paid {invoice.paid_at.strftime('%b')} {invoice.paid_at.day}" if invoice.paid_at else "Paid"
+        elif invoice.status == "void":
+            due_state = "void"
+            due_label = "Void"
+        elif invoice.due_date:
+            delta = (invoice.due_date - today).days
+            if delta < 0 and invoice.status == "sent":
+                due_state = "overdue"
+                due_label = f"{abs(delta)} day{'s' if abs(delta) != 1 else ''} overdue"
+            elif delta == 0:
+                due_state = "due-today"
+                due_label = "Due today"
+            elif delta <= 7:
+                due_state = "due-soon"
+                due_label = f"Due in {delta} day{'s' if delta != 1 else ''}"
+            else:
+                due_state = "scheduled"
+                due_label = f"Due {invoice.due_date.strftime('%b')} {invoice.due_date.day}"
+        elif invoice.status == "draft":
+            due_state = "draft"
+            due_label = "Draft"
+        invoice_rows.append({"invoice": invoice, "due_state": due_state, "due_label": due_label})
+
+    status_tabs = [
+        {"key": "all", "label": "All", "count": stats["total_count"], "url": reverse("billing:invoice_list")},
+        {"key": "draft", "label": "Drafts", "count": stats["draft_count"], "url": f"{reverse('billing:invoice_list')}?status=draft"},
+        {"key": "sent", "label": "Sent", "count": stats["sent_count"], "url": f"{reverse('billing:invoice_list')}?status=sent"},
+        {"key": "overdue", "label": "Overdue", "count": overdue_count, "url": f"{reverse('billing:invoice_list')}?status=overdue"},
+        {"key": "due_soon", "label": "Due soon", "count": due_soon_count, "url": f"{reverse('billing:invoice_list')}?status=due_soon"},
+        {"key": "paid", "label": "Paid", "count": stats["paid_count"], "url": f"{reverse('billing:invoice_list')}?status=paid"},
+    ]
+
+    return render(request, "billing/invoice_list.html", {
+        "invoice_rows": invoice_rows,
+        "invoices": invoices,
+        "stats": stats,
+        "status_tabs": status_tabs,
+        "status_filter": status_filter,
+        "search_query": search_query,
+        "today": today,
+    })
 
 
 @role_required("owner", "manager")
@@ -145,9 +233,14 @@ def monthly_invoice_list(request):
     from django.utils import timezone as tz
     today = tz.localdate()
     years = [today.year, today.year - 1, today.year - 2]
+    monthly_for_stats = list(monthly[:100])
+    draft_invoices = [inv for inv in monthly_for_stats if inv.status == "draft"]
+    sent_invoices = [inv for inv in monthly_for_stats if inv.status == "sent"]
+    paid_invoices = [inv for inv in monthly_for_stats if inv.status == "paid"]
+
     # Build list with "send on" date for each invoice (when customer has monthly_invoice_send_day)
     rows = []
-    for inv in monthly[:100]:
+    for inv in monthly_for_stats:
         send_on = None
         customer_day = getattr(inv.customer, "monthly_invoice_send_day", None)
         business_day = getattr(inv.business, "default_monthly_invoice_send_day", None)
@@ -161,6 +254,11 @@ def monthly_invoice_list(request):
         rows.append({"invoice": inv, "send_on": send_on})
     return render(request, "billing/monthly_invoice_list.html", {
         "rows": rows,
+        "draft_count": len(draft_invoices),
+        "sent_count": len(sent_invoices),
+        "paid_count": len(paid_invoices),
+        "draft_total": sum((inv.total for inv in draft_invoices), Decimal("0")),
+        "sent_total": sum((inv.total for inv in sent_invoices), Decimal("0")),
         "year_param": year_param,
         "year_int": year_int,
         "years": years,
@@ -226,10 +324,70 @@ def invoice_detail(request, invoice_id):
     invoice = get_object_or_404(qs)
     invoice.recompute_totals()
     items = invoice.line_items.all()
+    payment_breakdown = _invoice_payment_breakdown(invoice)
     is_monthly = bool(invoice.job_id is None and invoice.period_start)
     audit_logs = invoice.audit_logs.select_related("user")[:10]
     doc_template = DocumentTemplate.get_default_for_business(invoice.business, "invoice") if invoice.business_id else None
     can_accept_stripe = getattr(invoice.business, "can_accept_stripe_payments", lambda: False)() if invoice.business else False
+    today = _biz_today(invoice.business) if invoice.business_id else timezone.localdate()
+    due_state = "none"
+    due_label = "No due date"
+    if invoice.status == "paid":
+        due_state = "paid"
+        due_label = f"Paid {invoice.paid_at.strftime('%b')} {invoice.paid_at.day}" if invoice.paid_at else "Paid"
+    elif invoice.status == "void":
+        due_state = "void"
+        due_label = "Void"
+    elif invoice.due_date:
+        delta = (invoice.due_date - today).days
+        if delta < 0 and invoice.status == "sent":
+            due_state = "overdue"
+            due_label = f"{abs(delta)} day{'s' if abs(delta) != 1 else ''} overdue"
+        elif delta == 0:
+            due_state = "due-today"
+            due_label = "Due today"
+        elif delta <= 7:
+            due_state = "due-soon"
+            due_label = f"Due in {delta} day{'s' if delta != 1 else ''}"
+        else:
+            due_state = "scheduled"
+            due_label = f"Due {invoice.due_date.strftime('%b')} {invoice.due_date.day}"
+    elif invoice.status == "draft":
+        due_state = "draft"
+        due_label = "Draft"
+    pay_url = ""
+    if invoice.payment_token:
+        pay_url = request.build_absolute_uri(
+            reverse("billing:invoice_pay_page", args=[invoice.id, invoice.payment_token])
+        )
+    payment_readiness = _owner_payment_readiness(invoice.business, can_accept_stripe)
+    today = _biz_today(invoice.business) if invoice.business_id else timezone.localdate()
+    available_promotions = Promotion.objects.filter(
+        business=invoice.business,
+        status="active",
+    ).filter(
+        Q(customer__isnull=True) | Q(customer=invoice.customer)
+    ).filter(
+        Q(valid_from__isnull=True) | Q(valid_from__lte=today),
+        Q(valid_until__isnull=True) | Q(valid_until__gte=today),
+    ).order_by("customer_id", "name")
+    can_charge_card_on_file = bool(
+        invoice.status != "paid"
+        and invoice.customer.stripe_payment_method_id
+        and invoice.customer.stripe_customer_id
+        and getattr(invoice.business, "client_saved_cards_enabled", True)
+        and getattr(invoice.business, "can_accept_stripe_payments", lambda: False)()
+        and payment_breakdown["unpaid_line_total"] > 0
+    )
+    card_label = ""
+    if invoice.customer.card_brand and invoice.customer.card_last4:
+        card_label = f"{invoice.customer.card_brand.title()} ending {invoice.customer.card_last4}"
+    invoice_auto_charge_ready = bool(
+        invoice.customer.should_auto_charge_invoice(invoice)
+        and getattr(invoice.business, "client_saved_cards_enabled", True)
+        and can_accept_stripe
+    )
+    invoice_saved_cards_enabled = bool(getattr(invoice.business, "client_saved_cards_enabled", True))
     return render(request, "billing/invoice_detail.html", {
         "invoice": invoice,
         "items": items,
@@ -237,7 +395,63 @@ def invoice_detail(request, invoice_id):
         "audit_logs": audit_logs,
         "doc_template": doc_template,
         "can_accept_stripe": can_accept_stripe,
+        "due_state": due_state,
+        "due_label": due_label,
+        "pay_url": pay_url,
+        "payment_readiness": payment_readiness,
+        "payment_methods": Invoice.PAYMENT_METHOD_CHOICES,
+        "paid_line_total": payment_breakdown["paid_line_total"],
+        "unpaid_line_total": payment_breakdown["unpaid_line_total"],
+        "discount_total": payment_breakdown["discount_total"],
+        "paid_line_count": payment_breakdown["paid_line_count"],
+        "unpaid_line_count": payment_breakdown["unpaid_line_count"],
+        "available_promotions": available_promotions,
+        "can_charge_card_on_file": can_charge_card_on_file,
+        "card_label": card_label,
+        "invoice_auto_charge_ready": invoice_auto_charge_ready,
+        "invoice_saved_cards_enabled": invoice_saved_cards_enabled,
     })
+
+
+def _owner_payment_readiness(business, can_accept_stripe=None):
+    """Small owner-facing summary of whether customer card payments are available."""
+    if not business:
+        return {
+            "card_label": "Card unavailable",
+            "card_state": "disabled",
+            "card_detail": "No business is attached to this document.",
+        }
+    if can_accept_stripe is None:
+        can_accept_stripe = getattr(business, "can_accept_stripe_payments", lambda: False)()
+    if not getattr(business, "client_card_payments_enabled", True):
+        return {
+            "card_label": "Card payments off",
+            "card_state": "disabled",
+            "card_detail": "Clients will see manual payment instructions instead of card checkout.",
+        }
+    if not getattr(business, "stripe_connect_account_id", ""):
+        return {
+            "card_label": "Stripe not connected",
+            "card_state": "warning",
+            "card_detail": "Connect Stripe in Settings before clients can pay by card.",
+        }
+    if not getattr(business, "stripe_connect_charges_enabled", False):
+        return {
+            "card_label": "Stripe setup incomplete",
+            "card_state": "warning",
+            "card_detail": "Finish Stripe onboarding before clients can pay by card.",
+        }
+    if can_accept_stripe:
+        return {
+            "card_label": "Card payments ready",
+            "card_state": "ready",
+            "card_detail": "Clients can pay enabled invoices and accepted estimate deposits by card.",
+        }
+    return {
+        "card_label": "Card unavailable",
+        "card_state": "warning",
+        "card_detail": "Card payment settings need review before checkout can be offered.",
+    }
 
 
 @require_POST
@@ -314,6 +528,51 @@ def _log_invoice_audit(invoice, action, request=None, details=None):
     )
 
 
+def _sync_invoice_payment_from_line_items(invoice, request=None):
+    """Keep invoice-level paid status aligned when all line items are paid."""
+    line_items = [item for item in invoice.line_items.all() if not item.is_discount and item.line_total > 0]
+    if not line_items or invoice.status == "void":
+        return
+    all_paid = all(item.is_paid for item in line_items)
+    any_unpaid = any(not item.is_paid for item in line_items)
+    if all_paid and invoice.status != "paid":
+        invoice.status = "paid"
+        invoice.paid_at = timezone.now()
+        invoice.save(update_fields=["status", "paid_at"])
+        _log_invoice_audit(invoice, "paid", request=request, details={"source": "line_items"})
+    elif any_unpaid and invoice.status == "paid":
+        invoice.status = "sent"
+        invoice.paid_at = None
+        invoice.payment_method = ""
+        invoice.save(update_fields=["status", "paid_at", "payment_method"])
+        _log_invoice_audit(invoice, "line_items_edited", request=request, details={"source": "line_item_unpaid"})
+
+
+def _invoice_payment_breakdown(invoice):
+    """Return paid, discount, and remaining balances for invoice line payment UI."""
+    paid_line_total = Decimal("0")
+    discount_total = Decimal("0")
+    paid_line_count = 0
+    unpaid_line_count = 0
+    for item in invoice.line_items.all():
+        if item.is_discount or item.line_total < 0:
+            discount_total += abs(item.line_total)
+            continue
+        if item.is_paid:
+            paid_line_total += item.line_total
+            paid_line_count += 1
+        else:
+            unpaid_line_count += 1
+    unpaid_line_total = max((invoice.total or Decimal("0")) - paid_line_total, Decimal("0"))
+    return {
+        "paid_line_total": paid_line_total,
+        "unpaid_line_total": unpaid_line_total,
+        "discount_total": discount_total,
+        "paid_line_count": paid_line_count,
+        "unpaid_line_count": unpaid_line_count,
+    }
+
+
 @role_required("owner", "manager")
 def invoice_edit_line_items(request, invoice_id):
     """Owner can add/edit/delete line items on draft or sent invoices."""
@@ -361,6 +620,100 @@ def invoice_edit_line_items(request, invoice_id):
     )
 
 
+def _approve_and_deliver_invoice(invoice, request=None, user=None, source="manual"):
+    """Approve a draft invoice, auto-charge when allowed, and email the customer when configured."""
+    if invoice.status != "draft":
+        return {"sent": False, "charged": False, "email": "not_draft", "message": "Invoice is not a draft."}
+
+    business = invoice.business
+    invoice.status = "sent"
+    if not invoice.payment_token:
+        invoice.payment_token = secrets.token_urlsafe(32)
+    invoice.approved_at = timezone.now()
+    invoice.approved_by = user
+    invoice.save(update_fields=["status", "payment_token", "approved_at", "approved_by"])
+    _log_invoice_audit(invoice, "approved_sent", request=request, details={"source": source})
+
+    charged, charge_message = auto_charge_invoice_card(invoice, user=user, source=source)
+    email_state = "not_sent"
+    email_detail = ""
+
+    if invoice.customer.email:
+        from businesses.email_sender import send_business_email, is_email_configured
+        if is_email_configured(business):
+            invoice.recompute_totals()
+            pay_url = ""
+            if invoice.payment_token:
+                path = reverse("billing:invoice_pay_page", args=[invoice.id, invoice.payment_token])
+                if request:
+                    pay_url = request.build_absolute_uri(path)
+                else:
+                    site_url = getattr(settings, "SITE_URL", "https://fieldlgx.com").rstrip("/")
+                    pay_url = site_url + path
+            logo_url = _get_logo_url(business, request) if request else ""
+            doc_template = DocumentTemplate.get_default_for_business(business, "invoice")
+            accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
+            subject = _email_template_vars(
+                (business.invoice_email_subject or "").strip(),
+                invoice_id=invoice.id,
+                customer_name=invoice.customer.name,
+                business_name=business.name,
+            ) or f"Invoice #{invoice.id} from {business.name}"
+            intro = _email_template_vars(
+                (business.invoice_email_intro or "").strip()
+                or f"Hi {invoice.customer.name}, please find your invoice from {business.name} below.",
+                invoice_id=invoice.id,
+                customer_name=invoice.customer.name,
+                business_name=business.name,
+            )
+            closing = _email_template_vars(
+                (business.invoice_email_closing or "").strip() or "Thank you for your business.",
+                customer_name=invoice.customer.name,
+                business_name=business.name,
+            )
+            html_content = render_to_string("billing/invoice_email.html", {
+                "invoice": invoice,
+                "business": business,
+                "pay_url": pay_url,
+                "enable_card_payment": invoice.enable_card_payment,
+                "logo_url": logo_url,
+                "email_intro": intro,
+                "email_closing": closing,
+                "accent_color": accent_color,
+                "template_style": doc_template.template_key if doc_template else "modern_dark",
+                "header_text": doc_template.header_text if doc_template else "",
+                "footer_text": doc_template.footer_text if doc_template else "",
+                "terms_text": doc_template.terms_and_conditions if doc_template else "",
+            })
+            body_text = intro + f"\n\nInvoice #{invoice.id} · Total: ${invoice.total}\n\n"
+            if pay_url:
+                body_text += f"{'Pay online' if invoice.enable_card_payment else 'View invoice'}: {pay_url}\n\n"
+            body_text += closing + "\n\n" + business.name
+            reply_to = [business.contact_email] if business.contact_email else None
+            ok, detail = send_business_email(
+                business=business,
+                to=invoice.customer.email,
+                subject=subject,
+                body_text=body_text,
+                body_html=html_content,
+                reply_to=reply_to,
+            )
+            email_state = "sent" if ok else "failed"
+            email_detail = detail
+        else:
+            email_state = "not_configured"
+    else:
+        email_state = "no_customer_email"
+
+    return {
+        "sent": True,
+        "charged": charged,
+        "charge_message": charge_message,
+        "email": email_state,
+        "email_detail": email_detail,
+    }
+
+
 @require_POST
 @role_required("owner", "manager")
 def send_invoice(request, invoice_id):
@@ -372,108 +725,83 @@ def send_invoice(request, invoice_id):
 
     # Only allow draft -> sent; owner approval required (never auto-send)
     if invoice.status == "draft":
-        invoice.status = "sent"
-        if not invoice.payment_token:
-            invoice.payment_token = secrets.token_urlsafe(32)
-        invoice.approved_at = timezone.now()
-        invoice.approved_by = request.user
-        invoice.save(update_fields=["status", "payment_token", "approved_at", "approved_by"])
-        _log_invoice_audit(invoice, "approved_sent", request=request)
+        result = _approve_and_deliver_invoice(invoice, request=request, user=request.user, source="invoice_send")
+        if result["charged"]:
+            messages.success(request, f"Invoice #{invoice.id} approved and auto-charged. {result['charge_message']}")
+        elif invoice.customer.should_auto_charge_invoice(invoice):
+            messages.warning(request, result["charge_message"])
 
-        # Auto-charge card on file if enabled
-        customer = invoice.customer
-        charged = False
-        if (customer.auto_charge and customer.stripe_payment_method_id
-                and customer.stripe_customer_id and business.stripe_connect_account_id):
-            try:
-                import stripe as _stripe
-                _stripe.api_key = settings.STRIPE_SECRET_KEY
-                invoice.recompute_totals()
-                amount_cents = int(invoice.total * 100)
-                if amount_cents >= 50:
-                    pi = _stripe.PaymentIntent.create(
-                        amount=amount_cents,
-                        currency="usd",
-                        customer=customer.stripe_customer_id,
-                        payment_method=customer.stripe_payment_method_id,
-                        off_session=True,
-                        confirm=True,
-                        description=f"Invoice #{invoice.id} from {business.name}",
-                        metadata={"invoice_id": invoice.id, "business_id": business.id},
-                        stripe_account=business.stripe_connect_account_id,
-                    )
-                    if pi.status == "succeeded":
-                        invoice.status = "paid"
-                        invoice.save(update_fields=["status"])
-                        _log_invoice_audit(invoice, "auto_charged", request=request, details={
-                            "stripe_pi": pi.id, "amount": amount_cents, "card": customer.card_last4
-                        })
-                        charged = True
-            except Exception:
-                pass  # auto-charge failure should not block invoice send
-
-        if charged:
-            messages.success(request, f"Invoice #{invoice.id} sent and auto-charged to {customer.card_brand} ****{customer.card_last4}.")
-            return redirect("billing:invoice_detail", invoice_id=invoice.id)
-
-        # Send the invoice email
-        if invoice.customer.email:
-            from businesses.email_sender import send_business_email, is_email_configured
-            if is_email_configured(business):
-                invoice.recompute_totals()
-                pay_url = ""
-                if invoice.payment_token:
-                    pay_url = request.build_absolute_uri(
-                        reverse("billing:invoice_pay_page", args=[invoice.id, invoice.payment_token])
-                    )
-                logo_url = _get_logo_url(business, request)
-                doc_template = DocumentTemplate.get_default_for_business(business, "invoice")
-                accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
-                subject = _email_template_vars(
-                    (business.invoice_email_subject or "").strip(),
-                    invoice_id=invoice.id, customer_name=invoice.customer.name, business_name=business.name,
-                ) or f"Invoice #{invoice.id} from {business.name}"
-                intro = _email_template_vars(
-                    (business.invoice_email_intro or "").strip() or f"Hi {invoice.customer.name}, please find your invoice from {business.name} below.",
-                    invoice_id=invoice.id, customer_name=invoice.customer.name, business_name=business.name,
-                )
-                closing = _email_template_vars(
-                    (business.invoice_email_closing or "").strip() or "Thank you for your business.",
-                    customer_name=invoice.customer.name, business_name=business.name,
-                )
-                html_content = render_to_string("billing/invoice_email.html", {
-                    "invoice": invoice,
-                    "business": business,
-                    "pay_url": pay_url,
-                    "enable_card_payment": invoice.enable_card_payment,
-                    "logo_url": logo_url,
-                    "email_intro": intro,
-                    "email_closing": closing,
-                    "accent_color": accent_color,
-                    "template_style": doc_template.template_key if doc_template else "modern_dark",
-                    "header_text": doc_template.header_text if doc_template else "",
-                    "footer_text": doc_template.footer_text if doc_template else "",
-                    "terms_text": doc_template.terms_and_conditions if doc_template else "",
-                })
-                body_text = intro + f"\n\nInvoice #{invoice.id} · Total: ${invoice.total}\n\n"
-                if pay_url:
-                    body_text += f"{'Pay online' if invoice.enable_card_payment else 'View invoice'}: {pay_url}\n\n"
-                body_text += closing + "\n\n" + business.name
-                reply_to = [business.contact_email] if business.contact_email else None
-                ok, detail = send_business_email(
-                    business=business, to=invoice.customer.email,
-                    subject=subject, body_text=body_text, body_html=html_content,
-                    reply_to=reply_to,
-                )
-                if ok:
-                    messages.success(request, f"Invoice #{invoice.id} approved and emailed to {invoice.customer.email}.")
-                else:
-                    messages.warning(request, f"Invoice #{invoice.id} approved but email failed: {detail}")
-            else:
-                messages.success(request, f"Invoice #{invoice.id} approved. Email not configured — set up Gmail in Settings to send invoices by email.")
-        else:
+        if result["email"] == "sent":
+            messages.success(request, f"Invoice #{invoice.id} approved and emailed to {invoice.customer.email}.")
+        elif result["email"] == "failed":
+            messages.warning(request, f"Invoice #{invoice.id} approved but email failed: {result['email_detail']}")
+        elif result["email"] == "not_configured":
+            messages.success(request, f"Invoice #{invoice.id} approved. Email not configured — set up Gmail in Settings to send invoices by email.")
+        elif result["email"] == "no_customer_email":
             messages.success(request, f"Invoice #{invoice.id} approved. Customer has no email — share the pay link below.")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+
+@require_POST
+@role_required("owner", "manager")
+def monthly_invoice_batch_send(request):
+    """Approve and send selected monthly draft invoices from the batch invoicing page."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    selected_ids = [int(pk) for pk in request.POST.getlist("invoice_ids") if str(pk).isdigit()]
+    year_param = (request.POST.get("year") or "").strip()
+    year_int = int(year_param) if year_param.isdigit() else None
+    if request.POST.get("send_all_ready") == "1":
+        qs = Invoice.objects.filter(
+            business=business,
+            status="draft",
+            job__isnull=True,
+            period_start__isnull=False,
+        )
+        if year_int:
+            qs = qs.filter(period_start__year=year_int)
+    else:
+        qs = Invoice.objects.filter(
+            business=business,
+            id__in=selected_ids,
+            status="draft",
+            job__isnull=True,
+            period_start__isnull=False,
+        )
+
+    invoices = list(qs.select_related("business", "customer").prefetch_related("line_items").order_by("period_start", "id"))
+    if not invoices:
+        messages.warning(request, "Select at least one draft monthly invoice to send.")
+        return redirect("billing:monthly_invoice_list")
+
+    sent_count = 0
+    emailed_count = 0
+    charged_count = 0
+    failed_email_count = 0
+    for invoice in invoices:
+        result = _approve_and_deliver_invoice(invoice, request=request, user=request.user, source="monthly_batch")
+        if not result["sent"]:
+            continue
+        sent_count += 1
+        if result["email"] == "sent":
+            emailed_count += 1
+        elif result["email"] == "failed":
+            failed_email_count += 1
+        if result["charged"]:
+            charged_count += 1
+
+    summary = f"Batch sent {sent_count} monthly invoice{'' if sent_count == 1 else 's'}"
+    summary += f" · {emailed_count} emailed"
+    if charged_count:
+        summary += f" · {charged_count} auto-charged"
+    if failed_email_count:
+        messages.warning(request, summary + f" · {failed_email_count} email issue{'' if failed_email_count == 1 else 's'}")
+    else:
+        messages.success(request, summary)
+    return redirect("billing:monthly_invoice_list")
 
 
 def _business_has_payment_methods(business):
@@ -482,6 +810,38 @@ def _business_has_payment_methods(business):
         or (business.zelle_email_or_phone or "").strip()
         or (business.cashapp_cashtag or "").strip()
     )
+
+
+def _public_payment_method_context(business, amount=None):
+    """Build public manual payment links/details for client-facing payment pages."""
+    venmo_link = None
+    if (business.venmo_username or "").strip():
+        uname = (business.venmo_username or "").strip().lstrip("@")
+        venmo_link = f"https://account.venmo.com/pay?recipient={uname}"
+        if amount:
+            venmo_link += f"&amount={amount}"
+
+    cashapp_link = None
+    if (business.cashapp_cashtag or "").strip():
+        tag = (business.cashapp_cashtag or "").strip().lstrip("$")
+        cashapp_link = f"https://cash.app/${tag}"
+        if amount:
+            cashapp_link += f"/{amount}"
+
+    paypal_link = None
+    if (getattr(business, "paypal_link", "") or "").strip():
+        paypal_value = business.paypal_link.strip()
+        if paypal_value.startswith("http"):
+            paypal_link = paypal_value
+        else:
+            paypal_link = f"https://paypal.me/{paypal_value.lstrip('@')}"
+
+    return {
+        "has_payment_methods": _business_has_payment_methods(business) or bool(paypal_link),
+        "venmo_link": venmo_link,
+        "cashapp_link": cashapp_link,
+        "paypal_link": paypal_link,
+    }
 
 
 @require_http_methods(["GET"])
@@ -502,35 +862,13 @@ def invoice_pay_page(request, invoice_id, token):
 
     invoice.recompute_totals()
     business = invoice.business
-    has_payment_methods = _business_has_payment_methods(business)
-    venmo_link = None
-    if (business.venmo_username or "").strip():
-        uname = (business.venmo_username or "").strip().lstrip("@")
-        venmo_link = f"https://account.venmo.com/pay?recipient={uname}&amount={invoice.total}"
-    cashapp_link = None
-    if (business.cashapp_cashtag or "").strip():
-        tag = (business.cashapp_cashtag or "").strip().lstrip("$")
-        cashapp_link = f"https://cash.app/${tag}/{invoice.total}"
-    paypal_link = None
-    if (getattr(business, "paypal_link", "") or "").strip():
-        pl = business.paypal_link.strip()
-        if "@" in pl:
-            paypal_link = f"https://paypal.me/{pl}"
-        elif pl.startswith("http"):
-            paypal_link = pl
-        else:
-            paypal_link = f"https://paypal.me/{pl}"
     can_accept_stripe = getattr(business, "can_accept_stripe_payments", lambda: False)()
-    # Include PayPal in has_payment_methods check
-    has_payment_methods = has_payment_methods or bool(paypal_link)
+    payment_context = _public_payment_method_context(business, invoice.total)
     line_items = invoice.line_items.all()
     return render(request, "billing/invoice_pay_page.html", {
         "invoice": invoice,
         "business": business,
-        "has_payment_methods": has_payment_methods,
-        "venmo_link": venmo_link,
-        "cashapp_link": cashapp_link,
-        "paypal_link": paypal_link,
+        **payment_context,
         "can_accept_stripe": can_accept_stripe,
         "line_items": line_items,
     })
@@ -547,16 +885,258 @@ def mark_invoice_paid(request, invoice_id):
     invoice = get_object_or_404(qs)
     if invoice.status != "paid":
         payment_method = request.POST.get("payment_method", "").strip()
+        now = timezone.now()
         invoice.status = "paid"
         invoice.payment_method = payment_method
-        invoice.paid_at = timezone.now()
+        invoice.paid_at = now
         invoice.save(update_fields=["status", "payment_method", "paid_at"])
+        invoice.line_items.update(
+            is_paid=True,
+            paid_at=now,
+            paid_by=request.user,
+            payment_method=payment_method,
+        )
         _log_invoice_audit(invoice, "paid", request=request)
         method_label = dict(Invoice.PAYMENT_METHOD_CHOICES).get(payment_method, payment_method) if payment_method else ""
         msg = f"Invoice #{invoice.id} marked as paid"
         if method_label:
             msg += f" via {method_label}"
         messages.success(request, msg + ".")
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+
+@require_POST
+@role_required("owner", "manager")
+def mark_invoice_line_item_paid(request, invoice_id, item_id):
+    """Mark one invoice line item paid or unpaid without forcing the whole invoice."""
+    business = _get_business(request)
+    invoice_qs = Invoice.objects.filter(id=invoice_id)
+    if business:
+        invoice_qs = invoice_qs.filter(business=business)
+    invoice = get_object_or_404(invoice_qs)
+    line_item = get_object_or_404(InvoiceLineItem, id=item_id, invoice=invoice)
+    action = (request.POST.get("action") or "paid").strip()
+
+    if action == "unpaid":
+        line_item.is_paid = False
+        line_item.paid_at = None
+        line_item.paid_by = None
+        line_item.payment_method = ""
+        line_item.save(update_fields=["is_paid", "paid_at", "paid_by", "payment_method"])
+        _log_invoice_audit(
+            invoice,
+            "line_items_edited",
+            request=request,
+            details={"line_item_id": line_item.id, "line_item": line_item.description, "paid": False},
+        )
+        messages.success(request, f"{line_item.description} marked unpaid.")
+    else:
+        payment_method = (request.POST.get("payment_method") or "").strip()
+        line_item.is_paid = True
+        line_item.paid_at = timezone.now()
+        line_item.paid_by = request.user
+        line_item.payment_method = payment_method
+        line_item.save(update_fields=["is_paid", "paid_at", "paid_by", "payment_method"])
+        _log_invoice_audit(
+            invoice,
+            "line_items_edited",
+            request=request,
+            details={
+                "line_item_id": line_item.id,
+                "line_item": line_item.description,
+                "paid": True,
+                "payment_method": payment_method,
+            },
+        )
+        messages.success(request, f"{line_item.description} marked paid.")
+
+    _sync_invoice_payment_from_line_items(invoice, request=request)
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+
+def _calculate_promotion_discount(promotion, invoice):
+    """Calculate a safe discount amount for an invoice promotion."""
+    positive_items = [item for item in invoice.line_items.all() if not item.is_discount and item.line_total > 0]
+    positive_total = sum((item.line_total for item in positive_items), Decimal("0"))
+    existing_discounts = sum((abs(item.line_total) for item in invoice.line_items.all() if item.is_discount or item.line_total < 0), Decimal("0"))
+    max_discount = max(positive_total - existing_discounts, Decimal("0"))
+    if max_discount <= 0:
+        return Decimal("0")
+
+    discount = Decimal("0")
+    if promotion.promo_type == "percent_off" and promotion.discount_value:
+        discount = positive_total * (promotion.discount_value / Decimal("100"))
+    elif promotion.promo_type in {"fixed_off", "custom"} and promotion.discount_value:
+        discount = promotion.discount_value
+    elif promotion.promo_type in {"free_service", "buy_x_get_free"}:
+        if promotion.discount_value:
+            discount = promotion.discount_value
+        else:
+            matching_items = positive_items
+            if promotion.service_name:
+                service_name = promotion.service_name.lower()
+                matching_items = [item for item in positive_items if service_name in item.description.lower()]
+            if matching_items:
+                discount = max(item.line_total for item in matching_items)
+    return min(discount.quantize(Decimal("0.01")), max_discount.quantize(Decimal("0.01")))
+
+
+@require_POST
+@role_required("owner", "manager")
+def invoice_apply_promotion(request, invoice_id):
+    """Apply a promotion to an invoice as a tracked discount line item."""
+    business = _get_business(request)
+    invoice_qs = Invoice.objects.filter(id=invoice_id).select_related("business", "customer")
+    if business:
+        invoice_qs = invoice_qs.filter(business=business)
+    invoice = get_object_or_404(invoice_qs)
+    if invoice.status == "paid":
+        messages.error(request, "Paid invoices cannot be discounted.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    today = _biz_today(invoice.business)
+    promo_id = request.POST.get("promotion_id")
+    code = (request.POST.get("promo_code") or "").strip()
+    promo_qs = Promotion.objects.filter(
+        business=invoice.business,
+        status="active",
+    ).filter(
+        Q(customer__isnull=True) | Q(customer=invoice.customer)
+    ).filter(
+        Q(valid_from__isnull=True) | Q(valid_from__lte=today),
+        Q(valid_until__isnull=True) | Q(valid_until__gte=today),
+    )
+    if promo_id:
+        promo_qs = promo_qs.filter(id=promo_id)
+    elif code:
+        promo_qs = promo_qs.filter(code__iexact=code)
+    else:
+        messages.error(request, "Choose a promotion or enter a promo code.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    promotion = promo_qs.first()
+    if not promotion:
+        messages.error(request, "That promotion is not active for this customer.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    if invoice.line_items.filter(is_discount=True, promotion=promotion).exists():
+        messages.error(request, "This promotion is already applied to the invoice.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    discount_amount = _calculate_promotion_discount(promotion, invoice)
+    if discount_amount <= 0:
+        messages.error(request, "This promotion does not have a discount amount available for this invoice.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    InvoiceLineItem.objects.create(
+        invoice=invoice,
+        description=f"Promotion: {promotion.name}",
+        detail_description=promotion.code and f"Code {promotion.code}" or "",
+        quantity=1,
+        unit_price=-discount_amount,
+        is_discount=True,
+        is_paid=True,
+        paid_at=timezone.now(),
+        paid_by=request.user,
+        promotion=promotion,
+    )
+    PromotionRedemption.objects.create(
+        promotion=promotion,
+        business=invoice.business,
+        customer=invoice.customer,
+        invoice=invoice,
+        discount_amount=discount_amount,
+        code_used=code or promotion.code,
+        redeemed_by=request.user,
+    )
+    invoice.recompute_totals()
+    _log_invoice_audit(
+        invoice,
+        "line_items_edited",
+        request=request,
+        details={"promotion": promotion.name, "discount": str(discount_amount)},
+    )
+    messages.success(request, f"Applied {promotion.name} for -${discount_amount}.")
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+
+@require_POST
+@role_required("owner", "manager")
+def charge_invoice_card_on_file(request, invoice_id):
+    """Charge the customer's saved card for the remaining invoice balance."""
+    business = _get_business(request)
+    invoice_qs = Invoice.objects.filter(id=invoice_id).select_related("business", "customer").prefetch_related("line_items")
+    if business:
+        invoice_qs = invoice_qs.filter(business=business)
+    invoice = get_object_or_404(invoice_qs)
+    customer = invoice.customer
+
+    if invoice.status == "paid":
+        messages.info(request, "This invoice is already paid.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+    if not getattr(invoice.business, "client_saved_cards_enabled", True):
+        messages.error(request, "Saved-card charging is turned off in business settings.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+    if not getattr(invoice.business, "can_accept_stripe_payments", lambda: False)():
+        messages.error(request, "Stripe is not ready to accept card payments for this business.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+    if not (customer.stripe_payment_method_id and customer.stripe_customer_id):
+        messages.error(request, "This customer does not have a card on file.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    breakdown = _invoice_payment_breakdown(invoice)
+    amount = breakdown["unpaid_line_total"]
+    amount_cents = int(amount * 100)
+    if amount_cents < 50:
+        messages.error(request, "The remaining balance is too low to charge by card.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    try:
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        payment_intent = stripe.PaymentIntent.create(
+            amount=amount_cents,
+            currency="usd",
+            customer=customer.stripe_customer_id,
+            payment_method=customer.stripe_payment_method_id,
+            off_session=True,
+            confirm=True,
+            description=f"Invoice #{invoice.id} remaining balance from {invoice.business.name}",
+            metadata={"invoice_id": invoice.id, "business_id": invoice.business_id, "customer_id": customer.id},
+            stripe_account=invoice.business.stripe_connect_account_id,
+        )
+    except stripe.error.CardError as exc:
+        messages.error(request, exc.user_message or "The card could not be charged.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+    except stripe.error.StripeError as exc:
+        messages.error(request, exc.user_message or "Stripe could not process the charge.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    if payment_intent.status != "succeeded":
+        messages.error(request, "The card charge did not complete.")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
+    now = timezone.now()
+    invoice.line_items.filter(is_discount=False, is_paid=False).update(
+        is_paid=True,
+        paid_at=now,
+        paid_by=request.user,
+        payment_method="card",
+    )
+    invoice.line_items.filter(is_discount=True).update(is_paid=True)
+    invoice.status = "paid"
+    invoice.payment_method = "card"
+    invoice.paid_at = now
+    invoice.stripe_payment_intent_id = payment_intent.id
+    if getattr(payment_intent, "latest_charge", None):
+        invoice.stripe_charge_id = payment_intent.latest_charge
+    invoice.save(update_fields=["status", "payment_method", "paid_at", "stripe_payment_intent_id", "stripe_charge_id"])
+    _log_invoice_audit(
+        invoice,
+        "auto_charged",
+        request=request,
+        details={"source": "card_on_file", "amount": str(amount), "stripe_payment_intent": payment_intent.id},
+    )
+    messages.success(request, f"Charged {customer.name}'s card on file for ${amount}.")
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
@@ -575,7 +1155,7 @@ def invoice_delete(request, invoice_id):
     inv_id = invoice.id
     invoice.delete()
     messages.success(request, f"Invoice #{inv_id} has been deleted.")
-    return redirect("billing:invoice_list")
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
 @require_POST
@@ -877,6 +1457,60 @@ def create_invoice_checkout_session(request, invoice_id, token):
         return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
 
 
+def _estimate_deposit_due(estimate):
+    """Deposit amount due after acceptance, based on accepted total when available."""
+    if not estimate.deposit_required or not estimate.deposit_amount:
+        return Decimal("0.00")
+    if estimate.deposit_type == "percent":
+        total_basis = estimate.accepted_total or estimate.base_total()
+        return ((estimate.deposit_amount / Decimal("100")) * Decimal(str(total_basis))).quantize(Decimal("0.01"))
+    return Decimal(str(estimate.deposit_amount)).quantize(Decimal("0.01"))
+
+
+def _estimate_can_accept_card_deposit(estimate):
+    business = estimate.business
+    return bool(
+        estimate.deposit_required
+        and not estimate.deposit_paid
+        and getattr(business, "can_accept_stripe_payments", lambda: False)()
+        and _stripe_connect_enabled()
+    )
+
+
+@require_POST
+def create_estimate_deposit_checkout_session(request, estimate_id, token):
+    """Public: create Stripe Checkout Session for an accepted estimate deposit."""
+    estimate = get_object_or_404(
+        Estimate.objects.select_related("business", "customer"),
+        id=estimate_id,
+        view_token=token,
+    )
+    business = estimate.business
+    if estimate.status != "accepted":
+        messages.error(request, "Accept this estimate before paying the deposit.")
+        return redirect("billing:estimate_client_view", estimate_id=estimate.id, token=token)
+    if not estimate.deposit_required:
+        messages.info(request, "No deposit is required for this estimate.")
+        return redirect("billing:estimate_client_view", estimate_id=estimate.id, token=token)
+    if estimate.deposit_paid:
+        messages.success(request, "The deposit has already been paid.")
+        return redirect("billing:estimate_client_accepted", estimate_id=estimate.id, token=token)
+    if not getattr(business, "can_accept_stripe_payments", lambda: False)():
+        messages.info(request, "Card payment is not available. Please use another payment method.")
+        return redirect("billing:estimate_client_accepted", estimate_id=estimate.id, token=token)
+    if not _stripe_connect_enabled():
+        messages.info(request, "Credit card payment is not available. Please use another payment method.")
+        return redirect("billing:estimate_client_accepted", estimate_id=estimate.id, token=token)
+
+    deposit_due = _estimate_deposit_due(estimate)
+    amount_cents = int(deposit_due * 100)
+    if amount_cents < 50:
+        messages.error(request, "Minimum payment is $0.50.")
+        return redirect("billing:estimate_client_accepted", estimate_id=estimate.id, token=token)
+
+    return _redirect_to_estimate_deposit_checkout(request, estimate, token)
+
+
 def _fmt_currency(val):
     """Format decimal as currency with commas. 1349.50 -> $1,349.50, 150.00 -> $150.00"""
     if val is None:
@@ -1003,6 +1637,53 @@ def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, p
         logging.getLogger(__name__).warning("PDF logo draw failed: %s", exc, exc_info=True)
 
 
+def _draw_pdf_image_field(p, image_field, x, y_top, max_width=140, max_height=92):
+    """Draw an ImageField in a PDF if local/storage access is available."""
+    if not image_field:
+        return False
+    try:
+        from reportlab.lib.utils import ImageReader
+        from PIL import Image as PILImage
+        import io
+        import os
+
+        img_data = None
+        try:
+            if hasattr(image_field, "path") and os.path.exists(image_field.path):
+                with open(image_field.path, "rb") as f:
+                    img_data = io.BytesIO(f.read())
+        except Exception:
+            img_data = None
+
+        if not img_data:
+            try:
+                f = image_field.open("rb")
+                img_data = io.BytesIO(f.read())
+                f.close()
+            except Exception:
+                img_data = None
+
+        if not img_data:
+            return False
+
+        pil_img = PILImage.open(img_data).convert("RGB")
+        png_buf = io.BytesIO()
+        pil_img.save(png_buf, format="PNG")
+        png_buf.seek(0)
+        p.drawImage(
+            ImageReader(png_buf),
+            x,
+            y_top - max_height,
+            width=max_width,
+            height=max_height,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+        return True
+    except Exception:
+        return False
+
+
 def _pdf_safe(text, max_len=200):
     """Strip characters that ReportLab's built-in fonts can't render (emoji, CJK, etc.)."""
     if not text:
@@ -1011,6 +1692,41 @@ def _pdf_safe(text, max_len=200):
     # Keep basic Latin, extended Latin, punctuation, common symbols
     cleaned = re.sub(r'[^\x20-\x7E\xA0-\xFF\u2013\u2014\u2018\u2019\u201C\u201D\u2026\u00B7]', '', str(text))
     return cleaned[:max_len]
+
+
+def _pdf_ellipsize(text, max_len=80):
+    """Return PDF-safe text truncated cleanly for fixed-width banner areas."""
+    cleaned = _pdf_safe(text, max_len + 1).strip()
+    if len(cleaned) <= max_len:
+        return cleaned
+    return cleaned[: max(0, max_len - 3)].rstrip() + "..."
+
+
+def _pdf_wrapped_lines(text, max_chars=70, max_lines=6):
+    """Return PDF-safe wrapped lines without depending on ReportLab platypus."""
+    if not text:
+        return []
+    lines = []
+    for raw_line in str(text).replace("\r", "").split("\n"):
+        words = _pdf_safe(raw_line, max_chars * max_lines).split()
+        if not words:
+            continue
+        current = ""
+        for word in words:
+            candidate = f"{current} {word}".strip()
+            if len(candidate) <= max_chars:
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                current = word[:max_chars]
+            if len(lines) >= max_lines:
+                return lines
+        if current:
+            lines.append(current)
+        if len(lines) >= max_lines:
+            return lines
+    return lines
 
 
 # Theme colors for PDFs
@@ -1044,9 +1760,537 @@ def _hex_to_rgb(hex_str):
         return _PDF_GREEN
 
 
+def _pdf_date(value, fallback="---", fmt="%b %d, %Y"):
+    if value and hasattr(value, "strftime"):
+        return value.strftime(fmt)
+    return str(value or fallback)
+
+
+def _pdf_money(value):
+    return _fmt_currency(value or Decimal("0"))
+
+
+def _pdf_draw_wrapped(p, text, x, y, max_chars=70, max_lines=4, leading=10, font_name="Helvetica", font_size=8, color=None):
+    if color:
+        p.setFillColorRGB(*color)
+    p.setFont(font_name, font_size)
+    for line in _pdf_wrapped_lines(text, max_chars, max_lines):
+        p.drawString(x, y, line)
+        y -= leading
+    return y
+
+
+def _pdf_card(p, x, y_top, w, h, stroke=(0.86, 0.88, 0.84), fill=(1, 1, 1), radius=8):
+    p.setFillColorRGB(*fill)
+    p.setStrokeColorRGB(*stroke)
+    p.setLineWidth(0.6)
+    p.roundRect(x, y_top - h, w, h, radius, stroke=True, fill=True)
+
+
+def _pdf_section_label(p, text, x, y, accent, font="Helvetica-Bold"):
+    p.setFillColorRGB(*accent)
+    p.setFont(font, 7.5)
+    p.drawString(x, y, _pdf_safe(text.upper(), 36))
+
+
+def _pdf_logo_or_mark(p, business, x, y_top, accent, h_font, max_height=38, max_width=120):
+    drawn = False
+    if business and business.logo:
+        drawn = _draw_pdf_logo(p, business, x=x, y_top=y_top, max_height=max_height, max_width=max_width)
+    if drawn:
+        return
+    p.setFillColorRGB(*accent)
+    p.roundRect(x, y_top - 30, 30, 30, 8, fill=True, stroke=False)
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont(h_font, 13)
+    initial = _pdf_safe((business.name if business else "F")[:1].upper())
+    p.drawCentredString(x + 15, y_top - 20, initial)
+
+
+def _pdf_business_contact_lines(business):
+    lines = []
+    if business and business.contact_phone:
+        lines.append(business.contact_phone)
+    if business and business.contact_email:
+        lines.append(business.contact_email)
+    return lines
+
+
+def _pdf_payment_method_lines(business):
+    if not business:
+        return []
+    lines = []
+    for label, handle in [
+        ("Venmo", (business.venmo_username or "").strip()),
+        ("Zelle", (business.zelle_email_or_phone or "").strip()),
+        ("Cash App", (business.cashapp_cashtag or "").strip()),
+        ("PayPal", (business.paypal_link or "").strip()),
+    ]:
+        if handle:
+            lines.append(f"{label}: {handle}")
+    return lines
+
+
+def _pdf_customer_address(customer, prop=None):
+    prop_addr = getattr(prop, "address", None) if prop else None
+    if prop_addr:
+        return prop_addr
+    addr = getattr(customer, "full_address", None)
+    if not addr or str(addr).strip() in {"---", "-", "—"}:
+        return ""
+    return addr
+
+
+def _pdf_draw_footer(p, width, mid, right, business, doc_template, accent, b_font):
+    if doc_template and doc_template.footer_text:
+        p.setFont(b_font, 7)
+        p.setFillColorRGB(0.48, 0.50, 0.46)
+        p.drawCentredString(mid, 42, _pdf_ellipsize(doc_template.footer_text, 92))
+    p.setFont(b_font, 7)
+    p.setFillColorRGB(0.58, 0.60, 0.56)
+    parts = [business.name] if business else []
+    parts.extend(_pdf_business_contact_lines(business))
+    p.drawCentredString(mid, 28, _pdf_ellipsize("  |  ".join(parts), 105))
+    p.drawRightString(right, 28, _pdf_safe(f"Page {p.getPageNumber()}"))
+    p.setFillColorRGB(*accent)
+    p.rect(0, 0, width, 4, fill=True, stroke=False)
+
+
+def _build_modern_estimate_pdf(estimate, business, compact=False):
+    """Build printable premium estimate PDF inspired by the document studio mockup."""
+    from io import BytesIO
+    from decimal import Decimal
+    from billing.models import DocumentTemplate
+
+    canvas_mod, LETTER = _get_reportlab()
+    width, height = LETTER
+    buffer = BytesIO()
+    p = canvas_mod.Canvas(buffer, pagesize=LETTER)
+
+    doc_template = DocumentTemplate.get_default_for_business(business, "estimate") if business else None
+    accent = _hex_to_rgb(doc_template.primary_color) if doc_template and doc_template.primary_color else _PDF_GREEN
+    accent_soft = tuple(min(1.0, c * 0.10 + 0.90) for c in accent)
+    h_font, b_font = _pdf_fonts(doc_template.font_style if doc_template else "clean")
+    margin = 48
+    right = width - margin
+    mid = width / 2
+    customer = estimate.customer
+    prop = getattr(estimate, "property", None)
+    base_items = list(estimate.line_items.filter(is_addon=False))
+    addon_items = list(estimate.line_items.filter(is_addon=True))
+    base_total = sum((item.line_total for item in base_items), Decimal("0"))
+    addon_total = sum((item.line_total for item in addon_items), Decimal("0"))
+    grand_total = base_total + addon_total
+    est_num = f"EST-{estimate.created_at.year}-{estimate.id:04d}" if estimate.created_at else f"EST-{estimate.id}"
+
+    p.setFillColorRGB(0.985, 0.99, 0.975)
+    p.rect(0, 0, width, height, fill=True, stroke=False)
+    p.setFillColorRGB(*accent)
+    p.rect(0, height - 7, width, 7, fill=True, stroke=False)
+
+    y = 748
+    _pdf_logo_or_mark(p, business, margin, y + 12, accent, h_font)
+    p.setFillColorRGB(0.09, 0.10, 0.09)
+    p.setFont(h_font, 14)
+    p.drawString(margin + 42, y - 6, _pdf_safe(business.name if business else ""))
+    p.setFont(b_font, 8)
+    p.setFillColorRGB(0.44, 0.47, 0.42)
+    p.drawString(margin + 42, y - 20, _pdf_ellipsize(doc_template.header_text if doc_template and doc_template.header_text else "Landscape service proposal", 58))
+    p.setFillColorRGB(0.08, 0.09, 0.08)
+    p.setFont(h_font, 24)
+    p.drawRightString(right, y + 2, "ESTIMATE")
+    p.setFont(b_font, 8.5)
+    p.setFillColorRGB(0.48, 0.50, 0.46)
+    p.drawRightString(right, y - 15, _pdf_safe(f"# {est_num}"))
+    p.drawRightString(right, y - 28, _pdf_safe(f"Issued {_pdf_date(estimate.created_at)}"))
+    if estimate.valid_until:
+        p.drawRightString(right, y - 41, _pdf_safe(f"Valid through {_pdf_date(estimate.valid_until)}"))
+
+    y = 670
+    p.setFillColorRGB(*accent)
+    p.roundRect(margin, y - 72, right - margin, 72, 14, fill=True, stroke=False)
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont(h_font, 19)
+    p.drawString(margin + 18, y - 26, _pdf_ellipsize(estimate.title, 58))
+    p.setFont(b_font, 8.8)
+    summary = estimate.notes.split("\n")[0] if estimate.notes else "Prepared for your property and ready for review."
+    p.drawString(margin + 18, y - 45, _pdf_ellipsize(summary, 94))
+
+    y -= 90
+    card_gap = 14
+    card_w = (right - margin - card_gap) / 2
+    card_h = 94
+    _pdf_card(p, margin, y, card_w, card_h)
+    _pdf_card(p, margin + card_w + card_gap, y, card_w, card_h)
+    _pdf_section_label(p, "Prepared By", margin + 14, y - 18, accent, h_font)
+    p.setFillColorRGB(0.10, 0.11, 0.10)
+    p.setFont(h_font, 10)
+    p.drawString(margin + 14, y - 34, _pdf_safe(business.name if business else ""))
+    info_y = y - 49
+    for line in _pdf_business_contact_lines(business)[:3]:
+        p.setFont(b_font, 8)
+        p.setFillColorRGB(0.43, 0.46, 0.41)
+        p.drawString(margin + 14, info_y, _pdf_safe(line, 44))
+        info_y -= 11
+    fx = margin + card_w + card_gap + 14
+    _pdf_section_label(p, "Prepared For", fx, y - 18, accent, h_font)
+    p.setFillColorRGB(0.10, 0.11, 0.10)
+    p.setFont(h_font, 10)
+    p.drawString(fx, y - 34, _pdf_safe(customer.name, 42))
+    info_y = y - 49
+    if doc_template is None or doc_template.show_property_address:
+        addr = _pdf_customer_address(customer, prop)
+        if addr:
+            p.setFont(b_font, 8)
+            p.setFillColorRGB(0.43, 0.46, 0.41)
+            p.drawString(fx, info_y, _pdf_safe(addr, 44))
+            info_y -= 11
+    for line in [customer.phone, customer.email]:
+        if line:
+            p.setFont(b_font, 8)
+            p.setFillColorRGB(0.43, 0.46, 0.41)
+            p.drawString(fx, info_y, _pdf_safe(line, 44))
+            info_y -= 11
+
+    y -= card_h + 28
+    p.setFont(h_font, 14)
+    p.setFillColorRGB(0.10, 0.11, 0.10)
+    p.drawString(margin, y, "Estimate Details")
+    y -= 18
+    col_service = margin + 10
+    col_qty = right - 160
+    col_unit = right - 104
+    col_total = right - 10
+    p.setFillColorRGB(*accent)
+    p.roundRect(margin, y - 18, right - margin, 24, 8, fill=True, stroke=False)
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont(h_font, 8)
+    p.drawString(col_service, y - 8, "SERVICE")
+    p.drawString(col_qty, y - 8, "QTY")
+    p.drawString(col_unit, y - 8, "UNIT")
+    p.drawRightString(col_total, y - 8, "TOTAL")
+    y -= 34
+    for idx, item in enumerate(base_items):
+        detail_lines = _pdf_wrapped_lines((getattr(item, "detail_description", "") or "").strip(), 72, 3)
+        row_h = 26 + len(detail_lines) * 10
+        if idx % 2 == 1:
+            p.setFillColorRGB(*accent_soft)
+            p.roundRect(margin, y + 12 - row_h, right - margin, row_h, 8, fill=True, stroke=False)
+        p.setFillColorRGB(0.10, 0.11, 0.10)
+        p.setFont(h_font, 9)
+        p.drawString(col_service, y, _pdf_ellipsize(item.description, 58))
+        p.setFont(b_font, 8.5)
+        qty_val = item.quantity or 1
+        qty_str = f"{int(qty_val)}" if qty_val == int(qty_val) else f"{qty_val}"
+        p.drawString(col_qty, y, qty_str)
+        p.drawString(col_unit, y, _pdf_safe((item.unit or "ea")[:8]))
+        p.setFont(h_font, 9)
+        p.drawRightString(col_total, y, _pdf_money(item.line_total))
+        detail_y = y - 12
+        p.setFont(b_font, 8)
+        p.setFillColorRGB(0.50, 0.53, 0.48)
+        for line in detail_lines:
+            p.drawString(col_service, detail_y, line)
+            detail_y -= 10
+        y -= row_h
+        p.setStrokeColorRGB(0.88, 0.90, 0.86)
+        p.setLineWidth(0.3)
+        p.line(margin, y + 7, right, y + 7)
+    if addon_items:
+        y -= 18
+        p.setFont(h_font, 12)
+        p.setFillColorRGB(0.10, 0.11, 0.10)
+        p.drawString(margin, y, "Optional Upgrades")
+        y -= 12
+        for item in addon_items:
+            _pdf_card(p, margin, y, right - margin, 42, stroke=(0.84, 0.87, 0.82), fill=(1, 1, 1), radius=8)
+            p.setFont(h_font, 9)
+            p.setFillColorRGB(0.10, 0.11, 0.10)
+            p.drawString(margin + 12, y - 15, _pdf_ellipsize(item.description, 72))
+            p.drawRightString(right - 12, y - 15, _pdf_money(item.line_total))
+            detail = (getattr(item, "detail_description", "") or "").strip()
+            if detail:
+                p.setFont(b_font, 7.5)
+                p.setFillColorRGB(0.50, 0.53, 0.48)
+                p.drawString(margin + 12, y - 29, _pdf_ellipsize(detail, 88))
+            y -= 50
+
+    y -= 12
+    notes_x = margin
+    totals_x = mid + 8
+    totals_w = right - totals_x
+    p.setFont(h_font, 11)
+    p.setFillColorRGB(0.10, 0.11, 0.10)
+    p.drawString(notes_x, y, "Notes & Terms")
+    notes_y = y - 16
+    if estimate.notes:
+        notes_y = _pdf_draw_wrapped(p, "\n".join(estimate.notes.split("\n")[1:]), notes_x, notes_y, 52, 3, 10, b_font, 8, (0.48, 0.50, 0.46))
+    if doc_template and doc_template.terms_and_conditions:
+        notes_y = _pdf_draw_wrapped(p, doc_template.terms_and_conditions, notes_x, notes_y - 4, 52, 5, 10, b_font, 8, (0.48, 0.50, 0.46))
+    if doc_template and doc_template.payment_instructions:
+        p.setFont(h_font, 8)
+        p.setFillColorRGB(*accent)
+        p.drawString(notes_x, notes_y - 2, "PAYMENT NOTES")
+        _pdf_draw_wrapped(p, doc_template.payment_instructions, notes_x, notes_y - 14, 52, 4, 10, b_font, 8, (0.48, 0.50, 0.46))
+    totals_h = 182 if estimate.deposit_required else 154
+    _pdf_card(p, totals_x, y + 12, totals_w, totals_h, stroke=(0.82, 0.84, 0.80), fill=(1, 1, 1), radius=10)
+    ty = y - 4
+    p.setFont(h_font, 11)
+    p.setFillColorRGB(0.10, 0.11, 0.10)
+    p.drawString(totals_x + 14, ty, "Estimate Total")
+    ty -= 19
+    for label, value in [("Subtotal", base_total), ("Optional upgrade", addon_total if addon_items else None)]:
+        if value is None:
+            continue
+        p.setFont(b_font, 8.5)
+        p.setFillColorRGB(0.50, 0.53, 0.48)
+        p.drawString(totals_x + 14, ty, label)
+        p.setFillColorRGB(0.10, 0.11, 0.10)
+        p.drawRightString(totals_x + totals_w - 14, ty, _pdf_money(value))
+        ty -= 16
+    p.setFont(b_font, 8.5)
+    p.setFillColorRGB(0.50, 0.53, 0.48)
+    p.drawString(totals_x + 14, ty, "Discount")
+    p.drawRightString(totals_x + totals_w - 14, ty, "-")
+    ty -= 20
+    p.setFillColorRGB(*accent)
+    p.roundRect(totals_x, ty - 20, totals_w, 36, 8, fill=True, stroke=False)
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont(h_font, 11)
+    p.drawString(totals_x + 14, ty - 5, "Estimated total")
+    p.setFont(h_font, 15)
+    p.drawRightString(totals_x + totals_w - 14, ty - 7, _pdf_money(grand_total))
+    ty -= 42
+    if estimate.deposit_required:
+        deposit_due = estimate.deposit_dollar_amount() or Decimal("0")
+        p.setFont(h_font, 8.5)
+        p.setFillColorRGB(*accent)
+        p.drawString(totals_x + 14, ty, "Deposit due to accept")
+        p.drawRightString(totals_x + totals_w - 14, ty, _pdf_money(deposit_due))
+        ty -= 16
+    p.setStrokeColorRGB(0.78, 0.80, 0.76)
+    p.setLineWidth(0.5)
+    p.line(totals_x + 112, ty - 1, totals_x + totals_w - 14, ty - 1)
+    p.setFont(b_font, 8)
+    p.setFillColorRGB(0.56, 0.58, 0.54)
+    p.drawString(totals_x + 14, ty, "Client Signature")
+    ty -= 18
+    p.line(totals_x + 112, ty - 1, totals_x + totals_w - 14, ty - 1)
+    p.drawString(totals_x + 14, ty, "Approval Date")
+
+    _pdf_draw_footer(p, width, mid, right, business, doc_template, accent, b_font)
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return buffer.read()
+
+
+def _build_modern_invoice_pdf(invoice, request):
+    """Build printable premium invoice PDF with payment-focused hierarchy."""
+    from io import BytesIO
+    from decimal import Decimal
+    from billing.models import DocumentTemplate
+
+    canvas_mod, LETTER = _get_reportlab()
+    width, height = LETTER
+    buffer = BytesIO()
+    p = canvas_mod.Canvas(buffer, pagesize=LETTER)
+
+    business = invoice.business
+    customer = invoice.customer
+    items = list(invoice.line_items.all())
+    doc_template = DocumentTemplate.get_default_for_business(business, "invoice") if business else None
+    accent = _hex_to_rgb(doc_template.primary_color) if doc_template and doc_template.primary_color else _PDF_GREEN
+    accent_soft = tuple(min(1.0, c * 0.10 + 0.90) for c in accent)
+    h_font, b_font = _pdf_fonts(doc_template.font_style if doc_template else "clean")
+    margin = 48
+    right = width - margin
+    mid = width / 2
+
+    p.setFillColorRGB(0.985, 0.99, 0.975)
+    p.rect(0, 0, width, height, fill=True, stroke=False)
+    p.setFillColorRGB(*accent)
+    p.rect(0, height - 7, width, 7, fill=True, stroke=False)
+
+    y = 748
+    _pdf_logo_or_mark(p, business, margin, y + 12, accent, h_font)
+    p.setFillColorRGB(0.09, 0.10, 0.09)
+    p.setFont(h_font, 14)
+    p.drawString(margin + 42, y - 6, _pdf_safe(business.name if business else ""))
+    p.setFont(b_font, 8)
+    p.setFillColorRGB(0.44, 0.47, 0.42)
+    p.drawString(margin + 42, y - 20, _pdf_ellipsize(doc_template.header_text if doc_template and doc_template.header_text else "Landscape service invoice", 58))
+    p.setFillColorRGB(0.08, 0.09, 0.08)
+    p.setFont(h_font, 24)
+    p.drawRightString(right, y + 2, "INVOICE")
+    p.setFont(b_font, 8.5)
+    p.setFillColorRGB(0.48, 0.50, 0.46)
+    p.drawRightString(right, y - 15, _pdf_safe(f"Invoice #{invoice.id}"))
+    p.drawRightString(right, y - 28, _pdf_safe(f"Issued {_pdf_date(invoice.issue_date)}"))
+    if invoice.due_date:
+        p.drawRightString(right, y - 41, _pdf_safe(f"Due {_pdf_date(invoice.due_date)}"))
+
+    y = 670
+    p.setFillColorRGB(*accent)
+    p.roundRect(margin, y - 72, right - margin, 72, 14, fill=True, stroke=False)
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont(h_font, 19)
+    first_desc = items[0].description if items else f"Invoice for {customer.name}"
+    p.drawString(margin + 18, y - 26, _pdf_ellipsize(first_desc, 58))
+    p.setFont(b_font, 8.8)
+    p.drawString(margin + 18, y - 45, _pdf_safe(f"Status: {(invoice.status or 'draft').upper()}"))
+    p.setFont(h_font, 20)
+    p.drawRightString(right - 18, y - 34, _pdf_money(invoice.total))
+
+    y -= 90
+    card_gap = 14
+    card_w = (right - margin - card_gap) / 2
+    card_h = 94
+    _pdf_card(p, margin, y, card_w, card_h)
+    _pdf_card(p, margin + card_w + card_gap, y, card_w, card_h)
+    _pdf_section_label(p, "From", margin + 14, y - 18, accent, h_font)
+    p.setFillColorRGB(0.10, 0.11, 0.10)
+    p.setFont(h_font, 10)
+    p.drawString(margin + 14, y - 34, _pdf_safe(business.name if business else ""))
+    info_y = y - 49
+    for line in _pdf_business_contact_lines(business)[:3]:
+        p.setFont(b_font, 8)
+        p.setFillColorRGB(0.43, 0.46, 0.41)
+        p.drawString(margin + 14, info_y, _pdf_safe(line, 44))
+        info_y -= 11
+    fx = margin + card_w + card_gap + 14
+    _pdf_section_label(p, "Bill To", fx, y - 18, accent, h_font)
+    p.setFillColorRGB(0.10, 0.11, 0.10)
+    p.setFont(h_font, 10)
+    p.drawString(fx, y - 34, _pdf_safe(customer.name, 42))
+    info_y = y - 49
+    for line in [customer.phone, _pdf_customer_address(customer), customer.email]:
+        if line:
+            p.setFont(b_font, 8)
+            p.setFillColorRGB(0.43, 0.46, 0.41)
+            p.drawString(fx, info_y, _pdf_safe(line, 44))
+            info_y -= 11
+
+    y -= card_h + 28
+    p.setFont(h_font, 14)
+    p.setFillColorRGB(0.10, 0.11, 0.10)
+    p.drawString(margin, y, "Invoice Details")
+    y -= 18
+    col_service = margin + 10
+    col_qty = right - 170
+    col_rate = right - 108
+    col_total = right - 10
+    p.setFillColorRGB(*accent)
+    p.roundRect(margin, y - 18, right - margin, 24, 8, fill=True, stroke=False)
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont(h_font, 8)
+    p.drawString(col_service, y - 8, "SERVICE")
+    p.drawString(col_qty, y - 8, "QTY")
+    p.drawString(col_rate, y - 8, "RATE")
+    p.drawRightString(col_total, y - 8, "TOTAL")
+    y -= 34
+    computed_total = Decimal("0")
+    for idx, item in enumerate(items):
+        detail_lines = _pdf_wrapped_lines((getattr(item, "detail_description", "") or "").strip(), 76, 3)
+        row_h = 26 + len(detail_lines) * 10
+        if idx % 2 == 1:
+            p.setFillColorRGB(*accent_soft)
+            p.roundRect(margin, y + 12 - row_h, right - margin, row_h, 8, fill=True, stroke=False)
+        lt = item.line_total
+        computed_total += lt
+        p.setFillColorRGB(0.10, 0.11, 0.10)
+        p.setFont(h_font, 9)
+        p.drawString(col_service, y, _pdf_ellipsize(item.description, 64))
+        p.setFont(b_font, 8.5)
+        p.drawString(col_qty, y, str(item.quantity or 1))
+        p.drawString(col_rate, y, _pdf_money(item.unit_price))
+        p.setFont(h_font, 9)
+        p.drawRightString(col_total, y, _pdf_money(lt))
+        p.setFont(b_font, 8)
+        p.setFillColorRGB(0.50, 0.53, 0.48)
+        dy = y - 12
+        for line in detail_lines:
+            p.drawString(col_service, dy, line)
+            dy -= 10
+        y -= row_h
+        p.setStrokeColorRGB(0.88, 0.90, 0.86)
+        p.setLineWidth(0.3)
+        p.line(margin, y + 7, right, y + 7)
+
+    y -= 20
+    notes_x = margin
+    totals_x = mid + 8
+    totals_w = right - totals_x
+    p.setFont(h_font, 11)
+    p.setFillColorRGB(0.10, 0.11, 0.10)
+    p.drawString(notes_x, y, "Payment & Terms")
+    notes_y = y - 16
+    if doc_template and doc_template.terms_and_conditions:
+        notes_y = _pdf_draw_wrapped(p, doc_template.terms_and_conditions, notes_x, notes_y, 52, 5, 10, b_font, 8, (0.48, 0.50, 0.46))
+    if doc_template and doc_template.payment_instructions:
+        p.setFont(h_font, 8)
+        p.setFillColorRGB(*accent)
+        p.drawString(notes_x, notes_y - 2, "PAYMENT INSTRUCTIONS")
+        notes_y = _pdf_draw_wrapped(p, doc_template.payment_instructions, notes_x, notes_y - 14, 52, 4, 10, b_font, 8, (0.48, 0.50, 0.46))
+    payment_lines = _pdf_payment_method_lines(business)
+    if payment_lines:
+        p.setFont(h_font, 8)
+        p.setFillColorRGB(*accent)
+        p.drawString(notes_x, notes_y - 2, "PAYMENT METHODS")
+        notes_y -= 14
+        for line in payment_lines[:4]:
+            notes_y = _pdf_draw_wrapped(p, line, notes_x, notes_y, 52, 1, 10, b_font, 8, (0.10, 0.11, 0.10))
+
+    tax = getattr(invoice, "tax", None) or Decimal("0")
+    total_to_show = getattr(invoice, "total", None) or computed_total
+    totals_h = 148 if tax else 130
+    _pdf_card(p, totals_x, y + 12, totals_w, totals_h, stroke=(0.82, 0.84, 0.80), fill=(1, 1, 1), radius=10)
+    ty = y - 4
+    p.setFont(h_font, 11)
+    p.setFillColorRGB(0.10, 0.11, 0.10)
+    p.drawString(totals_x + 14, ty, "Invoice Total")
+    ty -= 19
+    p.setFont(b_font, 8.5)
+    p.setFillColorRGB(0.50, 0.53, 0.48)
+    p.drawString(totals_x + 14, ty, "Subtotal")
+    p.setFillColorRGB(0.10, 0.11, 0.10)
+    p.drawRightString(totals_x + totals_w - 14, ty, _pdf_money(computed_total))
+    ty -= 18
+    if tax:
+        p.setFillColorRGB(0.50, 0.53, 0.48)
+        p.drawString(totals_x + 14, ty, "Tax")
+        p.setFillColorRGB(0.10, 0.11, 0.10)
+        p.drawRightString(totals_x + totals_w - 14, ty, _pdf_money(tax))
+        ty -= 18
+    ty -= 8
+    p.setFillColorRGB(*accent)
+    p.roundRect(totals_x, ty - 20, totals_w, 38, 8, fill=True, stroke=False)
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont(h_font, 12)
+    p.drawString(totals_x + 14, ty - 5, "PAID" if invoice.status == "paid" else "Total Due")
+    p.setFont(h_font, 16)
+    p.drawRightString(totals_x + totals_w - 14, ty - 7, _pdf_money(total_to_show))
+
+    if invoice.status == "paid":
+        p.saveState()
+        p.setFillColorRGB(0.13, 0.77, 0.37, 0.12)
+        p.setFont(h_font, 72)
+        p.translate(width / 2, height / 2)
+        p.rotate(30)
+        p.drawCentredString(0, 0, "PAID")
+        p.restoreState()
+
+    _pdf_draw_footer(p, width, mid, right, business, doc_template, accent, b_font)
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return buffer.read()
+
+
 def _build_invoice_pdf(invoice, request):
     """Build premium invoice PDF with accent banner, contact boxes, line-item
     table, totals, payment methods, terms, and optional PAID stamp."""
+    return _build_modern_invoice_pdf(invoice, request)
     from io import BytesIO
     from decimal import Decimal
     from billing.models import DocumentTemplate
@@ -1137,6 +2381,14 @@ def _build_invoice_pdf(invoice, request):
             else str(invoice.due_date)
         )
         p.drawRightString(right, y - 44, _pdf_safe(f"Due Date: {due_str}"))
+    if doc_template and doc_template.show_service_date and (invoice.period_start or invoice.period_end):
+        if invoice.period_start and invoice.period_end:
+            period_str = f"{invoice.period_start.strftime('%b %d')} - {invoice.period_end.strftime('%b %d, %Y')}"
+        elif invoice.period_start:
+            period_str = invoice.period_start.strftime("%B %d, %Y")
+        else:
+            period_str = invoice.period_end.strftime("%B %d, %Y")
+        p.drawRightString(right, y - 56, _pdf_safe(f"Service Period: {period_str}", 50))
 
     y = 710
 
@@ -1158,11 +2410,11 @@ def _build_invoice_pdf(invoice, request):
     p.setFont(h_font, 17)
 
     # Banner title: "Invoice for {customer}" or first item description
-    banner_title = _pdf_safe(f"Invoice for {customer.name}", 50)
+    banner_title = _pdf_ellipsize(f"Invoice for {customer.name}", 50)
     if items and items[0].description:
         first_desc = str(items[0].description).strip()
         if len(first_desc) > 5:
-            banner_title = _pdf_safe(first_desc, 50)
+            banner_title = _pdf_ellipsize(first_desc, 50)
     p.drawString(margin + 16, y - 22, banner_title)
 
     # Subtitle: status badge
@@ -1218,7 +2470,7 @@ def _build_invoice_pdf(invoice, request):
         p.drawString(fx, fy, _pdf_safe(customer.phone))
         fy -= 10
     addr = getattr(customer, "full_address", None)
-    if addr and addr != "---":
+    if (not doc_template or doc_template.show_property_address) and addr and addr != "---":
         p.drawString(fx, fy, _pdf_safe(addr, 45))
         fy -= 10
     if customer.email:
@@ -1337,22 +2589,46 @@ def _build_invoice_pdf(invoice, request):
         doc_template
         and (doc_template.terms_and_conditions or "").strip()
     )
-    has_payment = business and (
+    template_payment = (
+        doc_template.payment_instructions.strip()
+        if doc_template and doc_template.payment_instructions
+        else ""
+    )
+    custom_values = getattr(invoice, "custom_field_values", None) or {}
+    custom_fields = [
+        field for field in ((doc_template.custom_fields or []) if doc_template else [])
+        if custom_values.get(field.get("key"))
+    ]
+    has_payment = bool(template_payment) or (business and (
         (business.venmo_username or "").strip()
         or (business.zelle_email_or_phone or "").strip()
         or (business.cashapp_cashtag or "").strip()
         or (business.paypal_link or "").strip()
-    )
+    ))
 
     # Left column (~55%): Notes & Terms + Payment methods
     left_col_right = mid - 10
     left_y = y
 
-    if has_terms or has_payment:
+    if has_terms or has_payment or custom_fields:
         p.setFont(h_font, 10)
         p.setFillColorRGB(*_PDF_DARK)
         p.drawString(margin, left_y, "Notes & Terms")
         left_y -= 14
+
+        if custom_fields:
+            p.setFont(h_font, 8)
+            p.setFillColorRGB(*accent)
+            p.drawString(margin, left_y, "DOCUMENT DETAILS")
+            left_y -= 12
+            p.setFont(b_font, 8)
+            p.setFillColorRGB(*_PDF_DARK)
+            for field in custom_fields[:4]:
+                value = custom_values.get(field.get("key"))
+                label = field.get("label") or field.get("key", "").replace("_", " ").title()
+                p.drawString(margin, left_y, _pdf_safe(f"{label}: {value}", 55))
+                left_y -= 11
+            left_y -= 4
 
         if has_terms:
             p.setFont(b_font, 8)
@@ -1366,7 +2642,20 @@ def _build_invoice_pdf(invoice, request):
                     left_y -= 10
             left_y -= 6
 
-        if has_payment:
+        if template_payment and left_y > 74:
+            p.setFont(h_font, 8)
+            p.setFillColorRGB(*accent)
+            p.drawString(margin, left_y, "PAYMENT INSTRUCTIONS")
+            left_y -= 12
+            p.setFont(b_font, 8)
+            p.setFillColorRGB(*_PDF_MUTED)
+            for pay_line in _pdf_wrapped_lines(template_payment, 55, 4):
+                if left_y > 50:
+                    p.drawString(margin, left_y, pay_line)
+                    left_y -= 10
+            left_y -= 4
+
+        if has_payment and business:
             p.setFont(h_font, 8)
             p.setFillColorRGB(*accent)
             p.drawString(margin, left_y, "PAYMENT METHODS")
@@ -1678,7 +2967,7 @@ def send_reminder(request, invoice_id):
     else:
         from businesses.email_sender import format_send_error
         messages.error(request, format_send_error(detail))
-    return redirect("billing:invoice_list")
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
 # --- Estimates ---
@@ -1686,30 +2975,110 @@ def send_reminder(request, invoice_id):
 
 @role_required("owner", "manager")
 def estimate_list(request):
-    from datetime import timedelta
-    from django.db.models import Count
-
     business = _get_business(request)
     if not business:
         messages.error(request, "You must be associated with a business.")
         return redirect("/")
 
     tab = request.GET.get("tab", "estimates")
-
-    estimates = Estimate.objects.filter(business=business).select_related("customer").order_by("-created_at")
-
-    status_filter = request.GET.get("status") or "all"
-    if status_filter == "accepted":
-        estimates = estimates.filter(status="accepted")
-    elif status_filter == "pending":
-        estimates = estimates.exclude(status="accepted")
-    # else: "all" — show everything
-
+    today = _biz_today(business)
     stale_cutoff = timezone.now() - timedelta(days=5)
+
+    base_qs = (
+        Estimate.objects.filter(business=business)
+        .select_related("customer", "property")
+        .prefetch_related("line_items", "images")
+    )
+
+    stats_counts = base_qs.aggregate(
+        total_count=Count("id"),
+        draft_count=Count("id", filter=Q(status="draft")),
+        sent_count=Count("id", filter=Q(status="sent")),
+        accepted_count=Count("id", filter=Q(status="accepted")),
+        declined_count=Count("id", filter=Q(status="declined")),
+        viewed_count=Count("id", filter=Q(view_count__gt=0)),
+    )
+    follow_up_q = Q(status="sent", sent_at__lt=stale_cutoff) & (
+        Q(last_follow_up_at__isnull=True) | Q(last_follow_up_at__lt=stale_cutoff)
+    )
+    follow_up_count = base_qs.filter(follow_up_q).count()
+    queue_count = (
+        Estimate.objects.filter(business=business, status="draft")
+        .annotate(line_count=Count("line_items"))
+        .filter(line_count=0)
+        .count()
+    )
+
+    all_estimates_for_totals = list(base_qs)
+    open_value = sum(
+        (estimate.total() or Decimal("0"))
+        for estimate in all_estimates_for_totals
+        if estimate.status in {"draft", "sent"}
+    )
+    accepted_value = sum(
+        (estimate.accepted_total or estimate.total() or Decimal("0"))
+        for estimate in all_estimates_for_totals
+        if estimate.status == "accepted"
+    )
+
+    status_filter = (request.GET.get("status") or "all").strip().lower()
+    estimates = base_qs
+    if status_filter in {"draft", "sent", "accepted", "declined"}:
+        estimates = estimates.filter(status=status_filter)
+    elif status_filter == "follow_up":
+        estimates = estimates.filter(follow_up_q)
+
+    search_query = (request.GET.get("q") or "").strip()
+    if search_query:
+        search_filter = (
+            Q(customer__name__icontains=search_query)
+            | Q(customer__email__icontains=search_query)
+            | Q(title__icontains=search_query)
+            | Q(status__icontains=search_query)
+        )
+        if search_query.isdigit():
+            search_filter |= Q(id=int(search_query))
+        estimates = estimates.filter(search_filter)
+
+    estimates = estimates.order_by("-updated_at", "-created_at")[:100]
+    estimate_rows = []
+    now = timezone.now()
+    for estimate in estimates:
+        total = estimate.accepted_total if estimate.status == "accepted" and estimate.accepted_total else estimate.total()
+        age_source = estimate.sent_at or estimate.created_at
+        age_days = (now.date() - age_source.date()).days
+        follow_up_due = (
+            estimate.status == "sent"
+            and age_source < stale_cutoff
+            and (not estimate.last_follow_up_at or estimate.last_follow_up_at < stale_cutoff)
+        )
+        state_label = estimate.get_status_display()
+        state_class = estimate.status
+        if follow_up_due:
+            state_label = "Follow-up due"
+            state_class = "follow-up"
+        elif estimate.status == "sent" and estimate.view_count:
+            state_label = f"Viewed {estimate.view_count}x"
+        elif estimate.status == "accepted" and estimate.job_scheduled:
+            state_label = "Job scheduled"
+        elif estimate.status == "draft" and estimate.line_items.count() == 0:
+            state_label = "Needs pricing"
+
+        estimate_rows.append({
+            "estimate": estimate,
+            "total": total,
+            "age_days": age_days,
+            "state_label": state_label,
+            "state_class": state_class,
+            "follow_up_due": follow_up_due,
+            "line_count": estimate.line_items.count(),
+            "photo_count": estimate.images.count(),
+        })
+
     stuck_quotes = Estimate.objects.filter(
         business=business,
-        status__in=["draft", "sent"],
-        created_at__lt=stale_cutoff,
+        status="sent",
+        sent_at__lt=stale_cutoff,
     ).select_related("customer").order_by("created_at")[:6]
 
     # Quote queue: draft estimates with zero line items
@@ -1721,15 +3090,34 @@ def estimate_list(request):
         .prefetch_related("images")
         .order_by("-created_at")
     )
+    status_tabs = [
+        {"key": "all", "label": "All", "count": stats_counts["total_count"], "url": reverse("billing:estimate_list")},
+        {"key": "draft", "label": "Drafts", "count": stats_counts["draft_count"], "url": f"{reverse('billing:estimate_list')}?status=draft"},
+        {"key": "sent", "label": "Sent", "count": stats_counts["sent_count"], "url": f"{reverse('billing:estimate_list')}?status=sent"},
+        {"key": "follow_up", "label": "Follow-up", "count": follow_up_count, "url": f"{reverse('billing:estimate_list')}?status=follow_up"},
+        {"key": "accepted", "label": "Won", "count": stats_counts["accepted_count"], "url": f"{reverse('billing:estimate_list')}?status=accepted"},
+        {"key": "declined", "label": "Declined", "count": stats_counts["declined_count"], "url": f"{reverse('billing:estimate_list')}?status=declined"},
+    ]
+    stats = {
+        **stats_counts,
+        "follow_up_count": follow_up_count,
+        "queue_count": queue_count,
+        "open_value": open_value,
+        "accepted_value": accepted_value,
+    }
 
     return render(request, "billing/estimate_list.html", {
+        "estimate_rows": estimate_rows,
         "estimates": estimates,
         "status_filter": status_filter,
+        "search_query": search_query,
+        "status_tabs": status_tabs,
+        "stats": stats,
         "stuck_quotes": stuck_quotes,
         "tab": tab,
         "queue": queue,
-        "queue_count": queue.count(),
-        "today": _biz_today(business),
+        "queue_count": queue_count,
+        "today": today,
     })
 
 
@@ -1925,7 +3313,7 @@ def estimate_create_from_fertilizer(request):
     estimate = Estimate.objects.create(
         business=business,
         customer=customer,
-        title=request.POST.get("title") or "FieldLgx Service Estimate",
+        title=request.POST.get("title") or "FIELDLGX Service Estimate",
         valid_until=_biz_today(business) + _td(days=valid_days),
     )
 
@@ -2021,7 +3409,7 @@ def estimate_create_from_mulch(request):
     estimate = Estimate.objects.create(
         business=business,
         customer=customer,
-        title=request.POST.get("title") or "FieldLgx Service Estimate",
+        title=request.POST.get("title") or "FIELDLGX Service Estimate",
         valid_until=_biz_today(business) + _td2(days=valid_days2),
     )
     EstimateLineItem.objects.create(
@@ -2132,6 +3520,11 @@ def estimate_detail(request, estimate_id):
     total_material_cost = sum(Decimal(str(app.material_cost)) for app in fertilizer_apps)
     total_charged = sum(Decimal(str(app.charge_amount)) for app in fertilizer_apps if app.charge_amount) or None
     total_profit = (total_charged - total_material_cost) if total_charged else None
+    client_preview_url = ""
+    if estimate.view_token:
+        client_preview_url = request.build_absolute_uri(
+            reverse("billing:estimate_client_view", args=[estimate.id, estimate.view_token])
+        )
     
     return render(request, "billing/estimate_detail.html", {
         "estimate": estimate,
@@ -2140,12 +3533,20 @@ def estimate_detail(request, estimate_id):
         "total_material_cost": total_material_cost,
         "total_charged": total_charged,
         "total_profit": total_profit,
+        "payment_readiness": _owner_payment_readiness(
+            business,
+            getattr(business, "can_accept_stripe_payments", lambda: False)(),
+        ),
+        "can_accept_card_deposit": _estimate_can_accept_card_deposit(estimate),
+        "deposit_due": _estimate_deposit_due(estimate),
+        "client_preview_url": client_preview_url,
     })
 
 
 def _build_estimate_pdf(estimate, business, compact=False):
     """Build premium estimate PDF matching the target mockup layout.
     compact=True generates a tighter single-page version for simple jobs."""
+    return _build_modern_estimate_pdf(estimate, business, compact=compact)
     from io import BytesIO
     from decimal import Decimal
     from billing.models import DocumentTemplate
@@ -2242,8 +3643,24 @@ def _build_estimate_pdf(estimate, business, compact=False):
             else str(estimate.valid_until)
         )
         p.drawRightString(right, y - 44, _pdf_safe(f"Valid through {valid_str}"))
+    if doc_template and doc_template.show_service_date and estimate.site_visit_date:
+        visit_str = (
+            estimate.site_visit_date.strftime("%B %d, %Y")
+            if hasattr(estimate.site_visit_date, "strftime")
+            else str(estimate.site_visit_date)
+        )
+        p.drawRightString(right, y - 56, _pdf_safe(f"Site visit {visit_str}", 50))
 
     y = 710
+
+    # Header text (tagline, license, seasonal promo)
+    if doc_template and doc_template.header_text:
+        p.setFont(b_font, 8)
+        p.setFillColorRGB(*_PDF_MUTED)
+        for line in _pdf_wrapped_lines(doc_template.header_text, 82, 3):
+            p.drawString(margin, y, line)
+            y -= 10
+        y -= 4
 
     # ══════════════════════════════════════════════════════════════════
     # SECTION 2: ACCENT BANNER  (full width, 56px)
@@ -2254,14 +3671,14 @@ def _build_estimate_pdf(estimate, business, compact=False):
 
     p.setFillColorRGB(1, 1, 1)
     p.setFont(h_font, 17)
-    title_text = _pdf_safe(estimate.title, 50)
+    title_text = _pdf_ellipsize(estimate.title, 50)
     p.drawString(margin + 16, y - 22, title_text)
 
     # Subtitle: first line of notes (if present)
     if estimate.notes:
         p.setFont(b_font, 9)
         first_note_line = estimate.notes.split("\n")[0]
-        p.drawString(margin + 16, y - 38, _pdf_safe(first_note_line, 80))
+        p.drawString(margin + 16, y - 38, _pdf_ellipsize(first_note_line, 76))
 
     y -= banner_h + 10
 
@@ -2313,7 +3730,7 @@ def _build_estimate_pdf(estimate, business, compact=False):
     # Service address from property
     prop = getattr(estimate, "property", None)
     prop_addr = getattr(prop, "address", None) if prop else None
-    if prop_addr:
+    if (not doc_template or doc_template.show_property_address) and prop_addr:
         p.drawString(fx, fy, "Service Address:")
         fy -= 10
         p.drawString(fx, fy, _pdf_safe(prop_addr, 45))
@@ -2337,18 +3754,18 @@ def _build_estimate_pdf(estimate, business, compact=False):
 
     # Table header: accent background, white text
     header_h = 20
-    col_item = margin + 6       # Item name start
-    col_desc = margin + 110     # Description start
-    col_qty = 390               # Qty
-    col_unit = 430              # Unit
-    col_total = right - 6       # Total (right-aligned)
+    # Keep service details in one left column so long service names never
+    # collide with their customer-facing descriptions.
+    col_service = margin + 8
+    col_qty = 388
+    col_unit = 432
+    col_total = right - 8
 
     p.setFillColorRGB(*accent)
     p.rect(margin, y - 4, right - margin, header_h, fill=True, stroke=False)
     p.setFillColorRGB(1, 1, 1)
     p.setFont(h_font, 8)
-    p.drawString(col_item, y + 2, "ITEM")
-    p.drawString(col_desc, y + 2, "DESCRIPTION")
+    p.drawString(col_service, y + 2, "SERVICE")
     p.drawString(col_qty, y + 2, "QTY")
     p.drawString(col_unit, y + 2, "UNIT")
     p.drawRightString(col_total, y + 2, "TOTAL")
@@ -2359,27 +3776,28 @@ def _build_estimate_pdf(estimate, business, compact=False):
         if y < 100:
             y = _new_page()
 
-        item_name = _pdf_safe(str(item.description or ""), 30)
+        item_name = _pdf_safe(str(item.description or ""), 52)
         detail = (getattr(item, "detail_description", "") or "").strip()
 
         # Calculate row height
         detail_lines = []
         if detail:
-            # Wrap long description into multiple lines (~55 chars per line)
+            # Wrap long description into multiple lines below the service name.
             words = detail.split()
             line = ""
             for w in words:
                 test = (line + " " + w).strip()
-                if len(test) > 55:
-                    detail_lines.append(line)
+                if len(test) > 68:
+                    if line:
+                        detail_lines.append(line)
                     line = w
                 else:
                     line = test
             if line:
                 detail_lines.append(line)
-            detail_lines = detail_lines[:3]  # Max 3 lines
+            detail_lines = detail_lines[:3]
 
-        row_h = 20 + (len(detail_lines) * 11)
+        row_h = 22 + (len(detail_lines) * 11)
 
         # Alternating row shading
         if idx % 2 == 1:
@@ -2389,13 +3807,7 @@ def _build_estimate_pdf(estimate, business, compact=False):
         # Item name (bold)
         p.setFillColorRGB(*_PDF_DARK)
         p.setFont(h_font, 9)
-        p.drawString(col_item, y, item_name)
-
-        # Description (first line, lighter, next to item or on same row)
-        if detail_lines:
-            p.setFont(b_font, 8)
-            p.setFillColorRGB(*_PDF_MUTED)
-            p.drawString(col_desc, y, _pdf_safe(detail_lines[0], 55))
+        p.drawString(col_service, y, item_name)
 
         # Qty + Unit
         p.setFillColorRGB(*_PDF_DARK)
@@ -2411,13 +3823,13 @@ def _build_estimate_pdf(estimate, business, compact=False):
             p.setFont(h_font, 9)
             p.drawRightString(col_total, y, _fmt_currency(lt))
 
-        # Additional description lines below
-        if len(detail_lines) > 1:
+        # Description lines below
+        if detail_lines:
             desc_y = y - 13
             p.setFont(b_font, 8)
             p.setFillColorRGB(*_PDF_MUTED)
-            for dl in detail_lines[1:]:
-                p.drawString(col_desc, desc_y, _pdf_safe(dl, 55))
+            for dl in detail_lines:
+                p.drawString(col_service, desc_y, _pdf_safe(dl, 72))
                 desc_y -= 11
 
         y -= row_h
@@ -2477,6 +3889,34 @@ def _build_estimate_pdf(estimate, business, compact=False):
 
             y -= addon_box_h - 4
 
+    if doc_template and doc_template.show_photos and hasattr(estimate, "images"):
+        photos = list(estimate.images.all()[:3])
+        if photos:
+            y -= 16
+            if y < 150:
+                y = _new_page()
+            p.setFont(h_font, 11)
+            p.setFillColorRGB(*_PDF_DARK)
+            p.drawString(margin, y, "Project Photos")
+            y -= 14
+
+            thumb_w = 145
+            thumb_h = 92
+            gap = 12
+            photo_x = margin
+            drawn_count = 0
+            for photo in photos:
+                if _draw_pdf_image_field(p, photo.image, photo_x, y, thumb_w, thumb_h):
+                    drawn_count += 1
+                    caption = (photo.caption or "").strip()
+                    if caption:
+                        p.setFont(b_font, 7)
+                        p.setFillColorRGB(*_PDF_MUTED)
+                        p.drawString(photo_x, y - thumb_h - 9, _pdf_safe(caption, 30))
+                    photo_x += thumb_w + gap
+            if drawn_count:
+                y -= thumb_h + 20
+
     # ══════════════════════════════════════════════════════════════════
     # SECTION 6: BOTTOM SPLIT  (Notes left ~55%, Totals right ~45%)
     # ══════════════════════════════════════════════════════════════════
@@ -2493,12 +3933,37 @@ def _build_estimate_pdf(estimate, business, compact=False):
         and (doc_template.terms_and_conditions or "").strip()
     )
     notes_present = bool((estimate.notes or "").strip())
+    template_payment = (
+        doc_template.payment_instructions.strip()
+        if doc_template and doc_template.payment_instructions
+        else ""
+    )
+    custom_values = getattr(estimate, "custom_field_values", None) or {}
+    custom_fields = [
+        field for field in ((doc_template.custom_fields or []) if doc_template else [])
+        if custom_values.get(field.get("key"))
+    ]
 
-    if has_terms or notes_present:
+    if has_terms or notes_present or template_payment or custom_fields:
         p.setFont(h_font, 10)
         p.setFillColorRGB(*_PDF_DARK)
         p.drawString(margin, left_y, "Notes & Terms")
         left_y -= 14
+
+        if custom_fields:
+            p.setFont(h_font, 8)
+            p.setFillColorRGB(*accent)
+            p.drawString(margin, left_y, "PROJECT DETAILS")
+            left_y -= 12
+            p.setFont(b_font, 8)
+            p.setFillColorRGB(*_PDF_DARK)
+            for field in custom_fields[:4]:
+                value = custom_values.get(field.get("key"))
+                label = field.get("label") or field.get("key", "").replace("_", " ").title()
+                if left_y > 50:
+                    p.drawString(margin, left_y, _pdf_safe(f"{label}: {value}", 48))
+                    left_y -= 10
+            left_y -= 4
 
         # Notes (if they exist and weren't fully shown in banner)
         if notes_present:
@@ -2523,6 +3988,20 @@ def _build_estimate_pdf(estimate, business, compact=False):
                 if tl.strip() and left_y > 50:
                     p.drawString(margin, left_y, _pdf_safe(tl.strip(), 48))
                     left_y -= 10
+            left_y -= 4
+
+        if template_payment:
+            p.setFont(h_font, 8)
+            p.setFillColorRGB(*accent)
+            if left_y > 62:
+                p.drawString(margin, left_y, "PAYMENT NOTES")
+                left_y -= 12
+            p.setFont(b_font, 8)
+            p.setFillColorRGB(*_PDF_MUTED)
+            for pay_line in _pdf_wrapped_lines(template_payment, 48, 4):
+                if left_y > 50:
+                    p.drawString(margin, left_y, pay_line)
+                    left_y -= 10
 
     # ── Right column: Estimate Total (bordered box) ──────────────────
     totals_x = mid + 10
@@ -2532,6 +4011,8 @@ def _build_estimate_pdf(estimate, business, compact=False):
     totals_lines = 3  # heading + subtotal + estimated total
     if addon_items:
         totals_lines += 1  # optional upgrade line
+    if estimate.deposit_required:
+        totals_lines += 1
     totals_lines += 1  # discount placeholder
     totals_lines += 2  # signature + date lines
     totals_box_h = 20 + totals_lines * 18 + 20
@@ -2575,7 +4056,7 @@ def _build_estimate_pdf(estimate, business, compact=False):
     p.setFont(b_font, 9)
     p.setFillColorRGB(*_PDF_MUTED)
     p.drawString(totals_x + 4, ty, "Discount")
-    p.drawRightString(right - 6, ty, "\u2014")  # em-dash
+    p.drawRightString(right - 6, ty, "-")
     ty -= 18
 
     # Estimated total (bold, larger) — includes addons
@@ -2586,6 +4067,15 @@ def _build_estimate_pdf(estimate, business, compact=False):
     p.setFont(h_font, 14)
     p.drawRightString(right - 6, ty - 2, _fmt_currency(grand_total))
     ty -= 24
+
+    if estimate.deposit_required:
+        deposit_due = estimate.deposit_dollar_amount() or Decimal("0.00")
+        p.setFont(b_font, 8)
+        p.setFillColorRGB(*accent)
+        p.drawString(totals_x + 4, ty, "Deposit due to accept")
+        p.setFont(h_font, 9)
+        p.drawRightString(right - 6, ty, _fmt_currency(deposit_due))
+        ty -= 18
 
     # Separator before signatures
     p.setStrokeColorRGB(0.88, 0.88, 0.88)
@@ -3030,6 +4520,8 @@ def estimate_client_view(request, estimate_id, token):
         "token": token,
         "doc_template": doc_template,
         "images": estimate.images.all(),
+        "can_accept_card_deposit": _estimate_can_accept_card_deposit(estimate),
+        "deposit_due": _estimate_deposit_due(estimate),
     })
 
 
@@ -3110,10 +4602,92 @@ def estimate_client_accept(request, estimate_id, token):
         for app in estimate.fertilizer_applications.all():
             app.charge_amount = estimate.accepted_total
             app.save(update_fields=['charge_amount', 'updated_at'])
+
+    if _estimate_can_accept_card_deposit(estimate):
+        return _redirect_to_estimate_deposit_checkout(request, estimate, token)
+
+    return redirect("billing:estimate_client_accepted", estimate_id=estimate.id, token=token)
+
+
+def estimate_client_accepted(request, estimate_id, token):
+    """Public confirmation page after an estimate has been accepted."""
+    estimate = get_object_or_404(
+        Estimate.objects.select_related("business", "customer"),
+        id=estimate_id,
+        view_token=token,
+        status="accepted",
+    )
+    doc_template = DocumentTemplate.get_default_for_business(estimate.business, "estimate")
+    deposit_due = _estimate_deposit_due(estimate)
+    payment_context = _public_payment_method_context(estimate.business, deposit_due)
     return render(request, "billing/estimate_client_accepted.html", {
         "estimate": estimate,
-        "accepted_total": total,
+        "accepted_total": estimate.accepted_total or estimate.total(),
+        "deposit_due": deposit_due,
+        "can_accept_card_deposit": _estimate_can_accept_card_deposit(estimate),
+        "doc_template": doc_template,
+        "deposit_state": request.GET.get("deposit", ""),
+        "token": token,
+        **payment_context,
     })
+
+
+def _redirect_to_estimate_deposit_checkout(request, estimate, token):
+    """Create a card deposit Checkout Session and redirect the client to Stripe."""
+    business = estimate.business
+    deposit_due = _estimate_deposit_due(estimate)
+    amount_cents = int(deposit_due * 100)
+    if amount_cents < 50:
+        return redirect("billing:estimate_client_accepted", estimate_id=estimate.id, token=token)
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    success_url = request.build_absolute_uri(
+        reverse("billing:estimate_client_accepted", args=[estimate.id, token]) + "?deposit=paid"
+    )
+    cancel_url = request.build_absolute_uri(
+        reverse("billing:estimate_client_accepted", args=[estimate.id, token]) + "?deposit=cancelled"
+    )
+    fee_percent = getattr(business, "stripe_connect_application_fee_percent", None)
+    if fee_percent is not None:
+        fee_percent = float(fee_percent)
+    if fee_percent is None:
+        fee_percent = getattr(settings, "STRIPE_CONNECT_APPLICATION_FEE_PERCENT", 0) or 0
+    idempotency_key = f"estimate:{estimate.id}:deposit:{hashlib.md5(str(estimate.id).encode()).hexdigest()[:8]}"
+
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": amount_cents,
+                    "product_data": {
+                        "name": f"Deposit for Estimate #{estimate.id}",
+                        "description": f"{estimate.title or 'Service estimate'} from {business.name}",
+                    },
+                },
+                "quantity": 1,
+            }],
+            mode="payment",
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                "estimate_id": str(estimate.id),
+                "business_id": str(business.id),
+                "payment_type": "estimate_deposit",
+            },
+            payment_intent_data={
+                "application_fee_amount": int(amount_cents * fee_percent / 100) if fee_percent > 0 else None,
+            } if fee_percent > 0 else {},
+            stripe_account=business.stripe_connect_account_id,
+            idempotency_key=idempotency_key,
+        )
+        estimate.stripe_deposit_checkout_session_id = session.id
+        estimate.save(update_fields=["stripe_deposit_checkout_session_id"])
+        return redirect(session.url)
+    except stripe.StripeError as e:
+        messages.error(request, f"Could not start payment: {e.user_message or str(e)}")
+        return redirect("billing:estimate_client_accepted", estimate_id=estimate.id, token=token)
 
 
 @require_POST
@@ -3216,9 +4790,17 @@ def document_template_edit(request, doc_type):
         if color and len(color) == 7 and color.startswith("#"):
             template_obj.primary_color = color
 
+        font_style = request.POST.get("font_style", "").strip()
+        if font_style in ("clean", "serif", "bold"):
+            template_obj.font_style = font_style
+
+        template_obj.show_property_address = request.POST.get("show_property_address") == "on"
+        template_obj.show_service_date = request.POST.get("show_service_date") == "on"
+        template_obj.show_photos = request.POST.get("show_photos") == "on"
         template_obj.header_text = request.POST.get("header_text", "").strip()
         template_obj.footer_text = request.POST.get("footer_text", "").strip()
         template_obj.terms_and_conditions = request.POST.get("terms_and_conditions", "").strip()
+        template_obj.payment_instructions = request.POST.get("payment_instructions", "").strip()
 
         # Parse custom fields
         keys = request.POST.getlist("custom_field_key")
@@ -3245,6 +4827,11 @@ def document_template_edit(request, doc_type):
     form = DocumentTemplateForm(instance=template_obj)
 
     logo_url = _get_logo_url(business, request)
+    preview_document = None
+    if doc_type == "estimate":
+        preview_document = Estimate.objects.filter(business=business).order_by("-updated_at", "-id").first()
+    else:
+        preview_document = Invoice.objects.filter(business=business).order_by("-issue_date", "-id").first()
 
     return render(request, "billing/document_template_edit.html", {
         "form": form,
@@ -3252,6 +4839,7 @@ def document_template_edit(request, doc_type):
         "template_obj": template_obj,
         "business": business,
         "logo_url": logo_url,
+        "preview_document": preview_document,
     })
 
 
@@ -3563,15 +5151,26 @@ def estimate_queue_discard(request, estimate_id):
 @role_required("owner", "manager")
 def promotion_list(request):
     """List and manage promotions."""
-    from .models import Promotion
     business = _get_business(request)
     if not business:
         return redirect("/")
-    promos = Promotion.objects.filter(business=business).select_related("customer").order_by("-created_at")
+    promos = Promotion.objects.filter(business=business).select_related("customer").prefetch_related("redemptions").order_by("-created_at")
     customers = Customer.objects.filter(business=business).order_by("name")
+    redemptions = PromotionRedemption.objects.filter(business=business).select_related("promotion", "customer", "invoice")[:25]
+    promo_stats = {
+        "total": promos.count(),
+        "active": promos.filter(status="active").count(),
+        "ready": sum(1 for promo in promos if promo.is_ready_to_redeem),
+        "redemptions": PromotionRedemption.objects.filter(business=business).count(),
+        "discount_total": PromotionRedemption.objects.filter(business=business).aggregate(
+            total=Coalesce(Sum("discount_amount"), Decimal("0"))
+        )["total"],
+    }
     return render(request, "billing/promotion_list.html", {
         "promos": promos,
         "customers": customers,
+        "redemptions": redemptions,
+        "promo_stats": promo_stats,
     })
 
 
@@ -3579,7 +5178,6 @@ def promotion_list(request):
 @role_required("owner", "manager")
 def promotion_create(request):
     """Create a new promotion."""
-    from .models import Promotion
     business = _get_business(request)
     if not business:
         return redirect("/")
@@ -3589,21 +5187,27 @@ def promotion_create(request):
         return redirect("billing:promotion_list")
 
     promo_type = request.POST.get("promo_type", "buy_x_get_free")
+    code = (request.POST.get("code") or "").strip().upper()
     customer_id = request.POST.get("customer_id")
     customer = None
     if customer_id:
         customer = Customer.objects.filter(id=customer_id, business=business).first()
 
+    valid_from = request.POST.get("valid_from") or None
+    valid_until = request.POST.get("valid_until") or None
     promo = Promotion.objects.create(
         business=business,
         customer=customer,
         name=name,
+        code=code,
         promo_type=promo_type,
         service_name=request.POST.get("service_name", "").strip(),
         buy_quantity=int(request.POST.get("buy_quantity") or 0) or None,
         free_quantity=int(request.POST.get("free_quantity") or 1) or 1,
         discount_value=request.POST.get("discount_value") or None,
         notes=request.POST.get("notes", "").strip(),
+        valid_from=valid_from,
+        valid_until=valid_until,
     )
     messages.success(request, f"Promotion '{name}' created.")
     return redirect("billing:promotion_list")
@@ -3613,7 +5217,6 @@ def promotion_create(request):
 @role_required("owner", "manager")
 def promotion_update_count(request, promo_id):
     """Increment or set the current count for a buy-X-get-free promotion."""
-    from .models import Promotion
     business = _get_business(request)
     promo = get_object_or_404(Promotion, id=promo_id, business=business)
     action = request.POST.get("action", "increment")
@@ -3630,7 +5233,6 @@ def promotion_update_count(request, promo_id):
 @role_required("owner", "manager")
 def promotion_redeem(request, promo_id):
     """Mark a promotion as redeemed."""
-    from .models import Promotion
     business = _get_business(request)
     promo = get_object_or_404(Promotion, id=promo_id, business=business)
     promo.status = "redeemed"

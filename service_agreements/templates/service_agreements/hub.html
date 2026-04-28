@@ -1,81 +1,124 @@
 {% extends "base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/service-agreements.css' %}">
+{% endblock %}
 
 {% block content %}
-<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
-  <div>
-    <h1>Service Agreements</h1>
-    <p>Manage maintenance plans and service contracts</p>
-  </div>
-  <div style="display:flex;gap:8px;">
-    <a href="{% url 'service_agreements:agreement_create' %}" class="btn btn-primary">+ Create Contract</a>
-    <a href="{% url 'service_agreements:hub' %}" class="btn btn-secondary">← Back to Maintenance Hub</a>
-  </div>
-</div>
+<section class="agreement-command">
+  <header class="ag-hero">
+    <div>
+      <div class="ag-kicker"><span></span>Contract Library</div>
+      <h1>Service agreements</h1>
+      <p>Review every customer commitment, status, visit allowance, and prepaid plan from one organized contract view.</p>
+    </div>
+    <div class="ag-actions">
+      <a href="{% url 'service_agreements:agreement_create' %}" class="ag-action ag-action-hot">
+        <span class="material-symbols-outlined" style="font-size:18px;">add</span>
+        Create Contract
+      </a>
+      <a href="{% url 'service_agreements:hub' %}" class="ag-action">
+        <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span>
+        Command Hub
+      </a>
+    </div>
+  </header>
 
-{% if agreements %}
-<div class="card" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Plan</th>
-        <th>Customer</th>
-        <th>Visits</th>
-        <th>Price</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for ag in agreements %}
-      <tr style="cursor:pointer;" onclick="window.location='{% url 'service_agreements:agreement_detail' ag.id %}'">
-        <td>
-          <strong style="color:var(--primary);">{{ ag.name }}</strong>
-          <span style="color: var(--text-muted); font-size: 12px; display: block;">
-            {{ ag.start_date|date:"M j, Y" }}{% if ag.end_date %} — {{ ag.end_date|date:"M j, Y" }}{% endif %}
-          </span>
-        </td>
-        <td>{{ ag.customer.name }}</td>
-        <td>
-          {% if ag.visits_included %}
-            <strong>{{ ag.visits_used }}/{{ ag.visits_included }}</strong>
-            {% if ag.visits_remaining == 0 %}
-              <span style="color: #f87171; font-size: 11px;">(done)</span>
-            {% endif %}
-          {% else %}
-            <span style="color: var(--text-muted);">—</span>
-          {% endif %}
-        </td>
-        <td>
-          {% if ag.price %}
-            ${{ ag.price|floatformat:2 }}
-            <span style="color: var(--text-muted); font-size: 11px;">/yr</span>
-          {% else %}
-            <span style="color: var(--text-muted);">—</span>
-          {% endif %}
-        </td>
-        <td>
-          {% if ag.status == "active" %}
-            <span class="badge badge-scheduled" style="font-size:10px;">Active</span>
-          {% elif ag.status == "draft" %}
-            <span class="badge" style="font-size:10px;background:var(--surface-highest);color:var(--text-muted);">Draft</span>
-          {% elif ag.status == "expired" %}
-            <span class="badge" style="font-size:10px;background:rgba(245,158,11,0.15);color:#f59e0b;">Expired</span>
-          {% else %}
-            <span class="badge" style="font-size:10px;background:rgba(248,113,113,0.15);color:#f87171;">Cancelled</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% else %}
-<div class="card" style="text-align:center;padding:48px 24px;">
-  <span class="material-symbols-outlined" style="font-size:48px;color:var(--text-muted);margin-bottom:12px;">event_repeat</span>
-  <p style="color:var(--text-muted);margin-bottom:16px;">No contracts yet. Create a maintenance contract to track services like mowing, mulching, bush trimming, and more.</p>
-  <div style="display:flex;gap:8px;justify-content:center;">
-    <a href="{% url 'service_agreements:agreement_create' %}" class="btn btn-primary">+ Create Contract</a>
-    <a href="{% url 'service_agreements:hub' %}" class="btn btn-secondary">← Back to Maintenance Hub</a>
+  <div class="ag-stats" style="grid-template-columns:repeat(4,minmax(0,1fr));">
+    <div class="ag-stat">
+      <span class="ag-stat-num">{{ total_count }}</span>
+      <span class="ag-stat-label">Total</span>
+      <span class="ag-stat-sub">all contracts</span>
+    </div>
+    <div class="ag-stat">
+      <span class="ag-stat-num">{{ active_count }}</span>
+      <span class="ag-stat-label">Active</span>
+      <span class="ag-stat-sub">currently running</span>
+    </div>
+    <div class="ag-stat">
+      <span class="ag-stat-num">{{ draft_count }}</span>
+      <span class="ag-stat-label">Drafts</span>
+      <span class="ag-stat-sub">not active yet</span>
+    </div>
+    <div class="ag-stat">
+      <span class="ag-stat-num">{{ prepaid_count }}</span>
+      <span class="ag-stat-label">Prepaid</span>
+      <span class="ag-stat-sub">covered billing</span>
+    </div>
   </div>
-</div>
-{% endif %}
+
+  {% if agreements %}
+  <div class="ag-panel">
+    <div class="ag-panel-head">
+      <div>
+        <div class="ag-panel-kicker">Agreement queue</div>
+        <h2>All contracts</h2>
+      </div>
+    </div>
+    <div class="ag-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Plan</th>
+            <th>Customer</th>
+            <th>Visits</th>
+            <th>Price</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ag in agreements %}
+          <tr style="cursor:pointer;" onclick="window.location='{% url 'service_agreements:agreement_detail' ag.id %}'">
+            <td>
+              <strong style="color:var(--ag-accent);">{{ ag.name }}</strong>
+              <span class="ag-muted" style="font-size:12px;display:block;">
+                {{ ag.start_date|date:"M j, Y" }}{% if ag.end_date %} - {{ ag.end_date|date:"M j, Y" }}{% endif %}
+              </span>
+            </td>
+            <td>{{ ag.customer.name }}</td>
+            <td>
+              {% if ag.visits_included %}
+              <strong>{{ ag.visits_used }}/{{ ag.visits_included }}</strong>
+              {% if ag.visits_remaining == 0 %}<span class="ag-pill ag-pill-danger">Done</span>{% endif %}
+              {% else %}
+              <span class="ag-muted">As needed</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if ag.price %}
+              ${{ ag.price|floatformat:2 }} <span class="ag-muted" style="font-size:11px;">/yr</span>
+              {% else %}
+              <span class="ag-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if ag.status == "active" %}
+              <span class="ag-pill ag-pill-hot">Active</span>
+              {% elif ag.status == "draft" %}
+              <span class="ag-pill">Draft</span>
+              {% elif ag.status == "expired" %}
+              <span class="ag-pill">Expired</span>
+              {% else %}
+              <span class="ag-pill ag-pill-danger">Cancelled</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="ag-empty">
+    <span class="material-symbols-outlined">event_repeat</span>
+    <h2>No contracts yet</h2>
+    <p class="ag-muted">Create a maintenance contract to track services like mowing, mulching, bush trimming, cleanups, and fertilization.</p>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px;">
+      <a href="{% url 'service_agreements:agreement_create' %}" class="ag-action ag-action-hot" style="width:auto;">Create Contract</a>
+      <a href="{% url 'service_agreements:hub' %}" class="ag-action" style="width:auto;">Command Hub</a>
+    </div>
+  </div>
+  {% endif %}
+</section>
 {% endblock %}

@@ -6,23 +6,281 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Estimate Accepted</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5; color: #1e293b; max-width: 480px; margin: 60px auto; padding: 24px; text-align: center; background: #f8fafc; }
-    .card { background: #d1fae5; border: 2px solid #16a34a; border-radius: 16px; padding: 40px; }
-    .doc-logo { margin-bottom: 20px; }
-    .doc-logo img { max-height: 48px; max-width: 160px; object-fit: contain; }
-    h1 { color: #065f46; margin: 0 0 12px 0; font-size: 28px; }
-    p { margin: 0; color: #15803d; font-size: 18px; }
-    .total { font-size: 24px; font-weight: 700; margin-top: 16px; }
+    :root {
+      color-scheme: dark;
+      --bg: #070807;
+      --panel: rgba(32, 34, 32, .92);
+      --line: rgba(255, 255, 255, .14);
+      --text: #f4f4f0;
+      --muted: rgba(244, 244, 240, .62);
+      --accent: #9bef45;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(155, 239, 69, .18), transparent 28rem),
+        linear-gradient(135deg, #101210, var(--bg) 58%);
+      padding: clamp(22px, 5vw, 56px);
+    }
+    .shell {
+      width: min(980px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+    .brand img {
+      max-width: 150px;
+      max-height: 54px;
+      object-fit: contain;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: linear-gradient(145deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .025)), var(--panel);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, .42);
+      padding: clamp(24px, 5vw, 48px);
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: 1.3fr .7fr;
+      gap: 24px;
+      align-items: end;
+    }
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+    .kicker::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 24px rgba(155, 239, 69, .75);
+    }
+    h1 {
+      margin: 18px 0 12px;
+      font-size: clamp(42px, 9vw, 94px);
+      line-height: .9;
+      letter-spacing: 0;
+    }
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(16px, 2.2vw, 20px);
+    }
+    .amount {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      background: rgba(0, 0, 0, .24);
+    }
+    .amount span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .amount strong {
+      font-size: clamp(34px, 6vw, 58px);
+      line-height: 1;
+    }
+    .next {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+      border-top: 1px solid var(--line);
+      margin-top: 28px;
+      padding-top: 24px;
+    }
+    .next h2 {
+      margin: 0 0 8px;
+      font-size: clamp(22px, 4vw, 32px);
+    }
+    .btn {
+      border: 0;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #081005;
+      font: inherit;
+      font-weight: 900;
+      padding: 16px 22px;
+      cursor: pointer;
+      box-shadow: 0 18px 42px rgba(155, 239, 69, .25);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 54px;
+      white-space: nowrap;
+    }
+    .manual {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      margin-top: 16px;
+      background: rgba(0, 0, 0, .22);
+      color: var(--muted);
+      white-space: pre-line;
+    }
+    .payment-methods {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .payment-method {
+      display: grid;
+      gap: 6px;
+      min-height: 88px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      background: rgba(0, 0, 0, .22);
+      color: var(--text);
+      text-decoration: none;
+    }
+    .payment-method strong {
+      font-size: 16px;
+    }
+    .payment-method small {
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      min-height: 46px;
+      padding: 0 16px;
+      background: rgba(155, 239, 69, .12);
+      color: var(--accent);
+      font-weight: 900;
+    }
+    @media (max-width: 760px) {
+      .hero,
+      .next { grid-template-columns: 1fr; }
+      .btn { width: 100%; }
+      .payment-methods { grid-template-columns: 1fr; }
+      .card { border-radius: 24px; }
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    {% if estimate.business.logo %}
-    <div class="doc-logo"><img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}" onerror="this.parentElement.style.display='none'"></div>
-    {% endif %}
-    <h1>Thank you!</h1>
-    <p>You've accepted the estimate for <strong>{{ accepted_total|currency }}</strong>.</p>
-    <p style="margin-top: 16px; font-size: 14px;">{{ estimate.business.name }} will be in touch shortly.</p>
-  </div>
+  <main class="shell">
+    <div class="brand">
+      {% if estimate.business.logo %}
+        <img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}" onerror="this.remove()">
+      {% endif %}
+      <span>{{ estimate.business.name }}</span>
+    </div>
+
+    <section class="card">
+      <div class="hero">
+        <div>
+          <span class="kicker">Estimate accepted</span>
+          <h1>You're all set.</h1>
+          <p>{{ estimate.business.name }} has received your approval for {{ estimate.title|default:"this estimate" }}.</p>
+        </div>
+        <div class="amount">
+          <span>Approved total</span>
+          <strong>{{ accepted_total|currency }}</strong>
+        </div>
+      </div>
+
+      <div class="next">
+        <div>
+          {% if estimate.deposit_required and deposit_due > 0 %}
+            {% if estimate.deposit_paid or deposit_state == "paid" %}
+              <h2>Deposit received</h2>
+              <p>Your deposit payment is recorded. The team will follow up with next steps.</p>
+            {% elif can_accept_card_deposit %}
+              <h2>Deposit due</h2>
+              <p>A {{ deposit_due|currency }} deposit is required to secure this work.</p>
+            {% else %}
+              <h2>Deposit due</h2>
+              <p>A {{ deposit_due|currency }} deposit is required. {{ estimate.business.name }} will collect it using their preferred payment method.</p>
+            {% endif %}
+          {% else %}
+            <h2>No deposit needed</h2>
+            <p>The team will follow up with scheduling and next steps.</p>
+          {% endif %}
+        </div>
+
+        {% if estimate.deposit_required and deposit_due > 0 %}
+          {% if estimate.deposit_paid or deposit_state == "paid" %}
+            <span class="status">Paid</span>
+          {% elif can_accept_card_deposit %}
+            <form method="post" action="{% url 'billing:create_estimate_deposit_checkout' estimate.id token %}">
+              {% csrf_token %}
+              <button type="submit" class="btn">Pay {{ deposit_due|currency }} deposit</button>
+            </form>
+          {% else %}
+            <span class="status">Pending</span>
+          {% endif %}
+        {% else %}
+          <span class="status">Accepted</span>
+        {% endif %}
+      </div>
+
+      {% if estimate.deposit_required and not estimate.deposit_paid and not can_accept_card_deposit and doc_template.payment_instructions %}
+        <div class="manual">{{ doc_template.payment_instructions }}</div>
+      {% endif %}
+
+      {% if estimate.deposit_required and deposit_due > 0 and not estimate.deposit_paid and not can_accept_card_deposit and has_payment_methods %}
+      <div class="payment-methods" aria-label="Payment methods">
+        {% if venmo_link %}
+        <a href="{{ venmo_link }}" class="payment-method" target="_blank" rel="noopener">
+          <strong>Venmo</strong>
+          <small>{{ estimate.business.venmo_username }}</small>
+        </a>
+        {% endif %}
+        {% if paypal_link %}
+        <a href="{{ paypal_link }}" class="payment-method" target="_blank" rel="noopener">
+          <strong>PayPal</strong>
+          <small>Open PayPal to send the deposit.</small>
+        </a>
+        {% endif %}
+        {% if estimate.business.zelle_email_or_phone %}
+        <div class="payment-method">
+          <strong>Zelle</strong>
+          <small>{{ estimate.business.zelle_email_or_phone }}</small>
+        </div>
+        {% endif %}
+        {% if cashapp_link %}
+        <a href="{{ cashapp_link }}" class="payment-method" target="_blank" rel="noopener">
+          <strong>Cash App</strong>
+          <small>{{ estimate.business.cashapp_cashtag }}</small>
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </section>
+  </main>
 </body>
 </html>

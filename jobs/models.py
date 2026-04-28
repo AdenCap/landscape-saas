@@ -387,6 +387,11 @@ class JobServiceItem(models.Model):
         service = models.ForeignKey(ServiceTemplate, on_delete=models.PROTECT)
 
         description = models.CharField(max_length=255, blank=True)  # optional override label
+        detail_description = models.TextField(
+            blank=True,
+            default="",
+            help_text="Optional detailed description shown below the service name on job and invoice line items.",
+        )
         quantity = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("1.00"))
 
         # Snapshot pricing used for this job (copied from property override or template at time of adding)
@@ -462,6 +467,12 @@ class RecurringJob(models.Model):
 
 class JobNote(models.Model):
     """Timestamped note on a job. Crew, managers, and owners can add. Visible to all assigned."""
+    VISIBILITY_CREW = "crew"
+    VISIBILITY_INTERNAL = "internal"
+    VISIBILITY_CHOICES = [
+        (VISIBILITY_CREW, "Crew visible"),
+        (VISIBILITY_INTERNAL, "Internal only"),
+    ]
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="job_notes")
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -470,6 +481,7 @@ class JobNote(models.Model):
         related_name="job_notes_authored",
     )
     text = models.TextField()
+    visibility = models.CharField(max_length=12, choices=VISIBILITY_CHOICES, default=VISIBILITY_CREW)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -481,6 +493,12 @@ class JobNote(models.Model):
 
 class PropertyNote(models.Model):
     """Note on a property (visible across all jobs at this property). Any role can add."""
+    VISIBILITY_CREW = "crew"
+    VISIBILITY_INTERNAL = "internal"
+    VISIBILITY_CHOICES = [
+        (VISIBILITY_CREW, "Crew visible"),
+        (VISIBILITY_INTERNAL, "Internal only"),
+    ]
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="property_notes")
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -489,6 +507,7 @@ class PropertyNote(models.Model):
         related_name="property_notes_authored",
     )
     text = models.TextField()
+    visibility = models.CharField(max_length=12, choices=VISIBILITY_CHOICES, default=VISIBILITY_CREW)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -496,4 +515,3 @@ class PropertyNote(models.Model):
 
     def __str__(self):
         return f"Note on {self.property.address} by {self.author}"
-

@@ -76,6 +76,20 @@
   --text-base: 14px;
   --text-lg: 16px;
   --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 34px;
+
+  --type-label-size: var(--text-xs);
+  --type-caption-size: var(--text-sm);
+  --type-body-size: var(--text-base);
+  --type-control-size: var(--text-lg);
+  --type-title-size: var(--text-xl);
+  --type-metric-size: var(--text-3xl);
+  --type-label-weight: 900;
+  --type-body-weight: 500;
+  --type-strong-weight: 800;
+  --type-display-weight: 900;
+  --type-label-spacing: 0.12em;
 
   --h1: clamp(28px, 4vw, 40px);
   --h2: clamp(22px, 3vw, 28px);
@@ -87,7 +101,7 @@
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.6;
 
-  --letter-spacing-tight: -0.02em;
+  --letter-spacing-tight: 0;
   --letter-spacing-normal: 0;
 
   /* Border Radius */
@@ -188,7 +202,7 @@ body {
   color: var(--text);
   background: var(--bg);
   min-height: 100vh;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--letter-spacing-normal);
 }
 
 /* Typography */
@@ -352,8 +366,8 @@ a:hover {
   align-items: center;
   gap: 6px;
   padding: 10px 18px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--type-body-size);
+  font-weight: var(--type-strong-weight);
   border-radius: 1rem;
   text-decoration: none;
   color: var(--text-muted);
@@ -375,7 +389,7 @@ a:hover {
   font-weight: 700;
 }
 @media (max-width: 768px) {
-  .billing-tab { min-height: 44px; padding: 10px 16px; font-size: 13px; }
+  .billing-tab { min-height: 44px; padding: 10px 16px; font-size: var(--text-sm); }
 }
 
 /* Containers */
@@ -613,8 +627,8 @@ a:hover {
   gap: 4px;
   padding: 3px 10px;
   border-radius: var(--radius-full);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-strong-weight);
   line-height: 1.4;
   white-space: nowrap;
 }
@@ -1186,7 +1200,7 @@ a:hover {
   .data-table th,
   .data-table td {
     padding: 10px 8px;
-    font-size: 13px;
+    font-size: var(--text-sm);
   }
   /* Hide columns with .hide-mobile class */
   .hide-mobile { display: none !important; }
@@ -1200,17 +1214,17 @@ a:hover {
 
   /* Page headers: tighter spacing */
   .page-header { margin-bottom: 16px; }
-  .page-header h1 { font-size: 24px; }
+  .page-header h1 { font-size: var(--text-2xl); }
 
   /* Forms: ensure 16px to prevent iOS zoom */
-  .form-control { font-size: 16px; padding: 12px 14px; min-height: 44px; }
+  .form-control { font-size: var(--type-control-size); padding: 12px 14px; min-height: 44px; }
   select.form-control { min-height: 44px; }
 
   /* Same sizing for bare inputs inside form groups (safety net) */
   .form-group input:not([type="checkbox"]):not([type="radio"]):not(.form-control),
   .form-group select:not(.form-control),
   .form-group textarea:not(.form-control) {
-    font-size: 16px;
+    font-size: var(--type-control-size);
     padding: 12px 14px;
     min-height: 44px;
   }
@@ -1250,7 +1264,7 @@ a:hover {
   .form-control { min-height: 40px; }
 
   /* Page headers: slightly tighter */
-  .page-header h1 { font-size: 26px; }
+  .page-header h1 { font-size: var(--h2); }
 
   /* Form rows: keep 2-column layout */
   .form-row { grid-template-columns: 1fr 1fr; }

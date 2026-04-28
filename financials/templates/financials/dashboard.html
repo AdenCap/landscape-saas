@@ -1,215 +1,755 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Financials</h1>
-  <p>{{ today|date:"F Y" }} &middot; Real-time business performance</p>
-</div>
-
-<div class="billing-tabs" style="margin-bottom:16px;">
-  <a href="{% url 'financials:dashboard' %}" class="billing-tab active">Overview</a>
-  <a href="{% url 'financials:revenue_breakdown' %}" class="billing-tab">Revenue</a>
-  <a href="{% url 'financials:receipt_list' %}" class="billing-tab">Receipts</a>
-  <a href="{% url 'financials:overhead_hub' %}" class="billing-tab">Business Costs</a>
-</div>
-
-<!-- KPI Cards -->
-<div class="fin-kpi-row">
-  <div class="fin-kpi">
-    <span class="fin-kpi-label">Revenue This Month</span>
-    <span class="fin-kpi-num">${{ revenue_month|floatformat:0 }}</span>
-    <span class="fin-kpi-sub">
-      {% if revenue_change_pct > 0 %}<span style="color:var(--primary);">&#9650; {{ revenue_change_pct }}%</span>{% elif revenue_change_pct < 0 %}<span style="color:#f87171;">&#9660; {{ revenue_change_pct }}%</span>{% else %}<span style="color:var(--text-muted);">—</span>{% endif %} vs last month
-    </span>
-  </div>
-  <div class="fin-kpi">
-    <span class="fin-kpi-label">Profit This Month</span>
-    <span class="fin-kpi-num" style="color:{% if profit_month >= 0 %}var(--primary){% else %}#f87171{% endif %};">${{ profit_month|floatformat:0 }}</span>
-    <span class="fin-kpi-sub">Revenue minus costs</span>
-  </div>
-  <div class="fin-kpi">
-    <span class="fin-kpi-label">Outstanding</span>
-    <span class="fin-kpi-num">${{ ar_outstanding|floatformat:0 }}</span>
-    <span class="fin-kpi-sub">Unpaid invoices</span>
-  </div>
-  <div class="fin-kpi {% if overdue_count %}fin-kpi-alert{% endif %}">
-    <span class="fin-kpi-label">Overdue</span>
-    <span class="fin-kpi-num" style="{% if overdue_count %}color:#f87171;{% endif %}">${{ overdue_total|floatformat:0 }}</span>
-    <span class="fin-kpi-sub">{{ overdue_count }} invoice{{ overdue_count|pluralize }}</span>
-  </div>
-</div>
-
-<!-- Charts Row -->
-<div class="fin-charts-row">
-  <div class="card">
-    <h3 class="fin-card-title">Revenue & Profit</h3>
-    <p style="font-size:11px;color:var(--text-muted);margin:-4px 0 12px;">Last 6 months &middot; YTD: ${{ revenue_year|floatformat:0 }}</p>
-    <div style="position:relative;height:220px;"><canvas id="rev-profit-chart"></canvas></div>
-  </div>
-  <div class="card">
-    <h3 class="fin-card-title">Annual Cost Breakdown</h3>
-    <p style="font-size:11px;color:var(--text-muted);margin:-4px 0 12px;">Where your money goes</p>
-    <div id="expense-chart-wrap" style="position:relative;height:220px;display:flex;align-items:center;justify-content:center;"><canvas id="expense-chart"></canvas></div>
-  </div>
-</div>
-
-<!-- Action Lists Row -->
-<div class="fin-lists-row">
-  <!-- Overdue Invoices + Aging -->
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <h3 class="fin-card-title" style="margin:0;">Overdue Invoices</h3>
-      <a href="{% url 'billing:invoice_list' %}" style="font-size:12px;color:var(--primary);text-decoration:none;font-weight:600;">View all &rarr;</a>
+<section class="money-command">
+  <header class="mc-hero">
+    <div class="mc-hero-copy">
+      <a href="{% url 'owner_dashboard' %}" class="mc-back">&larr; Dashboard</a>
+      <div class="mc-kicker"><span></span>Money Command</div>
+      <h1>Financials</h1>
+      <p>{{ today|date:"F Y" }} &middot; Revenue, profit, collections, and business costs in one owner view.</p>
     </div>
-    {% if overdue_count %}
-    <div style="display:flex;gap:8px;margin-bottom:14px;">
-      <div class="fin-aging-bar" style="flex:1;">
-        <span class="fin-aging-label">0–30d</span>
-        <span class="fin-aging-val">${{ aging_0_30.total|floatformat:0 }}</span>
-        <div class="fin-aging-track"><div class="fin-aging-fill" style="width:{% if overdue_total %}{% widthratio aging_0_30.total overdue_total 100 %}{% else %}0{% endif %}%;background:var(--primary);"></div></div>
-        <span class="fin-aging-count">{{ aging_0_30.count }}</span>
-      </div>
-      <div class="fin-aging-bar" style="flex:1;">
-        <span class="fin-aging-label">30–60d</span>
-        <span class="fin-aging-val">${{ aging_30_60.total|floatformat:0 }}</span>
-        <div class="fin-aging-track"><div class="fin-aging-fill" style="width:{% if overdue_total %}{% widthratio aging_30_60.total overdue_total 100 %}{% else %}0{% endif %}%;background:#f59e0b;"></div></div>
-        <span class="fin-aging-count">{{ aging_30_60.count }}</span>
-      </div>
-      <div class="fin-aging-bar" style="flex:1;">
-        <span class="fin-aging-label">60+d</span>
-        <span class="fin-aging-val">${{ aging_60_plus.total|floatformat:0 }}</span>
-        <div class="fin-aging-track"><div class="fin-aging-fill" style="width:{% if overdue_total %}{% widthratio aging_60_plus.total overdue_total 100 %}{% else %}0{% endif %}%;background:#f87171;"></div></div>
-        <span class="fin-aging-count">{{ aging_60_plus.count }}</span>
-      </div>
+    <div class="mc-actions">
+      <a href="{% url 'billing:invoice_list' %}" class="mc-action mc-action-primary">Invoices</a>
+      <a href="{% url 'financials:receipt_upload' %}" class="mc-action">Upload receipt</a>
+      <a href="{% url 'financials:overhead_hub' %}" class="mc-action">Business costs</a>
     </div>
-    {% endif %}
-    {% for inv in overdue_invoices %}
-    <a href="{% url 'billing:invoice_detail' inv.id %}" class="fin-inv-row">
-      <span class="fin-inv-name">{{ inv.customer.name }}</span>
-      <span class="fin-inv-amt">${{ inv.total|floatformat:2 }}</span>
-      <span class="fin-inv-date">Due {{ inv.due_date|date:"M j" }}</span>
+  </header>
+
+  <nav class="mc-tabs" aria-label="Financial sections">
+    <a href="{% url 'financials:dashboard' %}" class="mc-tab active">Overview</a>
+    <a href="{% url 'financials:revenue_breakdown' %}" class="mc-tab">Revenue</a>
+    <a href="{% url 'financials:receipt_list' %}" class="mc-tab">Receipts</a>
+    <a href="{% url 'financials:overhead_hub' %}" class="mc-tab">Business Costs</a>
+  </nav>
+
+  <div class="mc-summary-grid" aria-label="Financial summary">
+    <a href="{% url 'billing:invoice_list' %}" class="mc-stat">
+      <span>Collected month</span>
+      <strong>${{ revenue_month|floatformat:0 }}</strong>
+      <small>{{ paid_month_count }} paid invoice{{ paid_month_count|pluralize }} &middot; YTD ${{ revenue_year|floatformat:0 }}</small>
     </a>
-    {% empty %}
-    <p style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px 0;">No overdue invoices &#10003;</p>
-    {% endfor %}
+    <article class="mc-stat">
+      <span>Work profit</span>
+      <strong class="{% if profit_month < 0 %}mc-danger{% else %}mc-positive{% endif %}">${{ profit_month|floatformat:0 }}</strong>
+      <small>{{ profit_margin_month|floatformat:0 }}% margin after tracked costs</small>
+    </article>
+    <a href="{% url 'billing:invoice_list' %}" class="mc-stat">
+      <span>Outstanding</span>
+      <strong>${{ ar_outstanding|floatformat:0 }}</strong>
+      <small>{{ sent_invoices_count }} sent invoice{{ sent_invoices_count|pluralize }} waiting</small>
+    </a>
+    <a href="{% url 'billing:invoice_list' %}" class="mc-stat {% if overdue_count %}mc-stat-alert{% endif %}">
+      <span>Overdue</span>
+      <strong class="{% if overdue_count %}mc-danger{% endif %}">${{ overdue_total|floatformat:0 }}</strong>
+      <small>{{ overdue_count }} invoice{{ overdue_count|pluralize }} need follow-up</small>
+    </a>
   </div>
 
-  <!-- Drafts to Send -->
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <h3 class="fin-card-title" style="margin:0;">Drafts to Send <span style="font-size:11px;font-weight:600;background:var(--surface-highest);padding:2px 6px;border-radius:4px;margin-left:4px;">{{ drafts_count }}</span></h3>
-      <span style="font-size:12px;color:var(--text-muted);">${{ drafts_total|floatformat:0 }}</span>
+  <section class="mc-command-panel">
+    <div class="mc-panel-main">
+      <div class="mc-panel-head">
+        <div>
+          <span class="mc-section-label">Cash pulse</span>
+          <h2>Month performance</h2>
+        </div>
+        <div class="mc-collection">
+          <strong>{{ collection_rate|floatformat:0 }}%</strong>
+          <span>collection rate</span>
+        </div>
+      </div>
+      <div class="mc-flow">
+        <div class="mc-flow-item">
+          <span>Collected</span>
+          <strong>${{ revenue_month|floatformat:0 }}</strong>
+        </div>
+        <div class="mc-flow-line"></div>
+        <div class="mc-flow-item">
+          <span>Tracked costs</span>
+          <strong>${{ total_costs_month|floatformat:0 }}</strong>
+        </div>
+        <div class="mc-flow-line"></div>
+        <div class="mc-flow-item">
+          <span>Profit</span>
+          <strong class="{% if profit_month < 0 %}mc-danger{% else %}mc-positive{% endif %}">${{ profit_month|floatformat:0 }}</strong>
+        </div>
+      </div>
+      <div class="mc-mini-grid">
+        <div><span>Receipts</span><strong>${{ expenses_month|floatformat:0 }}</strong></div>
+        <div><span>Labor</span><strong>${{ labor_month|floatformat:0 }}</strong></div>
+        <div><span>Draft queue</span><strong>{{ drafts_count }}</strong></div>
+        <div><span>Draft value</span><strong>${{ drafts_total|floatformat:0 }}</strong></div>
+      </div>
     </div>
-    {% for inv in drafts %}
-    <a href="{% url 'billing:invoice_detail' inv.id %}" class="fin-inv-row">
-      <span class="fin-inv-name">{{ inv.customer.name }}</span>
-      <span class="fin-inv-amt">${{ inv.total|floatformat:2 }}</span>
-      <span class="fin-inv-date">#{{ inv.id }}</span>
-    </a>
-    {% empty %}
-    <p style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px 0;">No drafts — all caught up &#10003;</p>
-    {% endfor %}
+    <aside class="mc-panel-side">
+      <span class="mc-section-label">Owner brief</span>
+      {% if overdue_count %}
+      <h3>Collections need attention</h3>
+      <p>${{ overdue_total|floatformat:0 }} is overdue across {{ overdue_count }} invoice{{ overdue_count|pluralize }}.</p>
+      <a href="{% url 'billing:invoice_list' %}" class="mc-side-link">Open invoices</a>
+      {% elif drafts_count %}
+      <h3>Drafts are waiting</h3>
+      <p>{{ drafts_count }} draft invoice{{ drafts_count|pluralize }} worth ${{ drafts_total|floatformat:0 }} can be reviewed and sent.</p>
+      <a href="{% url 'billing:invoice_list' %}" class="mc-side-link">Review drafts</a>
+      {% else %}
+      <h3>Money flow looks steady</h3>
+      <p>No overdue invoices or draft invoices are blocking the billing queue right now.</p>
+      <a href="{% url 'financials:revenue_breakdown' %}" class="mc-side-link">Review revenue</a>
+      {% endif %}
+    </aside>
+  </section>
+
+  <div class="mc-charts-grid">
+    <section class="mc-card">
+      <div class="mc-card-head">
+        <div>
+          <span class="mc-section-label">Trend</span>
+          <h2>Revenue &amp; profit</h2>
+        </div>
+        <span class="mc-pill">Last 6 months</span>
+      </div>
+      <div class="mc-chart-wrap"><canvas id="rev-profit-chart"></canvas></div>
+      <div class="mc-chart-fallback" id="rev-profit-fallback">
+        {% for label in monthly_labels %}
+        <span>{{ label }}</span>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="mc-card">
+      <div class="mc-card-head">
+        <div>
+          <span class="mc-section-label">Cost mix</span>
+          <h2>Annual costs</h2>
+        </div>
+        <span class="mc-pill">Tracked</span>
+      </div>
+      <div class="mc-cost-grid">
+        {% for item in expense_breakdown %}
+        <div class="mc-cost-row">
+          <span>{{ item.label }}</span>
+          <strong>${{ item.value|floatformat:0 }}</strong>
+        </div>
+        {% endfor %}
+      </div>
+      <div id="expense-chart-wrap" class="mc-donut-wrap"><canvas id="expense-chart"></canvas></div>
+    </section>
   </div>
-</div>
+
+  <div class="mc-lists-grid">
+    <section class="mc-card">
+      <div class="mc-card-head">
+        <div>
+          <span class="mc-section-label">Collections</span>
+          <h2>Overdue invoices</h2>
+        </div>
+        <a href="{% url 'billing:invoice_list' %}" class="mc-pill-link">View all</a>
+      </div>
+      {% if overdue_count %}
+      <div class="mc-aging">
+        <div>
+          <span>0-30d</span>
+          <strong>${{ aging_0_30.total|floatformat:0 }}</strong>
+          <i><b style="width:{% if overdue_total %}{% widthratio aging_0_30.total overdue_total 100 %}{% else %}0{% endif %}%"></b></i>
+          <small>{{ aging_0_30.count }}</small>
+        </div>
+        <div>
+          <span>30-60d</span>
+          <strong>${{ aging_30_60.total|floatformat:0 }}</strong>
+          <i><b style="width:{% if overdue_total %}{% widthratio aging_30_60.total overdue_total 100 %}{% else %}0{% endif %}%"></b></i>
+          <small>{{ aging_30_60.count }}</small>
+        </div>
+        <div>
+          <span>60+d</span>
+          <strong>${{ aging_60_plus.total|floatformat:0 }}</strong>
+          <i><b style="width:{% if overdue_total %}{% widthratio aging_60_plus.total overdue_total 100 %}{% else %}0{% endif %}%"></b></i>
+          <small>{{ aging_60_plus.count }}</small>
+        </div>
+      </div>
+      {% endif %}
+      <div class="mc-list">
+        {% for inv in overdue_invoices %}
+        <a href="{% url 'billing:invoice_detail' inv.id %}" class="mc-list-row">
+          <span>
+            <strong>{{ inv.customer.name }}</strong>
+            <small>Due {{ inv.due_date|date:"M j" }}</small>
+          </span>
+          <b>${{ inv.total|floatformat:2 }}</b>
+        </a>
+        {% empty %}
+        <div class="mc-empty">No overdue invoices.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="mc-card">
+      <div class="mc-card-head">
+        <div>
+          <span class="mc-section-label">Billing queue</span>
+          <h2>Drafts to send</h2>
+        </div>
+        <span class="mc-pill">{{ drafts_count }}</span>
+      </div>
+      <div class="mc-list">
+        {% for inv in drafts %}
+        <a href="{% url 'billing:invoice_detail' inv.id %}" class="mc-list-row">
+          <span>
+            <strong>{{ inv.customer.name }}</strong>
+            <small>Invoice #{{ inv.id }}</small>
+          </span>
+          <b>${{ inv.total|floatformat:2 }}</b>
+        </a>
+        {% empty %}
+        <div class="mc-empty">No drafts. Billing queue is clear.</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-Chart.defaults.animation = false;
-Chart.defaults.responsive = true;
-Chart.defaults.maintainAspectRatio = false;
-
-// Revenue & Profit Chart
-new Chart(document.getElementById('rev-profit-chart'), {
-  type: 'bar',
-  data: {
-    labels: {{ monthly_labels|safe }},
-    datasets: [
-      {
-        label: 'Revenue',
-        data: {{ monthly_revenue|safe }},
-        backgroundColor: 'rgba(157,216,80,0.3)',
-        borderColor: '#9dd850',
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-      {
-        label: 'Profit',
-        data: {{ monthly_profit|safe }},
-        backgroundColor: 'rgba(96,165,250,0.3)',
-        borderColor: '#60a5fa',
-        borderWidth: 1,
-        borderRadius: 4,
-      }
-    ]
-  },
-  options: {
-    plugins: {
-      legend: { position: 'bottom', labels: { color: '#8c928d', font: { family: 'Inter', size: 11 }, boxWidth: 12, padding: 16 } }
-    },
-    scales: {
-      x: { grid: { display: false }, ticks: { color: '#8c928d', font: { family: 'Inter', size: 11 } } },
-      y: { grid: { color: 'rgba(66,72,68,0.1)' }, ticks: { color: '#8c928d', font: { family: 'Inter', size: 10 }, callback: function(v){ return '$' + (Math.abs(v) >= 1000 ? Math.round(v/1000) + 'k' : v); } }, border: { display: false } }
-    }
+(function() {
+  if (!window.Chart) {
+    return;
   }
-});
+  Chart.defaults.animation = false;
+  Chart.defaults.responsive = true;
+  Chart.defaults.maintainAspectRatio = false;
+  Chart.defaults.color = 'rgba(244,244,241,.62)';
+  Chart.defaults.font.family = 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif';
 
-// Expense Donut
-var expVals = {{ expense_values|safe }};
-var hasData = expVals.some(function(v) { return v > 0; });
-if (hasData) {
-  new Chart(document.getElementById('expense-chart'), {
-    type: 'doughnut',
-    data: {
-      labels: {{ expense_labels|safe }},
-      datasets: [{
-        data: expVals,
-        backgroundColor: ['#9dd850', '#60a5fa', '#f59e0b', '#a78bfa'],
-        borderWidth: 0,
-        hoverOffset: 6,
-      }]
-    },
-    options: {
-      cutout: '65%',
-      plugins: {
-        legend: { position: 'right', labels: { color: '#8c928d', font: { family: 'Inter', size: 11 }, boxWidth: 12, padding: 10 } }
+  var revCanvas = document.getElementById('rev-profit-chart');
+  var fallback = document.getElementById('rev-profit-fallback');
+  if (revCanvas && fallback) fallback.hidden = true;
+  if (revCanvas) {
+    new Chart(revCanvas, {
+      type: 'bar',
+      data: {
+        labels: {{ monthly_labels|safe }},
+        datasets: [
+          {
+            label: 'Revenue',
+            data: {{ monthly_revenue|safe }},
+            backgroundColor: 'rgba(166,255,77,.42)',
+            borderColor: '#a6ff4d',
+            borderWidth: 1,
+            borderRadius: 10,
+          },
+          {
+            label: 'Profit',
+            data: {{ monthly_profit|safe }},
+            backgroundColor: 'rgba(244,244,241,.22)',
+            borderColor: 'rgba(244,244,241,.64)',
+            borderWidth: 1,
+            borderRadius: 10,
+          }
+        ]
+      },
+      options: {
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 18 } } },
+        scales: {
+          x: { grid: { display: false }, border: { display: false } },
+          y: {
+            grid: { color: 'rgba(255,255,255,.08)' },
+            border: { display: false },
+            ticks: { callback: function(v){ return '$' + (Math.abs(v) >= 1000 ? Math.round(v/1000) + 'k' : v); } }
+          }
+        }
       }
-    }
-  });
-}
+    });
+  }
+
+  var expCanvas = document.getElementById('expense-chart');
+  var expVals = {{ expense_values|safe }};
+  if (expCanvas && expVals.some(function(v) { return v > 0; })) {
+    new Chart(expCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: {{ expense_labels|safe }},
+        datasets: [{
+          data: expVals,
+          backgroundColor: ['#a6ff4d', '#f4f4f1', '#9ca3af', '#70776e'],
+          borderColor: 'rgba(4,5,4,.88)',
+          borderWidth: 4,
+          hoverOffset: 4,
+        }]
+      },
+      options: {
+        cutout: '68%',
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+})();
 </script>
 
 <style>
-  .fin-kpi-row { display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px; }
-  .fin-kpi { padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;text-align:center; }
-  .fin-kpi-alert { border-color:rgba(248,113,113,0.3); }
-  .fin-kpi-label { display:block;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px; }
-  .fin-kpi-num { display:block;font-size:26px;font-weight:700;font-family:var(--font-headline);line-height:1.1; }
-  .fin-kpi-sub { display:block;font-size:11px;color:var(--text-muted);margin-top:4px; }
+  .money-command {
+    position: relative;
+    max-width: 1520px;
+    margin: -10px auto 0;
+    padding: 10px 0 34px;
+    color: #f4f4f1;
+  }
+  .money-command::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 0 256px;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      linear-gradient(125deg, rgba(157, 255, 79, .12), transparent 24%),
+      radial-gradient(circle at 82% 6%, rgba(157, 255, 79, .09), transparent 32%),
+      linear-gradient(180deg, #121311 0%, #050604 100%);
+  }
+  .mc-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 22px;
+    align-items: end;
+    margin-bottom: 22px;
+  }
+  .mc-back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 18px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 999px;
+    background: rgba(255,255,255,.055);
+    color: rgba(244,244,241,.72);
+    text-decoration: none;
+    font-weight: 800;
+  }
+  .mc-kicker,
+  .mc-section-label,
+  .mc-stat span {
+    color: rgba(244, 244, 241, .58);
+    font-size: 12px;
+    font-weight: 850;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .mc-kicker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .mc-kicker span {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: #a6ff4d;
+    box-shadow: 0 0 20px rgba(166, 255, 77, .8);
+  }
+  .mc-hero h1 {
+    margin: 0;
+    color: #f5f5f2;
+    font-size: clamp(58px, 7vw, 120px);
+    line-height: .9;
+    letter-spacing: 0;
+    font-weight: 850;
+  }
+  .mc-hero p {
+    margin: 16px 0 0;
+    max-width: 720px;
+    color: rgba(244,244,241,.68);
+    font-size: 17px;
+    line-height: 1.5;
+  }
+  .mc-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .mc-action,
+  .mc-tab,
+  .mc-pill-link,
+  .mc-side-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 0 20px;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 999px;
+    background: rgba(255,255,255,.06);
+    color: #f4f4f1;
+    text-decoration: none;
+    font-weight: 850;
+    transition: transform .18s ease, background .18s ease, border-color .18s ease;
+  }
+  .mc-action:hover,
+  .mc-tab:hover,
+  .mc-pill-link:hover,
+  .mc-side-link:hover {
+    transform: translateY(-1px);
+    background: rgba(255,255,255,.09);
+    border-color: rgba(255,255,255,.26);
+  }
+  .mc-action-primary,
+  .mc-tab.active {
+    border-color: #a6ff4d;
+    background: #a6ff4d;
+    color: #071004;
+    box-shadow: 0 18px 48px rgba(166,255,77,.18);
+  }
+  .mc-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+    padding: 10px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 999px;
+    background: rgba(4,5,4,.78);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+  }
+  .mc-tab {
+    min-height: 44px;
+    padding: 0 14px;
+    color: rgba(244,244,241,.66);
+  }
+  .mc-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .mc-stat,
+  .mc-card,
+  .mc-command-panel {
+    border: 1px solid rgba(255,255,255,.16);
+    background:
+      linear-gradient(150deg, rgba(255,255,255,.10), rgba(255,255,255,.035)),
+      rgba(28,29,27,.92);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 28px 90px rgba(0,0,0,.28);
+  }
+  .mc-stat {
+    display: block;
+    min-height: 142px;
+    padding: 22px;
+    border-radius: 24px;
+    color: inherit;
+    text-decoration: none;
+  }
+  .mc-stat strong {
+    display: block;
+    margin-top: 12px;
+    color: #f5f5f2;
+    font-size: 44px;
+    line-height: 1;
+    font-weight: 850;
+    letter-spacing: 0;
+  }
+  .mc-stat small {
+    display: block;
+    margin-top: 10px;
+    color: rgba(244,244,241,.48);
+    font-size: 14px;
+  }
+  .mc-stat-alert {
+    border-color: rgba(248,113,113,.42);
+  }
+  .mc-positive { color: #a6ff4d !important; }
+  .mc-danger { color: #ff7d7d !important; }
+  .mc-command-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 18px;
+    margin-bottom: 18px;
+    padding: 28px;
+    border-radius: 30px;
+  }
+  .mc-panel-head,
+  .mc-card-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 20px;
+  }
+  .mc-panel-head h2,
+  .mc-card h2,
+  .mc-panel-side h3 {
+    margin: 6px 0 0;
+    color: #f5f5f2;
+    font-size: clamp(26px, 3vw, 44px);
+    line-height: 1;
+    font-weight: 850;
+    letter-spacing: 0;
+  }
+  .mc-collection {
+    min-width: 138px;
+    padding: 14px 18px;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 22px;
+    background: rgba(4,5,4,.28);
+    text-align: center;
+  }
+  .mc-collection strong {
+    display: block;
+    font-size: 30px;
+    line-height: 1;
+  }
+  .mc-collection span,
+  .mc-panel-side p,
+  .mc-mini-grid span,
+  .mc-flow-item span {
+    color: rgba(244,244,241,.52);
+  }
+  .mc-flow {
+    display: grid;
+    grid-template-columns: 1fr 48px 1fr 48px 1fr;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .mc-flow-item {
+    min-height: 130px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 24px;
+    background: rgba(4,5,4,.30);
+  }
+  .mc-flow-item strong {
+    display: block;
+    margin-top: 10px;
+    font-size: 38px;
+    line-height: 1;
+  }
+  .mc-flow-line {
+    height: 2px;
+    background: linear-gradient(90deg, rgba(166,255,77,.16), rgba(244,244,241,.36));
+  }
+  .mc-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .mc-mini-grid div,
+  .mc-cost-row,
+  .mc-list-row,
+  .mc-empty,
+  .mc-aging div {
+    border: 1px solid rgba(255,255,255,.11);
+    border-radius: 20px;
+    background: rgba(4,5,4,.28);
+  }
+  .mc-mini-grid div {
+    padding: 16px;
+  }
+  .mc-mini-grid strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 22px;
+  }
+  .mc-panel-side {
+    padding: 22px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 26px;
+    background: rgba(4,5,4,.32);
+  }
+  .mc-panel-side p {
+    margin: 14px 0 20px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .mc-side-link {
+    min-height: 44px;
+  }
+  .mc-charts-grid,
+  .mc-lists-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(340px, .65fr);
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  .mc-lists-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mc-card {
+    padding: 28px;
+    border-radius: 30px;
+  }
+  .mc-pill,
+  .mc-pill-link {
+    min-height: 40px;
+    padding: 0 16px;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 999px;
+    background: rgba(255,255,255,.06);
+    color: rgba(244,244,241,.70);
+    font-size: 13px;
+    font-weight: 850;
+  }
+  .mc-chart-wrap {
+    position: relative;
+    height: 260px;
+  }
+  .mc-chart-fallback {
+    display: flex;
+    gap: 8px;
+    color: rgba(244,244,241,.58);
+    font-size: 12px;
+  }
+  .mc-donut-wrap {
+    position: relative;
+    height: 180px;
+    margin-top: 14px;
+  }
+  .mc-cost-grid {
+    display: grid;
+    gap: 10px;
+  }
+  .mc-cost-row,
+  .mc-list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+  .mc-cost-row span,
+  .mc-list-row small {
+    color: rgba(244,244,241,.52);
+  }
+  .mc-list {
+    display: grid;
+    gap: 10px;
+  }
+  .mc-list-row {
+    color: inherit;
+    text-decoration: none;
+    transition: transform .18s ease, background .18s ease, border-color .18s ease;
+  }
+  .mc-list-row:hover {
+    transform: translateY(-1px);
+    background: rgba(255,255,255,.055);
+    border-color: rgba(255,255,255,.18);
+  }
+  .mc-list-row strong,
+  .mc-list-row small {
+    display: block;
+  }
+  .mc-list-row b {
+    font-size: 18px;
+  }
+  .mc-empty {
+    padding: 24px;
+    color: rgba(244,244,241,.58);
+    text-align: center;
+  }
+  .mc-aging {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .mc-aging div {
+    padding: 14px;
+  }
+  .mc-aging span,
+  .mc-aging small {
+    display: block;
+    color: rgba(244,244,241,.52);
+    font-size: 12px;
+  }
+  .mc-aging strong {
+    display: block;
+    margin: 6px 0 8px;
+    font-size: 20px;
+  }
+  .mc-aging i {
+    display: block;
+    height: 7px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255,255,255,.10);
+  }
+  .mc-aging b {
+    display: block;
+    height: 100%;
+    min-width: 3px;
+    border-radius: inherit;
+    background: #a6ff4d;
+  }
 
-  .fin-charts-row { display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:20px; }
-  .fin-card-title { font-size:14px;font-weight:700;font-family:var(--font-headline);margin:0 0 8px; }
-
-  .fin-lists-row { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px; }
-
-  .fin-aging-bar { text-align:center; }
-  .fin-aging-label { display:block;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:2px; }
-  .fin-aging-val { display:block;font-size:16px;font-weight:700;font-family:var(--font-headline);margin-bottom:4px; }
-  .fin-aging-track { height:6px;background:var(--surface-highest);border-radius:3px;overflow:hidden;margin-bottom:2px; }
-  .fin-aging-fill { height:100%;border-radius:3px;min-width:2px; }
-  .fin-aging-count { font-size:10px;color:var(--text-muted); }
-
-  .fin-inv-row { display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;text-decoration:none;color:var(--text);font-size:13px;transition:background 0.1s; }
-  .fin-inv-row:hover { background:var(--surface-highest); }
-  .fin-inv-name { flex:1;font-weight:500; }
-  .fin-inv-amt { font-weight:600;font-variant-numeric:tabular-nums; }
-  .fin-inv-date { font-size:11px;color:var(--text-muted);min-width:60px;text-align:right; }
-
+  @media (max-width: 1120px) {
+    .mc-hero,
+    .mc-command-panel,
+    .mc-charts-grid,
+    .mc-lists-grid {
+      grid-template-columns: 1fr;
+    }
+    .mc-actions {
+      justify-content: flex-start;
+    }
+    .mc-summary-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
   @media (max-width: 768px) {
-    .fin-kpi-row { grid-template-columns:1fr 1fr;gap:8px; }
-    .fin-kpi { padding:12px 8px; }
-    .fin-kpi-num { font-size:20px; }
-    .fin-charts-row { grid-template-columns:1fr; }
-    .fin-lists-row { grid-template-columns:1fr; }
+    .money-command {
+      margin-top: 0;
+      padding-bottom: 116px;
+    }
+    .money-command::before {
+      inset: 0;
+    }
+    .mc-hero h1 {
+      font-size: clamp(48px, 17vw, 76px);
+    }
+    .mc-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    .mc-action {
+      width: 100%;
+      min-height: 52px;
+    }
+    .mc-tabs {
+      display: flex;
+      overflow-x: auto;
+      margin-left: -16px;
+      margin-right: -16px;
+      padding: 10px 16px;
+      border-left: 0;
+      border-right: 0;
+      border-radius: 0;
+    }
+    .mc-tab {
+      min-width: max-content;
+    }
+    .mc-summary-grid,
+    .mc-mini-grid,
+    .mc-flow,
+    .mc-aging {
+      grid-template-columns: 1fr;
+    }
+    .mc-flow-line {
+      width: 2px;
+      height: 22px;
+      margin-left: 24px;
+    }
+    .mc-command-panel,
+    .mc-card {
+      padding: 22px;
+      border-radius: 28px;
+    }
+    .mc-panel-head,
+    .mc-card-head {
+      flex-direction: column;
+    }
+    .mc-collection {
+      width: 100%;
+      text-align: left;
+    }
   }
 </style>
 {% endblock %}

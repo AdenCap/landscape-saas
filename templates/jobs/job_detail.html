@@ -1,54 +1,110 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header">
-  <h1>{{ job.property.address }}</h1>
-  <p>Scheduled: {{ job.scheduled_date }} · <span class="badge badge-{{ job.status|cut:'_' }}">{{ job.status }}</span>{% if job.skip_reason %} · <span style="color:var(--text-muted);font-size:13px;">Skipped: {{ job.skip_reason }}</span>{% endif %}</p>
-</div>
+<div class="job-detail-page">
+  <nav class="jd-section-nav" aria-label="Job sections">
+    <a href="#jd-overview">Overview</a>
+    <a href="#jd-items">Items</a>
+    <a href="#jd-notes">Notes</a>
+    <a href="#jd-photos">Photos</a>
+    <a href="#jd-costs">Costs</a>
+    <a href="#jd-issues">Issues</a>
+  </nav>
 
-<div class="quick-actions" style="margin-bottom: 24px;">
-  <a href="/jobs/calendar/" class="btn btn-secondary">← Back to Calendar</a>
-  <a href="/" class="btn btn-secondary">Dashboard</a>
-  {% if job.status == "completed" or job.status == "in_progress" %}
-  <form method="post" action="{% url 'uncomplete_job' job.id %}" style="display:inline;" onsubmit="return confirm('Revert this job back to scheduled?')">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-secondary btn-sm" style="color:#f59e0b;">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">undo</span>
-      {% if job.status == "in_progress" %}Undo Start{% else %}Mark Uncomplete{% endif %}
-    </button>
-  </form>
-  {% endif %}
-  {% if job.status == "scheduled" or job.status == "en_route" %}
-  <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('skip-dialog').style.display='flex'" style="color:var(--text-muted);">
-    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">skip_next</span>
-    Skip
-  </button>
-  {% endif %}
-  {% if job.property.address %}
-  <div style="display: inline-flex; gap: 8px; margin-left: auto; flex-wrap: wrap;">
-    <a href="https://www.google.com/maps/search/?api=1&query={{ job.property.address|urlencode }}" 
-       target="_blank" 
-       class="btn btn-secondary btn-sm"
-       style="display: inline-flex; align-items: center; gap: 6px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-        <circle cx="12" cy="10" r="3"/>
-      </svg>
-      Google Maps
-    </a>
-    <a href="https://maps.apple.com/?q={{ job.property.address|urlencode }}" 
-       target="_blank" 
-       class="btn btn-secondary btn-sm"
-       style="display: inline-flex; align-items: center; gap: 6px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-        <circle cx="12" cy="10" r="3"/>
-      </svg>
-      Apple Maps
-    </a>
-  </div>
-  {% endif %}
-</div>
+  <section id="jd-overview" class="jd-hero">
+    <div class="jd-hero-main">
+      <div class="jd-kicker">
+        <span></span>
+        Job command
+      </div>
+      <h1>{{ job.property.customer.name|default:"Job" }}</h1>
+      <p>{{ job.property.address }}</p>
+      <div class="jd-meta-row">
+        <span class="badge badge-{{ job.status|cut:'_' }}">{{ job.status }}</span>
+        <span>{{ job.scheduled_date|date:"M j, Y" }}</span>
+        <span>{% if job.scheduled_time %}{{ job.scheduled_time|time:"g:i A" }}{% else %}All day{% endif %}</span>
+        {% if job.assigned_crew %}<span>{{ job.assigned_crew.name }}</span>{% elif job.assigned_to %}<span>{{ job.assigned_to.get_full_name|default:job.assigned_to.username }}</span>{% else %}<span>Unassigned</span>{% endif %}
+      </div>
+      {% if job.skip_reason %}
+      <div class="jd-skip-note">Skipped: {{ job.skip_reason }}</div>
+      {% endif %}
+    </div>
+
+    <div class="jd-hero-side">
+      <div class="jd-status-card">
+        <span>Status</span>
+        <strong>{{ job.status|title }}</strong>
+        <small>{% if job.duration_display %}{{ job.duration_display }} on site{% elif job.completed_at %}Completed {{ job.completed_at|date:"M j" }}{% elif job.started_at %}Started {{ job.started_at|date:"g:i A" }}{% else %}Ready for dispatch{% endif %}</small>
+      </div>
+      <div class="jd-action-grid">
+        <a href="/jobs/calendar/" class="jd-action"><span class="material-symbols-outlined">calendar_month</span> Calendar</a>
+        <a href="/" class="jd-action"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
+        {% if job.property.address %}
+        <a href="https://www.google.com/maps/search/?api=1&query={{ job.property.address|urlencode }}" target="_blank" rel="noopener" class="jd-action"><span class="material-symbols-outlined">map</span> Google</a>
+        <a href="https://maps.apple.com/?q={{ job.property.address|urlencode }}" target="_blank" rel="noopener" class="jd-action"><span class="material-symbols-outlined">near_me</span> Apple</a>
+        {% endif %}
+      </div>
+      <div class="jd-inline-actions">
+        {% if job.status == "completed" or job.status == "in_progress" %}
+        <form method="post" action="{% url 'uncomplete_job' job.id %}" onsubmit="return confirm('Revert this job back to scheduled?')">
+          {% csrf_token %}
+          <button type="submit" class="jd-soft-button">
+            <span class="material-symbols-outlined">undo</span>
+            {% if job.status == "in_progress" %}Undo Start{% else %}Mark Uncomplete{% endif %}
+          </button>
+        </form>
+        {% endif %}
+        {% if job.status == "scheduled" or job.status == "en_route" %}
+        <button type="button" class="jd-soft-button" onclick="document.getElementById('skip-dialog').style.display='flex'">
+          <span class="material-symbols-outlined">skip_next</span>
+          Skip job
+        </button>
+        {% endif %}
+      </div>
+      <form method="post" action="{% url 'edit_job' job.id %}" class="jd-quick-edit">
+        {% csrf_token %}
+        <div class="jd-quick-head">
+          <span>Quick edit</span>
+          <button type="submit">Save</button>
+        </div>
+        <div class="jd-quick-grid">
+          <label>
+            Start
+            <input type="date" name="scheduled_date" value="{{ job.scheduled_date|date:'Y-m-d' }}">
+          </label>
+          <label>
+            End
+            <input type="date" name="scheduled_end_date" value="{{ job.scheduled_end_date|date:'Y-m-d' }}" min="{{ job.scheduled_date|date:'Y-m-d' }}">
+          </label>
+          <label>
+            Time
+            <input type="time" name="scheduled_time" value="{% if job.scheduled_time %}{{ job.scheduled_time|time:'H:i' }}{% endif %}">
+          </label>
+          <label>
+            Crew
+            <select name="assigned_crew">
+              <option value="">No crew</option>
+              {% for c in job.property.customer.business.crews.all %}
+              <option value="{{ c.id }}" {% if job.assigned_crew_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            Status
+            <select name="status">
+              <option value="scheduled" {% if job.status == "scheduled" %}selected{% endif %}>Scheduled</option>
+              <option value="skipped" {% if job.status == "skipped" %}selected{% endif %}>Skipped</option>
+              <option value="cancelled" {% if job.status == "cancelled" %}selected{% endif %}>Cancelled</option>
+            </select>
+          </label>
+        </div>
+        <label class="jd-quick-notes">
+          Job notes
+          <textarea name="notes" rows="2">{{ job.notes }}</textarea>
+        </label>
+      </form>
+    </div>
+  </section>
 
 {% if job.started_at or job.completed_at %}
 <div class="card" style="margin-bottom:20px;">
@@ -82,11 +138,101 @@
 </div>
 {% endif %}
 
+<!-- Notes thread -->
+<div id="jd-notes" class="card" style="margin-bottom: 20px;">
+  <h2 class="card-title">Notes</h2>
+  <div id="notes-thread" style="margin-bottom: 16px;">
+    <p class="muted" style="text-align:center; padding:8px;">Loading notes…</p>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: grid; gap: 8px;">
+      <select id="add-note-scope" class="form-control">
+        <option value="job">This job only</option>
+        <option value="recurring">This recurring service / future visits</option>
+        <option value="property">This property / client permanently</option>
+      </select>
+      <select id="add-note-visibility" class="form-control">
+        <option value="crew">Crew visible</option>
+        <option value="internal">Internal only</option>
+      </select>
+      <div style="display: flex; gap: 8px; align-items: flex-end;">
+        <textarea id="add-note-text" rows="2" placeholder="Add a note…" class="form-control" style="flex:1; resize:none;"></textarea>
+        <button type="button" class="btn btn-primary btn-sm" onclick="addNote()">Add note</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="jd-items" class="card jd-items-card" style="margin-bottom: 20px;">
+  <div class="jd-card-header">
+    <div>
+      <span class="jd-card-kicker">Services</span>
+      <h2 class="card-title">Job items</h2>
+    </div>
+    <span class="jd-card-count">{{ items|length }} item{{ items|length|pluralize }}</span>
+  </div>
+  <form method="post" action="{% url 'add_job_service_item' job.id %}" class="jd-item-composer">
+    {% csrf_token %}
+    <div class="form-row">
+      <div class="form-group">
+        <label>Service</label>
+        {{ form.service }}
+      </div>
+      <div class="form-group">
+        <label>Qty</label>
+        {{ form.quantity }}
+      </div>
+      <button type="submit" class="btn btn-primary">Add / Update</button>
+    </div>
+  </form>
+  <p class="jd-inline-help">Edit quantity or rate directly in the table. Totals update as soon as a value is saved.</p>
+  <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Service</th>
+        <th class="num" style="width:70px;">Qty</th>
+        <th class="num" style="width:90px;">Rate</th>
+        <th class="num">Total</th>
+        <th style="width:60px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in items %}
+      <tr data-item-id="{{ i.id }}">
+        <td>
+          <strong>{{ i.description|default:i.service.name }}</strong>
+          {% if i.detail_description %}
+          <div style="margin-top:4px;color:var(--text-muted);font-size:13px;line-height:1.35;">{{ i.detail_description }}</div>
+          {% endif %}
+        </td>
+        <td class="num">
+          <input type="number" class="inline-edit" data-field="quantity" value="{{ i.quantity }}" min="1" step="1" style="width:55px;text-align:right;">
+        </td>
+        <td class="num">
+          <input type="number" class="inline-edit" data-field="unit_price" value="{{ i.unit_price }}" min="0" step="0.01" style="width:75px;text-align:right;">
+        </td>
+        <td class="num item-total">${{ i.line_total|floatformat:2 }}</td>
+        <td>
+          <form method="post" action="{% url 'remove_job_service_item' job.id i.id %}" style="display:inline;" onsubmit="return confirm('Remove this item?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm" style="color:#f87171;padding:4px 8px;font-size:11px;">✕</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No items yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
 {% if request.user.role == "owner" or request.user.role == "manager" %}
 <!-- Add material cost (inline, optional receipt + parse) -->
-<div class="card" style="margin-bottom: 20px;">
+<div id="jd-costs" class="card" style="margin-bottom: 20px;">
   <h2 class="card-title">Add material cost</h2>
-  <p style="margin: 0 0 16px 0; color: var(--text-muted); font-size: 14px;">Add a cost for this job. Optionally attach a receipt — you can auto-fill from the receipt image.</p>
+  <p style="margin: 0 0 16px 0; color: var(--text-muted); font-size: var(--type-body-size);">Add a cost for this job. Optionally attach a receipt — you can auto-fill from the receipt image.</p>
   <form id="material-cost-form" method="post" action="{% url 'financials:job_add_material_cost' job.id %}" enctype="multipart/form-data">
     {% csrf_token %}
     <div class="material-cost-fields">
@@ -137,7 +283,7 @@
 
 <div class="card" style="margin-bottom: 20px;">
   <h2 class="card-title">Job cost & profit</h2>
-  <p style="margin: 0 0 12px 0; color: var(--text-muted); font-size: 14px;">Track labor and materials for profit reporting.</p>
+  <p style="margin: 0 0 12px 0; color: var(--text-muted); font-size: var(--type-body-size);">Track labor and materials for profit reporting.</p>
   <form method="post" action="{% url 'job_update_costs' job.id %}" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 12px;">
     {% csrf_token %}
     <div class="field">
@@ -150,13 +296,13 @@
     </div>
     <button type="submit" class="btn btn-secondary btn-sm">Save costs</button>
   </form>
-  <p style="margin: 0; font-size: 14px;">Receipts linked to this job: ${{ job_receipts_total|floatformat:2 }} · Total cost: ${{ job_total_cost|floatformat:2 }}{% if job_revenue is not None %} · Revenue: ${{ job_revenue|floatformat:2 }} · <strong>Profit: ${{ job_profit|floatformat:2 }}</strong>{% endif %}</p>
+  <p style="margin: 0; font-size: var(--type-body-size);">Receipts linked to this job: ${{ job_receipts_total|floatformat:2 }} · Total cost: ${{ job_total_cost|floatformat:2 }}{% if job_revenue is not None %} · Revenue: ${{ job_revenue|floatformat:2 }} · <strong>Profit: ${{ job_profit|floatformat:2 }}</strong>{% endif %}</p>
 </div>
 
 {% if job_receipts %}
   <div class="card" style="margin-bottom: 20px;">
     <h2 class="card-title">Receipts / materials for this job</h2>
-    <p style="margin: 0 0 12px 0; color: var(--text-muted); font-size: 14px;">Total: ${{ job_receipts_total|floatformat:2 }}</p>
+    <p style="margin: 0 0 12px 0; color: var(--text-muted); font-size: var(--type-body-size);">Total: ${{ job_receipts_total|floatformat:2 }}</p>
     <ul style="margin: 0; padding-left: 20px;">
       {% for r in job_receipts %}
       <li>{{ r.receipt_date }} — {{ r.vendor|default:r.get_category_display }} {% if r.amount %}(${{ r.amount|floatformat:2 }}){% endif %}
@@ -192,7 +338,7 @@
   </div>
 {% endif %}
 
-<div class="card" style="margin-bottom: 20px;">
+<div id="jd-issues" class="card" style="margin-bottom: 20px;">
   <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
     Job issues
     <a href="{% url 'report_issue' job.id %}" class="btn btn-secondary btn-sm">Report issue</a>
@@ -222,29 +368,8 @@
   {% endif %}
 </div>
 
-<!-- Notes thread -->
-<div class="card" style="margin-bottom: 20px;">
-  <h2 class="card-title">Notes</h2>
-  <div id="notes-thread" style="margin-bottom: 16px;">
-    <p class="muted" style="text-align:center; padding:8px;">Loading notes…</p>
-  </div>
-  <div style="display: flex; flex-direction: column; gap: 10px;">
-    <div style="display: grid; gap: 8px;">
-      <select id="add-note-scope" class="form-control">
-        <option value="job">This job only</option>
-        <option value="recurring">This recurring service / future visits</option>
-        <option value="property">This property / client permanently</option>
-      </select>
-      <div style="display: flex; gap: 8px; align-items: flex-end;">
-        <textarea id="add-note-text" rows="2" placeholder="Add a crew-visible note…" class="form-control" style="flex:1; resize:none;"></textarea>
-        <button type="button" class="btn btn-primary btn-sm" onclick="addNote()">Add note</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Site Photos -->
-<div class="card" style="margin-bottom: 20px;">
+<div id="jd-photos" class="card" style="margin-bottom: 20px;">
   <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
     Site Photos ({{ site_photos|length }})
     <a href="{% url 'upload_job_photo' job.id %}" class="btn btn-secondary btn-sm">Add Photo</a>
@@ -297,107 +422,6 @@
   {% endif %}
 </div>
 
-<div class="card" style="margin-bottom: 20px;">
-  <h2 class="card-title">Add service</h2>
-  <form method="post" action="{% url 'add_job_service_item' job.id %}">
-    {% csrf_token %}
-    <div class="form-row">
-      <div class="form-group">
-        <label>Service</label>
-        {{ form.service }}
-      </div>
-      <div class="form-group">
-        <label>Qty</label>
-        {{ form.quantity }}
-      </div>
-      <button type="submit" class="btn btn-primary">Add / Update</button>
-    </div>
-  </form>
-</div>
-
-<!-- Edit Job Details -->
-<div class="card" style="margin-bottom:20px;">
-  <h2 class="card-title">Edit Job Details</h2>
-  <form method="post" action="{% url 'edit_job' job.id %}">
-    {% csrf_token %}
-    <div class="job-edit-grid">
-      <div class="form-group">
-        <label>Start date</label>
-        <input type="date" name="scheduled_date" value="{{ job.scheduled_date|date:'Y-m-d' }}" class="form-input">
-      </div>
-      <div class="form-group">
-        <label>End date <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(optional, for multi-day jobs)</span></label>
-        <input type="date" name="scheduled_end_date" value="{{ job.scheduled_end_date|date:'Y-m-d' }}" class="form-input" min="{{ job.scheduled_date|date:'Y-m-d' }}">
-      </div>
-      <div class="form-group">
-        <label>Start time</label>
-        <input type="time" name="scheduled_time" value="{% if job.scheduled_time %}{{ job.scheduled_time|time:'H:i' }}{% endif %}" class="form-input">
-      </div>
-      <div class="form-group">
-        <label>Crew</label>
-        <select name="assigned_crew" class="form-input">
-          <option value="">No crew</option>
-          {% for c in job.property.customer.business.crews.all %}
-          <option value="{{ c.id }}" {% if job.assigned_crew_id == c.id %}selected{% endif %}>{{ c.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Status</label>
-        <select name="status" class="form-input">
-          <option value="scheduled" {% if job.status == "scheduled" %}selected{% endif %}>Scheduled</option>
-          <option value="skipped" {% if job.status == "skipped" %}selected{% endif %}>Skipped</option>
-          <option value="cancelled" {% if job.status == "cancelled" %}selected{% endif %}>Cancelled</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-group" style="margin-top:8px;">
-      <label>Notes</label>
-      <textarea name="notes" rows="2" class="form-input" style="font-family:inherit;">{{ job.notes }}</textarea>
-    </div>
-    <button type="submit" class="btn btn-primary" style="margin-top:10px;width:100%;">Save Changes</button>
-  </form>
-</div>
-
-<!-- Job Items (editable) -->
-<div class="card">
-  <h2 class="card-title">Job Items</h2>
-  <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Service</th>
-        <th class="num" style="width:70px;">Qty</th>
-        <th class="num" style="width:90px;">Rate</th>
-        <th class="num">Total</th>
-        <th style="width:60px;"></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for i in items %}
-      <tr data-item-id="{{ i.id }}">
-        <td>{{ i.description|default:i.service.name }}</td>
-        <td class="num">
-          <input type="number" class="inline-edit" data-field="quantity" value="{{ i.quantity }}" min="1" step="1" style="width:55px;text-align:right;">
-        </td>
-        <td class="num">
-          <input type="number" class="inline-edit" data-field="unit_price" value="{{ i.unit_price }}" min="0" step="0.01" style="width:75px;text-align:right;">
-        </td>
-        <td class="num item-total">${{ i.line_total|floatformat:2 }}</td>
-        <td>
-          <form method="post" action="{% url 'remove_job_service_item' job.id i.id %}" style="display:inline;" onsubmit="return confirm('Remove this item?')">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-secondary btn-sm" style="color:#f87171;padding:4px 8px;font-size:11px;">✕</button>
-          </form>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No items yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  </div>
-</div>
 <script>
 (function() {
   var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
@@ -498,17 +522,17 @@
 </script>
 
 <style>
-  .inline-edit { padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;transition:border-color .2s; }
+  .inline-edit { padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:var(--text-sm);transition:border-color .2s; }
   .inline-edit:focus { outline:none;border-color:var(--primary); }
   .form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
-  .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
-  .form-group input, .form-group select { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; }
+  .form-group label { display: block; font-size: var(--text-sm); font-weight: var(--type-body-weight); margin-bottom: 6px; color: var(--text-muted); }
+  .form-group input, .form-group select { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: var(--type-body-size); }
   .material-cost-fields .field { margin-bottom: 12px; }
-  .material-cost-fields .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .material-cost-fields .field label { display: block; font-size: var(--text-sm); font-weight: var(--type-body-weight); margin-bottom: 4px; }
   .material-cost-fields input, .material-cost-fields select { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); }
   .material-row { display: flex; gap: 12px; flex-wrap: wrap; }
   .material-row .field { min-width: 120px; }
-  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: var(--type-caption-size); font-weight: var(--type-body-weight); }
   .badge-scheduled { background: rgba(34, 197, 94, 0.25); color: #6ee7b7; }
   .badge-inprogress { background: rgba(234, 179, 8, 0.25); color: #fde047; }
   .badge-completed { background: rgba(34, 197, 94, 0.25); color: #86efac; }
@@ -520,7 +544,7 @@
     .material-cost-fields select,
     .form-group input,
     .form-group select,
-    .form-control { font-size: 16px; min-height: 44px; }
+    .form-control { font-size: var(--type-control-size); min-height: 44px; }
     .form-actions { display: flex; flex-wrap: wrap; }
     .form-actions .btn { min-height: 44px; }
     .btn-sm { min-height: 44px; padding: 10px 14px; }
@@ -589,14 +613,16 @@
           var validDate = !isNaN(d.getTime());
           var time = validDate ? d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '';
           var type = n.note_type || n.type || 'job';
+          var visibility = n.visibility || 'crew';
           var badgeColor = type === 'property'
             ? 'background:rgba(168,85,247,0.2);color:#c4b5fd;'
             : (type === 'recurring'
               ? 'background:rgba(59,130,246,0.2);color:#93c5fd;'
               : 'background:rgba(34,197,94,0.2);color:#6ee7b7;');
           var badge = '<span style="font-size:10px;font-weight:600;text-transform:uppercase;padding:1px 5px;border-radius:3px;' + badgeColor + 'margin-right:4px;">' + escHtml(type) + '</span>';
+          var visibilityBadge = '<span style="font-size:10px;font-weight:600;text-transform:uppercase;padding:1px 5px;border-radius:3px;margin-right:4px;' + (visibility === 'internal' ? 'background:rgba(245,158,11,0.18);color:#fbbf24;' : 'background:rgba(255,255,255,0.08);color:var(--text-muted);') + '">' + escHtml(visibility === 'internal' ? 'internal' : 'crew') + '</span>';
           html += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px;">';
-          html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;">' + badge + escHtml(n.author) + (time ? ' · ' + time : '') + '</div>';
+          html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;">' + badge + visibilityBadge + escHtml(n.author) + (time ? ' · ' + time : '') + '</div>';
           html += '<div style="color:var(--text);line-height:1.4;">' + escHtml(n.text) + '</div>';
           html += '</div>';
         });
@@ -608,11 +634,13 @@
   window.addNote = function() {
     var ta = document.getElementById('add-note-text');
     var scope = document.getElementById('add-note-scope');
+    var visibility = document.getElementById('add-note-visibility');
     var text = (ta.value || '').trim();
     if (!text) return;
     var fd = new FormData();
     fd.append('text', text);
     fd.append('scope', scope ? scope.value : 'job');
+    fd.append('visibility', visibility ? visibility.value : 'crew');
     fetch('/jobs/' + JOB_ID + '/notes/add/', {
       method: 'POST',
       headers: {'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest'},
@@ -643,6 +671,410 @@ window.filterPhotos = function(cat, btn) {
   .photo-filter-btn { background: var(--surface-alt); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; }
   .photo-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
+  .job-detail-page {
+    --jd-bg: #030403;
+    --jd-ink: #f4f5f0;
+    --jd-muted: #9b9f98;
+    --jd-dim: #666b65;
+    --jd-line: rgba(255,255,255,.11);
+    --jd-line-strong: rgba(255,255,255,.18);
+    --jd-panel: rgba(255,255,255,.055);
+    --jd-accent: #b9ff65;
+    --jd-ease: cubic-bezier(.2,.9,.18,1);
+    font-family: var(--font-family);
+    color: var(--jd-ink);
+    max-width: 1480px;
+    margin: -4px auto 0;
+  }
+  .job-detail-page:before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 50% -10%, rgba(255,255,255,.08), transparent 32%),
+      linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+      linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px);
+    background-size: auto, 72px 72px, 72px 72px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.72), transparent 70%);
+  }
+  .jd-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 390px;
+    gap: 14px;
+    margin-bottom: 16px;
+    animation: jd-rise .65s var(--jd-ease) both;
+  }
+  .jd-hero-main,
+  .jd-hero-side,
+  .job-detail-page .card {
+    border: 1px solid var(--jd-line);
+    background: linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.04));
+    box-shadow: 0 28px 90px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.10);
+    backdrop-filter: blur(28px) saturate(120%);
+  }
+  .jd-hero-main {
+    position: relative;
+    min-height: 270px;
+    border-radius: 32px;
+    padding: 28px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .jd-hero-main:before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+    background-size: 42px 42px;
+    opacity: .9;
+  }
+  .jd-hero-main > * { position: relative; z-index: 1; }
+  .jd-kicker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: auto;
+    color: var(--jd-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .jd-kicker span {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--jd-accent);
+    box-shadow: 0 0 18px rgba(185,255,101,.45);
+  }
+  .jd-hero h1 {
+    margin: 0;
+    max-width: 760px;
+    font-size: clamp(36px, 6vw, 76px);
+    line-height: .9;
+    letter-spacing: var(--letter-spacing-normal);
+    color: var(--jd-ink);
+  }
+  .jd-hero p {
+    margin: 14px 0 0;
+    color: var(--jd-muted);
+    font-size: var(--text-lg);
+    line-height: 1.45;
+  }
+  .jd-meta-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+  }
+  .jd-meta-row > span,
+  .jd-skip-note {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(0,0,0,.24);
+    color: var(--jd-muted);
+    font-size: var(--type-caption-size);
+    font-weight: var(--type-strong-weight);
+  }
+  .jd-skip-note {
+    width: fit-content;
+    margin-top: 10px;
+    color: #fbbf24;
+  }
+  .jd-hero-side {
+    border-radius: 32px;
+    padding: 18px;
+    display: grid;
+    gap: 12px;
+    align-content: start;
+  }
+  .jd-status-card {
+    min-height: 118px;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,.09);
+    background: rgba(0,0,0,.22);
+    padding: 16px;
+  }
+  .jd-status-card span,
+  .job-detail-page .card-title {
+    color: var(--jd-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .jd-status-card strong {
+    display: block;
+    margin-top: 10px;
+    font-size: var(--type-metric-size);
+    line-height: 1;
+    letter-spacing: var(--letter-spacing-normal);
+  }
+  .jd-status-card small {
+    display: block;
+    margin-top: 10px;
+    color: var(--jd-muted);
+    line-height: 1.35;
+  }
+  .jd-quick-edit {
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 24px;
+    background: rgba(0,0,0,.22);
+    padding: 14px;
+  }
+  .jd-quick-head,
+  .jd-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .jd-quick-head span,
+  .jd-card-kicker {
+    color: var(--jd-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .jd-quick-head button {
+    min-height: 30px;
+    padding: 0 13px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--jd-accent);
+    color: var(--jd-bg);
+    font-size: var(--type-caption-size);
+    font-weight: var(--type-display-weight);
+    cursor: pointer;
+  }
+  .jd-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    margin-top: 12px;
+  }
+  .jd-quick-edit label,
+  .jd-item-composer label {
+    display: grid;
+    gap: 6px;
+    color: var(--jd-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .jd-quick-edit input,
+  .jd-quick-edit select,
+  .jd-quick-edit textarea,
+  .jd-item-composer input,
+  .jd-item-composer select,
+  .job-detail-page .form-control {
+    width: 100%;
+    min-height: 48px;
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 15px;
+    background: rgba(0,0,0,.28);
+    color: var(--jd-ink);
+    padding: 10px 12px;
+    font: inherit;
+    font-size: var(--type-control-size);
+    font-weight: var(--type-strong-weight);
+    line-height: 1.25;
+    box-sizing: border-box;
+  }
+  .jd-quick-edit textarea {
+    min-height: 70px;
+    resize: vertical;
+    text-transform: none;
+    letter-spacing: var(--letter-spacing-normal);
+  }
+  .jd-quick-edit input::placeholder,
+  .jd-quick-edit textarea::placeholder,
+  .job-detail-page .form-control::placeholder {
+    color: var(--jd-muted);
+    opacity: .75;
+  }
+  .jd-quick-notes {
+    margin-top: 10px;
+  }
+  .jd-action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+  .jd-action,
+  .jd-soft-button {
+    min-height: 48px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,.09);
+    background: rgba(0,0,0,.22);
+    color: var(--jd-ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: var(--text-sm);
+    font-weight: var(--type-strong-weight);
+    transition: transform .28s var(--jd-ease), border-color .28s var(--jd-ease), background .28s var(--jd-ease);
+  }
+  .jd-action:hover,
+  .jd-soft-button:hover {
+    transform: translateY(-2px);
+    border-color: var(--jd-line-strong);
+    background: rgba(255,255,255,.075);
+  }
+  .jd-action .material-symbols-outlined,
+  .jd-soft-button .material-symbols-outlined {
+    font-size: var(--text-lg);
+    color: var(--jd-muted);
+  }
+  .jd-inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+  }
+  .jd-soft-button {
+    width: 100%;
+    padding: 0 14px;
+    cursor: pointer;
+  }
+  .jd-section-nav {
+    position: sticky;
+    top: 12px;
+    z-index: 20;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px;
+    margin: 0 0 14px;
+    border: 1px solid var(--jd-line);
+    border-radius: 999px;
+    background: rgba(3,4,3,.72);
+    backdrop-filter: blur(24px) saturate(120%);
+  }
+  .jd-section-nav a {
+    flex: 1 0 auto;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--jd-muted);
+    font-size: var(--type-caption-size);
+    font-weight: var(--type-strong-weight);
+    border: 1px solid transparent;
+  }
+  .jd-section-nav a:hover {
+    color: var(--jd-ink);
+    border-color: rgba(255,255,255,.10);
+    background: rgba(255,255,255,.055);
+  }
+  .job-detail-page section,
+  .job-detail-page .card {
+    scroll-margin-top: 78px;
+  }
+  .job-detail-page .card {
+    border-radius: 28px;
+    padding: 20px;
+    margin-bottom: 16px !important;
+    color: var(--jd-ink);
+    animation: jd-rise .75s var(--jd-ease) both;
+  }
+  .job-detail-page .card-title {
+    margin-bottom: 14px;
+    color: var(--jd-ink);
+    font-size: var(--type-title-size);
+    letter-spacing: var(--letter-spacing-normal);
+    text-transform: none;
+  }
+  .job-detail-page .btn-secondary,
+  .job-detail-page .btn-primary {
+    border-radius: 999px;
+  }
+  .job-detail-page .data-table {
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .jd-card-header {
+    margin-bottom: 14px;
+  }
+  .jd-card-header .card-title {
+    margin: 4px 0 0;
+  }
+  .jd-card-count {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 11px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.07);
+    color: var(--jd-muted);
+    font-size: var(--type-caption-size);
+    font-weight: var(--type-strong-weight);
+  }
+  .jd-item-composer {
+    margin-bottom: 14px;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 22px;
+    background: rgba(0,0,0,.18);
+  }
+  .jd-item-composer .form-row {
+    align-items: end;
+  }
+  .jd-item-composer .form-group {
+    flex: 1 1 190px;
+  }
+  .jd-inline-help {
+    margin: 0 0 12px;
+    color: var(--jd-muted);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+  }
+  .job-detail-page .inline-edit {
+    min-height: 36px;
+    border-radius: 12px;
+    background: rgba(0,0,0,.22);
+    color: var(--jd-ink);
+  }
+  @keyframes jd-rise {
+    from { opacity: 0; transform: translateY(18px) scale(.99); filter: blur(8px); }
+    to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .job-detail-page *, .job-detail-page *:before, .job-detail-page *:after { animation: none !important; transition: none !important; }
+  }
+  @media (max-width: 1040px) {
+    .jd-hero { grid-template-columns: 1fr; }
+    .jd-hero-main { min-height: 230px; }
+  }
+  @media (max-width: 620px) {
+    .job-detail-page { margin: 0; }
+    .jd-hero-main,
+    .jd-hero-side,
+    .job-detail-page .card { border-radius: 24px; }
+    .jd-hero-main { padding: 22px 18px; min-height: 220px; }
+    .jd-hero h1 { font-size: 40px; }
+    .jd-quick-grid { grid-template-columns: 1fr; }
+    .jd-action-grid { grid-template-columns: 1fr 1fr; }
+    .jd-section-nav { top: 8px; border-radius: 22px; }
+    .jd-section-nav a { flex: 0 0 auto; }
+    .job-detail-page .card { padding: 18px; }
+  }
+
   /* Job edit form */
   .form-input {
     width: 100%;
@@ -651,7 +1083,7 @@ window.filterPhotos = function(cat, btn) {
     border: 1px solid var(--border);
     background: var(--bg, #111);
     color: var(--text, #fff);
-    font-size: 14px;
+    font-size: var(--type-body-size);
     box-sizing: border-box;
   }
   .job-edit-grid {
@@ -666,7 +1098,7 @@ window.filterPhotos = function(cat, btn) {
       grid-template-columns: 1fr;
     }
     .form-input {
-      font-size: 16px;
+      font-size: var(--type-control-size);
       min-height: 44px;
     }
     .card {
@@ -677,4 +1109,5 @@ window.filterPhotos = function(cat, btn) {
     }
   }
 </style>
+</div>
 {% endblock %}

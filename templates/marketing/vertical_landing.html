@@ -14,13 +14,13 @@
       <a href="{% url 'signup' %}" class="btn btn-primary" style="padding:14px 36px;font-size:16px;">Start free trial</a>
       <a href="{% url 'marketing_pricing' %}" class="btn btn-secondary" style="padding:14px 28px;">View pricing</a>
     </div>
-    <p style="font-size:13px;color:var(--text-muted);margin-top:10px;">No credit card required. Set up in under 5 minutes.</p>
+    <p style="font-size:13px;color:var(--text-muted);margin-top:10px;">No credit card required to start your 14-day trial.</p>
   </div>
 </section>
 
 <section class="section vl-pain">
   <div class="shell" style="max-width:960px;">
-    <h2 class="vl-section-title">Problems we solve for {{ page.type_label|lower }} businesses</h2>
+    <h2 class="vl-section-title">Lawn care and landscaping problems FIELDLGX solves</h2>
     <div class="vl-pain-grid">
       {% for title, desc in page.pain_points %}
       <div class="card vl-pain-card">
@@ -34,7 +34,7 @@
 
 <section class="section vl-features">
   <div class="shell" style="max-width:960px;">
-    <h2 class="vl-section-title">Features built for {{ page.type_label|lower }} contractors</h2>
+    <h2 class="vl-section-title">Landscape management software features built for field teams</h2>
     <div class="vl-feat-grid">
       {% for title, desc in page.features %}
       <div class="card vl-feat-card">
@@ -49,7 +49,7 @@
 <section class="section vl-cta-bottom">
   <div class="shell" style="max-width:640px;text-align:center;">
     <h2 style="font-size:32px;letter-spacing:-.02em;margin:0 0 12px;">Ready to streamline your {{ page.type_label|lower }} business?</h2>
-    <p style="color:var(--text-secondary);margin:0 0 20px;line-height:1.6;">Join hundreds of landscaping businesses running on FieldLgx. Start your free trial today.</p>
+    <p style="color:var(--text-secondary);margin:0 0 20px;line-height:1.6;">Join hundreds of landscaping businesses running on FIELDLGX. Start your free trial today.</p>
     <a href="{% url 'signup' %}" class="btn btn-primary" style="padding:16px 48px;font-size:17px;">Get started free</a>
   </div>
 </section>

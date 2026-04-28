@@ -183,7 +183,7 @@ def owner_onboarding(request):
         {
             "key": "smtp",
             "label": "Connect email",
-            "hint": f"Set up SMTP so FieldLgx can send {terms['estimate'].lower()}s and invoices on your behalf.",
+            "hint": f"Set up SMTP so FIELDLGX can send {terms['estimate'].lower()}s and invoices on your behalf.",
             "done": smtp_connected,
             "action_url": "/settings/",
             "action_label": "Connect Email",
@@ -580,9 +580,51 @@ def owner_dashboard(request):
     jobs_today = Job.objects.filter(property__customer__business=business, scheduled_date=today).count()
     todays_jobs = (
         Job.objects.filter(property__customer__business=business, scheduled_date=today)
-        .select_related('property', 'assigned_to', 'assigned_crew')
+        .select_related('property', 'property__customer', 'assigned_to', 'assigned_crew')
         .prefetch_related('service_items__service')
         .order_by('scheduled_time', 'route_order')[:15]
+    )
+    todays_jobs_qs = Job.objects.filter(property__customer__business=business, scheduled_date=today)
+    active_crew_count = (
+        todays_jobs_qs.filter(assigned_crew__isnull=False)
+        .values("assigned_crew_id")
+        .distinct()
+        .count()
+    )
+    unassigned_jobs_count = todays_jobs_qs.filter(
+        status="scheduled",
+        assigned_to__isnull=True,
+        assigned_crew__isnull=True,
+    ).count()
+    now_local = timezone.localtime()
+    delayed_jobs_count = todays_jobs_qs.filter(
+        status="scheduled",
+        scheduled_time__isnull=False,
+        scheduled_time__lt=now_local.time(),
+    ).count()
+    completed_not_billed_qs = Job.objects.filter(
+        property__customer__business=business,
+        status="completed",
+        service_items__billed_invoice__isnull=True,
+    ).distinct()
+    completed_not_billed_count = completed_not_billed_qs.count()
+    completed_not_billed_total = (
+        JobServiceItem.objects.filter(
+            job__property__customer__business=business,
+            job__status="completed",
+            billed_invoice__isnull=True,
+        ).aggregate(
+            total=Coalesce(
+                Sum(F("quantity") * F("unit_price")),
+                Decimal("0.00"),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+        )["total"]
+    )
+    crew_load_rows = list(
+        todays_jobs_qs.values("assigned_crew__name")
+        .annotate(total=Count("id"))
+        .order_by("-total", "assigned_crew__name")[:4]
     )
 
     # --- Today's anticipated revenue (all jobs scheduled today, regardless of completion) ---
@@ -770,6 +812,7 @@ def owner_dashboard(request):
         .filter(line_count=0)
         .count()
     )
+    sent_estimates_count = Estimate.objects.filter(business=business, status="sent").count()
 
     crew_user_count = User.objects.filter(business=business, role="crew", is_active=True).count()
     solo_plan_overage = business.subscription_plan_tier == "solo" and crew_user_count > 1
@@ -907,6 +950,12 @@ def owner_dashboard(request):
         "ar_outstanding": ar_outstanding,
         "jobs_today": jobs_today,
         "todays_jobs": todays_jobs,
+        "active_crew_count": active_crew_count,
+        "unassigned_jobs_count": unassigned_jobs_count,
+        "delayed_jobs_count": delayed_jobs_count,
+        "completed_not_billed_count": completed_not_billed_count,
+        "completed_not_billed_total": completed_not_billed_total,
+        "crew_load_rows": crew_load_rows,
         "month_start": month_start,
         "month_end": month_end,
         "client_messages": client_messages,
@@ -915,6 +964,7 @@ def owner_dashboard(request):
         "pay_frequency_label": pay_frequency_label,
         "changes_feed": changes_feed,
         "queue_count": queue_count,
+        "sent_estimates_count": sent_estimates_count,
         "crew_user_count": crew_user_count,
         "solo_plan_overage": solo_plan_overage,
         "monthly_labels": monthly_labels,
@@ -1038,10 +1088,14 @@ def employee_management(request):
         ])
         # Time off: all requests for business; schedule: pick employee
         time_off_requests = TimeOffRequest.objects.filter(business=business).select_related("user", "reviewed_by").order_by("-start_date", "-created_at")
+        pending_time_off_count = time_off_requests.filter(status="pending").count()
         schedule_employees = User.objects.filter(business=business, role="crew").order_by("first_name", "last_name", "username")
         schedule_selected_id = request.GET.get("schedule_user_id")
         schedule_selected_user = get_object_or_404(User, pk=schedule_selected_id, business=business, role="crew") if schedule_selected_id else schedule_employees.first()
         schedule_rows = _schedule_rows_for_user(schedule_selected_user) if schedule_selected_user else []
+        employee_count = employees.count()
+        active_employee_count = employees.filter(is_active=True).count()
+        crew_count = crews.count()
     else:
         employees = []
         employee_stats = []
@@ -1058,9 +1112,13 @@ def employee_management(request):
         all_employees_json = "[]"
         crew_users_json = "[]"
         time_off_requests = TimeOffRequest.objects.filter(user=request.user).select_related("reviewed_by").order_by("-start_date", "-created_at")
+        pending_time_off_count = time_off_requests.filter(status="pending").count()
         schedule_employees = []
         schedule_selected_user = request.user
         schedule_rows = _schedule_rows_for_user(request.user)
+        employee_count = 1
+        active_employee_count = 1 if request.user.is_active else 0
+        crew_count = 0
 
     return render(request, "dashboard/employee_management.html", {
         "employees": employees,
@@ -1082,6 +1140,10 @@ def employee_management(request):
         "time_off_employees": User.objects.filter(business=business, role="crew").order_by("first_name", "last_name", "username") if is_owner else [],
         "pending_time_entries_count": pending_time_entries_count,
         "pending_time_entries": pending_time_entries,
+        "employee_count": employee_count,
+        "active_employee_count": active_employee_count,
+        "crew_count": crew_count,
+        "pending_time_off_count": pending_time_off_count,
         "all_employees_json": all_employees_json,
         "crew_users_json": crew_users_json,
         "today_iso": today.isoformat(),

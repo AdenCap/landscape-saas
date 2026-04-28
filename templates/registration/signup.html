@@ -1,5 +1,5 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}Create your account — FieldLgx{% endblock %}
+{% block title %}Create your account — FIELDLGX{% endblock %}
 
 {% block content %}
 <section class="section" style="padding-top:34px;">
@@ -7,11 +7,11 @@
     <aside class="card" data-r style="padding:22px;position:sticky;top:86px;">
       <p style="color:var(--primary);font-weight:600;font-size:14px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;">Step 2 of 2</p>
       <h1 style="font-size:36px;line-height:1.02;letter-spacing:-.03em;margin:0 0 10px;">Set up your {{ business_type_label }} business.</h1>
-      <p class="lead" style="margin-bottom:14px;">Create your account and go directly into plan selection. No friction, no confusing setup.</p>
+      <p class="lead" style="margin-bottom:14px;">Create your workspace and start a 14-day FIELDLGX trial immediately. No friction, no confusing setup.</p>
       <ul style="margin:0;padding-left:18px;color:var(--muted);line-height:1.8;">
         <li>Customized for {{ business_type_label }}</li>
-        <li>Guided onboarding mode</li>
-        <li>Operator-friendly dashboard from day one</li>
+        <li>14-day free trial starts after signup</li>
+        <li>Premium field command dashboard from day one</li>
       </ul>
       <div style="margin-top:14px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-size:13px;color:var(--muted);">
         Wrong trade? <a href="{% url 'signup' %}" style="color:var(--text)">Go back</a> &middot;
@@ -21,7 +21,7 @@
 
     <div class="card" data-r style="padding:22px;">
       <h2 style="margin:0 0 6px;font-size:28px;letter-spacing:-.02em;">Create account</h2>
-      <p style="margin:0 0 16px;color:var(--muted);">We'll set up your workspace and route you to subscription selection next.</p>
+      <p style="margin:0 0 16px;color:var(--muted);">We'll set up your workspace and take you straight into the app with your trial active.</p>
 
       {% include "registration/_social_buttons.html" with divider_text="or create account with email" %}
 

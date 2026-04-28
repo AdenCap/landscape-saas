@@ -29,3 +29,6 @@ staticfiles/
 # Logs
 *.log
 .DS_Store
+
+# Local Codex/design companion artifacts
+.superpowers/

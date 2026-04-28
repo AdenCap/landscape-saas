@@ -1,149 +1,475 @@
+{% load billing_filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pay Invoice #{{ invoice.id }} – {{ business.name }}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>Invoice #{{ invoice.id }} - {{ business.name }}</title>
   <style>
-    :root { --primary: #22c55e; --primary-hover: #16a34a; --surface: #171717; --surface-alt: #0a0a0a; --border: #262626; --text: #fafafa; --text-muted: #a3a3a3; --radius: 12px; }
+    :root {
+      color-scheme: dark;
+      --bg: #070807;
+      --panel: rgba(31, 33, 31, .92);
+      --panel-soft: rgba(255, 255, 255, .045);
+      --line: rgba(255, 255, 255, .14);
+      --line-strong: rgba(255, 255, 255, .22);
+      --text: #f4f4f0;
+      --muted: rgba(244, 244, 240, .62);
+      --quiet: rgba(244, 244, 240, .42);
+      --accent: #9bef45;
+      --danger: #ff7a7a;
+    }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: 'Inter', -apple-system, sans-serif; background: var(--surface-alt); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
-    .pay-card { max-width: 460px; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; }
-    .pay-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
-    .pay-logo { width: 36px; height: 36px; border-radius: 8px; }
-    .pay-header-text h1 { margin: 0; font-size: 18px; font-weight: 700; }
-    .pay-header-text p { margin: 2px 0 0; color: var(--text-muted); font-size: 13px; }
-    .pay-total { font-size: 40px; font-weight: 700; background: linear-gradient(135deg, #4ade80, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 24px; }
-    .line-items { margin-bottom: 24px; border-top: 1px solid var(--border); }
-    .line-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
-    .line-item-name { color: var(--text-muted); }
-    .line-item-amount { font-weight: 600; }
-    .line-total { display: flex; justify-content: space-between; padding: 12px 0; font-weight: 700; font-size: 15px; }
-    .pay-methods { margin-bottom: 24px; }
-    .pay-methods h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin: 0 0 10px 0; font-weight: 600; }
-    .pay-method { display: block; width: 100%; padding: 14px 18px; margin-bottom: 8px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); text-decoration: none; font-weight: 600; font-size: 14px; text-align: center; transition: border-color 0.15s, background 0.15s, transform 0.15s; cursor: pointer; font-family: inherit; }
-    .pay-method:hover { border-color: var(--primary); background: rgba(34, 197, 94, 0.08); transform: translateY(-1px); }
-    .pay-method-card { background: var(--primary); color: #fff; border-color: var(--primary); }
-    .pay-method-card:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: #fff; }
-    .pay-method.zelle { pointer-events: none; cursor: default; }
-    .pay-note { font-size: 13px; color: var(--text-muted); margin: 16px 0 0 0; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; }
-    .paid-state { text-align: center; padding: 24px 0; }
-    .paid-icon { width: 56px; height: 56px; margin: 0 auto 16px; color: #86efac; animation: popIn 0.4s cubic-bezier(0, 0, 0.2, 1); }
-    .paid-title { font-size: 20px; font-weight: 700; color: #86efac; margin-bottom: 4px; }
-    .paid-desc { color: var(--text-muted); font-size: 14px; }
-    @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
-    .powered-by { text-align: center; margin-top: 20px; font-size: 11px; color: var(--text-muted); opacity: 0.6; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(155, 239, 69, .16), transparent 27rem),
+        radial-gradient(circle at 85% 18%, rgba(255, 255, 255, .07), transparent 24rem),
+        linear-gradient(135deg, #111310, var(--bg) 58%);
+      padding: clamp(18px, 4vw, 54px);
+    }
+    a { color: inherit; }
+    .shell {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .brand img {
+      max-width: 154px;
+      max-height: 54px;
+      object-fit: contain;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+    .hero-main,
+    .amount-card,
+    .panel,
+    .method-card,
+    .line-item {
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .03)),
+        var(--panel);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 24px 70px rgba(0,0,0,.32);
+    }
+    .hero-main {
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: clamp(24px, 5vw, 46px);
+      border-radius: 34px;
+    }
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+    .kicker::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 24px rgba(155, 239, 69, .75);
+    }
+    h1 {
+      margin: 18px 0 12px;
+      font-size: clamp(54px, 10vw, 116px);
+      line-height: .86;
+      letter-spacing: 0;
+    }
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(16px, 2vw, 19px);
+      line-height: 1.55;
+    }
+    .amount-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 22px;
+      padding: 26px;
+      border-radius: 34px;
+      background:
+        radial-gradient(circle at 80% 18%, rgba(155, 239, 69, .18), transparent 42%),
+        linear-gradient(145deg, rgba(255,255,255,.10), rgba(255,255,255,.04)),
+        var(--panel);
+    }
+    .status {
+      width: fit-content;
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.11);
+      color: var(--text);
+      font-weight: 900;
+    }
+    .status-paid {
+      color: var(--accent);
+      background: rgba(155, 239, 69, .12);
+    }
+    .amount-card strong {
+      display: block;
+      font-size: clamp(52px, 9vw, 92px);
+      line-height: .9;
+    }
+    .amount-card small {
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .stack { display: grid; gap: 18px; }
+    .panel {
+      border-radius: 30px;
+      padding: clamp(20px, 3vw, 30px);
+    }
+    .panel-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .panel-head span,
+    .line-label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    h2 {
+      margin: 6px 0 0;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+    .line-list { display: grid; gap: 10px; }
+    .line-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      border-radius: 20px;
+      padding: 16px;
+      background: rgba(0,0,0,.22);
+      box-shadow: none;
+    }
+    .line-item strong {
+      display: block;
+      color: var(--text);
+      font-size: 16px;
+    }
+    .line-item small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .line-price {
+      color: var(--text);
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .total-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      font-size: 18px;
+      font-weight: 900;
+    }
+    .payment-options {
+      display: grid;
+      gap: 12px;
+    }
+    .method-card {
+      display: grid;
+      gap: 10px;
+      border-radius: 22px;
+      padding: 18px;
+      background: rgba(0,0,0,.22);
+      box-shadow: none;
+      text-decoration: none;
+    }
+    .method-card strong {
+      color: var(--text);
+      font-size: 18px;
+    }
+    .method-card small {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    button.method-card {
+      width: 100%;
+      border-color: rgba(155, 239, 69, .5);
+      background: var(--accent);
+      color: #071005;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 900;
+      text-align: left;
+      box-shadow: 0 18px 42px rgba(155, 239, 69, .22);
+    }
+    button.method-card strong,
+    button.method-card small { color: #071005; }
+    .notify-button {
+      width: 100%;
+      min-height: 54px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 900;
+      padding: 0 18px;
+    }
+    .notify-done {
+      display: none;
+      border: 1px solid rgba(155, 239, 69, .25);
+      border-radius: 20px;
+      padding: 16px;
+      background: rgba(155, 239, 69, .09);
+      color: var(--accent);
+      font-weight: 900;
+      text-align: center;
+    }
+    .empty {
+      border: 1px dashed var(--line-strong);
+      border-radius: 20px;
+      padding: 18px;
+      color: var(--muted);
+      background: rgba(0,0,0,.18);
+    }
+    .paid-state {
+      text-align: center;
+      padding: 30px 10px;
+    }
+    .paid-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      color: var(--accent);
+    }
+    .paid-state h2 { color: var(--accent); }
+    .powered {
+      text-align: center;
+      color: var(--quiet);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      padding: 10px 0 0;
+    }
+    @media (max-width: 860px) {
+      body { padding: 16px 14px 34px; }
+      .hero,
+      .layout { grid-template-columns: 1fr; }
+      .hero-main { min-height: 260px; border-radius: 30px; }
+      .amount-card,
+      .panel { border-radius: 26px; }
+      .panel-head { display: block; }
+    }
   </style>
 </head>
 <body>
-  <div class="pay-card">
-    <div class="pay-header">
+  <main class="shell">
+    <div class="brand">
       {% if business.logo %}
-      <img src="{{ business.logo.url }}" alt="" class="pay-logo" onerror="this.style.display='none'">
+      <img src="{{ business.logo.url }}" alt="{{ business.name }}" onerror="this.remove()">
       {% endif %}
-      <div class="pay-header-text">
-        <h1>Invoice #{{ invoice.id }}</h1>
-        <p>{{ business.name }}</p>
-      </div>
+      <span>{{ business.name }}</span>
     </div>
 
-    <div class="pay-total">${{ invoice.total|floatformat:2 }}</div>
+    <section class="hero">
+      <div class="hero-main">
+        <span class="kicker">Invoice</span>
+        <h1>#{{ invoice.id }}</h1>
+        <p>{{ invoice.customer.name }}{% if invoice.issue_date %} · Issued {{ invoice.issue_date|date:"M j, Y" }}{% endif %}{% if invoice.due_date %} · Due {{ invoice.due_date|date:"M j, Y" }}{% endif %}</p>
+      </div>
+      <aside class="amount-card">
+        <span class="status {% if invoice.status == 'paid' or request.GET.paid %}status-paid{% endif %}">
+          {% if invoice.status == "paid" or request.GET.paid %}Paid{% else %}{{ invoice.get_status_display }}{% endif %}
+        </span>
+        <div>
+          <strong>{{ invoice.total|currency }}</strong>
+          <small>{% if invoice.status == "paid" or request.GET.paid %}Payment received. Thank you.{% else %}Amount due to {{ business.name }}{% endif %}</small>
+        </div>
+      </aside>
+    </section>
 
     {% if invoice.status == "paid" or request.GET.paid %}
-      <div class="paid-state">
-        <svg class="paid-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        <div class="paid-title">Payment received</div>
-        <div class="paid-desc">Thank you for your payment!</div>
-      </div>
+    <section class="panel paid-state">
+      <svg class="paid-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <h2>Payment received</h2>
+      <p>{{ business.name }} has your payment recorded.</p>
+    </section>
     {% else %}
-      {% if line_items %}
-      <div class="line-items">
-        {% for item in line_items %}
-        <div class="line-item">
+    <div class="layout">
+      <section class="panel">
+        <div class="panel-head">
           <div>
-            <span class="line-item-name">{{ item.description|default:"Service" }}{% if item.quantity and item.quantity != 1 %} &times; {{ item.quantity }}{% endif %}</span>
-            {% if item.detail_description %}<div style="font-size:12px;color:#71717a;margin-top:2px;">{{ item.detail_description }}</div>{% endif %}
+            <span>Invoice details</span>
+            <h2>What you are paying for</h2>
           </div>
-          <span class="line-item-amount">{% if item.line_total %}${{ item.line_total|floatformat:2 }}{% endif %}</span>
         </div>
-        {% endfor %}
-        {% if invoice.tax_amount %}
-        <div class="line-item">
-          <span class="line-item-name">Tax</span>
-          <span class="line-item-amount">${{ invoice.tax_amount|floatformat:2 }}</span>
+        {% if line_items %}
+        <div class="line-list">
+          {% for item in line_items %}
+          <div class="line-item">
+            <div>
+              <strong>{{ item.description|default:"Service" }}</strong>
+              <small>
+                {% if item.quantity and item.quantity != 1 %}Qty {{ item.quantity }} · {% endif %}
+                {% if item.detail_description %}{{ item.detail_description }}{% else %}Service from {{ business.name }}{% endif %}
+              </small>
+            </div>
+            <div class="line-price">{{ item.line_total|currency }}</div>
+          </div>
+          {% endfor %}
         </div>
+        <div class="total-row">
+          <span>Total due</span>
+          <span>{{ invoice.total|currency }}</span>
+        </div>
+        {% else %}
+        <div class="empty">No line items were listed on this invoice.</div>
         {% endif %}
-        <div class="line-total">
-          <span>Total</span>
-          <span>${{ invoice.total|floatformat:2 }}</span>
-        </div>
-      </div>
-      {% endif %}
+      </section>
 
-      {% if can_accept_stripe and invoice.enable_card_payment %}
-      <div class="pay-methods">
-        <h3>Pay with card</h3>
-        <form method="post" action="{% url 'billing:create_invoice_checkout' invoice.id invoice.payment_token %}">
-          {% csrf_token %}
-          <button type="submit" class="pay-method pay-method-card">Pay ${{ invoice.total|floatformat:2 }} with card</button>
-        </form>
-      </div>
-      {% endif %}
+      <aside class="stack">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <span>Payment</span>
+              <h2>Choose a payment method</h2>
+            </div>
+          </div>
+          <div class="payment-options">
+            {% if can_accept_stripe and invoice.enable_card_payment %}
+            <form method="post" action="{% url 'billing:create_invoice_checkout' invoice.id invoice.payment_token %}">
+              {% csrf_token %}
+              <button type="submit" class="method-card">
+                <strong>Pay securely by card</strong>
+                <small>{{ invoice.total|currency }} through encrypted Stripe checkout.</small>
+              </button>
+            </form>
+            {% endif %}
 
-      {% if has_payment_methods %}
-      <div class="pay-methods">
-        <h3>{% if can_accept_stripe and invoice.enable_card_payment %}Or pay another way{% else %}Payment methods{% endif %}</h3>
-        {% if venmo_link %}
-        <a href="{{ venmo_link }}" class="pay-method" target="_blank" rel="noopener">Pay with Venmo ({{ business.venmo_username }})</a>
-        {% endif %}
-        {% if paypal_link %}
-        <a href="{{ paypal_link }}" class="pay-method" target="_blank" rel="noopener">Pay with PayPal</a>
-        {% endif %}
-        {% if business.zelle_email_or_phone %}
-        <div class="pay-method zelle">Zelle: {{ business.zelle_email_or_phone }}</div>
-        {% endif %}
-        {% if cashapp_link %}
-        <a href="{{ cashapp_link }}" class="pay-method" target="_blank" rel="noopener">Pay with Cash App ({{ business.cashapp_cashtag }})</a>
-        {% endif %}
-      </div>
-      <p class="pay-note">After paying, tap the button below to notify {{ business.name }}.</p>
-      {% endif %}
+            {% if has_payment_methods %}
+              {% if venmo_link %}
+              <a href="{{ venmo_link }}" class="method-card" target="_blank" rel="noopener">
+                <strong>Venmo</strong>
+                <small>{{ business.venmo_username }}</small>
+              </a>
+              {% endif %}
+              {% if paypal_link %}
+              <a href="{{ paypal_link }}" class="method-card" target="_blank" rel="noopener">
+                <strong>PayPal</strong>
+                <small>Open PayPal to send payment.</small>
+              </a>
+              {% endif %}
+              {% if business.zelle_email_or_phone %}
+              <div class="method-card">
+                <strong>Zelle</strong>
+                <small>{{ business.zelle_email_or_phone }}</small>
+              </div>
+              {% endif %}
+              {% if cashapp_link %}
+              <a href="{{ cashapp_link }}" class="method-card" target="_blank" rel="noopener">
+                <strong>Cash App</strong>
+                <small>{{ business.cashapp_cashtag }}</small>
+              </a>
+              {% endif %}
+            {% elif not can_accept_stripe or not invoice.enable_card_payment %}
+              <div class="empty">{{ business.name }} will follow up with payment instructions for this invoice.</div>
+            {% endif %}
+          </div>
+        </section>
 
-      <!-- "I've Paid" notification button -->
-      {% if has_payment_methods %}
-      <div id="ipaid-section" style="margin-top:16px;">
-        <button type="button" id="ipaid-btn" class="pay-method" onclick="notifyPaid()" style="background:var(--primary);color:#fff;border-color:var(--primary);font-weight:700;">
-          I've sent payment via Venmo, Zelle, PayPal, or Cash App
-        </button>
-        <div id="ipaid-done" style="display:none;text-align:center;padding:16px;background:rgba(34,197,94,0.1);border-radius:var(--radius);margin-top:8px;">
-          <span style="font-size:20px;">&#10003;</span>
-          <p style="margin:8px 0 0;font-size:14px;color:var(--primary);font-weight:600;">Payment notification sent!</p>
-          <p style="margin:4px 0 0;font-size:12px;color:var(--text-muted);">{{ business.name }} has been notified and will confirm your payment shortly.</p>
-        </div>
-      </div>
-      <script>
-      function notifyPaid() {
-        var btn = document.getElementById('ipaid-btn');
-        btn.disabled = true;
-        btn.textContent = 'Sending...';
-        fetch('{% url "billing:invoice_customer_paid_notify" invoice.id invoice.payment_token %}', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-        }).then(function(r) { return r.json(); }).then(function(data) {
-          btn.style.display = 'none';
-          document.getElementById('ipaid-done').style.display = 'block';
-        }).catch(function() {
-          btn.textContent = 'I\'ve sent payment';
-          btn.disabled = false;
-        });
-      }
-      </script>
-      {% endif %}
+        {% if has_payment_methods %}
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <span>Manual payment</span>
+              <h2>Already sent it?</h2>
+            </div>
+          </div>
+          <p style="margin-bottom:16px;">Tell {{ business.name }} you sent payment so they can confirm it and mark this invoice paid.</p>
+          <button type="button" id="ipaid-btn" class="notify-button" onclick="notifyPaid()">I sent payment</button>
+          <div id="ipaid-done" class="notify-done">Payment notification sent.</div>
+        </section>
+        {% endif %}
+      </aside>
+    </div>
     {% endif %}
 
-    <div class="powered-by">Powered by FieldLgx</div>
-  </div>
+    <div class="powered">Powered by FIELDLGX</div>
+  </main>
+
+  {% if has_payment_methods and invoice.status != "paid" %}
+  <script>
+  function notifyPaid() {
+    var btn = document.getElementById('ipaid-btn');
+    var done = document.getElementById('ipaid-done');
+    if (!btn || !done) return;
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    fetch('{% url "billing:invoice_customer_paid_notify" invoice.id invoice.payment_token %}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}'
+      }
+    }).then(function(response) {
+      if (!response.ok) throw new Error('notify failed');
+      btn.style.display = 'none';
+      done.style.display = 'block';
+    }).catch(function() {
+      btn.textContent = 'I sent payment';
+      btn.disabled = false;
+    });
+  }
+  </script>
+  {% endif %}
 </body>
 </html>

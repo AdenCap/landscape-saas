@@ -2,10 +2,55 @@
 
 {% block content %}
 <div class="settings-page">
-  <div class="settings-header">
-    <h1>Settings</h1>
-    <p class="settings-subtitle">Manage your business configuration</p>
-  </div>
+  <header class="settings-command-hero">
+    <div class="settings-hero-copy">
+      <a href="{% url 'owner_dashboard' %}" class="settings-back">&larr; Dashboard</a>
+      <div class="settings-kicker"><span></span>Company Command</div>
+      <h1>Settings</h1>
+      <p>Brand, billing, notifications, payments, and security for {{ business.name }}.</p>
+    </div>
+    <div class="settings-brand-card">
+      <div class="settings-logo-mark">
+        {% if business.logo %}
+        <img src="{{ business.logo.url }}" alt="{{ business.name }} logo" onerror="this.style.display='none'">
+        {% else %}
+        <span>{{ business.name|first|upper }}</span>
+        {% endif %}
+      </div>
+      <div>
+        <strong>{{ business.name }}</strong>
+        <small>{{ business.get_business_type_display }}{% if business.business_subtype %} &middot; {{ business.get_business_subtype_display }}{% endif %}</small>
+      </div>
+    </div>
+  </header>
+
+  <section class="settings-command-grid" aria-label="Settings readiness">
+    <article>
+      <span>Brand kit</span>
+      <strong>{% if logo_ready %}Ready{% else %}Needs logo{% endif %}</strong>
+      <small>Logo and company identity</small>
+    </article>
+    <article>
+      <span>Client contact</span>
+      <strong>{% if contact_ready %}Ready{% else %}Incomplete{% endif %}</strong>
+      <small>Email and phone on documents</small>
+    </article>
+    <article>
+      <span>Email</span>
+      <strong>{% if email_ready %}Connected{% else %}Not connected{% endif %}</strong>
+      <small>Invoices, estimates, reminders</small>
+    </article>
+    <article>
+      <span>Payments</span>
+      <strong>{{ payment_method_count }}</strong>
+      <small>manual methods{% if stripe_ready %} + Stripe{% endif %}</small>
+    </article>
+    <article>
+      <span>Documents</span>
+      <strong>{% if document_ready %}Ready{% else %}Needs polish{% endif %}</strong>
+      <small>invoice and estimate templates</small>
+    </article>
+  </section>
 
   <nav class="settings-tabs" id="settings-tabs">
     <button class="settings-tab active" data-tab="general" type="button">
@@ -19,6 +64,10 @@
     <button class="settings-tab" data-tab="invoicing" type="button">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
       Invoicing
+    </button>
+    <button class="settings-tab" data-tab="documents" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+      Documents
     </button>
     <button class="settings-tab" data-tab="automation" type="button">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
@@ -414,6 +463,90 @@
       </div>
     </div>
 
+    <!-- DOCUMENTS -->
+    <div class="settings-panel" id="panel-documents">
+      <div class="documents-command">
+        <div class="documents-command-main">
+          <span class="settings-section-label">Client-facing brand</span>
+          <h2>Make every estimate and invoice feel custom.</h2>
+          <p>Your logo, contact details, payment methods, template style, terms, and footer language all come together here before documents go to clients.</p>
+          <div class="documents-action-row">
+            <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="btn btn-primary">Customize estimates</a>
+            <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="btn btn-secondary">Customize invoices</a>
+          </div>
+        </div>
+        <div class="documents-preview-card">
+          <div class="documents-preview-bar"></div>
+          <div class="documents-preview-head">
+            <div class="documents-preview-logo">
+              {% if business.logo %}
+              <img src="{{ business.logo.url }}" alt="{{ business.name }} logo" onerror="this.style.display='none'">
+              {% else %}
+              <span>{{ business.name|first|upper }}</span>
+              {% endif %}
+            </div>
+            <div>
+              <strong>{{ business.name }}</strong>
+              <small>{{ business.contact_phone|default:"Phone not set" }}</small>
+            </div>
+          </div>
+          <div class="documents-preview-title">
+            <span>Estimate #1001</span>
+            <strong>$395</strong>
+          </div>
+          <div class="documents-preview-lines">
+            <i></i><i></i><i></i>
+          </div>
+          <div class="documents-preview-total">
+            <span>Premium template</span>
+            <strong>{% if document_ready %}Ready{% else %}Review needed{% endif %}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="documents-template-grid">
+        <article class="document-template-card">
+          <div>
+            <span>Estimate template</span>
+            <h3>{{ estimate_template.name|default:"Modern Dark" }}</h3>
+            <p>{{ estimate_template.get_template_key_display|default:"Modern Dark — tech-forward, premium" }}</p>
+          </div>
+          <a href="{% url 'billing:document_template_edit' 'estimate' %}">Edit estimate</a>
+        </article>
+        <article class="document-template-card">
+          <div>
+            <span>Invoice template</span>
+            <h3>{{ invoice_template.name|default:"Modern Dark" }}</h3>
+            <p>{{ invoice_template.get_template_key_display|default:"Modern Dark — tech-forward, premium" }}</p>
+          </div>
+          <a href="{% url 'billing:document_template_edit' 'invoice' %}">Edit invoice</a>
+        </article>
+      </div>
+
+      <div class="documents-readiness-grid">
+        <article class="{% if logo_ready %}ready{% endif %}">
+          <span>1</span>
+          <strong>Logo</strong>
+          <p>{% if logo_ready %}Your logo is ready for documents.{% else %}Upload a logo in General settings.{% endif %}</p>
+        </article>
+        <article class="{% if contact_ready %}ready{% endif %}">
+          <span>2</span>
+          <strong>Contact</strong>
+          <p>{% if contact_ready %}Email and phone are set.{% else %}Add contact email and phone so clients know how to reach you.{% endif %}</p>
+        </article>
+        <article class="{% if payment_method_count or stripe_ready %}ready{% endif %}">
+          <span>3</span>
+          <strong>Payments</strong>
+          <p>{% if payment_method_count or stripe_ready %}Payment options are configured.{% else %}Add payment methods or connect Stripe.{% endif %}</p>
+        </article>
+        <article class="{% if document_ready %}ready{% endif %}">
+          <span>4</span>
+          <strong>Terms</strong>
+          <p>{% if document_ready %}Document language has been reviewed.{% else %}Add terms, notes, and footer language in Document Studio.{% endif %}</p>
+        </article>
+      </div>
+    </div>
+
     <!-- AUTOMATION -->
     <div class="settings-panel" id="panel-automation">
       <div class="panel-card">
@@ -594,14 +727,30 @@
 
     <!-- INTEGRATIONS -->
     <div class="settings-panel" id="panel-integrations">
-      <div class="panel-card">
-        <div class="panel-card-header">
-          <h2>Stripe — Accept Card Payments</h2>
-          <p>Connect Stripe so clients can pay invoices by credit card.</p>
+      <section class="payments-command">
+        <div class="payments-command-main">
+          <span class="settings-section-label">Payments command</span>
+          <h2>Control how clients pay and when cards can be charged.</h2>
+          <p>Keep card checkout, saved cards, and auto-invoice behavior separate so every business can choose the workflow that matches its customers.</p>
+          <div class="payments-state-grid">
+            <article>
+              <span>Stripe</span>
+              <strong>{% if business.stripe_connect_charges_enabled %}Ready{% elif business.stripe_connect_account_id %}Setup needed{% else %}Not connected{% endif %}</strong>
+            </article>
+            <article>
+              <span>Card checkout</span>
+              <strong>{% if business.client_card_payments_enabled %}Allowed{% else %}Off{% endif %}</strong>
+            </article>
+            <article>
+              <span>Saved cards</span>
+              <strong>{% if business.client_saved_cards_enabled %}Allowed{% else %}Off{% endif %}</strong>
+            </article>
+          </div>
         </div>
-        <div class="panel-card-body">
+        <div class="payments-command-card">
+          <span class="settings-section-label">Stripe status</span>
           {% if stripe_connect_fee_percent %}
-          <p class="field-help" style="margin-bottom: 12px;">Platform fee: {{ stripe_connect_fee_percent }}% on card payments.</p>
+          <p class="field-help">Platform fee: {{ stripe_connect_fee_percent }}% on card payments.</p>
           {% endif %}
           {% if not stripe_connect_enabled %}
           <div class="status-banner status-warn">
@@ -625,6 +774,43 @@
           {% else %}
           <a href="{% url 'billing:connect_onboarding' %}" class="btn btn-primary">Connect Stripe</a>
           {% endif %}
+        </div>
+      </section>
+
+      <div class="panel-card payment-control-card">
+        <div class="panel-card-header">
+          <h2>Client Payment Controls</h2>
+          <p>Choose what clients can do themselves and what owners can charge only after explicit customer authorization.</p>
+        </div>
+        <div class="panel-card-body payment-control-grid">
+          <div class="setting-toggle-row">
+            <div>
+              <strong>Client card payments</strong>
+              <p class="field-help">Allow customers to pay invoices and estimate deposits by credit card when Stripe is connected.</p>
+            </div>
+            <label class="settings-switch">
+              {{ form.client_card_payments_enabled }}
+              <span></span>
+            </label>
+          </div>
+          <div class="setting-toggle-row">
+            <div>
+              <strong>Saved cards on file</strong>
+              <p class="field-help">Allow authorized customer cards to be saved and used for customer-level auto-charge rules.</p>
+            </div>
+            <label class="settings-switch">
+              {{ form.client_saved_cards_enabled }}
+              <span></span>
+            </label>
+          </div>
+          <div class="payment-note-card">
+            <strong>Customer-level control</strong>
+            <p>Auto-charge is turned on per customer from the client billing tab, with separate options for completed services and monthly invoices.</p>
+          </div>
+          <div class="payment-note-card">
+            <strong>Invoice-level control</strong>
+            <p>Each invoice can still allow or block client card checkout, even when global card payments are enabled.</p>
+          </div>
         </div>
       </div>
 
@@ -716,78 +902,284 @@
 </div>
 
 <!-- Account Management -->
-<div class="settings-page" style="margin-top:24px;">
-  <div style="padding:20px;border:1px solid rgba(239,68,68,0.2);border-radius:12px;background:rgba(239,68,68,0.03);">
-    <h3 style="font-size:15px;font-weight:700;color:#fca5a5;margin:0 0 8px;">Account</h3>
-    <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Manage your personal account, change your password, or permanently delete your account.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <a href="{% url 'account_profile' %}" class="btn btn-secondary" style="font-size:13px;">Manage Account</a>
-      <a href="{% url 'password_change' %}" class="btn btn-secondary" style="font-size:13px;">Change Password</a>
+<div class="settings-page settings-account-page">
+  <div class="settings-account-card">
+    <div>
+      <span class="settings-section-label">Account</span>
+      <h3>Personal access</h3>
+      <p>Manage your personal profile, password, and account-level preferences.</p>
+    </div>
+    <div class="settings-account-actions">
+      <a href="{% url 'account_profile' %}" class="btn btn-secondary">Manage Account</a>
+      <a href="{% url 'password_change' %}" class="btn btn-secondary">Change Password</a>
     </div>
   </div>
 </div>
 
 <style>
-  .settings-page { max-width: 780px; margin: 0 auto; }
-  .settings-header { margin-bottom: 20px; }
-  .settings-header h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.02em; }
-  .settings-subtitle { color: var(--text-muted); margin: 0; font-size: 15px; }
+  .settings-page {
+    position: relative;
+    max-width: 1520px;
+    margin: -10px auto 0;
+    color: #f4f4f1;
+  }
+  .settings-page::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 0 256px;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      linear-gradient(125deg, rgba(157, 255, 79, .10), transparent 24%),
+      radial-gradient(circle at 82% 6%, rgba(157, 255, 79, .08), transparent 32%),
+      linear-gradient(180deg, #121311 0%, #050604 100%);
+  }
+  .settings-command-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 22px;
+    align-items: end;
+    margin-bottom: 22px;
+  }
+  .settings-back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 18px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 999px;
+    background: rgba(255,255,255,.055);
+    color: rgba(244,244,241,.72);
+    text-decoration: none;
+    font-weight: 800;
+  }
+  .settings-kicker,
+  .settings-section-label,
+  .settings-command-grid span,
+  .panel-card-header h2,
+  .field-group-title {
+    color: rgba(244, 244, 241, .58);
+    font-size: 12px;
+    font-weight: 850;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .settings-kicker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .settings-kicker span {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: #a6ff4d;
+    box-shadow: 0 0 20px rgba(166, 255, 77, .8);
+  }
+  .settings-hero-copy h1 {
+    margin: 0;
+    color: #f5f5f2;
+    font-size: clamp(58px, 7vw, 118px);
+    line-height: .9;
+    letter-spacing: 0;
+    font-weight: 850;
+  }
+  .settings-hero-copy p {
+    margin: 16px 0 0;
+    max-width: 760px;
+    color: rgba(244,244,241,.68);
+    font-size: 17px;
+    line-height: 1.5;
+  }
+  .settings-brand-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 132px;
+    padding: 22px;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 28px;
+    background:
+      linear-gradient(150deg, rgba(255,255,255,.10), rgba(255,255,255,.035)),
+      rgba(28,29,27,.92);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 28px 90px rgba(0,0,0,.28);
+  }
+  .settings-logo-mark {
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 22px;
+    background: rgba(4,5,4,.34);
+    color: #a6ff4d;
+    font-size: 34px;
+    font-weight: 850;
+  }
+  .settings-logo-mark img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .settings-brand-card strong {
+    display: block;
+    color: #f5f5f2;
+    font-size: 24px;
+    line-height: 1.05;
+  }
+  .settings-brand-card small {
+    display: block;
+    margin-top: 8px;
+    color: rgba(244,244,241,.52);
+    font-size: 13px;
+  }
+  .settings-command-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .settings-command-grid article {
+    min-height: 128px;
+    padding: 22px;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 24px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .035)),
+      rgba(255, 255, 255, .035);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 22px 70px rgba(0,0,0,.24);
+  }
+  .settings-command-grid strong {
+    display: block;
+    margin-top: 12px;
+    color: #f5f5f2;
+    font-size: 30px;
+    line-height: 1;
+    font-weight: 850;
+    letter-spacing: 0;
+  }
+  .settings-command-grid small {
+    display: block;
+    margin-top: 10px;
+    color: rgba(244,244,241,.48);
+    font-size: 14px;
+  }
 
   /* Tabs */
   .settings-tabs {
-    display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px;
-    border-bottom: 1px solid var(--border); margin-bottom: 20px;
+    position: sticky;
+    top: 72px;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 8px;
+    overflow-x: auto;
+    padding: 10px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 999px;
+    margin-bottom: 18px;
+    background: rgba(4,5,4,.78);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
     -webkit-overflow-scrolling: touch; scrollbar-width: none;
   }
   .settings-tabs::-webkit-scrollbar { display: none; }
   .settings-tab {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 10px 16px; border: none; background: none;
-    color: var(--text-muted); font-size: 13px; font-weight: 500;
-    cursor: pointer; white-space: nowrap; border-radius: 8px 8px 0 0;
-    border-bottom: 2px solid transparent; transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 44px;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: none;
+    color: rgba(244,244,241,.62);
+    font-size: 13px;
+    font-weight: 850;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
   }
-  .settings-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
-  .settings-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(34,197,94,0.06); }
+  .settings-tab:hover { color: #f4f4f1; background: rgba(255,255,255,0.07); }
+  .settings-tab.active {
+    color: #071004;
+    border-color: rgba(166,255,77,.8);
+    background: #a6ff4d;
+    box-shadow: 0 12px 36px rgba(166,255,77,.18);
+  }
   .settings-tab svg { opacity: 0.6; flex-shrink: 0; }
-  .settings-tab.active svg { opacity: 1; color: var(--primary); }
+  .settings-tab.active svg { opacity: 1; color: #071004; }
 
   /* Panels */
   .settings-panel { display: none; }
   .settings-panel.active { display: block; }
   .panel-card {
-    border: 1px solid var(--border); border-radius: 12px;
-    background: var(--surface, #141414); margin-bottom: 16px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 28px;
+    background:
+      linear-gradient(150deg, rgba(255,255,255,.10), rgba(255,255,255,.035)),
+      rgba(28,29,27,.92);
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 28px 90px rgba(0,0,0,.24);
   }
   .panel-card-header {
-    padding: 18px 20px 14px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding: 24px 28px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
   }
-  .panel-card-header h2 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
-  .panel-card-header p { font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.45; }
-  .panel-card-body { padding: 16px 20px 20px; }
+  .panel-card-header h2 { margin: 0 0 8px; }
+  .panel-card-header p { font-size: 14px; color: rgba(244,244,241,.58); margin: 0; line-height: 1.45; }
+  .panel-card-body { padding: 22px 28px 28px; }
 
   /* Fields */
-  .field { margin-bottom: 14px; }
+  .field, .settings-field { margin-bottom: 16px; }
   .field:last-child { margin-bottom: 0; }
-  .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: var(--text); }
+  .field label,
+  .settings-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 850;
+    margin-bottom: 7px;
+    color: rgba(244,244,241,.82);
+  }
   .field input[type="text"], .field input[type="email"], .field input[type="url"],
   .field input[type="number"], .field input[type="password"], .field input[type="tel"],
-  .field textarea, .field select {
-    width: 100%; padding: 9px 12px; border-radius: 8px;
-    border: 1px solid var(--border); font-size: 14px;
-    background: var(--bg, #0a0a0a); color: var(--text);
+  .field textarea, .field select,
+  .settings-field input[type="text"], .settings-field input[type="date"],
+  .settings-field input[type="number"], .settings-field select {
+    width: 100%;
+    padding: 13px 15px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,.14);
+    font-size: 15px;
+    background: rgba(4,5,4,.46);
+    color: #f4f4f1;
     transition: border-color 0.15s ease;
   }
-  .field input:focus, .field textarea:focus, .field select:focus {
-    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(34,197,94,0.12);
+  .field input:focus, .field textarea:focus, .field select:focus,
+  .settings-field input:focus, .settings-field select:focus {
+    outline: none;
+    border-color: #a6ff4d;
+    box-shadow: 0 0 0 3px rgba(166,255,77,0.12);
   }
-  .field textarea { min-height: 56px; resize: vertical; }
+  .field textarea { min-height: 82px; resize: vertical; }
   .field select { cursor: pointer; }
-  .field-help { font-size: 12px; color: var(--text-muted); margin: 4px 0 0; line-height: 1.4; }
-  .field-help a { color: var(--primary); text-decoration: none; }
+  .field-help,
+  .help-text {
+    display: block;
+    font-size: 12px;
+    color: rgba(244,244,241,.50);
+    margin: 5px 0 0;
+    line-height: 1.45;
+  }
+  .field-help a { color: #a6ff4d; text-decoration: none; }
   .field-help a:hover { text-decoration: underline; }
   .field-help code { font-size: 11px; background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px; }
-  .field-group-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin: 0 0 10px; }
+  .field-group-title { margin: 0 0 10px; }
   .field-row { display: flex; gap: 12px; }
   .field-row .field { flex: 1; }
   .field-row-3 { display: flex; gap: 12px; }
@@ -797,19 +1189,396 @@
   .field-checkbox { display: flex; align-items: flex-start; gap: 10px; }
   .field-checkbox input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; accent-color: var(--primary); cursor: pointer; }
   .field-checkbox label { margin-bottom: 0; cursor: pointer; }
+  .setting-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 16px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 20px;
+    background: rgba(255,255,255,.045);
+  }
+  .setting-toggle-row strong {
+    display: block;
+    color: #f4f4f1;
+    font-size: 15px;
+  }
+  .settings-switch {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 58px;
+    height: 34px;
+  }
+  .settings-switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .settings-switch span {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.16);
+    cursor: pointer;
+    transition: background .18s ease, border-color .18s ease;
+  }
+  .settings-switch span::after {
+    content: "";
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    top: 3px;
+    left: 4px;
+    border-radius: 999px;
+    background: #f4f4f1;
+    transition: transform .18s ease;
+  }
+  .settings-switch input:checked + span {
+    background: #a6ff4d;
+    border-color: #a6ff4d;
+  }
+  .settings-switch input:checked + span::after {
+    transform: translateX(23px);
+    background: #071006;
+  }
 
   /* Status banners */
   .status-banner {
     display: flex; align-items: center; gap: 8px;
-    padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    padding: 13px 16px; border-radius: 16px; font-size: 13px; font-weight: 750;
     margin-bottom: 14px;
   }
   .status-banner svg { flex-shrink: 0; }
   .status-ok { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
   .status-warn { background: rgba(234,179,8,0.08); color: #facc15; border: 1px solid rgba(234,179,8,0.15); }
 
+  /* Payments */
+  .payments-command {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    gap: 18px;
+    margin-bottom: 16px;
+  }
+  .payments-command-main,
+  .payments-command-card,
+  .payment-note-card {
+    border: 1px solid rgba(255,255,255,.16);
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.105), rgba(255,255,255,.04)),
+      rgba(28,29,27,.92);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 24px 70px rgba(0,0,0,.22);
+  }
+  .payments-command-main {
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: clamp(24px, 4vw, 42px);
+    border-radius: 32px;
+  }
+  .payments-command-main h2 {
+    max-width: 850px;
+    margin: 10px 0 12px;
+    color: #f5f5f2;
+    font-size: clamp(38px, 4.5vw, 68px);
+    line-height: .94;
+    letter-spacing: 0;
+  }
+  .payments-command-main p {
+    max-width: 760px;
+    margin: 0;
+    color: rgba(244,244,241,.62);
+    font-size: 16px;
+    line-height: 1.55;
+  }
+  .payments-command-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+    min-height: 300px;
+    padding: 26px;
+    border-radius: 32px;
+  }
+  .payments-state-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 28px;
+  }
+  .payments-state-grid article {
+    min-height: 92px;
+    padding: 16px;
+    border-radius: 22px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(0,0,0,.22);
+  }
+  .payments-state-grid span,
+  .payment-note-card span {
+    display: block;
+    color: rgba(244,244,241,.5);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .payments-state-grid strong {
+    display: block;
+    margin-top: 10px;
+    color: #f5f5f2;
+    font-size: 20px;
+    line-height: 1.05;
+  }
+  .payment-control-card .panel-card-body { padding-top: 18px; }
+  .payment-control-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .payment-control-grid .setting-toggle-row,
+  .payment-note-card {
+    min-height: 124px;
+    margin: 0 !important;
+    padding: 18px;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(0,0,0,.18);
+  }
+  .payment-note-card strong {
+    display: block;
+    margin-bottom: 8px;
+    color: #f5f5f2;
+    font-size: 16px;
+  }
+  .payment-note-card p {
+    margin: 0;
+    color: rgba(244,244,241,.58);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
   .logo-preview { margin-bottom: 10px; }
   .logo-preview img { display: block; max-height: 56px; border-radius: 8px; }
+
+  /* Documents */
+  .documents-command {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 430px);
+    gap: 18px;
+    margin-bottom: 16px;
+  }
+  .documents-command-main,
+  .documents-preview-card,
+  .document-template-card,
+  .documents-readiness-grid article {
+    border: 1px solid rgba(255,255,255,.16);
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.105), rgba(255,255,255,.04)),
+      rgba(28,29,27,.92);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 24px 70px rgba(0,0,0,.22);
+  }
+  .documents-command-main {
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: clamp(24px, 4vw, 42px);
+    border-radius: 32px;
+  }
+  .documents-command-main h2 {
+    max-width: 760px;
+    margin: 10px 0 12px;
+    color: #f5f5f2;
+    font-size: clamp(42px, 5vw, 76px);
+    line-height: .9;
+    letter-spacing: 0;
+  }
+  .documents-command-main p {
+    max-width: 740px;
+    margin: 0;
+    color: rgba(244,244,241,.62);
+    font-size: 17px;
+    line-height: 1.5;
+  }
+  .documents-action-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+  }
+  .documents-preview-card {
+    overflow: hidden;
+    padding: 22px;
+    border-radius: 32px;
+  }
+  .documents-preview-bar {
+    height: 8px;
+    margin: -22px -22px 20px;
+    background: #a6ff4d;
+  }
+  .documents-preview-head {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+  }
+  .documents-preview-logo {
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 18px;
+    background: rgba(0,0,0,.24);
+    color: #a6ff4d;
+    font-size: 26px;
+    font-weight: 900;
+  }
+  .documents-preview-logo img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .documents-preview-head strong,
+  .documents-preview-title strong,
+  .documents-preview-total strong {
+    display: block;
+    color: #f5f5f2;
+  }
+  .documents-preview-head small,
+  .documents-preview-title span,
+  .documents-preview-total span {
+    display: block;
+    margin-top: 5px;
+    color: rgba(244,244,241,.50);
+    font-size: 13px;
+  }
+  .documents-preview-title {
+    margin-top: 30px;
+    padding: 18px;
+    border-radius: 22px;
+    background: #a6ff4d;
+    color: #071004;
+  }
+  .documents-preview-title span,
+  .documents-preview-title strong {
+    color: #071004;
+  }
+  .documents-preview-title strong {
+    margin-top: 5px;
+    font-size: 42px;
+    line-height: 1;
+  }
+  .documents-preview-lines {
+    display: grid;
+    gap: 10px;
+    margin-top: 24px;
+  }
+  .documents-preview-lines i {
+    display: block;
+    height: 14px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.11);
+  }
+  .documents-preview-lines i:nth-child(2) { width: 82%; }
+  .documents-preview-lines i:nth-child(3) { width: 58%; }
+  .documents-preview-total {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    margin-top: 26px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,.12);
+  }
+  .documents-template-grid,
+  .documents-readiness-grid {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .documents-template-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .document-template-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: center;
+    padding: 24px;
+    border-radius: 28px;
+  }
+  .document-template-card span {
+    color: rgba(244,244,241,.52);
+    font-size: 12px;
+    font-weight: 850;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .document-template-card h3 {
+    margin: 8px 0 8px;
+    color: #f5f5f2;
+    font-size: 28px;
+    line-height: 1;
+  }
+  .document-template-card p {
+    margin: 0;
+    color: rgba(244,244,241,.54);
+    font-size: 14px;
+  }
+  .document-template-card a {
+    flex: 0 0 auto;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 16px;
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 999px;
+    background: rgba(255,255,255,.055);
+    color: #f4f4f1;
+    text-decoration: none;
+    font-weight: 850;
+  }
+  .documents-readiness-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .documents-readiness-grid article {
+    min-height: 178px;
+    padding: 22px;
+    border-radius: 28px;
+  }
+  .documents-readiness-grid article.ready {
+    border-color: rgba(166,255,77,.30);
+  }
+  .documents-readiness-grid article span {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.10);
+    color: rgba(244,244,241,.62);
+    font-weight: 900;
+  }
+  .documents-readiness-grid article.ready span {
+    background: #a6ff4d;
+    color: #071004;
+  }
+  .documents-readiness-grid strong {
+    display: block;
+    margin-top: 18px;
+    color: #f5f5f2;
+    font-size: 20px;
+  }
+  .documents-readiness-grid p {
+    margin: 8px 0 0;
+    color: rgba(244,244,241,.52);
+    font-size: 14px;
+    line-height: 1.45;
+  }
 
   /* Trusted devices */
   .trusted-device-list { list-style: none; padding: 0; margin: 8px 0 0; }
@@ -823,25 +1592,160 @@
 
   /* Save bar */
   .settings-save-bar {
-    display: flex; gap: 10px; padding: 16px 0 32px;
-    position: sticky; bottom: 0; background: var(--bg, #0a0a0a);
-    border-top: 1px solid var(--border); margin-top: 8px; z-index: 10;
+    display: flex;
+    gap: 10px;
+    padding: 16px;
+    position: sticky;
+    bottom: 0;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 999px;
+    margin-top: 8px;
+    z-index: 10;
+    background: rgba(4,5,4,.82);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+  }
+
+  .settings-page .btn {
+    border-radius: 999px;
+    font-weight: 850;
+  }
+  .settings-page .btn-primary {
+    background: #a6ff4d;
+    color: #071004;
+    border-color: #a6ff4d;
+  }
+  .settings-page .btn-secondary {
+    border-color: rgba(255,255,255,.15);
+    background: rgba(255,255,255,.055);
+    color: #f4f4f1;
+  }
+
+  .settings-account-page {
+    margin-top: 18px;
+    padding-bottom: 34px;
+  }
+  .settings-account-page::before {
+    display: none;
+  }
+  .settings-account-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: center;
+    padding: 24px 28px;
+    border: 1px solid rgba(239,68,68,0.24);
+    border-radius: 28px;
+    background:
+      linear-gradient(145deg, rgba(239,68,68,.08), rgba(255,255,255,.035)),
+      rgba(28,29,27,.90);
+  }
+  .settings-account-card h3 {
+    margin: 6px 0 8px;
+    color: #f5f5f2;
+    font-size: 28px;
+    line-height: 1;
+  }
+  .settings-account-card p {
+    margin: 0;
+    color: rgba(244,244,241,.54);
+  }
+  .settings-account-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
   }
 
   .btn-sm { padding: 6px 12px; font-size: 12px; }
   .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
   .btn-outline:hover { border-color: var(--text-muted); }
 
+  @media (max-width: 1180px) {
+    .settings-command-hero {
+      grid-template-columns: 1fr;
+    }
+    .settings-brand-card {
+      max-width: 520px;
+    }
+    .settings-command-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .payments-command,
+    .payment-control-grid {
+      grid-template-columns: 1fr;
+    }
+    .payments-command-main,
+    .payments-command-card {
+      min-height: auto;
+    }
+    .settings-tabs {
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      border-radius: 28px;
+    }
+  }
+
   @media (max-width: 768px) {
-    .settings-page { padding: 0 4px; }
-    .settings-header h1 { font-size: 22px; }
-    .settings-tab { padding: 12px 14px; font-size: 13px; min-height: 44px; }
+    .settings-page {
+      margin-top: 0;
+      padding: 0 0 116px;
+    }
+    .settings-page::before {
+      inset: 0;
+    }
+    .settings-hero-copy h1 {
+      font-size: clamp(48px, 17vw, 76px);
+    }
+    .settings-command-grid {
+      grid-template-columns: 1fr;
+    }
+    .settings-brand-card {
+      min-height: 116px;
+    }
+    .settings-tabs {
+      top: 0;
+      display: flex;
+      flex-wrap: nowrap;
+      margin-left: -16px;
+      margin-right: -16px;
+      padding: 10px 16px;
+      border-left: 0;
+      border-right: 0;
+      border-radius: 0;
+    }
+    .settings-tab { padding: 12px 18px; font-size: 13px; min-height: 44px; }
     .settings-tab svg { display: none; }
-    .panel-card-header, .panel-card-body { padding-left: 16px; padding-right: 16px; }
+    .panel-card {
+      border-radius: 28px;
+    }
+    .panel-card-header, .panel-card-body { padding-left: 22px; padding-right: 22px; }
     .field-row, .field-row-3 { flex-direction: column; gap: 0; }
     .field input, .field select, .field textarea { font-size: 16px; min-height: 44px; }
-    .settings-save-bar { flex-direction: column; gap: 8px; }
+    .settings-save-bar {
+      flex-direction: column;
+      gap: 8px;
+      border-radius: 28px;
+    }
     .settings-save-bar .btn { width: 100%; justify-content: center; }
+    .settings-account-card {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .settings-account-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    .documents-command,
+    .payments-command,
+    .documents-template-grid,
+    .documents-readiness-grid,
+    .payment-control-grid,
+    .payments-state-grid {
+      grid-template-columns: 1fr;
+    }
+    .document-template-card {
+      align-items: stretch;
+      flex-direction: column;
+    }
   }
 </style>
 {% endblock %}
@@ -865,12 +1769,17 @@
 
   tabs.forEach(function(tab) {
     tab.addEventListener('click', function() {
-      activate(tab.getAttribute('data-tab'));
+      var tabId = tab.getAttribute('data-tab');
+      activate(tabId);
+      if (history.replaceState) {
+        history.replaceState(null, '', '#' + tabId);
+      }
     });
   });
 
   try {
-    var saved = sessionStorage.getItem(storageKey);
+    var hashTab = (window.location.hash || '').replace('#', '');
+    var saved = hashTab || sessionStorage.getItem(storageKey);
     if (saved && document.getElementById('panel-' + saved)) {
       activate(saved);
     }

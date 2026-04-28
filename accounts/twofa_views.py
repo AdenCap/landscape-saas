@@ -119,7 +119,7 @@ def twofa_setup(request):
         device = TOTPDevice.objects.create(user=user, name="default", confirmed=False)
         device.save()
 
-    issuer = "FieldLgx"
+    issuer = "FIELDLGX"
     label = f"{issuer}:{user.username}"
     uri = f"otpauth://totp/{urllib.parse.quote(label)}?secret={device.key}&issuer={urllib.parse.quote(issuer)}"
     img = qrcode.make(uri, image_factory=qrcode.image.svg.SvgPathImage)

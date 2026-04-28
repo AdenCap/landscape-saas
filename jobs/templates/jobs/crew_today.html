@@ -1,47 +1,80 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="crew-header">
-  <div>
-    <h1>Today's Jobs</h1>
-    <p class="crew-date">{{ today|date:"l, F j" }}</p>
+<div class="crew-field-shell">
+  <div class="crew-header">
+    <div>
+      <span class="crew-kicker">Field route</span>
+      <h1>Today</h1>
+      <p class="crew-date">{{ today|date:"l, F j" }}</p>
+    </div>
+    <div class="clock-widget">
+      {% if time_clock_current_entry %}
+      <form method="post" action="{% url 'time_clock_out' %}">
+        {% csrf_token %}
+        <input type="hidden" name="latitude" class="geo-lat">
+        <input type="hidden" name="longitude" class="geo-lng">
+        <button type="submit" class="clock-btn clocked-in">
+          <span class="material-symbols-outlined">timer</span>
+          Clock Out
+        </button>
+      </form>
+      {% else %}
+      <form method="post" action="{% url 'time_clock_in' %}">
+        {% csrf_token %}
+        <input type="hidden" name="latitude" class="geo-lat">
+        <input type="hidden" name="longitude" class="geo-lng">
+        <button type="submit" class="clock-btn clocked-out">
+          <span class="material-symbols-outlined">login</span>
+          Clock In
+        </button>
+      </form>
+      {% endif %}
+    </div>
   </div>
-  <div class="clock-widget">
-    {% if time_clock_current_entry %}
-    <form method="post" action="{% url 'time_clock_out' %}">
-      {% csrf_token %}
-      <input type="hidden" name="latitude" class="geo-lat">
-      <input type="hidden" name="longitude" class="geo-lng">
-      <button type="submit" class="clock-btn clocked-in">
-        <span class="material-symbols-outlined" style="font-size:18px;">timer</span>
-        Clock Out
-      </button>
-    </form>
-    {% else %}
-    <form method="post" action="{% url 'time_clock_in' %}">
-      {% csrf_token %}
-      <input type="hidden" name="latitude" class="geo-lat">
-      <input type="hidden" name="longitude" class="geo-lng">
-      <button type="submit" class="clock-btn clocked-out">
-        <span class="material-symbols-outlined" style="font-size:18px;">login</span>
-        Clock In
-      </button>
-    </form>
-    {% endif %}
-  </div>
-</div>
+
+  <section class="route-summary" aria-label="Today's route summary">
+    <div class="route-summary-top">
+      <div>
+        <span class="crew-kicker">{{ route_name }}</span>
+        {% if next_job %}
+        <strong>Next: {{ next_job.property.customer.name }}</strong>
+        <span>{{ next_job.scheduled_time|time:"g:i A"|default:"No time" }} · {{ next_job.property.address }}</span>
+        {% else %}
+        <strong>Route complete</strong>
+        <span>All scheduled work is wrapped up.</span>
+        {% endif %}
+      </div>
+      <div class="route-progress-ring">
+        <strong>{{ completed_jobs }}</strong>
+        <span>/ {{ total_jobs }}</span>
+      </div>
+    </div>
+    <div class="route-stat-row">
+      <div><strong>{{ total_jobs }}</strong><span>Stops</span></div>
+      <div><strong>{{ remaining_jobs }}</strong><span>Open</span></div>
+      <div><strong>{{ completed_jobs }}</strong><span>Done</span></div>
+    </div>
+    <div class="route-progress-track"><span style="width: {{ route_progress_percent }}%;"></span></div>
+  </section>
 
 {% for job in jobs %}
-<div class="job-card" id="job-{{ job.id }}">
+<div class="job-card {% if next_job and job.id == next_job.id %}jc-up-next{% endif %} {% if job.status == 'completed' or job.status == 'skipped' %}jc-done{% endif %}" id="job-{{ job.id }}">
   <!-- Header: Address + Status -->
+  <div class="jc-stop-row">
+    <span>Stop {{ forloop.counter|stringformat:"02d" }}</span>
+    <span>{{ job.scheduled_time|time:"g:i A"|default:"No time set" }}</span>
+    {% if next_job and job.id == next_job.id %}<strong>Up next</strong>{% endif %}
+  </div>
   <div class="jc-head">
     <div class="jc-info">
       <div class="jc-customer">{{ job.property.customer.name }}</div>
       <div class="jc-address">{{ job.property.address }}</div>
-      {# Wave 5: filtered_service_items is set by crew_today_view.
-         - Single-day jobs: equals service_items.all() (same behavior as before)
-         - Multi-day jobs: only items scheduled for today OR with no specific day
-         Fallback to service_items.all for any view that doesn't set the attribute. #}
+      {% comment %}
+      Wave 5: filtered_service_items is set by crew_today_view.
+      Single-day jobs show every service item. Multi-day jobs only show items
+      scheduled for today, plus any item that spans the full job.
+      {% endcomment %}
       {% with services=job.filtered_service_items|default:job.service_items.all %}
       {% if services %}
       <div class="jc-services">
@@ -57,9 +90,33 @@
     </span>
   </div>
 
+  {% if job.status == "completed" or job.status == "skipped" %}
+  <div class="jc-complete-summary">
+    <span class="material-symbols-outlined">{% if job.status == "completed" %}task_alt{% else %}event_busy{% endif %}</span>
+    <div>
+      <strong>{% if job.status == "completed" %}Completed{% else %}Skipped{% endif %}</strong>
+      <span>{% if job.completed_at %}{{ job.completed_at|date:"g:i A" }}{% elif job.skipped_at %}{{ job.skipped_at|date:"g:i A" }}{% else %}Moved to the bottom of the route.{% endif %}</span>
+    </div>
+  </div>
+  {% else %}
+
+  {% if job.property_alerts %}
+  <div class="jc-alert-stack" aria-label="Property alerts">
+    {% for alert in job.property_alerts %}
+    <div class="jc-property-alert">
+      <span class="material-symbols-outlined">warning</span>
+      <div>
+        <strong>{{ alert.label }}</strong>
+        <span>{{ alert.text }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <!-- Quick actions bar -->
   <div class="jc-quick-bar">
-    <a href="https://www.google.com/maps/dir/?api=1&destination={{ job.property.address|urlencode }}" target="_blank" class="jc-quick-btn">
+    <a href="https://www.google.com/maps/dir/?api=1&destination={{ job.property.address|urlencode }}" target="_blank" class="jc-quick-btn jc-quick-primary">
       <span class="material-symbols-outlined">directions</span> Navigate
     </a>
     {% if job.property.customer.phone %}
@@ -75,9 +132,13 @@
   <!-- Notes (job notes visible by default if they exist) -->
   {% if job.notes %}
   <div class="jc-notes-preview">
-    <span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);flex-shrink:0;">description</span>
-    <span>{{ job.notes }}</span>
+    <span class="material-symbols-outlined">description</span>
+    <div>
+      <strong>Crew note</strong>
+      <span>{{ job.notes }}</span>
+    </div>
   </div>
+  {% endif %}
   {% endif %}
 
   <!-- ═══ MAIN ACTION FLOW ═══ -->
@@ -135,7 +196,7 @@
   <div class="jc-tools">
     <button type="button" class="jc-tool-toggle" onclick="toggleTools({{ job.id }})">
       <span class="material-symbols-outlined" style="font-size:16px;">build</span>
-      Notes, Photos & More
+      Job tools
       <span class="material-symbols-outlined jc-chevron" id="chevron-{{ job.id }}">expand_more</span>
     </button>
 
@@ -203,72 +264,128 @@
   <p style="margin:0;color:var(--text-muted);">You're all caught up. Check back later for new assignments.</p>
 </div>
 {% endfor %}
+</div>
 
 <style>
-  .crew-header { display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px; }
-  .crew-header h1 { margin:0;font-size:24px;font-weight:700; }
-  .crew-date { margin:2px 0 0;color:var(--text-muted);font-size:14px; }
-  .clock-btn { display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border:none;border-radius:10px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;min-height:44px; }
-  .clocked-out { background:var(--primary);color:#111; }
-  .clocked-in { background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3); }
+  .crew-field-shell { max-width: 920px; margin: 0 auto; padding-bottom: 104px; }
+  .crew-header { display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:14px; }
+  .crew-header h1 { margin:2px 0 0;font-size:clamp(32px,7vw,56px);line-height:.9;font-weight:850;letter-spacing:0; }
+  .crew-date { margin:6px 0 0;color:var(--text-muted);font-size:15px; }
+  .crew-kicker { display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--primary); }
+  .crew-kicker::before { content:"";width:8px;height:8px;border-radius:50%;background:var(--primary);box-shadow:0 0 18px rgba(163,255,77,.6); }
+  .clock-btn { display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border:none;border-radius:14px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;min-height:48px;white-space:nowrap; }
+  .clock-btn .material-symbols-outlined { font-size:19px; }
+  .clocked-out { background:var(--primary);color:#0b0d09;box-shadow:0 14px 34px rgba(163,255,77,.2); }
+  .clocked-in { background:rgba(239,68,68,0.14);color:#fca5a5;border:1px solid rgba(239,68,68,0.3); }
 
-  .job-card { background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px; }
+  .route-summary { position:relative;overflow:hidden;margin-bottom:14px;padding:16px;border:1px solid rgba(255,255,255,.12);border-radius:24px;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.025));box-shadow:0 18px 48px rgba(0,0,0,.28); }
+  .route-summary::after { content:"";position:absolute;inset:auto -20% -70% 8%;height:160px;background:radial-gradient(circle,rgba(163,255,77,.16),transparent 60%);pointer-events:none; }
+  .route-summary-top { position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:16px; }
+  .route-summary-top strong { display:block;margin-top:9px;font-size:23px;line-height:1.05;font-weight:850;color:var(--text); }
+  .route-summary-top span:not(.crew-kicker) { display:block;margin-top:6px;color:var(--text-muted);font-size:13px;line-height:1.35; }
+  .route-progress-ring { width:66px;height:66px;border-radius:22px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0; }
+  .route-progress-ring strong { margin:0;font-size:23px;line-height:1;color:var(--text); }
+  .route-progress-ring span { margin:2px 0 0!important;font-size:11px!important;color:var(--text-muted)!important; }
+  .route-stat-row { position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px; }
+  .route-stat-row div { padding:11px 12px;border-radius:16px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08); }
+  .route-stat-row strong { display:block;font-size:22px;line-height:1;color:var(--text); }
+  .route-stat-row span { display:block;margin-top:3px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted); }
+  .route-progress-track { position:relative;z-index:1;height:6px;margin-top:12px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden; }
+  .route-progress-track span { display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--primary),#d7ff90);box-shadow:0 0 18px rgba(163,255,77,.5); }
 
-  .jc-head { display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px; }
-  .jc-customer { font-size:16px;font-weight:700; }
-  .jc-address { font-size:13px;color:var(--text-muted);margin-top:2px; }
-  .jc-services { display:flex;gap:4px;flex-wrap:wrap;margin-top:6px; }
-  .jc-service-tag { font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:rgba(34,197,94,0.12);color:var(--primary); }
-  .jc-status { font-size:11px;font-weight:600;padding:4px 10px;border-radius:8px;white-space:nowrap; }
-  .jc-status-scheduled { background:rgba(59,130,246,0.15);color:#60a5fa; }
-  .jc-status-in_progress { background:rgba(245,158,11,0.15);color:#fbbf24; }
+  .job-card { position:relative;background:linear-gradient(150deg,rgba(255,255,255,.075),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:16px;margin-bottom:12px;box-shadow:0 14px 34px rgba(0,0,0,.18); }
+  .job-card.jc-up-next { border-color:rgba(163,255,77,.46);box-shadow:0 18px 42px rgba(0,0,0,.28),0 0 0 1px rgba(163,255,77,.08) inset; }
+  .job-card.jc-done { opacity:.72; }
+  .jc-stop-row { display:flex;align-items:center;gap:8px;margin-bottom:12px;color:var(--text-muted);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase; }
+  .jc-stop-row strong { margin-left:auto;color:#0c0f09;background:var(--primary);border-radius:999px;padding:5px 9px;letter-spacing:.04em; }
+  .jc-head { display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px; }
+  .jc-customer { font-size:19px;font-weight:850;line-height:1.1;letter-spacing:0; }
+  .jc-address { font-size:13px;color:var(--text-muted);margin-top:5px;line-height:1.35; }
+  .jc-services { display:flex;gap:5px;flex-wrap:wrap;margin-top:9px; }
+  .jc-service-tag { font-size:11px;font-weight:800;padding:5px 9px;border-radius:999px;background:rgba(163,255,77,.13);color:var(--primary); }
+  .jc-status { font-size:11px;font-weight:800;padding:6px 10px;border-radius:999px;white-space:nowrap; }
+  .jc-status-scheduled { background:rgba(59,130,246,0.15);color:#7db1ff; }
+  .jc-status-in_progress { background:rgba(245,158,11,0.16);color:#fbbf24; }
   .jc-status-completed { background:rgba(34,197,94,0.15);color:#86efac; }
 
-  .jc-quick-bar { display:flex;gap:6px;margin-bottom:10px; }
-  .jc-quick-btn { display:inline-flex;align-items:center;gap:4px;padding:8px 12px;background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);font-size:12px;font-weight:500;min-height:36px; }
-  .jc-quick-btn:active { background:var(--primary-light); }
-  .jc-quick-btn .material-symbols-outlined { font-size:16px; }
+  .jc-quick-bar { display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:7px;margin-bottom:10px; }
+  .jc-quick-btn { display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:10px 11px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:12px;text-decoration:none;color:var(--text);font-size:12px;font-weight:750;min-height:42px; }
+  .jc-quick-primary { background:rgba(163,255,77,.13);border-color:rgba(163,255,77,.24);color:var(--primary); }
+  .jc-quick-btn:active { transform:scale(.985); }
+  .jc-quick-btn .material-symbols-outlined { font-size:17px; }
 
-  .jc-notes-preview { display:flex;gap:8px;padding:10px 12px;background:var(--surface-highest);border-radius:8px;font-size:13px;color:var(--text-muted);margin-bottom:10px;line-height:1.4; }
+  .jc-notes-preview { display:flex;gap:10px;padding:12px;background:rgba(163,255,77,.08);border:1px solid rgba(163,255,77,.16);border-radius:15px;font-size:13px;color:var(--text-muted);margin-bottom:10px;line-height:1.4; }
+  .jc-notes-preview > .material-symbols-outlined { font-size:18px;color:var(--primary);flex-shrink:0;margin-top:1px; }
+  .jc-notes-preview strong { display:block;margin-bottom:2px;color:var(--text);font-size:12px;text-transform:uppercase;letter-spacing:.08em; }
+  .jc-notes-preview span { display:block; }
+  .jc-alert-stack { display:grid;gap:7px;margin-bottom:10px; }
+  .jc-property-alert { display:flex;gap:10px;padding:12px;border-radius:15px;background:rgba(245,158,11,.11);border:1px solid rgba(245,158,11,.24);color:var(--text-muted);font-size:13px;line-height:1.35; }
+  .jc-property-alert > .material-symbols-outlined { flex-shrink:0;margin-top:1px;font-size:18px;color:#fbbf24; }
+  .jc-property-alert strong { display:block;margin-bottom:2px;color:#fde68a;font-size:12px;font-weight:850;text-transform:uppercase;letter-spacing:.08em; }
+  .jc-property-alert span { display:block; }
+  .jc-complete-summary { display:flex;align-items:center;gap:11px;padding:12px;border-radius:15px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.18);color:var(--text-muted); }
+  .jc-complete-summary > .material-symbols-outlined { color:#86efac;font-size:22px; }
+  .jc-complete-summary strong { display:block;color:var(--text);font-size:15px; }
+  .jc-complete-summary span { display:block;margin-top:2px;font-size:12px; }
+  .jc-done { padding:13px 14px; }
+  .jc-done .jc-stop-row { margin-bottom:8px; }
+  .jc-done .jc-head { margin-bottom:9px; }
+  .jc-done .jc-customer { font-size:17px; }
+  .jc-done .jc-services,
+  .jc-done .jc-flow,
+  .jc-done .jc-tools { display:none; }
 
-  /* Action flow */
   .jc-flow { margin-bottom:10px; }
-  .jc-action-btn { display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;min-height:50px;text-decoration:none;color:inherit; }
-  .jc-btn-enroute { background:var(--primary);color:#111; }
-  .jc-btn-enroute:active { opacity:0.9; }
-  .jc-btn-secondary { background:var(--surface-highest);color:var(--text);border:1px solid var(--border); }
-  .jc-btn-complete { background:#22c55e;color:#111; }
-  .jc-btn-complete:active { background:#16a34a; }
-  .jc-btn-photo { background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3); }
-  .jc-step-done { display:flex;align-items:center;gap:6px;font-size:13px;color:#86efac;background:rgba(34,197,94,0.1);padding:8px 12px;border-radius:8px;margin-bottom:8px; }
+  .jc-action-btn { display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border:none;border-radius:15px;font-size:15px;font-weight:850;font-family:inherit;cursor:pointer;min-height:52px;text-decoration:none;color:inherit;transition:transform .16s ease,opacity .16s ease; }
+  .jc-action-btn:active { transform:scale(.99); }
+  .jc-btn-enroute { background:linear-gradient(135deg,var(--primary),#c9ff74);color:#0b0d09;box-shadow:0 16px 28px rgba(163,255,77,.18); }
+  .jc-btn-secondary { background:rgba(255,255,255,.08);color:var(--text);border:1px solid rgba(255,255,255,.1); }
+  .jc-btn-complete { background:#22c55e;color:#071007; }
+  .jc-btn-photo { background:rgba(59,130,246,0.15);color:#8bbcff;border:1px solid rgba(59,130,246,0.3); }
+  .jc-step-done { display:flex;align-items:center;gap:6px;font-size:13px;color:#86efac;background:rgba(34,197,94,0.1);padding:10px 12px;border-radius:12px;margin-bottom:8px; }
   .jc-action-btn .material-symbols-outlined { font-size:20px; }
 
-  /* Tools panel */
-  .jc-tools { border-top:1px solid var(--border);padding-top:8px; }
-  .jc-tool-toggle { display:flex;align-items:center;gap:6px;width:100%;padding:8px 0;background:none;border:none;color:var(--text-muted);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit; }
+  .jc-tools { border-top:1px solid rgba(255,255,255,.08);padding-top:9px; }
+  .jc-tool-toggle { display:flex;align-items:center;gap:7px;width:100%;padding:9px 0;background:none;border:none;color:var(--text-muted);font-size:13px;font-weight:750;cursor:pointer;font-family:inherit; }
   .jc-chevron { margin-left:auto;transition:transform .2s; }
   .jc-chevron.open { transform:rotate(180deg); }
-  .jc-tool-panel { padding-top:10px;display:flex;flex-direction:column;gap:8px; }
-  .jc-tool-row { display:grid;grid-template-columns:1fr 1fr;gap:6px; }
-  .jc-tool-btn { display:inline-flex;align-items:center;gap:6px;padding:10px 12px;background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);font-size:13px;font-weight:500;cursor:pointer;min-height:40px; }
+  .jc-tool-panel { padding-top:10px;display:flex;flex-direction:column;gap:9px; }
+  .jc-tool-row { display:grid;grid-template-columns:1fr 1fr;gap:7px; }
+  .jc-tool-btn { display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:13px;text-decoration:none;color:var(--text);font-size:13px;font-weight:750;cursor:pointer;min-height:44px; }
   .jc-tool-btn:active { border-color:var(--primary); }
   .jc-tool-btn .material-symbols-outlined { font-size:18px;color:var(--text-muted); }
   .jc-tool-issue .material-symbols-outlined { color:#f59e0b; }
   .jc-tool-quote .material-symbols-outlined { color:#60a5fa; }
-  .jc-tool-section { display:flex;flex-direction:column;gap:4px; }
-  .jc-tool-label { font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em; }
-  .jc-note-form { display:flex;gap:6px;align-items:flex-end; }
-  .jc-textarea { flex:1;padding:10px;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit;resize:none;min-height:44px; }
-  .jc-textarea:focus { outline:none;border-color:var(--primary); }
-  .jc-note-submit { display:flex;align-items:center;justify-content:center;width:40px;height:40px;border:none;background:var(--primary);color:#111;border-radius:8px;cursor:pointer;flex-shrink:0; }
+  .jc-tool-section { display:flex;flex-direction:column;gap:5px;padding:12px;border-radius:16px;background:rgba(0,0,0,.16);border:1px solid rgba(255,255,255,.08); }
+  .jc-tool-label { font-size:11px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em; }
+  .jc-note-form { display:flex;gap:7px;align-items:flex-end; }
+  .jc-textarea { flex:1;padding:11px;font-size:16px;border:1px solid rgba(255,255,255,.12);border-radius:13px;background:rgba(0,0,0,.28);color:var(--text);font-family:inherit;resize:none;min-height:48px; }
+  .jc-textarea:focus { outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(163,255,77,.12); }
+  .jc-note-submit { display:flex;align-items:center;justify-content:center;width:46px;height:46px;border:none;background:var(--primary);color:#0b0d09;border-radius:13px;cursor:pointer;flex-shrink:0; }
   .jc-note-count { font-size:10px;background:var(--primary-light);color:var(--primary);padding:1px 5px;border-radius:8px;margin-left:4px; }
-  .jc-select { width:100%;padding:10px;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit; }
-  .jc-field-request { margin-top:8px;display:flex;flex-direction:column;gap:6px; }
+  .jc-select { width:100%;padding:11px;font-size:15px;border:1px solid rgba(255,255,255,.12);border-radius:13px;background:rgba(0,0,0,.28);color:var(--text);font-family:inherit; }
+  .jc-field-request { margin-top:8px;display:flex;flex-direction:column;gap:7px; }
 
   @media (max-width:768px) {
-    .crew-header { flex-direction:column;align-items:stretch; }
-    .jc-quick-bar { overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap; }
-    .jc-quick-btn { white-space:nowrap;flex-shrink:0; }
+    .crew-field-shell { padding-bottom:118px; }
+    .crew-header { align-items:stretch; }
+    .crew-header h1 { font-size:34px; }
+    .crew-date { font-size:14px; }
+    .clock-widget form { width:100%; }
+    .clock-btn { width:100%; }
+    .route-summary { margin-left:-2px;margin-right:-2px;padding:13px;border-radius:20px; }
+    .route-summary-top { gap:10px; }
+    .route-summary-top strong { font-size:20px;margin-top:7px; }
+    .route-summary-top span:not(.crew-kicker) { font-size:12px;margin-top:5px; }
+    .route-progress-ring { width:58px;height:58px;border-radius:18px; }
+    .route-stat-row { gap:7px;margin-top:11px; }
+    .route-stat-row div { padding:9px 10px;border-radius:14px; }
+    .route-stat-row strong { font-size:20px; }
+    .route-progress-track { margin-top:10px; }
+    .job-card { padding:14px;border-radius:20px; }
+    .jc-quick-bar { grid-template-columns:1fr 1fr 1fr; }
+    .jc-quick-btn { white-space:nowrap; }
+    .chat-fab { display:none!important; }
   }
 </style>
 

@@ -75,6 +75,35 @@ def business_settings(request):
         except Exception:
             pass
 
+    payment_method_count = sum(
+        1
+        for value in [
+            business.venmo_username,
+            business.zelle_email_or_phone,
+            business.cashapp_cashtag,
+            business.paypal_link,
+        ]
+        if (value or "").strip()
+    )
+    logo_ready = bool(business.logo)
+    contact_ready = bool((business.contact_email or "").strip() and (business.contact_phone or "").strip())
+    email_ready = bool(gmail_oauth_connected or business.email_smtp_user and business.email_smtp_password)
+    stripe_ready = bool(business.stripe_connect_account_id and business.stripe_connect_charges_enabled)
+    try:
+        from billing.models import DocumentTemplate
+        estimate_template = DocumentTemplate.get_default_for_business(business, "estimate")
+        invoice_template = DocumentTemplate.get_default_for_business(business, "invoice")
+    except Exception:
+        estimate_template = None
+        invoice_template = None
+    document_ready = bool(
+        logo_ready
+        and contact_ready
+        and estimate_template
+        and invoice_template
+        and (estimate_template.terms_and_conditions or invoice_template.terms_and_conditions)
+    )
+
     return render(request, "businesses/business_settings.html", {
         "form": form,
         "business": business,
@@ -86,6 +115,14 @@ def business_settings(request):
         "gmail_oauth_connected": gmail_oauth_connected,
         "gmail_oauth_email": gmail_oauth_email,
         "google_maps_api_key": getattr(settings, "GOOGLE_MAPS_API_KEY", ""),
+        "payment_method_count": payment_method_count,
+        "logo_ready": logo_ready,
+        "contact_ready": contact_ready,
+        "email_ready": email_ready,
+        "stripe_ready": stripe_ready,
+        "estimate_template": estimate_template,
+        "invoice_template": invoice_template,
+        "document_ready": document_ready,
     })
 
 

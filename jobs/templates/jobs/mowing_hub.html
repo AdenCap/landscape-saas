@@ -1,26 +1,28 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+<section class="mowing-command">
+<header class="mc-hero">
   <div>
-    <h1>Mowing Management</h1>
-    <p>All mowing clients &middot; {{ week_start|date:"M j" }} &ndash; {{ week_end|date:"M j, Y" }}</p>
+    <div class="mc-kicker"><span></span>Mowing Command</div>
+    <h1>Mowing routes</h1>
+    <p>Manage recurring cuts, weekly scheduling, crews, and client communication from one focused workspace.</p>
   </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <button type="button" class="btn btn-primary" id="add-client-btn" onclick="document.getElementById('add-section').style.display='';this.style.display='none';document.getElementById('add-customer').focus()">
+  <div class="mc-actions">
+    <button type="button" class="mc-action mc-action-hot" id="add-client-btn" onclick="document.getElementById('add-section').style.display='';this.style.display='none';document.getElementById('add-customer').focus()">
       <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">person_add</span>
       Add Client
     </button>
     <form method="post" action="{% url 'mowing_fix_prices' %}" style="display:inline;">
       {% csrf_token %}
-      <button type="submit" class="btn btn-secondary" title="Update all $0 mowing jobs with correct per-cut prices">
+      <button type="submit" class="mc-action" title="Update all $0 mowing jobs with correct per-cut prices">
         <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">price_change</span>
         Fix Prices
       </button>
     </form>
-    <button type="button" class="btn btn-secondary" id="bulk-msg-btn" disabled style="display:none;">Message Selected</button>
+    <button type="button" class="mc-action" id="bulk-msg-btn" disabled style="display:none;">Message Selected</button>
   </div>
-</div>
+</header>
 
 <!-- Stats -->
 <div class="mow-stats">
@@ -310,6 +312,39 @@ If you have any questions, please don't hesitate to reach out.
     }
     document.getElementById('add-prop-wrap').style.display = '';
   };
+  window.addEventListener('quickClientCreated', function(e) {
+    var data = e.detail || {};
+    if (!data.customer) return;
+    var exists = customers.some(function(c) { return String(c.id) === String(data.customer.id); });
+    if (!exists) {
+      customers.push({
+        id: data.customer.id,
+        name: data.customer.name,
+        properties: data.properties || []
+      });
+      var o = document.createElement('option');
+      o.value = data.customer.id;
+      o.textContent = data.customer.name;
+      custSel.appendChild(o);
+    }
+    custSel.value = data.customer.id;
+    addUpdateProps();
+  });
+  window.addEventListener('quickPropertyCreated', function(e) {
+    var data = e.detail || {};
+    if (!data.property) return;
+    var customerId = data.customer && data.customer.id ? data.customer.id : custSel.value;
+    var cust = customers.find(function(c) { return String(c.id) === String(customerId); });
+    if (cust) {
+      cust.properties = cust.properties || [];
+      var exists = cust.properties.some(function(p) { return String(p.id) === String(data.property.id); });
+      if (!exists) cust.properties.push({ id: data.property.id, address: data.property.address });
+    }
+    if (customerId && String(custSel.value) !== String(customerId)) custSel.value = customerId;
+    addUpdateProps();
+    var propSel = document.getElementById('add-property');
+    if (propSel) propSel.value = data.property.id;
+  });
 })();
 
 function mowEditPrice(el) {
@@ -471,7 +506,7 @@ function mowBulkAssignCrew() {
     <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:2px;">checklist</span> Select
   </button>
 </div>
-<div class="card" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+<div class="card mow-table-panel" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
   <table class="data-table" id="mow-table">
     <thead>
       <tr>
@@ -706,15 +741,205 @@ function mowBulkAssignCrew() {
 </script>
 
 <style>
-  .mow-stats { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  .mow-stat { flex: 1; min-width: 120px; padding: 16px; background: var(--surface, #141414); border: 1px solid var(--border); border-radius: 12px; text-align: center; }
-  .mow-stat-num { display: block; font-size: 28px; font-weight: 700; font-family: var(--font-headline); line-height: 1.1; }
-  .mow-stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-
-  .mow-filters { display: flex; gap: 6px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
-  .mow-filter { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
-  .mow-filter:hover { color: var(--text); border-color: var(--text-muted); }
-  .mow-filter.active { background: var(--primary); color: #111; border-color: var(--primary); font-weight: 600; }
+  .mowing-command {
+    --mc-ink: #f4f5f0;
+    --mc-muted: #9b9f98;
+    --mc-dim: #646963;
+    --mc-line: rgba(255,255,255,.11);
+    --mc-line-strong: rgba(255,255,255,.18);
+    --mc-accent: #b9ff65;
+    --mc-red: #f87171;
+    --mc-ease: cubic-bezier(.2,.9,.18,1);
+    max-width: 1480px;
+    margin: -4px auto 0;
+    color: var(--mc-ink);
+    font-family: var(--font-family);
+  }
+  .mowing-command:before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 50% -10%, rgba(255,255,255,.08), transparent 32%),
+      linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+      linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px);
+    background-size: auto, 72px 72px, 72px 72px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.72), transparent 70%);
+  }
+  .mc-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 14px;
+  }
+  .mc-kicker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--mc-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .mc-kicker span {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--mc-accent);
+    box-shadow: 0 0 18px rgba(185,255,101,.45);
+  }
+  .mc-hero h1 {
+    margin: 12px 0 8px;
+    font-size: clamp(40px, 7vw, 86px);
+    line-height: .92;
+    letter-spacing: var(--letter-spacing-normal);
+  }
+  .mc-hero p {
+    margin: 0;
+    color: var(--mc-muted);
+    font-size: var(--type-body-size);
+  }
+  .mc-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    min-width: min(360px, 100%);
+  }
+  .mc-actions form {
+    display: contents !important;
+  }
+  .mc-action,
+  .mow-filter {
+    min-height: 46px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.055);
+    color: var(--mc-ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 14px;
+    font-size: var(--text-sm);
+    font-weight: var(--type-strong-weight);
+    cursor: pointer;
+    width: 100%;
+    transition: transform .28s var(--mc-ease), border-color .28s var(--mc-ease), background .28s var(--mc-ease);
+  }
+  .mc-action:hover,
+  .mow-filter:hover {
+    transform: translateY(-2px);
+    border-color: var(--mc-line-strong);
+    background: rgba(255,255,255,.075);
+  }
+  .mc-action-hot,
+  .mow-filter.active {
+    background: var(--mc-accent);
+    border-color: transparent;
+    color: #050605;
+  }
+  .mowing-command .card,
+  .mow-stat,
+  .mow-filters,
+  #mow-bulk-schedule {
+    border: 1px solid var(--mc-line);
+    background: linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.04));
+    box-shadow: 0 28px 90px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.10);
+    backdrop-filter: blur(28px) saturate(120%);
+  }
+  .mow-stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .mow-stat {
+    min-height: 118px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 17px;
+    border-radius: 28px;
+    text-align: left;
+  }
+  .mow-stat-num {
+    display: block;
+    margin-top: 12px;
+    font-size: var(--type-metric-size);
+    font-weight: var(--type-strong-weight);
+    font-family: var(--font-headline);
+    line-height: 1;
+  }
+  .mow-stat-label {
+    display: block;
+    order: -1;
+    color: var(--mc-muted);
+    font-size: var(--type-label-size);
+    text-transform: uppercase;
+    letter-spacing: var(--type-label-spacing);
+    font-weight: var(--type-label-weight);
+  }
+  .mowing-command .card {
+    border-radius: 30px;
+    margin-bottom: 14px;
+  }
+  .mow-filters {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    margin-bottom: 14px;
+    padding: 8px;
+    align-items: center;
+    flex-wrap: nowrap;
+    border-radius: 999px;
+    scrollbar-width: none;
+  }
+  .mow-filters::-webkit-scrollbar { display: none; }
+  .mow-filter {
+    flex: 0 0 auto;
+    min-height: 36px;
+    color: var(--mc-muted);
+    background: transparent;
+  }
+  .mow-filter.active {
+    color: #050605;
+  }
+  .mow-table-panel {
+    padding: 20px;
+    border-radius: 30px !important;
+  }
+  #mow-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 10px;
+  }
+  #mow-table th {
+    padding: 0 14px 8px;
+    color: var(--mc-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  #mow-table td {
+    padding: 15px 14px;
+    background: rgba(0,0,0,.22);
+    border-top: 1px solid rgba(255,255,255,.08);
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    vertical-align: middle;
+  }
+  #mow-table td:first-child {
+    border-left: 1px solid rgba(255,255,255,.08);
+    border-radius: 22px 0 0 22px;
+  }
+  #mow-table td:last-child {
+    border-right: 1px solid rgba(255,255,255,.08);
+    border-radius: 0 22px 22px 0;
+  }
 
   .mow-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--surface-highest); color: var(--text-muted); }
   .mow-badge-weekly { background: rgba(34,197,94,0.12); color: var(--primary); }
@@ -740,9 +965,13 @@ function mowBulkAssignCrew() {
   .mow-preset:hover { border-color: var(--primary); color: var(--primary); }
 
   @media (max-width: 768px) {
-    .mow-stats { gap: 8px; }
-    .mow-stat { min-width: 70px; padding: 10px 6px; }
-    .mow-stat-num { font-size: 20px; }
+    .mowing-command { margin: 0; padding-bottom: 112px; }
+    .mc-hero { grid-template-columns: 1fr; align-items: start; }
+    .mc-hero h1 { font-size: 44px; }
+    .mc-actions { grid-template-columns: 1fr; min-width: 0; }
+    .mow-stats { grid-template-columns: 1fr; gap: 10px; }
+    .mow-stat { min-width: 0; min-height: 108px; padding: 15px; }
+    .mow-stat-num { font-size: 32px; }
     .mow-filters { gap: 4px; }
     .mow-filter { padding: 10px 12px; min-height: 44px; font-size: 13px; }
     .mow-hide-mobile { display: none !important; }
@@ -750,4 +979,5 @@ function mowBulkAssignCrew() {
     .mow-badge { font-size: 10px; padding: 2px 6px; }
   }
 </style>
+</section>
 {% endblock %}

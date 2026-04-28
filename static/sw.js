@@ -1,4 +1,4 @@
-// Service Worker for FieldLgx push notifications
+// Service Worker for FIELDLGX push notifications
 
 self.addEventListener('install', function(event) {
   self.skipWaiting();
@@ -9,7 +9,7 @@ self.addEventListener('activate', function(event) {
 });
 
 self.addEventListener('push', function(event) {
-  var data = { title: 'FieldLgx', body: 'New notification', url: '/notifications/inbox/' };
+  var data = { title: 'FIELDLGX', body: 'New notification', url: '/notifications/inbox/' };
   try {
     if (event.data) data = event.data.json();
   } catch (e) {
@@ -27,7 +27,7 @@ self.addEventListener('push', function(event) {
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'FieldLgx', options)
+    self.registration.showNotification(data.title || 'FIELDLGX', options)
   );
 });
 

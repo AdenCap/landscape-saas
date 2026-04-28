@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.db import transaction
 from django.core.exceptions import ImproperlyConfigured
 from django.utils import timezone
+from django.conf import settings
+import stripe
 from accounts.timezone_utils import business_today as _biz_today
 from .models import Invoice, InvoiceLineItem, InvoiceAuditLog
 from jobs.models import JobServiceItem
@@ -54,6 +56,79 @@ def _decimal(val, default="0.00"):
     return Decimal(str(val))
 
 
+def auto_charge_invoice_card(invoice, user=None, source="manual"):
+    """
+    Charge an invoice using the customer's saved card when the customer preference allows it.
+    Returns (charged: bool, message: str). Failures are logged but do not block invoice sending.
+    """
+    business = invoice.business
+    customer = invoice.customer
+    if invoice.status == "paid":
+        return False, "Invoice already paid."
+    if not getattr(business, "client_saved_cards_enabled", True):
+        return False, "Saved-card charging is turned off in business settings."
+    if not getattr(business, "can_accept_stripe_payments", lambda: False)():
+        return False, "Card payments are not ready for this business."
+    if not customer.should_auto_charge_invoice(invoice):
+        return False, "Auto-charge is not enabled for this invoice type."
+
+    try:
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        invoice.recompute_totals()
+        amount_cents = int(invoice.total * 100)
+        if amount_cents < 50:
+            return False, "Invoice total is below the card charge minimum."
+        payment_intent = stripe.PaymentIntent.create(
+            amount=amount_cents,
+            currency="usd",
+            customer=customer.stripe_customer_id,
+            payment_method=customer.stripe_payment_method_id,
+            off_session=True,
+            confirm=True,
+            description=f"Invoice #{invoice.id} from {business.name}",
+            metadata={"invoice_id": invoice.id, "business_id": business.id, "source": source},
+            stripe_account=business.stripe_connect_account_id,
+        )
+    except Exception as exc:
+        InvoiceAuditLog.objects.create(
+            invoice=invoice,
+            action="auto_charge_failed",
+            user=user,
+            details={"source": source, "error": str(exc)[:500]},
+        )
+        return False, "Auto-charge failed. The invoice was still sent."
+
+    if payment_intent.status != "succeeded":
+        InvoiceAuditLog.objects.create(
+            invoice=invoice,
+            action="auto_charge_failed",
+            user=user,
+            details={"source": source, "status": payment_intent.status},
+        )
+        return False, "Auto-charge did not complete. The invoice was still sent."
+
+    invoice.status = "paid"
+    invoice.payment_method = "card"
+    invoice.paid_at = timezone.now()
+    invoice.stripe_payment_intent_id = payment_intent.id
+    if getattr(payment_intent, "latest_charge", None):
+        invoice.stripe_charge_id = payment_intent.latest_charge
+    invoice.save(update_fields=["status", "payment_method", "paid_at", "stripe_payment_intent_id", "stripe_charge_id"])
+    invoice.line_items.filter(is_paid=False).update(is_paid=True, paid_at=invoice.paid_at, paid_by=user, payment_method="card")
+    InvoiceAuditLog.objects.create(
+        invoice=invoice,
+        action="auto_charged",
+        user=user,
+        details={
+            "source": source,
+            "stripe_pi": payment_intent.id,
+            "amount": amount_cents,
+            "card": customer.card_last4,
+        },
+    )
+    return True, f"Card ({customer.card_brand} ****{customer.card_last4}) charged."
+
+
 @transaction.atomic
 def create_and_send_invoice_for_job(job, send=True):
     """
@@ -95,7 +170,8 @@ def create_invoice_for_job(job):
         for item in job.service_items.select_related("service").all():
             InvoiceLineItem.objects.create(
                 invoice=invoice,
-                description=item.service.name,
+                description=item.description or item.service.name,
+                detail_description=getattr(item, "detail_description", "") or "",
                 quantity=item.quantity,
                 unit_price=item.unit_price,
                 labor_cost=item.quantity * item.unit_price,
@@ -169,7 +245,8 @@ def create_draft_invoice_for_job(job):
     for ji in job_items:
         InvoiceLineItem.objects.create(
             invoice=invoice,
-            description=getattr(ji.service, "name", "Service"),
+            description=ji.description or getattr(ji.service, "name", "Service"),
+            detail_description=getattr(ji, "detail_description", "") or "",
             quantity=ji.quantity,
             unit_price=ji.unit_price,
             labor_cost=ji.quantity * ji.unit_price,

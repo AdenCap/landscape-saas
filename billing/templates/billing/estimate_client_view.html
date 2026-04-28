@@ -6,229 +6,742 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ estimate.title }} - {{ estimate.customer.name }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   {% with accent=doc_template.primary_color|default:'#22c55e' %}
   <style>
-    :root { --accent: {{ accent }}; }
-    * { box-sizing: border-box; margin: 0; }
-    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5; color: #1e293b; max-width: 680px; margin: 0 auto; padding: 0 20px 40px; background: #f8fafc; min-height: 100vh; }
-    .accent-bar { height: 4px; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #4ade80)); margin: 0 -20px 0; }
-    .card { background: white; border-radius: 16px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.04); margin-top: 24px; border: 1px solid rgba(0,0,0,.04); }
-    .doc-header-custom { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #475569; line-height: 1.6; }
-    .doc-footer-custom { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 14px; color: #475569; line-height: 1.6; }
-    .doc-logo { margin-bottom: 24px; }
-    .doc-logo img { max-height: 56px; max-width: 200px; object-fit: contain; }
-    h1 { font-size: 26px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
-    .meta { color: #64748b; font-size: 14px; margin-bottom: 24px; line-height: 1.7; }
-
-    /* Images */
-    .client-images { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; }
-    .client-images img { width: 100%; height: 180px; object-fit: cover; border-radius: 12px; border: 1px solid #e2e8f0; }
-    .client-image-caption { font-size: 12px; color: #64748b; margin-top: 4px; }
-
-    /* Line items */
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-    th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; font-weight: 600; }
-    .num { text-align: right; }
-    .base-total-row { font-weight: 600; font-size: 15px; }
-    .base-total-row td { border-bottom: none; padding-top: 16px; }
-
-    /* Optional items */
-    .optional-section { margin-top: 24px; }
-    .optional-section-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; font-weight: 600; padding: 8px 16px; background: #f1f5f9; border-radius: 8px; margin-bottom: 12px; }
-    .optional-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 8px; background: #fafbfc; transition: border-color 0.15s, background 0.15s; cursor: pointer; }
-    .optional-item:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 4%, white); }
-    .optional-item.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, white); }
-    .optional-item label { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; font-size: 15px; }
-    .optional-item input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
-    .optional-badge { font-size: 10px; padding: 2px 8px; background: #e0f2fe; color: #0369a1; border-radius: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-    .optional-price { font-weight: 600; font-size: 15px; white-space: nowrap; margin-left: 16px; }
-
-    /* Total breakdown */
-    .total-breakdown { margin-top: 24px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
-    .total-line { display: flex; justify-content: space-between; font-size: 14px; color: #64748b; padding: 4px 0; }
+    :root {
+      --accent: {{ accent }};
+      --ink: #11140f;
+      --muted: #687066;
+      --soft: #eef2eb;
+      --line: #dfe5da;
+      --paper: #fbfcf8;
+      --card: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    html { background: #eef2eb; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 28%),
+        linear-gradient(180deg, #f8faf4 0%, #eef2eb 100%);
+    }
+    a { color: inherit; }
+    .client-shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 26px 0 44px;
+    }
+    .top-bar {
+      height: 7px;
+      background: var(--accent);
+      box-shadow: 0 10px 35px color-mix(in srgb, var(--accent) 24%, transparent);
+    }
+    .brand-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-start;
+      margin: 28px 0 34px;
+    }
+    .brand-lockup {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      min-width: 0;
+    }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 900;
+      font-size: 20px;
+      flex: 0 0 auto;
+      overflow: hidden;
+    }
+    .brand-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      padding: 8px;
+      background: #fff;
+    }
+    .brand-copy strong {
+      display: block;
+      font-size: clamp(20px, 2vw, 28px);
+      letter-spacing: 0;
+      line-height: 1.05;
+    }
+    .brand-copy span,
+    .doc-meta span {
+      display: block;
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .doc-meta {
+      text-align: right;
+      flex: 0 0 auto;
+    }
+    .doc-meta h1 {
+      margin: 0;
+      font-size: clamp(34px, 5vw, 56px);
+      line-height: .9;
+      letter-spacing: 0;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 390px);
+      gap: 22px;
+      align-items: stretch;
+      margin-bottom: 22px;
+    }
+    .summary-card,
+    .approval-card,
+    .panel,
+    .info-card {
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      background: rgba(255,255,255,.82);
+      box-shadow: 0 22px 60px rgba(28, 35, 24, .08), inset 0 1px 0 rgba(255,255,255,.75);
+    }
+    .summary-card {
+      min-height: 245px;
+      padding: clamp(24px, 4vw, 38px);
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 96%, #fff), color-mix(in srgb, var(--accent) 78%, #0b1308));
+      color: #fff;
+      display: grid;
+      align-content: space-between;
+      overflow: hidden;
+      position: relative;
+    }
+    .summary-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -90px -130px auto;
+      width: 310px;
+      height: 310px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.25);
+      opacity: .7;
+    }
+    .eyebrow {
+      margin: 0 0 12px;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      opacity: .82;
+    }
+    .summary-card h2 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(38px, 6vw, 70px);
+      line-height: .95;
+      letter-spacing: 0;
+    }
+    .summary-card p {
+      max-width: 720px;
+      margin: 18px 0 0;
+      font-size: clamp(16px, 1.6vw, 20px);
+      line-height: 1.45;
+      opacity: .92;
+    }
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 28px;
+      position: relative;
+      z-index: 1;
+    }
+    .summary-stats div {
+      border: 1px solid rgba(255,255,255,.28);
+      border-radius: 18px;
+      padding: 13px;
+      background: rgba(255,255,255,.12);
+      backdrop-filter: blur(12px);
+    }
+    .summary-stats span {
+      display: block;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      opacity: .72;
+    }
+    .summary-stats strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 19px;
+      line-height: 1.05;
+    }
+    .approval-card {
+      padding: 22px;
+      position: sticky;
+      top: 20px;
+      align-self: start;
+    }
+    .approval-card h3 {
+      margin: 0 0 4px;
+      font-size: 22px;
+    }
+    .approval-card > p {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .total-box {
+      border-radius: 22px;
+      background: #f5f8f1;
+      border: 1px solid var(--line);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .total-line,
+    .total-grand {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+    .total-line {
+      color: var(--muted);
+      font-size: 14px;
+      padding: 5px 0;
+    }
     .total-line-addons { display: none; }
     .total-line-addons.visible { display: flex; }
-    .total-grand { display: flex; justify-content: space-between; font-size: 22px; font-weight: 700; color: #0f172a; padding-top: 12px; margin-top: 8px; border-top: 2px solid var(--accent); }
-
-    /* Notes, terms, custom fields */
-    .notes { background: #f8fafc; padding: 20px; border-radius: 12px; margin-top: 24px; font-size: 14px; border: 1px solid #e2e8f0; }
-    .notes strong { display: block; margin-bottom: 8px; }
-    .doc-terms { background: #f8fafc; padding: 16px; border-radius: 12px; margin-top: 20px; font-size: 13px; color: #475569; border: 1px solid #e2e8f0; }
-    .doc-terms strong { display: block; margin-bottom: 8px; }
-    .doc-custom-fields { margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
-    .doc-custom-fields strong { display: block; margin-bottom: 8px; }
-    .doc-custom-fields dt { font-weight: 600; font-size: 12px; color: #64748b; margin-top: 10px; }
-    .doc-custom-fields dt:first-of-type { margin-top: 0; }
-    .doc-custom-fields dd { margin: 4px 0 0 0; font-size: 14px; }
-
-    /* Accept button */
-    .accept-section { margin-top: 28px; text-align: center; }
-    .btn-accept { display: inline-block; padding: 16px 48px; font-size: 16px; font-weight: 600; border-radius: 12px; border: none; cursor: pointer; font-family: inherit; background: var(--accent); color: white; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent); width: 100%; max-width: 360px; }
-    .btn-accept:hover { transform: translateY(-1px); box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 40%, transparent); }
-    .btn-accept:active { transform: translateY(0); }
-
-    .powered-by { text-align: center; margin-top: 24px; font-size: 12px; color: #94a3b8; }
-
+    .total-grand {
+      margin-top: 10px;
+      padding: 16px;
+      border-radius: 18px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 900;
+      font-size: 24px;
+    }
+    .deposit-note {
+      margin: 14px 0;
+      padding: 14px;
+      border-radius: 18px;
+      background: #fff8e6;
+      border: 1px solid #f2d58b;
+      color: #7a4a00;
+      font-size: 14px;
+    }
+    .accept-section {
+      margin-top: 16px;
+    }
+    .btn-accept {
+      width: 100%;
+      border: 0;
+      border-radius: 999px;
+      padding: 17px 18px;
+      background: var(--ink);
+      color: #fff;
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 16px 40px rgba(17,20,15,.18);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .btn-accept:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 20px 50px rgba(17,20,15,.22);
+    }
+    .btn-accepted {
+      background: var(--accent);
+      cursor: default;
+    }
+    .download-link {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      align-items: center;
+      margin-top: 14px;
+      color: var(--muted);
+      font-weight: 800;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin: 22px 0;
+    }
+    .info-card {
+      padding: 22px;
+      min-height: 134px;
+    }
+    .info-card span,
+    .panel-kicker {
+      display: block;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .info-card strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    .info-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 390px);
+      gap: 22px;
+      align-items: start;
+    }
+    .content-stack {
+      display: grid;
+      gap: 18px;
+    }
+    .panel {
+      padding: clamp(20px, 3vw, 28px);
+    }
+    .panel h3 {
+      margin: 0 0 16px;
+      font-size: 28px;
+      line-height: 1;
+    }
+    .line-list {
+      display: grid;
+      gap: 10px;
+    }
+    .line-item,
+    .optional-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 16px;
+      background: #fff;
+    }
+    .line-item strong,
+    .optional-item strong {
+      display: block;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+    .line-item small,
+    .optional-item small {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .line-price,
+    .optional-price {
+      font-weight: 900;
+      font-size: 16px;
+      white-space: nowrap;
+    }
+    .optional-item {
+      cursor: pointer;
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .optional-item:hover,
+    .optional-item.selected {
+      border-color: color-mix(in srgb, var(--accent) 72%, #fff);
+      box-shadow: 0 14px 34px color-mix(in srgb, var(--accent) 12%, transparent);
+      background: color-mix(in srgb, var(--accent) 5%, white);
+    }
+    .optional-main {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      min-width: 0;
+    }
+    .optional-main input {
+      width: 22px;
+      height: 22px;
+      margin-top: 1px;
+      accent-color: var(--accent);
+      flex: 0 0 auto;
+    }
+    .pill {
+      display: inline-flex;
+      width: fit-content;
+      margin-top: 8px;
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: color-mix(in srgb, var(--accent) 12%, #fff);
+      color: color-mix(in srgb, var(--accent) 68%, #111);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .image-grid img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+    }
+    .image-grid p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .rich-text {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+    .rich-text p + p { margin-top: 10px; }
+    .side-stack {
+      display: grid;
+      gap: 16px;
+    }
+    .mini-panel {
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255,255,255,.72);
+    }
+    .mini-panel h4 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+    .mini-panel p,
+    .mini-panel dd {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .mini-panel dt {
+      margin-top: 10px;
+      color: var(--ink);
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .powered-by {
+      text-align: center;
+      color: #8d9589;
+      font-size: 12px;
+      margin-top: 26px;
+    }
+    @media (max-width: 900px) {
+      .hero,
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+      .approval-card {
+        position: static;
+      }
+      .brand-row {
+        align-items: flex-start;
+      }
+      .doc-meta h1 {
+        font-size: 36px;
+      }
+    }
     @media (max-width: 640px) {
-      .card { padding: 24px 20px; }
-      h1 { font-size: 22px; }
-      .client-images { grid-template-columns: 1fr; }
-      .btn-accept { max-width: 100%; }
+      .client-shell {
+        width: min(100% - 22px, 1180px);
+        padding-top: 16px;
+      }
+      .brand-row,
+      .brand-lockup,
+      .info-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+      .doc-meta {
+        text-align: left;
+      }
+      .summary-stats,
+      .image-grid {
+        grid-template-columns: 1fr;
+      }
+      .summary-card,
+      .approval-card,
+      .panel,
+      .info-card,
+      .mini-panel {
+        border-radius: 22px;
+      }
+      .summary-card h2 {
+        font-size: 40px;
+      }
+      .line-item,
+      .optional-item {
+        grid-template-columns: 1fr;
+      }
+      .line-price,
+      .optional-price {
+        justify-self: start;
+      }
     }
   </style>
   {% endwith %}
 </head>
 <body>
-  <div class="accent-bar"></div>
-  <div class="card">
-    {% if doc_template and doc_template.header_text %}
-    <div class="doc-header-custom">{{ doc_template.header_text|linebreaksbr }}</div>
-    {% endif %}
-
-    {% if estimate.business.logo %}
-    <div class="doc-logo">
-      <img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}" onerror="this.parentElement.style.display='none'">
-    </div>
-    {% endif %}
-
-    <h1>{{ estimate.title }}</h1>
-    <p class="meta">
-      Estimate #{{ estimate.id }} from {{ estimate.business.name }}<br>
-      Prepared for {{ estimate.customer.name }}{% if estimate.valid_until %} &middot; Valid until {{ estimate.valid_until }}{% endif %}
-      {% if estimate.business.contact_email or estimate.business.contact_phone %}<br>{{ estimate.business.contact_email }}{% if estimate.business.contact_email and estimate.business.contact_phone %} &middot; {% endif %}{{ estimate.business.contact_phone }}{% endif %}
-    </p>
-
-    {% if images %}
-    <div class="client-images">
-      {% for img in images %}
-      <div>
-        <img src="{{ img.image.url }}" alt="{{ img.caption|default:'' }}">
-        {% if img.caption %}<p class="client-image-caption">{{ img.caption }}</p>{% endif %}
+  <div class="top-bar"></div>
+  <main class="client-shell">
+    <header class="brand-row">
+      <div class="brand-lockup">
+        <div class="brand-mark">
+          {% if estimate.business.logo %}
+            <img src="{{ estimate.business.logo.url }}" alt="{{ estimate.business.name }}" onerror="this.remove()">
+          {% else %}
+            {{ estimate.business.name|slice:":1" }}
+          {% endif %}
+        </div>
+        <div class="brand-copy">
+          <strong>{{ estimate.business.name }}</strong>
+          <span>{{ doc_template.header_text|default:"Landscape service proposal"|truncatechars:72 }}</span>
+        </div>
       </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-
-    <table>
-      <thead>
-        <tr>
-          <th>Description</th>
-          <th class="num">Amount</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in base_items %}
-        <tr>
-          <td>{{ item.description }}{% if item.detail_description %}<br><span style="font-size:13px;color:#71717a;">{{ item.detail_description }}</span>{% endif %}</td>
-          <td class="num">{% if item.line_total %}{{ item.line_total|currency }}{% endif %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-
-    {% if optional_items %}
-    <div class="optional-section">
-      <div class="optional-section-label">Optional add-ons — select any you'd like to include</div>
-      {% for item in optional_items %}
-      <div class="optional-item" data-item-id="{{ item.id }}" data-line-total="{{ item.line_total }}">
-        <label for="opt-{{ item.id }}">
-          <input type="checkbox" name="optional_items" value="{{ item.id }}" id="opt-{{ item.id }}" class="optional-cb">
-          {{ item.description }}
-          <span class="optional-badge">Optional</span>
-        </label>
-        <span class="optional-price">+{{ item.line_total|currency }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-
-    <div class="total-breakdown">
-      <div class="total-line">
-        <span>Base services</span>
-        <span>{{ base_total|currency }}</span>
-      </div>
-      <div class="total-line total-line-addons" id="addons-line">
-        <span>Selected add-ons</span>
-        <span id="addons-total">$0</span>
-      </div>
-      <div class="total-grand">
-        <span>Total</span>
-        <span id="grand-total">{{ base_total|currency }}</span>
-      </div>
-    </div>
-
-    {% if estimate.notes %}
-    <div class="notes">
-      <strong>Notes</strong>
-      {{ estimate.notes|linebreaks }}
-    </div>
-    {% endif %}
-
-    {% if doc_template and doc_template.custom_fields and estimate.custom_field_values %}
-    <div class="doc-custom-fields">
-      <strong>Additional information</strong>
-      <dl>
-        {% for field in doc_template.custom_fields %}
-          {% for key, val in estimate.custom_field_values.items %}
-            {% if key == field.key and val %}
-            <dt>{{ field.label }}</dt>
-            <dd>{{ val }}</dd>
-            {% endif %}
-          {% endfor %}
-        {% endfor %}
-      </dl>
-    </div>
-    {% endif %}
-
-    {% if doc_template and doc_template.terms_and_conditions %}
-    <div class="doc-terms">
-      <strong>Terms &amp; conditions</strong>
-      {{ doc_template.terms_and_conditions|linebreaks }}
-    </div>
-    {% endif %}
-
-    {% if doc_template and doc_template.footer_text %}
-    <div class="doc-footer-custom">{{ doc_template.footer_text|linebreaksbr }}</div>
-    {% endif %}
-
-    {% if estimate.deposit_required and estimate.deposit_amount %}
-    <div style="margin-top:20px;padding:18px;border-radius:12px;background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.25);text-align:center;">
-      <p style="margin:0;font-size:15px;font-weight:600;color:#92400e;">Deposit Required</p>
-      <p style="margin:8px 0 0;font-size:14px;color:#78350f;">
-        {% if estimate.deposit_type == "percent" %}
-          A {{ estimate.deposit_amount|floatformat:0 }}% deposit (${{ estimate.deposit_dollar_amount|floatformat:2 }}) is required to accept this estimate.
-        {% else %}
-          A ${{ estimate.deposit_amount|floatformat:2 }} deposit is required to accept this estimate.
+      <div class="doc-meta">
+        <h1>Estimate</h1>
+        <span>#{{ estimate.id }}{% if estimate.valid_until %} · Valid through {{ estimate.valid_until|date:"M j, Y" }}{% endif %}</span>
+        {% if estimate.business.contact_email or estimate.business.contact_phone %}
+          <span>{{ estimate.business.contact_email }}{% if estimate.business.contact_email and estimate.business.contact_phone %} · {% endif %}{{ estimate.business.contact_phone }}</span>
         {% endif %}
-      </p>
-    </div>
-    {% endif %}
+      </div>
+    </header>
 
-    <form method="post" action="{% url 'billing:estimate_client_accept' estimate.id token %}" class="accept-section">
+    <form method="post" action="{% url 'billing:estimate_client_accept' estimate.id token %}" id="accept-form">
       {% csrf_token %}
-      <button type="submit" class="btn-accept">Accept Estimate{% if estimate.deposit_required and estimate.deposit_amount %} &amp; Agree to Deposit{% endif %}</button>
-    </form>
-    <div style="text-align:center;margin-top:16px;">
-      <a href="{% url 'billing:estimate_client_pdf' estimate.id token %}" style="color:var(--accent);font-size:14px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download PDF
-      </a>
-    </div>
-  </div>
+      <section class="hero">
+        <article class="summary-card">
+          <div>
+            <p class="eyebrow">Prepared for {{ estimate.customer.name }}</p>
+            <h2>{{ estimate.title }}</h2>
+            <p>{% if estimate.notes %}{{ estimate.notes|striptags|truncatechars:145 }}{% else %}Review the proposed services, select any optional upgrades, and approve when everything looks right.{% endif %}</p>
+          </div>
+          <div class="summary-stats">
+            <div>
+              <span>Base</span>
+              <strong>{{ base_total|currency }}</strong>
+            </div>
+            <div>
+              <span>Items</span>
+              <strong>{{ base_items|length }}</strong>
+            </div>
+            <div>
+              <span>Status</span>
+              <strong>{{ estimate.status|title }}</strong>
+            </div>
+          </div>
+        </article>
 
-  <div class="powered-by">Powered by FieldLgx</div>
+        <aside class="approval-card">
+          <h3>Approve estimate</h3>
+          <p>Select optional upgrades below before approving. Your total updates instantly.</p>
+          <div class="total-box">
+            <div class="total-line">
+              <span>Base services</span>
+              <span>{{ base_total|currency }}</span>
+            </div>
+            <div class="total-line total-line-addons" id="addons-line">
+              <span>Selected upgrades</span>
+              <span id="addons-total">$0.00</span>
+            </div>
+            <div class="total-grand">
+              <span>Total</span>
+              <span id="grand-total">{{ base_total|currency }}</span>
+            </div>
+          </div>
+          {% if estimate.deposit_required and estimate.deposit_amount %}
+          <div class="deposit-note">
+            {% if estimate.deposit_type == "percent" %}
+              A {{ estimate.deposit_amount|floatformat:0 }}% deposit (${{ estimate.deposit_dollar_amount|floatformat:2 }}) is required to accept.
+            {% else %}
+              A ${{ estimate.deposit_amount|floatformat:2 }} deposit is required to accept.
+            {% endif %}
+            {% if can_accept_card_deposit %}
+              After accepting, you will be taken to a secure card checkout for the deposit.
+            {% else %}
+              After accepting, {{ estimate.business.name }} will follow up with payment instructions.
+            {% endif %}
+          </div>
+          {% endif %}
+          <div class="accept-section">
+            {% if estimate.status == "accepted" %}
+              <button type="button" class="btn-accept btn-accepted">Estimate accepted</button>
+            {% else %}
+              <button type="submit" class="btn-accept">
+                {% if estimate.deposit_required and estimate.deposit_amount and can_accept_card_deposit %}
+                  Accept & Pay Deposit
+                {% elif estimate.deposit_required and estimate.deposit_amount %}
+                  Accept Estimate & Agree to Deposit
+                {% else %}
+                  Accept Estimate
+                {% endif %}
+              </button>
+            {% endif %}
+          </div>
+          <a href="{% url 'billing:estimate_client_pdf' estimate.id token %}" class="download-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download PDF
+          </a>
+        </aside>
+      </section>
+
+      <section class="info-grid">
+        <article class="info-card">
+          <span>Prepared For</span>
+          <strong>{{ estimate.customer.name }}</strong>
+          <p>
+            {% if estimate.property and estimate.property.address %}{{ estimate.property.address }}<br>{% endif %}
+            {% if estimate.customer.phone %}{{ estimate.customer.phone }}<br>{% endif %}
+            {% if estimate.customer.email %}{{ estimate.customer.email }}{% endif %}
+          </p>
+        </article>
+        <article class="info-card">
+          <span>Prepared By</span>
+          <strong>{{ estimate.business.name }}</strong>
+          <p>
+            {% if estimate.business.contact_phone %}{{ estimate.business.contact_phone }}<br>{% endif %}
+            {% if estimate.business.contact_email %}{{ estimate.business.contact_email }}{% endif %}
+          </p>
+        </article>
+      </section>
+
+      <section class="main-grid">
+        <div class="content-stack">
+          {% if images %}
+          <section class="panel">
+            <span class="panel-kicker">Property Photos</span>
+            <h3>Project view</h3>
+            <div class="image-grid">
+              {% for img in images %}
+              <div>
+                <img src="{{ img.image.url }}" alt="{{ img.caption|default:'' }}">
+                {% if img.caption %}<p>{{ img.caption }}</p>{% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </section>
+          {% endif %}
+
+          <section class="panel">
+            <span class="panel-kicker">Included Work</span>
+            <h3>Services</h3>
+            <div class="line-list">
+              {% for item in base_items %}
+              <article class="line-item">
+                <div>
+                  <strong>{{ item.description }}</strong>
+                  {% if item.detail_description %}<small>{{ item.detail_description }}</small>{% endif %}
+                </div>
+                <span class="line-price">{{ item.line_total|currency }}</span>
+              </article>
+              {% empty %}
+              <article class="line-item">
+                <div>
+                  <strong>No services listed</strong>
+                  <small>Please contact {{ estimate.business.name }} before approving.</small>
+                </div>
+              </article>
+              {% endfor %}
+            </div>
+          </section>
+
+          {% if optional_items %}
+          <section class="panel">
+            <span class="panel-kicker">Optional Upgrades</span>
+            <h3>Add-ons</h3>
+            <div class="line-list">
+              {% for item in optional_items %}
+              <article class="optional-item" data-item-id="{{ item.id }}" data-line-total="{{ item.line_total|floatformat:2 }}">
+                <label class="optional-main" for="opt-{{ item.id }}">
+                  <input type="checkbox" name="optional_items" value="{{ item.id }}" id="opt-{{ item.id }}" class="optional-cb">
+                  <span>
+                    <strong>{{ item.description }}</strong>
+                    {% if item.detail_description %}<small>{{ item.detail_description }}</small>{% endif %}
+                    <em class="pill">Optional</em>
+                  </span>
+                </label>
+                <span class="optional-price">+{{ item.line_total|currency }}</span>
+              </article>
+              {% endfor %}
+            </div>
+          </section>
+          {% endif %}
+        </div>
+
+        <aside class="side-stack">
+          {% if estimate.notes %}
+          <section class="mini-panel">
+            <h4>Notes</h4>
+            <div class="rich-text">{{ estimate.notes|linebreaks }}</div>
+          </section>
+          {% endif %}
+
+          {% if doc_template and doc_template.custom_fields and estimate.custom_field_values %}
+          <section class="mini-panel">
+            <h4>Additional information</h4>
+            <dl>
+              {% for field in doc_template.custom_fields %}
+                {% for key, val in estimate.custom_field_values.items %}
+                  {% if key == field.key and val %}
+                  <dt>{{ field.label }}</dt>
+                  <dd>{{ val }}</dd>
+                  {% endif %}
+                {% endfor %}
+              {% endfor %}
+            </dl>
+          </section>
+          {% endif %}
+
+          {% if doc_template and doc_template.terms_and_conditions %}
+          <section class="mini-panel">
+            <h4>Terms</h4>
+            <div class="rich-text">{{ doc_template.terms_and_conditions|linebreaks }}</div>
+          </section>
+          {% endif %}
+
+          {% if doc_template and doc_template.footer_text %}
+          <section class="mini-panel">
+            <h4>Message from {{ estimate.business.name }}</h4>
+            <div class="rich-text">{{ doc_template.footer_text|linebreaks }}</div>
+          </section>
+          {% endif %}
+        </aside>
+      </section>
+    </form>
+
+    <div class="powered-by">Powered by FIELDLGX</div>
+  </main>
 
   <script>
-    var baseTotal = {{ base_total }};
+    var baseTotal = Number('{{ base_total|floatformat:2 }}');
     var optionalItems = document.querySelectorAll('.optional-item');
     var grandTotalEl = document.getElementById('grand-total');
     var addonsLine = document.getElementById('addons-line');
     var addonsTotalEl = document.getElementById('addons-total');
 
     function fmtCurrency(n) {
-      return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function updateTotal() {
@@ -242,8 +755,7 @@
           item.classList.remove('selected');
         }
       });
-      var total = baseTotal + addonsTotal;
-      grandTotalEl.textContent = fmtCurrency(total);
+      grandTotalEl.textContent = fmtCurrency(baseTotal + addonsTotal);
       if (addonsTotal > 0) {
         addonsLine.classList.add('visible');
         addonsTotalEl.textContent = fmtCurrency(addonsTotal);
@@ -254,16 +766,19 @@
 
     optionalItems.forEach(function(item) {
       var cb = item.querySelector('.optional-cb');
-      if (cb) {
-        cb.addEventListener('change', updateTotal);
-        item.addEventListener('click', function(e) {
-          if (e.target !== cb && e.target.tagName !== 'LABEL') {
-            cb.checked = !cb.checked;
-            updateTotal();
-          }
-        });
-      }
+      if (!cb) return;
+      cb.addEventListener('change', updateTotal);
+      item.addEventListener('click', function(e) {
+        if (e.target === cb || e.target.closest('a')) return;
+        if (e.target.closest('label') && e.target !== item) {
+          window.setTimeout(updateTotal, 0);
+          return;
+        }
+        cb.checked = !cb.checked;
+        updateTotal();
+      });
     });
+    updateTotal();
   </script>
 </body>
 </html>

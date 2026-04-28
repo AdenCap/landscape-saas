@@ -12,7 +12,7 @@ The bucket name defaults to "uploads" and is auto-created if missing.
 """
 import os
 import uuid
-from urllib.parse import urljoin
+from urllib.parse import quote
 
 import requests
 from django.core.files.base import ContentFile
@@ -47,6 +47,19 @@ class SupabaseStorage(Storage):
             self._bucket_ensured = True
         except Exception:
             self._bucket_ensured = True  # don't retry every request
+
+    def _object_path(self, name):
+        """Normalize stored DB values into a Supabase object path."""
+        if not name:
+            return ""
+        name = str(name)
+        public_prefix = f"{self.project_url}/storage/v1/object/public/{self.bucket}/"
+        signed_prefix = f"{self.project_url}/storage/v1/object/sign/{self.bucket}/"
+        object_prefix = f"{self.project_url}/storage/v1/object/{self.bucket}/"
+        for prefix in (public_prefix, signed_prefix, object_prefix):
+            if name.startswith(prefix):
+                return name[len(prefix):].split("?", 1)[0]
+        return name.lstrip("/")
 
     def _save(self, name, content):
         self._ensure_bucket()
@@ -86,39 +99,40 @@ class SupabaseStorage(Storage):
         if resp.status_code not in (200, 201):
             raise RuntimeError(f"Supabase Storage upload failed ({resp.status_code}): {resp.text[:200]}")
 
-        # Return the public URL as the stored "name"
-        public_url = f"{self.project_url}/storage/v1/object/public/{self.bucket}/{unique_name}"
-        return public_url
+        # Store only the object path. url() serves it through the Django app so
+        # private Supabase buckets and missing public policies still work.
+        return unique_name
 
     def url(self, name):
-        """Return the URL. If the name is already a full URL, return as-is."""
-        if name and name.startswith("http"):
-            return name
-        if name:
-            return f"{self.project_url}/storage/v1/object/public/{self.bucket}/{name}"
+        """Return an app-served URL so uploads work even when the bucket is private."""
+        obj_path = self._object_path(name)
+        if obj_path:
+            from django.conf import settings
+            media_path = f"/uploads/{quote(obj_path, safe='/')}"
+            site_url = getattr(settings, "SITE_URL", "").strip().rstrip("/")
+            return f"{site_url}{media_path}" if site_url else media_path
         return ""
 
     def exists(self, name):
-        """Check if file exists. Full URLs are assumed to exist."""
-        if not name:
+        """Check if file exists using authenticated storage access."""
+        obj_path = self._object_path(name)
+        if not obj_path:
             return False
-        if name.startswith("http"):
-            return True
         try:
-            resp = requests.head(self.url(name), timeout=5)
+            resp = requests.head(
+                f"{self._base}/object/{self.bucket}/{obj_path}",
+                headers=self._headers,
+                timeout=5,
+            )
             return resp.status_code == 200
         except Exception:
             return False
 
     def delete(self, name):
         """Delete a file from Supabase Storage."""
-        if not name:
+        obj_path = self._object_path(name)
+        if not obj_path:
             return
-        # Extract the object path from a full URL
-        obj_path = name
-        prefix = f"{self.project_url}/storage/v1/object/public/{self.bucket}/"
-        if name.startswith(prefix):
-            obj_path = name[len(prefix):]
 
         try:
             requests.delete(
@@ -131,14 +145,18 @@ class SupabaseStorage(Storage):
             pass
 
     def _open(self, name, mode="rb"):
-        """Download a file from Supabase Storage."""
-        url = self.url(name)
-        if not url:
+        """Download a file from Supabase Storage using the service key."""
+        obj_path = self._object_path(name)
+        if not obj_path:
             return ContentFile(b"")
         try:
-            resp = requests.get(url, timeout=30)
+            resp = requests.get(
+                f"{self._base}/object/{self.bucket}/{obj_path}",
+                headers=self._headers,
+                timeout=30,
+            )
             resp.raise_for_status()
-            return ContentFile(resp.content, name=name)
+            return ContentFile(resp.content, name=obj_path)
         except Exception:
             return ContentFile(b"")
 

@@ -1,133 +1,349 @@
 {% extends "base.html" %}
+{% load billing_filters %}
+
 {% block content %}
-<div class="page-header" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-  <div>
-    <h1>Promotions</h1>
-    <p>Track deals, discounts, and loyalty programs for your clients.</p>
-  </div>
-</div>
+<section class="promo-command">
+  <div class="pc-shell">
+    <a href="{% url 'billing:invoice_list' %}" class="pc-back-link">
+      <span class="material-symbols-outlined">arrow_back</span>
+      <span>Invoices</span>
+    </a>
 
-<!-- Create new promotion -->
-<div class="card" style="margin-bottom:16px;padding:16px;">
-  <h3 style="margin:0 0 12px;font-size:15px;font-weight:700;">Create Promotion</h3>
-  <form method="post" action="{% url 'billing:promotion_create' %}">
-    {% csrf_token %}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <header class="pc-hero">
       <div>
-        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Promotion Name</label>
-        <input type="text" name="name" required placeholder="e.g. Buy 5 Fert Treatments, Get 6th Free" class="form-control">
+        <p class="pc-eyebrow"><span></span> Campaign Command</p>
+        <h1>Promotions</h1>
+        <p class="pc-subcopy">Create promo codes, track campaign windows, and see exactly who redeemed each offer.</p>
       </div>
-      <div>
-        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Type</label>
-        <select name="promo_type" class="form-control">
-          <option value="buy_x_get_free">Buy X Get 1 Free</option>
-          <option value="percent_off">Percentage Off</option>
-          <option value="fixed_off">Fixed Amount Off</option>
-          <option value="free_service">Free Service</option>
-          <option value="custom">Custom</option>
-        </select>
+      <div class="pc-hero-actions">
+        <a href="{% url 'billing:invoice_list' %}" class="pc-secondary-action">Invoices</a>
+        <a href="{% url 'billing:estimate_list' %}" class="pc-secondary-action">Estimates</a>
       </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;">
-      <div>
-        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Customer (optional)</label>
-        <select name="customer_id" class="form-control">
-          <option value="">All Clients</option>
-          {% for c in customers %}
-          <option value="{{ c.id }}">{{ c.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Service</label>
-        <input type="text" name="service_name" placeholder="e.g. Fertilization" class="form-control">
-      </div>
-      <div>
-        <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Buy Qty (for buy-X-get-free)</label>
-        <input type="number" name="buy_quantity" value="5" min="1" class="form-control">
-      </div>
-    </div>
-    <div style="margin-top:10px;">
-      <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:4px;">Notes</label>
-      <input type="text" name="notes" placeholder="Any details to remember..." class="form-control">
-    </div>
-    <button type="submit" class="btn btn-primary" style="margin-top:12px;">Create Promotion</button>
-  </form>
-</div>
+    </header>
 
-<!-- Active promotions -->
-{% if promos %}
-<div class="card" style="padding:0;overflow:hidden;">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Promotion</th>
-        <th class="hide-mobile">Client</th>
-        <th class="hide-mobile">Service</th>
-        <th>Progress</th>
-        <th>Status</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for promo in promos %}
-      <tr style="{% if promo.is_ready_to_redeem %}background:rgba(34,197,94,0.05);{% endif %}">
-        <td>
-          <strong>{{ promo.name }}</strong>
-          {% if promo.notes %}<div style="font-size:11px;color:var(--text-muted);">{{ promo.notes }}</div>{% endif %}
-        </td>
-        <td class="hide-mobile">{% if promo.customer %}{{ promo.customer.name }}{% else %}<span style="color:var(--text-muted);">All</span>{% endif %}</td>
-        <td class="hide-mobile">{{ promo.service_name|default:"—" }}</td>
-        <td>
-          {% if promo.promo_type == "buy_x_get_free" and promo.buy_quantity %}
-          <div style="display:flex;align-items:center;gap:6px;">
-            <div style="flex:1;max-width:80px;height:6px;background:var(--surface-highest);border-radius:3px;overflow:hidden;">
-              <div style="height:100%;background:{% if promo.is_ready_to_redeem %}var(--primary){% else %}#3b82f6{% endif %};border-radius:3px;width:{% widthratio promo.current_count promo.buy_quantity 100 %}%;"></div>
+    <section class="pc-stat-grid" aria-label="Promotion summary">
+      <article class="pc-stat">
+        <span>Total campaigns</span>
+        <strong>{{ promo_stats.total }}</strong>
+        <small>created promotions</small>
+      </article>
+      <article class="pc-stat">
+        <span>Active</span>
+        <strong>{{ promo_stats.active }}</strong>
+        <small>available to apply</small>
+      </article>
+      <article class="pc-stat {% if promo_stats.ready %}pc-stat-alert{% endif %}">
+        <span>Ready</span>
+        <strong>{{ promo_stats.ready }}</strong>
+        <small>loyalty promos to redeem</small>
+      </article>
+      <article class="pc-stat">
+        <span>Discounted</span>
+        <strong>{{ promo_stats.discount_total|currency }}</strong>
+        <small>{{ promo_stats.redemptions }} redemption{{ promo_stats.redemptions|pluralize }}</small>
+      </article>
+    </section>
+
+    <div class="pc-layout">
+      <main class="pc-main-stack">
+        <section class="pc-panel">
+          <div class="pc-panel-head">
+            <div>
+              <p>Campaign builder</p>
+              <h2>Create a promotion</h2>
             </div>
-            <span style="font-size:12px;font-weight:600;">{{ promo.current_count }}/{{ promo.buy_quantity }}</span>
           </div>
-          {% elif promo.discount_value %}
-          {% if promo.promo_type == "percent_off" %}{{ promo.discount_value|floatformat:0 }}% off{% else %}-${{ promo.discount_value|floatformat:0 }}{% endif %}
-          {% else %}—{% endif %}
-        </td>
-        <td>
-          {% if promo.status == "active" %}
-            {% if promo.is_ready_to_redeem %}
-            <span style="font-size:10px;font-weight:700;padding:3px 8px;background:var(--primary);color:#111;border-radius:4px;">READY</span>
-            {% else %}
-            <span style="font-size:10px;font-weight:600;padding:3px 8px;background:rgba(59,130,246,0.15);color:#60a5fa;border-radius:4px;">Active</span>
-            {% endif %}
-          {% elif promo.status == "redeemed" %}
-          <span style="font-size:10px;font-weight:600;padding:3px 8px;background:rgba(34,197,94,0.15);color:#86efac;border-radius:4px;">Redeemed</span>
-          {% else %}
-          <span style="font-size:10px;font-weight:600;padding:3px 8px;background:var(--surface-highest);color:var(--text-muted);border-radius:4px;">Expired</span>
-          {% endif %}
-        </td>
-        <td style="white-space:nowrap;" onclick="event.stopPropagation()">
-          {% if promo.status == "active" and promo.promo_type == "buy_x_get_free" %}
-          <form method="post" action="{% url 'billing:promotion_update_count' promo.id %}" style="display:inline;">
+          <form method="post" action="{% url 'billing:promotion_create' %}" class="pc-form">
             {% csrf_token %}
-            <input type="hidden" name="action" value="increment">
-            <button type="submit" class="btn btn-secondary btn-sm" title="Add 1 to count">+1</button>
+            <label class="wide">
+              <span>Promotion name</span>
+              <input type="text" name="name" required placeholder="Spring cleanup discount">
+            </label>
+            <label>
+              <span>Type</span>
+              <select name="promo_type">
+                <option value="buy_x_get_free">Buy X Get 1 Free</option>
+                <option value="percent_off">Percentage Off</option>
+                <option value="fixed_off">Fixed Amount Off</option>
+                <option value="free_service">Free Service</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label>
+              <span>Promo code</span>
+              <input type="text" name="code" placeholder="SPRING25">
+            </label>
+            <label>
+              <span>Customer</span>
+              <select name="customer_id">
+                <option value="">All clients</option>
+                {% for c in customers %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              <span>Service</span>
+              <input type="text" name="service_name" placeholder="Mowing, cleanup, fertilization">
+            </label>
+            <label>
+              <span>Buy quantity</span>
+              <input type="number" name="buy_quantity" value="5" min="1">
+            </label>
+            <label>
+              <span>Discount value</span>
+              <input type="number" step="0.01" name="discount_value" placeholder="10 or 25.00">
+            </label>
+            <label>
+              <span>Valid from</span>
+              <input type="date" name="valid_from">
+            </label>
+            <label>
+              <span>Valid until</span>
+              <input type="date" name="valid_until">
+            </label>
+            <label class="wide">
+              <span>Notes</span>
+              <input type="text" name="notes" placeholder="Who qualifies, how they signed up, or campaign details">
+            </label>
+            <button type="submit" class="pc-primary-action">
+              <span class="material-symbols-outlined">add</span>
+              <span>Create promotion</span>
+            </button>
           </form>
-          {% endif %}
-          {% if promo.is_ready_to_redeem %}
-          <form method="post" action="{% url 'billing:promotion_redeem' promo.id %}" style="display:inline;" onsubmit="return confirm('Mark this promotion as redeemed?');">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-primary btn-sm">Redeem</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% else %}
-<div class="card" style="padding:40px;text-align:center;">
-  <span class="material-symbols-outlined" style="font-size:48px;color:var(--text-muted);display:block;margin-bottom:12px;">loyalty</span>
-  <h3 style="margin:0 0 4px;">No promotions yet</h3>
-  <p style="margin:0;color:var(--text-muted);">Create your first promotion above to start tracking deals and loyalty programs.</p>
-</div>
-{% endif %}
+        </section>
+
+        <section class="pc-panel">
+          <div class="pc-panel-head">
+            <div>
+              <p>Campaigns</p>
+              <h2>Active board</h2>
+            </div>
+            <span>{{ promos|length }}</span>
+          </div>
+
+          <div class="pc-campaign-grid">
+            {% for promo in promos %}
+            <article class="pc-campaign {% if promo.is_ready_to_redeem %}ready{% endif %}">
+              <div class="pc-campaign-top">
+                <div>
+                  <span class="pc-status status-{{ promo.status }}">{% if promo.is_ready_to_redeem %}Ready{% else %}{{ promo.get_status_display }}{% endif %}</span>
+                  <h3>{{ promo.name }}</h3>
+                </div>
+                {% if promo.code %}<strong class="pc-code">{{ promo.code }}</strong>{% endif %}
+              </div>
+              <div class="pc-campaign-meta">
+                <span>{% if promo.customer %}{{ promo.customer.name }}{% else %}All clients{% endif %}</span>
+                <span>{{ promo.service_name|default:"Any service" }}</span>
+                {% if promo.valid_until %}<span>Ends {{ promo.valid_until|date:"M j" }}</span>{% endif %}
+              </div>
+              {% if promo.promo_type == "buy_x_get_free" and promo.buy_quantity %}
+              <div class="pc-progress">
+                <div><span style="width:{% widthratio promo.current_count promo.buy_quantity 100 %}%"></span></div>
+                <strong>{{ promo.current_count }}/{{ promo.buy_quantity }}</strong>
+              </div>
+              {% elif promo.discount_value %}
+              <p class="pc-discount">{% if promo.promo_type == "percent_off" %}{{ promo.discount_value|floatformat:0 }}% off{% else %}-{{ promo.discount_value|currency }}{% endif %}</p>
+              {% endif %}
+              {% if promo.notes %}<p class="pc-notes">{{ promo.notes }}</p>{% endif %}
+              <div class="pc-campaign-foot">
+                <span>{{ promo.redemptions.count }} redemption{{ promo.redemptions.count|pluralize }}</span>
+                <div>
+                  {% if promo.status == "active" and promo.promo_type == "buy_x_get_free" %}
+                  <form method="post" action="{% url 'billing:promotion_update_count' promo.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="increment">
+                    <button type="submit">+1</button>
+                  </form>
+                  {% endif %}
+                  {% if promo.is_ready_to_redeem %}
+                  <form method="post" action="{% url 'billing:promotion_redeem' promo.id %}" onsubmit="return confirm('Mark this promotion as redeemed?');">
+                    {% csrf_token %}
+                    <button type="submit" class="primary">Redeem</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </div>
+            </article>
+            {% empty %}
+            <div class="pc-empty">
+              <span class="material-symbols-outlined">loyalty</span>
+              <h3>No promotions yet.</h3>
+              <p>Create your first campaign above, then apply it from an invoice.</p>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+      </main>
+
+      <aside class="pc-side-stack">
+        <section class="pc-panel">
+          <div class="pc-panel-head">
+            <div>
+              <p>Usage</p>
+              <h2>Recent redemptions</h2>
+            </div>
+          </div>
+          <div class="pc-redemption-list">
+            {% for redemption in redemptions %}
+            <article>
+              <div>
+                <strong>{{ redemption.promotion.name }}</strong>
+                <small>{{ redemption.customer.name }}{% if redemption.code_used %} · {{ redemption.code_used }}{% endif %}</small>
+              </div>
+              <div>
+                <strong>-{{ redemption.discount_amount|currency }}</strong>
+                {% if redemption.invoice %}<a href="{% url 'billing:invoice_detail' redemption.invoice.id %}">Invoice #{{ redemption.invoice.id }}</a>{% endif %}
+              </div>
+            </article>
+            {% empty %}
+            <div class="pc-empty compact">
+              <span class="material-symbols-outlined">sell</span>
+              <h3>No redemptions yet.</h3>
+              <p>Applied invoice discounts will appear here.</p>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<style>
+  .promo-command {
+    --pc-bg: #080908;
+    --pc-line: rgba(255,255,255,.13);
+    --pc-line-strong: rgba(255,255,255,.22);
+    --pc-ink: rgba(255,255,255,.94);
+    --pc-muted: rgba(255,255,255,.56);
+    --pc-soft: rgba(255,255,255,.36);
+    --pc-accent: #9ceb4b;
+    --pc-red: #ff7a7a;
+    --pc-ease: cubic-bezier(.2,.8,.2,1);
+    min-height: 100vh;
+    margin: -24px;
+    padding: 28px 24px 44px;
+    color: var(--pc-ink);
+    background:
+      radial-gradient(circle at 14% 8%, rgba(156,235,75,.11), transparent 30%),
+      linear-gradient(135deg, rgba(255,255,255,.035), transparent 28%),
+      var(--pc-bg);
+  }
+  .pc-shell { width: min(1260px, 100%); margin: 0 auto; }
+  .pc-back-link, .pc-secondary-action { color: inherit; text-decoration: none; }
+  .pc-back-link {
+    width: fit-content; min-height: 38px; display: inline-flex; align-items: center; gap: 7px;
+    margin-bottom: 14px; padding: 0 13px; border: 1px solid var(--pc-line); border-radius: 999px;
+    background: rgba(255,255,255,.055); color: var(--pc-muted); font-size: var(--text-sm); font-weight: var(--type-strong-weight);
+  }
+  .pc-back-link .material-symbols-outlined { font-size: 19px; }
+  .pc-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 22px; align-items: end; margin-bottom: 22px; }
+  .pc-eyebrow {
+    display: inline-flex; align-items: center; gap: 9px; margin: 0 0 10px; color: var(--pc-muted);
+    font-size: var(--text-xs); font-weight: var(--type-strong-weight); letter-spacing: .17em; text-transform: uppercase;
+  }
+  .pc-eyebrow span { width: 10px; height: 10px; border-radius: 999px; background: var(--pc-accent); box-shadow: 0 0 24px rgba(156,235,75,.65); }
+  .pc-hero h1 { margin: 0; font-size: clamp(3.4rem, 9vw, 8.2rem); line-height: .86; letter-spacing: 0; font-weight: 800; }
+  .pc-subcopy { max-width: 680px; margin: 14px 0 0; color: var(--pc-muted); font-size: var(--text-lg); }
+  .pc-hero-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+  .pc-primary-action, .pc-secondary-action {
+    min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border-radius: 999px; padding: 0 18px; font-weight: var(--type-strong-weight); text-decoration: none;
+  }
+  .pc-primary-action { border: 0; background: var(--pc-accent); color: #071006; box-shadow: 0 18px 44px rgba(156,235,75,.18); cursor: pointer; }
+  .pc-secondary-action { border: 1px solid var(--pc-line); background: rgba(255,255,255,.06); color: var(--pc-ink); }
+  .pc-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .pc-stat {
+    min-height: 146px; display: flex; flex-direction: column; justify-content: center; padding: 24px;
+    border: 1px solid var(--pc-line); border-radius: 30px;
+    background: linear-gradient(145deg, rgba(255,255,255,.105), rgba(255,255,255,.045));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 22px 60px rgba(0,0,0,.24);
+  }
+  .pc-stat span, .pc-panel-head p {
+    margin: 0; color: var(--pc-muted); font-size: var(--text-xs); font-weight: var(--type-strong-weight);
+    letter-spacing: .16em; text-transform: uppercase;
+  }
+  .pc-stat strong { margin-top: 14px; font-size: clamp(2.1rem, 4vw, 3.6rem); line-height: .9; }
+  .pc-stat small { margin-top: 13px; color: var(--pc-muted); font-size: var(--text-base); }
+  .pc-stat-alert strong { color: var(--pc-accent); }
+  .pc-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, .75fr); gap: 18px; align-items: start; }
+  .pc-main-stack, .pc-side-stack { display: grid; gap: 18px; }
+  .pc-panel {
+    border: 1px solid var(--pc-line-strong); border-radius: 34px; padding: 26px;
+    background: linear-gradient(145deg, rgba(255,255,255,.105), rgba(255,255,255,.045));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 28px 80px rgba(0,0,0,.28);
+  }
+  .pc-panel-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+  .pc-panel-head h2 { margin: 6px 0 0; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: 0; }
+  .pc-panel-head > span {
+    min-width: 52px; height: 52px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 999px; background: rgba(255,255,255,.10); font-size: var(--text-xl); font-weight: var(--type-strong-weight);
+  }
+  .pc-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; }
+  .pc-form label { display: grid; gap: 7px; color: var(--pc-muted); font-size: var(--text-xs); font-weight: var(--type-strong-weight); letter-spacing: .12em; text-transform: uppercase; }
+  .pc-form label.wide { grid-column: span 2; }
+  .pc-form input, .pc-form select {
+    width: 100%; min-height: 54px; border: 1px solid var(--pc-line); border-radius: 18px;
+    background: rgba(0,0,0,.30); color: var(--pc-ink); padding: 0 15px; font: inherit; font-size: var(--text-base);
+    letter-spacing: 0; text-transform: none; outline: 0;
+  }
+  .pc-form input::placeholder { color: var(--pc-soft); }
+  .pc-campaign-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .pc-campaign {
+    display: grid; gap: 14px; padding: 20px; border: 1px solid var(--pc-line); border-radius: 26px;
+    background: rgba(0,0,0,.24);
+  }
+  .pc-campaign.ready { border-color: rgba(156,235,75,.38); box-shadow: 0 18px 44px rgba(156,235,75,.08); }
+  .pc-campaign-top { display: flex; justify-content: space-between; gap: 14px; align-items: start; }
+  .pc-campaign h3 { margin: 8px 0 0; font-size: var(--text-2xl); letter-spacing: 0; }
+  .pc-status, .pc-code {
+    min-height: 28px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px;
+    background: rgba(255,255,255,.09); color: var(--pc-muted); font-size: var(--text-xs); font-weight: var(--type-strong-weight);
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+  .pc-status.status-active, .pc-campaign.ready .pc-status { background: rgba(156,235,75,.16); color: var(--pc-accent); }
+  .pc-code { color: var(--pc-ink); }
+  .pc-campaign-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pc-campaign-meta span, .pc-discount, .pc-notes {
+    color: var(--pc-muted); font-size: var(--text-sm);
+  }
+  .pc-progress { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+  .pc-progress div { height: 10px; border-radius: 999px; background: rgba(255,255,255,.09); overflow: hidden; }
+  .pc-progress div span { display: block; height: 100%; border-radius: inherit; background: var(--pc-accent); }
+  .pc-campaign-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid var(--pc-line); color: var(--pc-muted); }
+  .pc-campaign-foot div { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pc-campaign-foot form { display: contents; }
+  .pc-campaign-foot button {
+    min-height: 36px; border: 1px solid var(--pc-line); border-radius: 999px; background: rgba(255,255,255,.06);
+    color: var(--pc-ink); padding: 0 12px; font: inherit; font-size: var(--text-sm); font-weight: var(--type-strong-weight); cursor: pointer;
+  }
+  .pc-campaign-foot button.primary { border: 0; background: var(--pc-accent); color: #071006; }
+  .pc-redemption-list { display: grid; gap: 10px; max-height: 620px; overflow: auto; }
+  .pc-redemption-list article {
+    display: flex; align-items: start; justify-content: space-between; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--pc-line);
+  }
+  .pc-redemption-list article:last-child { border-bottom: 0; }
+  .pc-redemption-list strong { display: block; color: var(--pc-ink); }
+  .pc-redemption-list small, .pc-redemption-list a { display: block; margin-top: 4px; color: var(--pc-muted); text-decoration: none; font-size: var(--text-sm); }
+  .pc-redemption-list article > div:last-child { text-align: right; }
+  .pc-empty { padding: 30px 18px; text-align: center; color: var(--pc-muted); grid-column: 1 / -1; }
+  .pc-empty > span { width: 64px; height: 64px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px; border-radius: 24px; background: rgba(156,235,75,.14); color: var(--pc-accent); font-size: 34px; }
+  .pc-empty h3 { margin: 0 0 8px; color: var(--pc-ink); font-size: var(--text-2xl); }
+  .pc-empty p { margin: 0; }
+  .pc-empty.compact { padding: 18px 10px; }
+  @media (max-width: 1080px) { .pc-hero, .pc-layout { grid-template-columns: 1fr; } .pc-stat-grid, .pc-form, .pc-campaign-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 720px) {
+    .promo-command { margin: -18px; padding: 18px 16px 112px; }
+    .pc-hero h1 { font-size: clamp(3.4rem, 17vw, 5.8rem); }
+    .pc-subcopy { font-size: var(--text-base); }
+    .pc-hero-actions { width: 100%; justify-content: stretch; }
+    .pc-secondary-action { flex: 1; }
+    .pc-stat-grid, .pc-form, .pc-campaign-grid { grid-template-columns: 1fr; }
+    .pc-form label.wide { grid-column: auto; }
+    .pc-panel, .pc-stat { border-radius: 28px; }
+    .pc-campaign-top, .pc-campaign-foot, .pc-redemption-list article { flex-direction: column; }
+    .pc-redemption-list article > div:last-child { text-align: left; }
+  }
+</style>
 {% endblock %}

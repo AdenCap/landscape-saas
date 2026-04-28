@@ -1,135 +1,609 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-  <div>
-    <h1>Customer CRM</h1>
-    <p>Contact records, service history, and invoice context in one place.</p>
-  </div>
-  <a href="{% url 'customer_create' %}" class="btn btn-primary">+ Add Customer</a>
-</div>
+<section class="clients-command">
+  <header class="cl-hero">
+    <div>
+      <div class="cl-kicker"><span></span>Client Command</div>
+      <h1>Clients</h1>
+      <p>Find the account, open the property, contact the client, or jump straight into work.</p>
+    </div>
+    <div class="cl-actions">
+      <a href="{% url 'customer_create' %}" class="cl-action cl-action-hot"><span class="material-symbols-outlined">person_add</span>New client</a>
+      <a href="{% url 'customer_import' %}" class="cl-action"><span class="material-symbols-outlined">upload_file</span>Import</a>
+      <a href="{% url 'client_messages_list' %}" class="cl-action"><span class="material-symbols-outlined">mail</span>Messages</a>
+    </div>
+  </header>
 
-{% include "customers/_crm_tabs.html" %}
+  <nav class="cl-tabs" aria-label="Client workspace">
+    <a href="{% url 'customer_list' %}" class="active">Clients</a>
+    <a href="{% url 'client_messages_list' %}">Email log</a>
+    <a href="{% url 'mass_communications' %}">Mass comms</a>
+  </nav>
 
-<form method="get" class="card" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 16px;">
-  <input type="search" name="q" value="{{ search }}" placeholder="Search by name, phone, email, address..." style="flex:1;min-width:200px;">
-  <select name="service" style="min-width:140px;" onchange="this.form.submit()">
-    <option value="">All Services</option>
-    {% for svc in service_types %}
-    <option value="{{ svc }}" {% if service_filter == svc %}selected{% endif %}>{{ svc }}</option>
-    {% endfor %}
-  </select>
-  <select name="status" style="min-width:120px;" onchange="this.form.submit()">
-    <option value="">All Status</option>
-    <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active (90 days)</option>
-    <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
-  </select>
-  <button type="submit" class="btn btn-secondary">Filter</button>
-  {% if service_filter or status_filter or search %}
-  <a href="{% url 'customer_list' %}" class="btn btn-secondary" style="font-size:12px;">Clear</a>
-  {% endif %}
-</form>
-{% if service_filter or status_filter %}
-<div style="margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap;">
-  {% if service_filter %}
-  <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--primary-light);color:var(--primary);border-radius:var(--radius-full);font-size:11px;font-weight:600;">
-    Service: {{ service_filter }}
-    <a href="?q={{ search }}&status={{ status_filter }}" style="color:inherit;text-decoration:none;font-weight:800;">&times;</a>
-  </span>
-  {% endif %}
-  {% if status_filter %}
-  <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--primary-light);color:var(--primary);border-radius:var(--radius-full);font-size:11px;font-weight:600;">
-    {{ status_filter|title }}
-    <a href="?q={{ search }}&service={{ service_filter }}" style="color:inherit;text-decoration:none;font-weight:800;">&times;</a>
-  </span>
-  {% endif %}
-</div>
-{% endif %}
-
-{% if new_clients and not search and not service_filter and not status_filter %}
-<div class="card" style="margin-bottom:12px;padding:16px;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-    <h3 style="margin:0;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">
-      <span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">person_add</span>
-      New Clients
-      <span style="font-size:11px;font-weight:600;background:var(--primary);color:#111;padding:2px 7px;border-radius:10px;">{{ new_clients|length }}</span>
-    </h3>
-    <span style="font-size:11px;color:var(--text-muted);">Last 7 days</span>
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;">
-    {% for c in new_clients %}
-    <a href="{% url 'customer_detail' c.id %}" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-highest);border:1px solid var(--border);border-radius:10px;text-decoration:none;color:var(--text);transition:border-color .15s;">
-      <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <span style="font-size:14px;font-weight:700;color:#111;">{{ c.name|first|upper }}</span>
-      </div>
-      <div style="min-width:0;">
-        <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.name }}</div>
-        <div style="font-size:11px;color:var(--text-muted);">Added {{ c.created_at|timesince }} ago</div>
-      </div>
+  <section class="cl-stat-grid" aria-label="Client summary">
+    <a href="{% url 'customer_list' %}" class="cl-stat">
+      <span>Total clients</span>
+      <strong>{{ total_clients }}</strong>
+      <small>accounts</small>
     </a>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
+    <a href="{% url 'customer_list' %}?status=active" class="cl-stat">
+      <span>Active</span>
+      <strong>{{ active_clients_count }}</strong>
+      <small>served in 90 days</small>
+    </a>
+    <a href="{% url 'customer_list' %}?status=unpaid" class="cl-stat">
+      <span>Open balance</span>
+      <strong>${{ open_balance_total|floatformat:0 }}</strong>
+      <small>draft or sent invoices</small>
+    </a>
+    <a href="{% url 'customer_list' %}?status=no_upcoming" class="cl-stat">
+      <span>Needs work</span>
+      <strong>Review</strong>
+      <small>no upcoming jobs</small>
+    </a>
+  </section>
 
-<div class="card">
-  <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Name</th><th>Contact</th><th class="crm-hide-mobile">Address</th><th class="num crm-hide-mobile">Properties</th><th class="num crm-hide-mobile">Invoices</th><th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for c in customers %}
-      <tr>
-        <td><a href="{% url 'customer_detail' c.id %}" class="link-primary" style="font-weight:600;">{{ c.name }}</a></td>
-        <td style="white-space:nowrap;">
-          {% if c.email %}<a href="mailto:{{ c.email }}" title="{{ c.email }}" style="text-decoration:none;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--primary);vertical-align:-3px;">mail</span></a>{% endif %}
-          {% if c.phone %}<a href="tel:{{ c.phone }}" title="Call {{ c.phone }}" style="text-decoration:none;margin-left:6px;"><span class="material-symbols-outlined" style="font-size:16px;color:var(--text-muted);vertical-align:-3px;">phone</span></a><a href="sms:{{ c.phone }}" title="Text {{ c.phone }}" style="text-decoration:none;margin-left:4px;"><span class="material-symbols-outlined" style="font-size:16px;color:#60a5fa;vertical-align:-3px;">sms</span></a>{% endif %}
-          {% if not c.phone and not c.email %}<span style="color:var(--text-muted);">—</span>{% endif %}
-        </td>
-        <td class="crm-hide-mobile">{{ c.full_address }}</td>
-        <td class="num crm-hide-mobile">{{ c.property_count }}</td>
-        <td class="num crm-hide-mobile">{{ c.invoice_count }}</td>
-        <td><a href="{% url 'customer_detail' c.id %}" class="btn btn-secondary btn-sm">Open</a></td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="6">
-          <div class="empty-state">
-            <i data-lucide="users" class="empty-state-icon"></i>
-            <div class="empty-state-title">No clients yet</div>
-            <div class="empty-state-desc">Add your first client to start managing their properties.</div>
-            <a href="{% url 'customer_create' %}" class="btn btn-primary">Add Customer</a>
-          </div>
-        </td>
-      </tr>
+  <form method="get" class="cl-search-panel">
+    <div class="cl-search-box">
+      <span class="material-symbols-outlined">search</span>
+      <input type="search" name="q" value="{{ search }}" placeholder="Search clients, phones, emails, addresses...">
+    </div>
+    <select name="service" onchange="this.form.submit()">
+      <option value="">All services</option>
+      {% for svc in service_types %}
+      <option value="{{ svc }}" {% if service_filter == svc %}selected{% endif %}>{{ svc }}</option>
       {% endfor %}
-    </tbody>
-  </table>
-  </div>
-</div>
+    </select>
+    <select name="status" onchange="this.form.submit()">
+      <option value="">All clients</option>
+      <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active</option>
+      <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
+      <option value="unpaid" {% if status_filter == "unpaid" %}selected{% endif %}>Open balance</option>
+      <option value="no_upcoming" {% if status_filter == "no_upcoming" %}selected{% endif %}>No upcoming work</option>
+    </select>
+    <button type="submit">Filter</button>
+    {% if service_filter or status_filter or search %}
+    <a href="{% url 'customer_list' %}" class="cl-clear">Clear</a>
+    {% endif %}
+  </form>
+
+  {% if new_clients and not search and not service_filter and not status_filter %}
+  <section class="cl-panel">
+    <div class="cl-panel-head">
+      <div>
+        <span class="cl-panel-kicker">Last 7 days</span>
+        <h2>New clients</h2>
+      </div>
+      <span class="cl-count">{{ new_clients|length }}</span>
+    </div>
+    <div class="cl-new-grid">
+      {% for c in new_clients %}
+      <a href="{% url 'customer_detail' c.id %}" class="cl-new-card">
+        <span>{{ c.name|first|upper }}</span>
+        <strong>{{ c.name }}</strong>
+        <small>Added {{ c.created_at|timesince }} ago</small>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="cl-panel">
+    <div class="cl-panel-head">
+      <div>
+        <span class="cl-panel-kicker">Client board</span>
+        <h2>Accounts</h2>
+      </div>
+      <span class="cl-count">{{ customers|length }}</span>
+    </div>
+
+    <div class="cl-card-grid">
+      {% for c in customers %}
+      <article class="cl-client-card">
+        <a href="{% url 'customer_detail' c.id %}" class="cl-client-main">
+          <span class="cl-avatar">{{ c.name|first|upper }}</span>
+          <span>
+            <strong>{{ c.name }}</strong>
+            <small>
+              {% if c.full_address != "—" %}
+                {{ c.full_address }}
+              {% elif c.primary_property_address %}
+                {{ c.primary_property_address }}
+              {% else %}
+                No address on file
+              {% endif %}
+            </small>
+          </span>
+        </a>
+
+        <div class="cl-client-metrics">
+          <div><span>Upcoming</span><strong>{{ c.upcoming_job_count }}</strong></div>
+          <div><span>Properties</span><strong>{{ c.property_count }}</strong></div>
+          <div><span>Open</span><strong>${{ c.open_balance|floatformat:0 }}</strong></div>
+          <div><span>Estimates</span><strong>{{ c.open_estimate_count }}</strong></div>
+        </div>
+
+        <div class="cl-client-actions">
+          <a href="{% url 'customer_detail' c.id %}"><span class="material-symbols-outlined">open_in_new</span>Open</a>
+          {% if c.phone %}<a href="tel:{{ c.phone }}"><span class="material-symbols-outlined">call</span>Call</a>{% endif %}
+          {% if c.phone %}<a href="sms:{{ c.phone }}"><span class="material-symbols-outlined">sms</span>Text</a>{% endif %}
+          {% if c.email %}<a href="mailto:{{ c.email }}"><span class="material-symbols-outlined">mail</span>Email</a>{% endif %}
+          {% if c.primary_property_address %}
+          <a href="https://www.google.com/maps/search/?api=1&query={{ c.primary_property_address|urlencode }}" class="cl-map-link" data-address="{{ c.primary_property_address|escape }}" target="_blank" rel="noopener"><span class="material-symbols-outlined">near_me</span>Directions</a>
+          {% endif %}
+        </div>
+      </article>
+      {% empty %}
+      <div class="cl-empty">
+        <strong>No clients found.</strong>
+        <small>Add a client or clear your filters.</small>
+        <a href="{% url 'customer_create' %}">Add client</a>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="cl-table-wrap">
+      <table class="cl-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Contact</th>
+            <th>Primary address</th>
+            <th>Upcoming</th>
+            <th>Open balance</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in customers %}
+          <tr>
+            <td><a href="{% url 'customer_detail' c.id %}">{{ c.name }}</a></td>
+            <td>
+              {% if c.phone %}<a href="tel:{{ c.phone }}">{{ c.phone }}</a>{% endif %}
+              {% if c.email %}<small>{{ c.email }}</small>{% endif %}
+              {% if not c.phone and not c.email %}<small>No contact</small>{% endif %}
+            </td>
+            <td>
+              {% if c.full_address != "—" %}{{ c.full_address }}{% elif c.primary_property_address %}{{ c.primary_property_address }}{% else %}<small>No address</small>{% endif %}
+            </td>
+            <td>{{ c.upcoming_job_count }}</td>
+            <td>${{ c.open_balance|floatformat:0 }}</td>
+            <td><a href="{% url 'customer_detail' c.id %}" class="cl-table-open">Open</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6">No clients found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>
 
 <style>
-.search-row{display:flex;gap:10px;align-items:center}
-.search-input{width:100%;max-width:520px;padding:10px 14px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface-alt);color:var(--text);transition:border-color var(--motion-base) var(--motion-ease),box-shadow var(--motion-base) var(--motion-ease);outline:none;font-family:inherit}
-.search-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(34,197,94,.12)}
-.data-table tbody tr{animation:slideUp var(--motion-slow) var(--motion-ease-out) both}
-.data-table tbody tr:nth-child(1){animation-delay:0ms}
-.data-table tbody tr:nth-child(2){animation-delay:40ms}
-.data-table tbody tr:nth-child(3){animation-delay:80ms}
-.data-table tbody tr:nth-child(4){animation-delay:120ms}
-.data-table tbody tr:nth-child(n+5){animation-delay:160ms}
-@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@media (max-width: 768px) {
-  .search-row { flex-direction: column; align-items: stretch; }
-  .search-input { max-width: 100%; font-size: 16px; min-height: 44px; }
-  .search-row .btn { min-height: 44px; width: 100%; justify-content: center; }
-  .crm-hide-mobile { display: none !important; }
-  .data-table td, .data-table th { padding: 10px 8px; font-size: 13px; }
-}
+  .clients-command {
+    --cl-ink: #f4f5f0;
+    --cl-muted: #9b9f98;
+    --cl-dim: #656a63;
+    --cl-line: rgba(255,255,255,.11);
+    --cl-line-strong: rgba(255,255,255,.18);
+    --cl-accent: #b9ff65;
+    --cl-ease: cubic-bezier(.2,.9,.18,1);
+    max-width: 1480px;
+    margin: -4px auto 0;
+    color: var(--cl-ink);
+    font-family: var(--font-family);
+  }
+  .clients-command:before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 50% -10%, rgba(255,255,255,.08), transparent 32%),
+      linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+      linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px);
+    background-size: auto, 72px 72px, 72px 72px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.72), transparent 70%);
+  }
+  .cl-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 14px;
+    animation: cl-rise .65s var(--cl-ease) both;
+  }
+  .cl-kicker,
+  .cl-panel-kicker,
+  .cl-stat span,
+  .cl-client-metrics span {
+    color: var(--cl-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .cl-kicker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .cl-kicker span {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--cl-accent);
+    box-shadow: 0 0 18px rgba(185,255,101,.45);
+  }
+  .cl-hero h1 {
+    margin: 12px 0 8px;
+    font-size: clamp(44px, 7vw, 88px);
+    line-height: .9;
+    letter-spacing: var(--letter-spacing-normal);
+  }
+  .cl-hero p {
+    margin: 0;
+    color: var(--cl-muted);
+    font-size: var(--type-body-size);
+  }
+  .cl-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    min-width: min(520px, 100%);
+  }
+  .cl-action,
+  .cl-tabs a,
+  .cl-search-panel button,
+  .cl-clear,
+  .cl-client-actions a,
+  .cl-empty a,
+  .cl-table-open {
+    min-height: 44px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.055);
+    color: var(--cl-ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 14px;
+    font-size: var(--text-sm);
+    font-weight: var(--type-strong-weight);
+    cursor: pointer;
+    transition: transform .28s var(--cl-ease), border-color .28s var(--cl-ease), background .28s var(--cl-ease);
+  }
+  .cl-action:hover,
+  .cl-tabs a:hover,
+  .cl-search-panel button:hover,
+  .cl-client-card:hover,
+  .cl-client-actions a:hover {
+    transform: translateY(-2px);
+    border-color: var(--cl-line-strong);
+    background: rgba(255,255,255,.075);
+  }
+  .cl-action-hot,
+  .cl-search-panel button,
+  .cl-empty a {
+    background: var(--cl-accent);
+    border-color: transparent;
+    color: #050605;
+  }
+  .cl-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px;
+    margin-bottom: 14px;
+    border: 1px solid var(--cl-line);
+    border-radius: 999px;
+    background: rgba(3,4,3,.70);
+    backdrop-filter: blur(24px) saturate(120%);
+    scrollbar-width: none;
+  }
+  .cl-tabs::-webkit-scrollbar { display: none; }
+  .cl-tabs a {
+    flex: 1 0 auto;
+    min-height: 36px;
+    color: var(--cl-muted);
+    background: transparent;
+  }
+  .cl-tabs a.active {
+    color: var(--cl-ink);
+    background: rgba(255,255,255,.07);
+    border-color: rgba(255,255,255,.10);
+  }
+  .cl-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .cl-stat,
+  .cl-panel,
+  .cl-search-panel,
+  .cl-client-card,
+  .cl-new-card {
+    border: 1px solid var(--cl-line);
+    background: linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.04));
+    box-shadow: 0 28px 90px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.10);
+    backdrop-filter: blur(28px) saturate(120%);
+  }
+  .cl-stat {
+    min-height: 118px;
+    border-radius: 28px;
+    padding: 17px;
+    color: var(--cl-ink);
+  }
+  .cl-stat strong {
+    display: block;
+    margin-top: 12px;
+    font-size: var(--type-metric-size);
+    line-height: 1;
+  }
+  .cl-stat small,
+  .cl-new-card small,
+  .cl-client-main small {
+    display: block;
+    margin-top: 6px;
+    color: var(--cl-dim);
+    font-size: var(--type-caption-size);
+  }
+  .cl-search-panel {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) minmax(150px, 220px) minmax(150px, 220px) auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 12px;
+    border-radius: 26px;
+    margin-bottom: 14px;
+  }
+  .cl-search-box {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    min-height: 46px;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 18px;
+    background: rgba(0,0,0,.24);
+    padding: 0 14px;
+  }
+  .cl-search-box .material-symbols-outlined { color: var(--cl-muted); }
+  .cl-search-panel input,
+  .cl-search-panel select {
+    min-height: 46px;
+    width: 100%;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 18px;
+    background: rgba(0,0,0,.24);
+    color: var(--cl-ink);
+    padding: 0 14px;
+    font-size: var(--type-control-size);
+    font-weight: var(--type-strong-weight);
+    font-family: inherit;
+  }
+  .cl-search-box input {
+    min-height: auto;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+  }
+  .cl-clear {
+    min-height: 46px;
+    color: var(--cl-muted);
+  }
+  .cl-panel {
+    border-radius: 30px;
+    padding: 20px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    animation: cl-rise .75s var(--cl-ease) both;
+  }
+  .cl-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .cl-panel h2 {
+    margin: 5px 0 0;
+    font-size: var(--type-title-size);
+    line-height: 1;
+  }
+  .cl-count {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 11px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.07);
+    color: var(--cl-muted);
+    font-size: var(--type-caption-size);
+    font-weight: var(--type-strong-weight);
+  }
+  .cl-new-grid,
+  .cl-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
+    gap: 12px;
+  }
+  .cl-new-card,
+  .cl-client-card,
+  .cl-empty {
+    border-radius: 24px;
+    color: var(--cl-ink);
+  }
+  .cl-new-card {
+    padding: 14px;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+  }
+  .cl-new-card span,
+  .cl-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    background: var(--cl-accent);
+    color: #050605;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+  }
+  .cl-new-card small { grid-column: 2; margin-top: -12px; }
+  .cl-client-card {
+    padding: 16px;
+    transition: transform .28s var(--cl-ease), border-color .28s var(--cl-ease), background .28s var(--cl-ease);
+  }
+  .cl-client-main {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    color: var(--cl-ink);
+  }
+  .cl-client-main strong {
+    display: block;
+    font-size: var(--type-title-size);
+    line-height: 1;
+  }
+  .cl-client-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin: 14px 0;
+  }
+  .cl-client-metrics div,
+  .cl-empty {
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    background: rgba(0,0,0,.20);
+    padding: 12px;
+  }
+  .cl-client-metrics strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 24px;
+    line-height: 1;
+  }
+  .cl-client-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .cl-client-actions a {
+    min-height: 36px;
+    font-size: var(--type-caption-size);
+    color: var(--cl-muted);
+  }
+  .cl-client-actions .cl-map-link {
+    color: #050605;
+    background: var(--cl-accent);
+    border-color: transparent;
+  }
+  .cl-empty {
+    padding: 18px;
+    color: var(--cl-muted);
+  }
+  .cl-empty strong {
+    display: block;
+    color: var(--cl-ink);
+    font-size: var(--text-base);
+  }
+  .cl-empty small { display: block; margin-top: 6px; }
+  .cl-empty a { width: fit-content; margin-top: 12px; }
+  .cl-table-wrap {
+    margin-top: 14px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .cl-table {
+    width: 100%;
+    min-width: 780px;
+    border-collapse: collapse;
+  }
+  .cl-table th,
+  .cl-table td {
+    padding: 13px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    text-align: left;
+    font-size: var(--text-sm);
+  }
+  .cl-table th {
+    color: var(--cl-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .cl-table a {
+    color: var(--cl-accent);
+    font-weight: var(--type-strong-weight);
+  }
+  .cl-table small {
+    display: block;
+    color: var(--cl-muted);
+    margin-top: 4px;
+  }
+  .cl-table-open {
+    min-height: 34px;
+    color: var(--cl-ink) !important;
+  }
+  @keyframes cl-rise {
+    from { opacity: 0; transform: translateY(18px) scale(.99); filter: blur(8px); }
+    to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .clients-command *, .clients-command *:before, .clients-command *:after { animation: none !important; transition: none !important; }
+  }
+  @media (max-width: 1180px) {
+    .cl-hero,
+    .cl-search-panel { grid-template-columns: 1fr; }
+    .cl-actions,
+    .cl-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 760px) {
+    .clients-command { margin: 0; }
+    .cl-hero h1 { font-size: 52px; }
+    .cl-actions,
+    .cl-stat-grid,
+    .cl-client-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cl-tabs { border-radius: 22px; }
+    .cl-tabs a { flex: 0 0 auto; }
+    .cl-panel,
+    .cl-stat,
+    .cl-search-panel { border-radius: 24px; }
+    .cl-client-main strong { font-size: 22px; }
+    .cl-client-actions a { flex: 1 1 calc(50% - 8px); }
+    .cl-table-wrap { display: none; }
+  }
+  @media (min-width: 761px) {
+    .cl-card-grid { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+  }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  function preferredMapUrl(address) {
+    var encoded = encodeURIComponent(address || '');
+    var ua = navigator.userAgent || navigator.vendor || window.opera || '';
+    var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) return 'https://maps.apple.com/?q=' + encoded;
+    return 'https://www.google.com/maps/search/?api=1&query=' + encoded;
+  }
+  document.querySelectorAll('.cl-map-link[data-address]').forEach(function(link) {
+    link.href = preferredMapUrl(link.dataset.address);
+  });
+});
+</script>
 {% endblock %}
 
 {% block context_panel %}
@@ -138,7 +612,7 @@
   <div class="context-panel-body">
     <a href="{% url 'customer_import' %}" class="btn btn-secondary btn-sm">Import CSV</a>
     <a href="{% url 'customer_export' %}" class="btn btn-secondary btn-sm">Export CSV</a>
-    <div class="context-chip">Keep customer records complete to improve follow-up conversion.</div>
+    <div class="context-chip">Client cards now surface work, money, contact, and property actions.</div>
   </div>
 </aside>
 {% endblock %}

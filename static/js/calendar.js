@@ -1967,12 +1967,19 @@ document.addEventListener('DOMContentLoaded', function () {
   function qcCreateLineRow() {
     var row = document.createElement('div');
     row.className = 'qc-line-row';
+    var main = document.createElement('div');
+    main.className = 'qc-line-main';
     var textInp = document.createElement('input');
     textInp.type = 'text'; textInp.className = 'qc-line-service-text';
     textInp.setAttribute('list', 'qc-service-datalist');
     textInp.placeholder = 'Type or select service...';
-    textInp.style.flex = '1';
-    row.appendChild(textInp);
+    main.appendChild(textInp);
+    var detailInp = document.createElement('textarea');
+    detailInp.className = 'qc-line-description';
+    detailInp.rows = 2;
+    detailInp.placeholder = 'Optional line details for the crew or invoice';
+    main.appendChild(detailInp);
+    row.appendChild(main);
     var hiddenInp = document.createElement('input');
     hiddenInp.type = 'hidden'; hiddenInp.className = 'qc-line-service'; hiddenInp.value = '';
     row.appendChild(hiddenInp);
@@ -1980,12 +1987,10 @@ document.addEventListener('DOMContentLoaded', function () {
     var qty = document.createElement('input');
     qty.type = 'number'; qty.className = 'qc-line-qty'; qty.value = '1';
     qty.min = '0.01'; qty.step = '0.01'; qty.placeholder = 'Qty';
-    qty.style.width = '50px';
     row.appendChild(qty);
     var price = document.createElement('input');
     price.type = 'number'; price.className = 'qc-line-price';
     price.min = '0'; price.step = '0.01'; price.placeholder = '$';
-    price.style.width = '60px';
     row.appendChild(price);
     // Remove button (not on first row)
     var container = document.getElementById('qc-lines');
@@ -2117,6 +2122,28 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  window.addEventListener('quickClientCreated', function(e) {
+    var data = e.detail || {};
+    if (!data.customer) return;
+    qcSelectCustomer(data.customer.id, data.customer.name, data.properties || []);
+  });
+
+  window.addEventListener('quickPropertyCreated', function(e) {
+    var data = e.detail || {};
+    var property = data.property;
+    if (!property) return;
+    var currentCustomerId = document.getElementById('qc-customer-id').value;
+    if (data.customer && currentCustomerId && String(data.customer.id) !== String(currentCustomerId)) return;
+    var propSelect = document.getElementById('qc-property-id');
+    if (!propSelect) return;
+    var opt = document.createElement('option');
+    opt.value = property.id;
+    opt.textContent = property.address;
+    opt.selected = true;
+    propSelect.appendChild(opt);
+    document.getElementById('qc-property-wrap').style.display = '';
+  });
+
   // ── Color swatches ──
   if (qcPopover) {
     qcPopover.querySelectorAll('.qc-swatch').forEach(function(swatch) {
@@ -2241,15 +2268,19 @@ document.addEventListener('DOMContentLoaded', function () {
         var svcId = row.querySelector('.qc-line-service').value;
         var svcText = row.querySelector('.qc-line-service-text');
         var svcName = svcText ? svcText.value.trim() : '';
+        var svcDescriptionEl = row.querySelector('.qc-line-description');
+        var svcDescription = svcDescriptionEl ? svcDescriptionEl.value.trim() : '';
         var qty = parseFloat(row.querySelector('.qc-line-qty').value) || 1;
         var price = row.querySelector('.qc-line-price').value;
         if (svcId) {
           var item = { service_id: parseInt(svcId), quantity: qty };
+          if (svcDescription) item.detail_description = svcDescription;
           if (price !== '' && price !== null) item.unit_price = parseFloat(price);
           services.push(item);
         } else if (svcName) {
           // Typed service name without matching an existing service
           var item = { service_name: svcName, quantity: qty };
+          if (svcDescription) item.detail_description = svcDescription;
           if (price !== '' && price !== null) item.unit_price = parseFloat(price);
           services.push(item);
         }

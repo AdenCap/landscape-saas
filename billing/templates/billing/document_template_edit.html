@@ -1,374 +1,950 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="doc-template-edit-page">
-  <header class="doc-template-edit-header">
-    <h1>Customize {{ doc_type|title }} Template</h1>
-    <p class="doc-template-edit-subtitle">Changes preview in real time. Hit Save to apply them to all future {{ doc_type }}s.</p>
+<section class="document-studio">
+  <header class="ds-hero">
+    <div class="ds-hero-copy">
+      <a href="{% url 'business_settings' %}#panel-documents" class="ds-back">← Settings</a>
+      <p class="ds-kicker">Document Studio</p>
+      <h1>{{ doc_type|title }} branding</h1>
+      <p class="ds-subtitle">Tune the PDF your customers see: logo, color, terms, notes, fields, and the customer-facing voice.</p>
+      <div class="ds-command-strip" aria-label="Document readiness">
+        <span>
+          <b>Style</b>
+          {{ template_obj.get_template_key_display|default:"Modern Dark" }}
+        </span>
+        <span>
+          <b>Brand</b>
+          {% if logo_url %}Logo ready{% else %}Logo needed{% endif %}
+        </span>
+        <span>
+          <b>Terms</b>
+          {% if template_obj.terms_and_conditions %}Ready{% else %}Add terms{% endif %}
+        </span>
+        <span>
+          <b>Contact</b>
+          {% if business.contact_email and business.contact_phone %}Ready{% else %}Needs info{% endif %}
+        </span>
+      </div>
+    </div>
+    <div class="ds-hero-actions">
+      <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="ds-pill {% if doc_type == 'estimate' %}active{% endif %}">Estimates</a>
+      <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="ds-pill {% if doc_type == 'invoice' %}active{% endif %}">Invoices</a>
+      <button type="submit" form="template-form" class="ds-save ds-save-top">Save changes</button>
+    </div>
   </header>
 
-  <div class="billing-tabs" style="margin-bottom: 18px;">
-    <a href="{% url 'billing:document_template_edit' 'estimate' %}" class="billing-tab {% if doc_type == 'estimate' %}active{% endif %}">Estimate Template</a>
-    <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="billing-tab {% if doc_type == 'invoice' %}active{% endif %}">Invoice Template</a>
-    <a href="{% url 'billing:estimate_list' %}" class="billing-tab" style="margin-left:auto;">Back to Estimates</a>
-    <a href="{% url 'billing:invoice_list' %}" class="billing-tab">Back to Invoices</a>
-  </div>
+  <form method="post" class="ds-layout" id="template-form">
+    {% csrf_token %}
 
-  <div class="editor-layout">
-    <!-- LEFT: FORM -->
-    <form method="post" class="doc-template-edit-form" id="template-form">
-      {% csrf_token %}
-
-      <!-- Style Picker -->
-      <div class="card doc-template-section">
-        <h2 class="section-title">Template Style</h2>
-        <div class="style-options">
+    <div class="ds-workbench">
+      <section class="ds-panel">
+        <div class="ds-panel-head">
+          <p>Style system</p>
+          <span>Choose the foundation</span>
+        </div>
+        <div class="ds-style-grid">
           {% with current_key=template_obj.template_key %}
-          <label class="style-option {% if current_key == 'modern_dark' or current_key != 'clean_light' and current_key != 'luxury' %}active{% endif %}">
+          <label class="ds-style-card {% if current_key == 'modern_dark' or current_key != 'clean_light' and current_key != 'luxury' %}active{% endif %}">
             <input type="radio" name="template_key" value="modern_dark" {% if current_key == 'modern_dark' or current_key != 'clean_light' and current_key != 'luxury' %}checked{% endif %}>
-            <div class="style-option-preview" style="background:#1a1a1a;">
-              <div style="height:4px;background:var(--primary);border-radius:2px 2px 0 0;"></div>
-              <div style="padding:6px 8px;">
-                <div style="height:6px;width:50%;background:#fff;border-radius:3px;margin-bottom:5px;"></div>
-                <div style="height:2px;background:var(--primary);opacity:.5;margin:4px 0;border-radius:1px;"></div>
-                <div style="height:4px;width:80%;background:rgba(255,255,255,0.1);border-radius:2px;margin-bottom:3px;"></div>
-              </div>
-            </div>
-            <span class="style-option-name">Modern Dark</span>
+            <span class="ds-style-preview dark"><i></i><b></b><em></em></span>
+            <strong>Modern Dark</strong>
+            <small>Premium, tech-forward, bold contrast</small>
           </label>
-          <label class="style-option {% if current_key == 'clean_light' %}active{% endif %}">
+          <label class="ds-style-card {% if current_key == 'clean_light' %}active{% endif %}">
             <input type="radio" name="template_key" value="clean_light" {% if current_key == 'clean_light' %}checked{% endif %}>
-            <div class="style-option-preview" style="background:#fff;border:1px solid #e5e7eb;">
-              <div style="padding:6px 8px;">
-                <div style="height:6px;width:50%;background:#374151;border-radius:3px;margin-bottom:5px;"></div>
-                <div style="height:1px;background:#d1d5db;margin:4px 0;"></div>
-                <div style="height:4px;width:80%;background:#e5e7eb;border-radius:2px;margin-bottom:3px;"></div>
-              </div>
-            </div>
-            <span class="style-option-name">Clean Light</span>
+            <span class="ds-style-preview light"><i></i><b></b><em></em></span>
+            <strong>Clean Light</strong>
+            <small>Traditional, simple, easy to print</small>
           </label>
-          <label class="style-option {% if current_key == 'luxury' %}active{% endif %}">
+          <label class="ds-style-card {% if current_key == 'luxury' %}active{% endif %}">
             <input type="radio" name="template_key" value="luxury" {% if current_key == 'luxury' %}checked{% endif %}>
-            <div class="style-option-preview" style="background:#0a0a0a;border:2px double #555;">
-              <div style="border-bottom:2px double #555;margin:6px 8px 0;"></div>
-              <div style="padding:6px 8px;">
-                <div style="height:6px;width:50%;background:#d4af37;border-radius:3px;margin-bottom:5px;"></div>
-                <div style="height:4px;width:80%;background:rgba(255,255,255,0.08);border-radius:2px;margin-bottom:3px;"></div>
-              </div>
-            </div>
-            <span class="style-option-name">Luxury</span>
+            <span class="ds-style-preview luxury"><i></i><b></b><em></em></span>
+            <strong>Luxury</strong>
+            <small>High-end proposals and larger projects</small>
           </label>
           {% endwith %}
         </div>
-        <div class="form-group" style="margin-top:16px;">
-          <label for="id_name">Template name (optional)</label>
-          <input type="text" name="name" id="id_name" value="{{ template_obj.name }}" placeholder="e.g. My Estimate Template" class="form-control">
-        </div>
-      </div>
+      </section>
 
-      <!-- Branding & Content -->
-      <div class="card doc-template-section">
-        <h2 class="section-title">Branding &amp; Content</h2>
-        <div class="form-group">
-          <label>Company Logo</label>
-          {% if logo_url %}
-          <div style="display:flex;align-items:center;gap:12px;">
-            <img src="{{ logo_url }}" alt="Logo" style="max-height:48px;max-width:120px;border-radius:6px;border:1px solid var(--border);object-fit:contain;background:#111;" onerror="this.style.display='none'">
-            <span style="font-size:13px;color:var(--text-muted);">Logo appears on PDFs and emails.</span>
+      <section class="ds-panel">
+        <div class="ds-panel-head">
+          <p>Brand</p>
+          <span>Logo, color, typography</span>
+        </div>
+        <div class="ds-brand-grid">
+          <div class="ds-logo-box">
+            {% if logo_url %}
+              <img src="{{ logo_url }}" alt="{{ business.name }} logo" onerror="this.style.display='none'">
+              <span>Logo from business settings</span>
+            {% else %}
+              <div class="ds-logo-empty">No logo</div>
+              <a href="{% url 'business_settings' %}">Add one in settings</a>
+            {% endif %}
           </div>
-          {% else %}
-          <div style="padding:12px 16px;background:var(--surface-alt);border-radius:8px;border:1px dashed var(--border);">
-            <p style="margin:0;font-size:13px;color:var(--text-muted);">
-              <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:4px;">image</span>
-              No logo uploaded. Go to <a href="{% url 'settings' %}" style="color:var(--primary);font-weight:600;">Settings</a> to add your business logo.
-            </p>
-          </div>
-          {% endif %}
+          <label class="ds-field">
+            <span>Template name</span>
+            <input type="text" name="name" value="{{ template_obj.name }}" placeholder="Premium estimate">
+          </label>
+          <label class="ds-field">
+            <span>Accent color</span>
+            <div class="ds-color-row">
+              <input type="color" name="primary_color" id="id_primary_color" value="{{ template_obj.primary_color|default:'#22c55e' }}">
+              <input type="text" id="id_primary_color_hex" value="{{ template_obj.primary_color|default:'#22c55e' }}" maxlength="7">
+            </div>
+          </label>
+          <label class="ds-field">
+            <span>Font style</span>
+            <select name="font_style" id="id_font_style">
+              <option value="clean" {% if template_obj.font_style == "clean" %}selected{% endif %}>Clean Sans</option>
+              <option value="bold" {% if template_obj.font_style == "bold" %}selected{% endif %}>Modern Bold</option>
+              <option value="serif" {% if template_obj.font_style == "serif" %}selected{% endif %}>Classic Serif</option>
+            </select>
+          </label>
         </div>
-        <div class="form-group">
-          <label>Accent Color</label>
-          <div class="color-input-wrap">
-            <input type="color" name="primary_color" id="id_primary_color" value="{{ template_obj.primary_color|default:'#22c55e' }}" class="color-picker">
-            <input type="text" id="id_primary_color_hex" value="{{ template_obj.primary_color|default:'#22c55e' }}" class="color-hex-input" maxlength="7" placeholder="#22c55e">
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="id_header_text">Header Text</label>
-          <textarea name="header_text" id="id_header_text" rows="3" placeholder="Tagline, license #, or slogan" class="form-control">{{ template_obj.header_text }}</textarea>
-          <span class="form-hint">Shown at the top of your document and email.</span>
-        </div>
-        <div class="form-group">
-          <label for="id_footer_text">Footer Text</label>
-          <textarea name="footer_text" id="id_footer_text" rows="3" placeholder="Thank you message, payment instructions" class="form-control">{{ template_obj.footer_text }}</textarea>
-          <span class="form-hint">Shown at the bottom of your document and email.</span>
-        </div>
-        <div class="form-group">
-          <label for="id_terms_and_conditions">Terms &amp; Conditions</label>
-          <textarea name="terms_and_conditions" id="id_terms_and_conditions" rows="4" placeholder="Payment due within 30 days..." class="form-control">{{ template_obj.terms_and_conditions }}</textarea>
-        </div>
-      </div>
+      </section>
 
-      <!-- Custom Fields -->
-      <div class="card doc-template-section">
-        <h2 class="section-title">Custom Fields</h2>
-        <p class="section-desc">Add fields that appear on every {{ doc_type }}.</p>
-        <div class="custom-fields-list" id="custom-fields-list">
+      <section class="ds-panel">
+        <div class="ds-panel-head">
+          <p>Document content</p>
+          <span>Customer-facing language</span>
+        </div>
+        <label class="ds-field">
+          <span>Header message</span>
+          <textarea name="header_text" id="id_header_text" rows="3" placeholder="Licensed and insured landscape maintenance.">{{ template_obj.header_text }}</textarea>
+        </label>
+        <label class="ds-field">
+          <span>Terms and conditions</span>
+          <textarea name="terms_and_conditions" id="id_terms_and_conditions" rows="5" placeholder="Payment due upon completion unless otherwise stated.">{{ template_obj.terms_and_conditions }}</textarea>
+        </label>
+        <label class="ds-field">
+          <span>{% if doc_type == "invoice" %}Payment instructions{% else %}Deposit / payment notes{% endif %}</span>
+          <textarea name="payment_instructions" id="id_payment_instructions" rows="4" placeholder="Cards on file may be charged after approval.">{{ template_obj.payment_instructions }}</textarea>
+        </label>
+        <label class="ds-field">
+          <span>Footer message</span>
+          <textarea name="footer_text" id="id_footer_text" rows="3" placeholder="Thank you for choosing {{ business.name }}.">{{ template_obj.footer_text }}</textarea>
+        </label>
+      </section>
+
+      <section class="ds-panel">
+        <div class="ds-panel-head">
+          <p>Visibility</p>
+          <span>What appears on the PDF</span>
+        </div>
+        <div class="ds-toggle-grid">
+          <label class="ds-toggle-card">
+            <input type="checkbox" name="show_property_address" {% if template_obj.show_property_address %}checked{% endif %}>
+            <span>Property address</span>
+            <small>Show where the work is being done.</small>
+          </label>
+          <label class="ds-toggle-card">
+            <input type="checkbox" name="show_service_date" {% if template_obj.show_service_date %}checked{% endif %}>
+            <span>Service date</span>
+            <small>Show site visit, job, or invoice period dates.</small>
+          </label>
+          <label class="ds-toggle-card">
+            <input type="checkbox" name="show_photos" {% if template_obj.show_photos %}checked{% endif %}>
+            <span>Photos</span>
+            <small>Include job or property photos when available.</small>
+          </label>
+        </div>
+      </section>
+
+      <section class="ds-panel">
+        <div class="ds-panel-head">
+          <p>Custom fields</p>
+          <span>PO numbers, promo codes, license numbers</span>
+        </div>
+        <div class="ds-custom-fields" id="custom-fields-list">
           {% for field in template_obj.custom_fields %}
-          <div class="custom-field-row" data-index="{{ forloop.counter0 }}">
-            <input type="text" name="custom_field_key" value="{{ field.key }}" placeholder="Key" class="field-key form-control">
-            <input type="text" name="custom_field_label" value="{{ field.label }}" placeholder="Label" class="field-label form-control">
-            <select name="custom_field_type" class="field-type form-control">
+          <div class="ds-custom-row custom-field-row">
+            <input type="text" name="custom_field_key" value="{{ field.key }}" placeholder="field_key" class="field-key">
+            <input type="text" name="custom_field_label" value="{{ field.label }}" placeholder="Label" class="field-label">
+            <select name="custom_field_type" class="field-type">
               <option value="text" {% if field.type == "text" %}selected{% endif %}>Text</option>
               <option value="number" {% if field.type == "number" %}selected{% endif %}>Number</option>
               <option value="date" {% if field.type == "date" %}selected{% endif %}>Date</option>
               <option value="textarea" {% if field.type == "textarea" %}selected{% endif %}>Long text</option>
             </select>
-            <label class="field-required-label">
-              <input type="checkbox" name="custom_field_required_{{ forloop.counter0 }}" {% if field.required %}checked{% endif %} class="field-required"> Req
-            </label>
-            <button type="button" class="btn btn-ghost btn-sm remove-field" style="color:#f87171;">&times;</button>
+            <label class="ds-required"><input type="checkbox" name="custom_field_required_{{ forloop.counter0 }}" {% if field.required %}checked{% endif %}> Required</label>
+            <button type="button" class="remove-field" aria-label="Remove custom field">Remove</button>
           </div>
           {% endfor %}
         </div>
-        <button type="button" id="add-custom-field" class="btn btn-secondary">+ Add field</button>
+        <button type="button" class="ds-secondary" id="add-custom-field">Add custom field</button>
+      </section>
+    </div>
+
+    <aside class="ds-preview-rail">
+      <div class="ds-preview-actions">
+        <div>
+          <p>Live preview</p>
+          <span>Updates as you type</span>
+        </div>
+        <button type="submit" class="ds-save">Save</button>
       </div>
 
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary" style="min-width:160px;">
-          <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">save</span> Save Template
-        </button>
-        <a href="{% if doc_type == 'invoice' %}{% url 'billing:invoice_list' %}{% else %}{% url 'billing:estimate_list' %}{% endif %}" class="btn btn-secondary">Back</a>
+      <div class="ds-pdf-preview-card">
+        <div>
+          <p>Real PDF preview</p>
+          <span>Save changes first, then open the latest {{ doc_type }} PDF before sending it to a client.</span>
+        </div>
+        {% if preview_document %}
+          {% if doc_type == "invoice" %}
+            <a href="{% url 'billing:invoice_pdf' preview_document.id %}?inline=1" target="_blank">Open PDF</a>
+          {% else %}
+            <a href="{% url 'billing:estimate_pdf' preview_document.id %}?inline=1" target="_blank">Open PDF</a>
+          {% endif %}
+        {% else %}
+          <span class="ds-preview-disabled">Create a {{ doc_type }} first</span>
+        {% endif %}
       </div>
-    </form>
 
-    <!-- RIGHT: LIVE PREVIEW -->
-    <aside class="live-preview-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <h2 class="section-title" style="margin:0;">Live Preview</h2>
-        <button type="button" class="btn btn-ghost btn-sm" id="toggle-email-preview" style="font-size:12px;">
-          <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">mail</span> Email Preview
-        </button>
+      <div class="ds-readiness-stack" aria-label="Template setup">
+        <div>
+          <span>Logo</span>
+          <strong>{% if logo_url %}Ready{% else %}Missing{% endif %}</strong>
+        </div>
+        <div>
+          <span>Accent</span>
+          <strong>{{ template_obj.primary_color|default:'#22c55e' }}</strong>
+        </div>
+        <div>
+          <span>Terms</span>
+          <strong>{% if template_obj.terms_and_conditions %}Set{% else %}Draft{% endif %}</strong>
+        </div>
       </div>
 
-      <!-- Document preview -->
-      <div id="preview-doc" class="preview-doc" data-style="{{ template_obj.template_key|default:'modern_dark' }}" style="--preview-accent: {{ template_obj.primary_color|default:'#22c55e' }};">
-        <div class="preview-accent-bar"></div>
-        <div class="preview-luxury-border-top"></div>
-        <div class="preview-inner">
-          <div class="preview-head">
+      <div id="preview-doc" class="ds-preview-doc {{ template_obj.template_key|default:'modern_dark' }}" style="--preview-accent: {{ template_obj.primary_color|default:'#22c55e' }};">
+        <div class="ds-doc-bar"></div>
+        <div class="ds-doc-inner">
+          <header>
             <div>
               {% if logo_url %}
-              <img src="{{ logo_url }}" alt="{{ business.name }}" class="preview-logo" onerror="this.style.display='none'">
+                <img src="{{ logo_url }}" alt="{{ business.name }} logo" onerror="this.style.display='none'">
               {% endif %}
-              <div class="preview-biz-name">{{ business.name }}</div>
-              <div class="preview-title">{{ doc_type|upper }}</div>
-              <div class="preview-meta">#1001 &middot; Mar 26, 2026</div>
+              <strong>{{ business.name }}</strong>
+              <small id="preview-header-text"></small>
             </div>
-            <div class="preview-badge">Draft</div>
-          </div>
-          <div class="preview-header-text" id="preview-header-text"></div>
-          <div class="preview-divider"></div>
-          <div class="preview-label">Bill To</div>
-          <div class="preview-client">John Smith &middot; 123 Main St, Springfield</div>
-          <div class="preview-label" style="margin-top:12px;">Items</div>
-          <table class="preview-table">
-            <thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Price</th></tr></thead>
+            <div>
+              <b>{{ doc_type|upper }}</b>
+              <span>#1001</span>
+            </div>
+          </header>
+          <section class="ds-doc-banner">
+            <strong>{% if doc_type == "invoice" %}Landscape service invoice{% else %}Landscape service proposal{% endif %}</strong>
+            <span>Prepared for Demo Customer</span>
+          </section>
+          <section class="ds-doc-meta">
+            <div>
+              <span>Bill to</span>
+              <strong>Demo Customer</strong>
+              <small>123 Property Lane</small>
+            </div>
+            <div>
+              <span>Prepared by</span>
+              <strong>{{ business.name }}</strong>
+              <small>{{ business.contact_phone|default:"555-0100" }}</small>
+            </div>
+          </section>
+          <table>
+            <thead>
+              <tr><th>Service</th><th>Qty</th><th>Total</th></tr>
+            </thead>
             <tbody>
-              <tr><td>Weekly Lawn Mowing</td><td class="r">1</td><td class="r">$85.00</td></tr>
-              <tr><td>Mulch Install - 3 cu yd</td><td class="r">1</td><td class="r">$255.00</td></tr>
-              <tr class="total-row"><td colspan="2">Total</td><td class="r"><strong>$340.00</strong></td></tr>
+              <tr><td>Mowing service</td><td>1</td><td>$85</td></tr>
+              <tr><td>Landscape cleanup</td><td>1</td><td>$310</td></tr>
+              <tr class="ds-total"><td colspan="2">Total</td><td>$395</td></tr>
             </tbody>
           </table>
-          <div class="preview-custom" id="preview-custom-fields"></div>
-          <div class="preview-label" style="margin-top:12px;">Terms</div>
-          <div class="preview-terms" id="preview-terms"></div>
-          <div class="preview-footer-text" id="preview-footer-text"></div>
+          <div class="ds-doc-extra" id="preview-custom-fields"></div>
+          <div class="ds-doc-note">
+            <span>Terms</span>
+            <p id="preview-terms"></p>
+            <p id="preview-payment"></p>
+          </div>
+          <footer id="preview-footer-text"></footer>
         </div>
       </div>
 
-      <!-- Email preview (hidden by default) -->
-      <div id="email-preview-container" style="display:none;margin-top:12px;">
-        <div id="email-preview-content" style="width:100%;min-height:400px;border:1px solid var(--border);border-radius:10px;background:#f4f4f5;overflow:auto;max-height:700px;"></div>
-        <div style="display:flex;gap:8px;margin-top:8px;justify-content:center;">
-          <button type="button" class="btn btn-ghost btn-sm" id="refresh-email-preview" style="font-size:11px;">Refresh Preview</button>
-        </div>
-        <p style="font-size:11px;color:var(--text-muted);margin:4px 0 0;text-align:center;">Save template first, then refresh to see your latest changes.</p>
+      <div class="ds-preview-footer">
+        <a href="{% if doc_type == 'invoice' %}{% url 'billing:invoice_list' %}{% else %}{% url 'billing:estimate_list' %}{% endif %}">Back to {{ doc_type }}s</a>
+        <button type="button" id="toggle-email-preview">Email preview</button>
+      </div>
+      <div id="email-preview-container" class="ds-email-preview" hidden>
+        <div id="email-preview-content">Save the template, then refresh the email preview.</div>
+        <button type="button" id="refresh-email-preview">Refresh</button>
       </div>
     </aside>
-  </div>
-</div>
+  </form>
+</section>
 
 <style>
-  .doc-template-edit-page { max-width: 1200px; }
-  .doc-template-edit-header { margin-bottom: 16px; }
-  .doc-template-edit-header h1 { margin: 0 0 4px 0; font-size: 26px; font-weight: 700; }
-  .doc-template-edit-subtitle { margin: 0; color: var(--text-muted); font-size: 14px; }
-
-  .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 20px; align-items: start; }
-  .doc-template-section { padding: 22px; margin-bottom: 16px; }
-  .section-title { margin: 0 0 14px 0; font-size: 15px; font-weight: 700; font-family: var(--font-headline); }
-  .section-desc { margin: -6px 0 14px 0; font-size: 13px; color: var(--text-muted); }
-  .form-group { margin-bottom: 16px; }
-  .form-group:last-child { margin-bottom: 0; }
-  .form-group > label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; color: var(--text); }
-  .form-control {
-    width: 100%; padding: 10px 12px; font-size: 15px; border-radius: 8px;
-    border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit;
+  .document-studio {
+    --ds-bg: #080a09;
+    --ds-panel: rgba(255,255,255,.075);
+    --ds-panel-strong: rgba(255,255,255,.105);
+    --ds-border: rgba(255,255,255,.14);
+    --ds-border-strong: rgba(255,255,255,.24);
+    --ds-text: #f4f6f1;
+    --ds-muted: rgba(244,246,241,.62);
+    --ds-soft: rgba(244,246,241,.38);
+    color: var(--ds-text);
+    max-width: 1540px;
+    margin: 0 auto;
+    padding: clamp(18px, 3vw, 32px);
+    font-family: var(--font-body, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
   }
-  .form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
-  textarea.form-control { min-height: 72px; resize: vertical; }
-  .form-hint { display: block; margin-top: 3px; font-size: 12px; color: var(--text-muted); }
-  .color-input-wrap { display: flex; gap: 10px; align-items: center; }
-  .color-picker { height: 42px; width: 72px; padding: 3px; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
-  .color-hex-input { flex: 1; max-width: 110px; }
-  .form-actions { display: flex; gap: 12px; flex-wrap: wrap; padding-top: 4px; }
-
-  /* Style option cards */
-  .style-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .style-option {
-    cursor: pointer; border: 2px solid var(--border); border-radius: 10px; overflow: hidden;
-    transition: border-color .15s, box-shadow .15s; background: var(--surface-alt); margin-bottom: 0;
+  .ds-hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: end;
+    margin-bottom: 24px;
+    padding: clamp(18px, 2.5vw, 26px);
+    border: 1px solid var(--ds-border);
+    border-radius: 30px;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(166,255,77,.14), transparent 32%),
+      linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,.035)),
+      #090b0a;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 26px 80px rgba(0,0,0,.26);
   }
-  .style-option:hover { border-color: color-mix(in srgb, var(--border) 50%, var(--primary)); }
-  .style-option.active { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
-  .style-option input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
-  .style-option-preview { height: 55px; position: relative; overflow: hidden; }
-  .style-option-name { display: block; text-align: center; padding: 7px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
-  .style-option.active .style-option-name { color: var(--primary); }
-
-  /* Custom fields */
-  .custom-fields-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
-  .custom-field-row {
-    display: grid; grid-template-columns: 1fr 1fr 90px auto auto; gap: 8px; align-items: center;
-    padding: 10px; background: var(--surface-alt); border-radius: 8px; border: 1px solid var(--border);
+  .ds-hero-copy {
+    min-width: 0;
+    display: grid;
+    gap: 12px;
   }
-  .field-required-label { margin: 0; font-size: 12px; font-weight: normal; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
-
-  /* LIVE PREVIEW */
-  .live-preview-card { position: sticky; top: 16px; }
-  .preview-doc {
-    border: 1px solid var(--border); border-radius: 12px; font-size: 12px; line-height: 1.45; overflow: hidden;
-    transition: background .3s, color .3s;
-    background: #1a1a1a; color: #d4d4d4;
+  .ds-kicker,
+  .ds-panel-head p,
+  .ds-preview-actions p {
+    margin: 0;
+    color: #a6ff4d;
+    font-size: 12px;
+    font-weight: 850;
+    letter-spacing: .18em;
+    text-transform: uppercase;
   }
-  .preview-inner { padding: 16px; }
-  .preview-accent-bar { height: 4px; background: var(--preview-accent); }
-  .preview-luxury-border-top { display: none; }
-  .preview-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
-  .preview-logo { max-height: 36px; max-width: 100px; object-fit: contain; margin-bottom: 6px; border-radius: 4px; }
-  .preview-biz-name { font-size: 11px; font-weight: 700; color: #aaa; letter-spacing: .3px; margin-bottom: 2px; }
-  .preview-title { font-size: 16px; font-weight: 800; letter-spacing: .5px; color: #fff; }
-  .preview-meta { font-size: 11px; color: #777; margin-top: 2px; }
-  .preview-badge { font-size: 10px; padding: 2px 8px; border-radius: 999px; border: 1px solid #444; color: #999; }
-  .preview-header-text { font-size: 11px; color: #999; white-space: pre-wrap; margin: 4px 0 0; }
-  .preview-header-text:empty { display: none; }
-  .preview-divider { height: 2px; background: var(--preview-accent); margin: 8px 0; opacity: .4; }
-  .preview-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #999; margin-bottom: 3px; }
-  .preview-client { font-size: 12px; color: #e0e0e0; }
-  .preview-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
-  .preview-table th { padding: 5px 4px; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #fff; background: var(--preview-accent); }
-  .preview-table td { padding: 5px 4px; border-bottom: 1px solid #333; font-size: 12px; }
-  .preview-table .r { text-align: right; }
-  .preview-table .total-row td { border-bottom: none; padding-top: 8px; font-size: 13px; }
-  .preview-custom { margin-top: 8px; }
-  .preview-custom-row { display: flex; justify-content: space-between; font-size: 11px; color: #888; padding: 2px 0; }
-  .preview-terms { font-size: 11px; color: #777; white-space: pre-wrap; }
-  .preview-terms:empty { display: none; }
-  .preview-footer-text { margin-top: 10px; padding-top: 8px; border-top: 1px solid #333; font-size: 11px; color: #888; white-space: pre-wrap; }
-  .preview-footer-text:empty { display: none; }
-
-  /* Modern Dark */
-  .preview-doc[data-style="modern_dark"] .preview-accent-bar { display: block; }
-  .preview-doc[data-style="modern_dark"] .preview-luxury-border-top { display: none; }
-
-  /* Clean Light */
-  .preview-doc[data-style="clean_light"] { background: #fff; color: #1f2937; }
-  .preview-doc[data-style="clean_light"] .preview-accent-bar { display: none; }
-  .preview-doc[data-style="clean_light"] .preview-biz-name { color: #374151; }
-  .preview-doc[data-style="clean_light"] .preview-title { color: #111827; font-family: Georgia, serif; font-weight: 700; letter-spacing: 0; }
-  .preview-doc[data-style="clean_light"] .preview-meta { color: #6b7280; }
-  .preview-doc[data-style="clean_light"] .preview-badge { border-color: #d1d5db; color: #6b7280; }
-  .preview-doc[data-style="clean_light"] .preview-header-text { color: #6b7280; }
-  .preview-doc[data-style="clean_light"] .preview-divider { height: 1px; background: #d1d5db; opacity: 1; }
-  .preview-doc[data-style="clean_light"] .preview-label { color: #374151; }
-  .preview-doc[data-style="clean_light"] .preview-client { color: #111827; }
-  .preview-doc[data-style="clean_light"] .preview-table th { background: #f3f4f6; color: #374151; }
-  .preview-doc[data-style="clean_light"] .preview-table td { border-bottom-color: #e5e7eb; color: #111827; }
-  .preview-doc[data-style="clean_light"] .preview-terms { color: #6b7280; }
-  .preview-doc[data-style="clean_light"] .preview-footer-text { border-top-color: #e5e7eb; color: #374151; }
-  .preview-doc[data-style="clean_light"] .preview-custom-row { color: #6b7280; }
-
-  /* Luxury */
-  .preview-doc[data-style="luxury"] { background: #0a0a0a; color: #c0c0c0; }
-  .preview-doc[data-style="luxury"] .preview-accent-bar { display: none; }
-  .preview-doc[data-style="luxury"] .preview-luxury-border-top { display: block; height: 0; border-top: 3px double var(--preview-accent); margin: 0 16px; padding-top: 4px; }
-  .preview-doc[data-style="luxury"] .preview-biz-name { color: #888; letter-spacing: 1px; text-transform: uppercase; }
-  .preview-doc[data-style="luxury"] .preview-title { color: var(--preview-accent); font-size: 18px; letter-spacing: 2px; text-transform: uppercase; }
-  .preview-doc[data-style="luxury"] .preview-meta { color: #666; letter-spacing: .5px; }
-  .preview-doc[data-style="luxury"] .preview-badge { border-color: var(--preview-accent); color: var(--preview-accent); }
-  .preview-doc[data-style="luxury"] .preview-divider { height: 1px; background: var(--preview-accent); opacity: .25; }
-  .preview-doc[data-style="luxury"] .preview-label { color: var(--preview-accent); letter-spacing: 1px; }
-  .preview-doc[data-style="luxury"] .preview-table th { background: rgba(255,255,255,.04); color: var(--preview-accent); letter-spacing: .5px; }
-  .preview-doc[data-style="luxury"] .preview-table td { border-bottom-color: #1a1a1a; }
-  .preview-doc[data-style="luxury"] .preview-footer-text { border-top: 3px double #222; color: #666; }
-
-  @media (max-width: 1024px) {
-    .editor-layout { grid-template-columns: 1fr; }
-    .live-preview-card { position: static; }
+  .ds-back {
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--ds-border);
+    border-radius: 999px;
+    padding: 10px 14px;
+    color: var(--ds-muted);
+    background: rgba(255,255,255,.055);
+    text-decoration: none;
+    font-weight: 850;
   }
-  @media (max-width: 640px) {
-    .custom-field-row { grid-template-columns: 1fr 1fr; }
-    .style-options { grid-template-columns: 1fr; }
+  .ds-back:hover {
+    color: var(--ds-text);
+    border-color: var(--ds-border-strong);
+  }
+  .ds-hero h1 {
+    margin: 0;
+    font-size: clamp(44px, 5.8vw, 82px);
+    line-height: .92;
+    letter-spacing: 0;
+    font-weight: 900;
+  }
+  .ds-subtitle {
+    max-width: 760px;
+    margin: 0;
+    color: var(--ds-muted);
+    font-size: clamp(16px, 1.25vw, 20px);
+    line-height: 1.42;
+  }
+  .ds-command-strip,
+  .ds-readiness-stack {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .ds-command-strip span,
+  .ds-readiness-stack div {
+    min-width: 0;
+    border: 1px solid var(--ds-border);
+    border-radius: 18px;
+    padding: 13px 14px;
+    background: rgba(255,255,255,.055);
+    color: var(--ds-muted);
+    font-weight: 800;
+  }
+  .ds-command-strip b,
+  .ds-readiness-stack span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--ds-soft);
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .ds-readiness-stack {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: -4px 0 14px;
+  }
+  .ds-readiness-stack strong {
+    color: var(--ds-text);
+    font-size: 14px;
+  }
+  .ds-pdf-preview-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: center;
+    margin: -2px 0 16px;
+    padding: 14px;
+    border: 1px solid rgba(166,255,77,.28);
+    border-radius: 20px;
+    background: rgba(166,255,77,.08);
+  }
+  .ds-pdf-preview-card p {
+    margin: 0 0 4px;
+    color: var(--ds-text);
+    font-weight: 950;
+  }
+  .ds-pdf-preview-card span {
+    display: block;
+    color: var(--ds-muted);
+    font-size: 13px;
+    line-height: 1.35;
+  }
+  .ds-pdf-preview-card a,
+  .ds-preview-disabled {
+    flex: 0 0 auto;
+    border-radius: 999px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 950;
+    text-decoration: none;
+  }
+  .ds-pdf-preview-card a {
+    color: #071006;
+    background: #a6ff4d;
+  }
+  .ds-preview-disabled {
+    color: var(--ds-muted);
+    border: 1px solid var(--ds-border);
+  }
+  .ds-hero-actions,
+  .ds-preview-footer {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .ds-pill,
+  .ds-preview-footer a,
+  .ds-preview-footer button,
+  .ds-secondary,
+  .remove-field {
+    border: 1px solid var(--ds-border);
+    border-radius: 999px;
+    color: var(--ds-text);
+    background: rgba(255,255,255,.06);
+    padding: 11px 16px;
+    font-weight: 800;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .ds-pill.active,
+  .ds-secondary:hover {
+    color: #071006;
+    background: #a6ff4d;
+    border-color: #a6ff4d;
+  }
+  .ds-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 470px);
+    gap: 22px;
+    align-items: start;
+  }
+  .ds-workbench {
+    display: grid;
+    gap: 16px;
+  }
+  .ds-panel,
+  .ds-preview-rail {
+    border: 1px solid var(--ds-border);
+    border-radius: 28px;
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.11), rgba(255,255,255,.045)),
+      var(--ds-bg);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 24px 70px rgba(0,0,0,.28);
+  }
+  .ds-panel {
+    padding: clamp(18px, 2vw, 26px);
+  }
+  .ds-panel-head,
+  .ds-preview-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: start;
+    margin-bottom: 18px;
+  }
+  .ds-panel-head span,
+  .ds-preview-actions span {
+    color: var(--ds-muted);
+    font-size: 14px;
+  }
+  .ds-style-grid,
+  .ds-toggle-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .ds-style-card,
+  .ds-toggle-card {
+    display: grid;
+    gap: 10px;
+    min-height: 156px;
+    padding: 14px;
+    border: 1px solid var(--ds-border);
+    border-radius: 22px;
+    background: rgba(255,255,255,.045);
+    cursor: pointer;
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease, background .2s ease;
+  }
+  .ds-style-card:hover,
+  .ds-toggle-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--ds-border-strong);
+    background: rgba(255,255,255,.065);
+  }
+  .ds-style-card.active,
+  .ds-toggle-card:has(input:checked) {
+    border-color: #a6ff4d;
+    box-shadow: 0 0 0 1px rgba(166,255,77,.35), 0 16px 45px rgba(166,255,77,.09);
+  }
+  .ds-style-card input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .ds-toggle-card input {
+    accent-color: #a6ff4d;
+  }
+  .ds-style-card strong,
+  .ds-toggle-card span {
+    font-size: 18px;
+    font-weight: 900;
+  }
+  .ds-style-card small,
+  .ds-toggle-card small {
+    color: var(--ds-muted);
+    line-height: 1.35;
+  }
+  .ds-style-preview {
+    display: block;
+    height: 88px;
+    border-radius: 16px;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,.12);
+  }
+  .ds-style-preview i,
+  .ds-style-preview b,
+  .ds-style-preview em {
+    display: block;
+    border-radius: 999px;
+    font-style: normal;
+  }
+  .ds-style-preview i { width: 46%; height: 10px; margin-bottom: 16px; background: var(--preview-accent, #a6ff4d); }
+  .ds-style-preview b { width: 78%; height: 7px; margin-bottom: 8px; background: rgba(255,255,255,.35); }
+  .ds-style-preview em { width: 58%; height: 7px; background: rgba(255,255,255,.16); }
+  .ds-style-preview.dark { background: #0b0d0c; }
+  .ds-style-preview.light { background: #f8faf7; }
+  .ds-style-preview.light b { background: #222; }
+  .ds-style-preview.light em { background: #d8ddd5; }
+  .ds-style-preview.luxury { background: #070707; border: 3px double var(--preview-accent, #a6ff4d); }
+  .ds-brand-grid {
+    display: grid;
+    grid-template-columns: minmax(180px, .75fr) repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    align-items: stretch;
+  }
+  .ds-logo-box,
+  .ds-field {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+  }
+  .ds-logo-box {
+    min-height: 118px;
+    padding: 16px;
+    border: 1px dashed var(--ds-border-strong);
+    border-radius: 20px;
+    background: rgba(0,0,0,.18);
+  }
+  .ds-logo-box img {
+    max-height: 54px;
+    max-width: 190px;
+    object-fit: contain;
+    border-radius: 10px;
+  }
+  .ds-logo-box span,
+  .ds-logo-box a {
+    color: var(--ds-muted);
+    font-weight: 800;
+    font-size: 13px;
+  }
+  .ds-logo-empty {
+    display: grid;
+    place-items: center;
+    width: 82px;
+    height: 54px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.08);
+    color: var(--ds-muted);
+    font-weight: 900;
+  }
+  .ds-field span {
+    color: var(--ds-soft);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .ds-field input,
+  .ds-field select,
+  .ds-field textarea,
+  .ds-custom-row input,
+  .ds-custom-row select {
+    width: 100%;
+    border: 1px solid var(--ds-border);
+    border-radius: 18px;
+    background: rgba(0,0,0,.22);
+    color: var(--ds-text);
+    font: inherit;
+    font-weight: 750;
+    font-size: 16px;
+    padding: 15px 16px;
+    outline: none;
+  }
+  .ds-field textarea {
+    min-height: 104px;
+    resize: vertical;
+    line-height: 1.45;
+  }
+  .ds-field input:focus,
+  .ds-field select:focus,
+  .ds-field textarea:focus,
+  .ds-custom-row input:focus,
+  .ds-custom-row select:focus {
+    border-color: #a6ff4d;
+    box-shadow: 0 0 0 3px rgba(166,255,77,.14);
+  }
+  .ds-color-row {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 10px;
+  }
+  .ds-color-row input[type="color"] {
+    height: 54px;
+    padding: 4px;
+    cursor: pointer;
+  }
+  .ds-toggle-card {
+    min-height: 132px;
+  }
+  .ds-custom-fields {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .ds-custom-row {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 130px auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid var(--ds-border);
+    border-radius: 22px;
+    background: rgba(0,0,0,.16);
+  }
+  .ds-required {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    color: var(--ds-muted);
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .remove-field {
+    padding: 12px 14px;
+    color: #ffb4b4;
+  }
+  .ds-preview-rail {
+    position: sticky;
+    top: 18px;
+    padding: 18px;
+  }
+  .ds-save {
+    border: 0;
+    border-radius: 999px;
+    background: #a6ff4d;
+    color: #071006;
+    padding: 13px 22px;
+    font-weight: 950;
+    cursor: pointer;
+    box-shadow: 0 12px 40px rgba(166,255,77,.16);
+  }
+  .ds-save-top {
+    border: 0;
+    text-decoration: none;
+  }
+  .ds-preview-doc {
+    overflow: hidden;
+    border-radius: 26px;
+    border: 1px solid var(--ds-border-strong);
+    background: #0b0d0c;
+    color: #f7f8f4;
+  }
+  .ds-preview-doc.clean_light {
+    background: #f8faf7;
+    color: #111510;
+  }
+  .ds-preview-doc.luxury {
+    background: #070707;
+    color: #f6f0df;
+    border: 3px double var(--preview-accent);
+  }
+  .ds-doc-bar {
+    height: 8px;
+    background: var(--preview-accent);
+  }
+  .ds-preview-doc.luxury .ds-doc-bar {
+    height: 0;
+    border-top: 4px double var(--preview-accent);
+    background: transparent;
+  }
+  .ds-doc-inner {
+    padding: 24px;
+    display: grid;
+    gap: 16px;
+  }
+  .ds-doc-inner header,
+  .ds-doc-meta,
+  .ds-doc-banner,
+  .ds-total {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .ds-doc-inner header img {
+    max-height: 42px;
+    max-width: 130px;
+    object-fit: contain;
+    display: block;
+    margin-bottom: 8px;
+  }
+  .ds-doc-inner header strong,
+  .ds-doc-inner header b {
+    display: block;
+    font-size: 18px;
+    font-weight: 950;
+  }
+  .ds-doc-inner header small,
+  .ds-doc-inner header span,
+  .ds-doc-meta small,
+  .ds-doc-note p,
+  .ds-doc-extra {
+    color: rgba(244,246,241,.62);
+  }
+  .clean_light .ds-doc-inner header small,
+  .clean_light .ds-doc-inner header span,
+  .clean_light .ds-doc-meta small,
+  .clean_light .ds-doc-note p,
+  .clean_light .ds-doc-extra {
+    color: #66705f;
+  }
+  .ds-doc-banner {
+    border-radius: 20px;
+    padding: 18px;
+    background: var(--preview-accent);
+    color: #081007;
+    align-items: end;
+  }
+  .ds-doc-banner strong {
+    font-size: 23px;
+    line-height: 1;
+  }
+  .ds-doc-meta {
+    border: 1px solid currentColor;
+    border-color: rgba(255,255,255,.14);
+    border-radius: 18px;
+    padding: 15px;
+  }
+  .clean_light .ds-doc-meta {
+    border-color: #dce2d7;
+  }
+  .ds-doc-meta span,
+  .ds-doc-note span {
+    display: block;
+    color: var(--preview-accent);
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .ds-preview-doc table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .ds-preview-doc th {
+    color: var(--preview-accent);
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: 10px 8px;
+  }
+  .ds-preview-doc td {
+    padding: 12px 8px;
+    border-top: 1px solid rgba(255,255,255,.12);
+    font-weight: 800;
+  }
+  .clean_light td {
+    border-top-color: #e0e5dc;
+  }
+  .ds-preview-doc th:last-child,
+  .ds-preview-doc td:last-child {
+    text-align: right;
+  }
+  .ds-total td {
+    color: var(--preview-accent);
+    font-size: 18px;
+  }
+  .ds-doc-extra {
+    display: grid;
+    gap: 7px;
+    font-size: 13px;
+  }
+  .ds-doc-extra div {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .ds-doc-note {
+    border-top: 1px solid rgba(255,255,255,.12);
+    padding-top: 14px;
+  }
+  .clean_light .ds-doc-note {
+    border-top-color: #e0e5dc;
+  }
+  .ds-doc-note p,
+  .ds-doc-inner footer {
+    margin: 0;
+    white-space: pre-wrap;
+    line-height: 1.45;
+  }
+  .ds-doc-inner footer {
+    color: var(--preview-accent);
+    font-weight: 850;
+  }
+  .ds-preview-footer {
+    margin-top: 14px;
+    justify-content: space-between;
+  }
+  .ds-email-preview {
+    margin-top: 12px;
+    border: 1px solid var(--ds-border);
+    border-radius: 20px;
+    padding: 14px;
+    background: rgba(0,0,0,.22);
+  }
+  .ds-email-preview button {
+    margin-top: 10px;
+  }
+  @media (max-width: 1180px) {
+    .ds-hero { align-items: start; flex-direction: column; }
+    .ds-layout { grid-template-columns: 1fr; }
+    .ds-preview-rail { position: static; }
+    .ds-brand-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ds-command-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 720px) {
+    .document-studio { padding: 18px 14px 110px; }
+    .ds-hero { border-radius: 26px; padding: 18px; }
+    .ds-hero-actions { width: 100%; }
+    .ds-pill,
+    .ds-save-top {
+      flex: 1 1 0;
+      text-align: center;
+      justify-content: center;
+    }
+    .ds-command-strip,
+    .ds-readiness-stack { grid-template-columns: 1fr; }
+    .ds-pdf-preview-card {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .ds-pdf-preview-card a,
+    .ds-preview-disabled {
+      text-align: center;
+    }
+    .ds-style-grid,
+    .ds-toggle-grid,
+    .ds-brand-grid { grid-template-columns: 1fr; }
+    .ds-custom-row { grid-template-columns: 1fr; }
+    .ds-doc-meta,
+    .ds-doc-banner { flex-direction: column; }
+    .ds-hero h1 { font-size: 44px; }
+    .ds-preview-rail,
+    .ds-panel { border-radius: 24px; }
   }
 </style>
 
 <script>
 (function() {
-  var previewDoc   = document.getElementById('preview-doc');
-  var previewHdr   = document.getElementById('preview-header-text');
-  var previewTerms = document.getElementById('preview-terms');
-  var previewFtr   = document.getElementById('preview-footer-text');
-  var previewCF    = document.getElementById('preview-custom-fields');
+  var previewDoc = document.getElementById('preview-doc');
   var primaryColor = document.getElementById('id_primary_color');
-  var primaryHex   = document.getElementById('id_primary_color_hex');
-  var inputHeader  = document.getElementById('id_header_text');
-  var inputFooter  = document.getElementById('id_footer_text');
-  var inputTerms   = document.getElementById('id_terms_and_conditions');
-  var list         = document.getElementById('custom-fields-list');
+  var primaryHex = document.getElementById('id_primary_color_hex');
+  var inputHeader = document.getElementById('id_header_text');
+  var inputTerms = document.getElementById('id_terms_and_conditions');
+  var inputPayment = document.getElementById('id_payment_instructions');
+  var inputFooter = document.getElementById('id_footer_text');
+  var list = document.getElementById('custom-fields-list');
 
-  /* Live preview updater */
-  function updatePreview() {
-    var h = (inputHeader ? inputHeader.value : '').trim();
-    var t = (inputTerms ? inputTerms.value : '').trim();
-    var f = (inputFooter ? inputFooter.value : '').trim();
-    if (previewHdr) previewHdr.textContent = h;
-    if (previewTerms) previewTerms.textContent = t;
-    if (previewFtr) previewFtr.textContent = f;
-    if (previewCF) {
-      previewCF.textContent = '';
-      var rows = list ? list.querySelectorAll('.custom-field-row') : [];
-      for (var i = 0; i < rows.length; i++) {
-        var lbl = (rows[i].querySelector('.field-label') || {}).value || (rows[i].querySelector('.field-key') || {}).value || '';
-        if (!lbl.trim()) continue;
-        var div = document.createElement('div');
-        div.className = 'preview-custom-row';
-        var s1 = document.createElement('span');
-        s1.textContent = lbl.trim();
-        var s2 = document.createElement('span');
-        s2.textContent = 'Sample';
-        s2.style.color = '#aaa';
-        div.appendChild(s1);
-        div.appendChild(s2);
-        previewCF.appendChild(div);
-      }
-    }
+  function setText(id, value) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = (value || '').trim();
   }
 
-  /* Color sync */
+  function updatePreview() {
+    setText('preview-header-text', inputHeader ? inputHeader.value : '');
+    setText('preview-terms', inputTerms ? inputTerms.value : '');
+    setText('preview-payment', inputPayment ? inputPayment.value : '');
+    setText('preview-footer-text', inputFooter ? inputFooter.value : '');
+
+    var custom = document.getElementById('preview-custom-fields');
+    if (!custom) return;
+    custom.textContent = '';
+    var rows = list ? list.querySelectorAll('.custom-field-row') : [];
+    rows.forEach(function(row) {
+      var label = row.querySelector('.field-label');
+      var key = row.querySelector('.field-key');
+      var text = (label && label.value) || (key && key.value) || '';
+      if (!text.trim()) return;
+      var item = document.createElement('div');
+      item.innerHTML = '<span></span><strong>Sample</strong>';
+      item.querySelector('span').textContent = text.trim();
+      custom.appendChild(item);
+    });
+  }
+
   if (primaryColor && primaryHex && previewDoc) {
     primaryColor.addEventListener('input', function() {
       primaryHex.value = primaryColor.value;
       previewDoc.style.setProperty('--preview-accent', primaryColor.value);
+      document.querySelectorAll('.ds-style-preview').forEach(function(el) {
+        el.style.setProperty('--preview-accent', primaryColor.value);
+      });
     });
     primaryHex.addEventListener('input', function() {
       if (/^#[0-9A-Fa-f]{6}$/.test(primaryHex.value)) {
@@ -378,65 +954,64 @@
     });
   }
 
-  /* Style switching */
   document.querySelectorAll('input[name="template_key"]').forEach(function(radio) {
     radio.addEventListener('change', function() {
-      document.querySelectorAll('.style-option').forEach(function(o) { o.classList.remove('active'); });
-      radio.closest('.style-option').classList.add('active');
-      if (previewDoc) previewDoc.dataset.style = radio.value;
+      document.querySelectorAll('.ds-style-card').forEach(function(card) {
+        card.classList.remove('active');
+      });
+      var card = radio.closest('.ds-style-card');
+      if (card) card.classList.add('active');
+      if (previewDoc) previewDoc.className = 'ds-preview-doc ' + radio.value;
     });
   });
 
-  /* Custom field rows */
   function wireRow(row) {
     row.querySelectorAll('input, select').forEach(function(el) {
       el.addEventListener('input', updatePreview);
+      el.addEventListener('change', updatePreview);
     });
-    var rm = row.querySelector('.remove-field');
-    if (rm) rm.addEventListener('click', function() { row.remove(); updatePreview(); });
+    var remove = row.querySelector('.remove-field');
+    if (remove) remove.addEventListener('click', function() {
+      row.remove();
+      renumberRequiredFields();
+      updatePreview();
+    });
   }
+
+  function renumberRequiredFields() {
+    document.querySelectorAll('.custom-field-row').forEach(function(row, index) {
+      var required = row.querySelector('.ds-required input');
+      if (required) required.name = 'custom_field_required_' + index;
+    });
+  }
+
   document.querySelectorAll('.custom-field-row').forEach(wireRow);
 
   var addBtn = document.getElementById('add-custom-field');
-  if (addBtn) {
+  if (addBtn && list) {
     addBtn.addEventListener('click', function() {
-      var idx = list.querySelectorAll('.custom-field-row').length;
+      var index = list.querySelectorAll('.custom-field-row').length;
       var row = document.createElement('div');
-      row.className = 'custom-field-row';
-
-      var k = document.createElement('input');
-      k.type = 'text'; k.name = 'custom_field_key'; k.placeholder = 'Key'; k.className = 'field-key form-control';
-      var l = document.createElement('input');
-      l.type = 'text'; l.name = 'custom_field_label'; l.placeholder = 'Label'; l.className = 'field-label form-control';
-      var s = document.createElement('select');
-      s.name = 'custom_field_type'; s.className = 'field-type form-control';
-      ['text','number','date','textarea'].forEach(function(v) {
-        var o = document.createElement('option'); o.value = v;
-        o.textContent = v === 'textarea' ? 'Long text' : v.charAt(0).toUpperCase() + v.slice(1);
-        s.appendChild(o);
-      });
-      var rl = document.createElement('label');
-      rl.className = 'field-required-label';
-      var rc = document.createElement('input');
-      rc.type = 'checkbox'; rc.name = 'custom_field_required_' + idx; rc.className = 'field-required';
-      rl.appendChild(rc); rl.appendChild(document.createTextNode(' Req'));
-      var rb = document.createElement('button');
-      rb.type = 'button'; rb.className = 'btn btn-ghost btn-sm remove-field';
-      rb.style.color = '#f87171'; rb.textContent = '\u00d7';
-
-      row.appendChild(k); row.appendChild(l); row.appendChild(s); row.appendChild(rl); row.appendChild(rb);
+      row.className = 'ds-custom-row custom-field-row';
+      row.innerHTML = [
+        '<input type="text" name="custom_field_key" placeholder="field_key" class="field-key">',
+        '<input type="text" name="custom_field_label" placeholder="Label" class="field-label">',
+        '<select name="custom_field_type" class="field-type"><option value="text">Text</option><option value="number">Number</option><option value="date">Date</option><option value="textarea">Long text</option></select>',
+        '<label class="ds-required"><input type="checkbox" name="custom_field_required_' + index + '"> Required</label>',
+        '<button type="button" class="remove-field" aria-label="Remove custom field">Remove</button>'
+      ].join('');
       list.appendChild(row);
       wireRow(row);
       updatePreview();
     });
   }
 
-  /* Wire text inputs to preview */
-  [inputHeader, inputFooter, inputTerms].forEach(function(el) {
-    if (el) { el.addEventListener('input', updatePreview); el.addEventListener('change', updatePreview); }
+  [inputHeader, inputTerms, inputPayment, inputFooter].forEach(function(el) {
+    if (!el) return;
+    el.addEventListener('input', updatePreview);
+    el.addEventListener('change', updatePreview);
   });
 
-  /* Email preview — fetch via AJAX to avoid iframe auth issues */
   var emailBtn = document.getElementById('toggle-email-preview');
   var emailBox = document.getElementById('email-preview-container');
   var emailContent = document.getElementById('email-preview-content');
@@ -446,51 +1021,27 @@
   function loadEmailPreview() {
     if (!emailContent) return;
     emailContent.textContent = 'Loading preview...';
-    emailContent.style.textAlign = 'center';
-    emailContent.style.padding = '40px';
-    emailContent.style.color = '#71717a';
     fetch(emailPreviewUrl, { credentials: 'same-origin' })
-      .then(function(r) {
-        if (!r.ok) throw new Error('Failed to load (' + r.status + ')');
-        return r.text();
+      .then(function(response) {
+        if (!response.ok) throw new Error('Email preview failed');
+        return response.text();
       })
       .then(function(html) {
-        emailContent.style.textAlign = '';
-        emailContent.style.padding = '0';
-        emailContent.style.color = '';
-        var shadow = emailContent.attachShadow ? emailContent.attachShadow({mode: 'open'}) : null;
-        if (shadow) {
-          shadow.textContent = '';
-          var wrapper = document.createElement('div');
-          wrapper.style.cssText = 'all:initial;display:block;';
-          wrapper.insertAdjacentHTML('afterbegin', html);
-          shadow.appendChild(wrapper);
-        } else {
-          emailContent.textContent = '';
-          emailContent.insertAdjacentHTML('afterbegin', html);
-        }
+        emailContent.innerHTML = html;
       })
-      .catch(function(err) {
-        emailContent.textContent = 'Could not load email preview. Save your template and try again.';
-        emailContent.style.color = '#f87171';
+      .catch(function() {
+        emailContent.textContent = 'Could not load the email preview yet. Save the template and try again.';
       });
   }
 
   if (emailBtn && emailBox) {
     emailBtn.addEventListener('click', function() {
-      if (emailBox.style.display === 'none') {
-        emailBox.style.display = 'block';
-        emailBtn.textContent = 'Hide Email';
-        loadEmailPreview();
-      } else {
-        emailBox.style.display = 'none';
-        emailBtn.textContent = 'Email Preview';
-      }
+      emailBox.hidden = !emailBox.hidden;
+      if (!emailBox.hidden) loadEmailPreview();
     });
   }
   if (refreshBtn) refreshBtn.addEventListener('click', loadEmailPreview);
 
-  /* Init */
   updatePreview();
 })();
 </script>

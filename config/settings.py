@@ -134,7 +134,7 @@ STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_SUBSCRIPTION_PRICE_ID = os.environ.get("STRIPE_SUBSCRIPTION_PRICE_ID", "")
 STRIPE_SUBSCRIPTION_PRICE_ID_SOLO = os.environ.get("STRIPE_SUBSCRIPTION_PRICE_ID_SOLO", "")
-STRIPE_TRIAL_DAYS_SOLO = int(os.environ.get("STRIPE_TRIAL_DAYS_SOLO", "7"))
+STRIPE_TRIAL_DAYS_SOLO = int(os.environ.get("STRIPE_TRIAL_DAYS_SOLO", "14"))
 STRIPE_TRIAL_DAYS_PRO = int(os.environ.get("STRIPE_TRIAL_DAYS_PRO", "14"))
 STRIPE_CONNECT_APPLICATION_FEE_PERCENT = float(os.environ.get("STRIPE_CONNECT_APPLICATION_FEE_PERCENT", "0") or "0")
 
@@ -403,7 +403,7 @@ ACCOUNT_LOCKOUT_DURATION = int(os.environ.get("ACCOUNT_LOCKOUT_DURATION", 900)) 
 
 # Two-factor auth (optional): pip install django-otp qrcode, then add apps & OTPMiddleware
 # OTP_LOGIN_URL = '/accounts/verify/'
-# OTP_TOTP_ISSUER = 'FieldLgx'
+# OTP_TOTP_ISSUER = 'FIELDLGX'
 
 # ── Authentication backends ─────────────────────────────────────────────
 AUTHENTICATION_BACKENDS = [
@@ -463,7 +463,7 @@ VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
 VAPID_ADMIN_EMAIL = os.environ.get("VAPID_ADMIN_EMAIL", "admin@fieldlgx.com")
 
-DEFAULT_FROM_EMAIL = "FieldLgx <noreply@fieldlgx.com>"
+DEFAULT_FROM_EMAIL = "FIELDLGX <noreply@fieldlgx.com>"
 
 # Cache: used by django-ratelimit and general app caching.
 # In production set REDIS_URL (or CACHE_URL) to use Redis.

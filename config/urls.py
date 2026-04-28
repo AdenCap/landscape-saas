@@ -21,8 +21,8 @@ from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import RedirectView
 
-admin.site.site_header = "FieldLgx Admin"
-admin.site.site_title = "FieldLgx"
+admin.site.site_header = "FIELDLGX Admin"
+admin.site.site_title = "FIELDLGX"
 admin.site.index_title = "Companies, users, and data — full control"
 
 from config.platform_views import (
@@ -35,9 +35,11 @@ from config.marketing_views import (
     terms_of_service, privacy_policy, robots_txt, sitemap_xml, vertical_landing,
 )
 from config.db_check import db_check
+from config.media_views import uploaded_media
 
 urlpatterns = [
     path("favicon.ico", RedirectView.as_view(url="/static/img/favicon.ico", permanent=True)),
+    path("uploads/<path:path>", uploaded_media, name="uploaded_media"),
     path("admin/", admin.site.urls),
     path("api/db-check/", db_check),
     path("accounts/", include("accounts.auth_urls")),

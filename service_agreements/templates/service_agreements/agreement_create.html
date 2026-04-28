@@ -1,20 +1,33 @@
 {% extends "base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/service-agreements.css' %}">
+{% endblock %}
 
 {% block content %}
-<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
-  <div>
-    <h1>Create Maintenance Plan</h1>
-    <p>Define services, pricing, and scheduled dates — jobs are auto-created on the calendar.</p>
-  </div>
-  <a href="{% url 'service_agreements:hub' %}" class="btn btn-secondary">&larr; Back</a>
-</div>
+<section class="agreement-command ag-create">
+  <header class="ag-hero">
+    <div>
+      <div class="ag-kicker"><span></span>New Agreement</div>
+      <h1>Create plan</h1>
+      <p>Define the customer, included services, pricing, and scheduled visits. Calendar jobs are created automatically when the plan is saved.</p>
+    </div>
+    <div class="ag-actions">
+      <a href="{% url 'service_agreements:hub' %}" class="ag-action">
+        <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span>
+        Back
+      </a>
+    </div>
+  </header>
 
 <form method="post">
   {% csrf_token %}
 
   <!-- Customer & Property -->
-  <div class="card" style="max-width:720px;margin-bottom:16px;">
-    <h3 style="margin:0 0 14px;font-family:var(--font-headline);font-weight:700;">Customer &amp; Property</h3>
+  <div class="ag-panel ag-form-panel">
+    <div class="ag-panel-kicker">Step 1</div>
+    <h3>Customer &amp; Property</h3>
     <div class="sa-field">
       <label>Customer</label>
       <select id="sa-customer" onchange="saUpdateProps()">
@@ -33,8 +46,9 @@
   </div>
 
   <!-- Plan Details -->
-  <div class="card" style="max-width:720px;margin-bottom:16px;">
-    <h3 style="margin:0 0 14px;font-family:var(--font-headline);font-weight:700;">Plan Details</h3>
+  <div class="ag-panel ag-form-panel">
+    <div class="ag-panel-kicker">Step 2</div>
+    <h3>Plan Details</h3>
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;">
       <div class="sa-field">
         <label>Plan Name</label>
@@ -80,8 +94,8 @@
     </div>
   </div>
 
-  <!-- Line Items — What's included in this plan -->
-  <div class="card" style="max-width:720px;margin-bottom:16px;">
+  <!-- Line Items: what's included in this plan -->
+  <div class="ag-panel ag-form-panel">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
       <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;">
         <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;color:var(--primary);">checklist</span>
@@ -98,8 +112,8 @@
     </div>
   </div>
 
-  <!-- Scheduled Services — Auto-create calendar jobs -->
-  <div class="card" style="max-width:720px;margin-bottom:16px;">
+  <!-- Scheduled Services: auto-create calendar jobs -->
+  <div class="ag-panel ag-form-panel">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
       <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;">
         <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;color:var(--primary);">calendar_month</span>
@@ -112,9 +126,9 @@
     <div id="sa-visits"></div>
   </div>
 
-  <div style="display:flex;gap:10px;max-width:720px;">
-    <button type="submit" class="btn btn-primary">Create Plan &amp; Schedule Jobs</button>
-    <a href="{% url 'service_agreements:hub' %}" class="btn btn-secondary">Cancel</a>
+  <div class="ag-form-actions">
+    <button type="submit" class="ag-action ag-action-hot" style="width:auto;">Create Plan &amp; Schedule Jobs</button>
+    <a href="{% url 'service_agreements:hub' %}" class="ag-action" style="width:auto;">Cancel</a>
   </div>
 </form>
 
@@ -214,7 +228,7 @@
     document.getElementById('sa-prop-wrap').style.display = '';
   };
 
-  // ── LINE ITEMS ──
+  // LINE ITEMS
   function calcLineTotals() {
     var rows = lineContainer.querySelectorAll('.sa-line-row');
     var total = 0;
@@ -251,7 +265,7 @@
   // Start with one blank line
   addLineItem();
 
-  // ── SCHEDULED VISITS ──
+  // SCHEDULED VISITS
   function addVisit() {
     var clone = visitTmpl.content.cloneNode(true);
     clone.querySelector('.sa-visit-rm').addEventListener('click', function() {
@@ -292,4 +306,5 @@
     .card[style*="max-width:720px"] { max-width: 100% !important; }
   }
 </style>
+</section>
 {% endblock %}

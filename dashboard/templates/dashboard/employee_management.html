@@ -1,11 +1,59 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
-  <div>
-    <h1>{% if is_owner %}Employee Management{% else %}Time off &amp; Schedule{% endif %}</h1>
-    <p>{% if is_owner %}Employees, timesheets, crews, payroll, time off, and schedules — all in one place{% else %}Your time off requests and work schedule{% endif %}</p>
+<section class="employee-command">
+<header class="em-hero">
+  <div class="em-hero-copy">
+    <div class="em-kicker"><span></span>{% if is_owner %}People Command{% else %}Crew Workspace{% endif %}</div>
+    <h1>{% if is_owner %}Employee command{% else %}Time off &amp; schedule{% endif %}</h1>
+    <p>{% if is_owner %}Manage people, crews, time, payroll, and field access from one focused workspace.{% else %}Review your schedule, request time off, and keep work details close at hand.{% endif %}</p>
   </div>
+  <div class="em-hero-actions">
+    {% if is_owner %}
+    <button type="button" class="em-action em-action-primary" onclick="EmModal.addEmployee()">+ Add employee</button>
+    <button type="button" class="em-action" onclick="EmModal.addCrew()">Add crew</button>
+    <button type="button" class="em-action" onclick="EmModal.recordPayment()">Record pay</button>
+    {% else %}
+    <a href="{% url 'time_off_create' %}" class="em-action em-action-primary">Request time off</a>
+    <a href="#schedule" class="em-action" data-tab-jump="schedule">View schedule</a>
+    {% endif %}
+  </div>
+</header>
+
+<div class="em-command-grid" aria-label="Employee management summary">
+  {% if is_owner %}
+  <article class="em-command-stat">
+    <span>Active team</span>
+    <strong>{{ active_employee_count }}</strong>
+    <small>{{ employee_count }} total employees</small>
+  </article>
+  <article class="em-command-stat">
+    <span>Crews</span>
+    <strong>{{ crew_count }}</strong>
+    <small>calendar-ready field groups</small>
+  </article>
+  <article class="em-command-stat">
+    <span>Pending time</span>
+    <strong>{{ pending_time_entries_count }}</strong>
+    <small>entries need approval</small>
+  </article>
+  <article class="em-command-stat">
+    <span>Payroll</span>
+    <strong>${{ payroll_total|floatformat:0 }}</strong>
+    <small>recorded payments</small>
+  </article>
+  {% else %}
+  <article class="em-command-stat">
+    <span>Time off</span>
+    <strong>{{ pending_time_off_count }}</strong>
+    <small>pending requests</small>
+  </article>
+  <article class="em-command-stat">
+    <span>Schedule</span>
+    <strong>7</strong>
+    <small>days visible</small>
+  </article>
+  {% endif %}
 </div>
 
 {# Global CSRF token for AJAX #}
@@ -776,6 +824,337 @@
   /* Timesheets: show only employee, week hrs, week cost on mobile */
   .data-table th, .data-table td { font-size: 13px; padding: 8px 10px; }
 }
+
+/* --- Command workspace polish --- */
+.employee-command {
+  position: relative;
+  margin: -10px auto 0;
+  max-width: 1520px;
+  padding: 10px 0 34px;
+  color: #f4f4f1;
+}
+.employee-command::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 0 256px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(125deg, rgba(157, 255, 79, .10), transparent 24%),
+    radial-gradient(circle at 76% 4%, rgba(157, 255, 79, .07), transparent 32%),
+    linear-gradient(180deg, #121311 0%, #050604 100%);
+}
+.em-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+  align-items: end;
+  margin-bottom: 22px;
+}
+.em-hero-copy {
+  min-width: 0;
+}
+.em-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  color: rgba(244, 244, 241, .66);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+.em-kicker span {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #a6ff4d;
+  box-shadow: 0 0 20px rgba(166, 255, 77, .8);
+}
+.em-hero h1 {
+  margin: 0;
+  max-width: 980px;
+  color: #f5f5f2;
+  font-size: clamp(52px, 6vw, 104px);
+  line-height: .9;
+  letter-spacing: 0;
+  font-weight: 850;
+}
+.em-hero p {
+  margin: 16px 0 0;
+  max-width: 700px;
+  color: rgba(244, 244, 241, .68);
+  font-size: 17px;
+  line-height: 1.5;
+}
+.em-hero-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.em-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06);
+  color: #f4f4f1;
+  text-decoration: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+.em-action:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, .26);
+  background: rgba(255, 255, 255, .09);
+}
+.em-action-primary {
+  border-color: rgba(166, 255, 77, .75);
+  background: #a6ff4d;
+  color: #071004;
+  box-shadow: 0 18px 48px rgba(166, 255, 77, .20);
+}
+.em-command-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.em-command-stat {
+  min-height: 132px;
+  padding: 22px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 24px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .035)),
+    rgba(255, 255, 255, .035);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 22px 70px rgba(0,0,0,.24);
+}
+.em-command-stat span,
+.employee-command .kpi-label,
+.employee-command .data-table th,
+.employee-command .modal-form-grid .form-section h4 {
+  color: rgba(244, 244, 241, .56);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.em-command-stat strong {
+  display: block;
+  margin-top: 12px;
+  color: #f5f5f2;
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+.em-command-stat small {
+  display: block;
+  margin-top: 10px;
+  color: rgba(244, 244, 241, .48);
+  font-size: 14px;
+}
+.employee-command .emp-mgmt-tabs {
+  position: sticky;
+  top: 72px;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  background: rgba(4, 5, 4, .78);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 18px 60px rgba(0,0,0,.24);
+}
+.employee-command .emp-tab {
+  min-height: 44px;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: rgba(244, 244, 241, .62);
+  font-weight: 850;
+  letter-spacing: 0;
+}
+.employee-command .emp-tab:hover {
+  color: #f4f4f1;
+  background: rgba(255, 255, 255, .07);
+}
+.employee-command .emp-tab.active {
+  color: #071004;
+  background: #a6ff4d;
+  border-color: rgba(166, 255, 77, .8);
+  box-shadow: 0 12px 36px rgba(166, 255, 77, .18);
+}
+.employee-command .emp-section.card,
+.employee-command .kpi-card.card,
+.employee-command .em-modal-card {
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 28px;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .035)),
+    rgba(28, 29, 27, .92);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 28px 90px rgba(0,0,0,.28);
+}
+.employee-command .emp-section.card {
+  padding: 28px;
+}
+.employee-command .section-header {
+  align-items: center;
+  margin-bottom: 22px;
+}
+.employee-command .card-title {
+  margin: 0;
+  color: #f5f5f2;
+  font-size: clamp(28px, 3vw, 44px);
+  line-height: 1;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+.employee-command .section-desc {
+  margin-top: 8px;
+  color: rgba(244, 244, 241, .56);
+  font-size: 15px;
+}
+.employee-command .btn,
+.employee-command .select-sm {
+  border-radius: 999px;
+  font-weight: 800;
+}
+.employee-command .btn-primary {
+  background: #a6ff4d;
+  color: #071004;
+  border-color: #a6ff4d;
+}
+.employee-command .btn-secondary,
+.employee-command .select-sm {
+  border-color: rgba(255, 255, 255, .15);
+  background: rgba(255, 255, 255, .055);
+  color: #f4f4f1;
+}
+.employee-command .data-table {
+  border-collapse: separate;
+  border-spacing: 0 10px;
+}
+.employee-command .data-table th,
+.employee-command .data-table td {
+  border-bottom: 0;
+}
+.employee-command .data-table tbody tr {
+  background: rgba(4, 5, 4, .34);
+}
+.employee-command .data-table tbody tr:hover {
+  background: rgba(255, 255, 255, .055);
+}
+.employee-command .data-table tbody tr td:first-child {
+  border-radius: 18px 0 0 18px;
+}
+.employee-command .data-table tbody tr td:last-child {
+  border-radius: 0 18px 18px 0;
+}
+.employee-command .badge {
+  border-radius: 999px;
+  font-weight: 800;
+}
+.employee-command .em-card {
+  margin-bottom: 10px;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 22px;
+  background: rgba(4,5,4,.36);
+}
+.employee-command .modal-form-grid .field input,
+.employee-command .modal-form-grid .field select,
+.employee-command .checkbox-list {
+  border-color: rgba(255,255,255,.14);
+  border-radius: 16px;
+  background: rgba(4, 5, 4, .48);
+  color: #f4f4f1;
+}
+
+@media (max-width: 1100px) {
+  .em-hero { grid-template-columns: 1fr; }
+  .em-hero-actions { justify-content: flex-start; }
+  .em-command-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .employee-command .emp-mgmt-tabs { grid-template-columns: repeat(3, minmax(150px, 1fr)); border-radius: 28px; overflow-x: auto; }
+}
+@media (max-width: 768px) {
+  .employee-command {
+    margin-top: 0;
+    padding-bottom: 120px;
+  }
+  .employee-command::before {
+    inset: 0;
+  }
+  .em-hero {
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .em-hero h1 {
+    font-size: clamp(44px, 14vw, 68px);
+  }
+  .em-hero p {
+    font-size: 16px;
+  }
+  .em-hero-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+  .em-action {
+    min-height: 52px;
+    width: 100%;
+  }
+  .em-command-grid {
+    grid-template-columns: 1fr;
+  }
+  .em-command-stat {
+    min-height: 122px;
+    border-radius: 26px;
+  }
+  .employee-command .emp-mgmt-tabs {
+    top: 0;
+    display: flex;
+    flex-wrap: nowrap;
+    margin-left: -16px;
+    margin-right: -16px;
+    padding: 10px 16px;
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+  }
+  .employee-command .emp-tab {
+    min-width: max-content;
+    padding: 10px 18px;
+  }
+  .employee-command .emp-section.card {
+    padding: 22px;
+    border-radius: 28px;
+  }
+  .employee-command .card-title {
+    font-size: 34px;
+  }
+  .employee-command .data-table {
+    border-spacing: 0 8px;
+  }
+  .employee-command .data-table th,
+  .employee-command .data-table td {
+    font-size: 13px;
+  }
+}
 </style>
 
 
@@ -795,6 +1174,9 @@
   }
   tabs.forEach(function(t) {
     t.addEventListener('click', function(e) { e.preventDefault(); showTab(this.getAttribute('data-tab')); });
+  });
+  document.querySelectorAll('[data-tab-jump]').forEach(function(t) {
+    t.addEventListener('click', function(e) { e.preventDefault(); showTab(this.getAttribute('data-tab-jump')); });
   });
   if (location.hash) {
     var id = location.hash.replace('#', '');
@@ -1189,5 +1571,7 @@
 
 })();
 </script>
+
+</section>
 
 {% endblock %}

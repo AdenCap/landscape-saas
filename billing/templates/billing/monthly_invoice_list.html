@@ -2,79 +2,544 @@
 {% load billing_filters %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
-  <div>
-    <a href="{% url 'billing:invoice_list' %}" class="link-primary" style="font-size: 14px; margin-bottom: 4px; display: inline-block;">← All invoices</a>
-    <h1>Monthly invoices</h1>
-    <p>Draft and sent monthly invoices. New completed jobs (for clients set to monthly) are added here as the month progresses.</p>
+<section class="batch-command">
+  <div class="batch-shell">
+    <a href="{% url 'billing:invoice_list' %}" class="batch-back-link" data-smart-back>
+      <span class="material-symbols-outlined">arrow_back</span>
+      <span>Invoices</span>
+    </a>
+
+    <header class="batch-hero">
+      <div>
+        <p class="batch-eyebrow"><span></span> Batch invoicing</p>
+        <h1>Monthly invoice queue</h1>
+        <p>Review monthly drafts, edit the details, send selected invoices, and collect from one focused workspace.</p>
+      </div>
+      <div class="batch-hero-actions">
+        <a href="{% url 'billing:invoice_create' %}" class="batch-primary-action">
+          <span class="material-symbols-outlined">add</span>
+          Create invoice
+        </a>
+        <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="batch-secondary-action">
+          <span class="material-symbols-outlined">tune</span>
+          Template
+        </a>
+      </div>
+    </header>
+
+    <section class="batch-stat-grid" aria-label="Monthly invoice summary">
+      <article class="batch-stat">
+        <span>Drafts ready</span>
+        <strong>{{ draft_count }}</strong>
+        <small>{{ draft_total|currency }} waiting approval</small>
+      </article>
+      <article class="batch-stat">
+        <span>Sent open</span>
+        <strong>{{ sent_count }}</strong>
+        <small>{{ sent_total|currency }} outstanding</small>
+      </article>
+      <article class="batch-stat">
+        <span>Paid</span>
+        <strong>{{ paid_count }}</strong>
+        <small>Monthly invoices collected</small>
+      </article>
+      <article class="batch-stat">
+        <span>Total queue</span>
+        <strong>{{ rows|length }}</strong>
+        <small>{% if year_int %}{{ year_int }}{% else %}Latest invoices{% endif %}</small>
+      </article>
+    </section>
+
+    <section class="batch-toolbar" aria-label="Batch invoice controls">
+      <form method="get" class="batch-filter-form">
+        <label for="year">Year</label>
+        <select name="year" id="year" onchange="this.form.submit()">
+          <option value="">All years</option>
+          {% for y in years %}
+          <option value="{{ y }}" {% if year_int == y %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      <form method="post" action="{% url 'billing:monthly_invoice_batch_send' %}" class="batch-send-all-form" onsubmit="return confirm('Approve and send every draft monthly invoice in this queue?');">
+        {% csrf_token %}
+        <input type="hidden" name="year" value="{{ year_param }}">
+        <input type="hidden" name="send_all_ready" value="1">
+        <button type="submit" class="batch-secondary-action" {% if not draft_count %}disabled{% endif %}>
+          <span class="material-symbols-outlined">outbox</span>
+          Send all drafts
+        </button>
+      </form>
+    </section>
+
+    <form method="post" action="{% url 'billing:monthly_invoice_batch_send' %}" class="batch-panel">
+      {% csrf_token %}
+      <input type="hidden" name="year" value="{{ year_param }}">
+      <div class="batch-panel-head">
+        <div>
+          <p>Approval queue</p>
+          <h2>Review and send</h2>
+        </div>
+        <button type="submit" class="batch-primary-action" {% if not draft_count %}disabled{% endif %}>
+          <span class="material-symbols-outlined">send</span>
+          Send selected
+        </button>
+      </div>
+
+      <div class="batch-list">
+        {% for row in rows %}
+        <article class="batch-row status-{{ row.invoice.status }}">
+          <div class="batch-select-cell">
+            {% if row.invoice.status == "draft" %}
+            <input type="checkbox" name="invoice_ids" value="{{ row.invoice.id }}" aria-label="Select invoice {{ row.invoice.id }}">
+            {% else %}
+            <span class="material-symbols-outlined">check_circle</span>
+            {% endif %}
+          </div>
+          <div class="batch-row-main">
+            <div class="batch-row-title">
+              <div>
+                <span class="batch-kicker">Invoice #{{ row.invoice.id }}</span>
+                <h3>{{ row.invoice.customer.name }}</h3>
+              </div>
+              <span class="batch-badge">{{ row.invoice.get_status_display }}</span>
+            </div>
+            <div class="batch-row-meta">
+              <span>
+                <span class="material-symbols-outlined">calendar_month</span>
+                {{ row.invoice.period_start|date:"M j, Y" }}{% if row.invoice.period_end %} - {{ row.invoice.period_end|date:"M j, Y" }}{% endif %}
+              </span>
+              <span>
+                <span class="material-symbols-outlined">schedule_send</span>
+                {% if row.send_on %}Send target {{ row.send_on|date:"M j" }}{% else %}Manual send{% endif %}
+              </span>
+              {% if row.invoice.customer.email %}
+              <span>
+                <span class="material-symbols-outlined">mail</span>
+                {{ row.invoice.customer.email }}
+              </span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="batch-row-total">
+            <span>Total</span>
+            <strong>{{ row.invoice.total|currency }}</strong>
+          </div>
+          <div class="batch-row-actions">
+            <a href="{% url 'billing:invoice_detail' row.invoice.id %}">Open</a>
+            {% if row.invoice.status == "draft" or row.invoice.status == "sent" %}
+            <a href="{% url 'billing:invoice_edit_line_items' row.invoice.id %}">Edit</a>
+            {% endif %}
+          </div>
+        </article>
+        {% empty %}
+        <div class="batch-empty">
+          <span class="material-symbols-outlined">receipt_long</span>
+          <h3>No monthly invoices yet.</h3>
+          <p>Completed jobs for clients on monthly billing will appear here as drafts for approval.</p>
+        </div>
+        {% endfor %}
+      </div>
+    </form>
   </div>
-</div>
-
-<div class="card" style="margin-bottom: 20px;">
-  <form method="get" style="display: flex; gap: 12px; align-items: center;">
-    <label for="year">Year:</label>
-    <select name="year" id="year" onchange="this.form.submit()" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);">
-      <option value="">All years</option>
-      {% for y in years %}
-      <option value="{{ y }}" {% if year_int == y %}selected{% endif %}>{{ y }}</option>
-      {% endfor %}
-    </select>
-  </form>
-</div>
-
-<div class="card">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Customer</th>
-        <th class="hide-mobile">Period</th>
-        <th class="hide-mobile">Send on</th>
-        <th>Status</th>
-        <th class="num">Total</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in rows %}
-      <tr>
-        <td>{{ row.invoice.customer.name }}</td>
-        <td class="hide-mobile">{{ row.invoice.period_start|date:"F Y" }}{% if row.invoice.period_start != row.invoice.period_end %} – {{ row.invoice.period_end|date:"F j, Y" }}{% endif %}</td>
-        <td class="hide-mobile">{% if row.send_on %}{{ row.send_on|date:"F j, Y" }}{% else %}—{% endif %}</td>
-        <td><span class="badge badge-{{ row.invoice.status|lower }}">{{ row.invoice.status }}</span></td>
-        <td class="num"><strong>{{ row.invoice.total|currency }}</strong></td>
-        <td>
-          <a href="{% url 'billing:invoice_detail' row.invoice.id %}" class="btn btn-primary btn-sm">View</a>
-          {% if row.invoice.status == "draft" %}
-          <form method="post" action="{% url 'billing:send_invoice' row.invoice.id %}" style="display: inline; margin-left: 8px;">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-secondary btn-sm">Send invoice now</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">
-          No monthly invoices yet. They are created when you add completed jobs to a customer's monthly invoice, or when a client set to "Monthly" has a job completed.
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-<p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">“To be sent on” is the day of the month you set for each client under <strong>Clients → Edit client → Invoicing</strong>. Leave blank there to send manually.</p>
+</section>
 
 <style>
-  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
-  .badge-draft { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
-  .badge-sent { background: rgba(234, 179, 8, 0.25); color: #fde047; }
-  .badge-paid { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .data-table tbody tr{animation:slideUp var(--motion-slow) var(--motion-ease-out) both}
-  .data-table tbody tr:nth-child(1){animation-delay:0ms}
-  .data-table tbody tr:nth-child(2){animation-delay:40ms}
-  .data-table tbody tr:nth-child(3){animation-delay:80ms}
-  .data-table tbody tr:nth-child(4){animation-delay:120ms}
-  .data-table tbody tr:nth-child(n+5){animation-delay:160ms}
-  @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .batch-command {
+    min-height: calc(100vh - 68px);
+    margin: -24px;
+    padding: 28px 32px 64px;
+    color: #f4f4f1;
+    background:
+      radial-gradient(circle at 18% 8%, rgba(149, 234, 61, 0.14), transparent 28rem),
+      linear-gradient(135deg, #10120f 0%, #050705 54%, #020402 100%);
+  }
+  .batch-shell {
+    width: min(1500px, 100%);
+    margin: 0 auto;
+  }
+  .batch-back-link,
+  .batch-primary-action,
+  .batch-secondary-action,
+  .batch-row-actions a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 800;
+  }
+  .batch-back-link {
+    width: fit-content;
+    padding: 0 18px;
+    color: rgba(244, 244, 241, 0.76);
+    border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(255,255,255,0.07);
+  }
+  .batch-hero {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 24px;
+    margin-top: 28px;
+  }
+  .batch-eyebrow,
+  .batch-panel-head p,
+  .batch-kicker,
+  .batch-stat span {
+    margin: 0;
+    color: rgba(244,244,241,0.62);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+  .batch-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .batch-eyebrow span {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #9df24a;
+    box-shadow: 0 0 18px rgba(157,242,74,.75);
+  }
+  .batch-hero h1 {
+    margin: 12px 0 6px;
+    font-size: clamp(48px, 7vw, 104px);
+    line-height: .9;
+    letter-spacing: 0;
+  }
+  .batch-hero p {
+    max-width: 720px;
+    margin: 0;
+    color: rgba(244,244,241,.68);
+    font-size: 18px;
+  }
+  .batch-hero-actions,
+  .batch-toolbar,
+  .batch-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .batch-primary-action {
+    border: 0;
+    padding: 0 22px;
+    color: #071004;
+    background: #9df24a;
+    box-shadow: 0 18px 45px rgba(157,242,74,.18);
+    cursor: pointer;
+  }
+  .batch-secondary-action {
+    border: 1px solid rgba(255,255,255,.16);
+    padding: 0 20px;
+    color: #f4f4f1;
+    background: rgba(255,255,255,.07);
+    cursor: pointer;
+  }
+  .batch-primary-action:disabled,
+  .batch-secondary-action:disabled {
+    cursor: not-allowed;
+    opacity: .45;
+  }
+  .batch-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 28px;
+  }
+  .batch-stat,
+  .batch-toolbar,
+  .batch-panel {
+    border: 1px solid rgba(255,255,255,.16);
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.035)),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 5px);
+    box-shadow: 0 26px 70px rgba(0,0,0,.28);
+  }
+  .batch-stat {
+    min-height: 132px;
+    border-radius: 28px;
+    padding: 22px;
+  }
+  .batch-stat strong {
+    display: block;
+    margin-top: 14px;
+    font-size: 46px;
+    line-height: 1;
+  }
+  .batch-stat small,
+  .batch-row-meta,
+  .batch-row-total span,
+  .batch-empty p {
+    color: rgba(244,244,241,.55);
+  }
+  .batch-toolbar {
+    justify-content: space-between;
+    margin-top: 18px;
+    border-radius: 28px;
+    padding: 14px;
+  }
+  .batch-filter-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .batch-filter-form label {
+    color: rgba(244,244,241,.62);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .batch-filter-form select {
+    min-height: 44px;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 999px;
+    padding: 0 16px;
+    color: #f4f4f1;
+    background: rgba(0,0,0,.42);
+    font: inherit;
+    font-weight: 800;
+  }
+  .batch-panel {
+    margin-top: 18px;
+    border-radius: 32px;
+    padding: 24px;
+  }
+  .batch-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 16px;
+  }
+  .batch-panel-head h2 {
+    margin: 5px 0 0;
+    font-size: 34px;
+    line-height: 1;
+  }
+  .batch-list {
+    display: grid;
+    gap: 12px;
+  }
+  .batch-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    gap: 16px;
+    align-items: center;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 24px;
+    padding: 16px;
+    background: rgba(0,0,0,.28);
+  }
+  .batch-select-cell {
+    width: 42px;
+    display: flex;
+    justify-content: center;
+  }
+  .batch-select-cell input {
+    width: 26px;
+    height: 26px;
+    accent-color: #9df24a;
+  }
+  .batch-select-cell span {
+    color: #9df24a;
+  }
+  .batch-row-title {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .batch-row h3 {
+    margin: 4px 0 0;
+    font-size: 24px;
+    line-height: 1.05;
+  }
+  .batch-badge {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0 12px;
+    color: rgba(244,244,241,.82);
+    background: rgba(255,255,255,.11);
+    font-size: 13px;
+    font-weight: 900;
+  }
+  .batch-row-meta {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-weight: 700;
+  }
+  .batch-row-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .batch-row-meta .material-symbols-outlined {
+    font-size: 18px;
+  }
+  .batch-row-total {
+    min-width: 112px;
+    text-align: right;
+  }
+  .batch-row-total strong {
+    display: block;
+    margin-top: 2px;
+    font-size: 26px;
+  }
+  .batch-row-actions a {
+    min-height: 38px;
+    padding: 0 16px;
+    color: #f4f4f1;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.06);
+  }
+  .batch-empty {
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 26px;
+    padding: 34px;
+    text-align: center;
+    background: rgba(0,0,0,.22);
+  }
+  .batch-empty .material-symbols-outlined {
+    color: #9df24a;
+    font-size: 42px;
+  }
+  .batch-empty h3 {
+    margin: 8px 0;
+    font-size: 26px;
+  }
+  @media (max-width: 980px) {
+    .batch-command {
+      margin: -16px;
+      padding: 18px 18px 110px;
+    }
+    .batch-hero,
+    .batch-panel-head {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .batch-hero-actions,
+    .batch-panel-head .batch-primary-action,
+    .batch-toolbar .batch-secondary-action {
+      width: 100%;
+    }
+    .batch-stat-grid {
+      grid-template-columns: 1fr;
+    }
+    .batch-row {
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: start;
+    }
+    .batch-row-total,
+    .batch-row-actions {
+      grid-column: 2;
+      text-align: left;
+    }
+    .batch-row-actions a {
+      flex: 1;
+    }
+  }
+  @media (max-width: 768px) {
+    .batch-command {
+      padding: 16px 14px 104px;
+    }
+    .batch-back-link {
+      min-height: 42px;
+      padding: 0 15px;
+    }
+    .batch-hero {
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .batch-eyebrow,
+    .batch-panel-head p,
+    .batch-kicker,
+    .batch-stat span {
+      letter-spacing: .16em;
+    }
+    .batch-hero h1 {
+      font-size: clamp(2.9rem, 12vw, 4.4rem);
+      line-height: .92;
+    }
+    .batch-hero p {
+      font-size: var(--text-base);
+      line-height: 1.45;
+    }
+    .batch-hero-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .batch-primary-action,
+    .batch-secondary-action {
+      min-height: 46px;
+      padding: 0 14px;
+      font-size: var(--text-sm);
+      white-space: nowrap;
+    }
+    .batch-stat {
+      min-height: 112px;
+      border-radius: 26px;
+      padding: 18px;
+    }
+    .batch-stat strong {
+      margin-top: 12px;
+      font-size: 42px;
+    }
+    .batch-toolbar {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      border-radius: 26px;
+    }
+    .batch-filter-form {
+      justify-content: space-between;
+    }
+    .batch-filter-form select {
+      min-width: 148px;
+    }
+    .batch-panel {
+      border-radius: 28px;
+      padding: 18px;
+    }
+    .batch-panel-head h2 {
+      font-size: 30px;
+    }
+    .batch-row {
+      gap: 12px;
+      border-radius: 22px;
+      padding: 14px;
+    }
+    .batch-select-cell {
+      width: 30px;
+    }
+    .batch-row-title {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .batch-row h3 {
+      font-size: 22px;
+    }
+    .batch-row-meta {
+      gap: 9px;
+      font-size: var(--text-sm);
+      line-height: 1.4;
+    }
+    .batch-row-total strong {
+      font-size: 24px;
+    }
+  }
 </style>
 {% endblock %}

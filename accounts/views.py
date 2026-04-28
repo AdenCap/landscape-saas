@@ -185,16 +185,16 @@ def signup(request):
             request.session.pop("signup_business_type", None)
             login(request, user, backend="django.contrib.auth.backends.ModelBackend")
 
-            # Auto-start 14-day free trial so user goes straight to onboarding
+            # Auto-start the platform trial so users go straight to onboarding.
             from django.utils import timezone as _tz
             from datetime import timedelta as _td
-            trial_days = 14
+            trial_days = int(getattr(settings, "STRIPE_TRIAL_DAYS_PRO", 14))
             business.subscription_status = "trialing"
             business.subscription_plan_tier = "core"  # Start on Pro
             business.subscription_current_period_end = _tz.now() + _td(days=trial_days)
             business.save(update_fields=["subscription_status", "subscription_plan_tier", "subscription_current_period_end"])
 
-            messages.success(request, f"Welcome to FieldLgx! Your {trial_days}-day free trial is active.")
+            messages.success(request, f"Welcome to FIELDLGX! Your {trial_days}-day free trial is active.")
             return redirect("/")
     else:
         form = SignUpForm(business_type=business_type)

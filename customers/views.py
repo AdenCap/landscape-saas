@@ -10,14 +10,15 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods, require_POST
-from django.db.models import Count, Sum, Q
+from django.db.models import Count, DecimalField, IntegerField, OuterRef, Q, Subquery, Sum, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from accounts.decorators import role_required
 from accounts.ratelimit import ratelimit
 from accounts.utils import get_business as _get_business
 from accounts.timezone_utils import business_today as _biz_today
-from billing.models import Invoice
+from billing.models import Estimate, Invoice
 from jobs.models import Job
 from .models import Customer, Property, Contract, ClientMessage
 from .forms import (
@@ -41,6 +42,9 @@ def customer_list(request):
     search = request.GET.get("q", "").strip()
     service_filter = request.GET.get("service", "").strip()
     status_filter = request.GET.get("status", "").strip()
+    today = _biz_today(business)
+    from datetime import timedelta
+    active_cutoff = today - timedelta(days=90)
     customers = Customer.objects.filter(business=business)
 
     if search:
@@ -60,22 +64,63 @@ def customer_list(request):
 
     # Filter by status (active = job in last 90 days)
     if status_filter == "active":
-        from datetime import timedelta
-        cutoff = _biz_today(business) - timedelta(days=90)
         customers = customers.filter(
-            properties__jobs__scheduled_date__gte=cutoff
+            properties__jobs__scheduled_date__gte=active_cutoff
         ).distinct()
     elif status_filter == "inactive":
-        from datetime import timedelta
-        cutoff = _biz_today(business) - timedelta(days=90)
         customers = customers.exclude(
-            properties__jobs__scheduled_date__gte=cutoff
+            properties__jobs__scheduled_date__gte=active_cutoff
+        ).distinct()
+    elif status_filter == "unpaid":
+        customers = customers.filter(
+            invoices__status__in=["draft", "sent"]
+        ).distinct()
+    elif status_filter == "no_upcoming":
+        customers = customers.exclude(
+            properties__jobs__scheduled_date__gte=today,
+            properties__jobs__status__in=["scheduled", "in_progress"],
         ).distinct()
 
     # Annotate with property and invoice counts
+    upcoming_jobs_sq = (
+        Job.objects.filter(property__customer=OuterRef("pk"), scheduled_date__gte=today)
+        .exclude(status__in=["completed", "cancelled", "skipped"])
+        .values("property__customer")
+        .annotate(total=Count("id"))
+        .values("total")
+    )
+    open_invoices_sq = (
+        Invoice.objects.filter(customer=OuterRef("pk"))
+        .exclude(status__in=["paid", "void"])
+        .values("customer")
+        .annotate(total=Count("id"))
+        .values("total")
+    )
+    open_balance_sq = (
+        Invoice.objects.filter(customer=OuterRef("pk"))
+        .exclude(status__in=["paid", "void"])
+        .values("customer")
+        .annotate(total=Sum("total"))
+        .values("total")
+    )
+    open_estimates_sq = (
+        Estimate.objects.filter(customer=OuterRef("pk"), status__in=["draft", "sent"])
+        .values("customer")
+        .annotate(total=Count("id"))
+        .values("total")
+    )
+    primary_property_sq = Property.objects.filter(customer=OuterRef("pk")).order_by("id").values("address")[:1]
     customers = customers.annotate(
         property_count=Count('properties', distinct=True),
         invoice_count=Count('invoices', distinct=True),
+        upcoming_job_count=Coalesce(Subquery(upcoming_jobs_sq, output_field=IntegerField()), Value(0)),
+        open_invoice_count=Coalesce(Subquery(open_invoices_sq, output_field=IntegerField()), Value(0)),
+        open_balance=Coalesce(
+            Subquery(open_balance_sq, output_field=DecimalField(max_digits=10, decimal_places=2)),
+            Value(0, output_field=DecimalField(max_digits=10, decimal_places=2)),
+        ),
+        open_estimate_count=Coalesce(Subquery(open_estimates_sq, output_field=IntegerField()), Value(0)),
+        primary_property_address=Subquery(primary_property_sq),
     ).select_related('business').order_by('name')
 
     # Get available service types for filter dropdown
@@ -87,12 +132,20 @@ def customer_list(request):
     )
 
     # New clients in the last 7 days
-    from datetime import timedelta
     seven_days_ago = timezone.now() - timedelta(days=7)
     new_clients = Customer.objects.filter(
         business=business,
         created_at__gte=seven_days_ago,
     ).order_by('-created_at')
+
+    total_clients = Customer.objects.filter(business=business).count()
+    active_clients_count = Customer.objects.filter(
+        business=business,
+        properties__jobs__scheduled_date__gte=active_cutoff,
+    ).distinct().count()
+    open_balance_total = Invoice.objects.filter(
+        customer__business=business,
+    ).exclude(status__in=["paid", "void"]).aggregate(total=Sum("total"))["total"] or 0
 
     return render(request, "customers/customer_list.html", {
         "customers": customers,
@@ -101,6 +154,9 @@ def customer_list(request):
         "status_filter": status_filter,
         "service_types": service_types,
         "new_clients": new_clients,
+        "total_clients": total_clients,
+        "active_clients_count": active_clients_count,
+        "open_balance_total": open_balance_total,
     })
 
 
@@ -146,6 +202,7 @@ def customer_detail(request, customer_id):
     customer = get_object_or_404(Customer, id=customer_id, business=business)
 
     properties = customer.properties.all().prefetch_related('jobs', 'recurring_jobs')
+    primary_property = properties.first()
 
     # Past services = completed jobs across all properties (with service details for history)
     past_jobs = (
@@ -161,6 +218,17 @@ def customer_detail(request, customer_id):
         .select_related('property', 'assigned_to', 'assigned_crew')
         .prefetch_related('service_items__service')
         .order_by('-scheduled_date')[:100]
+    )
+
+    upcoming_jobs = (
+        Job.objects.filter(
+            property__customer=customer,
+            scheduled_date__gte=_biz_today(business),
+        )
+        .exclude(status__in=["completed", "cancelled", "skipped"])
+        .select_related('property', 'assigned_to', 'assigned_crew')
+        .prefetch_related('service_items__service')
+        .order_by('scheduled_date', 'scheduled_time', 'id')[:8]
     )
 
     contracts = customer.contracts.prefetch_related('line_items').all().order_by('-created_at')
@@ -180,6 +248,10 @@ def customer_detail(request, customer_id):
     total_revenue = Invoice.objects.filter(customer=customer, status='paid').aggregate(
         total=Sum('total')
     )['total'] or 0
+    open_invoices = Invoice.objects.filter(customer=customer).exclude(status__in=["paid", "void"])
+    open_invoice_count = open_invoices.count()
+    open_invoice_total = open_invoices.aggregate(total=Sum('total'))['total'] or 0
+    open_estimate_count = Estimate.objects.filter(customer=customer, status__in=["draft", "sent"]).count()
 
     # Feature flags — check if modules are enabled
     show_fertilization = 'fertilization' in (business.enabled_modules or [])
@@ -245,21 +317,29 @@ def customer_detail(request, customer_id):
     # Property notes
     from jobs.models import PropertyNote
     prop_ids = list(properties.values_list("id", flat=True))
-    property_notes = PropertyNote.objects.filter(
+    property_notes_qs = PropertyNote.objects.filter(
         property_id__in=prop_ids
-    ).select_related("author").order_by("-created_at")[:20] if prop_ids else []
+    ).select_related("author", "property").order_by("-created_at") if prop_ids else PropertyNote.objects.none()
+    if getattr(request.user, "role", None) == "crew":
+        property_notes_qs = property_notes_qs.filter(visibility=PropertyNote.VISIBILITY_CREW)
+    property_notes = property_notes_qs[:20]
 
     return render(request, "customers/customer_detail.html", {
         "customer": customer,
         "business": business,
         "properties": properties,
+        "primary_property": primary_property,
         "past_jobs": past_jobs,
         "all_jobs": all_jobs,
+        "upcoming_jobs": upcoming_jobs,
         "contracts": contracts,
         "invoices": invoices,
         "estimates": estimates,
         "service_counts": service_counts,
         "total_revenue": total_revenue,
+        "open_invoice_count": open_invoice_count,
+        "open_invoice_total": open_invoice_total,
+        "open_estimate_count": open_estimate_count,
         "client_messages": client_messages,
         "email_messages": email_messages,
         "sms_messages": sms_messages,
@@ -300,10 +380,15 @@ def api_add_property_note(request):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
     property_id = data.get("property_id")
     text = (data.get("text") or "").strip()
+    visibility = (data.get("visibility") or PropertyNote.VISIBILITY_CREW).strip().lower()
+    if visibility not in {PropertyNote.VISIBILITY_CREW, PropertyNote.VISIBILITY_INTERNAL}:
+        visibility = PropertyNote.VISIBILITY_CREW
+    if getattr(request.user, "role", None) == "crew":
+        visibility = PropertyNote.VISIBILITY_CREW
     if not property_id or not text:
         return JsonResponse({"error": "Property and text required"}, status=400)
     prop = get_object_or_404(Property, id=property_id, customer__business=business)
-    PropertyNote.objects.create(property=prop, author=request.user, text=text)
+    PropertyNote.objects.create(property=prop, author=request.user, text=text, visibility=visibility)
     return JsonResponse({"ok": True})
 
 
@@ -796,6 +881,7 @@ def api_quick_create_property(request):
 
     return JsonResponse({
         "ok": True,
+        "customer": {"id": customer.id, "name": customer.name},
         "property": {"id": prop.id, "address": prop.address},
     })
 
@@ -1495,6 +1581,14 @@ def customer_setup_card(request, customer_id):
         return redirect("/")
     customer = get_object_or_404(Customer, id=customer_id, business=business)
 
+    if not getattr(business, "client_saved_cards_enabled", True):
+        messages.error(request, "Saved cards are turned off in business settings.")
+        return redirect("customer_detail", customer_id=customer.id)
+
+    if not getattr(business, "can_accept_stripe_payments", lambda: False)():
+        messages.error(request, "Turn on client card payments and finish Stripe setup before saving cards.")
+        return redirect("customer_detail", customer_id=customer.id)
+
     if not business.stripe_connect_account_id:
         messages.error(request, "Connect Stripe in Settings first to save cards.")
         return redirect("customer_detail", customer_id=customer.id)
@@ -1606,7 +1700,16 @@ def customer_remove_card(request, customer_id):
     customer.card_last4 = ""
     customer.card_brand = ""
     customer.auto_charge = False
-    customer.save(update_fields=["stripe_payment_method_id", "card_last4", "card_brand", "auto_charge"])
+    customer.auto_charge_completed_jobs = False
+    customer.auto_charge_monthly_invoices = False
+    customer.save(update_fields=[
+        "stripe_payment_method_id",
+        "card_last4",
+        "card_brand",
+        "auto_charge",
+        "auto_charge_completed_jobs",
+        "auto_charge_monthly_invoices",
+    ])
     messages.success(request, f"Card removed for {customer.name}.")
     return redirect("customer_detail", customer_id=customer.id)
 
@@ -1624,8 +1727,37 @@ def customer_toggle_auto_charge(request, customer_id):
         messages.error(request, "No card on file. Save a card first.")
         return redirect("customer_detail", customer_id=customer.id)
 
-    customer.auto_charge = not customer.auto_charge
-    customer.save(update_fields=["auto_charge"])
-    state = "enabled" if customer.auto_charge else "disabled"
+    next_state = not (customer.auto_charge_completed_jobs or customer.auto_charge_monthly_invoices or customer.auto_charge)
+    customer.auto_charge = next_state
+    customer.auto_charge_completed_jobs = next_state
+    customer.auto_charge_monthly_invoices = next_state
+    customer.save(update_fields=["auto_charge", "auto_charge_completed_jobs", "auto_charge_monthly_invoices"])
+    state = "enabled" if next_state else "disabled"
     messages.success(request, f"Auto-charge {state} for {customer.name}.")
+    return redirect("customer_detail", customer_id=customer.id)
+
+
+@require_POST
+@role_required("owner", "manager")
+def customer_update_auto_charge(request, customer_id):
+    """Update separate saved-card auto-charge preferences for this customer."""
+    business = _get_business(request)
+    if not business:
+        return redirect("/")
+    customer = get_object_or_404(Customer, id=customer_id, business=business)
+
+    completed_jobs = request.POST.get("auto_charge_completed_jobs") == "on"
+    monthly_invoices = request.POST.get("auto_charge_monthly_invoices") == "on"
+    if (completed_jobs or monthly_invoices) and not customer.stripe_payment_method_id:
+        messages.error(request, "Save an authorized card before enabling auto-charge.")
+        return redirect("customer_detail", customer_id=customer.id)
+    if (completed_jobs or monthly_invoices) and not getattr(business, "client_saved_cards_enabled", True):
+        messages.error(request, "Saved-card charging is turned off in business settings.")
+        return redirect("customer_detail", customer_id=customer.id)
+
+    customer.auto_charge_completed_jobs = completed_jobs
+    customer.auto_charge_monthly_invoices = monthly_invoices
+    customer.auto_charge = completed_jobs or monthly_invoices
+    customer.save(update_fields=["auto_charge_completed_jobs", "auto_charge_monthly_invoices", "auto_charge"])
+    messages.success(request, "Auto-charge preferences updated.")
     return redirect("customer_detail", customer_id=customer.id)

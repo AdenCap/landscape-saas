@@ -1,944 +1,1291 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
-  <div>
-    <h1>{{ customer.name }}</h1>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
-      {% if is_mowing_client %}
-      <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(34,197,94,0.12);color:var(--primary);border-radius:6px;font-size:11px;font-weight:600;">
-        <span class="material-symbols-outlined" style="font-size:14px;">grass</span> Mowing · {{ mowing_enrollment.get_frequency_display }}
-      </span>
-      {% endif %}
-      {% if is_fert_client %}
-      <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(139,92,246,0.12);color:#a78bfa;border-radius:6px;font-size:11px;font-weight:600;">
-        <span class="material-symbols-outlined" style="font-size:14px;">eco</span> Fertilization
-      </span>
-      {% endif %}
-      {% if active_agreements %}
-      <a href="{% url 'service_agreements:hub' %}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(59,130,246,0.12);color:#60a5fa;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">
-        <span class="material-symbols-outlined" style="font-size:14px;">build</span> Maintenance · {{ active_agreements|length }} contract{{ active_agreements|length|pluralize }}
-      </a>
-      {% endif %}
-      {% if not is_mowing_client and not is_fert_client and not active_agreements %}
-      <span style="font-size:13px;color:var(--text-muted);">Client profile</span>
-      {% endif %}
+<section class="client-command">
+  <a href="{% url 'customer_list' %}" class="cc-back-link" data-smart-back>
+    <span class="material-symbols-outlined">arrow_back</span>
+    <span>Back</span>
+  </a>
+
+  <header class="cc-hero">
+    <div class="cc-hero-copy">
+      <div class="cc-kicker"><span></span>Client Command</div>
+      <h1>{{ customer.name }}</h1>
+      <p class="cc-hero-address">
+        {% if customer.full_address != "—" %}
+          {{ customer.full_address }}
+        {% elif primary_property %}
+          {{ primary_property.address }}
+        {% else %}
+          No address on file
+        {% endif %}
+      </p>
+      <div class="cc-client-tags">
+        {% if is_mowing_client %}
+        <span><span class="material-symbols-outlined">grass</span>Mowing · {{ mowing_enrollment.get_frequency_display }}</span>
+        {% endif %}
+        {% if is_fert_client %}
+        <span><span class="material-symbols-outlined">eco</span>Fertilization</span>
+        {% endif %}
+        {% if active_agreements %}
+        <a href="{% url 'service_agreements:hub' %}"><span class="material-symbols-outlined">description</span>{{ active_agreements|length }} agreement{{ active_agreements|length|pluralize }}</a>
+        {% endif %}
+        {% if not is_mowing_client and not is_fert_client and not active_agreements %}
+        <span>Client profile</span>
+        {% endif %}
+      </div>
     </div>
-  </div>
-  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-    <a href="{% url 'customer_edit' customer.id %}" class="btn btn-secondary">Edit Client</a>
-    <form method="post" action="{% url 'customer_delete' customer.id %}" style="display:inline;" onsubmit="return confirm('Delete {{ customer.name }}? This will remove all their properties, jobs, invoices, and data. This cannot be undone.');">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-secondary" style="color:#ffb4ab;">Delete</button>
-    </form>
-    {% if customer.portal_access_token %}
-    <a href="{% url 'customer_portal' customer.portal_access_token %}" target="_blank" class="btn btn-primary">
-      <i data-lucide="external-link" style="width: 16px; height: 16px;"></i> View Customer Portal
+
+    <div class="cc-hero-actions">
+      <a href="{% url 'create_job' %}?customer={{ customer.id }}" class="cc-action cc-action-hot"><span class="material-symbols-outlined">add_task</span>Job</a>
+      <a href="{% url 'billing:estimate_create' %}?customer={{ customer.id }}" class="cc-action"><span class="material-symbols-outlined">request_quote</span>Estimate</a>
+      <a href="{% url 'property_add' customer.id %}" class="cc-action"><span class="material-symbols-outlined">add_home</span>Property</a>
+      <a href="{% url 'customer_edit' customer.id %}" class="cc-action"><span class="material-symbols-outlined">edit</span>Edit</a>
+    </div>
+  </header>
+
+  <section class="cc-stat-grid" aria-label="Client summary">
+    <a href="#cc-upcoming" class="cc-stat">
+      <span>Upcoming</span>
+      <strong>{{ upcoming_jobs|length }}</strong>
+      <small>scheduled visits</small>
     </a>
-    {% endif %}
-  </div>
-</div>
+    <a href="#cc-properties" class="cc-stat">
+      <span>Properties</span>
+      <strong>{{ properties|length }}</strong>
+      <small>service locations</small>
+    </a>
+    <a href="#tab-billing" class="cc-stat" data-tab-link="billing">
+      <span>Open balance</span>
+      <strong>${{ open_invoice_total|floatformat:0 }}</strong>
+      <small>{{ open_invoice_count }} invoice{{ open_invoice_count|pluralize }}</small>
+    </a>
+    <a href="#tab-estimates" class="cc-stat" data-tab-link="estimates">
+      <span>Open estimates</span>
+      <strong>{{ open_estimate_count }}</strong>
+      <small>draft or sent</small>
+    </a>
+  </section>
 
-<!-- CRM Tabs -->
-<div class="crm-tabs">
-  <button class="crm-tab active" data-tab="overview">
-    <i data-lucide="user" style="width: 16px; height: 16px;"></i> Overview
-  </button>
-  <button class="crm-tab" data-tab="communication">
-    <i data-lucide="message-square" style="width: 16px; height: 16px;"></i> Communication
-  </button>
-  <button class="crm-tab" data-tab="services">
-    <i data-lucide="clipboard-list" style="width: 16px; height: 16px;"></i> Service History
-  </button>
-  <button class="crm-tab" data-tab="estimates">
-    <i data-lucide="file-text" style="width: 16px; height: 16px;"></i> Estimates
-  </button>
-  <button class="crm-tab" data-tab="billing">
-    <i data-lucide="receipt" style="width: 16px; height: 16px;"></i> Billing
-  </button>
-</div>
+  {% if properties %}
+  <section class="cc-property-jump" aria-label="Quick property access">
+    <div>
+      <span class="cc-panel-kicker">Property access</span>
+      <strong>Open a service location</strong>
+    </div>
+    <div class="cc-property-jump-list">
+      {% for prop in properties %}
+      <div class="cc-property-jump-row">
+        <a href="{% url 'property_edit' customer.id prop.id %}">
+          <span class="material-symbols-outlined">home_pin</span>
+          <span>{{ prop.address }}</span>
+        </a>
+        <a href="https://www.google.com/maps/search/?api=1&query={{ prop.address|urlencode }}" class="cc-map-link" data-address="{{ prop.address|escape }}" target="_blank" rel="noopener">
+          <span class="material-symbols-outlined">near_me</span>
+          <span>Directions</span>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 
-<!-- ── Overview Tab ─────────────────────────────────────────────────── -->
-<div class="crm-tab-content active" id="tab-overview">
-  <div class="crm-grid">
-    <div class="card">
-      <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-        Contact
-        {% if portal_url %}
-        <div style="display: flex; gap: 8px;">
-          <a href="{{ portal_url }}" target="_blank" class="btn btn-secondary btn-sm">
-            <i data-lucide="external-link" style="width: 14px; height: 14px;"></i> View Portal
-          </a>
-          {% if customer.email %}
-          <form method="post" action="{% url 'customer_send_message' customer.id %}" style="display: inline;">
-            {% csrf_token %}
-            <input type="hidden" name="subject" value="Your Customer Portal Access - {{ business.name }}">
-            <input type="hidden" name="body" value="Hi {{ customer.name }},
+  <nav class="cc-tabs" aria-label="Client workspace">
+    <button type="button" class="cc-tab active" data-tab="overview">Overview</button>
+    <button type="button" class="cc-tab" data-tab="work">Work</button>
+    <button type="button" class="cc-tab" data-tab="notes">Notes</button>
+    <button type="button" class="cc-tab" data-tab="communication">Communication</button>
+    <button type="button" class="cc-tab" data-tab="estimates">Estimates</button>
+    <button type="button" class="cc-tab" data-tab="billing">Billing</button>
+  </nav>
 
-You can now access your customer portal to:
-- Book and reschedule services
-- View service history
-- Pay invoices online
-- Track technician arrival times
-
-Access your portal here: {{ portal_url }}
-
-Thank you for choosing {{ business.name }}!">
-            <button type="submit" class="btn btn-primary btn-sm">
-              <i data-lucide="mail" style="width: 14px; height: 14px;"></i> Email Portal Link
-            </button>
-          </form>
+  <div class="cc-tab-content active" id="tab-overview">
+    <div class="cc-grid cc-grid-main">
+      <section class="cc-panel">
+        <div class="cc-panel-head">
+          <div>
+            <span class="cc-panel-kicker">Profile</span>
+            <h2>Client snapshot</h2>
+          </div>
+          {% if customer.portal_access_token %}
+          <a href="{% url 'customer_portal' customer.portal_access_token %}" target="_blank" class="cc-pill-link">Portal</a>
           {% endif %}
         </div>
+
+        <div class="cc-contact-grid">
+          <a href="{% if customer.phone %}tel:{{ customer.phone }}{% else %}{% url 'customer_edit' customer.id %}{% endif %}" class="cc-contact-card">
+            <span class="material-symbols-outlined">call</span>
+            <small>Phone</small>
+            <strong>{% if customer.phone %}{{ customer.phone }}{% else %}Add phone{% endif %}</strong>
+          </a>
+          <a href="{% if customer.email %}mailto:{{ customer.email }}{% else %}{% url 'customer_edit' customer.id %}{% endif %}" class="cc-contact-card">
+            <span class="material-symbols-outlined">mail</span>
+            <small>Email</small>
+            <strong>{% if customer.email %}{{ customer.email }}{% else %}Add email{% endif %}</strong>
+          </a>
+          <div class="cc-contact-card">
+            <span class="material-symbols-outlined">home_pin</span>
+            <small>Mailing address</small>
+            <strong>{{ customer.full_address }}</strong>
+          </div>
+          <div class="cc-contact-card">
+            <span class="material-symbols-outlined">forum</span>
+            <small>Preferred contact</small>
+            <strong>{{ customer.get_communication_preference_display|default:"Not set" }}</strong>
+          </div>
+        </div>
+
+        <div class="cc-mini-stack">
+          <div>
+            <span>Invoicing</span>
+            <strong>{{ customer.get_invoice_frequency_display|default:"Ask each time" }}</strong>
+            {% if customer.invoice_frequency == "monthly" and customer.monthly_invoice_send_day %}
+            <small>Send day {{ customer.monthly_invoice_send_day }} each month</small>
+            {% elif customer.invoice_due_days is not None %}
+            <small>Net {{ customer.invoice_due_days }}</small>
+            {% endif %}
+          </div>
+          <div>
+            <span>Card on file</span>
+            {% if customer.card_last4 %}
+            <strong>{{ customer.card_brand|title }} · {{ customer.card_last4 }}</strong>
+            <small>
+              {% if customer.auto_charge_completed_jobs and customer.auto_charge_monthly_invoices %}
+                Auto-charge services + monthly
+              {% elif customer.auto_charge_completed_jobs %}
+                Auto-charge completed services
+              {% elif customer.auto_charge_monthly_invoices %}
+                Auto-charge monthly invoices
+              {% elif customer.auto_charge %}
+                Auto-charge enabled
+              {% else %}
+                Manual charge
+              {% endif %}
+            </small>
+            {% else %}
+            <strong>No card saved</strong>
+            <small><a href="{% url 'customer_setup_card' customer.id %}">Save card</a></small>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if customer.notes %}
+        <div class="cc-note-preview">
+          <span>Client note</span>
+          <p>{{ customer.notes }}</p>
+        </div>
         {% endif %}
-      </h2>
-      <dl class="contact-dl">
-        {% if customer.phone %}
-        <dt>Phone</dt>
-        <dd><a href="tel:{{ customer.phone }}">{{ customer.phone }}</a></dd>
-        {% endif %}
-        {% if customer.alt_phone %}
-        <dt>Alt. Phone</dt>
-        <dd><a href="tel:{{ customer.alt_phone }}">{{ customer.alt_phone }}</a></dd>
-        {% endif %}
-        {% if customer.email %}
-        <dt>Email</dt>
-        <dd><a href="mailto:{{ customer.email }}">{{ customer.email }}</a></dd>
-        {% endif %}
-        {% if customer.full_address != "—" %}
-        <dt>Address</dt>
-        <dd>{{ customer.full_address }}</dd>
-        {% endif %}
-        {% if customer.communication_preference %}
-        <dt>Preferred contact</dt>
-        <dd>{{ customer.get_communication_preference_display }}</dd>
-        {% endif %}
-        <dt>Invoicing</dt>
-        <dd>
-          {{ customer.get_invoice_frequency_display|default:"Ask each time" }}
-          {% if customer.invoice_frequency == "monthly" and customer.monthly_invoice_send_day %}
-            — Invoice to be sent on day {{ customer.monthly_invoice_send_day }} of each month
-          {% elif customer.invoice_frequency == "monthly" %}
-            — Send manually (no day set)
-          {% endif %}
-          {% if customer.invoice_due_days is not None %}
-            — Invoices due in {{ customer.invoice_due_days }} days (Net {{ customer.invoice_due_days }})
-          {% endif %}
-        </dd>
-        <dt>Card on File</dt>
-        <dd>
-          {% if customer.card_last4 %}
-            <span style="display:inline-flex;align-items:center;gap:6px;">
-              <span style="font-weight:600;text-transform:capitalize;">{{ customer.card_brand }}</span>
-              &bull;&bull;&bull;&bull; {{ customer.card_last4 }}
-              {% if customer.auto_charge %}<span style="background:rgba(34,197,94,0.12);color:var(--primary);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">AUTO-CHARGE</span>{% endif %}
+      </section>
+
+      <section class="cc-panel" id="cc-upcoming">
+        <div class="cc-panel-head">
+          <div>
+            <span class="cc-panel-kicker">Schedule</span>
+            <h2>Upcoming work</h2>
+          </div>
+          <a href="{% url 'calendar' %}" class="cc-pill-link">Calendar</a>
+        </div>
+        <div class="cc-list">
+          {% for job in upcoming_jobs %}
+          <a href="{% url 'job_detail' job.id %}" class="cc-row">
+            <span class="cc-dot"></span>
+            <span>
+              <strong>
+                {% for item in job.service_items.all %}
+                  {% if forloop.first %}{{ item.description|default:item.service.name }}{% endif %}
+                {% empty %}
+                  Job
+                {% endfor %}
+              </strong>
+              <small>{{ job.property.address|truncatechars:42 }} · {{ job.scheduled_date|date:"M j" }}{% if job.scheduled_time %} · {{ job.scheduled_time|time:"g:i A" }}{% endif %}</small>
             </span>
-            <div style="display:flex;gap:6px;margin-top:6px;">
-              <form method="post" action="{% url 'customer_toggle_auto_charge' customer.id %}" style="display:inline;">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-secondary">{% if customer.auto_charge %}Disable{% else %}Enable{% endif %} Auto-Charge</button>
-              </form>
-              <a href="{% url 'customer_setup_card' customer.id %}" class="btn btn-sm btn-secondary">Change Card</a>
-              <form method="post" action="{% url 'customer_remove_card' customer.id %}" style="display:inline;" onsubmit="return confirm('Remove saved card for {{ customer.name }}?');">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-ghost" style="color:#ffb4ab;">Remove</button>
-              </form>
+            <em>{{ job.status|title }}</em>
+          </a>
+          {% empty %}
+          <div class="cc-empty">
+            <strong>No upcoming work.</strong>
+            <small>Schedule the next visit or create a one-time job.</small>
+            <a href="{% url 'create_job' %}?customer={{ customer.id }}">Create job</a>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <section class="cc-panel" id="cc-properties">
+      <div class="cc-panel-head">
+        <div>
+          <span class="cc-panel-kicker">Service locations</span>
+          <h2>Properties</h2>
+        </div>
+        <a href="{% url 'property_add' customer.id %}" class="cc-pill-link">Add property</a>
+      </div>
+      <div class="cc-property-grid">
+        {% for prop in properties %}
+        <article class="cc-property-card">
+          <div>
+            <h3>{{ prop.address }}</h3>
+            <div class="cc-badges">
+              {% if prop.yard_sqft %}<span>{{ prop.yard_sqft|floatformat:0 }} sq ft</span>{% endif %}
+              {% if prop.gate_code %}<span>Gate {{ prop.gate_code }}</span>{% endif %}
+              {% if prop.has_dog %}<span>Dog</span>{% endif %}
+              {% if prop.fertilization_services_per_year %}<span>Fert {{ prop.fertilization_services_per_year }}x</span>{% endif %}
             </div>
-          {% else %}
-            <span style="color:var(--text-muted);">No card saved</span>
-            <a href="{% url 'customer_setup_card' customer.id %}" class="btn btn-sm btn-primary" style="margin-left:8px;">+ Save Card</a>
+            {% if prop.notes %}<p>{{ prop.notes }}</p>{% endif %}
+          </div>
+          <div class="cc-property-actions">
+            <a href="https://www.google.com/maps/search/?api=1&query={{ prop.address|urlencode }}" class="cc-map-link" data-address="{{ prop.address|escape }}" target="_blank" rel="noopener">Directions</a>
+            <a href="{% url 'property_measure_lawn' customer.id prop.id %}">Measure</a>
+            {% if show_property_estimator %}<a href="{% url 'estimator_new' prop.id %}">Estimate</a>{% endif %}
+            <a href="{% url 'property_photo_gallery' customer.id prop.id %}">Photos</a>
+            <a href="{% url 'property_edit' customer.id prop.id %}">Edit</a>
+          </div>
+        </article>
+        {% empty %}
+        <div class="cc-empty">
+          <strong>No properties yet.</strong>
+          <small>Add a service address before scheduling work.</small>
+          <a href="{% url 'property_add' customer.id %}">Add property</a>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <div class="cc-tab-content" id="tab-work">
+    <div class="cc-grid">
+      <section class="cc-panel">
+        <div class="cc-panel-head">
+          <div>
+            <span class="cc-panel-kicker">Programs</span>
+            <h2>Recurring service</h2>
+          </div>
+        </div>
+        <div class="cc-list">
+          {% if is_mowing_client %}
+          <div class="cc-row">
+            <span class="cc-dot"></span>
+            <span>
+              <strong>Mowing · {{ mowing_enrollment.get_frequency_display }}</strong>
+              <small>{{ mowing_enrollment.property.address|truncatechars:42 }} · {% if mowing_enrollment.assigned_crew %}{{ mowing_enrollment.assigned_crew.name }}{% else %}Unassigned{% endif %}</small>
+            </span>
+            <em>Active</em>
+          </div>
           {% endif %}
-        </dd>
-        {% if not customer.phone and not customer.email and customer.full_address == "—" %}
-        <dd>No contact info. <a href="{% url 'customer_edit' customer.id %}" class="link-primary">Add</a></dd>
-        {% endif %}
-      </dl>
+          {% for enr in fert_enrollments %}
+          <div class="cc-row">
+            <span class="cc-dot cc-dot-muted"></span>
+            <span>
+              <strong>{{ enr.program.name }}</strong>
+              <small>{{ enr.property.address|truncatechars:42 }} · {{ enr.year }}</small>
+            </span>
+            <em>{{ enr.get_status_display }}</em>
+          </div>
+          {% endfor %}
+          {% for agreement in active_agreements %}
+          <a href="{% url 'service_agreements:hub' %}" class="cc-row">
+            <span class="cc-dot cc-dot-muted"></span>
+            <span>
+              <strong>{{ agreement.name }}</strong>
+              <small>{{ agreement.get_billing_frequency_display }} · ${{ agreement.price|floatformat:0 }}</small>
+            </span>
+            <em>{{ agreement.get_status_display }}</em>
+          </a>
+          {% endfor %}
+          {% if not is_mowing_client and not is_fert_client and not active_agreements %}
+          <div class="cc-empty"><strong>No recurring services yet.</strong><small>Recurring mowing, fertilization, and agreements will appear here.</small></div>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="cc-panel">
+        <div class="cc-panel-head">
+          <div>
+            <span class="cc-panel-kicker">History</span>
+            <h2>Recent work</h2>
+          </div>
+          <span class="cc-count">{{ all_jobs|length }}</span>
+        </div>
+        <div class="cc-list">
+          {% for job in all_jobs|slice:":12" %}
+          <a href="{% url 'job_detail' job.id %}" class="cc-row">
+            <span class="cc-dot{% if job.status == 'completed' %} cc-dot-muted{% endif %}"></span>
+            <span>
+              <strong>
+                {% for item in job.service_items.all %}
+                  {% if forloop.first %}{{ item.description|default:item.service.name }}{% endif %}
+                {% empty %}
+                  Job
+                {% endfor %}
+              </strong>
+              <small>{{ job.property.address|truncatechars:38 }} · {{ job.scheduled_date|date:"M j, Y" }}</small>
+            </span>
+            <em>{{ job.status|title }}</em>
+          </a>
+          {% empty %}
+          <div class="cc-empty"><strong>No job history yet.</strong></div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="cc-tab-content" id="tab-notes">
+    <section class="cc-panel">
+      <div class="cc-panel-head">
+        <div>
+          <span class="cc-panel-kicker">Visibility controlled</span>
+          <h2>Client and property notes</h2>
+        </div>
+        <a href="{% url 'customer_edit' customer.id %}" class="cc-pill-link">Edit client note</a>
+      </div>
+
       {% if customer.notes %}
-      <div class="notes-box">
-        <strong>Notes</strong>
+      <div class="cc-note-preview cc-note-preview-large">
+        <span>Permanent client note</span>
         <p>{{ customer.notes }}</p>
       </div>
       {% endif %}
-    </div>
 
-    {% if service_counts %}
-    <div class="card" style="margin-bottom:16px;">
-      <h2 class="card-title">Service Tracker</h2>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;">
-        {% for svc_name, svc_count in service_counts.items %}
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surface-highest);border:1px solid var(--border);border-radius:var(--radius-md);">
-          <span style="font-size:20px;font-weight:800;color:var(--primary);font-family:var(--font-headline);line-height:1;">{{ svc_count }}</span>
-          <div>
-            <span style="font-size:12px;font-weight:600;color:var(--text);display:block;">{{ svc_name }}</span>
-            <span style="font-size:10px;color:var(--text-muted);">completed</span>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <div class="card">
-      <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-        Properties
-        <a href="{% url 'property_add' customer.id %}" class="btn btn-primary btn-sm">+ Add</a>
-      </h2>
-      {% for prop in properties %}
-      <div class="property-row">
+      {% if properties %}
+      <div class="cc-note-form">
+        <textarea id="new-prop-note" rows="3" placeholder="Add property instructions, gate details, billing reminders, owner notes..."></textarea>
         <div>
-          <strong>{{ prop.address }}</strong>
-          {% if prop.yard_sqft %}<span class="badge badge-info">{{ prop.yard_sqft|floatformat:0 }} sq ft</span>{% endif %}
-          {% if prop.gate_code %}<span class="badge badge-muted">Gate: {{ prop.gate_code }}</span>{% endif %}
-          {% if prop.has_dog %}<span class="badge badge-warning">Dog</span>{% endif %}
-          {% if prop.fertilization_services_per_year %}<span class="badge badge-success">Fert: {{ prop.fertilization_services_per_year }}x/yr</span>{% endif %}
-          {% if prop.notes %}<p class="prop-notes">{{ prop.notes }}</p>{% endif %}
-        </div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <a href="{% url 'property_measure_lawn' customer.id prop.id %}" class="btn btn-secondary btn-sm">Measure Lawn</a>
-          {% if show_fertilization %}<a href="{% url 'billing:property_fertilizer_history' prop.id %}" class="btn btn-secondary btn-sm">Fertilizer History</a>{% endif %}
-          {% if show_property_estimator %}<a href="{% url 'estimator_new' prop.id %}" class="btn btn-secondary btn-sm">Property Estimator</a>{% endif %}
-          <a href="{% url 'property_photo_gallery' customer.id prop.id %}" class="btn btn-secondary btn-sm">Photos</a>
-          <a href="{% url 'property_edit' customer.id prop.id %}" class="btn btn-secondary btn-sm">Edit</a>
+          <select id="note-property-id">
+            {% for prop in properties %}
+            <option value="{{ prop.id }}">{{ prop.address|truncatechars:44 }}</option>
+            {% endfor %}
+          </select>
+          <select id="note-visibility">
+            <option value="crew">Crew visible</option>
+            <option value="internal">Internal only</option>
+          </select>
+          <button type="button" onclick="addPropertyNote()">Add note</button>
         </div>
       </div>
-      {% empty %}
-      <p>No properties. <a href="{% url 'property_add' customer.id %}" class="link-primary">Add one</a> to schedule jobs.</p>
-      {% endfor %}
-    </div>
+      {% endif %}
 
-    <div class="card">
-      <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-        Contracts
-        <a href="{% url 'contract_add' customer.id %}" class="btn btn-primary btn-sm">+ Add</a>
-      </h2>
-      {% for c in contracts %}
-      <div class="contract-row" style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--surface-highest);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:{% if c.line_items.all %}8px{% else %}0{% endif %};">
+      <div class="cc-note-list" id="notes-container">
+        {% for note in property_notes %}
+        <article class="cc-note-item {% if note.visibility == 'internal' %}cc-note-internal{% endif %}">
+          <small>
+            <span class="cc-note-visibility">{{ note.get_visibility_display }}</span>
+            {{ note.author.get_full_name|default:note.author.username }} · {{ note.created_at|timesince }} ago · {{ note.property.address|truncatechars:34 }}
+          </small>
+          <p>{{ note.text }}</p>
+        </article>
+        {% empty %}
+        <div class="cc-empty"><strong>No property notes yet.</strong><small>Add crew-visible notes for field work or internal notes for office context.</small></div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <div class="cc-tab-content" id="tab-communication">
+    <div class="cc-grid">
+      <section class="cc-panel">
+        <div class="cc-panel-head">
           <div>
-            <strong>{{ c.get_contract_type_display }}</strong>
-            <span class="badge badge-{{ c.status }}">{{ c.status|title }}</span>
-            {% if c.amount %} · ${{ c.amount|floatformat:2 }}{% endif %}
-            {% if c.get_billing_frequency_display %} · {{ c.get_billing_frequency_display }}{% endif %}
-            {% if c.prepaid %}<span style="font-size:10px;font-weight:600;background:rgba(34,197,94,0.15);color:var(--primary);padding:2px 6px;border-radius:4px;margin-left:4px;">PREPAID</span>{% endif %}
+            <span class="cc-panel-kicker">Compose</span>
+            <h2>Message client</h2>
           </div>
-          <a href="{% url 'contract_edit' customer.id c.id %}" class="btn btn-secondary btn-sm">Edit</a>
         </div>
-        {% if c.start_date %}
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">{{ c.start_date|date:"M j, Y" }}{% if c.end_date %} — {{ c.end_date|date:"M j, Y" }}{% endif %}</div>
-        {% endif %}
-        {% for li in c.line_items.all %}
-        {% if forloop.first %}<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">{% endif %}
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:13px;">
-            <span>{{ li.service_name }} <span style="color:var(--text-muted);">· {{ li.get_frequency_display }}{% if li.times_expected %} · {{ li.progress_display }}{% endif %}</span></span>
-            <span style="font-weight:600;">${{ li.line_total|floatformat:2 }}</span>
-          </div>
-        {% if forloop.last %}</div>{% endif %}
-        {% endfor %}
-      </div>
-      {% empty %}
-      <p>No contracts. <a href="{% url 'contract_add' customer.id %}" class="link-primary">Add one</a></p>
-      {% endfor %}
-    </div>
-  </div>
-</div>
-
-<!-- Service Programs + Notes -->
-{% if is_mowing_client or is_fert_client or property_notes %}
-<div style="margin-top:16px;">
-  {% if is_mowing_client %}
-  <div class="card" style="margin-bottom:12px;padding:16px;">
-    <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">
-      <span class="material-symbols-outlined" style="font-size:18px;color:var(--primary);">grass</span> Mowing Details
-    </h3>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;font-size:13px;">
-      <div><span style="color:var(--text-muted);font-size:11px;text-transform:uppercase;display:block;">Frequency</span>{{ mowing_enrollment.get_frequency_display }}</div>
-      <div><span style="color:var(--text-muted);font-size:11px;text-transform:uppercase;display:block;">Crew</span>{% if mowing_enrollment.assigned_crew %}{{ mowing_enrollment.assigned_crew.name }}{% else %}Unassigned{% endif %}</div>
-      <div><span style="color:var(--text-muted);font-size:11px;text-transform:uppercase;display:block;">Property</span>{{ mowing_enrollment.property.address|truncatechars:30 }}</div>
-    </div>
-  </div>
-  {% endif %}
-
-  {% if is_fert_client %}
-  <div class="card" style="margin-bottom:12px;padding:16px;">
-    <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">
-      <span class="material-symbols-outlined" style="font-size:18px;color:#a78bfa;">eco</span> Fertilization Programs
-    </h3>
-    {% for enr in fert_enrollments %}
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;{% if not forloop.last %}border-bottom:1px solid var(--border);{% endif %}font-size:13px;">
-      <div style="flex:1;">
-        <strong>{{ enr.program.name }}</strong> ({{ enr.year }})
-        <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">{{ enr.property.address|truncatechars:25 }}</span>
-      </div>
-      <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;{% if enr.status == 'in_progress' %}background:rgba(59,130,246,0.15);color:#60a5fa;{% else %}background:rgba(34,197,94,0.15);color:#86efac;{% endif %}">{{ enr.get_status_display }}</span>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  {% if active_agreements %}
-  {% for agreement in active_agreements %}
-  <div class="card" style="margin-bottom:12px;padding:16px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <h3 style="margin:0;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">
-        <span class="material-symbols-outlined" style="font-size:18px;color:#f59e0b;">description</span>
-        {{ agreement.name }}
-      </h3>
-      <span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;{% if agreement.status == 'active' %}background:rgba(34,197,94,0.15);color:#86efac;{% else %}background:var(--surface-highest);color:var(--text-muted);{% endif %}">{{ agreement.get_status_display }}</span>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;font-size:12px;margin-bottom:12px;">
-      <div><span style="color:var(--text-muted);font-size:10px;text-transform:uppercase;display:block;">Period</span>{{ agreement.start_date|date:"M j, Y" }} — {% if agreement.end_date %}{{ agreement.end_date|date:"M j, Y" }}{% else %}Ongoing{% endif %}</div>
-      <div><span style="color:var(--text-muted);font-size:10px;text-transform:uppercase;display:block;">Billing</span>{{ agreement.get_billing_frequency_display }}</div>
-      <div><span style="color:var(--text-muted);font-size:10px;text-transform:uppercase;display:block;">Contract Value</span><strong style="color:var(--primary);">${{ agreement.price|floatformat:0 }}</strong></div>
-    </div>
-    {% if agreement.line_items.exists %}
-    <table style="width:100%;border-collapse:collapse;font-size:12px;">
-      <thead>
-        <tr style="border-bottom:1px solid var(--border);">
-          <th style="text-align:left;padding:6px 4px;font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Service</th>
-          <th style="text-align:left;padding:6px 4px;font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;" class="hide-mobile">Freq</th>
-          <th style="text-align:right;padding:6px 4px;font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Price</th>
-          <th style="text-align:center;padding:6px 4px;font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Done</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in agreement.line_items.all %}
-        <tr style="border-bottom:1px solid var(--border);">
-          <td style="padding:8px 4px;">
-            <strong>{{ item.service_name }}</strong>
-            {% if item.description %}<div style="font-size:11px;color:var(--text-muted);">{{ item.description|truncatechars:40 }}</div>{% endif %}
-          </td>
-          <td style="padding:8px 4px;color:var(--text-muted);" class="hide-mobile">{{ item.get_frequency_display }}</td>
-          <td style="padding:8px 4px;text-align:right;font-weight:600;">${{ item.unit_price|floatformat:0 }}{% if item.unit %}/{{ item.unit }}{% endif %}</td>
-          <td style="padding:8px 4px;text-align:center;">
-            {% if item.times_expected %}
-            <span style="font-size:11px;{% if item.is_complete %}color:var(--primary);font-weight:600;{% endif %}">{{ item.progress_display }}</span>
-            {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% endif %}
-  </div>
-  {% endfor %}
-  {% endif %}
-
-  <!-- Property & Service Notes -->
-  <div class="card" style="padding:16px;">
-    <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">
-      <span class="material-symbols-outlined" style="font-size:18px;color:var(--text-muted);">sticky_note_2</span> Notes
-      <span style="font-size:11px;color:var(--text-muted);font-weight:400;">Visible to employees on their jobs</span>
-    </h3>
-
-    <!-- Add note form -->
-    <div style="margin-bottom:12px;">
-      <textarea id="new-prop-note" rows="2" placeholder="Add a note about this client's property, preferences, access info, gate codes..." style="width:100%;padding:10px;font-size:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit;resize:none;"></textarea>
-      <div style="display:flex;gap:6px;margin-top:6px;">
-        <select id="note-property-id" style="padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);">
-          {% for prop in properties %}
-          <option value="{{ prop.id }}">{{ prop.address|truncatechars:30 }}</option>
-          {% endfor %}
-        </select>
-        <button type="button" class="btn btn-primary btn-sm" onclick="addPropertyNote()">Add Note</button>
-      </div>
-    </div>
-
-    <!-- Existing notes -->
-    <div id="notes-container">
-    {% for note in property_notes %}
-    <div style="padding:8px 0;border-top:1px solid var(--border);font-size:13px;">
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">
-        {{ note.author.get_full_name|default:note.author.username }} · {{ note.created_at|timesince }} ago · {{ note.property.address|truncatechars:25 }}
-      </div>
-      <div>{{ note.text }}</div>
-    </div>
-    {% empty %}
-    <p style="color:var(--text-muted);font-size:13px;text-align:center;padding:12px 0;">No notes yet. Add one above — employees will see it on their job cards.</p>
-    {% endfor %}
-    </div>
-  </div>
-</div>
-{% endif %}
-
-<script>
-function addPropertyNote() {
-  var text = document.getElementById('new-prop-note').value.trim();
-  var propId = document.getElementById('note-property-id').value;
-  if (!text) return;
-  // Find any job for this property to use the notes endpoint
-  fetch('{% url "api_add_property_note" %}', {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-    body: JSON.stringify({ property_id: propId, text: text })
-  }).then(function(r) { return r.json(); }).then(function(data) {
-    if (data.ok) {
-      document.getElementById('new-prop-note').value = '';
-      location.reload();
-    }
-  });
-}
-</script>
-
-<!-- ── Communication Tab ───────────────────────────────────────────── -->
-<div class="crm-tab-content" id="tab-communication">
-  <div class="comm-grid">
-    <!-- Compose panel -->
-    <div class="card">
-      <h2 class="card-title">Send Message</h2>
-
-      <!-- Channel sub-tabs within communication -->
-      <div class="comm-channel-tabs">
-        <button class="comm-channel-tab active" data-channel="email">
-          <i data-lucide="mail" style="width: 15px; height: 15px;"></i> Email
-        </button>
-        <button class="comm-channel-tab" data-channel="sms">
-          <i data-lucide="smartphone" style="width: 15px; height: 15px;"></i> Text
-        </button>
-      </div>
-
-      <!-- Email compose form -->
-      <div class="comm-channel-content active" id="channel-email">
-        {% if customer.email %}
-        <form method="post" action="{% url 'customer_send_message' customer.id %}" class="send-message-form">
-          {% csrf_token %}
-          <div class="form-group">
-            <label for="id_subject">Subject</label>
-            {{ send_message_form.subject }}
-          </div>
-          <div class="form-group">
-            <label for="id_body">Message</label>
-            {{ send_message_form.body }}
-          </div>
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary">
-              <i data-lucide="send" style="width: 15px; height: 15px;"></i> Send email
-            </button>
-            <span class="send-to-label">to {{ customer.email }}</span>
-          </div>
-        </form>
-        {% else %}
-        <div class="empty-state-inline">
-          <i data-lucide="mail-x" style="width: 24px; height: 24px; color: var(--text-muted);"></i>
-          <p>No email address on file. <a href="{% url 'customer_edit' customer.id %}" class="link-primary">Add one</a> to send emails.</p>
+        <div class="cc-channel-tabs">
+          <button type="button" class="cc-channel-tab active" data-channel="email">Email</button>
+          <button type="button" class="cc-channel-tab" data-channel="sms">Text</button>
         </div>
-        {% endif %}
-      </div>
-
-      <!-- SMS compose form -->
-      <div class="comm-channel-content" id="channel-sms">
-        {% if sms_configured %}
-          {% if customer.phone %}
-          <form method="post" action="{% url 'customer_send_sms' customer.id %}" class="send-message-form">
+        <div class="cc-channel-content active" id="channel-email">
+          {% if customer.email %}
+          <form method="post" action="{% url 'customer_send_message' customer.id %}" class="cc-form">
             {% csrf_token %}
-            <div class="form-group">
-              <label for="id_sms_body">Message</label>
-              <textarea name="sms_body" id="id_sms_body" rows="3" class="form-control" placeholder="Type your text message..." maxlength="1600"></textarea>
-              <span class="char-hint">SMS messages over 160 characters may be split into multiple texts</span>
-            </div>
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary">
-                <i data-lucide="send" style="width: 15px; height: 15px;"></i> Send text
-              </button>
-              <span class="send-to-label">to {{ customer.phone }}</span>
-            </div>
+            <label>Subject{{ send_message_form.subject }}</label>
+            <label>Message{{ send_message_form.body }}</label>
+            <button type="submit">Send email to {{ customer.email }}</button>
           </form>
           {% else %}
-          <div class="empty-state-inline">
-            <i data-lucide="phone-off" style="width: 24px; height: 24px; color: var(--text-muted);"></i>
-            <p>No phone number on file. <a href="{% url 'customer_edit' customer.id %}" class="link-primary">Add one</a> to send texts.</p>
-          </div>
+          <div class="cc-empty"><strong>No email on file.</strong><small>Add an email address to send messages.</small><a href="{% url 'customer_edit' customer.id %}">Add email</a></div>
           {% endif %}
-        {% else %}
-        <div class="empty-state-inline">
-          <i data-lucide="smartphone" style="width: 24px; height: 24px; color: var(--text-muted);"></i>
-          <p>SMS is not configured. Add your Twilio credentials in <a href="{% url 'business_settings' %}" class="link-primary">Settings</a> to send text messages.</p>
         </div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Message history -->
-    <div class="card">
-      <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-        Message History
-        <div class="history-filter-tabs">
-          <button class="history-filter active" data-filter="all">All</button>
-          <button class="history-filter" data-filter="email">Email</button>
-          <button class="history-filter" data-filter="sms">Text</button>
+        <div class="cc-channel-content" id="channel-sms">
+          {% if sms_configured and customer.phone %}
+          <form method="post" action="{% url 'customer_send_sms' customer.id %}" class="cc-form">
+            {% csrf_token %}
+            <label>Message<textarea name="sms_body" id="id_sms_body" rows="4" maxlength="1600" placeholder="Type your text message..."></textarea></label>
+            <button type="submit">Send text to {{ customer.phone }}</button>
+          </form>
+          {% elif not sms_configured %}
+          <div class="cc-empty"><strong>SMS is not configured.</strong><small>Add Twilio credentials in Settings to send texts.</small></div>
+          {% else %}
+          <div class="cc-empty"><strong>No phone on file.</strong><small>Add a phone number to send texts.</small><a href="{% url 'customer_edit' customer.id %}">Add phone</a></div>
+          {% endif %}
         </div>
-      </h2>
+      </section>
 
-      <div id="message-history" class="message-history">
-        {% for msg in client_messages %}
-        <div class="message-row message-{{ msg.direction }} message-channel-{{ msg.channel }}">
-          <div class="message-meta">
-            <span class="message-channel-badge channel-{{ msg.channel }}">{{ msg.get_channel_display }}</span>
-            <span class="message-date">{{ msg.created_at|date:"M j, Y g:i A" }}</span>
-            {% if msg.direction == "sent" %}<span class="message-direction">Sent</span>{% else %}<span class="message-direction">Received</span>{% endif %}
-            {% if msg.to_address %}<span class="message-to">→ {{ msg.to_address }}</span>{% endif %}
+      <section class="cc-panel">
+        <div class="cc-panel-head">
+          <div>
+            <span class="cc-panel-kicker">Timeline</span>
+            <h2>Message history</h2>
           </div>
-          {% if msg.subject %}<div class="message-subject">{{ msg.subject }}</div>{% endif %}
-          <div class="message-body">{{ msg.body|truncatewords:40 }}</div>
+          <div class="cc-history-filters">
+            <button type="button" class="active" data-filter="all">All</button>
+            <button type="button" data-filter="email">Email</button>
+            <button type="button" data-filter="sms">Text</button>
+          </div>
         </div>
-        {% empty %}
-        <div class="empty-state-inline">
-          <i data-lucide="message-circle" style="width: 24px; height: 24px; color: var(--text-muted);"></i>
-          <p>No messages yet. Send an email or text above to get started.</p>
+        <div class="cc-message-list">
+          {% for msg in client_messages %}
+          <article class="cc-message-row message-channel-{{ msg.channel }}">
+            <small>{{ msg.get_channel_display }} · {{ msg.created_at|date:"M j, Y g:i A" }} · {{ msg.get_direction_display }}</small>
+            {% if msg.subject %}<strong>{{ msg.subject }}</strong>{% endif %}
+            <p>{{ msg.body|truncatewords:42 }}</p>
+          </article>
+          {% empty %}
+          <div class="cc-empty"><strong>No messages yet.</strong><small>Email and text history will appear here.</small></div>
+          {% endfor %}
         </div>
-        {% endfor %}
+      </section>
+    </div>
+  </div>
+
+  <div class="cc-tab-content" id="tab-estimates">
+    <section class="cc-panel">
+      <div class="cc-panel-head">
+        <div>
+          <span class="cc-panel-kicker">Quotes</span>
+          <h2>Estimates</h2>
+        </div>
+        <a href="{% url 'billing:estimate_create' %}?customer={{ customer.id }}" class="cc-pill-link">New estimate</a>
       </div>
-    </div>
+      <div class="cc-table-wrap">
+        <table class="cc-table">
+          <thead><tr><th>ID</th><th>Title</th><th>Date</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+          {% for est in estimates %}
+          <tr>
+            <td><a href="{% url 'billing:estimate_detail' est.id %}">#{{ est.id }}</a></td>
+            <td>{{ est.title|truncatewords:7 }}</td>
+            <td>{{ est.created_at|date:"M j, Y" }}</td>
+            <td>${{ est.total|floatformat:2 }}</td>
+            <td>{{ est.status|title }}</td>
+            <td><a href="{% url 'billing:estimate_detail' est.id %}">Open</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6">No estimates yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
-</div>
 
-<!-- ── Service History Tab ──────────────────────────────────────────── -->
-<div class="crm-tab-content" id="tab-services">
-  <div class="card">
-    <h2 class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
-      Complete Service History
-      <span style="font-size:12px;font-weight:500;color:var(--text-muted);">{{ all_jobs|length }} records</span>
-    </h2>
-    <p style="font-size:13px;color:var(--text-muted);margin:-8px 0 16px;">Every service performed, with details for future reference. Use this to quote repeat work accurately.</p>
-    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Services</th>
-          <th>Property</th>
-          <th>Crew</th>
-          <th>Notes</th>
-          <th class="num">Cost</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for job in all_jobs %}
-        <tr>
-          <td style="white-space:nowrap;">
-            <a href="{% url 'job_detail' job.id %}" class="link-primary" style="font-weight:600;">{{ job.scheduled_date|date:"M j, Y" }}</a>
-            {% if job.scheduled_time %}<br><span style="font-size:11px;color:var(--text-muted);">{{ job.scheduled_time|time:"g:i A" }}</span>{% endif %}
-          </td>
-          <td>
-            {% for si in job.service_items.all %}
-              <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:rgba(169,255,172,0.08);color:var(--primary);margin:1px 2px;">{{ si.description|default:si.service.name }}</span>
-              {% if si.quantity != 1 %}<span style="font-size:10px;color:var(--text-muted);">&times;{{ si.quantity }}</span>{% endif %}
+  <div class="cc-tab-content" id="tab-billing">
+    <div class="cc-grid">
+      <section class="cc-panel">
+        <div class="cc-panel-head">
+          <div>
+            <span class="cc-panel-kicker">Money</span>
+            <h2>Invoices</h2>
+          </div>
+          <a href="{% url 'billing:invoice_create' %}?customer={{ customer.id }}" class="cc-pill-link">New invoice</a>
+        </div>
+        <div class="cc-money-strip">
+          <div><span>Total paid</span><strong>${{ total_revenue|floatformat:0 }}</strong></div>
+          <div><span>Open balance</span><strong>${{ open_invoice_total|floatformat:0 }}</strong></div>
+          <div><span>Open invoices</span><strong>{{ open_invoice_count }}</strong></div>
+        </div>
+        <div class="cc-table-wrap">
+          <table class="cc-table">
+            <thead><tr><th>ID</th><th>Date</th><th>Total</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for inv in invoices %}
+            <tr>
+              <td><a href="{% url 'billing:invoice_detail' inv.id %}">#{{ inv.id }}</a></td>
+              <td>{{ inv.issue_date }}</td>
+              <td>${{ inv.total|floatformat:2 }}</td>
+              <td>{{ inv.status|title }}</td>
+            </tr>
             {% empty %}
-              <span style="color:var(--text-muted);font-size:12px;">&mdash;</span>
+            <tr><td colspan="4">No invoices yet.</td></tr>
             {% endfor %}
-          </td>
-          <td style="font-size:13px;">{{ job.property.address|truncatewords:5 }}</td>
-          <td style="font-size:13px;">
-            {% if job.assigned_crew %}{{ job.assigned_crew.name }}{% elif job.assigned_to %}{{ job.assigned_to.get_full_name|default:job.assigned_to.username }}{% else %}&mdash;{% endif %}
-          </td>
-          <td style="max-width:200px;">
-            {% if job.notes %}<span style="font-size:12px;color:var(--text-secondary);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ job.notes }}">{{ job.notes|truncatewords:8 }}</span>{% else %}<span style="color:var(--text-muted);font-size:12px;">&mdash;</span>{% endif %}
-          </td>
-          <td class="num" style="white-space:nowrap;">
-            {% with total=0 %}
-            {% for si in job.service_items.all %}
-              {% if forloop.first %}<span style="font-weight:600;">${{ si.line_total|floatformat:2 }}</span>{% endif %}
-            {% empty %}
-              <span style="color:var(--text-muted);">&mdash;</span>
-            {% endfor %}
-            {% endwith %}
-          </td>
-          <td>
-            <span class="badge badge-{{ job.status|cut:'_' }}" style="font-size:10px;">{{ job.status }}</span>
-          </td>
-          <td style="width:30px;">
-            <form method="post" action="{% url 'job_delete' job.id %}" style="display:inline;" onsubmit="return confirm('Delete this {{ job.status }} job from {{ job.scheduled_date|date:"M j" }}? This cannot be undone.');">
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="cc-panel">
+        <div class="cc-panel-head">
+          <div>
+            <span class="cc-panel-kicker">Payment setup</span>
+            <h2>Card on file</h2>
+          </div>
+        </div>
+        {% if customer.card_last4 %}
+        <div class="cc-card-on-file">
+          <strong>{{ customer.card_brand|title }} ending {{ customer.card_last4 }}</strong>
+          <small>Choose exactly when FieldLgx can charge this saved card. Use this only when the customer has authorized card-on-file billing.</small>
+          <form method="post" action="{% url 'customer_update_auto_charge' customer.id %}" class="cc-auto-charge-form">
+            {% csrf_token %}
+            <label class="cc-charge-option">
+              <input type="checkbox" name="auto_charge_completed_jobs" {% if customer.auto_charge_completed_jobs %}checked{% endif %}>
+              <span>
+                <strong>Auto-charge after each completed service</strong>
+                <small>Best for mowing and recurring work where the client says “charge me when you’re done.”</small>
+              </span>
+            </label>
+            <label class="cc-charge-option">
+              <input type="checkbox" name="auto_charge_monthly_invoices" {% if customer.auto_charge_monthly_invoices %}checked{% endif %}>
+              <span>
+                <strong>Auto-charge monthly invoices</strong>
+                <small>When a monthly invoice is sent, charge the card on file automatically.</small>
+              </span>
+            </label>
+            <button type="submit">Save auto-charge settings</button>
+          </form>
+          <div class="cc-card-actions">
+            <form method="post" action="{% url 'customer_toggle_auto_charge' customer.id %}">
               {% csrf_token %}
-              <button type="submit" style="background:none;border:none;cursor:pointer;padding:0;" title="Delete job"><span class="material-symbols-outlined" style="font-size:16px;color:#f87171;">delete</span></button>
+              <button type="submit">{% if customer.auto_charge_completed_jobs or customer.auto_charge_monthly_invoices or customer.auto_charge %}Disable all auto-charge{% else %}Enable all auto-charge{% endif %}</button>
             </form>
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted);">No services recorded yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+            <a href="{% url 'customer_setup_card' customer.id %}">Change card</a>
+          </div>
+        </div>
+        {% else %}
+        <div class="cc-empty"><strong>No card saved.</strong><small>Save a card to speed up payment collection.</small><a href="{% url 'customer_setup_card' customer.id %}">Save card</a></div>
+        {% endif %}
+      </section>
     </div>
   </div>
-</div>
-
-<!-- ── Estimates Tab ───────────────────────────────────────────────── -->
-<div class="crm-tab-content" id="tab-estimates">
-  <div class="card">
-    <h2 class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
-      Estimates &amp; Quotes
-      <a href="{% url 'billing:estimate_create' %}?customer={{ customer.id }}" class="btn btn-primary btn-sm">+ New Estimate</a>
-    </h2>
-    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Title</th>
-          <th>Date</th>
-          <th class="num">Total</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for est in estimates %}
-        <tr>
-          <td><a href="{% url 'billing:estimate_detail' est.id %}" class="link-primary" style="font-weight:600;">#{{ est.id }}</a></td>
-          <td>{{ est.title|truncatewords:6 }}</td>
-          <td>{{ est.created_at|date:"M j, Y" }}</td>
-          <td class="num" style="font-weight:600;">${{ est.total|floatformat:2 }}</td>
-          <td><span class="badge badge-{{ est.status|lower }}" style="font-size:10px;">{{ est.status }}</span></td>
-          <td><a href="{% url 'billing:estimate_detail' est.id %}" class="btn btn-secondary btn-sm">View</a></td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">No estimates yet. <a href="{% url 'billing:estimate_create' %}?customer={{ customer.id }}" class="link-primary">Create one</a></td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    </div>
-  </div>
-</div>
-
-<!-- ── Billing Tab ──────────────────────────────────────────────────── -->
-<div class="crm-tab-content" id="tab-billing">
-  <div class="card">
-    <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-      Invoices
-      <a href="{% url 'billing:estimate_create' %}?customer={{ customer.id }}" class="btn btn-primary btn-sm">+ Create Estimate</a>
-    </h2>
-    <p class="kpi-sub">Total paid: <strong>${{ total_revenue }}</strong></p>
-    <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Date</th>
-          <th class="num">Total</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for inv in invoices %}
-        <tr>
-          <td><a href="{% url 'billing:invoice_detail' inv.id %}" class="link-primary">#{{ inv.id }}</a></td>
-          <td>{{ inv.issue_date }}</td>
-          <td class="num">${{ inv.total|floatformat:2 }}</td>
-          <td><span class="badge badge-{{ inv.status|lower }}">{{ inv.status }}</span></td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4">No invoices yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    </div>
-  </div>
-</div>
+</section>
 
 <style>
-  /* ── CRM Tab Navigation ────────────────────────────────────────── */
-  .crm-tabs {
-    display: flex;
-    gap: 4px;
-    border-bottom: 2px solid var(--border);
-    margin-bottom: 20px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+  .client-command {
+    --cc-ink: #f4f5f0;
+    --cc-muted: #9b9f98;
+    --cc-dim: #656a63;
+    --cc-line: rgba(255,255,255,.11);
+    --cc-line-strong: rgba(255,255,255,.18);
+    --cc-accent: #b9ff65;
+    --cc-ease: cubic-bezier(.2,.9,.18,1);
+    max-width: 1480px;
+    margin: -4px auto 0;
+    color: var(--cc-ink);
+    font-family: var(--font-family);
   }
-  .crm-tabs::-webkit-scrollbar { display: none; }
-
-  .crm-tab {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-    white-space: nowrap;
-    transition: color 0.15s, border-color 0.15s;
+  .client-command:before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 52% -12%, rgba(255,255,255,.08), transparent 34%),
+      linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+      linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px);
+    background-size: auto, 72px 72px, 72px 72px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.72), transparent 70%);
   }
-  .crm-tab:hover { color: var(--text); }
-  .crm-tab.active {
-    color: var(--primary);
-    border-bottom-color: var(--primary);
-  }
-
-  .crm-tab-content {
-    display: none;
-  }
-  .crm-tab-content.active {
-    display: block;
-  }
-
-  /* ── Grid layouts ──────────────────────────────────────────────── */
-  .crm-grid {
+  .cc-hero {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
-    gap: 20px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 14px;
+    animation: cc-rise .65s var(--cc-ease) both;
   }
-
-  .comm-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-  }
-
-  /* ── Contact styles ────────────────────────────────────────────── */
-  .contact-dl { margin: 0; }
-  .contact-dl dt { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
-  .contact-dl dd { margin: 2px 0 0 0; }
-  .contact-dl dd a { color: var(--primary); }
-  .notes-box { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
-
-  /* ── Property / Contract rows ──────────────────────────────────── */
-  .property-row, .contract-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--border);
-    gap: 12px;
-  }
-  .property-row:last-child, .contract-row:last-child { border-bottom: none; }
-  .prop-notes { margin: 4px 0 0 0; font-size: 13px; color: var(--text-muted); }
-
-  /* ── Badges ────────────────────────────────────────────────────── */
-  .badge-muted { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
-  .badge-warning { background: rgba(234, 179, 8, 0.25); color: #fde047; }
-  .badge-info { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
-  .badge-success { background: rgba(34, 197, 94, 0.20); color: #86efac; }
-  .badge-active { background: rgba(34, 197, 94, 0.25); color: #86efac; }
-  .badge-pending { background: rgba(34, 197, 94, 0.25); color: #6ee7b7; }
-  .badge-expired, .badge-cancelled { background: rgba(38, 38, 38, 0.8); color: #a3a3a3; }
-  .badge-void { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
-
-  /* ── Communication channel sub-tabs ────────────────────────────── */
-  .comm-channel-tabs {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 16px;
-    border-bottom: 1px solid var(--border);
-  }
-  .comm-channel-tab {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 8px 14px;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    transition: color 0.15s, border-color 0.15s;
-  }
-  .comm-channel-tab:hover { color: var(--text); }
-  .comm-channel-tab.active {
-    color: var(--primary);
-    border-bottom-color: var(--primary);
-  }
-
-  .comm-channel-content { display: none; }
-  .comm-channel-content.active { display: block; }
-
-  /* ── Message compose form ──────────────────────────────────────── */
-  .send-message-form .form-group { margin-bottom: 12px; }
-  .send-message-form .form-group label {
-    display: block;
-    font-size: 13px;
-    margin-bottom: 4px;
-    color: var(--text-muted);
-  }
-  .send-message-form .form-control,
-  .send-message-form .form-select {
-    width: 100%;
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-  }
-
-  .form-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px;
-  }
-  .send-to-label {
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-  .char-hint {
-    display: block;
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 4px;
-  }
-
-  .empty-state-inline {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 20px 0;
-  }
-  .empty-state-inline p { margin: 0; color: var(--text-muted); font-size: 14px; }
-
-  /* ── Message history ───────────────────────────────────────────── */
-  .history-filter-tabs {
-    display: flex;
-    gap: 4px;
-  }
-  .history-filter {
-    padding: 4px 10px;
-    font-size: 12px;
-    font-weight: 500;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .history-filter:hover { color: var(--text); border-color: var(--text-muted); }
-  .history-filter.active {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-  }
-
-  .message-history {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-height: 600px;
-    overflow-y: auto;
-  }
-  .message-row {
-    padding: 12px;
-    border-radius: 8px;
-    border-left: 3px solid var(--border);
-    background: rgba(38, 38, 38, 0.5);
-  }
-  .message-row.message-sent { border-left-color: var(--primary); }
-  .message-row.message-received { border-left-color: #22c55e; }
-  .message-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-bottom: 6px;
-  }
-  .message-channel-badge {
+  .cc-back-link {
+    width: fit-content;
+    min-height: 38px;
     display: inline-flex;
     align-items: center;
-    padding: 1px 6px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
+    gap: 7px;
+    margin-bottom: 12px;
+    padding: 0 13px;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 999px;
+    background: rgba(255,255,255,.055);
+    color: var(--cc-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--type-strong-weight);
+    transition: transform .28s var(--cc-ease), border-color .28s var(--cc-ease), background .28s var(--cc-ease);
+  }
+  .cc-back-link:hover {
+    transform: translateY(-2px);
+    border-color: var(--cc-line-strong);
+    background: rgba(255,255,255,.075);
+    color: var(--cc-ink);
+  }
+  .cc-back-link .material-symbols-outlined {
+    font-size: 19px;
+  }
+  .cc-kicker,
+  .cc-panel-kicker,
+  .cc-stat span,
+  .cc-mini-stack span,
+  .cc-note-preview span,
+  .cc-money-strip span {
+    color: var(--cc-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
     text-transform: uppercase;
-    letter-spacing: 0.3px;
   }
-  .channel-email {
-    background: rgba(59, 130, 246, 0.2);
-    color: #93c5fd;
+  .cc-kicker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
-  .channel-sms {
-    background: rgba(34, 197, 94, 0.2);
-    color: #86efac;
+  .cc-kicker span {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--cc-accent);
+    box-shadow: 0 0 18px rgba(185,255,101,.45);
   }
-  .message-direction {
-    font-style: italic;
+  .cc-hero h1 {
+    margin: 12px 0 10px;
+    font-size: clamp(44px, 7vw, 88px);
+    line-height: .9;
+    letter-spacing: var(--letter-spacing-normal);
   }
-  .message-subject { font-weight: 600; margin-bottom: 4px; }
-  .message-body { font-size: 14px; white-space: pre-wrap; word-break: break-word; }
-
-  /* ── Responsive ────────────────────────────────────────────────── */
-  @media (max-width: 768px) {
-    .crm-grid { grid-template-columns: 1fr; gap: 14px; }
-    .comm-grid { grid-template-columns: 1fr; gap: 14px; }
-    .property-row, .contract-row { flex-direction: column; align-items: flex-start; gap: 10px; }
-    .property-row > div:last-child, .contract-row > div:last-child { width: 100%; }
-    .property-row .btn, .contract-row .btn { min-height: 44px; flex: 1; justify-content: center; }
-    .send-message-form .form-control,
-    .send-message-form .form-select { font-size: 16px; min-height: 44px; }
-    .send-message-form .btn { width: 100%; min-height: 44px; justify-content: center; }
-    .form-actions { flex-direction: column; align-items: stretch; }
-    .card-title { font-size: 16px; flex-wrap: wrap; gap: 8px; }
-    .crm-tab { padding: 10px 12px; font-size: 13px; }
-    .history-filter-tabs { gap: 2px; }
-    .history-filter { padding: 4px 8px; font-size: 11px; }
+  .cc-hero-address {
+    margin: -2px 0 12px;
+    color: var(--cc-muted);
+    font-size: var(--type-body-size);
+    line-height: 1.35;
+  }
+  .cc-client-tags,
+  .cc-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .cc-client-tags span,
+  .cc-client-tags a,
+  .cc-badges span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 0 11px;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 999px;
+    background: rgba(255,255,255,.06);
+    color: var(--cc-muted);
+    font-size: var(--type-caption-size);
+    font-weight: var(--type-strong-weight);
+  }
+  .cc-client-tags .material-symbols-outlined { font-size: 16px; color: var(--cc-accent); }
+  .cc-hero-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    min-width: min(620px, 100%);
+  }
+  .cc-action,
+  .cc-pill-link,
+  .cc-empty a,
+  .cc-property-actions a,
+  .cc-card-on-file a,
+  .cc-card-on-file button,
+  .cc-note-form button,
+  .cc-form button {
+    min-height: 44px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.055);
+    color: var(--cc-ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 14px;
+    font-size: var(--text-sm);
+    font-weight: var(--type-strong-weight);
+    cursor: pointer;
+    transition: transform .28s var(--cc-ease), border-color .28s var(--cc-ease), background .28s var(--cc-ease);
+  }
+  .cc-action:hover,
+  .cc-pill-link:hover,
+  .cc-row:hover,
+  .cc-property-actions a:hover,
+  .cc-empty a:hover,
+  .cc-card-on-file a:hover,
+  .cc-card-on-file button:hover,
+  .cc-note-form button:hover,
+  .cc-form button:hover {
+    transform: translateY(-2px);
+    border-color: var(--cc-line-strong);
+    background: rgba(255,255,255,.075);
+  }
+  .cc-action-hot,
+  .cc-empty a,
+  .cc-note-form button,
+  .cc-form button {
+    background: var(--cc-accent);
+    border-color: transparent;
+    color: #050605;
+  }
+  .cc-stat-grid,
+  .cc-grid,
+  .cc-contact-grid,
+  .cc-money-strip {
+    display: grid;
+    gap: 12px;
+  }
+  .cc-stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 14px; }
+  .cc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cc-grid-main { align-items: stretch; }
+  .cc-contact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cc-money-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 14px; }
+  .cc-stat,
+  .cc-panel,
+  .cc-contact-card,
+  .cc-money-strip div {
+    border: 1px solid var(--cc-line);
+    background: linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.04));
+    box-shadow: 0 28px 90px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.10);
+    backdrop-filter: blur(28px) saturate(120%);
+  }
+  .cc-stat {
+    min-height: 118px;
+    border-radius: 28px;
+    padding: 17px;
+    color: var(--cc-ink);
+  }
+  .cc-stat strong,
+  .cc-money-strip strong {
+    display: block;
+    margin-top: 12px;
+    font-size: var(--type-metric-size);
+    line-height: 1;
+  }
+  .cc-stat small,
+  .cc-money-strip small,
+  .cc-card-on-file small {
+    display: block;
+    margin-top: 8px;
+    color: var(--cc-dim);
+    font-size: var(--type-caption-size);
+  }
+  .cc-tabs,
+  .cc-channel-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px;
+    margin-bottom: 14px;
+    border: 1px solid var(--cc-line);
+    border-radius: 999px;
+    background: rgba(3,4,3,.70);
+    backdrop-filter: blur(24px) saturate(120%);
+    scrollbar-width: none;
+  }
+  .cc-tabs::-webkit-scrollbar,
+  .cc-channel-tabs::-webkit-scrollbar { display: none; }
+  .cc-tab,
+  .cc-channel-tab,
+  .cc-history-filters button {
+    min-height: 36px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--cc-muted);
+    padding: 0 14px;
+    font-size: var(--text-sm);
+    font-weight: var(--type-strong-weight);
+    cursor: pointer;
+  }
+  .cc-tab { flex: 1 0 auto; }
+  .cc-tab.active,
+  .cc-channel-tab.active,
+  .cc-history-filters button.active {
+    color: var(--cc-ink);
+    background: rgba(255,255,255,.07);
+    border-color: rgba(255,255,255,.10);
+  }
+  .cc-tab-content,
+  .cc-channel-content { display: none; }
+  .cc-tab-content.active,
+  .cc-channel-content.active { display: block; }
+  .cc-property-jump {
+    display: none;
+    border: 1px solid var(--cc-line);
+    border-radius: 26px;
+    padding: 16px;
+    margin-bottom: 14px;
+    background: linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.04));
+    box-shadow: 0 28px 90px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.10);
+    backdrop-filter: blur(28px) saturate(120%);
+  }
+  .cc-property-jump strong {
+    display: block;
+    margin-top: 5px;
+    font-size: var(--text-base);
+  }
+  .cc-property-jump-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .cc-property-jump-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .cc-property-jump-list a {
+    min-height: 46px;
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 18px;
+    background: rgba(0,0,0,.22);
+    color: var(--cc-ink);
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    font-size: var(--text-sm);
+    font-weight: var(--type-strong-weight);
+  }
+  .cc-property-jump-list .cc-map-link {
+    grid-template-columns: 20px auto;
+    background: var(--cc-accent);
+    border-color: transparent;
+    color: #050605;
+  }
+  .cc-property-jump-list .material-symbols-outlined {
+    color: var(--cc-accent);
+    font-size: 20px;
+  }
+  .cc-property-jump-list .cc-map-link .material-symbols-outlined {
+    color: #050605;
+  }
+  .cc-panel {
+    border-radius: 30px;
+    padding: 20px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    animation: cc-rise .75s var(--cc-ease) both;
+  }
+  .cc-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .cc-panel h2 {
+    margin: 5px 0 0;
+    font-size: var(--type-title-size);
+    line-height: 1;
+  }
+  .cc-count {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 11px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.07);
+    color: var(--cc-muted);
+    font-size: var(--type-caption-size);
+    font-weight: var(--type-strong-weight);
+  }
+  .cc-contact-card {
+    min-height: 116px;
+    border-radius: 22px;
+    padding: 16px;
+    color: var(--cc-ink);
+  }
+  .cc-contact-card .material-symbols-outlined {
+    color: var(--cc-accent);
+    font-size: 22px;
+  }
+  .cc-contact-card small {
+    display: block;
+    margin-top: 16px;
+    color: var(--cc-muted);
+    font-size: var(--type-caption-size);
+  }
+  .cc-contact-card strong {
+    display: block;
+    margin-top: 5px;
+    overflow-wrap: anywhere;
+    font-size: var(--text-sm);
+  }
+  .cc-mini-stack,
+  .cc-list,
+  .cc-note-list,
+  .cc-message-list {
+    display: grid;
+    gap: 10px;
+  }
+  .cc-mini-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 12px;
+  }
+  .cc-mini-stack div,
+  .cc-row,
+  .cc-empty,
+  .cc-note-preview,
+  .cc-property-card,
+  .cc-note-form,
+  .cc-note-item,
+  .cc-message-row,
+  .cc-card-on-file,
+  .cc-money-strip div {
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 22px;
+    background: rgba(0,0,0,.20);
+  }
+  .cc-mini-stack div,
+  .cc-note-preview,
+  .cc-empty,
+  .cc-note-form,
+  .cc-note-item,
+  .cc-message-row,
+  .cc-card-on-file,
+  .cc-money-strip div {
+    padding: 16px;
+  }
+  .cc-mini-stack strong {
+    display: block;
+    margin-top: 8px;
+    font-size: var(--text-base);
+  }
+  .cc-mini-stack small,
+  .cc-note-preview p,
+  .cc-property-card p,
+  .cc-note-item p,
+  .cc-message-row p {
+    margin: 7px 0 0;
+    color: var(--cc-muted);
+    font-size: var(--type-caption-size);
+  }
+  .cc-row {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 13px;
+    color: var(--cc-ink);
+  }
+  .cc-row strong,
+  .cc-empty strong,
+  .cc-property-card h3,
+  .cc-card-on-file strong,
+  .cc-message-row strong {
+    display: block;
+    font-size: var(--text-sm);
+  }
+  .cc-row small,
+  .cc-empty small,
+  .cc-message-row small {
+    display: block;
+    margin-top: 4px;
+    color: var(--cc-muted);
+    font-size: var(--type-caption-size);
+  }
+  .cc-row em {
+    color: var(--cc-muted);
+    font-size: var(--type-caption-size);
+    font-style: normal;
+    font-weight: var(--type-strong-weight);
+  }
+  .cc-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--cc-accent);
+    box-shadow: 0 0 18px rgba(185,255,101,.35);
+  }
+  .cc-dot-muted { background: var(--cc-muted); box-shadow: none; }
+  .cc-property-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+    gap: 12px;
+  }
+  .cc-property-card {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .cc-property-card h3 { margin: 0 0 10px; }
+  .cc-badges span {
+    min-height: 26px;
+    font-size: 11px;
+  }
+  .cc-property-actions,
+  .cc-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .cc-auto-charge-form {
+    display: grid;
+    gap: 10px;
+  }
+  .cc-charge-option {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: start;
+    padding: 14px;
+    border: 1px solid var(--cc-line);
+    border-radius: 16px;
+    background: rgba(255,255,255,.035);
+  }
+  .cc-charge-option input {
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    accent-color: var(--cc-accent);
+  }
+  .cc-charge-option span {
+    display: grid;
+    gap: 4px;
+  }
+  .cc-charge-option strong {
+    margin: 0;
+    font-size: var(--type-body-size);
+  }
+  .cc-charge-option small {
+    margin: 0;
+    line-height: 1.35;
+  }
+  .cc-property-actions a,
+  .cc-card-on-file a,
+  .cc-card-on-file button {
+    min-height: 36px;
+    font-size: var(--type-caption-size);
+  }
+  .cc-note-preview-large { margin-bottom: 12px; }
+  .cc-note-form textarea,
+  .cc-note-form select,
+  .cc-form textarea,
+  .cc-form input,
+  .cc-form select {
+    width: 100%;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 18px;
+    background: rgba(0,0,0,.28);
+    color: var(--cc-ink);
+    padding: 13px 14px;
+    font-size: var(--type-control-size);
+    font-weight: var(--type-strong-weight);
+    font-family: inherit;
+  }
+  .cc-note-form div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 180px auto;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .cc-note-internal {
+    border-color: rgba(245,158,11,.22);
+    background: rgba(245,158,11,.06);
+  }
+  .cc-note-visibility {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 0 8px;
+    margin-right: 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.08);
+    color: var(--cc-ink);
+    font-size: 10px;
+    font-weight: var(--type-strong-weight);
+    text-transform: uppercase;
+  }
+  .cc-form {
+    display: grid;
+    gap: 12px;
+  }
+  .cc-form label {
+    display: grid;
+    gap: 6px;
+    color: var(--cc-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .cc-form button { justify-self: start; }
+  .cc-history-filters {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .cc-history-filters button {
+    border-color: rgba(255,255,255,.10);
+    min-height: 32px;
+  }
+  .cc-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .cc-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 620px;
+  }
+  .cc-table th,
+  .cc-table td {
+    padding: 13px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    text-align: left;
+    font-size: var(--text-sm);
+  }
+  .cc-table th {
+    color: var(--cc-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .cc-table a { color: var(--cc-accent); font-weight: var(--type-strong-weight); }
+  @keyframes cc-rise {
+    from { opacity: 0; transform: translateY(18px) scale(.99); filter: blur(8px); }
+    to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .client-command *, .client-command *:before, .client-command *:after { animation: none !important; transition: none !important; }
+  }
+  @media (max-width: 1180px) {
+    .cc-hero,
+    .cc-grid,
+    .cc-stat-grid { grid-template-columns: 1fr; }
+    .cc-hero-actions,
+    .cc-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .client-command { margin: 0; }
+    .cc-hero h1 { font-size: 48px; }
+    .cc-hero-address { font-size: var(--text-sm); }
+    .cc-property-jump { display: block; }
+    .cc-hero-actions,
+    .cc-contact-grid,
+    .cc-mini-stack,
+    .cc-money-strip,
+    .cc-note-form div,
+    .cc-property-jump-row { grid-template-columns: 1fr; }
+    .cc-tabs { border-radius: 22px; }
+    .cc-tab { flex: 0 0 auto; }
+    .cc-panel,
+    .cc-stat,
+    .cc-contact-card { border-radius: 24px; }
+    .cc-row { grid-template-columns: 10px minmax(0, 1fr); }
+    .cc-row em { grid-column: 2; }
+    .cc-action,
+    .cc-note-form button,
+    .cc-form button { width: 100%; }
   }
 </style>
 
 <script>
-  // ── CRM Tab switching ──────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', function() {
-    // Main CRM tabs
-    document.querySelectorAll('.crm-tab').forEach(function(tab) {
-      tab.addEventListener('click', function() {
-        var target = this.dataset.tab;
-        // Update tab buttons
-        document.querySelectorAll('.crm-tab').forEach(function(t) { t.classList.remove('active'); });
-        this.classList.add('active');
-        // Update tab content
-        document.querySelectorAll('.crm-tab-content').forEach(function(c) { c.classList.remove('active'); });
-        document.getElementById('tab-' + target).classList.add('active');
-        // Remember active tab
-        try { sessionStorage.setItem('crm_active_tab', target); } catch(e) {}
-      });
-    });
+function addPropertyNote() {
+  var textEl = document.getElementById('new-prop-note');
+  var propEl = document.getElementById('note-property-id');
+  var visibilityEl = document.getElementById('note-visibility');
+  if (!textEl || !propEl) return;
+  var text = textEl.value.trim();
+  var propId = propEl.value;
+  var visibility = visibilityEl ? visibilityEl.value : 'crew';
+  if (!text || !propId) return;
 
-    // Restore last active tab
-    try {
-      var saved = sessionStorage.getItem('crm_active_tab');
-      if (saved) {
-        var btn = document.querySelector('.crm-tab[data-tab="' + saved + '"]');
-        if (btn) btn.click();
+  fetch('{% url "api_add_property_note" %}', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+    body: JSON.stringify({ property_id: propId, text: text, visibility: visibility })
+  }).then(function(response) {
+    return response.json();
+  }).then(function(data) {
+    if (data.ok) {
+      textEl.value = '';
+      location.reload();
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('[data-smart-back]').forEach(function(link) {
+    link.addEventListener('click', function(event) {
+      var referrer = document.referrer || '';
+      var sameOrigin = referrer.indexOf(window.location.origin) === 0;
+      if (sameOrigin && window.history.length > 1) {
+        event.preventDefault();
+        window.history.back();
       }
-    } catch(e) {}
-
-    // Communication channel sub-tabs (email / sms)
-    document.querySelectorAll('.comm-channel-tab').forEach(function(tab) {
-      tab.addEventListener('click', function() {
-        var channel = this.dataset.channel;
-        document.querySelectorAll('.comm-channel-tab').forEach(function(t) { t.classList.remove('active'); });
-        this.classList.add('active');
-        document.querySelectorAll('.comm-channel-content').forEach(function(c) { c.classList.remove('active'); });
-        document.getElementById('channel-' + channel).classList.add('active');
-      });
     });
+  });
 
-    // Message history filter (all / email / sms)
-    document.querySelectorAll('.history-filter').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        var filter = this.dataset.filter;
-        document.querySelectorAll('.history-filter').forEach(function(b) { b.classList.remove('active'); });
-        this.classList.add('active');
+  function preferredMapUrl(address) {
+    var encoded = encodeURIComponent(address || '');
+    var ua = navigator.userAgent || navigator.vendor || window.opera || '';
+    var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var isAndroid = /Android/i.test(ua);
+    if (isIOS) return 'https://maps.apple.com/?q=' + encoded;
+    if (isAndroid) return 'https://www.google.com/maps/search/?api=1&query=' + encoded;
+    return 'https://www.google.com/maps/search/?api=1&query=' + encoded;
+  }
 
-        document.querySelectorAll('.message-row').forEach(function(row) {
-          if (filter === 'all') {
-            row.style.display = '';
-          } else if (filter === 'email') {
-            row.style.display = row.classList.contains('message-channel-email') ? '' : 'none';
-          } else if (filter === 'sms') {
-            row.style.display = row.classList.contains('message-channel-sms') ? '' : 'none';
-          }
-        });
+  document.querySelectorAll('.cc-map-link[data-address]').forEach(function(link) {
+    link.href = preferredMapUrl(link.dataset.address);
+  });
+
+  function activateTab(target) {
+    document.querySelectorAll('.cc-tab').forEach(function(tab) {
+      tab.classList.toggle('active', tab.dataset.tab === target);
+    });
+    document.querySelectorAll('.cc-tab-content').forEach(function(panel) {
+      panel.classList.toggle('active', panel.id === 'tab-' + target);
+    });
+    try { sessionStorage.setItem('crm_active_tab', target); } catch(e) {}
+  }
+
+  document.querySelectorAll('.cc-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      activateTab(tab.dataset.tab);
+    });
+  });
+
+  document.querySelectorAll('[data-tab-link]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      activateTab(link.dataset.tabLink);
+    });
+  });
+
+  try {
+    var saved = sessionStorage.getItem('crm_active_tab');
+    if (saved && document.getElementById('tab-' + saved)) activateTab(saved);
+  } catch(e) {}
+
+  document.querySelectorAll('.cc-channel-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      var channel = tab.dataset.channel;
+      document.querySelectorAll('.cc-channel-tab').forEach(function(item) {
+        item.classList.toggle('active', item === tab);
+      });
+      document.querySelectorAll('.cc-channel-content').forEach(function(panel) {
+        panel.classList.toggle('active', panel.id === 'channel-' + channel);
       });
     });
   });
+
+  document.querySelectorAll('.cc-history-filters button').forEach(function(button) {
+    button.addEventListener('click', function() {
+      var filter = button.dataset.filter;
+      document.querySelectorAll('.cc-history-filters button').forEach(function(item) {
+        item.classList.toggle('active', item === button);
+      });
+      document.querySelectorAll('.cc-message-row').forEach(function(row) {
+        row.style.display = filter === 'all' || row.classList.contains('message-channel-' + filter) ? '' : 'none';
+      });
+    });
+  });
+});
 </script>
 {% endblock %}

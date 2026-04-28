@@ -8,55 +8,67 @@
 {% block context_panel %}{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Fertilization Management</h1>
-  <p>Programs, enrollments, products, applications, calculators, and reports</p>
-</div>
+<section class="fert-command">
+<header class="fert-hero">
+  <div>
+    <div class="fert-kicker"><span></span>Fertilization Command</div>
+    <h1>Fertilization programs</h1>
+    <p>Manage enrollments, rounds, products, applications, compliance, and pricing from one focused workspace.</p>
+  </div>
+  <div class="fert-actions">
+    <a href="{% url 'fertilization:enrollment_builder' %}" class="fert-action fert-action-hot">
+      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">person_add</span>
+      Enroll Client
+    </a>
+    <a href="{% url 'fertilization:program_builder' %}" class="fert-action">
+      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">playlist_add</span>
+      New Program
+    </a>
+    <a href="#applications" class="fert-action" data-tab-shortcut="applications">
+      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;">science</span>
+      Applications
+    </a>
+  </div>
+</header>
 
 {# Global CSRF token for AJAX #}
 <form id="fert-csrf-form" style="display:none;">{% csrf_token %}</form>
 
-{% if can_see_pricing %}
-<div class="card" style="margin-bottom:14px;padding:16px;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-    <h3 style="margin:0;font-size:14px;font-weight:700;font-family:var(--font-headline);">
-      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;color:#a78bfa;">trending_up</span>
-      Fertilization Revenue
-    </h3>
-    <div style="display:flex;gap:4px;" id="fert-rev-toggle">
-      <button type="button" class="frev-btn" data-view="monthly" onclick="showFertRev('monthly')">Monthly</button>
-      <button type="button" class="frev-btn active" data-view="annual" onclick="showFertRev('annual')">Annual</button>
-    </div>
+<div class="fert-stats">
+  <div class="fert-stat">
+    <span class="fert-stat-num">{{ total_enrollments }}</span>
+    <span class="fert-stat-label">Enrollments</span>
+    <span class="fert-stat-sub">{{ current_year }} active clients</span>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-    <div style="background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;padding:12px 14px;text-align:center;">
-      <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:4px;">Projected</span>
-      <span id="fert-rev-val" style="display:block;font-size:20px;font-weight:800;font-family:var(--font-headline);color:var(--text);" data-monthly="${{ fert_monthly_revenue|floatformat:0 }}" data-annual="${{ fert_annual_revenue|floatformat:0 }}">${{ fert_annual_revenue|floatformat:0 }}</span>
-    </div>
-    <div style="background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;padding:12px 14px;text-align:center;">
-      <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:4px;">Earned This Year</span>
-      <span style="display:block;font-size:20px;font-weight:800;font-family:var(--font-headline);color:#a78bfa;">${{ fert_actual_revenue|floatformat:0 }}</span>
-    </div>
-    <div style="background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;padding:12px 14px;text-align:center;">
-      <span style="display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:4px;">Enrollments</span>
-      <span style="display:block;font-size:20px;font-weight:800;font-family:var(--font-headline);color:var(--text);">{{ total_enrollments }}</span>
-    </div>
+  <div class="fert-stat">
+    <span class="fert-stat-num">{{ active_program_count }}</span>
+    <span class="fert-stat-label">Programs</span>
+    <span class="fert-stat-sub">active templates</span>
   </div>
+  <div class="fert-stat">
+    <span class="fert-stat-num">{{ pending_rounds }}</span>
+    <span class="fert-stat-label">Pending rounds</span>
+    <span class="fert-stat-sub">{{ scheduled_rounds }} scheduled</span>
+  </div>
+  {% if can_see_pricing %}
+  <div class="fert-stat">
+    <span class="fert-stat-num">${{ fert_annual_revenue|floatformat:0 }}</span>
+    <span class="fert-stat-label">Projected</span>
+    <span class="fert-stat-sub">${{ fert_monthly_revenue|floatformat:0 }} monthly</span>
+  </div>
+  <div class="fert-stat">
+    <span class="fert-stat-num">${{ fert_actual_revenue|floatformat:0 }}</span>
+    <span class="fert-stat-label">Earned</span>
+    <span class="fert-stat-sub">{{ completed_rounds }} rounds complete</span>
+  </div>
+  {% else %}
+  <div class="fert-stat">
+    <span class="fert-stat-num">{{ completed_rounds }}</span>
+    <span class="fert-stat-label">Completed</span>
+    <span class="fert-stat-sub">rounds complete</span>
+  </div>
+  {% endif %}
 </div>
-<style>
-  .frev-btn { font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all .15s; }
-  .frev-btn:hover { border-color:var(--text-muted);color:var(--text); }
-  .frev-btn.active { background:#a78bfa;color:#fff;border-color:#a78bfa; }
-  @media (max-width:768px) { div[style*="grid-template-columns:repeat(3"] { grid-template-columns:1fr !important; } }
-</style>
-<script>
-function showFertRev(view) {
-  document.querySelectorAll('.frev-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.view === view); });
-  var el = document.getElementById('fert-rev-val');
-  if (el) el.textContent = el.dataset[view] || '$0';
-}
-</script>
-{% endif %}
 
 <!-- ═══════════════════════════════════════════════════════════
      TAB NAVIGATION
@@ -698,6 +710,7 @@ document.querySelectorAll('.fert-toggle-select').forEach(function(btn) {
 <script id="fert-properties-data" type="application/json">{{ properties_json|safe }}</script>
 <script id="fert-programs-data" type="application/json">{{ programs_json|safe }}</script>
 
+</section>
 {% endblock %}
 
 {% block extra_js %}
@@ -723,6 +736,19 @@ document.querySelectorAll('.fert-toggle-select').forEach(function(btn) {
       var id = this.getAttribute('data-tab');
       showTab(id);
       history.replaceState(null, '', '#' + id);
+    });
+  });
+
+  document.querySelectorAll('[data-tab-shortcut]').forEach(function(t) {
+    t.addEventListener('click', function(e) {
+      e.preventDefault();
+      var id = this.getAttribute('data-tab-shortcut');
+      showTab(id);
+      history.replaceState(null, '', '#' + id);
+      var nav = document.querySelector('.fert-tabs');
+      if (nav && nav.scrollIntoView) {
+        nav.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     });
   });
 

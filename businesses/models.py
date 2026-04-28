@@ -326,6 +326,14 @@ class Business(models.Model):
         blank=True,
         help_text="PayPal.me link or PayPal email (e.g. paypal.me/YourBusiness). Shown on invoices.",
     )
+    client_card_payments_enabled = models.BooleanField(
+        default=True,
+        help_text="If enabled and Stripe is connected, clients can pay invoices and estimate deposits by credit card.",
+    )
+    client_saved_cards_enabled = models.BooleanField(
+        default=True,
+        help_text="If enabled, owners can securely save authorized customer cards for future off-session charges.",
+    )
 
     # Customizable email content (leave blank to use defaults)
     invoice_email_subject = models.CharField(
@@ -523,7 +531,11 @@ class Business(models.Model):
 
     def can_accept_stripe_payments(self):
         """True if this business has connected Stripe and can accept card payments for invoices."""
-        return bool(self.stripe_connect_account_id and self.stripe_connect_charges_enabled)
+        return bool(
+            self.client_card_payments_enabled
+            and self.stripe_connect_account_id
+            and self.stripe_connect_charges_enabled
+        )
 
     def crew_soft_cap(self, default_cap=12):
         return self.plan_crew_soft_cap_override or default_cap
@@ -540,5 +552,3 @@ class Business(models.Model):
         if not self.enabled_modules:
             self.enabled_modules = self.get_default_modules()
         super().save(*args, **kwargs)
-
-

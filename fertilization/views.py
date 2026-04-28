@@ -463,6 +463,23 @@ def hub(request):
 
     can_see_pricing = request.user.role in ("owner", "manager")
 
+    pending_rounds = ScheduledRound.objects.filter(
+        enrollment__business=business,
+        enrollment__year=current_year,
+        status='pending',
+    ).count()
+    scheduled_rounds = ScheduledRound.objects.filter(
+        enrollment__business=business,
+        enrollment__year=current_year,
+        status='scheduled',
+    ).count()
+    completed_rounds = ScheduledRound.objects.filter(
+        enrollment__business=business,
+        enrollment__year=current_year,
+        status='completed',
+    ).count()
+    active_program_count = programs.filter(is_active=True).count()
+
     # Revenue projections for fertilization
     from decimal import Decimal
     fert_annual_revenue = Decimal("0")
@@ -515,6 +532,10 @@ def hub(request):
         'fert_monthly_revenue': fert_monthly_revenue,
         'fert_actual_revenue': fert_actual_revenue,
         'total_enrollments': total_enrollments,
+        'pending_rounds': pending_rounds,
+        'scheduled_rounds': scheduled_rounds,
+        'completed_rounds': completed_rounds,
+        'active_program_count': active_program_count,
     }
 
     return render(request, "fertilization/hub.html", context)

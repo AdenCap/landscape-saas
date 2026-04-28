@@ -1,175 +1,671 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Jobs Workspace</h1>
-  <p>Track scheduled, in-progress, and completed work from one board.</p>
-</div>
+<section class="jobs-command">
+  <header class="jc-hero">
+    <div>
+      <div class="jc-kicker"><span></span>Jobs Command</div>
+      <h1>Work pipeline</h1>
+      <p>Schedule, review, bill, and open every job from one focused workspace.</p>
+    </div>
+    <div class="jc-actions">
+      <a href="{% url 'calendar' %}" class="jc-action jc-action-hot"><span class="material-symbols-outlined">calendar_month</span> Schedule</a>
+      <a href="{% url 'create_job' %}" class="jc-action"><span class="material-symbols-outlined">add_task</span> New job</a>
+      <a href="{% url 'daily_route' %}" class="jc-action"><span class="material-symbols-outlined">route</span> Routes</a>
+    </div>
+  </header>
 
-<div class="billing-tabs" style="margin-bottom: 16px;">
-  <a href="{% url 'job_list' %}" class="billing-tab active">Jobs</a>
-  <a href="{% url 'daily_route' %}" class="billing-tab">Routes</a>
-  <a href="{% url 'checklists:template_list' %}" class="billing-tab">Checklists</a>
-</div>
+  <nav class="jc-tabs" aria-label="Jobs workspace">
+    <a href="{% url 'job_list' %}" class="active">Jobs</a>
+    <a href="{% url 'daily_route' %}">Routes</a>
+    <a href="{% url 'checklists:template_list' %}">Checklists</a>
+  </nav>
 
-<div class="quick-actions" style="margin-bottom:14px;">
-  <a href="{% url 'calendar' %}" class="btn btn-primary">Schedule</a>
-  <a href="{% url 'create_job' %}" class="btn btn-secondary">New Job</a>
-  <a href="{% url 'daily_route' %}" class="btn btn-secondary">Routes</a>
-</div>
+  <section class="jc-summary" aria-label="Job summary">
+    <a href="{% url 'job_list' %}">
+      <span>Upcoming</span>
+      <strong>{{ upcoming_jobs|length }}</strong>
+      <small>next {{ upcoming_window_days }} days</small>
+    </a>
+    <a href="{% url 'job_list' %}?filter=completed">
+      <span>Completed</span>
+      <strong>{{ completed_count }}</strong>
+      <small>recent work</small>
+    </a>
+    <a href="{% url 'job_list' %}#jc-needs-scheduled">
+      <span>Needs scheduled</span>
+      <strong>{{ needs_scheduled_count }}</strong>
+      <small>estimates + jobs</small>
+    </a>
+    <a href="{% url 'job_list' %}?filter=past_7_days">
+      <span>Past week</span>
+      <strong>{{ past_7_days_count }}</strong>
+      <small>completed window</small>
+    </a>
+  </section>
 
-{% if needs_scheduling %}
-<div class="card" style="margin-bottom:16px;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-    <h3 style="margin:0;font-size:14px;font-weight:700;font-family:var(--font-headline);">
-      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;color:var(--primary);">event_available</span>
-      Needs Scheduling
-      <span style="font-size:11px;font-weight:600;background:var(--primary);color:#111;padding:2px 6px;border-radius:4px;margin-left:6px;">{{ needs_scheduling|length }}</span>
-    </h3>
+  {% if filter_type %}
+  <section class="jc-filters" aria-label="Job filters">
+    <a href="{% url 'job_list' %}">Upcoming</a>
+    <a href="{% url 'job_list' %}?filter=past_7_days" class="{% if filter_type == 'past_7_days' %}active{% endif %}">Past 7</a>
+    <a href="{% url 'job_list' %}?filter=past_30_days" class="{% if filter_type == 'past_30_days' %}active{% endif %}">Past 30</a>
+    <a href="{% url 'job_list' %}?filter=this_month" class="{% if filter_type == 'this_month' %}active{% endif %}">This month</a>
+    <a href="{% url 'job_list' %}?filter=completed" class="{% if filter_type == 'completed' %}active{% endif %}">Completed</a>
+  </section>
+  <div class="jc-filter-note">
+    <span class="material-symbols-outlined">filter_list</span>
+    Showing {{ filter_label }}
   </div>
-  <p style="font-size:12px;color:var(--text-muted);margin:-6px 0 12px;">Accepted estimates that need to be scheduled as jobs.</p>
-  <div style="display:flex;flex-direction:column;gap:6px;">
-    {% for est in needs_scheduling %}
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;flex-wrap:wrap;">
-      <div style="flex:1;min-width:200px;">
-        <strong style="font-size:14px;">{{ est.customer.name }}</strong>
-        <span style="font-size:12px;color:var(--text-muted);display:block;">{{ est.title }} · ${{ est.total|floatformat:2 }}</span>
+  {% endif %}
+
+  {% if not filter_type %}
+  <section class="jc-panel" id="jc-needs-scheduled">
+    <div class="jc-panel-head">
+      <div>
+        <span class="jc-panel-kicker">Schedule queue</span>
+        <h2>Needs scheduled</h2>
       </div>
-      <form method="post" action="{% url 'schedule_from_estimate' est.id %}" style="display:flex;align-items:center;gap:6px;">
-        {% csrf_token %}
-        <input type="date" name="schedule_date" required style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;">
-        <button type="submit" class="btn btn-primary" style="font-size:11px;padding:6px 12px;">Schedule</button>
-      </form>
-      <a href="{% url 'billing:estimate_detail' est.id %}" class="btn btn-secondary" style="font-size:11px;padding:6px 10px;">View</a>
+      <span class="jc-count">{{ needs_scheduled_count }}</span>
     </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
+    {% if needs_scheduling or unscheduled_jobs %}
+    {% if needs_scheduling %}
+    <div class="jc-subsection-title">Accepted estimates</div>
+    <div class="jc-queue">
+      {% for est in needs_scheduling %}
+      <article class="jc-queue-row">
+        <a href="{% url 'billing:estimate_detail' est.id %}" class="jc-queue-main">
+          <strong>{{ est.customer.name }}</strong>
+          <small>{{ est.title }} · ${{ est.total|floatformat:2 }}</small>
+        </a>
+        <form method="post" action="{% url 'schedule_from_estimate' est.id %}" class="jc-schedule-form">
+          {% csrf_token %}
+          <input type="date" name="schedule_date" required>
+          <button type="submit">Schedule</button>
+        </form>
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if unscheduled_jobs %}
+    <div class="jc-subsection-title{% if needs_scheduling %} jc-subsection-spaced{% endif %}">Unscheduled jobs</div>
+    <div class="jc-queue">
+      {% for item in unscheduled_jobs %}
+      <article class="jc-queue-row {% if item.job.schedule_by_date and item.job.schedule_by_date < today %}is-overdue{% elif item.job.schedule_by_date %}is-due{% endif %}">
+        <a href="{% url 'job_detail' item.job.id %}" class="jc-queue-main">
+          <strong>{{ item.job.property.customer.name }}</strong>
+          <small>{{ item.title }} · ${{ item.amount|floatformat:2 }}</small>
+          {% if item.job.schedule_by_date %}
+          <em>Schedule by {{ item.job.schedule_by_date|date:"M j" }}{% if item.job.schedule_by_date < today %} · overdue{% endif %}</em>
+          {% endif %}
+        </a>
+        <form method="post" action="{% url 'calendar_job_reschedule' item.job.id %}" class="jc-schedule-form" onsubmit="return scheduleUnschedJob(event, this, {{ item.job.id }});">
+          {% csrf_token %}
+          <input type="date" name="schedule_date" required>
+          <button type="submit">Schedule</button>
+        </form>
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="jc-empty">
+      <strong>Nothing needs scheduling.</strong>
+      <small>Accepted estimates and unscheduled jobs will appear here.</small>
+    </div>
+    {% endif %}
+  </section>
+  {% if unscheduled_jobs %}
+  <script>
+  function scheduleUnschedJob(e, form, jobId) {
+    e.preventDefault();
+    var dateVal = form.querySelector('[name="schedule_date"]').value;
+    if (!dateVal) return false;
+    var csrf = form.querySelector('[name="csrfmiddlewaretoken"]').value;
+    fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify({ scheduled_date: dateVal })
+    }).then(function(r) {
+      if (r.ok) window.location.reload();
+    });
+    return false;
+  }
+  </script>
+  {% endif %}
+  {% endif %}
 
-{% if unscheduled_jobs %}
-<div class="card" style="margin-bottom:16px;">
-  <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;font-family:var(--font-headline);">
-    <span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px;margin-right:4px;color:var(--text-muted);">event_busy</span>
-    Unscheduled Jobs
-    <span style="font-size:11px;font-weight:600;background:var(--surface-highest);padding:2px 6px;border-radius:4px;margin-left:4px;">{{ unscheduled_jobs|length }}</span>
-  </h3>
-  <div style="display:flex;flex-direction:column;gap:6px;">
-    {% load tz %}
-    {% for item in unscheduled_jobs %}
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface-highest);border:1px solid var(--border);border-radius:8px;flex-wrap:wrap;{% if item.job.schedule_by_date and item.job.schedule_by_date < today %}border-left:3px solid #f87171;{% elif item.job.schedule_by_date %}border-left:3px solid #f59e0b;{% endif %}">
-      <a href="{% url 'job_detail' item.job.id %}" style="flex:1;min-width:200px;text-decoration:none;color:inherit;">
-        <strong style="font-size:14px;">{{ item.job.property.customer.name }}</strong>
-        <span style="font-size:12px;color:var(--text-muted);display:block;">{{ item.title }} · ${{ item.amount|floatformat:2 }}</span>
-        {% if item.job.schedule_by_date %}
-        <div style="font-size:11px;margin-top:2px;{% if item.job.schedule_by_date < today %}color:#f87171;font-weight:600;{% else %}color:#f59e0b;{% endif %}">
-          <span class="material-symbols-outlined" style="font-size:12px;vertical-align:-2px;">schedule</span>
-          Schedule by {{ item.job.schedule_by_date|date:"M j" }}{% if item.job.schedule_by_date < today %} — overdue{% endif %}
+  <div class="jc-lanes">
+    <section class="jc-panel jc-lane">
+      <div class="jc-panel-head">
+        <div>
+          <span class="jc-panel-kicker">Scheduled</span>
+          <h2>Upcoming work</h2>
         </div>
-        {% endif %}
-      </a>
-      <form method="post" action="{% url 'calendar_job_reschedule' item.job.id %}" class="unsched-quick-form" style="display:flex;align-items:center;gap:6px;" onsubmit="return scheduleUnschedJob(event, this, {{ item.job.id }});">
-        {% csrf_token %}
-        <input type="date" name="schedule_date" required style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;">
-        <button type="submit" class="btn btn-primary" style="font-size:11px;padding:6px 12px;">Schedule</button>
-      </form>
-    </div>
-    {% endfor %}
+        <span class="jc-count">{{ upcoming_jobs|length }}</span>
+      </div>
+      {% if upcoming_jobs %}
+      <div class="jc-service-filters" data-job-service-filters aria-label="Upcoming work service filter">
+        <button type="button" class="active" data-service-filter="all">All</button>
+        <button type="button" data-service-filter="mowing">Mowing</button>
+        <button type="button" data-service-filter="fertilization">Fertilization</button>
+        <button type="button" data-service-filter="landscaping">Landscaping</button>
+        <button type="button" data-service-filter="other">Other</button>
+      </div>
+      {% endif %}
+      <div class="jc-job-list">
+        {% for item in upcoming_jobs %}
+          {% with job=item.job %}
+          <a href="{% url 'job_detail' job.id %}" class="jc-job-row" data-service-name="{{ item.title|lower }}">
+            <span class="jc-job-dot"></span>
+            <span>
+              <strong>{{ item.title }}</strong>
+              <small>{{ job.property.customer.name }} · {{ job.scheduled_date|date:"M j" }}{% if job.scheduled_time %} · {{ job.scheduled_time|time:"g:i A" }}{% endif %}</small>
+            </span>
+            <em>{{ job.status|title }}</em>
+          </a>
+          {% endwith %}
+        {% empty %}
+        <div class="jc-empty">
+          <strong>No jobs scheduled.</strong>
+          <small>Create a job or schedule accepted work.</small>
+          <a href="{% url 'create_job' %}">Create job</a>
+        </div>
+        {% endfor %}
+        <div class="jc-empty jc-filter-empty" hidden>
+          <strong>No upcoming jobs match that filter.</strong>
+          <small>Try another service type or switch back to All.</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="jc-panel jc-lane">
+      <div class="jc-panel-head">
+        <div>
+          <span class="jc-panel-kicker">Complete</span>
+          <h2>Finished jobs</h2>
+        </div>
+      </div>
+      <div class="jc-job-list">
+        {% for item in past_jobs|slice:":12" %}
+          {% with job=item.job %}
+          {% if job.status == 'completed' %}
+          <a href="{% url 'job_detail' job.id %}" class="jc-job-row">
+            <span class="jc-job-dot jc-job-dot-muted"></span>
+            <span>
+              <strong>{{ item.title }}</strong>
+              <small>{{ job.scheduled_date|date:"M j" }} · ${{ item.amount|floatformat:2 }}{% if job.duration_display %} · {{ job.duration_display }}{% endif %}</small>
+            </span>
+            <em>Done</em>
+          </a>
+          {% endif %}
+          {% endwith %}
+        {% empty %}
+        <div class="jc-empty"><strong>No completed jobs yet.</strong></div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="jc-panel jc-lane">
+      <div class="jc-panel-head">
+        <div>
+          <span class="jc-panel-kicker">Billing</span>
+          <h2>Needs billing</h2>
+        </div>
+      </div>
+      <div class="jc-job-list">
+        {% for item in past_jobs|slice:":12" %}
+          {% with job=item.job %}
+          {% if not item.is_paid and job.status == 'completed' %}
+          <a href="{% url 'job_detail' job.id %}" class="jc-job-row jc-job-row-hot">
+            <span class="jc-job-dot"></span>
+            <span>
+              <strong>{{ item.title }}</strong>
+              <small>${{ item.amount|floatformat:2 }} · unpaid</small>
+            </span>
+            <em>Bill</em>
+          </a>
+          {% endif %}
+          {% endwith %}
+        {% empty %}
+        <div class="jc-empty"><strong>Nothing pending billing.</strong></div>
+        {% endfor %}
+      </div>
+    </section>
   </div>
-</div>
+</section>
+
 <script>
-function scheduleUnschedJob(e, form, jobId) {
-  e.preventDefault();
-  var dateVal = form.querySelector('[name="schedule_date"]').value;
-  if (!dateVal) return false;
-  var csrf = form.querySelector('[name="csrfmiddlewaretoken"]').value;
-  fetch('/jobs/calendar/job/' + jobId + '/reschedule/', {
-    method: 'POST', credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-    body: JSON.stringify({ scheduled_date: dateVal })
-  }).then(function(r) {
-    if (r.ok) { window.location.reload(); }
+(function() {
+  var filterBar = document.querySelector('[data-job-service-filters]');
+  if (!filterBar) return;
+
+  var buttons = filterBar.querySelectorAll('[data-service-filter]');
+  var rows = document.querySelectorAll('[data-service-name]');
+  var empty = document.querySelector('.jc-filter-empty');
+
+  function classifyService(name) {
+    name = (name || '').toLowerCase();
+    if (name.indexOf('mow') !== -1 || name.indexOf('lawn') !== -1) return 'mowing';
+    if (name.indexOf('fert') !== -1 || name.indexOf('weed') !== -1 || name.indexOf('spray') !== -1) return 'fertilization';
+    if (name.indexOf('landscape') !== -1 || name.indexOf('mulch') !== -1 || name.indexOf('plant') !== -1 || name.indexOf('bed') !== -1 || name.indexOf('rock') !== -1) return 'landscaping';
+    return 'other';
+  }
+
+  buttons.forEach(function(button) {
+    button.addEventListener('click', function() {
+      var selected = button.getAttribute('data-service-filter');
+      var visibleCount = 0;
+
+      buttons.forEach(function(item) {
+        item.classList.toggle('active', item === button);
+      });
+
+      rows.forEach(function(row) {
+        var matches = selected === 'all' || classifyService(row.getAttribute('data-service-name')) === selected;
+        row.hidden = !matches;
+        if (matches) visibleCount += 1;
+      });
+
+      if (empty) empty.hidden = visibleCount !== 0;
+    });
   });
-  return false;
-}
+})();
 </script>
-{% endif %}
-
-<div class="lane-grid">
-  <section class="card lane">
-    <h3>Scheduled</h3>
-    {% for item in upcoming_jobs %}
-      {% with job=item.job %}
-      <a href="{% url 'job_detail' job.id %}" class="job-row">
-        <b>{{ item.title }}</b>
-        <span>{{ job.scheduled_date|date:"M j" }} {% if job.scheduled_time %}· {{ job.scheduled_time|time:"g:i A" }}{% endif %}</span>
-      </a>
-      {% endwith %}
-    {% empty %}
-    <div class="empty-state">
-      <i data-lucide="clipboard-list" class="empty-state-icon"></i>
-      <div class="empty-state-title">No jobs scheduled</div>
-      <div class="empty-state-desc">Create a job to start tracking your work.</div>
-      <a href="{% url 'create_job' %}" class="btn btn-primary">Create Job</a>
-    </div>
-    {% endfor %}
-  </section>
-
-  <section class="card lane">
-    <h3>Completed</h3>
-    {% for item in past_jobs|slice:":12" %}
-      {% with job=item.job %}
-      {% if job.status == 'completed' %}
-      <a href="{% url 'job_detail' job.id %}" class="job-row">
-        <b>{{ item.title }}</b>
-        <span>{{ job.scheduled_date|date:"M j" }} · ${{ item.amount|floatformat:2 }}{% if job.duration_display %} · {{ job.duration_display }}{% endif %}</span>
-      </a>
-      {% endif %}
-      {% endwith %}
-    {% empty %}<p class="muted">No completed jobs yet.</p>{% endfor %}
-  </section>
-
-  <section class="card lane">
-    <h3>Needs Billing</h3>
-    {% for item in past_jobs|slice:":12" %}
-      {% with job=item.job %}
-      {% if not item.is_paid and job.status == 'completed' %}
-      <a href="{% url 'job_detail' job.id %}" class="job-row">
-        <b>{{ item.title }}</b>
-        <span>${{ item.amount|floatformat:2 }} · unpaid</span>
-      </a>
-      {% endif %}
-      {% endwith %}
-    {% empty %}<p class="muted">Nothing pending billing.</p>{% endfor %}
-  </section>
-</div>
 
 <style>
-.billing-tabs{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
-.billing-tab{display:inline-block;padding:9px 18px;font-size:15px;font-weight:500;border-radius:20px;text-decoration:none;color:var(--text-muted);background:var(--surface);border:1px solid var(--border);transition:all .15s ease;white-space:nowrap;}
-.billing-tab:hover{color:var(--text);border-color:var(--text-muted);transform:translateY(-1px);}
-.billing-tab.active{border-color:var(--primary);color:var(--primary);background:var(--primary-light);}
-.lane-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-4)}
-.lane h3{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted)}
-.job-row{display:block;padding:12px;border:1px solid var(--border);border-radius:var(--radius-md);text-decoration:none;color:inherit;background:rgba(255,255,255,.02);margin-bottom:8px;transition:all var(--motion-base) var(--motion-ease)}
-.job-row b{display:block;font-size:14px}
-.job-row span{font-size:12px;color:var(--text-muted)}
-.job-row:hover{transform:translateY(-2px);border-color:var(--primary);box-shadow:var(--shadow-sm),0 0 16px rgba(34,197,94,.08)}
-.muted{color:var(--text-muted)}
-.lane .job-row{animation:slideUp var(--motion-slow) var(--motion-ease-out) both}
-.lane .job-row:nth-child(2){animation-delay:30ms}
-.lane .job-row:nth-child(3){animation-delay:60ms}
-.lane .job-row:nth-child(4){animation-delay:90ms}
-.lane .job-row:nth-child(5){animation-delay:120ms}
-.lane .job-row:nth-child(n+6){animation-delay:150ms}
-@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@media (max-width:960px){.lane-grid{grid-template-columns:1fr}}
-@media (max-width:768px){
-  .quick-actions{flex-direction:column}
-  .quick-actions .btn{width:100%;justify-content:center;min-height:44px}
-  .billing-tab{min-height:44px;padding:10px 16px}
-  .job-row{padding:14px;min-height:44px}
-}
+  .jobs-command {
+    --jc-ink: #f4f5f0;
+    --jc-muted: #9b9f98;
+    --jc-dim: #646963;
+    --jc-line: rgba(255,255,255,.11);
+    --jc-line-strong: rgba(255,255,255,.18);
+    --jc-accent: #b9ff65;
+    --jc-ease: cubic-bezier(.2,.9,.18,1);
+    max-width: 1480px;
+    margin: -4px auto 0;
+    color: var(--jc-ink);
+    font-family: var(--font-family);
+  }
+  .jobs-command:before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 50% -10%, rgba(255,255,255,.08), transparent 32%),
+      linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+      linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px);
+    background-size: auto, 72px 72px, 72px 72px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.72), transparent 70%);
+  }
+  .jc-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 14px;
+    animation: jc-rise .65s var(--jc-ease) both;
+  }
+  .jc-kicker,
+  .jc-panel-kicker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--jc-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .jc-kicker span {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--jc-accent);
+    box-shadow: 0 0 18px rgba(185,255,101,.45);
+  }
+  .jc-hero h1 {
+    margin: 12px 0 8px;
+    font-size: clamp(40px, 7vw, 86px);
+    line-height: .92;
+    letter-spacing: var(--letter-spacing-normal);
+  }
+  .jc-hero p {
+    margin: 0;
+    color: var(--jc-muted);
+    font-size: var(--type-body-size);
+  }
+  .jc-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    min-width: min(520px, 100%);
+  }
+  .jc-action,
+  .jc-tabs a,
+  .jc-filters a,
+  .jc-service-filters button,
+  .jc-schedule-form button,
+  .jc-empty a {
+    min-height: 46px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.055);
+    color: var(--jc-ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 14px;
+    font-size: var(--text-sm);
+    font-weight: var(--type-strong-weight);
+    transition: transform .28s var(--jc-ease), border-color .28s var(--jc-ease), background .28s var(--jc-ease);
+  }
+  .jc-action:hover,
+  .jc-tabs a:hover,
+  .jc-filters a:hover,
+  .jc-service-filters button:hover,
+  .jc-job-row:hover {
+    transform: translateY(-2px);
+    border-color: var(--jc-line-strong);
+    background: rgba(255,255,255,.075);
+  }
+  .jc-action-hot,
+  .jc-schedule-form button,
+  .jc-empty a {
+    background: var(--jc-accent);
+    border-color: transparent;
+    color: #050605;
+  }
+  .jc-tabs,
+  .jc-filters {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px;
+    margin-bottom: 12px;
+    border: 1px solid var(--jc-line);
+    border-radius: 999px;
+    background: rgba(3,4,3,.70);
+    backdrop-filter: blur(24px) saturate(120%);
+    scrollbar-width: none;
+  }
+  .jc-tabs::-webkit-scrollbar,
+  .jc-filters::-webkit-scrollbar { display: none; }
+  .jc-tabs a,
+  .jc-filters a {
+    flex: 1 0 auto;
+    min-height: 36px;
+    color: var(--jc-muted);
+    background: transparent;
+  }
+  .jc-tabs a.active,
+  .jc-filters a.active {
+    color: var(--jc-ink);
+    background: rgba(255,255,255,.07);
+    border-color: rgba(255,255,255,.10);
+  }
+  .jc-subsection-title {
+    margin: 2px 0 10px;
+    color: var(--jc-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .jc-subsection-spaced {
+    margin-top: 18px;
+  }
+  .jc-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .jc-summary a,
+  .jc-panel,
+  .jc-filter-note {
+    border: 1px solid var(--jc-line);
+    background: linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.04));
+    box-shadow: 0 28px 90px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.10);
+    backdrop-filter: blur(28px) saturate(120%);
+  }
+  .jc-summary a {
+    min-height: 118px;
+    border-radius: 28px;
+    padding: 17px;
+    color: var(--jc-ink);
+  }
+  .jc-summary span {
+    color: var(--jc-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .jc-summary strong {
+    display: block;
+    margin-top: 12px;
+    font-size: var(--type-metric-size);
+    line-height: 1;
+  }
+  .jc-summary small {
+    display: block;
+    margin-top: 8px;
+    color: var(--jc-dim);
+    font-size: var(--type-caption-size);
+  }
+  .jc-filter-note {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 12px 16px;
+    border-radius: 20px;
+    color: var(--jc-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--type-strong-weight);
+  }
+  .jc-panel {
+    border-radius: 30px;
+    padding: 20px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    animation: jc-rise .75s var(--jc-ease) both;
+  }
+  .jc-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .jc-panel h2 {
+    margin: 5px 0 0;
+    font-size: var(--type-title-size);
+    line-height: 1;
+  }
+  .jc-count {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 11px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.07);
+    color: var(--jc-muted);
+    font-size: var(--type-caption-size);
+    font-weight: var(--type-strong-weight);
+  }
+  .jc-queue,
+  .jc-job-list {
+    display: grid;
+    gap: 10px;
+  }
+  .jc-queue-row,
+  .jc-job-row,
+  .jc-empty {
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 22px;
+    background: rgba(0,0,0,.20);
+  }
+  .jc-queue-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+  }
+  .jc-queue-row.is-overdue { border-color: rgba(248,113,113,.36); }
+  .jc-queue-row.is-due { border-color: rgba(245,158,11,.34); }
+  .jc-queue-main,
+  .jc-job-row {
+    color: var(--jc-ink);
+  }
+  .jc-queue-main strong,
+  .jc-job-row strong,
+  .jc-empty strong {
+    display: block;
+    font-size: var(--text-sm);
+  }
+  .jc-queue-main small,
+  .jc-job-row small,
+  .jc-empty small {
+    display: block;
+    margin-top: 4px;
+    color: var(--jc-muted);
+    font-size: var(--type-caption-size);
+  }
+  .jc-queue-main em {
+    display: block;
+    margin-top: 5px;
+    color: var(--jc-accent);
+    font-size: var(--type-caption-size);
+    font-style: normal;
+    font-weight: var(--type-strong-weight);
+  }
+  .jc-schedule-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .jc-schedule-form input {
+    min-height: 42px;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 15px;
+    background: rgba(0,0,0,.28);
+    color: var(--jc-ink);
+    padding: 0 11px;
+    font-size: var(--type-control-size);
+    font-weight: var(--type-strong-weight);
+  }
+  .jc-schedule-form button {
+    min-height: 42px;
+    cursor: pointer;
+  }
+  .jc-lanes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .jc-service-filters {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 5px 0 12px;
+    margin-top: -4px;
+    scrollbar-width: none;
+  }
+  .jc-service-filters::-webkit-scrollbar { display: none; }
+  .jc-service-filters button {
+    flex: 0 0 auto;
+    min-height: 34px;
+    color: var(--jc-muted);
+    background: rgba(255,255,255,.04);
+    cursor: pointer;
+  }
+  .jc-service-filters button.active {
+    color: #050605;
+    background: var(--jc-accent);
+    border-color: transparent;
+  }
+  .jc-job-row {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 13px;
+  }
+  .jc-job-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--jc-accent);
+    box-shadow: 0 0 18px rgba(185,255,101,.35);
+  }
+  .jc-job-dot-muted { background: var(--jc-muted); box-shadow: none; }
+  .jc-job-row em {
+    color: var(--jc-muted);
+    font-size: var(--type-caption-size);
+    font-style: normal;
+    font-weight: var(--type-strong-weight);
+  }
+  .jc-job-row-hot { border-color: rgba(185,255,101,.26); background: rgba(185,255,101,.07); }
+  .jc-empty {
+    padding: 18px;
+    color: var(--jc-muted);
+  }
+  .jc-job-row[hidden],
+  .jc-empty[hidden] {
+    display: none !important;
+  }
+  .jc-empty a {
+    width: fit-content;
+    margin-top: 12px;
+  }
+  @keyframes jc-rise {
+    from { opacity: 0; transform: translateY(18px) scale(.99); filter: blur(8px); }
+    to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .jobs-command *, .jobs-command *:before, .jobs-command *:after { animation: none !important; transition: none !important; }
+  }
+  @media (max-width: 1180px) {
+    .jc-hero,
+    .jc-lanes { grid-template-columns: 1fr; }
+    .jc-actions,
+    .jc-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .jobs-command { margin: 0; }
+    .jc-hero h1 { font-size: 44px; }
+    .jc-actions,
+    .jc-summary,
+    .jc-queue-row { grid-template-columns: 1fr; }
+    .jc-tabs,
+    .jc-filters { border-radius: 22px; }
+    .jc-tabs a,
+    .jc-filters a { flex: 0 0 auto; }
+    .jc-panel,
+    .jc-summary a { border-radius: 24px; }
+    .jc-service-filters {
+      flex-wrap: wrap;
+      overflow: visible;
+      gap: 9px;
+    }
+    .jc-service-filters button {
+      flex: 1 1 calc(50% - 9px);
+      min-width: 0;
+    }
+    .jc-service-filters button:first-child,
+    .jc-service-filters button:last-child {
+      flex-basis: calc(33.333% - 9px);
+    }
+    .jc-schedule-form { align-items: stretch; }
+    .jc-schedule-form input,
+    .jc-schedule-form button { width: 100%; }
+  }
 </style>
 {% endblock %}
 

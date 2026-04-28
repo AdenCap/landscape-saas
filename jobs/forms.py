@@ -172,6 +172,14 @@ class JobServiceInlineForm(forms.Form):
     """Inline form for adding a service to a new job."""
     service = forms.ModelChoiceField(queryset=ServiceTemplate.objects.none(), required=False)
     service_name = forms.CharField(required=False, max_length=120, widget=forms.TextInput(attrs={"placeholder": "Type service name (e.g. Mowing, Mulching)...", "list": "services-datalist"}))
+    detail_description = forms.CharField(
+        required=False,
+        max_length=1000,
+        widget=forms.Textarea(attrs={
+            "rows": 2,
+            "placeholder": "Optional description for this line item...",
+        }),
+    )
     quantity = forms.DecimalField(max_digits=10, decimal_places=2, initial=Decimal("1.00"), min_value=Decimal("0.01"))
     unit_price = forms.DecimalField(
         required=False,
@@ -321,4 +329,3 @@ class MeetingForm(forms.ModelForm):
         if commit:
             meeting.save()
         return meeting
-

@@ -96,6 +96,24 @@ class Customer(models.Model):
         default=False,
         help_text="Automatically charge saved card when invoice is sent"
     )
+    auto_charge_completed_jobs = models.BooleanField(
+        default=False,
+        help_text="Automatically charge the saved card when a per-service job invoice is sent after completion.",
+    )
+    auto_charge_monthly_invoices = models.BooleanField(
+        default=False,
+        help_text="Automatically charge the saved card when a monthly invoice is sent.",
+    )
+
+    def should_auto_charge_invoice(self, invoice):
+        """Return whether this customer's saved card should be charged for the invoice."""
+        if not (self.stripe_customer_id and self.stripe_payment_method_id):
+            return False
+        if getattr(invoice, "job_id", None):
+            return bool(self.auto_charge_completed_jobs or self.auto_charge)
+        if getattr(invoice, "period_start", None) and getattr(invoice, "period_end", None):
+            return bool(self.auto_charge_monthly_invoices or self.auto_charge)
+        return bool(self.auto_charge)
 
     # Customer Portal access
     portal_access_token = models.CharField(

@@ -4,29 +4,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}FieldLgx{% endblock %}</title>
-  <meta name="description" content="{% block meta_description %}FieldLgx helps landscaping teams run scheduling, jobs, routes, clients, invoicing, estimates, and financials from one platform.{% endblock %}">
-  <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}">
+  <title>{% block title %}FIELDLGX{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}FIELDLGX is lawn care and landscape management software for scheduling, routing, recurring jobs, estimates, invoicing, payments, crews, and client CRM.{% endblock %}">
+  <link rel="canonical" href="{% block canonical %}{{ request.scheme }}://{{ request.get_host }}{{ request.path }}{% endblock %}">
   <meta name="robots" content="index, follow">
-  <meta name="author" content="FieldLgx">
-  <meta name="keywords" content="landscaping software, lawn care business software, field service management, scheduling software, invoicing software, route optimization, crew tracking, landscape CRM">
-  <meta property="og:title" content="{% block og_title %}FieldLgx — Landscaping Business Software{% endblock %}">
-  <meta property="og:description" content="{% block og_description %}Run your landscaping business with one modern operating system.{% endblock %}">
+  <meta name="author" content="FIELDLGX">
+  <meta name="keywords" content="lawn care software, landscaping software, landscape management software, lawn care business software, landscaping CRM, lawn care scheduling software, route planning software, lawn care invoicing software, landscaping estimates, recurring lawn service software, crew scheduling software">
+  <meta property="og:title" content="{% block og_title %}FIELDLGX — Lawn Care & Landscape Management Software{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Schedule crews, plan routes, manage recurring lawn services, send estimates, invoice faster, collect payments, and run landscaping operations from one premium platform.{% endblock %}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="{{ request.build_absolute_uri }}">
-  <meta property="og:site_name" content="FieldLgx">
+  <meta property="og:site_name" content="FIELDLGX">
   <meta property="og:image" content="{% block og_image %}{% static 'img/icon-512.png' %}{% endblock %}">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="FieldLgx — Landscaping Business Software">
-  <meta name="twitter:description" content="All-in-one software for landscaping businesses. Schedule, route, invoice, and grow.">
+  <meta name="twitter:title" content="FIELDLGX — Lawn Care & Landscape Management Software">
+  <meta name="twitter:description" content="Premium lawn care software for scheduling, routing, estimates, invoices, payments, crews, and client CRM.">
   <meta name="theme-color" content="#0e0e0e">
-  <link rel="icon" href="{% static 'img/fieldlgx-icon.png' %}?v=3" type="image/svg+xml">
-  <link rel="icon" href="{% static 'img/favicon.ico' %}?v=3" sizes="48x48" type="image/x-icon">
-  <link rel="icon" href="{% static 'img/icon-192.png' %}?v=3" sizes="192x192" type="image/png">
-  <link rel="shortcut icon" href="{% static 'img/favicon.ico' %}?v=3">
-  <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=3">
-  <link rel="mask-icon" href="{% static 'img/fieldlgx-icon.png' %}?v=3" color="#22c55e">
-  <link rel="manifest" href="{% static 'manifest.json' %}?v=3">
+  <link rel="icon" href="{% static 'img/fieldlgx-icon.png' %}?v=4" type="image/png">
+  <link rel="icon" href="{% static 'img/favicon.ico' %}?v=4" sizes="48x48" type="image/x-icon">
+  <link rel="icon" href="{% static 'img/icon-192.png' %}?v=4" sizes="192x192" type="image/png">
+  <link rel="shortcut icon" href="{% static 'img/favicon.ico' %}?v=4">
+  <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}?v=4">
+  <link rel="mask-icon" href="{% static 'img/logo-icon.svg' %}?v=4" color="#9dd850">
+  <link rel="manifest" href="{% static 'manifest.json' %}?v=4">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -34,13 +34,16 @@
   <style>
     /* Marketing-specific overrides */
     .progress{position:fixed;top:0;left:0;height:2px;background:var(--primary);width:var(--sp,0%);z-index:var(--z-sticky);transition:width 0.1s linear}
-    .nav{position:sticky;top:var(--space-4);z-index:var(--z-sticky);display:flex;justify-content:space-between;align-items:center;padding:var(--space-3) var(--space-5);margin:0 auto var(--space-4);max-width:1200px;border:1px solid var(--border);border-radius:var(--radius-full);background:var(--glass);backdrop-filter:blur(12px) saturate(180%);-webkit-backdrop-filter:blur(12px) saturate(180%);box-shadow:var(--shadow-lg)}
+    .nav{position:fixed;top:var(--space-4);left:50%;transform:translateX(-50%);z-index:var(--z-sticky);display:flex;justify-content:space-between;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-5);margin:0;width:min(calc(100% - 32px),1200px);border:1px solid var(--border);border-radius:var(--radius-full);background:linear-gradient(135deg,rgba(17,19,16,.86),rgba(9,10,9,.72));backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);box-shadow:var(--shadow-lg)}
     .brand{font-weight:800;letter-spacing:0.02em;text-decoration:none;color:var(--text);font-size:var(--text-lg)}
+    .brand-mark{display:inline-flex;align-items:center;gap:10px;letter-spacing:.08em}
+    .brand-mark img{width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(157,216,80,.22))}
     .links{display:flex;gap:var(--space-4);align-items:center;flex-wrap:wrap}
     .links a{color:var(--text-secondary);text-decoration:none;font-size:var(--text-sm);font-weight:500;transition:color var(--motion-base) var(--motion-ease);position:relative}
     .links a:not(.btn)::after{content:"";position:absolute;bottom:-2px;left:0;width:0;height:1px;background:var(--text);transition:width var(--motion-base) var(--motion-ease)}
     .links a:not(.btn):hover::after{width:100%}
     .links a:hover{color:var(--text)}
+    .nav-cta-short{display:none}
     .sub{font-size:var(--text-lg);line-height:var(--line-height-relaxed);color:var(--text-secondary);max-width:760px;margin:0 0 var(--space-6)}
     .title{font-size:var(--h2);line-height:var(--line-height-tight);letter-spacing:var(--letter-spacing-tight);margin:0 0 var(--space-4);color:var(--text)}
     .lead{color:var(--text-secondary);line-height:var(--line-height-relaxed);max-width:780px;margin:0 0 var(--space-6);font-size:var(--text-base)}
@@ -50,8 +53,16 @@
     [data-r]{opacity:0;transform:translateY(24px);transition:opacity 0.7s cubic-bezier(0, 0, 0.2, 1),transform 0.7s cubic-bezier(0, 0, 0.2, 1)}
     [data-r].on{opacity:1;transform:translateY(0)}
     @media (max-width:768px){
-      .nav{padding:var(--space-2) var(--space-4);margin:0 var(--space-4) var(--space-4)}
+      .nav{top:10px;width:calc(100% - 20px);padding:10px 12px;margin:0}
+      .brand-mark{gap:8px}
+      .brand-mark img{width:24px;height:24px}
+      .brand-mark span{font-size:14px;letter-spacing:.06em}
+      .links{gap:10px}
       .links a.hide-sm{display:none}
+      .links a[href="/accounts/login/"]{display:none}
+      .nav .btn{min-height:42px;padding:0 15px;font-size:12px}
+      .nav-cta-full{display:none}
+      .nav-cta-short{display:inline}
       .shell{padding:0 var(--space-4)}
     }
   </style>
@@ -69,20 +80,23 @@
 <body>
   <div class="progress"></div>
   <header class="nav">
-    <a class="brand" href="/" style="background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">FIELDLGX</a>
+    <a class="brand brand-mark" href="/">
+      <img src="{% static 'img/fieldlgx-icon.png' %}?v=4" alt="" width="28" height="28">
+      <span>FIELDLGX</span>
+    </a>
     <nav class="links">
       <a class="hide-sm" href="/features/">Features</a>
       <a class="hide-sm" href="/automation/">Automation</a>
       <a class="hide-sm" href="/pricing/">Pricing</a>
       <a href="/accounts/login/">Sign in</a>
-      <a class="btn btn-primary" href="/accounts/signup/">Start free trial</a>
+      <a class="btn btn-primary nav-cta" href="/accounts/signup/"><span class="nav-cta-full">Start free trial</span><span class="nav-cta-short">Start trial</span></a>
     </nav>
   </header>
 
   {% block content %}{% endblock %}
 
   <footer class="footer">
-    <div class="shell">© {% now "Y" %} FieldLgx · Built for landscaping businesses · <a href="/terms/" style="color:inherit">Terms</a> · <a href="/privacy/" style="color:inherit">Privacy</a></div>
+    <div class="shell">© {% now "Y" %} FIELDLGX · Built for landscaping businesses · <a href="/terms/" style="color:inherit">Terms</a> · <a href="/privacy/" style="color:inherit">Privacy</a></div>
   </footer>
 
   <script>
@@ -100,6 +114,19 @@
   <script>
   (()=>{
     const url=new URL(window.location.href);
+    if(url.searchParams.get('preview_marketing') === '1'){
+      const previewAssetVersion=url.searchParams.get('asset_v');
+      document.querySelectorAll('a[href^="/"]').forEach(el=>{
+        const raw=el.getAttribute('href')||'';
+        if(raw.startsWith('/accounts/') || raw.startsWith('/dashboard/') || raw.startsWith('/jobs/') || raw.startsWith('/billing/')) return;
+        const next=new URL(raw, window.location.origin);
+        const isMarketingPath=next.pathname==='/' || next.pathname==='/features/' || next.pathname.startsWith('/features/') || next.pathname==='/automation/' || next.pathname==='/pricing/' || next.pathname==='/landscaping/' || next.pathname==='/terms/' || next.pathname==='/privacy/';
+        if(!isMarketingPath) return;
+        next.searchParams.set('preview_marketing','1');
+        if(previewAssetVersion && next.pathname==='/') next.searchParams.set('asset_v',previewAssetVersion);
+        el.setAttribute('href',next.pathname+next.search+next.hash);
+      });
+    }
     const utmKeys=['utm_source','utm_medium','utm_campaign','utm_term','utm_content'];
     const utm={};
     utmKeys.forEach(k=>{const v=url.searchParams.get(k);if(v)utm[k]=v;});

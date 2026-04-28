@@ -1,23 +1,48 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}FieldLgx Features{% endblock %}
+{% block title %}Lawn Care Software Features | Scheduling, CRM, Invoicing | FIELDLGX{% endblock %}
+{% block meta_description %}Explore FIELDLGX features for lawn care and landscaping companies: scheduling, recurring jobs, route planning, client CRM, estimates, invoices, payments, mowing, fertilization, crews, and financial dashboards.{% endblock %}
+{% block og_title %}FIELDLGX Lawn Care & Landscaping Software Features{% endblock %}
+{% block og_description %}See the scheduling, routing, CRM, estimating, invoicing, payment, mowing, fertilization, and crew management features inside FIELDLGX.{% endblock %}
+{% block extra_css %}
+<style>
+.marketing-panel{border:1px solid var(--border);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.03));box-shadow:var(--shadow-lg);padding:clamp(22px,4vw,34px)}
+.feature-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.feature-card{min-height:210px;text-decoration:none;color:inherit;transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease),background var(--motion-base) var(--motion-ease)}
+.feature-card:hover{transform:translateY(-4px);border-color:rgba(157,216,80,.38);background:rgba(157,216,80,.055)}
+.feature-card small{color:var(--primary);font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.feature-card h3{margin:18px 0 10px}
+.feature-card p{min-height:48px}
+.feature-link{display:inline-flex;margin-top:14px;color:var(--primary);font-weight:800;font-size:13px}
+@media(max-width:980px){.feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){.feature-grid{grid-template-columns:1fr}.marketing-panel{border-radius:22px}}
+</style>
+{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero" style="padding-top:120px;">
   <div class="shell" data-r>
-    <h1>Every core operation has its own feature system.</h1>
-    <p class="sub">Scroll, scan, and click into dedicated feature pages for dashboard, jobs, calendar, routes, CRM, messaging, estimator, invoices, estimates, employee management, and financials.</p>
+    <p class="eyebrow">FIELDLGX FEATURES</p>
+    <h1>Lawn care software built around the work your crews actually do.</h1>
+    <p class="sub">One connected system for landscape scheduling, recurring jobs, route planning, customer CRM, estimates, invoices, payments, mowing, fertilization, crew management, and financial visibility.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <a class="btn btn-primary" href="/accounts/signup/">Start 14-day free trial</a>
+      <a class="btn btn-secondary" href="/pricing/">View pricing</a>
+    </div>
   </div>
 </section>
 
 <section class="section">
   <div class="shell" data-r>
-    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+    <div class="marketing-panel">
+    <div class="feature-grid">
       {% for slug, f in feature_pages.items %}
-      <a href="/features/{{ slug }}/" class="card" style="text-decoration:none;color:inherit;transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease);">
+      <a href="/features/{{ slug }}/" class="card feature-card">
+        <small>{{ forloop.counter|stringformat:"02d" }}</small>
         <h3>{{ f.title }}</h3>
         <p style="margin-bottom:12px;">{{ f.subtitle }}</p>
-        <span class="btn btn-ghost" style="padding:0;border:none;">View feature details →</span>
+        <span class="feature-link">View feature details -></span>
       </a>
       {% endfor %}
+    </div>
     </div>
   </div>
 </section>

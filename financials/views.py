@@ -84,13 +84,19 @@ def financials_dashboard(request):
 
     # --- KPI: Profit this month ---
     profit_month = revenue_month - total_costs_month
+    profit_margin_month = (profit_month / revenue_month * Decimal("100")) if revenue_month else Decimal("0")
 
     # --- KPI: Outstanding AR ---
-    ar_outstanding = Invoice.objects.filter(
+    sent_invoices_qs = Invoice.objects.filter(
         business=business, status="sent"
-    ).aggregate(
+    )
+    ar_outstanding = sent_invoices_qs.aggregate(
         total=Coalesce(Sum("total"), Decimal("0"), output_field=DecimalField())
     )["total"]
+    sent_invoices_count = sent_invoices_qs.count()
+    paid_month_count = inv_qs.filter(issue_date__gte=month_start).count()
+    collection_denominator = revenue_month + ar_outstanding
+    collection_rate = (revenue_month / collection_denominator * Decimal("100")) if collection_denominator else Decimal("100")
 
     # --- KPI: Overdue ---
     overdue_qs = Invoice.objects.filter(
@@ -151,6 +157,10 @@ def financials_dashboard(request):
         labor_year += Decimal(str(mins)) / Decimal("60") * rate
     expense_labels = ['Overhead', 'Equipment', 'Vehicles', 'Labor']
     expense_values = [float(overhead_annual), float(equipment_annual), float(vehicle_annual), float(labor_year)]
+    expense_breakdown = [
+        {"label": label, "value": Decimal(str(value))}
+        for label, value in zip(expense_labels, expense_values)
+    ]
 
     # --- Drafts to send ---
     drafts = Invoice.objects.filter(business=business, status="draft").select_related("customer").order_by("issue_date")[:8]
@@ -174,8 +184,15 @@ def financials_dashboard(request):
         "revenue_last_month": revenue_last_month,
         "revenue_year": revenue_year,
         "revenue_change_pct": revenue_change_pct,
+        "paid_month_count": paid_month_count,
+        "expenses_month": expenses_month,
+        "labor_month": labor_month,
+        "total_costs_month": total_costs_month,
         "profit_month": profit_month,
+        "profit_margin_month": profit_margin_month,
         "ar_outstanding": ar_outstanding,
+        "sent_invoices_count": sent_invoices_count,
+        "collection_rate": collection_rate,
         "overdue_count": overdue_count,
         "overdue_total": overdue_total,
         "aging_0_30": aging_0_30,
@@ -190,6 +207,7 @@ def financials_dashboard(request):
         "monthly_profit": monthly_profit,
         "expense_labels": expense_labels,
         "expense_values": expense_values,
+        "expense_breakdown": expense_breakdown,
     })
 
 

@@ -17,13 +17,19 @@
   <div class="card" style="max-width:700px;margin-bottom:20px;">
     <h3 style="margin:0 0 16px;font-family:var(--font-headline);font-weight:700;">1. Select Customer &amp; Property</h3>
     <div class="pb-field">
-      <label>Customer</label>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <label>Customer</label>
+        <button type="button" onclick="openQuickAddClient()" style="border:0;background:transparent;color:var(--primary);font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:0;">+ Add client</button>
+      </div>
       <select id="enr-customer" onchange="updateProperties()">
         <option value="">Select a customer...</option>
       </select>
     </div>
     <div class="pb-field" id="prop-wrap" style="display:none;">
-      <label>Property</label>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <label>Property</label>
+        <button type="button" onclick="openQuickAddProperty(document.getElementById('enr-customer').value)" style="border:0;background:transparent;color:var(--primary);font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:0;">+ Add property</button>
+      </div>
       <select id="enr-property" name="property_id" onchange="updateSqft()">
         <option value="">Select property...</option>
       </select>
@@ -173,6 +179,46 @@
     }
     document.getElementById('prop-wrap').style.display = '';
   };
+
+  window.addEventListener('quickClientCreated', function(e) {
+    var data = e.detail || {};
+    if (!data.customer) return;
+    var exists = customers.some(function(c) { return String(c.id) === String(data.customer.id); });
+    if (!exists) {
+      customers.push({
+        id: data.customer.id,
+        name: data.customer.name,
+        properties: (data.properties || []).map(function(p) {
+          return { id: p.id, address: p.address, sqft: p.sqft || 0 };
+        })
+      });
+      var o = document.createElement('option');
+      o.value = data.customer.id;
+      o.textContent = data.customer.name;
+      custSel.appendChild(o);
+    }
+    custSel.value = data.customer.id;
+    updateProperties();
+  });
+
+  window.addEventListener('quickPropertyCreated', function(e) {
+    var data = e.detail || {};
+    if (!data.property) return;
+    var customerId = data.customer && data.customer.id ? data.customer.id : custSel.value;
+    var cust = customers.find(function(c) { return String(c.id) === String(customerId); });
+    if (cust) {
+      cust.properties = cust.properties || [];
+      var exists = cust.properties.some(function(p) { return String(p.id) === String(data.property.id); });
+      if (!exists) cust.properties.push({ id: data.property.id, address: data.property.address, sqft: data.property.sqft || 0 });
+    }
+    if (customerId && String(custSel.value) !== String(customerId)) custSel.value = customerId;
+    updateProperties();
+    var propSel = document.getElementById('enr-property');
+    if (propSel) {
+      propSel.value = data.property.id;
+      updateSqft();
+    }
+  });
 
   window.updateSqft = function() {
     var propSel = document.getElementById('enr-property');

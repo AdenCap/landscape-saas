@@ -2,12 +2,19 @@
 {% load billing_filters %}
 
 {% block content %}
-<div class="estimate-detail-page">
-  <header class="estimate-detail-header">
+<section class="estimate-review-flow">
+<div class="er-shell estimate-detail-page">
+  <a href="{% url 'billing:estimate_edit' estimate.id %}" class="er-back-link">
+    <span class="material-symbols-outlined">arrow_back</span>
+    <span>Items</span>
+  </a>
+
+  <header class="er-hero estimate-detail-header">
     <div class="estimate-detail-heading">
-      <h1>{{ estimate.title }}</h1>
+      <p class="er-eyebrow"><span></span> Estimate #{{ estimate.id }}</p>
+      <h1>Review and send.</h1>
       <p class="estimate-detail-meta">
-        Estimate #{{ estimate.id }} · {{ estimate.customer.name }}
+        {{ estimate.customer.name }} · {{ estimate.title }}
         <span class="badge badge-{{ estimate.status }}">{{ estimate.status|title }}</span>
         {% if estimate.view_count %}
         <span class="view-tracker" title="First viewed: {{ estimate.first_viewed_at|date:'M j, g:i A' }}{% if estimate.view_count > 1 %} · Last viewed: {{ estimate.last_viewed_at|date:'M j, g:i A' }}{% endif %}">
@@ -22,7 +29,30 @@
         {% endif %}
       </p>
     </div>
-    <div class="estimate-detail-actions">
+    <div class="er-hero-side">
+      <div class="er-steps" aria-label="Estimate creation steps">
+        <a href="{% url 'billing:estimate_create' %}">
+          <span>1</span>
+          <strong>Details</strong>
+        </a>
+        <a href="{% url 'billing:estimate_edit' estimate.id %}">
+          <span>2</span>
+          <strong>Items</strong>
+        </a>
+        <div class="active">
+          <span>3</span>
+          <strong>Send</strong>
+        </div>
+      </div>
+      <div class="er-total-card">
+        <span>Estimate total</span>
+        <strong>{{ estimate.total|currency }}</strong>
+        <small>{{ estimate.line_items.count }} line item{{ estimate.line_items.count|pluralize }}</small>
+      </div>
+    </div>
+  </header>
+
+  <section class="er-action-panel estimate-detail-actions">
       <a href="{% url 'billing:estimate_pdf' estimate.id %}" class="btn btn-secondary">Download PDF</a>
       <a href="{% url 'billing:estimate_pdf' estimate.id %}?inline=1" target="_blank" class="btn btn-secondary" title="Open PDF for printing">
         <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:2px;">print</span> Print
@@ -71,8 +101,7 @@
         <button type="submit" class="btn btn-secondary" style="color:#ffb4ab;">Delete</button>
       </form>
       <a href="{% url 'billing:estimate_list' %}" class="btn btn-secondary">Back to list</a>
-    </div>
-  </header>
+  </section>
 
   {% if not estimate.customer.email %}
   <div class="alert alert-warning estimate-detail-alert">
@@ -85,6 +114,56 @@
     Add at least one line item before sending. <a href="{% url 'billing:estimate_edit' estimate.id %}">Edit estimate</a>
   </div>
   {% endif %}
+
+  <section class="er-payment-panel" aria-label="Estimate payment readiness">
+    <div class="er-payment-head">
+      <div>
+        <p>Payment readiness</p>
+        <h2>Client preview</h2>
+      </div>
+      {% if client_preview_url %}
+      <a href="{{ client_preview_url }}" target="_blank" rel="noopener" class="er-payment-action">
+        <span class="material-symbols-outlined">visibility</span>
+        Open preview
+      </a>
+      {% endif %}
+    </div>
+    <div class="er-payment-grid">
+      <article class="er-payment-tile state-{{ payment_readiness.card_state }}">
+        <span>Card checkout</span>
+        <strong>{{ payment_readiness.card_label }}</strong>
+        <small>{{ payment_readiness.card_detail }}</small>
+      </article>
+      <article class="er-payment-tile {% if estimate.deposit_paid %}state-ready{% elif estimate.deposit_required %}state-warning{% endif %}">
+        <span>Deposit</span>
+        {% if estimate.deposit_required and deposit_due > 0 %}
+          {% if estimate.deposit_paid %}
+          <strong>Deposit paid</strong>
+          <small>{{ deposit_due|currency }} recorded{% if estimate.deposit_paid_at %} on {{ estimate.deposit_paid_at|date:"M j" }}{% endif %}.</small>
+          {% else %}
+          <strong>Deposit pending</strong>
+          <small>{{ deposit_due|currency }} due after client acceptance.</small>
+          {% endif %}
+        {% else %}
+          <strong>No deposit required</strong>
+          <small>The client can accept without a deposit step.</small>
+        {% endif %}
+      </article>
+      <article class="er-payment-tile">
+        <span>Client action</span>
+        {% if estimate.status == "accepted" %}
+        <strong>Accepted</strong>
+        <small>{% if estimate.accepted_total %}Accepted total {{ estimate.accepted_total|currency }}.{% else %}Ready for scheduling or invoicing.{% endif %}</small>
+        {% elif estimate.status == "sent" %}
+        <strong>Waiting on client</strong>
+        <small>The client can review, select upgrades, and accept from the preview link.</small>
+        {% else %}
+        <strong>Draft mode</strong>
+        <small>Finish the estimate, preview it, then send when ready.</small>
+        {% endif %}
+      </article>
+    </div>
+  </section>
 
   <div class="card estimate-preview-card">
     {% if doc_template %}<style>.estimate-preview-header { border-bottom-color: {{ doc_template.primary_color }} !important; } .estimate-preview-card .doc-header-custom { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-muted); } .estimate-preview-card .doc-footer-custom, .estimate-preview-card .doc-terms, .estimate-preview-card .doc-custom-fields { margin-top: 16px; font-size: 14px; color: var(--text-muted); } .estimate-preview-card .doc-custom-fields dt { font-weight: 600; font-size: 12px; margin-top: 8px; } .estimate-preview-card .doc-custom-fields dd { margin: 2px 0 0 0; }</style>{% endif %}
@@ -154,6 +233,16 @@
 
     <div class="estimate-preview-total">
       <strong>Total: {{ estimate.total|currency }}</strong>
+      {% if estimate.deposit_required and estimate.deposit_amount %}
+      <span class="estimate-deposit-note">
+        Deposit due on approval:
+        {% if estimate.deposit_type == "percent" %}
+        {{ estimate.deposit_amount|floatformat:0 }}% ({{ estimate.deposit_dollar_amount|currency }})
+        {% else %}
+        {{ estimate.deposit_dollar_amount|currency }}
+        {% endif %}
+      </span>
+      {% endif %}
       {% if estimate.status == 'accepted' and estimate.accepted_total %}
       <span class="estimate-accepted-note">Client accepted at {{ estimate.accepted_total|currency }}</span>
       {% endif %}
@@ -274,9 +363,191 @@
   </div>
   {% endif %}
 </div>
+</section>
 
 <style>
-  .estimate-detail-page { max-width: 900px; }
+  .estimate-review-flow {
+    --er-bg: #080908;
+    --er-panel: rgba(255,255,255,.075);
+    --er-panel-strong: rgba(255,255,255,.105);
+    --er-line: rgba(255,255,255,.13);
+    --er-line-strong: rgba(255,255,255,.22);
+    --er-ink: rgba(255,255,255,.94);
+    --er-muted: rgba(255,255,255,.56);
+    --er-accent: #9ceb4b;
+    --er-red: #ff7a7a;
+    min-height: 100vh;
+    margin: -24px;
+    padding: 28px 24px 44px;
+    color: var(--er-ink);
+    background:
+      radial-gradient(circle at 15% 6%, rgba(156,235,75,.10), transparent 28%),
+      linear-gradient(135deg, rgba(255,255,255,.034), transparent 30%),
+      var(--er-bg);
+  }
+  .er-shell {
+    width: min(1180px, 100%);
+    margin: 0 auto;
+  }
+  .er-back-link,
+  .er-steps a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .er-back-link {
+    width: fit-content;
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 14px;
+    padding: 0 13px;
+    border: 1px solid var(--er-line);
+    border-radius: 999px;
+    background: rgba(255,255,255,.055);
+    color: var(--er-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--type-strong-weight);
+  }
+  .er-back-link .material-symbols-outlined { font-size: 19px; }
+  .er-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 430px);
+    gap: 22px;
+    align-items: end;
+    margin-bottom: 18px;
+  }
+  .er-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 10px;
+    color: var(--er-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--type-strong-weight);
+    letter-spacing: .17em;
+    text-transform: uppercase;
+  }
+  .er-eyebrow span {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--er-accent);
+    box-shadow: 0 0 24px rgba(156,235,75,.65);
+  }
+  .er-hero h1 {
+    margin: 0;
+    font-size: clamp(3.4rem, 9vw, 7.2rem);
+    line-height: .86;
+    letter-spacing: 0;
+    font-weight: 800;
+  }
+  .er-hero-side {
+    display: grid;
+    gap: 12px;
+  }
+  .er-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--er-line);
+    border-radius: 999px;
+    background: rgba(0,0,0,.34);
+  }
+  .er-steps a,
+  .er-steps div {
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 999px;
+    color: var(--er-muted);
+    font-weight: var(--type-strong-weight);
+  }
+  .er-steps .active {
+    background: rgba(255,255,255,.105);
+    color: var(--er-ink);
+  }
+  .er-steps span {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(255,255,255,.10);
+    color: var(--er-ink);
+    font-size: var(--text-sm);
+  }
+  .er-steps .active span {
+    background: var(--er-accent);
+    color: #071006;
+  }
+  .er-total-card,
+  .er-action-panel,
+  .estimate-review-flow .card {
+    border: 1px solid var(--er-line-strong);
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.105), rgba(255,255,255,.045)),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.025), rgba(255,255,255,.025) 1px, transparent 1px, transparent 36px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 28px 80px rgba(0,0,0,.28);
+  }
+  .er-total-card {
+    min-height: 126px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 22px;
+    border-radius: 28px;
+  }
+  .er-total-card span {
+    color: var(--er-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--type-strong-weight);
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .er-total-card strong {
+    margin-top: 10px;
+    font-size: clamp(2.2rem, 5vw, 3.6rem);
+    line-height: 1;
+  }
+  .er-total-card small {
+    margin-top: 8px;
+    color: var(--er-muted);
+  }
+  .er-action-panel {
+    border-radius: 30px;
+    padding: 14px;
+    margin-bottom: 18px;
+  }
+  .estimate-review-flow .card {
+    border-radius: 32px;
+  }
+  .estimate-review-flow .btn,
+  .estimate-review-flow button.btn {
+    min-height: 44px;
+    border-radius: 999px;
+    font-weight: var(--type-strong-weight);
+  }
+  .estimate-review-flow .btn-primary,
+  .estimate-review-flow .btn-send {
+    border: 0;
+    background: var(--er-accent) !important;
+    color: #071006 !important;
+  }
+  .estimate-review-flow .btn-secondary {
+    border: 1px solid var(--er-line);
+    background: rgba(255,255,255,.06);
+    color: var(--er-ink);
+  }
+  .estimate-review-flow .data-table td,
+  .estimate-review-flow .data-table th {
+    border-color: var(--er-line);
+  }
+  .estimate-detail-page { max-width: none; }
   .estimate-detail-header {
     display: flex;
     justify-content: space-between;
@@ -301,6 +572,84 @@
   .estimate-detail-actions .btn-send { background: var(--accent); color: #0a0a0a; }
   .estimate-detail-actions .btn-send:hover { background: var(--primary); }
   .estimate-detail-alert { margin-bottom: 20px; padding: 14px 18px; border-radius: 10px; font-size: 16px; }
+  .er-payment-panel {
+    margin-bottom: 22px;
+    padding: 22px;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 30px;
+    background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.035));
+    box-shadow: 0 22px 70px rgba(0,0,0,.22);
+  }
+  .er-payment-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .er-payment-head p,
+  .er-payment-tile span {
+    margin: 0 0 6px;
+    color: var(--er-muted);
+    font-size: var(--text-xs);
+    font-weight: 800;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .er-payment-head h2 {
+    margin: 0;
+    font-size: var(--h3);
+  }
+  .er-payment-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 999px;
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 800;
+    background: rgba(255,255,255,.06);
+  }
+  .er-payment-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .er-payment-tile {
+    min-height: 142px;
+    padding: 18px;
+    border: 1px solid rgba(255,255,255,.13);
+    border-radius: 22px;
+    background: rgba(0,0,0,.18);
+  }
+  .er-payment-tile strong {
+    display: block;
+    color: var(--text);
+    font-size: var(--text-xl);
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+  .er-payment-tile small {
+    display: block;
+    color: var(--er-muted);
+    font-size: var(--text-sm);
+    line-height: 1.45;
+  }
+  .er-payment-tile.state-ready {
+    border-color: rgba(157,216,80,.38);
+    background: rgba(157,216,80,.09);
+  }
+  .er-payment-tile.state-warning {
+    border-color: rgba(253,224,71,.28);
+    background: rgba(253,224,71,.07);
+  }
+  .er-payment-tile.state-disabled {
+    border-color: rgba(255,255,255,.11);
+  }
 
   .estimate-preview-card { padding: 28px; font-size: 16px; }
   .estimate-preview-header {
@@ -325,6 +674,7 @@
     font-size: 22px;
     text-align: right;
   }
+  .estimate-deposit-note,
   .estimate-accepted-note { display: block; font-size: 15px; font-weight: normal; color: var(--text-muted); margin-top: 4px; }
   .estimate-preview-notes {
     margin-top: 24px;
@@ -340,10 +690,130 @@
   .badge-accepted { background: rgba(34, 197, 94, 0.2); color: #86efac; }
   .badge-declined { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
   @media (max-width: 768px) {
+    .estimate-review-flow {
+      margin: -18px;
+      padding: 18px 16px 112px;
+    }
+    .er-hero {
+      grid-template-columns: 1fr;
+    }
+    .er-steps {
+      border-radius: 26px;
+      grid-template-columns: 1fr;
+    }
     .estimate-detail-actions { width: 100%; }
     .estimate-detail-actions .btn { min-height: 44px; flex: 1; justify-content: center; text-align: center; }
-    .estimate-detail-heading h1 { font-size: 22px; }
+    .estimate-detail-heading h1 { font-size: clamp(3.1rem, 16vw, 5.6rem); }
+    .er-payment-head,
+    .er-payment-grid { grid-template-columns: 1fr; }
+    .er-payment-head { align-items: stretch; flex-direction: column; }
+    .er-payment-action { width: 100%; }
     .estimate-preview-card { padding: 16px; }
+  }
+  .estimate-review-flow .estimate-detail-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 430px);
+    align-items: end;
+  }
+  .estimate-review-flow .estimate-detail-heading h1 {
+    margin: 0;
+    font-size: clamp(3.4rem, 9vw, 7.2rem);
+    line-height: .86;
+    letter-spacing: 0;
+    font-weight: 800;
+  }
+  .estimate-review-flow .estimate-detail-meta {
+    margin-top: 12px;
+    color: var(--er-muted);
+    font-size: var(--text-lg);
+  }
+  @media (max-width: 768px) {
+    .estimate-review-flow .estimate-detail-header {
+      grid-template-columns: 1fr;
+    }
+    .estimate-review-flow .estimate-detail-heading h1 {
+      font-size: clamp(3.1rem, 16vw, 5.6rem);
+    }
+  }
+  @media (max-width: 768px) {
+    .estimate-review-flow {
+      padding: 16px 14px 104px;
+    }
+    .estimate-review-flow .estimate-detail-header {
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .estimate-review-flow .estimate-detail-heading h1,
+    .estimate-detail-heading h1,
+    .er-hero h1 {
+      font-size: clamp(3rem, 13vw, 4.35rem);
+      line-height: .9;
+    }
+    .estimate-review-flow .estimate-detail-meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: var(--text-base);
+      line-height: 1.35;
+    }
+    .estimate-detail-meta .badge,
+    .view-tracker {
+      margin-left: 0;
+    }
+    .er-steps {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border-radius: 24px;
+      gap: 6px;
+    }
+    .er-steps a,
+    .er-steps div {
+      min-height: 44px;
+      gap: 5px;
+      font-size: var(--text-sm);
+    }
+    .er-steps span {
+      width: 24px;
+      height: 24px;
+      font-size: var(--text-xs);
+    }
+    .er-total-card {
+      min-height: 112px;
+      border-radius: 24px;
+      padding: 18px;
+    }
+    .er-action-panel {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+      border-radius: 26px;
+      padding: 12px;
+    }
+    .estimate-detail-actions .action-inline {
+      display: contents;
+    }
+    .estimate-detail-actions .btn,
+    .estimate-detail-actions button.btn {
+      width: 100%;
+      min-height: 46px;
+      padding-left: 10px;
+      padding-right: 10px;
+      white-space: nowrap;
+    }
+    .estimate-detail-actions .btn[href*="estimate_list"] {
+      grid-column: 1 / -1;
+    }
+    .er-payment-panel,
+    .estimate-review-flow .card {
+      border-radius: 26px;
+      padding: 18px;
+    }
+    .estimate-preview-table th,
+    .estimate-preview-table td {
+      padding: 12px;
+      font-size: var(--text-sm);
+    }
   }
 </style>
 {% endblock %}

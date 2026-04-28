@@ -1,32 +1,34 @@
 {% extends "marketing/base_marketing.html" %}
-{% block title %}{{ feature.title }} — FieldLgx{% endblock %}
+{% block title %}{{ feature.title }} for Lawn Care & Landscaping | FIELDLGX{% endblock %}
 {% block meta_description %}{{ feature.seo_description|default:feature.subtitle }}{% endblock %}
-{% block og_title %}{{ feature.title }} — FieldLgx{% endblock %}
+{% block og_title %}{{ feature.title }} — FIELDLGX{% endblock %}
 {% block og_description %}{{ feature.seo_description|default:feature.subtitle }}{% endblock %}
 
 {% block extra_css %}
 <style>
-.feature-demo{margin-top:16px;border:1px solid var(--border);border-radius:16px;padding:14px;background:linear-gradient(170deg,#13151a,#0f1217)}
+.feature-demo{margin-top:22px;border:1px solid var(--border);border-radius:24px;padding:18px;background:linear-gradient(170deg,rgba(255,255,255,.07),rgba(255,255,255,.025));box-shadow:var(--shadow-lg)}
 .demo-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:10px}
-.demo-panel{border:1px solid #2f3640;border-radius:12px;padding:10px;background:rgba(255,255,255,.02);transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease)}
-.demo-panel:hover{transform:translateY(-2px);border-color:#22c55e}
-.demo-line{height:8px;background:#2a313d;border-radius:999px;margin:8px 0;overflow:hidden}
-.demo-line i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#22c55e,#6ee7b7);animation:demoFlow 2.4s ease-in-out infinite}
+.demo-panel{border:1px solid var(--border);border-radius:18px;padding:14px;background:rgba(0,0,0,.18);transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease)}
+.demo-panel:hover{transform:translateY(-2px);border-color:rgba(157,216,80,.42)}
+.demo-line{height:9px;background:rgba(255,255,255,.08);border-radius:999px;margin:10px 0;overflow:hidden}
+.demo-line i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--primary),#d6ff8b);animation:demoFlow 2.4s ease-in-out infinite}
+.feature-role-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 @keyframes demoFlow{0%,100%{width:40%}50%{width:78%}}
-@media (max-width:900px){.demo-grid{grid-template-columns:1fr}}
+@media (max-width:900px){.demo-grid,.feature-role-grid{grid-template-columns:1fr}}
 </style>
 {% endblock %}
 
 {% block content %}
-<section class="hero">
+<section class="hero" style="padding-top:120px;">
   <div class="shell" data-r>
+    <p class="eyebrow">FEATURE DETAIL</p>
     <h1>{{ feature.title }}</h1>
     <p class="sub">{{ feature.subtitle }}</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial">Start Free Trial</a>
       <a class="btn btn-secondary" href="/features/">Back to all features</a>
     </div>
-    <p style="margin:10px 0 0;color:var(--muted);font-size:14px;">Start with a free trial and upgrade when you’re ready.</p>
+    <p style="margin:10px 0 0;color:var(--muted);font-size:14px;">Start with a 14-day free trial and upgrade when you’re ready.</p>
     <div class="feature-demo" data-r>
       <div class="demo-grid" style="margin-top:10px;">
         <div class="demo-panel">
@@ -49,7 +51,7 @@
       {% for b in feature.bullets %}
       <article class="card" style="transition:transform var(--motion-base) var(--motion-ease),border-color var(--motion-base) var(--motion-ease);">
         <h3>{{ b }}</h3>
-        <p>Built with the same unified FieldLgx design system for speed, clarity, and reliable execution.</p>
+        <p>Built with the same unified FIELDLGX design system for speed, clarity, and reliable execution.</p>
       </article>
       {% endfor %}
     </div>
@@ -59,7 +61,7 @@
 <section class="section" style="padding-top:8px;">
   <div class="shell" data-r>
     <h2 class="title">Who this is built for</h2>
-    <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+    <div class="feature-role-grid">
       {% for role, blurb in feature.roles.items %}
       <article class="card"><h3>{{ role }}</h3><p>{{ blurb }}</p></article>
       {% endfor %}
@@ -71,7 +73,7 @@
   <div class="shell" data-r>
     <div class="card" style="padding:24px;">
       <h2 class="title" style="margin-bottom:8px;">See it in your workflow</h2>
-      <p class="lead">Every FieldLgx module connects to scheduling, customers, invoicing, and team operations so your business runs as one system—not isolated tools.</p>
+      <p class="lead">Every FIELDLGX module connects to lawn care scheduling, route planning, customer CRM, estimates, invoices, payments, and team operations so your landscaping business runs as one system, not isolated tools.</p>
       <a class="btn btn-primary" href="/accounts/signup/" data-cta="start-free-trial">Start Free Trial</a>
     </div>
   </div>
@@ -85,7 +87,7 @@
   "@type":"FAQPage",
   "mainEntity":[
     {"@type":"Question","name":"What does {{ feature.title|escapejs }} help with?","acceptedAnswer":{"@type":"Answer","text":"{{ feature.subtitle|escapejs }}"}},
-    {"@type":"Question","name":"Is this connected to other FieldLgx modules?","acceptedAnswer":{"@type":"Answer","text":"Yes. FieldLgx modules are designed to work together across scheduling, clients, invoicing, estimates, and financial workflows."}}
+    {"@type":"Question","name":"Is this connected to other FIELDLGX modules?","acceptedAnswer":{"@type":"Answer","text":"Yes. FIELDLGX modules are designed to work together across lawn care scheduling, landscaping CRM, route planning, estimates, invoices, payments, and financial workflows."}}
   ]
 }
 </script>

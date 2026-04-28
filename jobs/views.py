@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from urllib.parse import quote
 
 from django.conf import settings
-from django.db.models import Q, Sum, F
+from django.db.models import Q, Sum, F, Prefetch
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -14,7 +14,7 @@ from django.contrib import messages
 from accounts.decorators import role_required
 from accounts.utils import get_business
 from accounts.models import Notification
-from billing.services import create_draft_invoice_for_job
+from billing.services import auto_charge_invoice_card, create_draft_invoice_for_job
 from billing.monthly import generate_monthly_invoice_for_customer
 from .models import Job, JobServiceItem, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobPhoto, JobAssignmentLog, Meeting, JobNote, PropertyNote
 from customers.models import Property
@@ -265,11 +265,14 @@ def job_list(request):
         for est in accepted_estimates:
             needs_scheduling.append(est)
 
+    needs_scheduled_count = len(needs_scheduling) + len(unscheduled_with_details)
+
     return render(request, 'jobs/job_list.html', {
         'upcoming_jobs': upcoming_with_details,
         'past_jobs': past_jobs_with_details,
         'unscheduled_jobs': unscheduled_with_details,
         'needs_scheduling': needs_scheduling,
+        'needs_scheduled_count': needs_scheduled_count,
         'today': today,
         'filter_type': filter_type,
         'filter_date': filter_date,
@@ -332,6 +335,7 @@ def schedule_from_estimate(request, estimate_id):
                 job=job,
                 service=svc,
                 description=line.description,
+                detail_description=getattr(line, "detail_description", "") or "",
                 quantity=line.quantity or 1,
                 unit=line.unit or "visit",
                 unit_price=line.unit_price or 0,
@@ -1291,6 +1295,7 @@ def calendar_quick_create(request):
         for svc_item in services_list:
             svc_id = svc_item.get("service_id")
             svc_name = svc_item.get("service_name", "").strip()
+            svc_detail = (svc_item.get("detail_description") or "").strip()
             svc_qty = svc_item.get("quantity", 1)
             svc_price_override = svc_item.get("unit_price")
 
@@ -1313,6 +1318,7 @@ def calendar_quick_create(request):
                     rate = Decimal(str(svc_price_override))
                 JobServiceItem.objects.create(
                     job=job, service=svc, description=svc.name,
+                    detail_description=svc_detail[:1000],
                     quantity=svc_qty, unit=unit, unit_price=rate,
                 )
     elif service:
@@ -1678,7 +1684,15 @@ def crew_today_view(request):
         Q(scheduled_date__lte=today, scheduled_end_date__gte=today)
     ).select_related(
         "property", "property__customer", "assigned_to", "assigned_crew"
-    ).prefetch_related("service_items__service", "assigned_employees").annotate(
+    ).prefetch_related(
+        "service_items__service",
+        "assigned_employees",
+        Prefetch(
+            "property__property_notes",
+            queryset=PropertyNote.objects.filter(visibility=PropertyNote.VISIBILITY_CREW).select_related("author"),
+            to_attr="crew_visible_notes",
+        ),
+    ).annotate(
         site_photo_count=Count("site_photos"),
     ).distinct()
 
@@ -1720,11 +1734,33 @@ def crew_today_view(request):
         else:
             # Single-day: all items (unchanged behavior)
             job.filtered_service_items = all_items
+        property_alerts = []
+        if job.property.gate_code:
+            property_alerts.append({"label": "Gate code", "text": job.property.gate_code})
+        if job.property.has_dog:
+            property_alerts.append({"label": "Dog on site", "text": "Check before entering the yard."})
+        if (job.property.notes or "").strip():
+            property_alerts.append({"label": "Property note", "text": job.property.notes.strip()})
+        for note in getattr(job.property, "crew_visible_notes", [])[:3]:
+            property_alerts.append({"label": "Permanent note", "text": note.text})
+        job.property_alerts = property_alerts
 
     job_ids_with_photos = set(
         JobCompletionPhoto.objects.filter(job__in=jobs).values_list("job_id", flat=True)
     ) if jobs else set()
     require_completion_photo = bool(business and getattr(business, "require_completion_photo", False))
+    total_jobs = len(jobs)
+    completed_jobs = sum(1 for job in jobs if job.status in {"completed", "skipped"})
+    remaining_jobs = max(total_jobs - completed_jobs, 0)
+    next_job = next((job for job in jobs if job.status not in {"completed", "skipped"}), None)
+    route_name = ""
+    for job in jobs:
+        if job.assigned_crew:
+            route_name = job.assigned_crew.name
+            break
+    if not route_name:
+        route_name = request.user.get_full_name() or request.user.username
+    route_progress_percent = int((completed_jobs / total_jobs) * 100) if total_jobs else 0
 
     # For clock in/out widget
     time_clock_current_entry = TimeEntry.objects.filter(
@@ -1737,6 +1773,12 @@ def crew_today_view(request):
         "time_clock_current_entry": time_clock_current_entry,
         "job_ids_with_photos": job_ids_with_photos,
         "require_completion_photo": require_completion_photo,
+        "total_jobs": total_jobs,
+        "completed_jobs": completed_jobs,
+        "remaining_jobs": remaining_jobs,
+        "next_job": next_job,
+        "route_name": route_name,
+        "route_progress_percent": route_progress_percent,
     })
 
 def _user_can_access_job(user, job):
@@ -1943,40 +1985,13 @@ def complete_job(request, job_id):
                     user=request.user,
                     details={"source": "automation", "trigger": "job_completed"},
                 )
-                # Auto-charge card on file if enabled
-                charged_msg = ""
-                if (customer.auto_charge and customer.stripe_payment_method_id
-                        and customer.stripe_customer_id and business.stripe_connect_account_id):
-                    try:
-                        import stripe as _stripe
-                        _stripe.api_key = settings.STRIPE_SECRET_KEY
-                        invoice.recompute_totals()
-                        amount_cents = int(invoice.total * 100)
-                        if amount_cents >= 50:
-                            pi = _stripe.PaymentIntent.create(
-                                amount=amount_cents,
-                                currency="usd",
-                                customer=customer.stripe_customer_id,
-                                payment_method=customer.stripe_payment_method_id,
-                                off_session=True,
-                                confirm=True,
-                                description=f"Invoice #{invoice.id} from {business.name}",
-                                metadata={"invoice_id": invoice.id},
-                                stripe_account=business.stripe_connect_account_id,
-                            )
-                            if pi.status == "succeeded":
-                                invoice.status = "paid"
-                                invoice.save(update_fields=["status"])
-                                InvoiceAuditLog.objects.create(
-                                    invoice=invoice,
-                                    action="auto_charged",
-                                    user=request.user,
-                                    details={"stripe_pi": pi.id, "card": customer.card_last4},
-                                )
-                                charged_msg = f" Card ({customer.card_brand} ****{customer.card_last4}) charged."
-                    except Exception:
-                        pass
-                messages.success(request, f"Job completed. Invoice #{invoice.id} sent.{charged_msg}")
+                charged, charged_msg = auto_charge_invoice_card(invoice, user=request.user, source="job_completed")
+                if charged:
+                    messages.success(request, f"Job completed. Invoice #{invoice.id} sent. {charged_msg}")
+                else:
+                    messages.success(request, f"Job completed. Invoice #{invoice.id} sent.")
+                    if customer.should_auto_charge_invoice(invoice):
+                        messages.warning(request, charged_msg)
             else:
                 messages.success(
                     request,
@@ -2101,6 +2116,7 @@ def skip_job(request, job_id):
                 job=new_job,
                 service=si.service,
                 description=si.description,
+                detail_description=getattr(si, "detail_description", "") or "",
                 quantity=si.quantity,
                 unit=si.unit,
                 unit_price=si.unit_price,
@@ -2289,18 +2305,26 @@ def add_job_note(request, job_id):
     scope = (data.get("scope") or "job").strip().lower()
     if not text:
         return JsonResponse({"error": "Note text is required"}, status=400)
+    visibility = (data.get("visibility") or PropertyNote.VISIBILITY_CREW).strip().lower()
+    if visibility not in {PropertyNote.VISIBILITY_CREW, PropertyNote.VISIBILITY_INTERNAL}:
+        visibility = PropertyNote.VISIBILITY_CREW
+    if request.user.role == "crew":
+        visibility = PropertyNote.VISIBILITY_CREW
     if scope == "property":
-        note = PropertyNote.objects.create(property=job.property, author=request.user, text=text)
+        note = PropertyNote.objects.create(property=job.property, author=request.user, text=text, visibility=visibility)
         return JsonResponse({
             "status": "ok",
             "scope": "property",
             "id": note.id,
             "text": note.text,
+            "visibility": note.visibility,
             "author": note.author.get_full_name() or note.author.username,
             "created_at": note.created_at.isoformat(),
             "property_address": job.property.address,
         })
     if scope == "recurring":
+        if visibility == PropertyNote.VISIBILITY_INTERNAL:
+            return JsonResponse({"error": "Internal notes can be saved to this job or property, but not pushed to recurring future visits."}, status=400)
         if not job.recurring_job_id:
             return JsonResponse({"error": "This job is not linked to a recurring schedule"}, status=400)
         recurring_job = job.recurring_job
@@ -2323,12 +2347,13 @@ def add_job_note(request, job_id):
             "created_at": "",
             "future_updated": future_jobs.count(),
         })
-    note = JobNote.objects.create(job=job, author=request.user, text=text)
+    note = JobNote.objects.create(job=job, author=request.user, text=text, visibility=visibility)
     return JsonResponse({
         "status": "ok",
         "scope": "job",
         "id": note.id,
         "text": note.text,
+        "visibility": note.visibility,
         "author": note.author.get_full_name() or note.author.username,
         "created_at": note.created_at.isoformat(),
     })
@@ -2425,17 +2450,22 @@ def get_job_notes(request, job_id):
     )
     if request.user.role == "crew" and not _user_can_access_job(request.user, job):
         return JsonResponse({"error": "Not assigned to this job"}, status=403)
+    job_notes_qs = job.job_notes.select_related("author")
+    property_notes_qs = job.property.property_notes.select_related("author")
+    if request.user.role == "crew":
+        job_notes_qs = job_notes_qs.filter(visibility=JobNote.VISIBILITY_CREW)
+        property_notes_qs = property_notes_qs.filter(visibility=PropertyNote.VISIBILITY_CREW)
     job_notes = list(
-        job.job_notes.select_related("author").values_list("id", "text", "author__first_name", "author__last_name", "author__username", "created_at")
+        job_notes_qs.values_list("id", "text", "visibility", "author__first_name", "author__last_name", "author__username", "created_at")
     )
     property_notes = list(
-        job.property.property_notes.select_related("author").values_list("id", "text", "author__first_name", "author__last_name", "author__username", "created_at")
+        property_notes_qs.values_list("id", "text", "visibility", "author__first_name", "author__last_name", "author__username", "created_at")
     )
     def fmt(rows, note_type):
         out = []
-        for nid, text, first, last, uname, created in rows:
+        for nid, text, visibility, first, last, uname, created in rows:
             name = f"{first} {last}".strip() or uname
-            out.append({"id": nid, "text": text, "author": name, "created_at": created.isoformat(), "type": note_type, "note_type": note_type})
+            out.append({"id": nid, "text": text, "visibility": visibility, "author": name, "created_at": created.isoformat(), "type": note_type, "note_type": note_type})
         return out
     recurring_notes = []
     if job.recurring_job_id and (job.recurring_job.notes or "").strip():
@@ -2513,6 +2543,7 @@ def create_job(request):
                     unit = getattr(service, "default_unit", None) or unit
                     service_snapshot.append({
                         "service_id": service.pk,
+                        "detail_description": form_data.cleaned_data.get("detail_description") or "",
                         "quantity": str(qty),
                         "unit": unit,
                         "unit_price": str(rate),
@@ -2586,6 +2617,8 @@ def create_job(request):
                     JobServiceItem.objects.create(
                         job=job,
                         service=service,
+                        description=service.name,
+                        detail_description=form_data.cleaned_data.get("detail_description") or "",
                         quantity=qty,
                         unit=unit,
                         unit_price=rate,
@@ -2639,6 +2672,7 @@ def create_job(request):
                         price = item.unit_price
                     formset_initial.append({
                         "service_name": item.description[:120],
+                        "detail_description": getattr(item, "detail_description", "") or "",
                         "quantity": item.quantity,
                         "unit_price": price,
                     })
@@ -4088,27 +4122,42 @@ def mowing_update_frequency(request):
                         job_unit = snap.get("unit", "visit")
                         break
 
-        # Find completed/in_progress/skipped mowing jobs in the season window
-        # so we schedule around them (not on top of them)
-        existing_done_dates = set()
-        last_done_date = None
-        if mowing_svc:
-            done_dates = list(
-                Job.objects.filter(
-                    property=prop,
-                    scheduled_date__gte=season_start,
-                    scheduled_date__lte=season_end,
-                    status__in=["completed", "in_progress", "skipped"],
-                    service_items__service=mowing_svc,
-                ).values_list("scheduled_date", flat=True).distinct()
+        # Anchor new cadence from the last completed service, even if that
+        # service happened before the current future schedule window.
+        last_completed_date = (
+            Job.objects.filter(
+                property=prop,
+                scheduled_date__lte=today,
+                status="completed",
             )
-            existing_done_dates = set(done_dates)
-            if done_dates:
-                last_done_date = max(done_dates)
+            .filter(Q(recurring_job=rj) | Q(service_items__service_id__in=mowing_svc_ids))
+            .order_by("-scheduled_date")
+            .values_list("scheduled_date", flat=True)
+            .first()
+        )
 
-        # Start scheduling from the last completed job + interval (or season_start)
-        if last_done_date and last_done_date >= season_start:
-            next_start = last_done_date + timedelta(days=interval)
+        # Find completed/in_progress/skipped mowing jobs in the future season
+        # window so we schedule around preserved jobs, not on top of them.
+        existing_done_dates = set()
+        done_dates = list(
+            Job.objects.filter(
+                property=prop,
+                scheduled_date__gte=season_start,
+                scheduled_date__lte=season_end,
+                status__in=["completed", "in_progress", "skipped"],
+            )
+            .filter(Q(recurring_job=rj) | Q(service_items__service_id__in=mowing_svc_ids))
+            .values_list("scheduled_date", flat=True)
+            .distinct()
+        )
+        existing_done_dates = set(done_dates)
+
+        # Start scheduling from last completed service + interval. If that date
+        # is no longer in the future, keep advancing by the new cadence.
+        if last_completed_date:
+            next_start = last_completed_date + timedelta(days=interval)
+            while next_start <= today:
+                next_start += timedelta(days=interval)
         else:
             next_start = season_start
 

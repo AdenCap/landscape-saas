@@ -65,6 +65,8 @@ class Command(BaseCommand):
                 user=None,
                 details={"source": "automation", "trigger": "monthly_schedule"},
             )
+            from billing.services import auto_charge_invoice_card
+            auto_charge_invoice_card(inv, user=None, source="scheduled_monthly_invoice")
             sent_count += 1
 
             # Send email to customer

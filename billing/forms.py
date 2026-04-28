@@ -467,13 +467,30 @@ class DocumentTemplateForm(forms.ModelForm):
 
     class Meta:
         model = DocumentTemplate
-        fields = ["template_key", "name", "primary_color", "header_text", "footer_text", "terms_and_conditions"]
+        fields = [
+            "template_key",
+            "name",
+            "primary_color",
+            "font_style",
+            "show_property_address",
+            "show_service_date",
+            "show_photos",
+            "header_text",
+            "footer_text",
+            "terms_and_conditions",
+            "payment_instructions",
+        ]
         widgets = {
             "name": forms.TextInput(attrs={"placeholder": "e.g. My Estimate Template"}),
             "primary_color": forms.TextInput(attrs={"type": "color", "style": "height: 40px; width: 80px; padding: 2px; cursor: pointer;"}),
+            "font_style": forms.Select(),
+            "show_property_address": forms.CheckboxInput(),
+            "show_service_date": forms.CheckboxInput(),
+            "show_photos": forms.CheckboxInput(),
             "header_text": forms.Textarea(attrs={"rows": 3, "placeholder": "Optional header (e.g. tagline, license number)"}),
             "footer_text": forms.Textarea(attrs={"rows": 3, "placeholder": "Optional footer (e.g. thank you, payment terms)"}),
             "terms_and_conditions": forms.Textarea(attrs={"rows": 5, "placeholder": "Terms and conditions shown on the document"}),
+            "payment_instructions": forms.Textarea(attrs={"rows": 4, "placeholder": "How clients should pay, deposit instructions, ACH details, or card-on-file language"}),
         }
 
     def __init__(self, *args, **kwargs):

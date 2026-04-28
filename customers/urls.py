@@ -21,6 +21,7 @@ urlpatterns = [
     path("<int:customer_id>/save-card/", views.customer_save_card, name="customer_save_card"),
     path("<int:customer_id>/remove-card/", views.customer_remove_card, name="customer_remove_card"),
     path("<int:customer_id>/toggle-auto-charge/", views.customer_toggle_auto_charge, name="customer_toggle_auto_charge"),
+    path("<int:customer_id>/auto-charge/", views.customer_update_auto_charge, name="customer_update_auto_charge"),
     path("<int:customer_id>/contracts/add/", views.contract_add, name="contract_add"),
     path("<int:customer_id>/contracts/<int:contract_id>/edit/", views.contract_edit, name="contract_edit"),
     path("<int:customer_id>/properties/<int:property_id>/photos/", views.property_photo_gallery, name="property_photo_gallery"),

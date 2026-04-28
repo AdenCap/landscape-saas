@@ -1,446 +1,386 @@
 {% extends "marketing/base_marketing.html" %}
 {% load static %}
-{% block title %}FieldLgx — Landscaping Business Software | Scheduling, Invoicing & CRM{% endblock %}
-{% block meta_description %}FieldLgx is all-in-one software for landscaping and lawn care businesses. Drag-and-drop scheduling, daily route planning, invoicing, estimates, crew management, fertilization tracking, and client CRM — from one platform.{% endblock %}
-{% block og_title %}FieldLgx — Landscaping Business Software | Scheduling, Invoicing & CRM{% endblock %}
-{% block og_description %}All-in-one software for landscaping businesses. Schedule crews, plan routes, send invoices, manage clients, and track fertilization programs from one platform.{% endblock %}
+{% block title %}Lawn Care & Landscape Management Software | FIELDLGX{% endblock %}
+{% block meta_description %}FIELDLGX is premium lawn care and landscape management software for scheduling, route planning, recurring jobs, estimates, invoices, payments, crews, photos, CRM, mowing, fertilization, and batch invoicing.{% endblock %}
+{% block og_title %}FIELDLGX — Premium Lawn Care & Landscape Management Software{% endblock %}
+{% block og_description %}Run scheduling, crews, recurring lawn services, estimates, invoices, payments, routes, mowing, fertilization, and client operations from one premium landscaping command center.{% endblock %}
 
 {% block extra_css %}
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FieldLgx","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"All-in-one landscaping business software for scheduling, invoicing, route planning, crew management, fertilization tracking, estimates, and client CRM.","offers":[{"@type":"Offer","name":"Solo Starter","price":"{{ pricing.solo_price }}","priceCurrency":"USD","priceValidUntil":"2026-12-31","availability":"https://schema.org/InStock"},{"@type":"Offer","name":"Pro All-Access","price":"{{ pricing.pro_price }}","priceCurrency":"USD","priceValidUntil":"2026-12-31","availability":"https://schema.org/InStock"}],"featureList":["Drag-and-Drop Calendar Scheduling","Daily Route Planning","Job Tracking with Completion Photos","Invoicing and Estimates","Property Estimator with Satellite Imagery","Client and Property CRM","Fertilization Program Management","Crew and Time Tracking","Financials and Reporting","Equipment and Fleet Tracking","Service Agreements","Checklists and Inspections","QuickBooks Integration","Stripe Payment Processing"]}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FIELDLGX","alternateName":["lawn care software","landscape management software","landscaping CRM"],"applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"Premium lawn care and landscape management software for scheduling, recurring jobs, route planning, client CRM, estimates, invoices, online payments, mowing management, fertilization programs, job photos, notes, crew management, batch invoicing, and financial reporting.","offers":[{"@type":"Offer","name":"Solo Starter","price":"{{ pricing.solo_price }}","priceCurrency":"USD","availability":"https://schema.org/InStock"},{"@type":"Offer","name":"Pro All-Access","price":"{{ pricing.pro_price }}","priceCurrency":"USD","availability":"https://schema.org/InStock"}],"featureList":["Field Command dashboard","Drag-and-drop calendar scheduling","Recurring job management","Daily route planning","Job detail notes and photos","Client and property CRM","Estimate builder","Invoice builder","Monthly and batch invoicing","Online card payments with Stripe Connect","Mowing frequency management","Fertilization program management","Service agreements","Crew and employee management","Financial dashboards","Document templates"]}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is FieldLgx?","acceptedAnswer":{"@type":"Answer","text":"FieldLgx is all-in-one business software built specifically for landscaping and lawn care companies. It handles scheduling, daily route planning, invoicing, estimates, crew management, fertilization programs, client CRM, and financial tracking from one platform."}},{"@type":"Question","name":"How much does FieldLgx cost?","acceptedAnswer":{"@type":"Answer","text":"FieldLgx offers two plans: Solo Starter at ${{ pricing.solo_price }}/month for owner-operators, and Pro All-Access at ${{ pricing.pro_price }}/month for growing businesses with crews. Both plans include a free trial with no credit card required."}},{"@type":"Question","name":"Does FieldLgx work on mobile devices?","acceptedAnswer":{"@type":"Answer","text":"Yes, FieldLgx is fully mobile-optimized so your crews can clock in, view daily routes, complete jobs, upload photos, and track time from their phones in the field."}},{"@type":"Question","name":"Does FieldLgx integrate with QuickBooks and Stripe?","acceptedAnswer":{"@type":"Answer","text":"Yes, FieldLgx integrates with QuickBooks for accounting sync and Stripe for online payment processing. Customers can also pay via Venmo, Zelle, or Cash App links on invoices."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is FIELDLGX?","acceptedAnswer":{"@type":"Answer","text":"FIELDLGX is premium business software built for landscaping and lawn care companies. It brings scheduling, recurring jobs, client records, routes, estimates, invoices, payments, crew notes, photos, mowing, fertilization, and financial visibility into one platform."}},{"@type":"Question","name":"Does FIELDLGX include a free trial?","acceptedAnswer":{"@type":"Answer","text":"Yes. New landscaping businesses can start with a 14-day free trial."}},{"@type":"Question","name":"Can crews use FIELDLGX on mobile?","acceptedAnswer":{"@type":"Answer","text":"Yes. FIELDLGX is mobile-optimized so field teams can view jobs, access property details, read crew-visible notes, upload photos, and complete work from the field."}},{"@type":"Question","name":"Can FIELDLGX handle invoices and payments?","acceptedAnswer":{"@type":"Answer","text":"Yes. FIELDLGX supports estimates, invoices, line items, discounts and promotions, monthly invoice workflows, and online card payments through Stripe Connect when enabled by the business owner."}}]}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Organization","name":"FIELDLGX","url":"https://fieldlgx.com","logo":"https://fieldlgx.com/static/img/icon-512.png","sameAs":[]}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebSite","name":"FIELDLGX","url":"https://fieldlgx.com"}
 </script>
 <style>
-:root{--lime:#a9ffac;--lime-dark:#00fe66;--acid:#c3f400;--cyan:#81ecff;--magenta:#ff6bfa;--ob:#0a0a0a;--ob-mid:#111;--ob-high:#1a1a1a;--ghost:rgba(73,72,71,.15);--glow:0 0 40px rgba(169,255,172,.15)}
-*,*::before,*::after{box-sizing:border-box}
-
-/* ── HERO ── */
-.lp-hero{position:relative;min-height:100vh;display:flex;align-items:center;overflow:hidden;background:var(--ob)}
-.lp-hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(169,255,172,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(169,255,172,.03) 1px,transparent 1px);background-size:60px 60px;animation:gridDrift 20s linear infinite}
-@keyframes gridDrift{to{background-position:60px 60px}}
-.lp-hero-radial{position:absolute;width:900px;height:900px;border-radius:50%;background:radial-gradient(circle,rgba(169,255,172,.07),transparent 65%);top:-350px;left:-100px;pointer-events:none;animation:pulse 5s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
-.lp-hero-inner{position:relative;z-index:2;max-width:1200px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
-.lp-hero-text{opacity:0;animation:fadeSlide .9s .2s cubic-bezier(.16,1,.3,1) forwards}
-@keyframes fadeSlide{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
-.lp-eyebrow{font-family:'Space Grotesk',monospace;font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--lime);margin-bottom:20px;display:flex;align-items:center;gap:10px}
-.lp-eyebrow::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--lime);box-shadow:0 0 12px var(--lime)}
-.lp-hero h1{font-family:'Manrope',sans-serif;font-size:clamp(36px,6vw,80px);font-weight:800;line-height:.95;letter-spacing:-.04em;color:#fff;margin:0 0 24px}
-.lp-hero h1 em{font-style:normal;background:linear-gradient(135deg,var(--lime),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.lp-hero-sub{font-size:clamp(15px,1.6vw,19px);line-height:1.6;color:rgba(232,230,227,.55);max-width:480px;margin:0 0 36px}
-.lp-hero-cta{display:flex;gap:14px;flex-wrap:wrap}
-.btn-hero{padding:16px 36px;font-family:'Manrope',sans-serif;font-size:15px;font-weight:700;border-radius:1rem;text-decoration:none;transition:all .3s cubic-bezier(.16,1,.3,1);display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer}
-.btn-hero-primary{background:linear-gradient(135deg,var(--lime),var(--lime-dark));color:#001f06;box-shadow:var(--glow)}
-.btn-hero-primary:hover{box-shadow:0 0 60px rgba(169,255,172,.35);transform:translateY(-3px) scale(1.02)}
-.btn-hero-secondary{background:transparent;color:rgba(232,230,227,.7);border:1px solid var(--ghost)}
-.btn-hero-secondary:hover{border-color:rgba(73,72,71,.5);color:#fff;transform:translateY(-2px)}
-.lp-hero-note{font-family:'Space Grotesk',monospace;font-size:11px;color:rgba(232,230,227,.3);margin-top:16px}
-
-/* Floating 3D Dashboard */
-.lp-hero-visual{perspective:1200px;display:flex;justify-content:center;align-items:center;opacity:0;animation:fadeSlide 1s .5s cubic-bezier(.16,1,.3,1) forwards}
-.lp-dashboard{width:100%;max-width:480px;aspect-ratio:4/3;background:var(--ob-high);border:1px solid rgba(169,255,172,.12);border-radius:20px;padding:20px;position:relative;transform:rotateY(-8deg) rotateX(4deg);transition:transform .4s cubic-bezier(.16,1,.3,1);box-shadow:0 40px 80px rgba(0,0,0,.6),0 0 60px rgba(169,255,172,.05);overflow:hidden}
-.lp-dashboard::before{content:"";position:absolute;inset:-1px;border-radius:20px;background:linear-gradient(135deg,rgba(169,255,172,.15),transparent 40%,transparent 60%,rgba(129,236,255,.1));z-index:-1;padding:1px}
-.lp-dash-bar{height:10px;border-radius:6px;margin-bottom:12px}
-.lp-dash-bar.b1{width:60%;background:linear-gradient(90deg,var(--lime),var(--lime-dark));opacity:.7}
-.lp-dash-bar.b2{width:85%;background:rgba(169,255,172,.08)}
-.lp-dash-bar.b3{width:45%;background:rgba(129,236,255,.1)}
-.lp-dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
-.lp-dash-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:16px;min-height:60px}
-.lp-dash-card .label{font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:rgba(163,161,157,.4);margin-bottom:6px;font-family:'Space Grotesk',monospace}
-.lp-dash-card .val{font-size:22px;font-weight:800;font-family:'Space Grotesk',monospace;color:var(--lime)}
-.lp-dash-shine{position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(135deg,transparent 40%,rgba(169,255,172,.03) 50%,transparent 60%);animation:shine 6s ease-in-out infinite;pointer-events:none}
-@keyframes shine{0%,100%{transform:translateX(-60%) translateY(-60%)}50%{transform:translateX(20%) translateY(20%)}}
-
-/* ── MOWER SECTION ── */
-.lp-mower-section{position:relative;background:var(--ob);overflow:hidden}
-.lp-mower-pin{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.lp-mower-heading{text-align:center;margin-bottom:50px}
-.lp-mower-heading h2{font-family:'Manrope',sans-serif;font-size:clamp(26px,4vw,48px);font-weight:800;letter-spacing:-.03em;color:#fff;margin:0 0 12px}
-.lp-mower-heading p{font-size:15px;color:rgba(232,230,227,.45);max-width:440px;margin:0 auto}
-.lp-grass-layer{position:absolute;inset:0;background:linear-gradient(135deg,#0a2e0a,#0d3d0d,#0a2e0a);z-index:10;clip-path:inset(0 0 0 0);pointer-events:none}
-.lp-grass-texture{position:absolute;inset:0;opacity:.12;background-image:repeating-linear-gradient(90deg,transparent,transparent 2px,rgba(169,255,172,.1) 2px,rgba(169,255,172,.1) 3px)}
-.lp-mower-svg{position:absolute;z-index:20;width:140px;height:90px;left:-160px;top:50%;transform:translateY(-50%);filter:drop-shadow(0 0 30px rgba(169,255,172,.35))}
-.lp-features-grid{position:relative;z-index:5;display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:1100px;margin:0 auto;padding:0 24px}
-.lp-feat-card{background:rgba(26,26,26,.7);backdrop-filter:blur(20px);border:1px solid rgba(169,255,172,.06);border-radius:1.5rem;padding:30px 26px;opacity:0;transform:translateY(20px) rotateY(8deg);transition:all .6s cubic-bezier(.16,1,.3,1)}
-.lp-feat-card.revealed{opacity:1;transform:translateY(0) rotateY(0)}
-.lp-feat-card:hover{border-color:rgba(169,255,172,.15);box-shadow:0 8px 40px rgba(0,0,0,.3),0 0 30px rgba(169,255,172,.04);transform:translateY(-4px) scale(1.02)}
-.lp-feat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:22px}
-.lp-feat-icon.green{background:rgba(169,255,172,.08);color:var(--lime)}
-.lp-feat-icon.cyan{background:rgba(129,236,255,.08);color:var(--cyan)}
-.lp-feat-icon.acid{background:rgba(195,244,0,.08);color:var(--acid)}
-.lp-feat-card h3{font-family:'Manrope',sans-serif;font-size:16px;font-weight:700;color:#e8e6e3;margin:0 0 8px;letter-spacing:-.01em}
-.lp-feat-card p{font-size:13px;color:rgba(163,161,157,.75);line-height:1.6;margin:0}
-
-/* ── SKID STEER SECTION ── */
-.lp-skid-section{position:relative;background:var(--ob-mid);overflow:hidden;min-height:100vh}
-.lp-skid-pin{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center}
-.lp-skid-inner{max-width:1100px;margin:0 auto;padding:0 24px;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
-.lp-skid-visual{position:relative;display:flex;justify-content:center;align-items:center}
-.lp-skid-svg{width:280px;height:200px;filter:drop-shadow(0 0 40px rgba(195,244,0,.15))}
-.lp-skid-bucket{transform-origin:75% 50%;transition:transform .05s linear}
-.lp-dirt-particles{position:absolute;top:40%;left:20%;pointer-events:none}
-.lp-dirt-particle{position:absolute;width:6px;height:6px;border-radius:50%;background:#8B6914;opacity:0}
-.lp-skid-content{position:relative}
-.lp-skid-heading{font-family:'Manrope',sans-serif;font-size:clamp(24px,3.5vw,42px);font-weight:800;letter-spacing:-.03em;color:#fff;margin:0 0 40px;line-height:1.1}
-.lp-skid-heading em{font-style:normal;background:linear-gradient(135deg,var(--acid),var(--lime));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.lp-dump-block{background:rgba(26,26,26,.6);backdrop-filter:blur(16px);border:1px solid rgba(195,244,0,.08);border-radius:16px;padding:20px 24px;margin-bottom:14px;opacity:0;transform:translateY(-30px) scale(.95);transition:all .5s cubic-bezier(.16,1,.3,1)}
-.lp-dump-block.dumped{opacity:1;transform:translateY(0) scale(1)}
-.lp-dump-block h4{font-family:'Manrope',sans-serif;font-size:14px;font-weight:700;color:var(--acid);margin:0 0 6px;display:flex;align-items:center;gap:8px}
-.lp-dump-block p{font-size:13px;color:rgba(163,161,157,.7);line-height:1.5;margin:0}
-
-/* ── DEEP FEATURES ── */
-.lp-deep{padding:clamp(80px,12vh,140px) 0;background:var(--ob);position:relative;overflow:hidden}
-.lp-deep-header{text-align:center;margin-bottom:60px}
-.lp-deep-header h2{font-family:'Manrope',sans-serif;font-size:clamp(26px,4vw,44px);font-weight:800;letter-spacing:-.03em;color:#fff;margin:0 0 12px}
-.lp-deep-header p{font-size:15px;color:rgba(163,161,157,.55);max-width:500px;margin:0 auto}
-.lp-deep-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1100px;margin:0 auto;padding:0 24px;perspective:1200px}
-.lp-deep-card{background:rgba(26,26,26,.5);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.04);border-radius:20px;padding:36px 28px;position:relative;overflow:hidden;transition:all .4s cubic-bezier(.16,1,.3,1);transform-style:preserve-3d}
-.lp-deep-card::before{content:"";position:absolute;inset:0;border-radius:20px;background:linear-gradient(135deg,rgba(169,255,172,.06),transparent 50%);opacity:0;transition:opacity .3s}
-.lp-deep-card:hover{transform:translateY(-6px) scale(1.02);border-color:rgba(169,255,172,.12);box-shadow:0 20px 60px rgba(0,0,0,.4),0 0 40px rgba(169,255,172,.04)}
-.lp-deep-card:hover::before{opacity:1}
-.lp-deep-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:26px;position:relative;z-index:1}
-.lp-deep-card h3{font-family:'Manrope',sans-serif;font-size:17px;font-weight:700;color:#e8e6e3;margin:0 0 10px;position:relative;z-index:1}
-.lp-deep-card p{font-size:13px;color:rgba(163,161,157,.7);line-height:1.6;margin:0;position:relative;z-index:1}
-.lp-deep-tag{display:inline-block;font-family:'Space Grotesk',monospace;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:20px;margin-top:14px;position:relative;z-index:1}
-.lp-deep-tag.pro{background:rgba(169,255,172,.08);color:var(--lime)}
-.lp-deep-tag.core{background:rgba(129,236,255,.08);color:var(--cyan)}
-
-/* ── STATS ── */
-.lp-stats{padding:80px 0;background:var(--ob-mid);position:relative}
-.lp-stats::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(169,255,172,.02),transparent);pointer-events:none}
-.lp-stats-grid{display:flex;justify-content:center;gap:80px;flex-wrap:wrap;max-width:1000px;margin:0 auto;padding:0 24px}
-.lp-stat{text-align:center}
-.lp-stat-val{font-family:'Space Grotesk',monospace;font-size:clamp(36px,5vw,56px);font-weight:700;color:#fff;line-height:1;letter-spacing:-.02em}
-.lp-stat-val .accent{color:var(--lime);text-shadow:0 0 30px rgba(169,255,172,.3)}
-.lp-stat-label{font-family:'Space Grotesk',monospace;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.15em;color:rgba(163,161,157,.5);margin-top:10px}
-
-/* ── PRICING ── */
-.lp-pricing{padding:clamp(80px,12vh,140px) 0;background:var(--ob)}
-.lp-pricing-header{text-align:center;margin-bottom:56px}
-.lp-pricing-header h2{font-family:'Manrope',sans-serif;font-size:clamp(26px,4vw,44px);font-weight:800;letter-spacing:-.03em;color:#fff;margin:0 0 12px}
-.lp-pricing-header p{font-size:15px;color:rgba(163,161,157,.55)}
-.lp-price-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px;max-width:780px;margin:0 auto;padding:0 24px}
-.lp-price-card{background:rgba(26,26,26,.6);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.04);border-radius:1.5rem;padding:36px;position:relative;transition:all .4s cubic-bezier(.16,1,.3,1)}
-.lp-price-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.08)}
-.lp-price-card.featured{border-color:rgba(169,255,172,.1);box-shadow:0 0 60px rgba(169,255,172,.04)}
-.lp-price-card.featured::before{content:"";position:absolute;top:0;left:24px;right:24px;height:2px;background:linear-gradient(90deg,var(--lime),var(--lime-dark));border-radius:0 0 2px 2px}
-.lp-price-name{font-family:'Manrope',sans-serif;font-size:18px;font-weight:700;margin-bottom:6px}
-.lp-price-desc{font-size:13px;color:rgba(163,161,157,.55);margin-bottom:24px;line-height:1.5}
-.lp-price-amount{font-family:'Space Grotesk',monospace;font-size:44px;font-weight:700;line-height:1;margin-bottom:4px}
-.lp-price-amount .dollar{font-size:22px;color:var(--lime);vertical-align:super}
-.lp-price-period{font-family:'Space Grotesk',monospace;font-size:12px;color:rgba(163,161,157,.45);margin-bottom:28px}
-.lp-price-list{list-style:none;padding:0;margin:0 0 28px}
-.lp-price-list li{padding:7px 0 7px 20px;position:relative;font-size:13px;color:rgba(163,161,157,.75);line-height:1.5}
-.lp-price-list li::before{content:"";position:absolute;left:0;top:14px;width:6px;height:6px;border-radius:50%;background:var(--lime);box-shadow:0 0 6px rgba(169,255,172,.3)}
-.lp-price-cta{display:block;width:100%;padding:14px;text-align:center;border-radius:1rem;font-family:'Manrope',sans-serif;font-size:14px;font-weight:700;text-decoration:none;transition:all .3s cubic-bezier(.16,1,.3,1);border:none;cursor:pointer}
-.lp-price-cta.primary{background:linear-gradient(135deg,var(--lime),var(--lime-dark));color:#001f06;box-shadow:0 0 20px rgba(169,255,172,.15)}
-.lp-price-cta.primary:hover{box-shadow:0 0 50px rgba(169,255,172,.3);transform:translateY(-2px)}
-.lp-price-cta.secondary{background:transparent;color:rgba(163,161,157,.75);border:1px solid var(--ghost)}
-.lp-price-cta.secondary:hover{border-color:rgba(73,72,71,.4);color:#fff}
-
-/* ── CTA ── */
-.lp-cta{padding:clamp(100px,16vh,200px) 0;background:var(--ob);text-align:center;position:relative;overflow:hidden}
-.lp-cta-glow{position:absolute;width:900px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(169,255,172,.06),transparent 55%);top:-150px;left:50%;transform:translateX(-50%);pointer-events:none;animation:pulse 6s ease-in-out infinite}
-.lp-cta h2{font-family:'Manrope',sans-serif;font-size:clamp(30px,5vw,60px);font-weight:800;letter-spacing:-.04em;line-height:1;margin:0 auto 20px;max-width:600px;color:#fff;position:relative}
-.lp-cta p{font-size:16px;color:rgba(163,161,157,.55);max-width:440px;margin:0 auto 36px;line-height:1.6}
-.lp-cta-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-
-/* ── RESPONSIVE ── */
-@media(max-width:900px){
-  .lp-hero-inner{grid-template-columns:1fr;text-align:center}
-  .lp-hero-sub{margin-left:auto;margin-right:auto}
-  .lp-hero-cta{justify-content:center}
-  .lp-hero-visual{display:none}
-  .lp-features-grid,.lp-deep-grid{grid-template-columns:repeat(2,1fr)}
-  .lp-skid-inner{grid-template-columns:1fr;text-align:center}
-  .lp-skid-visual{order:-1}
-  .lp-stats-grid{gap:40px}
+:root {
+  --lgx-black:#040504;
+  --lgx-ink:#090a09;
+  --lgx-panel:#141614;
+  --lgx-panel-2:#1c1f1b;
+  --lgx-line:rgba(255,255,255,.105);
+  --lgx-line-strong:rgba(255,255,255,.18);
+  --lgx-lime:#9dd850;
+  --lgx-lime-2:#d6ff8b;
+  --lgx-mist:#e8ebe4;
+  --lgx-muted:rgba(232,235,228,.62);
+  --lgx-soft:rgba(232,235,228,.38);
+  --lgx-shadow:0 32px 90px rgba(0,0,0,.45);
 }
-@media(max-width:640px){
-  .lp-hero h1{font-size:clamp(30px,10vw,44px)}
-  .lp-hero-cta{flex-direction:column;align-items:stretch}
-  .btn-hero{text-align:center;justify-content:center}
-  .lp-features-grid,.lp-deep-grid{grid-template-columns:1fr;gap:14px}
-  .lp-price-grid{grid-template-columns:1fr}
-  .lp-cta-actions{flex-direction:column;align-items:stretch;padding:0 24px}
-  .lp-grass-layer,.lp-mower-svg{display:none}
-  .lp-feat-card{opacity:1!important;transform:none!important}
-  .lp-skid-svg{width:200px;height:140px}
-  .lp-dump-block{opacity:1!important;transform:none!important}
+*,*::before,*::after{box-sizing:border-box}
+body{background:var(--lgx-black)}
+.lgx-page{position:relative;overflow:hidden;background:var(--lgx-black);color:var(--lgx-mist)}
+.lgx-section{position:relative;padding:clamp(72px,8vw,116px) 24px;scroll-margin-top:128px}
+.lgx-shell{max-width:1180px;margin:0 auto;position:relative;z-index:2}
+.lgx-kicker{display:inline-flex;align-items:center;gap:10px;margin:0 0 18px;color:var(--lgx-lime-2);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+.lgx-kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--lgx-lime);box-shadow:0 0 24px rgba(157,216,80,.7)}
+.lgx-pill{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid var(--lgx-line);border-radius:999px;background:rgba(255,255,255,.045);color:var(--lgx-muted);font-size:12px;font-weight:700;text-decoration:none;backdrop-filter:blur(18px)}
+.lgx-button{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 24px;border-radius:999px;font-size:14px;font-weight:850;text-decoration:none;transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease,background .25s ease}
+.lgx-button-primary{background:linear-gradient(135deg,var(--lgx-lime-2),var(--lgx-lime));color:#071006;box-shadow:0 18px 60px rgba(157,216,80,.24)}
+.lgx-button-primary:hover{transform:translateY(-2px);box-shadow:0 22px 80px rgba(157,216,80,.34)}
+.lgx-button-ghost{border:1px solid var(--lgx-line-strong);color:var(--lgx-mist);background:rgba(255,255,255,.04)}
+.lgx-button-ghost:hover{transform:translateY(-2px);border-color:rgba(214,255,139,.4)}
+.lgx-hero{position:relative;min-height:100vh;display:grid;align-items:center;padding:clamp(104px,9vw,132px) 24px 58px;background:
+  radial-gradient(circle at 74% 18%,rgba(157,216,80,.14),transparent 34%),
+  linear-gradient(115deg,rgba(157,216,80,.10),transparent 28%),
+  var(--lgx-black)}
+.lgx-hero::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:72px 72px;mask-image:linear-gradient(to bottom,black,transparent 88%);opacity:.8}
+.lgx-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,5,4,.97) 0%,rgba(4,5,4,.88) 34%,rgba(4,5,4,.24) 62%,rgba(4,5,4,.74) 100%),linear-gradient(to bottom,rgba(4,5,4,.24),transparent 18%,transparent 74%,var(--lgx-black));z-index:1;pointer-events:none}
+.lgx-hero-grid{display:block;position:relative;z-index:3}
+.lgx-hero-grid>div:first-child{max-width:720px;position:relative;z-index:4}
+.lgx-brand-row{display:flex;align-items:center;gap:12px;margin:0 0 28px}
+.lgx-brand-row img{width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 0 20px rgba(157,216,80,.25))}
+.lgx-brand-row strong{font-size:14px;letter-spacing:.18em;text-transform:uppercase}
+.lgx-hero h1{max-width:760px;margin:0;color:#fff;font-size:clamp(48px,8.2vw,108px);line-height:.88;letter-spacing:-.065em;font-weight:900}
+.lgx-hero h1 span{display:block;color:var(--lgx-lime-2);text-shadow:0 0 42px rgba(157,216,80,.22)}
+.lgx-hero-copy{max-width:580px;margin:26px 0 0;color:var(--lgx-muted);font-size:clamp(16px,1.55vw,20px);line-height:1.62}
+.lgx-hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin:34px 0 0}
+.lgx-hero-note{margin:14px 0 0;color:var(--lgx-soft);font-size:12px;font-weight:700}
+.lgx-hero-art{position:absolute;right:-6vw;bottom:-2vh;width:min(1040px,66vw);height:min(700px,78vh);overflow:visible;box-shadow:none;isolation:isolate;z-index:2;pointer-events:none}
+.lgx-hero-art::before{content:"";position:absolute;inset:-14% -8% -10% -22%;z-index:2;background:radial-gradient(circle at 54% 48%,rgba(157,216,80,.14),transparent 42%),linear-gradient(90deg,var(--lgx-black),rgba(4,5,4,.18) 34%,transparent 74%);pointer-events:none}
+.lgx-hero-art::after{display:none}
+.lgx-hero-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center right;transform:scale(1.04)}
+.lgx-hero-floating{position:absolute;right:8%;bottom:9%;z-index:5;display:grid;gap:10px;width:min(340px,42vw)}
+.lgx-float-row{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(10,12,10,.50);backdrop-filter:blur(18px);padding:11px 14px;color:#fff;box-shadow:0 20px 50px rgba(0,0,0,.24)}
+.lgx-float-row span{color:var(--lgx-soft);font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.13em}
+.lgx-float-row b{font-size:16px;color:var(--lgx-lime-2)}
+.lgx-mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.lgx-mini-stat{border:1px solid var(--lgx-line);border-radius:18px;background:rgba(0,0,0,.28);padding:14px}
+.lgx-mini-stat b{display:block;font-size:28px;letter-spacing:-.04em;color:#fff}
+.lgx-mini-stat span{display:block;margin-top:4px;color:var(--lgx-soft);font-size:11px;font-weight:750}
+.lgx-workflow{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:clamp(42px,5vw,70px);position:relative;z-index:7}
+.lgx-flow-card{border:1px solid rgba(255,255,255,.16);border-radius:22px;background:linear-gradient(145deg,rgba(20,22,20,.88),rgba(7,9,7,.74));padding:18px;min-height:138px;backdrop-filter:blur(22px);box-shadow:0 24px 70px rgba(0,0,0,.38)}
+.lgx-flow-card span{display:block;color:var(--lgx-lime-2);font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+.lgx-flow-card strong{display:block;margin-top:16px;color:#fff;font-size:18px;line-height:1.15}
+.lgx-flow-card p{margin:10px 0 0;color:var(--lgx-muted);font-size:13px;line-height:1.45}
+
+.lgx-mower{background:radial-gradient(circle at 78% 22%,rgba(157,216,80,.10),transparent 34%),linear-gradient(to bottom,var(--lgx-black),#080b07 54%,var(--lgx-black));overflow:hidden}
+.lgx-mower-stage{position:relative;isolation:isolate}
+.lgx-mower-stage::before{content:"";position:absolute;inset:0;z-index:0;background-image:linear-gradient(rgba(255,255,255,.026) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);background-size:84px 84px;mask-image:linear-gradient(to bottom,transparent 0%,black 18%,black 82%,transparent 100%);opacity:.8}
+.lgx-mower-campaign{position:absolute;inset:0;z-index:1;pointer-events:none}
+.lgx-mower-campaign::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--lgx-black),rgba(4,5,4,.14) 34%,rgba(4,5,4,.05) 62%,var(--lgx-black)),linear-gradient(to bottom,var(--lgx-black),transparent 14%,transparent 84%,var(--lgx-black));pointer-events:none}
+.lgx-mower-machine{position:absolute;left:-4%;top:32%;width:min(760px,78vw);max-width:none;z-index:4;filter:drop-shadow(0 38px 72px rgba(0,0,0,.64));will-change:transform}
+.lgx-reveal-track{position:relative;z-index:2;width:min(1040px,100%);margin:0 auto;display:grid;gap:18px}
+.lgx-reveal-line{position:relative;overflow:hidden;border-top:1px solid rgba(255,255,255,.12);padding:22px 0 18px;opacity:.18;transform:translateY(24px);will-change:opacity,transform}
+.lgx-reveal-line::before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--line-width,0%);background:linear-gradient(90deg,rgba(157,216,80,.20),transparent);opacity:.85}
+.lgx-reveal-line span{display:block;color:var(--lgx-lime-2);font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase}
+.lgx-reveal-line strong{display:block;margin-top:10px;color:#fff;font-size:clamp(26px,4.4vw,54px);line-height:.94;letter-spacing:-.055em}
+.lgx-reveal-line p{max-width:620px;margin:10px 0 0;color:var(--lgx-muted);font-size:14px;line-height:1.55}
+.lgx-capability-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;position:relative;z-index:2}
+.lgx-capability-card{min-height:235px;border:1px solid var(--lgx-line);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.085),rgba(255,255,255,.035));padding:26px;box-shadow:0 24px 70px rgba(0,0,0,.24);backdrop-filter:blur(18px)}
+.lgx-capability-card span{display:inline-flex;margin-bottom:30px;color:var(--lgx-lime-2);font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+.lgx-capability-card h3{margin:0;color:#fff;font-size:25px;line-height:1.05;letter-spacing:-.035em}
+.lgx-capability-card p{margin:13px 0 0;color:var(--lgx-muted);font-size:14px;line-height:1.58}
+.lgx-section-heading{text-align:center;max-width:780px;margin:0 auto 38px;position:relative;z-index:2}
+.lgx-section-heading h2{margin:0;color:#fff;font-size:clamp(34px,5.2vw,68px);line-height:.95;letter-spacing:-.055em;font-weight:900}
+.lgx-section-heading p{margin:18px auto 0;color:var(--lgx-muted);font-size:16px;line-height:1.6;max-width:620px}
+.lgx-feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;position:relative;z-index:2}
+.lgx-feature-card{border:1px solid var(--lgx-line);border-radius:26px;background:rgba(20,22,20,.76);box-shadow:0 24px 70px rgba(0,0,0,.26);padding:24px;opacity:0;transform:translateY(34px) scale(.97);backdrop-filter:blur(22px)}
+.lgx-feature-icon{width:42px;height:42px;border-radius:15px;border:1px solid rgba(157,216,80,.22);background:rgba(157,216,80,.08);display:grid;place-items:center;margin-bottom:18px}
+.lgx-feature-icon svg{width:22px;height:22px;stroke:var(--lgx-lime-2)}
+.lgx-feature-card h3{margin:0;color:#fff;font-size:18px;letter-spacing:-.02em}
+.lgx-feature-card p{margin:10px 0 0;color:var(--lgx-muted);font-size:13px;line-height:1.58}
+.lgx-feature-card a{display:inline-flex;margin-top:15px;color:var(--lgx-lime-2);font-size:12px;font-weight:900;text-decoration:none}
+
+.lgx-skid{min-height:100vh;background:radial-gradient(circle at 24% 36%,rgba(157,216,80,.10),transparent 34%),linear-gradient(to bottom,var(--lgx-black),var(--lgx-ink) 46%,var(--lgx-black));overflow:hidden}
+.lgx-skid-stage{min-height:100vh;display:grid;align-items:center;position:relative;isolation:isolate}
+.lgx-skid-grid{display:grid;grid-template-columns:minmax(420px,1fr) minmax(0,1fr);gap:44px;align-items:center}
+.lgx-skid-photo{position:absolute;inset:0;z-index:1;pointer-events:none}
+.lgx-skid-photo::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,5,4,.04),rgba(4,5,4,.48) 54%,var(--lgx-black)),linear-gradient(to bottom,var(--lgx-black),transparent 18%,transparent 78%,var(--lgx-black));z-index:2}
+.lgx-skid-machine{position:absolute;left:-4%;bottom:13%;width:min(1080px,98vw);max-width:none;z-index:1;filter:drop-shadow(0 42px 80px rgba(0,0,0,.7));will-change:transform}
+.lgx-dump-stream{position:absolute;left:41%;top:39%;width:260px;height:240px;z-index:3;opacity:0;transform:rotate(16deg) scaleY(.15);transform-origin:20% 0;filter:blur(.2px);background:radial-gradient(circle at 32% 14%,rgba(128,91,50,.92) 0 3px,transparent 4px),radial-gradient(circle at 48% 26%,rgba(98,69,43,.88) 0 4px,transparent 5px),radial-gradient(circle at 58% 52%,rgba(72,52,35,.76) 0 5px,transparent 6px),linear-gradient(170deg,rgba(96,68,42,.86),rgba(52,37,27,.60) 44%,transparent 76%);clip-path:polygon(0 0,72% 8%,100% 100%,18% 100%)}
+.lgx-feature-chip{position:absolute;z-index:4;left:48%;top:47%;display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(214,255,139,.26);border-radius:999px;background:rgba(10,12,10,.72);backdrop-filter:blur(16px);box-shadow:0 18px 42px rgba(0,0,0,.34),0 0 28px rgba(157,216,80,.12);color:var(--lgx-lime-2);font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;padding:10px 12px;opacity:0;transform:translate(-60px,-40px) scale(.82);will-change:opacity,transform}
+.lgx-skid-copy{position:relative;z-index:3}
+.lgx-skid-dump-zone{position:relative;z-index:3;min-height:560px;display:grid;align-content:end;gap:13px}
+.lgx-skid-chip{position:absolute;z-index:4;left:clamp(22px,5vw,74px);bottom:clamp(24px,6vw,72px);display:inline-flex;align-items:center;gap:9px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(10,12,10,.58);backdrop-filter:blur(16px);padding:11px 14px;color:var(--lgx-lime-2);font-size:11px;font-weight:900;letter-spacing:.13em;text-transform:uppercase}
+.lgx-skid-chip::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--lgx-lime);box-shadow:0 0 18px rgba(157,216,80,.75)}
+.lgx-stack{display:grid;gap:13px}
+.lgx-stack-card{border:1px solid var(--lgx-line);border-radius:20px;background:linear-gradient(135deg,rgba(255,255,255,.105),rgba(255,255,255,.04));padding:18px 20px;opacity:0;transform:translate(-40px,-34px) scale(.92);box-shadow:0 18px 56px rgba(0,0,0,.22);backdrop-filter:blur(18px);will-change:opacity,transform}
+.lgx-stack-card strong{display:block;color:#fff;font-size:16px;margin-bottom:6px}
+.lgx-stack-card p{margin:0;color:var(--lgx-muted);font-size:13px;line-height:1.5}
+.lgx-stack-card small{display:inline-flex;margin-bottom:9px;color:var(--lgx-lime-2);font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+.lgx-command-board{display:grid;grid-template-columns:1fr 1fr;gap:14px;min-height:420px}
+.lgx-command-tile{position:relative;overflow:hidden;border:1px solid var(--lgx-line);border-radius:24px;background:linear-gradient(145deg,rgba(255,255,255,.085),rgba(255,255,255,.035));padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.22)}
+.lgx-command-tile::after{content:"";position:absolute;inset:auto -20% -45% 20%;height:140px;background:radial-gradient(circle,rgba(157,216,80,.18),transparent 62%);pointer-events:none}
+.lgx-command-tile.wide{grid-column:1/-1}
+.lgx-command-tile span{display:block;color:var(--lgx-lime-2);font-size:11px;font-weight:900;letter-spacing:.15em;text-transform:uppercase}
+.lgx-command-tile strong{display:block;margin-top:14px;color:#fff;font-size:clamp(28px,4vw,46px);letter-spacing:-.055em;line-height:.95}
+.lgx-command-tile p{margin:12px 0 0;color:var(--lgx-muted);font-size:13px;line-height:1.5}
+.lgx-command-route{display:grid;gap:10px;margin-top:18px}
+.lgx-route-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid rgba(255,255,255,.08);border-radius:15px;background:rgba(0,0,0,.20);padding:12px 14px;color:var(--lgx-muted);font-size:12px}
+.lgx-route-row b{color:#fff}.lgx-route-row em{font-style:normal;color:var(--lgx-lime-2);font-weight:850}
+
+.lgx-showcase{background:var(--lgx-black)}
+.lgx-show-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:18px;align-items:stretch}
+.lgx-show-card{border:1px solid var(--lgx-line);border-radius:30px;background:linear-gradient(145deg,rgba(255,255,255,.095),rgba(255,255,255,.035));padding:28px;min-height:300px;overflow:hidden;box-shadow:var(--lgx-shadow)}
+.lgx-show-card h3{margin:0;color:#fff;font-size:30px;letter-spacing:-.04em}
+.lgx-show-card p{margin:12px 0 0;color:var(--lgx-muted);line-height:1.6}
+.lgx-dashboard-lines{margin-top:26px;display:grid;gap:10px}
+.lgx-line-row{display:grid;grid-template-columns:90px 1fr 90px;gap:10px;align-items:center;border:1px solid var(--lgx-line);border-radius:16px;padding:12px;background:rgba(0,0,0,.22);color:var(--lgx-muted);font-size:12px}
+.lgx-line-row b{color:#fff}.lgx-line-row em{font-style:normal;color:var(--lgx-lime-2);font-weight:850;text-align:right}
+.lgx-phone{width:min(100%,330px);margin:0 auto;border:1px solid var(--lgx-line-strong);border-radius:38px;background:#090a09;padding:16px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.lgx-phone-screen{border-radius:28px;background:linear-gradient(180deg,#1b1e19,#0b0d0b);padding:18px;min-height:380px}
+.lgx-phone-top{display:flex;justify-content:space-between;align-items:center;color:var(--lgx-soft);font-size:11px;margin-bottom:18px}
+.lgx-job-card{border:1px solid var(--lgx-line);border-radius:20px;background:rgba(255,255,255,.055);padding:16px;margin-bottom:12px}
+.lgx-job-card strong{display:block;color:#fff}.lgx-job-card span{display:block;color:var(--lgx-muted);font-size:12px;margin-top:6px}.lgx-job-card .ok{color:var(--lgx-lime-2);font-weight:850}
+
+.lgx-proof{background:radial-gradient(circle at 20% 18%,rgba(157,216,80,.10),transparent 32%),linear-gradient(to bottom,var(--lgx-black),#080a08)}
+.lgx-proof-panel{position:relative;overflow:hidden;border:1px solid var(--lgx-line-strong);border-radius:34px;background:linear-gradient(145deg,rgba(255,255,255,.085),rgba(255,255,255,.03));box-shadow:var(--lgx-shadow);padding:clamp(22px,4vw,34px)}
+.lgx-proof-panel::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.024) 1px,transparent 1px);background-size:64px 64px;mask-image:linear-gradient(115deg,black,transparent 70%);opacity:.7;pointer-events:none}
+.lgx-proof-head{position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,.86fr) minmax(280px,.54fr);gap:24px;align-items:end;margin-bottom:24px}
+.lgx-proof-head h2{margin:0;color:#fff;font-size:clamp(34px,5vw,64px);line-height:.95;letter-spacing:-.055em;font-weight:900}
+.lgx-proof-head p{margin:0;color:var(--lgx-muted);font-size:15px;line-height:1.65}
+.lgx-proof-grid{position:relative;z-index:2;display:grid;gap:10px}
+.lgx-proof-card{display:grid;grid-template-columns:86px minmax(210px,.48fr) minmax(0,1fr);gap:18px;align-items:center;border:1px solid rgba(255,255,255,.10);border-radius:22px;background:rgba(0,0,0,.22);padding:18px 20px;backdrop-filter:blur(16px);transition:transform .25s ease,border-color .25s ease,background .25s ease}
+.lgx-proof-card:hover{transform:translateX(4px);border-color:rgba(157,216,80,.28);background:rgba(157,216,80,.045)}
+.lgx-proof-card span{display:block;color:var(--lgx-lime-2);font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+.lgx-proof-card h3{margin:0;color:#fff;font-size:22px;line-height:1.05;letter-spacing:-.035em}
+.lgx-proof-card p{margin:0;color:var(--lgx-muted);font-size:14px;line-height:1.55}
+.lgx-pricing{background:var(--lgx-black)}
+.lgx-price-grid{display:grid;grid-template-columns:repeat(2,minmax(0,390px));gap:18px;justify-content:center}
+.lgx-price-card{border:1px solid var(--lgx-line);border-radius:30px;background:linear-gradient(145deg,rgba(255,255,255,.085),rgba(255,255,255,.035));padding:30px;position:relative;overflow:hidden}
+.lgx-price-card.featured{border-color:rgba(157,216,80,.35);box-shadow:0 0 80px rgba(157,216,80,.08)}
+.lgx-price-card.featured::before{content:"Recommended";position:absolute;top:18px;right:18px;border:1px solid rgba(157,216,80,.28);border-radius:999px;color:var(--lgx-lime-2);padding:7px 10px;font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;background:rgba(157,216,80,.08)}
+.lgx-price-card h3{margin:0;color:#fff;font-size:24px;letter-spacing:-.03em}.lgx-price-card p{color:var(--lgx-muted);line-height:1.55}.lgx-price{font-size:54px;font-weight:900;letter-spacing:-.06em;color:#fff}.lgx-price small{font-size:14px;color:var(--lgx-soft);letter-spacing:0}
+.lgx-price-list{list-style:none;margin:24px 0;padding:0;display:grid;gap:10px}.lgx-price-list li{color:var(--lgx-muted);font-size:14px;padding-left:22px;position:relative}.lgx-price-list li::before{content:"";position:absolute;left:0;top:7px;width:7px;height:7px;border-radius:50%;background:var(--lgx-lime);box-shadow:0 0 14px rgba(157,216,80,.55)}
+.lgx-final{min-height:72vh;display:grid;place-items:center;text-align:center;background:radial-gradient(circle at 50% 20%,rgba(157,216,80,.14),transparent 34%),var(--lgx-black)}
+.lgx-final h2{margin:0 auto;color:#fff;max-width:760px;font-size:clamp(42px,7vw,92px);line-height:.9;letter-spacing:-.065em;font-weight:900}
+.lgx-final p{max-width:560px;margin:22px auto 34px;color:var(--lgx-muted);font-size:17px;line-height:1.6}
+.lgx-reveal{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+.lgx-reveal.on{opacity:1;transform:translateY(0)}
+@media(max-width:940px){
+  .lgx-skid-grid,.lgx-show-grid{grid-template-columns:1fr}
+  .lgx-hero-art{min-height:420px}
+  .lgx-workflow,.lgx-feature-grid,.lgx-capability-grid{grid-template-columns:repeat(2,1fr)}
+  .lgx-proof-head,.lgx-proof-card{grid-template-columns:1fr}
+  .lgx-hero-art{right:-30vw;bottom:-2vh;width:880px;height:520px;opacity:.68}
+  .lgx-hero-floating{display:none}
+  .lgx-mower-machine{width:660px;left:-24%;top:38%}
+  .lgx-skid-machine{width:860px;left:-34%;bottom:18%}
+  .lgx-dump-stream{left:34%;top:43%;width:210px;height:220px}
+  .lgx-feature-chip{left:44%;top:48%}
+  .lgx-skid-dump-zone{min-height:420px}
+}
+@media(max-width:680px){
+  .lgx-hero{min-height:100vh;padding-top:96px}
+  .lgx-hero h1{font-size:clamp(44px,14vw,62px)}
+  .lgx-hero-art{right:-52vw;bottom:4vh;width:720px;height:420px;opacity:.45}
+  .lgx-hero-art::before{inset:-18% -10% -10% -12%;background:linear-gradient(90deg,var(--lgx-black) 0%,rgba(4,5,4,.92) 34%,rgba(4,5,4,.38) 66%,transparent 100%)}
+  .lgx-hero-floating{display:none}
+  .lgx-hero-actions,.lgx-final .lgx-hero-actions{display:grid}
+  .lgx-workflow,.lgx-feature-grid,.lgx-price-grid,.lgx-capability-grid,.lgx-command-board{grid-template-columns:1fr}
+  .lgx-proof-panel{border-radius:24px;padding:22px}
+  .lgx-proof-card{gap:10px;padding:18px}
+  .lgx-section{padding-top:88px;scroll-margin-top:112px}
+  .lgx-command-tile.wide{grid-column:auto}
+  .lgx-mower-campaign{opacity:1}
+  .lgx-mower-machine{width:590px;left:-55%;top:42%}
+  .lgx-skid-machine{width:760px;left:-48%;bottom:24%}
+  .lgx-dump-stream{left:30%;top:45%;width:160px;height:190px}
+  .lgx-feature-card,.lgx-stack-card{opacity:1;transform:none}
+  .lgx-reveal-line{opacity:1;transform:none}
+  .lgx-reveal-line::before{width:100%}
+  .lgx-section-heading{text-align:left;margin-left:0}
+  .lgx-line-row{grid-template-columns:1fr;gap:5px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  .lgx-feature-card,.lgx-stack-card,.lgx-reveal{opacity:1!important;transform:none!important}
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- ═══ HERO ═══ -->
-<section class="lp-hero" id="hero">
-  <div class="lp-hero-grid"></div>
-  <div class="lp-hero-radial"></div>
-  <div class="lp-hero-inner">
-    <div class="lp-hero-text">
-      <span class="lp-eyebrow">Landscape Operations Platform</span>
-      <h1>The <em>operating system</em> for lawn &amp; landscape.</h1>
-      <p class="lp-hero-sub">Schedule crews, optimize routes, send invoices, manage clients, and track every mow &mdash; from the office or the truck.</p>
-      <div class="lp-hero-cta">
-        <a class="btn-hero btn-hero-primary" href="/accounts/signup/" data-cta="hero-trial">Start Free Trial →</a>
-        <a class="btn-hero btn-hero-secondary" href="/features/" data-cta="hero-features">Explore Features</a>
-      </div>
-      <p class="lp-hero-note">No credit card required &middot; Free trial on every plan</p>
-    </div>
-    <div class="lp-hero-visual">
-      <div class="lp-dashboard" id="dashboard-3d">
-        <div class="lp-dash-shine"></div>
-        <div class="lp-dash-bar b1"></div>
-        <div class="lp-dash-bar b2"></div>
-        <div class="lp-dash-bar b3"></div>
-        <div class="lp-dash-grid">
-          <div class="lp-dash-card"><div class="label">Revenue</div><div class="val">$48.2K</div></div>
-          <div class="lp-dash-card"><div class="label">Jobs Today</div><div class="val" style="color:var(--cyan)">24</div></div>
-          <div class="lp-dash-card"><div class="label">Crew Active</div><div class="val" style="color:var(--acid)">6</div></div>
-          <div class="lp-dash-card"><div class="label">Invoices Due</div><div class="val" style="color:var(--magenta)">$12.8K</div></div>
+<main class="lgx-page">
+  <section class="lgx-hero">
+    <div class="lgx-shell">
+      <div class="lgx-hero-grid">
+        <div>
+          <div class="lgx-brand-row">
+            <img src="{% static 'img/fieldlgx-icon.png' %}?v=4" alt="">
+            <strong>FIELDLGX</strong>
+          </div>
+          <p class="lgx-kicker">Landscape Operations Platform</p>
+          <h1>Run the day. <span>Own the season.</span></h1>
+          <p class="lgx-hero-copy">A premium command center for landscaping and lawn care companies: schedule crews, manage recurring work, create estimates, invoice faster, collect payments, track notes and photos, and keep every property organized.</p>
+          <div class="lgx-hero-actions">
+            <a class="lgx-button lgx-button-primary" href="/accounts/signup/">Start 14-day free trial</a>
+            <a class="lgx-button lgx-button-ghost" href="#workflow">See the workflow</a>
+          </div>
+          <p class="lgx-hero-note">Built for lawn care, landscaping, mowing, fertilization, and field crews.</p>
+        </div>
+        <div class="lgx-hero-art" id="lgx-hero-art" aria-label="FIELDLGX branded skid steer">
+          <img src="{% static 'img/marketing/fieldlgx-skid-dirt-dump.webp' %}" alt="Black skid steer dumping soil for FIELDLGX landscape operations software" loading="eager">
+          <div class="lgx-hero-floating" aria-hidden="true">
+            <div class="lgx-float-row"><span>Today</span><b>18 jobs scheduled</b></div>
+            <div class="lgx-float-row"><span>Crews</span><b>4 active routes</b></div>
+            <div class="lgx-float-row"><span>Billing</span><b>$6.8k ready</b></div>
+          </div>
         </div>
       </div>
+      <div class="lgx-workflow" id="workflow">
+        <article class="lgx-flow-card lgx-reveal"><span>01 Plan</span><strong>Schedule the work</strong><p>Recurring mowing, one-time jobs, meetings, and crew assignments land on one calendar.</p></article>
+        <article class="lgx-flow-card lgx-reveal"><span>02 Dispatch</span><strong>Send crews out clean</strong><p>Routes, property details, notes, maps, and job items are easy to reach from the field.</p></article>
+        <article class="lgx-flow-card lgx-reveal"><span>03 Complete</span><strong>Capture proof fast</strong><p>Crews complete work with notes, issues, photos, and status updates tied to the job.</p></article>
+        <article class="lgx-flow-card lgx-reveal"><span>04 Collect</span><strong>Invoice without chasing</strong><p>Line items, discounts, monthly batches, card payments, and reminders keep cash moving.</p></article>
+      </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- ═══ MOWER REVEAL ═══ -->
-<section class="lp-mower-section" id="mower-section">
-  <div class="lp-mower-pin" id="mower-pin">
-    <div style="max-width:1100px;margin:0 auto;padding:0 24px;width:100%">
-      <div class="lp-mower-heading" data-r>
-        <h2>Everything you need.<br>Nothing you don't.</h2>
-        <p>Scroll to reveal what's under the surface.</p>
-      </div>
-      <div class="lp-features-grid" id="features-grid">
-        <div class="lp-feat-card" data-feat="0">
-          <div class="lp-feat-icon green">📅</div>
-          <h3>Scheduling &amp; Calendar</h3>
-          <p>Drag-and-drop calendar with day, week, and month views. Recurring jobs auto-generate. Click any date to create instantly.</p>
+  <section class="lgx-section lgx-mower" id="mower-section">
+    <div class="lgx-mower-stage">
+      <div class="lgx-shell">
+        <div class="lgx-section-heading lgx-reveal">
+          <p class="lgx-kicker">Built for the Work</p>
+          <h2>Everything your landscaping operation needs in one place.</h2>
+          <p>FIELDLGX connects lawn care scheduling, crew dispatch, client CRM, estimates, invoices, online payments, mowing, fertilization, route planning, and financial visibility in one operating system.</p>
         </div>
-        <div class="lp-feat-card" data-feat="1">
-          <div class="lp-feat-icon cyan">🚌</div>
-          <h3>Daily Routes</h3>
-          <p>Build optimized routes for every crew. One-tap Google Maps navigation. AI route optimization with shortest distance.</p>
-        </div>
-        <div class="lp-feat-card" data-feat="2">
-          <div class="lp-feat-icon acid">💰</div>
-          <h3>Invoicing &amp; Payments</h3>
-          <p>Create invoices from completed jobs. Accept Stripe, Venmo, PayPal, Zelle, or Cash App. Professional email templates.</p>
-        </div>
-        <div class="lp-feat-card" data-feat="3">
-          <div class="lp-feat-icon green">👥</div>
-          <h3>Client CRM</h3>
-          <p>Every client and property in one place. Job history, invoices, notes, and Google address autocomplete.</p>
-        </div>
-        <div class="lp-feat-card" data-feat="4">
-          <div class="lp-feat-icon cyan">📡</div>
-          <h3>Crew GPS Tracking</h3>
-          <p>Real-time crew locations on a live map. Automatic time tracking. Calendar updates when jobs start and complete.</p>
-        </div>
-        <div class="lp-feat-card" data-feat="5">
-          <div class="lp-feat-icon acid">🌱</div>
-          <h3>Fertilization Programs</h3>
-          <p>Multi-round treatment programs. Track products, rates, and compliance. Enroll customers into recurring plans.</p>
+        <div class="lgx-capability-grid">
+          <article class="lgx-capability-card lgx-reveal"><span>Schedule</span><h3>Calendar and recurring work</h3><p>Day, week, month, and schedule views for one-time jobs, recurring mowing, multi-day work, and crew assignments.</p></article>
+          <article class="lgx-capability-card lgx-reveal"><span>Dispatch</span><h3>Routes and field context</h3><p>Crews can open the day, see job details, navigate to properties, read notes, and complete work from the field.</p></article>
+          <article class="lgx-capability-card lgx-reveal"><span>Clients</span><h3>Client and property records</h3><p>Addresses, property notes, crew-visible requests, internal notes, billing preferences, and job history stay together.</p></article>
+          <article class="lgx-capability-card lgx-reveal"><span>Sales</span><h3>Estimates and approvals</h3><p>Create professional estimates, preview client-facing documents, send follow-ups, capture deposits, and convert accepted work.</p></article>
+          <article class="lgx-capability-card lgx-reveal"><span>Billing</span><h3>Invoices, payments, and batches</h3><p>Line items, descriptions, discounts, monthly invoice queues, payment reminders, and optional card workflows are built in.</p></article>
+          <article class="lgx-capability-card lgx-reveal"><span>Services</span><h3>Mowing and fertilization</h3><p>Manage mowing frequency changes, fertilization enrollments, service agreements, products, applications, and seasonal operations.</p></article>
         </div>
       </div>
     </div>
-    <div class="lp-grass-layer" id="grass-layer"><div class="lp-grass-texture"></div></div>
-    <svg class="lp-mower-svg" id="mower-svg" viewBox="0 0 140 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="25" y="20" width="90" height="38" rx="8" fill="#1a1a1a" stroke="#a9ffac" stroke-width="1.5"/>
-      <rect x="85" y="10" width="35" height="20" rx="5" fill="#262626" stroke="#a9ffac" stroke-width="1"/>
-      <rect x="40" y="6" width="22" height="18" rx="7" fill="#262626" stroke="#494847" stroke-width="1"/>
-      <rect x="12" y="55" width="116" height="9" rx="4" fill="#0e0e0e" stroke="#a9ffac" stroke-width="1"/>
-      <circle cx="32" cy="66" r="11" fill="#1a1a1a" stroke="#a9ffac" stroke-width="1.5"/>
-      <circle cx="32" cy="66" r="4" fill="#a9ffac" opacity=".25"/>
-      <circle cx="108" cy="66" r="11" fill="#1a1a1a" stroke="#a9ffac" stroke-width="1.5"/>
-      <circle cx="108" cy="66" r="4" fill="#a9ffac" opacity=".25"/>
-      <circle cx="124" cy="30" r="4" fill="#a9ffac" opacity=".8"><animate attributeName="opacity" values=".4;1;.4" dur="1.5s" repeatCount="indefinite"/></circle>
-      <circle cx="18" cy="25" r="2" fill="#494847" opacity=".3"><animate attributeName="r" values="2;6;2" dur="1.2s" repeatCount="indefinite"/><animate attributeName="opacity" values=".3;0;.3" dur="1.2s" repeatCount="indefinite"/></circle>
-      <line x1="50" y1="14" x2="62" y2="14" stroke="#494847" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-  </div>
-</section>
+  </section>
 
-<!-- ═══ SKID STEER DUMP ═══ -->
-<section class="lp-skid-section" id="skid-section">
-  <div class="lp-skid-pin" id="skid-pin">
-    <div class="lp-skid-inner">
-      <div class="lp-skid-visual">
-        <svg class="lp-skid-svg" id="skid-svg" viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- Tracks -->
-          <rect x="30" y="140" width="100" height="40" rx="20" fill="#1a1a1a" stroke="#c3f400" stroke-width="1.5"/>
-          <line x1="50" y1="140" x2="50" y2="180" stroke="#333" stroke-width="1"/>
-          <line x1="70" y1="140" x2="70" y2="180" stroke="#333" stroke-width="1"/>
-          <line x1="90" y1="140" x2="90" y2="180" stroke="#333" stroke-width="1"/>
-          <line x1="110" y1="140" x2="110" y2="180" stroke="#333" stroke-width="1"/>
-          <!-- Cab -->
-          <rect x="35" y="70" width="85" height="70" rx="8" fill="#1a1a1a" stroke="#c3f400" stroke-width="1.5"/>
-          <rect x="45" y="78" width="40" height="30" rx="4" fill="#0a0a0a" stroke="#494847" stroke-width="1"/>
-          <!-- Arm -->
-          <g id="skid-arm">
-            <line x1="120" y1="90" x2="200" y2="60" stroke="#c3f400" stroke-width="3" stroke-linecap="round"/>
-            <line x1="120" y1="100" x2="200" y2="70" stroke="#c3f400" stroke-width="3" stroke-linecap="round"/>
-            <!-- Bucket -->
-            <g class="lp-skid-bucket" id="skid-bucket">
-              <path d="M195 50 L240 50 L250 80 L195 80 Z" fill="#262626" stroke="#c3f400" stroke-width="1.5"/>
-              <line x1="210" y1="50" x2="210" y2="80" stroke="#333" stroke-width="1"/>
-              <line x1="225" y1="50" x2="225" y2="80" stroke="#333" stroke-width="1"/>
-              <!-- Dirt in bucket -->
-              <ellipse cx="222" cy="55" rx="22" ry="8" fill="#8B6914" opacity=".7" id="bucket-dirt"/>
-            </g>
-          </g>
-          <!-- Exhaust -->
-          <rect x="95" y="60" width="8" height="14" rx="2" fill="#333" stroke="#494847" stroke-width="1"/>
-          <circle cx="99" cy="56" r="3" fill="#494847" opacity=".3"><animate attributeName="r" values="3;7;3" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values=".3;0;.3" dur="2s" repeatCount="indefinite"/></circle>
-          <!-- Light -->
-          <circle cx="45" cy="75" r="3" fill="#c3f400" opacity=".6"><animate attributeName="opacity" values=".4;.9;.4" dur="2s" repeatCount="indefinite"/></circle>
-        </svg>
-        <div class="lp-dirt-particles" id="dirt-particles"></div>
+  <section class="lgx-section lgx-showcase">
+    <div class="lgx-shell">
+      <div class="lgx-section-heading lgx-reveal">
+        <p class="lgx-kicker">One Workspace</p>
+        <h2>The improved flow your team feels on day one.</h2>
+        <p>Owners get command-level visibility. Managers get fewer loose ends. Crews get the exact job context they need without hunting.</p>
       </div>
-      <div class="lp-skid-content">
-        <h2 class="lp-skid-heading" data-r>Why landscape pros <em>switch to FieldLgx</em></h2>
-        <div class="lp-dump-block" data-dump="0">
-          <h4>🏗️ Built for Landscape, Not Generic</h4>
-          <p>We're not a generic field service tool with a green coat of paint. Every feature is designed for mowing, hardscaping, and lawn care workflows.</p>
+      <div class="lgx-show-grid">
+        <article class="lgx-show-card lgx-reveal">
+          <h3>Office view: every loose end has a place.</h3>
+          <p>See upcoming work, jobs needing scheduled, invoices waiting to send, estimates needing follow-up, monthly invoice batches, and customer balances from the same operating rhythm.</p>
+          <div class="lgx-dashboard-lines">
+            <div class="lgx-line-row"><b>Schedule</b><span>Accepted estimate needs a crew</span><em>Ready</em></div>
+            <div class="lgx-line-row"><b>Invoice</b><span>Completed visits ready for monthly batch</span><em>Review</em></div>
+            <div class="lgx-line-row"><b>Client</b><span>Permanent mowing note visible to crew</span><em>Synced</em></div>
+            <div class="lgx-line-row"><b>Payment</b><span>Card payments enabled by owner setting</span><em>Optional</em></div>
+          </div>
+        </article>
+        <article class="lgx-show-card lgx-reveal">
+          <div class="lgx-command-board">
+            <div class="lgx-command-tile wide"><span>Field Command</span><strong>18 scheduled</strong><p>Today’s work, unassigned jobs, and completed visits stay visible from the first screen.</p></div>
+            <div class="lgx-command-tile"><span>Routes</span><strong>4 crews</strong><p>Daily route context, property details, and crew notes travel with the job.</p></div>
+            <div class="lgx-command-tile"><span>Billing</span><strong>$6.8k</strong><p>Completed work moves into invoice queues, monthly batches, and payment follow-ups.</p></div>
+            <div class="lgx-command-tile wide">
+              <span>Live workflow</span>
+              <div class="lgx-command-route">
+                <div class="lgx-route-row"><b>Maple Ridge Mowing</b><em>Ready</em></div>
+                <div class="lgx-route-row"><b>Oak Hollow Fertilization</b><em>Assigned</em></div>
+                <div class="lgx-route-row"><b>Stone Patio Estimate</b><em>Follow-up</em></div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="lgx-section lgx-proof">
+    <div class="lgx-shell">
+      <div class="lgx-proof-panel lgx-reveal">
+        <div class="lgx-proof-head">
+          <div>
+            <p class="lgx-kicker">Built for Real Operations</p>
+            <h2>Depth your team feels after the first day.</h2>
+          </div>
+          <p>FIELDLGX is designed around the daily rhythm of lawn care and landscaping companies: plan the work, send crews out with context, complete the visit, and move finished work toward cash.</p>
         </div>
-        <div class="lp-dump-block" data-dump="1">
-          <h4>🌿 Mowing & Fertilization Intelligence</h4>
-          <p>Track mowing frequency, manage multi-round fertilization programs, and automate seasonal scheduling — features competitors simply don't have.</p>
-        </div>
-        <div class="lp-dump-block" data-dump="2">
-          <h4>📐 Satellite Property Estimator</h4>
-          <p>Measure any property with satellite imagery. Generate precise square footage estimates and professional quotes in minutes, not hours.</p>
-        </div>
-        <div class="lp-dump-block" data-dump="3">
-          <h4>⚡ One Platform, Zero Fragmentation</h4>
-          <p>CRM, scheduling, invoicing, GPS, equipment tracking, financials — everything your operation needs in one place. No more app-switching chaos.</p>
+        <div class="lgx-proof-grid">
+          <article class="lgx-proof-card lgx-reveal"><span>01</span><h3>Recurring work stays connected.</h3><p>Weekly, biweekly, 10-day, and seasonal services stay tied to the customer, crew, calendar, notes, job history, and billing workflow.</p></article>
+          <article class="lgx-proof-card lgx-reveal"><span>02</span><h3>Crews get the full job context.</h3><p>Property address, map access, job notes, client notes, service items, photos, issues, and status updates stay attached to the job.</p></article>
+          <article class="lgx-proof-card lgx-reveal"><span>03</span><h3>Billing starts when work is done.</h3><p>Completed jobs can move into invoice queues, monthly batches, line items, reminders, and optional card-on-file workflows.</p></article>
+          <article class="lgx-proof-card lgx-reveal"><span>04</span><h3>Owners keep control.</h3><p>Payments, automation, crew-visible notes, estimate approvals, invoice sending, and customer billing settings stay owner-controlled.</p></article>
+          <article class="lgx-proof-card lgx-reveal"><span>05</span><h3>Built for lawn care and landscaping.</h3><p>Mowing, fertilization, estimates, invoices, service agreements, client CRM, employee management, and financial dashboards live in one system.</p></article>
         </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- ═══ DEEP FEATURES ═══ -->
-<section class="lp-deep" id="deep-features">
-  <div class="lp-deep-header" data-r>
-    <h2>Powerful tools for<br>every part of your business.</h2>
-    <p>From the first estimate to the final invoice — we've got it covered.</p>
-  </div>
-  <div class="lp-deep-grid">
-    <div class="lp-deep-card" data-r>
-      <div class="lp-deep-icon" style="background:rgba(169,255,172,.08);color:var(--lime)">🌿</div>
-      <h3>Mowing Tracker</h3>
-      <p>Track every mow by property. See frequency patterns, skip weeks, and crew performance across your entire client base.</p>
-      <span class="lp-deep-tag pro">Pro Feature</span>
+  <section class="lgx-section lgx-pricing">
+    <div class="lgx-shell">
+      <div class="lgx-section-heading lgx-reveal">
+        <p class="lgx-kicker">Start Clean</p>
+        <h2>14 days to run your business inside FIELDLGX.</h2>
+        <p>Start the trial, build your client list, schedule real work, and see how the operation feels before committing.</p>
+      </div>
+      <div class="lgx-price-grid">
+        <article class="lgx-price-card lgx-reveal">
+          <h3>Solo Starter</h3>
+          <p>For owner-operators that need professional lawn care software for jobs, clients, scheduling, estimates, invoices, and payments.</p>
+          <div class="lgx-price">${{ pricing.solo_price }} <small>/ month</small></div>
+          <ul class="lgx-price-list">
+            <li>Calendar and recurring job scheduling</li>
+            <li>Client and property CRM</li>
+            <li>Job details, notes, photos, and costs</li>
+            <li>Estimates, invoices, and payment links</li>
+            <li>14-day free trial</li>
+          </ul>
+          <a class="lgx-button lgx-button-ghost" style="width:100%" href="/accounts/signup/">Start Solo trial</a>
+        </article>
+        <article class="lgx-price-card featured lgx-reveal">
+          <h3>Pro All-Access</h3>
+          <p>For growing landscaping companies that need a full landscape management system across crews, routes, billing, recurring services, and seasonal operations.</p>
+          <div class="lgx-price">${{ pricing.pro_price }} <small>/ month</small></div>
+          <ul class="lgx-price-list">
+            <li>Everything in Solo Starter</li>
+            <li>Mowing and fertilization operations</li>
+            <li>Monthly and batch invoicing workflows</li>
+            <li>Service agreements and document templates</li>
+            <li>Employee management and financial dashboards</li>
+            <li>Stripe card payment workflows when enabled</li>
+          </ul>
+          <a class="lgx-button lgx-button-primary" style="width:100%" href="/accounts/signup/">Start Pro trial</a>
+        </article>
+      </div>
     </div>
-    <div class="lp-deep-card" data-r>
-      <div class="lp-deep-icon" style="background:rgba(195,244,0,.08);color:var(--acid)">🧪</div>
-      <h3>Fertilization Programs</h3>
-      <p>Multi-round treatment plans with product tracking, application rates, and compliance documentation built in.</p>
-      <span class="lp-deep-tag pro">Pro Feature</span>
-    </div>
-    <div class="lp-deep-card" data-r>
-      <div class="lp-deep-icon" style="background:rgba(129,236,255,.08);color:var(--cyan)">🛰️</div>
-      <h3>Property Estimator</h3>
-      <p>Measure properties with satellite imagery. Calculate area, perimeter, and generate accurate quotes without a site visit.</p>
-      <span class="lp-deep-tag pro">Pro Feature</span>
-    </div>
-    <div class="lp-deep-card" data-r>
-      <div class="lp-deep-icon" style="background:rgba(255,107,250,.08);color:var(--magenta)">🔧</div>
-      <h3>Equipment &amp; Fleet</h3>
-      <p>Track maintenance schedules, fuel costs, and utilization across your entire fleet. Never miss an oil change again.</p>
-      <span class="lp-deep-tag pro">Pro Feature</span>
-    </div>
-    <div class="lp-deep-card" data-r>
-      <div class="lp-deep-icon" style="background:rgba(169,255,172,.08);color:var(--lime)">📋</div>
-      <h3>Service Agreements</h3>
-      <p>Create recurring service contracts with automatic job generation. Lock in seasonal revenue with client-signed agreements.</p>
-      <span class="lp-deep-tag pro">Pro Feature</span>
-    </div>
-    <div class="lp-deep-card" data-r>
-      <div class="lp-deep-icon" style="background:rgba(129,236,255,.08);color:var(--cyan)">📊</div>
-      <h3>Financials &amp; Analytics</h3>
-      <p>Revenue trends, collection rates, job profitability, and business health metrics — all in real-time dashboards.</p>
-      <span class="lp-deep-tag core">All Plans</span>
-    </div>
-  </div>
-</section>
+  </section>
 
-<!-- ═══ STATS ═══ -->
-<section class="lp-stats">
-  <div class="lp-stats-grid" data-r>
-    <div class="lp-stat">
-      <div class="lp-stat-val"><span class="accent" data-count="500">0</span>+</div>
-      <div class="lp-stat-label">Businesses</div>
+  <section class="lgx-section lgx-final">
+    <div class="lgx-shell">
+      <h2 class="lgx-reveal">Make the business feel as sharp as the work.</h2>
+      <p class="lgx-reveal">FIELDLGX gives landscaping teams one premium place to plan, dispatch, document, bill, and grow.</p>
+      <div class="lgx-hero-actions" style="justify-content:center">
+        <a class="lgx-button lgx-button-primary" href="/accounts/signup/">Start 14-day free trial</a>
+        <a class="lgx-button lgx-button-ghost" href="/features/">View all features</a>
+      </div>
     </div>
-    <div class="lp-stat">
-      <div class="lp-stat-val"><span class="accent">$</span><span data-count="2">0</span>M+</div>
-      <div class="lp-stat-label">Invoiced</div>
-    </div>
-    <div class="lp-stat">
-      <div class="lp-stat-val"><span data-count="50">0</span>K+</div>
-      <div class="lp-stat-label">Jobs Completed</div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ PRICING ═══ -->
-<section class="lp-pricing">
-  <div class="lp-pricing-header" data-r>
-    <h2>Simple plans,<br>no surprises.</h2>
-    <p>Start free. Upgrade when you're ready.</p>
-  </div>
-  <div class="lp-price-grid" data-r>
-    <div class="lp-price-card">
-      <div class="lp-price-name">Solo Starter</div>
-      <p class="lp-price-desc">For owner-operators running routes solo or with a small crew.</p>
-      <div class="lp-price-amount"><span class="dollar">$</span>{{ pricing.solo_price }}</div>
-      <div class="lp-price-period">per month</div>
-      <ul class="lp-price-list">
-        <li>Drag-and-drop scheduling</li>
-        <li>Daily route planning</li>
-        <li>Invoicing &amp; estimates</li>
-        <li>Client &amp; property CRM</li>
-        <li>Job tracking with photos</li>
-        <li>Online payments</li>
-      </ul>
-      <a class="lp-price-cta secondary" href="/accounts/signup/">Start Free Trial</a>
-    </div>
-    <div class="lp-price-card featured">
-      <div class="lp-price-name">Pro All-Access</div>
-      <p class="lp-price-desc">For growing businesses with multiple crews and complex operations.</p>
-      <div class="lp-price-amount"><span class="dollar">$</span>{{ pricing.pro_price }}</div>
-      <div class="lp-price-period">per month</div>
-      <ul class="lp-price-list">
-        <li>Everything in Solo Starter</li>
-        <li>Crew GPS tracking</li>
-        <li>Fertilization programs</li>
-        <li>Property estimator (satellite)</li>
-        <li>Equipment &amp; fleet tracking</li>
-        <li>Financial reporting</li>
-        <li>Service agreements</li>
-        <li>QuickBooks integration</li>
-      </ul>
-      <a class="lp-price-cta primary" href="/accounts/signup/">Start Free Trial</a>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ FINAL CTA ═══ -->
-<section class="lp-cta">
-  <div class="lp-cta-glow"></div>
-  <div style="position:relative;max-width:1200px;margin:0 auto;padding:0 24px">
-    <h2 data-r>Stop losing money<br>to chaos.</h2>
-    <p data-r>Join landscaping businesses that run their entire operation from one platform.</p>
-    <div class="lp-cta-actions" data-r>
-      <a class="btn-hero btn-hero-primary" href="/accounts/signup/" data-cta="cta-trial">Start Free Trial →</a>
-      <a class="btn-hero btn-hero-secondary" href="/features/" data-cta="cta-features">See All Features</a>
-    </div>
-  </div>
-</section>
+  </section>
+</main>
 {% endblock %}
 
 {% block extra_js %}
@@ -448,119 +388,87 @@
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
 <script>
 (function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var compact = window.matchMedia('(max-width: 680px)').matches;
+
+  function revealFallback(){
+    document.querySelectorAll('.lgx-reveal,.lgx-reveal-line,.lgx-stack-card').forEach(function(el){ el.classList.add('on'); el.style.opacity = 1; el.style.transform = 'none'; });
+    document.querySelectorAll('.lgx-reveal-line').forEach(function(el){ el.style.setProperty('--line-width','100%'); });
+  }
+
+  if('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){ entry.target.classList.add('on'); io.unobserve(entry.target); }
+      });
+    }, { threshold:.16, rootMargin:'0px 0px -8% 0px' });
+    document.querySelectorAll('.lgx-reveal').forEach(function(el){ io.observe(el); });
+  } else {
+    revealFallback();
+  }
+
+  if(reduce || !window.gsap || !window.ScrollTrigger){
+    revealFallback();
+    return;
+  }
+
   gsap.registerPlugin(ScrollTrigger);
-  var isMobile = window.matchMedia('(max-width:640px)').matches;
 
-  /* ── 3D Dashboard mouse tracking ── */
-  var dash = document.getElementById('dashboard-3d');
-  if(dash && !isMobile){
-    var hero = document.getElementById('hero');
-    hero.addEventListener('mousemove', function(e){
+  var mowerSection = document.getElementById('mower-section');
+  var mowerPhoto = document.getElementById('lgx-mower-photo');
+  var mowerMachine = document.querySelector('.lgx-mower-machine');
+  var revealLines = gsap.utils.toArray('.lgx-reveal-line');
+  if(mowerSection && mowerPhoto && mowerMachine && revealLines.length){
+    gsap.set(mowerMachine,{xPercent:0,yPercent:0,scale:1});
+    gsap.set(revealLines,{opacity:.18,y:24});
+    var mowerTl = gsap.timeline({
+      scrollTrigger:{trigger:mowerSection,start:'top top',end:compact ? '+=1250' : '+=2100',pin:true,scrub:1,anticipatePin:1}
+    });
+    mowerTl.to(mowerMachine,{xPercent:compact ? 102 : 128,yPercent:compact ? -4 : -2,scale:compact ? .94 : 1.04,ease:'none',duration:1},0);
+    revealLines.forEach(function(line,index){
+      mowerTl.to(line,{opacity:1,y:0,duration:.16,ease:'power2.out'},.12 + index*.16);
+      mowerTl.to(line,{'--line-width':'100%',duration:.24,ease:'none'},.12 + index*.16);
+    });
+  }
+
+  var skidSection = document.getElementById('skid-section');
+  var skidPhoto = document.getElementById('lgx-skid-photo');
+  var skidMachine = document.querySelector('.lgx-skid-machine');
+  var dumpStream = document.querySelector('.lgx-dump-stream');
+  var featureChips = gsap.utils.toArray('.lgx-feature-chip');
+  var stackCards = gsap.utils.toArray('.lgx-stack-card');
+  if(skidSection && skidPhoto && skidMachine && stackCards.length){
+    gsap.set(skidMachine,{xPercent:0,yPercent:0,scale:1.02});
+    gsap.set(dumpStream,{opacity:0,scaleY:.15});
+    gsap.set(featureChips,{opacity:0,x:-70,y:-48,scale:.82});
+    gsap.set(stackCards,{opacity:0,x:-40,y:-34,scale:.92});
+    var skidTl = gsap.timeline({
+      scrollTrigger:{trigger:skidSection,start:'top top',end:compact ? '+=1150' : '+=1900',pin:true,scrub:1,anticipatePin:1}
+    });
+    skidTl.to(skidMachine,{xPercent:compact ? 12 : 8,yPercent:compact ? -5 : -3,rotation:compact ? -1.5 : -1,scale:compact ? .98 : 1.04,ease:'none',duration:1},0);
+    skidTl.to(dumpStream,{opacity:1,scaleY:1,duration:.18,ease:'none'},.16);
+    skidTl.to(dumpStream,{opacity:.28,duration:.22,ease:'none'},.58);
+    featureChips.forEach(function(chip,index){
+      skidTl.to(chip,{opacity:1,x:compact ? 74 + index*18 : 210 + index*34,y:compact ? -58 + index*30 : -72 + index*42,scale:1,duration:.20,ease:'power2.out'},.24 + index*.08);
+      skidTl.to(chip,{opacity:0,duration:.12,ease:'none'},.48 + index*.08);
+    });
+    stackCards.forEach(function(card,index){
+      skidTl.to(card,{opacity:1,x:0,y:0,scale:1,duration:.22,ease:'power2.out'},.42 + index*.12);
+    });
+  }
+
+  var command = document.querySelector('.lgx-hero-art');
+  var hero = document.querySelector('.lgx-hero');
+  if(command && hero){
+    hero.addEventListener('mousemove',function(event){
       var rect = hero.getBoundingClientRect();
-      var x = (e.clientX - rect.left) / rect.width - 0.5;
-      var y = (e.clientY - rect.top) / rect.height - 0.5;
-      dash.style.transform = 'rotateY(' + (x * 15) + 'deg) rotateX(' + (-y * 10) + 'deg)';
+      var x = (event.clientX - rect.left) / rect.width - .5;
+      var y = (event.clientY - rect.top) / rect.height - .5;
+      command.style.transform = 'perspective(1200px) rotateY(' + (x*4) + 'deg) rotateX(' + (-y*3) + 'deg) translateY(-2px)';
     });
-    hero.addEventListener('mouseleave', function(){
-      dash.style.transform = 'rotateY(-8deg) rotateX(4deg)';
+    hero.addEventListener('mouseleave',function(){
+      command.style.transform = '';
     });
-  }
-
-  /* ── Mower scroll animation (desktop) ── */
-  if(!isMobile){
-    var mowerSection = document.getElementById('mower-section');
-    var grass = document.getElementById('grass-layer');
-    var mower = document.getElementById('mower-svg');
-    var cards = document.querySelectorAll('.lp-feat-card');
-    if(mowerSection && grass && mower){
-      var tl = gsap.timeline({
-        scrollTrigger:{trigger:mowerSection,start:'top top',end:'+=2200',pin:true,scrub:1,anticipatePin:1}
-      });
-      tl.to(mower,{left:'105%',duration:1,ease:'none'},0);
-      tl.to(grass,{clipPath:'inset(0 0 0 100%)',duration:1,ease:'none'},0);
-      cards.forEach(function(card,i){
-        tl.to(card,{opacity:1,y:0,rotateY:0,scale:1,duration:.15,ease:'power2.out'},0.1+i*0.13);
-      });
-    }
-  }
-
-  /* ── Skid steer dump animation (desktop) ── */
-  if(!isMobile){
-    var skidSection = document.getElementById('skid-section');
-    var bucket = document.getElementById('skid-bucket');
-    var dumpBlocks = document.querySelectorAll('.lp-dump-block');
-    var bucketDirt = document.getElementById('bucket-dirt');
-    if(skidSection && bucket && dumpBlocks.length){
-      var tl2 = gsap.timeline({
-        scrollTrigger:{trigger:skidSection,start:'top top',end:'+=2000',pin:true,scrub:1,anticipatePin:1}
-      });
-      // Bucket tips
-      tl2.to(bucket,{rotation:45,duration:.4,ease:'power2.inOut'},0);
-      // Dirt fades
-      if(bucketDirt) tl2.to(bucketDirt,{opacity:0,duration:.3},0.1);
-      // Blocks cascade in
-      dumpBlocks.forEach(function(block,i){
-        tl2.to(block,{opacity:1,y:0,scale:1,duration:.2,ease:'back.out(1.4)'},0.15+i*0.18);
-      });
-      // Create dirt particles
-      var particleContainer = document.getElementById('dirt-particles');
-      if(particleContainer){
-        for(var i=0;i<12;i++){
-          var p = document.createElement('div');
-          p.className='lp-dirt-particle';
-          p.style.left = (Math.random()*60)+'px';
-          p.style.top = (Math.random()*40)+'px';
-          p.style.width = (4+Math.random()*6)+'px';
-          p.style.height = p.style.width;
-          p.style.background = ['#8B6914','#A0782C','#6B5310','#C49B38'][Math.floor(Math.random()*4)];
-          particleContainer.appendChild(p);
-          tl2.fromTo(p,{opacity:0,x:0,y:0},{opacity:.8,x:-(40+Math.random()*80),y:30+Math.random()*60,duration:.4,ease:'power2.out'},0.1+Math.random()*0.2);
-          tl2.to(p,{opacity:0,duration:.2},.5+Math.random()*0.2);
-        }
-      }
-    }
-  }
-
-  /* ── 3D tilt on deep feature cards ── */
-  if(!isMobile){
-    document.querySelectorAll('.lp-deep-card').forEach(function(card){
-      card.addEventListener('mousemove',function(e){
-        var rect=card.getBoundingClientRect();
-        var x=(e.clientX-rect.left)/rect.width-0.5;
-        var y=(e.clientY-rect.top)/rect.height-0.5;
-        card.style.transform='translateY(-6px) scale(1.02) rotateY('+x*8+'deg) rotateX('+(-y*6)+'deg)';
-      });
-      card.addEventListener('mouseleave',function(){
-        card.style.transform='';
-      });
-    });
-  }
-
-  /* ── Stat counters ── */
-  var counted=false;
-  var statEls=document.querySelectorAll('[data-count]');
-  function animateCounters(){
-    if(counted)return;counted=true;
-    statEls.forEach(function(el){
-      var target=parseInt(el.dataset.count);
-      var dur=1500,start=performance.now();
-      function step(now){
-        var p=Math.min((now-start)/dur,1);
-        var e=1-Math.pow(1-p,3);
-        el.textContent=Math.round(e*target);
-        if(p<1)requestAnimationFrame(step);
-      }
-      requestAnimationFrame(step);
-    });
-  }
-  if('IntersectionObserver' in window && statEls.length){
-    var statsSection=statEls[0].closest('.lp-stats');
-    if(statsSection){
-      var io=new IntersectionObserver(function(entries){
-        if(entries[0].isIntersecting){animateCounters();io.disconnect()}
-      },{threshold:.3});
-      io.observe(statsSection);
-    }
   }
 })();
 </script>

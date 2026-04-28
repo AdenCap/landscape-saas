@@ -107,8 +107,15 @@ def _sync_contract_to_hubs(agreement, prop, business):
 def hub(request):
     biz = request.user.business
     agreements = ServiceAgreement.objects.filter(business=biz).select_related("customer").order_by("-created_at")
+    active_count = agreements.filter(status="active").count()
+    draft_count = agreements.filter(status="draft").count()
+    prepaid_count = agreements.filter(prepaid=True).count()
     return render(request, "service_agreements/hub.html", {
         "agreements": agreements,
+        "active_count": active_count,
+        "draft_count": draft_count,
+        "prepaid_count": prepaid_count,
+        "total_count": agreements.count(),
     })
 
 
@@ -273,11 +280,21 @@ def agreement_create(request):
 def agreement_detail(request, agreement_id):
     """View agreement details with all scheduled visits."""
     business = get_business(request)
-    agreement = get_object_or_404(ServiceAgreement.objects.select_related('customer'), id=agreement_id, business=business)
+    agreement = get_object_or_404(
+        ServiceAgreement.objects.select_related('customer').prefetch_related('line_items'),
+        id=agreement_id,
+        business=business,
+    )
     visits = agreement.visits.select_related('job').order_by('scheduled_date')
+    line_items = agreement.line_items.all()
+    completed_visits = visits.filter(status="completed").count()
+    scheduled_visits = visits.filter(status="scheduled").count()
     return render(request, "service_agreements/agreement_detail.html", {
         "agreement": agreement,
         "visits": visits,
+        "line_items": line_items,
+        "completed_visits": completed_visits,
+        "scheduled_visits": scheduled_visits,
     })
 
 
