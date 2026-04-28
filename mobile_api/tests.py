@@ -1,13 +1,14 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from unittest.mock import patch
 from datetime import date, time
 from decimal import Decimal
 
 from businesses.models import Business
 from customers.models import Customer, Property
-from jobs.models import Crew, Job, JobServiceItem, PropertyNote
+from jobs.models import Crew, Job, JobCompletionPhoto, JobNote, JobServiceItem, PropertyNote
 from pricing.models import ServiceTemplate
 
 
@@ -406,3 +407,188 @@ class MobileTodayTests(TestCase):
         response = self.client.get(reverse("mobile_api:today"))
 
         self.assertEqual(response.status_code, 401)
+
+
+class MobileJobDetailTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(name="QA Native Job Detail")
+        self.other_business = Business.objects.create(name="Other Detail Company")
+        User = get_user_model()
+        self.crew_user = User.objects.create_user(
+            username="detailcrew",
+            email="detailcrew@example.com",
+            password="testpass123",
+            business=self.business,
+            role="crew",
+        )
+        self.owner = User.objects.create_user(
+            username="detailowner",
+            email="detailowner@example.com",
+            password="testpass123",
+            business=self.business,
+            role="owner",
+        )
+        self.customer = Customer.objects.create(business=self.business, name="Oak Hollow")
+        self.property = Property.objects.create(
+            customer=self.customer,
+            address="400 Crew Lane",
+            gate_code="6124",
+            notes="Use the east entrance.",
+        )
+        self.service = ServiceTemplate.objects.create(
+            business=self.business,
+            name="Cleanup",
+            default_rate=Decimal("125.00"),
+        )
+        self.job = Job.objects.create(
+            property=self.property,
+            scheduled_date=date(2026, 5, 5),
+            scheduled_time=time(9, 0),
+            status="scheduled",
+            assigned_to=self.crew_user,
+        )
+        JobServiceItem.objects.create(
+            job=self.job,
+            service=self.service,
+            quantity=Decimal("1.00"),
+            unit="job",
+            unit_price=Decimal("125.00"),
+            detail_description="Haul limbs by garage.",
+        )
+        JobNote.objects.create(
+            job=self.job,
+            author=self.owner,
+            text="Customer asked for a text before arrival.",
+            visibility=JobNote.VISIBILITY_CREW,
+        )
+        JobNote.objects.create(
+            job=self.job,
+            author=self.owner,
+            text="Owner-only pricing note.",
+            visibility=JobNote.VISIBILITY_INTERNAL,
+        )
+        self.login = self.client.post(
+            reverse("mobile_api:login"),
+            data={"email": "detailcrew@example.com", "password": "testpass123"},
+            content_type="application/json",
+        ).json()
+
+    def auth_headers(self):
+        return {"HTTP_AUTHORIZATION": f"Bearer {self.login['access_token']}"}
+
+    def test_job_detail_returns_field_context_and_actions(self):
+        response = self.client.get(
+            reverse("mobile_api:job_detail", args=[self.job.id]),
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["job"]["id"], self.job.id)
+        self.assertEqual(payload["job"]["customer"]["name"], "Oak Hollow")
+        self.assertEqual(payload["job"]["service_items"][0]["detail_description"], "Haul limbs by garage.")
+        self.assertTrue(payload["actions"]["can_start"])
+        self.assertFalse(payload["actions"]["can_complete"])
+        note_text = " ".join(note["text"] for note in payload["job_notes"])
+        self.assertIn("Customer asked for a text before arrival.", note_text)
+        self.assertNotIn("Owner-only pricing note.", note_text)
+
+    def test_crew_cannot_open_unassigned_job(self):
+        other_job = Job.objects.create(
+            property=self.property,
+            scheduled_date=date(2026, 5, 5),
+            status="scheduled",
+        )
+
+        response = self.client.get(
+            reverse("mobile_api:job_detail", args=[other_job.id]),
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_start_job_marks_in_progress_and_records_location(self):
+        response = self.client.post(
+            reverse("mobile_api:job_start", args=[self.job.id]),
+            data={"latitude": "39.7684", "longitude": "-86.1581"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, "in_progress")
+        self.assertIsNotNone(self.job.started_at)
+        self.assertEqual(str(self.job.technician_latitude), "39.7684000")
+        self.assertTrue(response.json()["actions"]["can_complete"])
+
+    def test_complete_job_marks_completed_without_touching_completed_history(self):
+        self.job.status = "in_progress"
+        self.job.started_at = timezone.now()
+        self.job.save(update_fields=["status", "started_at"])
+
+        response = self.client.post(
+            reverse("mobile_api:job_complete", args=[self.job.id]),
+            data={"latitude": "39.7684", "longitude": "-86.1581"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, "completed")
+        self.assertEqual(self.job.completed_by, self.crew_user)
+        self.assertIsNotNone(self.job.completed_at)
+
+    def test_complete_job_requires_photo_when_business_requires_it(self):
+        self.business.require_completion_photo = True
+        self.business.save(update_fields=["require_completion_photo"])
+        self.job.status = "in_progress"
+        self.job.started_at = timezone.now()
+        self.job.save(update_fields=["status", "started_at"])
+
+        response = self.client.post(
+            reverse("mobile_api:job_complete", args=[self.job.id]),
+            data={},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "Completion photo required.")
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, "in_progress")
+
+        JobCompletionPhoto.objects.create(job=self.job, uploaded_by=self.crew_user)
+
+        completed = self.client.post(
+            reverse("mobile_api:job_complete", args=[self.job.id]),
+            data={},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(completed.status_code, 200)
+
+    def test_skip_job_requires_reason_and_records_skip(self):
+        missing_reason = self.client.post(
+            reverse("mobile_api:job_skip", args=[self.job.id]),
+            data={},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(missing_reason.status_code, 400)
+
+        response = self.client.post(
+            reverse("mobile_api:job_skip", args=[self.job.id]),
+            data={"reason": "Customer requested next week."},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, "skipped")
+        self.assertEqual(self.job.skip_reason, "Customer requested next week.")
+        self.assertIsNotNone(self.job.skipped_at)

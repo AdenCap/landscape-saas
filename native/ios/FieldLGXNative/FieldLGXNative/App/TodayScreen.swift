@@ -26,7 +26,16 @@ struct TodayScreen: View {
                             emptyState
                         } else {
                             ForEach(today.jobs) { job in
-                                TodayJobCard(job: job)
+                                NavigationLink {
+                                    JobDetailScreen(
+                                        jobID: job.id,
+                                        accessToken: accessToken,
+                                        previewJob: job
+                                    )
+                                } label: {
+                                    TodayJobCard(job: job)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     } else if let errorMessage {

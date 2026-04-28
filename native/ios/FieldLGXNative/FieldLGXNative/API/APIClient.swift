@@ -24,6 +24,22 @@ struct APIClient {
         return try await get(path: "/api/mobile/v1/today/?date=\(dateString)")
     }
 
+    func jobDetail(id: Int) async throws -> JobDetailResponse {
+        try await get(path: "/api/mobile/v1/jobs/\(id)/")
+    }
+
+    func startJob(id: Int) async throws -> JobDetailResponse {
+        try await post(path: "/api/mobile/v1/jobs/\(id)/start/", body: [:])
+    }
+
+    func completeJob(id: Int) async throws -> JobDetailResponse {
+        try await post(path: "/api/mobile/v1/jobs/\(id)/complete/", body: [:])
+    }
+
+    func skipJob(id: Int, reason: String) async throws -> JobDetailResponse {
+        try await post(path: "/api/mobile/v1/jobs/\(id)/skip/", body: ["reason": reason])
+    }
+
     private func get<T: Decodable>(path: String) async throws -> T {
         var request = URLRequest(url: makeURL(path: path))
         request.httpMethod = "GET"

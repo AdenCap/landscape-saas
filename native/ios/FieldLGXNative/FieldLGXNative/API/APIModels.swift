@@ -154,6 +154,52 @@ struct TodayServiceItem: Codable, Equatable, Identifiable {
     }
 }
 
+struct JobDetailResponse: Codable, Equatable {
+    let job: TodayJob
+    let actions: JobActions
+    let jobNotes: [JobNote]
+    let serverTime: String
+
+    enum CodingKeys: String, CodingKey {
+        case job
+        case actions
+        case jobNotes = "job_notes"
+        case serverTime = "server_time"
+    }
+}
+
+struct JobActions: Codable, Equatable {
+    let canStart: Bool
+    let canComplete: Bool
+    let canSkip: Bool
+    let requiresCompletionPhoto: Bool
+    let hasCompletionPhoto: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case canStart = "can_start"
+        case canComplete = "can_complete"
+        case canSkip = "can_skip"
+        case requiresCompletionPhoto = "requires_completion_photo"
+        case hasCompletionPhoto = "has_completion_photo"
+    }
+}
+
+struct JobNote: Codable, Equatable, Identifiable {
+    let id: Int
+    let text: String
+    let visibility: String
+    let author: String
+    let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case text
+        case visibility
+        case author
+        case createdAt = "created_at"
+    }
+}
+
 extension MobileUser {
     static let previewOwner = MobileUser(
         id: 1,
@@ -200,5 +246,28 @@ extension TodayResponse {
                 photoCount: 0
             )
         ]
+    )
+}
+
+extension JobDetailResponse {
+    static let preview = JobDetailResponse(
+        job: TodayResponse.preview.jobs[0],
+        actions: JobActions(
+            canStart: true,
+            canComplete: false,
+            canSkip: true,
+            requiresCompletionPhoto: false,
+            hasCompletionPhoto: false
+        ),
+        jobNotes: [
+            JobNote(
+                id: 1,
+                text: "Customer asked for a text before arrival.",
+                visibility: "crew",
+                author: "Aden Cappelletti",
+                createdAt: "2026-05-04T08:00:00Z"
+            )
+        ],
+        serverTime: "2026-05-04T12:00:00Z"
     )
 }

@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from jobs.models import Job, PropertyNote
+from jobs.models import Job, JobNote, PropertyNote
 
 from . import auth as mobile_auth
 from .auth import issue_access_token, session_from_refresh_token, session_from_request, user_by_email
@@ -275,6 +275,109 @@ def _job_payload(job, target_date):
     }
 
 
+def _job_note_payload(note):
+    author = note.author
+    return {
+        "id": note.id,
+        "text": note.text,
+        "visibility": note.visibility,
+        "author": author.get_full_name() or author.username if author else "",
+        "created_at": note.created_at.isoformat(),
+    }
+
+
+def _job_actions_payload(job, business):
+    requires_photo = bool(getattr(business, "require_completion_photo", False))
+    has_completion_photo = job.completion_photos.exists()
+    return {
+        "can_start": job.status == "scheduled",
+        "can_complete": job.status == "in_progress" and (not requires_photo or has_completion_photo),
+        "can_skip": job.status in {"scheduled", "in_progress"},
+        "requires_completion_photo": requires_photo,
+        "has_completion_photo": has_completion_photo,
+    }
+
+
+def _job_detail_payload(job, session):
+    target_date = job.scheduled_date or date.today()
+    notes = list(job.job_notes.all())
+    if session.user.role == "crew":
+        notes = [note for note in notes if note.visibility == JobNote.VISIBILITY_CREW]
+    return {
+        "job": _job_payload(job, target_date),
+        "actions": _job_actions_payload(job, session.business),
+        "job_notes": [_job_note_payload(note) for note in notes],
+        "server_time": timezone.now().isoformat(),
+    }
+
+
+def _job_queryset_for_mobile(session):
+    jobs = Job.objects.filter(
+        property__customer__business=session.business,
+    ).select_related(
+        "property",
+        "property__customer",
+        "assigned_to",
+        "assigned_crew",
+    ).prefetch_related(
+        "assigned_employees",
+        "service_items__service",
+        "completion_photos",
+        "job_notes__author",
+        Prefetch(
+            "property__property_notes",
+            queryset=PropertyNote.objects.filter(visibility=PropertyNote.VISIBILITY_CREW).select_related("author"),
+            to_attr="crew_visible_notes",
+        ),
+    ).annotate(
+        site_photo_count=Count("site_photos"),
+    ).distinct()
+
+    if session.user.role == "crew":
+        jobs = jobs.filter(
+            Q(assigned_to=session.user) |
+            Q(assigned_employees=session.user) |
+            Q(assigned_crew__members=session.user) |
+            Q(assigned_crew__crew_leader=session.user)
+        ).distinct()
+    return jobs
+
+
+def _mobile_job_or_response(request, job_id):
+    session = session_from_request(request)
+    if not session:
+        return None, None, JsonResponse({"error": "Authentication required."}, status=401)
+
+    business_job_exists = Job.objects.filter(
+        id=job_id,
+        property__customer__business=session.business,
+    ).exists()
+    if not business_job_exists:
+        return None, session, JsonResponse({"error": "Job not found."}, status=404)
+
+    try:
+        job = _job_queryset_for_mobile(session).get(id=job_id)
+    except Job.DoesNotExist:
+        return None, session, JsonResponse({"error": "You do not have access to this job."}, status=403)
+    return job, session, None
+
+
+def _update_job_location(job, data):
+    update_fields = []
+    latitude = data.get("latitude")
+    longitude = data.get("longitude")
+    if latitude not in (None, "") and longitude not in (None, ""):
+        job.technician_latitude = latitude
+        job.technician_longitude = longitude
+        job.technician_location_updated_at = timezone.now()
+        update_fields.extend([
+            "technician_latitude",
+            "technician_longitude",
+            "technician_location_updated_at",
+        ])
+    return update_fields
+
+
 def today(request):
     session = session_from_request(request)
     if not session:
@@ -328,3 +431,83 @@ def today(request):
         },
         "jobs": [_job_payload(job, target_date) for job in jobs],
     })
+
+
+def job_detail(request, job_id):
+    job, session, error = _mobile_job_or_response(request, job_id)
+    if error:
+        return error
+    return JsonResponse(_job_detail_payload(job, session))
+
+
+@csrf_exempt
+@require_POST
+def job_start(request, job_id):
+    job, session, error = _mobile_job_or_response(request, job_id)
+    if error:
+        return error
+    if job.status not in {"scheduled", "in_progress"}:
+        return JsonResponse({"error": "This job cannot be started."}, status=400)
+
+    data = _json_body(request)
+    update_fields = _update_job_location(job, data)
+    if job.status != "in_progress":
+        job.status = "in_progress"
+        update_fields.append("status")
+    if not job.started_at:
+        job.started_at = timezone.now()
+        update_fields.append("started_at")
+    if update_fields:
+        job.save(update_fields=update_fields)
+    job = _job_queryset_for_mobile(session).get(id=job.id)
+    return JsonResponse(_job_detail_payload(job, session))
+
+
+@csrf_exempt
+@require_POST
+def job_complete(request, job_id):
+    job, session, error = _mobile_job_or_response(request, job_id)
+    if error:
+        return error
+    if job.status != "in_progress":
+        return JsonResponse({"error": "This job cannot be completed."}, status=400)
+    if getattr(session.business, "require_completion_photo", False) and not job.completion_photos.exists():
+        return JsonResponse({"error": "Completion photo required."}, status=400)
+
+    data = _json_body(request)
+    update_fields = _update_job_location(job, data)
+    now = timezone.now()
+    if not job.started_at:
+        job.started_at = now
+        update_fields.append("started_at")
+    job.status = "completed"
+    job.completed_at = now
+    job.completed_by = session.user
+    update_fields.extend(["status", "completed_at", "completed_by"])
+    job.save(update_fields=update_fields)
+    job = _job_queryset_for_mobile(session).get(id=job.id)
+    return JsonResponse(_job_detail_payload(job, session))
+
+
+@csrf_exempt
+@require_POST
+def job_skip(request, job_id):
+    job, session, error = _mobile_job_or_response(request, job_id)
+    if error:
+        return error
+    if job.status not in {"scheduled", "in_progress"}:
+        return JsonResponse({"error": "This job cannot be skipped."}, status=400)
+
+    data = _json_body(request)
+    reason = (data.get("reason") or "").strip()
+    if not reason:
+        return JsonResponse({"error": "Skip reason is required."}, status=400)
+
+    update_fields = _update_job_location(job, data)
+    job.status = "skipped"
+    job.skip_reason = reason
+    job.skipped_at = timezone.now()
+    update_fields.extend(["status", "skip_reason", "skipped_at"])
+    job.save(update_fields=update_fields)
+    job = _job_queryset_for_mobile(session).get(id=job.id)
+    return JsonResponse(_job_detail_payload(job, session))
