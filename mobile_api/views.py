@@ -1,5 +1,6 @@
 import json
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
 from django.db.models import Case, Count, IntegerField, Prefetch, Q, Value, When
 from django.http import JsonResponse
@@ -8,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from jobs.models import Job, JobCompletionPhoto, JobIssue, JobNote, JobPhoto, PropertyNote
+from time_tracking.models import TimeEntry
 
 from . import auth as mobile_auth
 from .auth import issue_access_token, session_from_refresh_token, session_from_request, user_by_email
@@ -48,6 +50,55 @@ def _parse_date(value):
         return date.fromisoformat(value)
     except ValueError:
         return None
+
+
+def _parse_decimal(value):
+    if value in (None, ""):
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _time_entry_payload(entry):
+    if not entry:
+        return None
+    return {
+        "id": entry.id,
+        "clock_in": entry.clock_in.isoformat(),
+        "clock_out": entry.clock_out.isoformat() if entry.clock_out else None,
+        "duration_minutes": entry.duration_minutes,
+        "status": entry.status,
+        "clock_in_latitude": str(entry.clock_in_latitude) if entry.clock_in_latitude is not None else None,
+        "clock_in_longitude": str(entry.clock_in_longitude) if entry.clock_in_longitude is not None else None,
+        "clock_out_latitude": str(entry.clock_out_latitude) if entry.clock_out_latitude is not None else None,
+        "clock_out_longitude": str(entry.clock_out_longitude) if entry.clock_out_longitude is not None else None,
+    }
+
+
+def _active_time_entry(user):
+    return TimeEntry.objects.filter(user=user, clock_out__isnull=True).order_by("-clock_in").first()
+
+
+def _time_clock_payload(user):
+    active_entry = _active_time_entry(user)
+    today = timezone.localdate()
+    today_entries = TimeEntry.objects.filter(user=user, clock_in__date=today).order_by("clock_in")
+    now = timezone.now()
+    today_minutes = 0
+    for entry in today_entries:
+        if entry.clock_out:
+            today_minutes += entry.duration_minutes or 0
+        else:
+            today_minutes += max(int((now - entry.clock_in).total_seconds() / 60), 0)
+    return {
+        "is_clocked_in": active_entry is not None,
+        "active_entry": _time_entry_payload(active_entry),
+        "today_minutes": today_minutes,
+        "today_display": f"{today_minutes // 60}h {today_minutes % 60}m",
+        "server_time": now.isoformat(),
+    }
 
 
 def health(request):
@@ -152,6 +203,58 @@ def bootstrap(request):
             "server_time": session.last_seen_at.isoformat(),
         },
     })
+
+
+def time_clock_status(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    return JsonResponse(_time_clock_payload(session.user))
+
+
+@csrf_exempt
+@require_POST
+def time_clock_in(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    active_entry = _active_time_entry(session.user)
+    if not active_entry:
+        data = _json_body(request)
+        entry_data = {
+            "user": session.user,
+            "clock_in": timezone.now(),
+        }
+        latitude = _parse_decimal(data.get("latitude"))
+        longitude = _parse_decimal(data.get("longitude"))
+        if latitude is not None and longitude is not None:
+            entry_data["clock_in_latitude"] = latitude
+            entry_data["clock_in_longitude"] = longitude
+        TimeEntry.objects.create(**entry_data)
+    return JsonResponse(_time_clock_payload(session.user))
+
+
+@csrf_exempt
+@require_POST
+def time_clock_out(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    entry = _active_time_entry(session.user)
+    if not entry:
+        return JsonResponse({"error": "No active clock-in found."}, status=400)
+
+    data = _json_body(request)
+    entry.clock_out = timezone.now()
+    update_fields = ["clock_out"]
+    latitude = _parse_decimal(data.get("latitude"))
+    longitude = _parse_decimal(data.get("longitude"))
+    if latitude is not None and longitude is not None:
+        entry.clock_out_latitude = latitude
+        entry.clock_out_longitude = longitude
+        update_fields.extend(["clock_out_latitude", "clock_out_longitude"])
+    entry.save(update_fields=update_fields)
+    return JsonResponse(_time_clock_payload(session.user))
 
 
 SUPPORTED_SYNC_ENTITIES = {

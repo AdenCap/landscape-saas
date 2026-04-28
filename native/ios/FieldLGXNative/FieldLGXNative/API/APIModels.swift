@@ -75,6 +75,46 @@ struct TodaySummary: Codable, Equatable {
     let remaining: Int
 }
 
+struct TimeClockResponse: Codable, Equatable {
+    let isClockedIn: Bool
+    let activeEntry: TimeClockEntry?
+    let todayMinutes: Int
+    let todayDisplay: String
+    let serverTime: String
+
+    enum CodingKeys: String, CodingKey {
+        case isClockedIn = "is_clocked_in"
+        case activeEntry = "active_entry"
+        case todayMinutes = "today_minutes"
+        case todayDisplay = "today_display"
+        case serverTime = "server_time"
+    }
+}
+
+struct TimeClockEntry: Codable, Equatable, Identifiable {
+    let id: Int
+    let clockIn: String
+    let clockOut: String?
+    let durationMinutes: Int?
+    let status: String
+    let clockInLatitude: String?
+    let clockInLongitude: String?
+    let clockOutLatitude: String?
+    let clockOutLongitude: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case clockIn = "clock_in"
+        case clockOut = "clock_out"
+        case durationMinutes = "duration_minutes"
+        case status
+        case clockInLatitude = "clock_in_latitude"
+        case clockInLongitude = "clock_in_longitude"
+        case clockOutLatitude = "clock_out_latitude"
+        case clockOutLongitude = "clock_out_longitude"
+    }
+}
+
 struct TodayJob: Codable, Equatable, Identifiable {
     let id: Int
     let status: String
@@ -268,6 +308,16 @@ extension TodayResponse {
                 photoCount: 0
             )
         ]
+    )
+}
+
+extension TimeClockResponse {
+    static let preview = TimeClockResponse(
+        isClockedIn: false,
+        activeEntry: nil,
+        todayMinutes: 0,
+        todayDisplay: "0h 0m",
+        serverTime: "2026-05-04T12:00:00Z"
     )
 }
 

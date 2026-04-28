@@ -24,6 +24,18 @@ struct APIClient {
         return try await get(path: "/api/mobile/v1/today/?date=\(dateString)")
     }
 
+    func timeClockStatus() async throws -> TimeClockResponse {
+        try await get(path: "/api/mobile/v1/time-clock/")
+    }
+
+    func clockIn(latitude: Double? = nil, longitude: Double? = nil) async throws -> TimeClockResponse {
+        try await post(path: "/api/mobile/v1/time-clock/clock-in/", body: coordinateBody(latitude: latitude, longitude: longitude))
+    }
+
+    func clockOut(latitude: Double? = nil, longitude: Double? = nil) async throws -> TimeClockResponse {
+        try await post(path: "/api/mobile/v1/time-clock/clock-out/", body: coordinateBody(latitude: latitude, longitude: longitude))
+    }
+
     func jobDetail(id: Int) async throws -> JobDetailResponse {
         try await get(path: "/api/mobile/v1/jobs/\(id)/")
     }
@@ -183,6 +195,14 @@ struct APIClient {
         if let accessToken {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
+    }
+
+    private func coordinateBody(latitude: Double?, longitude: Double?) -> [String: String] {
+        guard let latitude, let longitude else { return [:] }
+        return [
+            "latitude": String(format: "%.7f", latitude),
+            "longitude": String(format: "%.7f", longitude)
+        ]
     }
 
     private func validate(response: URLResponse, data: Data) throws {

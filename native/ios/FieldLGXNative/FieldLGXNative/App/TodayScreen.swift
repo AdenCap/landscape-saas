@@ -1,11 +1,16 @@
+import CoreLocation
 import SwiftUI
 
 struct TodayScreen: View {
     let accessToken: String?
 
     @State private var today: TodayResponse?
+    @State private var timeClock: TimeClockResponse?
     @State private var isLoading = false
+    @State private var isClocking = false
     @State private var errorMessage: String?
+    @State private var timeClockMessage: String?
+    @State private var locationProvider = FieldLocationProvider()
 
     var body: some View {
         ZStack {
@@ -20,6 +25,7 @@ struct TodayScreen: View {
                             .tint(FieldLGXTheme.lime)
                             .frame(maxWidth: .infinity, minHeight: 180)
                     } else if let today {
+                        timeClockCard
                         summary(today.summary)
 
                         if today.jobs.isEmpty {
@@ -46,11 +52,13 @@ struct TodayScreen: View {
             }
             .refreshable {
                 await loadToday()
+                await loadTimeClock()
             }
         }
         .toolbar(.hidden, for: .navigationBar)
         .task {
             await loadToday()
+            await loadTimeClock()
         }
     }
 
@@ -73,6 +81,82 @@ struct TodayScreen: View {
             metric("Open", summary.remaining)
             metric("Done", summary.completed)
         }
+    }
+
+    private var timeClockCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("TIME CLOCK")
+                        .font(.system(size: 10, weight: .black))
+                        .tracking(2)
+                        .foregroundStyle(FieldLGXTheme.tertiaryText)
+
+                    Text(timeClock?.isClockedIn == true ? "On shift" : "Ready to clock in")
+                        .font(.system(size: 24, weight: .black, design: .rounded))
+                        .foregroundStyle(FieldLGXTheme.text)
+
+                    Text(timeClockSubtitle)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(FieldLGXTheme.secondaryText)
+                }
+
+                Spacer()
+
+                Circle()
+                    .fill(timeClock?.isClockedIn == true ? FieldLGXTheme.lime : FieldLGXTheme.elevatedBackground)
+                    .frame(width: 12, height: 12)
+                    .overlay(
+                        Circle()
+                            .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+                    )
+                    .padding(.top, 7)
+            }
+
+            if let timeClockMessage {
+                Text(timeClockMessage)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(FieldLGXTheme.lime)
+            }
+
+            Button {
+                Task { await toggleTimeClock() }
+            } label: {
+                HStack {
+                    Image(systemName: timeClock?.isClockedIn == true ? "stop.fill" : "play.fill")
+                    Text(timeClock?.isClockedIn == true ? "Clock out" : "Clock in")
+                    if isClocking {
+                        Spacer()
+                        ProgressView()
+                            .tint(timeClock?.isClockedIn == true ? FieldLGXTheme.lime : .black)
+                    }
+                }
+                .font(.system(size: 16, weight: .black))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+            }
+            .disabled(isClocking)
+            .foregroundStyle(timeClock?.isClockedIn == true ? FieldLGXTheme.text : .black)
+            .background(timeClock?.isClockedIn == true ? FieldLGXTheme.elevatedBackground : FieldLGXTheme.lime)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .padding(18)
+        .background(FieldLGXTheme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+        )
+    }
+
+    private var timeClockSubtitle: String {
+        guard let timeClock else {
+            return "Location is attached when available."
+        }
+        if timeClock.isClockedIn {
+            return "\(timeClock.todayDisplay) tracked today"
+        }
+        return "\(timeClock.todayDisplay) logged today"
     }
 
     private func metric(_ label: String, _ value: Int) -> some View {
@@ -127,7 +211,7 @@ struct TodayScreen: View {
     }
 
     private func loadToday() async {
-        guard let accessToken else {
+        guard let accessToken, accessToken != "preview-token" else {
             today = .preview
             return
         }
@@ -143,6 +227,97 @@ struct TodayScreen: View {
         } catch {
             errorMessage = "Check your connection and try again."
         }
+    }
+
+    private func loadTimeClock() async {
+        guard let accessToken, accessToken != "preview-token" else {
+            timeClock = .preview
+            return
+        }
+
+        do {
+            timeClock = try await apiClient.timeClockStatus()
+        } catch {
+            timeClockMessage = "Time clock will retry when connection is available."
+        }
+    }
+
+    private func toggleTimeClock() async {
+        guard let accessToken, accessToken != "preview-token" else {
+            timeClock = TimeClockResponse(
+                isClockedIn: !(timeClock?.isClockedIn ?? false),
+                activeEntry: nil,
+                todayMinutes: timeClock?.todayMinutes ?? 0,
+                todayDisplay: timeClock?.todayDisplay ?? "0h 0m",
+                serverTime: timeClock?.serverTime ?? ""
+            )
+            return
+        }
+
+        isClocking = true
+        timeClockMessage = nil
+        defer { isClocking = false }
+
+        let coordinate = await locationProvider.currentCoordinate()
+        do {
+            if timeClock?.isClockedIn == true {
+                timeClock = try await apiClient.clockOut(
+                    latitude: coordinate?.latitude,
+                    longitude: coordinate?.longitude
+                )
+                timeClockMessage = "Clocked out. Your shift is saved."
+            } else {
+                timeClock = try await apiClient.clockIn(
+                    latitude: coordinate?.latitude,
+                    longitude: coordinate?.longitude
+                )
+                timeClockMessage = "Clocked in. Location attached when available."
+            }
+        } catch {
+            timeClockMessage = "Could not update time clock. Try again with service."
+        }
+    }
+
+    private var apiClient: APIClient {
+        APIClient(
+            baseURL: URL(string: "http://127.0.0.1:8004")!,
+            accessToken: accessToken
+        )
+    }
+}
+
+private final class FieldLocationProvider: NSObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    private var continuation: CheckedContinuation<CLLocationCoordinate2D?, Never>?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+    }
+
+    func currentCoordinate() async -> CLLocationCoordinate2D? {
+        let status = manager.authorizationStatus
+        if status == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+        }
+        guard status == .authorizedAlways || status == .authorizedWhenInUse || manager.authorizationStatus == .authorizedAlways || manager.authorizationStatus == .authorizedWhenInUse else {
+            return nil
+        }
+        return await withCheckedContinuation { continuation in
+            self.continuation = continuation
+            manager.requestLocation()
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        continuation?.resume(returning: locations.last?.coordinate)
+        continuation = nil
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        continuation?.resume(returning: nil)
+        continuation = nil
     }
 }
 

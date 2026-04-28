@@ -11,6 +11,7 @@ from businesses.models import Business
 from customers.models import Customer, Property
 from jobs.models import Crew, Job, JobCompletionPhoto, JobIssue, JobNote, JobPhoto, JobServiceItem, PropertyNote
 from pricing.models import ServiceTemplate
+from time_tracking.models import TimeEntry
 
 
 class MobileHealthTests(TestCase):
@@ -271,6 +272,111 @@ class MobileSyncTests(TestCase):
 
     def test_sync_requires_authentication(self):
         response = self.client.get(reverse("mobile_api:sync_pull"))
+
+        self.assertEqual(response.status_code, 401)
+
+
+class MobileTimeClockTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(name="QA Native Time")
+        User = get_user_model()
+        self.crew_user = User.objects.create_user(
+            username="timecrew",
+            email="timecrew@example.com",
+            password="testpass123",
+            business=self.business,
+            role="crew",
+        )
+        self.login = self.client.post(
+            reverse("mobile_api:login"),
+            data={"email": "timecrew@example.com", "password": "testpass123"},
+            content_type="application/json",
+        ).json()
+
+    def auth_headers(self):
+        return {"HTTP_AUTHORIZATION": f"Bearer {self.login['access_token']}"}
+
+    def test_time_clock_status_returns_active_entry_and_today_total(self):
+        first = TimeEntry.objects.create(
+            user=self.crew_user,
+            clock_in=timezone.now() - timezone.timedelta(hours=3),
+            clock_out=timezone.now() - timezone.timedelta(hours=1),
+        )
+        active = TimeEntry.objects.create(
+            user=self.crew_user,
+            clock_in=timezone.now() - timezone.timedelta(minutes=20),
+            clock_in_latitude=Decimal("39.7684000"),
+            clock_in_longitude=Decimal("-86.1581000"),
+        )
+
+        response = self.client.get(reverse("mobile_api:time_clock_status"), **self.auth_headers())
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["is_clocked_in"])
+        self.assertEqual(payload["active_entry"]["id"], active.id)
+        self.assertGreaterEqual(payload["today_minutes"], first.duration_minutes)
+        self.assertIn("today_display", payload)
+
+    def test_clock_in_creates_active_time_entry_with_location(self):
+        response = self.client.post(
+            reverse("mobile_api:time_clock_in"),
+            data={"latitude": "39.7684", "longitude": "-86.1581"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        entry = TimeEntry.objects.get(user=self.crew_user, clock_out__isnull=True)
+        self.assertEqual(str(entry.clock_in_latitude), "39.7684000")
+        self.assertEqual(str(entry.clock_in_longitude), "-86.1581000")
+        self.assertTrue(response.json()["is_clocked_in"])
+        self.assertEqual(response.json()["active_entry"]["id"], entry.id)
+
+    def test_clock_in_returns_existing_active_entry_instead_of_duplicate(self):
+        active = TimeEntry.objects.create(user=self.crew_user, clock_in=timezone.now())
+
+        response = self.client.post(
+            reverse("mobile_api:time_clock_in"),
+            data={"latitude": "39.7684", "longitude": "-86.1581"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(TimeEntry.objects.filter(user=self.crew_user, clock_out__isnull=True).count(), 1)
+        self.assertEqual(response.json()["active_entry"]["id"], active.id)
+
+    def test_clock_out_closes_active_entry_with_location(self):
+        entry = TimeEntry.objects.create(user=self.crew_user, clock_in=timezone.now() - timezone.timedelta(hours=1))
+
+        response = self.client.post(
+            reverse("mobile_api:time_clock_out"),
+            data={"latitude": "39.7700", "longitude": "-86.1600"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        entry.refresh_from_db()
+        self.assertIsNotNone(entry.clock_out)
+        self.assertEqual(str(entry.clock_out_latitude), "39.7700000")
+        self.assertEqual(str(entry.clock_out_longitude), "-86.1600000")
+        self.assertFalse(response.json()["is_clocked_in"])
+
+    def test_clock_out_requires_active_entry(self):
+        response = self.client.post(
+            reverse("mobile_api:time_clock_out"),
+            data={},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "No active clock-in found.")
+
+    def test_time_clock_requires_authentication(self):
+        response = self.client.get(reverse("mobile_api:time_clock_status"))
 
         self.assertEqual(response.status_code, 401)
 
