@@ -2,8 +2,13 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 from unittest.mock import patch
+from datetime import date, time
+from decimal import Decimal
 
 from businesses.models import Business
+from customers.models import Customer, Property
+from jobs.models import Crew, Job, JobServiceItem, PropertyNote
+from pricing.models import ServiceTemplate
 
 
 class MobileHealthTests(TestCase):
@@ -264,5 +269,140 @@ class MobileSyncTests(TestCase):
 
     def test_sync_requires_authentication(self):
         response = self.client.get(reverse("mobile_api:sync_pull"))
+
+        self.assertEqual(response.status_code, 401)
+
+
+class MobileTodayTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(name="QA Native Today")
+        self.other_business = Business.objects.create(name="Other Company")
+        User = get_user_model()
+        self.crew_user = User.objects.create_user(
+            username="todaycrew",
+            email="todaycrew@example.com",
+            password="testpass123",
+            business=self.business,
+            role="crew",
+        )
+        self.other_crew = User.objects.create_user(
+            username="othercrew",
+            email="othercrew@example.com",
+            password="testpass123",
+            business=self.other_business,
+            role="crew",
+        )
+        self.owner = User.objects.create_user(
+            username="todayowner",
+            email="todayowner@example.com",
+            password="testpass123",
+            business=self.business,
+            role="owner",
+        )
+        self.customer = Customer.objects.create(business=self.business, name="Maple Ridge")
+        self.property = Property.objects.create(
+            customer=self.customer,
+            address="123 Test Lawn Ave",
+            gate_code="2480",
+            has_dog=True,
+            notes="Park near the left gate.",
+        )
+        self.service = ServiceTemplate.objects.create(
+            business=self.business,
+            name="Mowing",
+            default_rate=Decimal("65.00"),
+        )
+        self.today = date(2026, 5, 4)
+        self.job = Job.objects.create(
+            property=self.property,
+            scheduled_date=self.today,
+            scheduled_time=time(8, 30),
+            status="scheduled",
+            assigned_to=self.crew_user,
+            route_order=2,
+        )
+        JobServiceItem.objects.create(
+            job=self.job,
+            service=self.service,
+            quantity=Decimal("1.00"),
+            unit="visit",
+            unit_price=Decimal("65.00"),
+            detail_description="Trim fence line and blow clippings.",
+        )
+        PropertyNote.objects.create(
+            property=self.property,
+            author=self.owner,
+            text="Crew can use side gate.",
+            visibility=PropertyNote.VISIBILITY_CREW,
+        )
+        PropertyNote.objects.create(
+            property=self.property,
+            author=self.owner,
+            text="Billing dispute note.",
+            visibility=PropertyNote.VISIBILITY_INTERNAL,
+        )
+        other_customer = Customer.objects.create(business=self.other_business, name="Other Customer")
+        other_property = Property.objects.create(customer=other_customer, address="999 Elsewhere")
+        Job.objects.create(
+            property=other_property,
+            scheduled_date=self.today,
+            status="scheduled",
+            assigned_to=self.other_crew,
+        )
+        self.login = self.client.post(
+            reverse("mobile_api:login"),
+            data={"email": "todaycrew@example.com", "password": "testpass123"},
+            content_type="application/json",
+        ).json()
+
+    def auth_headers(self):
+        return {"HTTP_AUTHORIZATION": f"Bearer {self.login['access_token']}"}
+
+    def test_today_returns_assigned_jobs_with_field_context(self):
+        response = self.client.get(
+            reverse("mobile_api:today"),
+            {"date": self.today.isoformat()},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["date"], "2026-05-04")
+        self.assertEqual(payload["summary"]["total"], 1)
+        self.assertEqual(payload["summary"]["remaining"], 1)
+        self.assertEqual(payload["jobs"][0]["id"], self.job.id)
+        self.assertEqual(payload["jobs"][0]["customer"]["name"], "Maple Ridge")
+        self.assertEqual(payload["jobs"][0]["property"]["address"], "123 Test Lawn Ave")
+        self.assertEqual(payload["jobs"][0]["service_items"][0]["name"], "Mowing")
+        self.assertEqual(payload["jobs"][0]["service_items"][0]["detail_description"], "Trim fence line and blow clippings.")
+        alert_text = " ".join(alert["text"] for alert in payload["jobs"][0]["alerts"])
+        self.assertIn("2480", alert_text)
+        self.assertIn("Crew can use side gate.", alert_text)
+        self.assertNotIn("Billing dispute note.", alert_text)
+
+    def test_today_includes_crew_membership_and_multi_day_jobs(self):
+        crew = Crew.objects.create(business=self.business, name="Crew A")
+        crew.members.add(self.crew_user)
+        multi_day = Job.objects.create(
+            property=self.property,
+            scheduled_date=date(2026, 5, 3),
+            scheduled_end_date=date(2026, 5, 5),
+            status="scheduled",
+            assigned_crew=crew,
+            route_order=1,
+        )
+
+        response = self.client.get(
+            reverse("mobile_api:today"),
+            {"date": self.today.isoformat()},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        job_ids = [job["id"] for job in response.json()["jobs"]]
+        self.assertEqual(job_ids, [multi_day.id, self.job.id])
+
+    def test_today_requires_authentication(self):
+        response = self.client.get(reverse("mobile_api:today"))
 
         self.assertEqual(response.status_code, 401)

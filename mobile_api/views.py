@@ -1,9 +1,13 @@
 import json
+from datetime import date
 
+from django.db.models import Case, Count, IntegerField, Prefetch, Q, Value, When
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+
+from jobs.models import Job, PropertyNote
 
 from . import auth as mobile_auth
 from .auth import issue_access_token, session_from_refresh_token, session_from_request, user_by_email
@@ -35,6 +39,15 @@ def _business_payload(business):
         "client_card_payments_enabled": bool(getattr(business, "client_card_payments_enabled", False)),
         "client_saved_cards_enabled": bool(getattr(business, "client_saved_cards_enabled", False)),
     }
+
+
+def _parse_date(value):
+    if not value:
+        return date.today()
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 def health(request):
@@ -198,4 +211,120 @@ def sync_push(request):
         "rejected": rejected,
         "conflicts": [],
         "cursor": timezone.now().isoformat(),
+    })
+
+
+def _job_alerts(job):
+    alerts = []
+    prop = job.property
+    if prop.gate_code:
+        alerts.append({"label": "Gate code", "text": prop.gate_code})
+    if prop.has_dog:
+        alerts.append({"label": "Dog on site", "text": "Check before entering the yard."})
+    if (prop.notes or "").strip():
+        alerts.append({"label": "Property note", "text": prop.notes.strip()})
+    for note in getattr(prop, "crew_visible_notes", [])[:3]:
+        alerts.append({"label": "Permanent note", "text": note.text})
+    return alerts
+
+
+def _service_item_payload(item):
+    return {
+        "id": item.id,
+        "name": item.description or item.service.name,
+        "detail_description": item.detail_description,
+        "quantity": str(item.quantity),
+        "unit": item.unit,
+        "unit_price": str(item.unit_price),
+        "scheduled_date": item.scheduled_date.isoformat() if item.scheduled_date else None,
+    }
+
+
+def _job_payload(job, target_date):
+    items = list(job.service_items.all())
+    if job.scheduled_end_date and job.scheduled_date and job.scheduled_end_date > job.scheduled_date:
+        items = [item for item in items if item.scheduled_date is None or item.scheduled_date == target_date]
+    customer = job.property.customer
+    return {
+        "id": job.id,
+        "status": job.status,
+        "scheduled_date": job.scheduled_date.isoformat() if job.scheduled_date else None,
+        "scheduled_end_date": job.scheduled_end_date.isoformat() if job.scheduled_end_date else None,
+        "scheduled_time": job.scheduled_time.strftime("%H:%M") if job.scheduled_time else None,
+        "scheduled_end_time": job.scheduled_end_time.strftime("%H:%M") if job.scheduled_end_time else None,
+        "route_order": job.route_order,
+        "customer": {
+            "id": customer.id,
+            "name": customer.name,
+            "phone": customer.phone,
+        },
+        "property": {
+            "id": job.property.id,
+            "address": job.property.address,
+            "latitude": str(job.property.latitude) if job.property.latitude is not None else None,
+            "longitude": str(job.property.longitude) if job.property.longitude is not None else None,
+        },
+        "assigned": {
+            "crew": job.assigned_crew.name if job.assigned_crew else None,
+            "employee": job.assigned_to.get_full_name() or job.assigned_to.username if job.assigned_to else None,
+        },
+        "notes": job.notes,
+        "alerts": _job_alerts(job),
+        "service_items": [_service_item_payload(item) for item in items],
+        "photo_count": job.site_photo_count,
+    }
+
+
+def today(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    target_date = _parse_date(request.GET.get("date"))
+    if not target_date:
+        return JsonResponse({"error": "Invalid date."}, status=400)
+
+    jobs = Job.objects.filter(
+        Q(scheduled_date=target_date) |
+        Q(scheduled_date__lte=target_date, scheduled_end_date__gte=target_date),
+        property__customer__business=session.business,
+    ).select_related(
+        "property",
+        "property__customer",
+        "assigned_to",
+        "assigned_crew",
+    ).prefetch_related(
+        "service_items__service",
+        "assigned_employees",
+        Prefetch(
+            "property__property_notes",
+            queryset=PropertyNote.objects.filter(visibility=PropertyNote.VISIBILITY_CREW).select_related("author"),
+            to_attr="crew_visible_notes",
+        ),
+    ).annotate(
+        site_photo_count=Count("site_photos"),
+        is_done=Case(
+            When(status__in=["completed", "skipped", "cancelled"], then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField(),
+        ),
+    ).distinct()
+
+    if session.user.role == "crew":
+        jobs = jobs.filter(
+            Q(assigned_to=session.user) |
+            Q(assigned_employees=session.user) |
+            Q(assigned_crew__members=session.user) |
+            Q(assigned_crew__crew_leader=session.user)
+        ).distinct()
+
+    jobs = list(jobs.order_by("is_done", "route_order", "scheduled_time", "id"))
+    completed = sum(1 for job in jobs if job.status in {"completed", "skipped"})
+    return JsonResponse({
+        "date": target_date.isoformat(),
+        "summary": {
+            "total": len(jobs),
+            "completed": completed,
+            "remaining": max(len(jobs) - completed, 0),
+        },
+        "jobs": [_job_payload(job, target_date) for job in jobs],
     })

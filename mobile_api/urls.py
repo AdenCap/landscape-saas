@@ -7,6 +7,7 @@ app_name = "mobile_api"
 urlpatterns = [
     path("health/", views.health, name="health"),
     path("bootstrap/", views.bootstrap, name="bootstrap"),
+    path("today/", views.today, name="today"),
     path("sync/pull/", views.sync_pull, name="sync_pull"),
     path("sync/push/", views.sync_push, name="sync_push"),
     path("auth/login/", views.login, name="login"),
