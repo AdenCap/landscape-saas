@@ -10,6 +10,6 @@ struct FieldLGXNativeApp: App {
             AppShell(session: session)
                 .preferredColorScheme(.dark)
         }
-        .modelContainer(for: PendingMutation.self)
+        .modelContainer(for: [PendingMutation.self, CachedTodaySnapshot.self])
     }
 }

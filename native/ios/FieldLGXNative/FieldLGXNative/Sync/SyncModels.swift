@@ -44,3 +44,16 @@ final class PendingMutation {
         self.confirmedAt = nil
     }
 }
+
+@Model
+final class CachedTodaySnapshot {
+    @Attribute(.unique) var cacheKey: String
+    var payloadJSON: String
+    var cachedAt: Date
+
+    init(cacheKey: String = "today", payloadJSON: String, cachedAt: Date = Date()) {
+        self.cacheKey = cacheKey
+        self.payloadJSON = payloadJSON
+        self.cachedAt = cachedAt
+    }
+}

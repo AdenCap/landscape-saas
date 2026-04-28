@@ -1,8 +1,11 @@
 import CoreLocation
+import SwiftData
 import SwiftUI
 
 struct TodayScreen: View {
     let accessToken: String?
+
+    @Environment(\.modelContext) private var modelContext
 
     @State private var today: TodayResponse?
     @State private var timeClock: TimeClockResponse?
@@ -224,12 +227,16 @@ struct TodayScreen: View {
         defer { isLoading = false }
 
         do {
-            today = try await APIClient(
-                baseURL: URL(string: "http://127.0.0.1:8004")!,
-                accessToken: accessToken
-            ).today()
+            let response = try await apiClient.today()
+            today = response
+            cacheToday(response)
         } catch {
-            errorMessage = "Check your connection and try again."
+            if let cached = cachedToday() {
+                today = cached
+                errorMessage = nil
+            } else {
+                errorMessage = "Check your connection and try again."
+            }
         }
     }
 
@@ -312,6 +319,32 @@ struct TodayScreen: View {
             baseURL: URL(string: "http://127.0.0.1:8004")!,
             accessToken: accessToken
         )
+    }
+
+    private func cacheToday(_ response: TodayResponse) {
+        guard let data = try? JSONEncoder().encode(response),
+              let json = String(data: data, encoding: .utf8)
+        else { return }
+        let descriptor = FetchDescriptor<CachedTodaySnapshot>(
+            predicate: #Predicate { $0.cacheKey == "today" }
+        )
+        if let existing = try? modelContext.fetch(descriptor).first {
+            existing.payloadJSON = json
+            existing.cachedAt = Date()
+        } else {
+            modelContext.insert(CachedTodaySnapshot(payloadJSON: json))
+        }
+        try? modelContext.save()
+    }
+
+    private func cachedToday() -> TodayResponse? {
+        let descriptor = FetchDescriptor<CachedTodaySnapshot>(
+            predicate: #Predicate { $0.cacheKey == "today" }
+        )
+        guard let snapshot = try? modelContext.fetch(descriptor).first,
+              let data = snapshot.payloadJSON.data(using: .utf8)
+        else { return nil }
+        return try? JSONDecoder().decode(TodayResponse.self, from: data)
     }
 }
 
