@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct JobDetailScreen: View {
     let jobID: Int
@@ -12,11 +13,13 @@ struct JobDetailScreen: View {
     @State private var errorMessage: String?
     @State private var isShowingSkipSheet = false
     @State private var skipReason = ""
+    @State private var completionPhotoItem: PhotosPickerItem?
 
     private enum JobAction {
         case start
         case complete
         case skip
+        case uploadPhoto
     }
 
     var body: some View {
@@ -54,6 +57,12 @@ struct JobDetailScreen: View {
             skipSheet
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
+        }
+        .onChange(of: completionPhotoItem) { _, newItem in
+            guard let newItem else { return }
+            Task {
+                await uploadCompletionPhoto(newItem)
+            }
         }
     }
 
@@ -151,10 +160,16 @@ struct JobDetailScreen: View {
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             if detail.actions.requiresCompletionPhoto && !detail.actions.hasCompletionPhoto {
-                Label("Completion photo required before this can be marked done.", systemImage: "camera.fill")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(FieldLGXTheme.lime)
-                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Completion photo required before this can be marked done.", systemImage: "camera.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(FieldLGXTheme.lime)
+
+                    completionPhotoPicker(title: "Add completion photo", isPrimary: true)
+                }
+                .padding(.top, 2)
+            } else {
+                completionPhotoPicker(title: detail.actions.hasCompletionPhoto ? "Add another photo" : "Add photo proof", isPrimary: false)
             }
 
             if let errorMessage {
@@ -171,6 +186,27 @@ struct JobDetailScreen: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
         )
+    }
+
+    private func completionPhotoPicker(title: String, isPrimary: Bool) -> some View {
+        PhotosPicker(selection: $completionPhotoItem, matching: .images) {
+            HStack(spacing: 9) {
+                if actionInFlight == .uploadPhoto {
+                    ProgressView()
+                        .tint(isPrimary ? .black : FieldLGXTheme.lime)
+                } else {
+                    Image(systemName: "camera.fill")
+                }
+                Text(title)
+            }
+            .font(.system(size: 16, weight: .black))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .foregroundStyle(isPrimary ? .black : FieldLGXTheme.text)
+            .background(isPrimary ? FieldLGXTheme.lime : FieldLGXTheme.elevatedBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .disabled(actionInFlight != nil)
     }
 
     @ViewBuilder
@@ -409,7 +445,7 @@ struct JobDetailScreen: View {
                 detail = try await api.startJob(id: jobID)
             case .complete:
                 detail = try await api.completeJob(id: jobID)
-            case .skip:
+            case .skip, .uploadPhoto:
                 break
             }
         } catch {
@@ -429,6 +465,26 @@ struct JobDetailScreen: View {
             detail = try await client(accessToken: accessToken).skipJob(id: jobID, reason: reason)
             isShowingSkipSheet = false
             skipReason = ""
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func uploadCompletionPhoto(_ item: PhotosPickerItem) async {
+        guard let accessToken else { return }
+        actionInFlight = .uploadPhoto
+        errorMessage = nil
+        defer {
+            actionInFlight = nil
+            completionPhotoItem = nil
+        }
+
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else {
+                errorMessage = "Could not read that photo."
+                return
+            }
+            detail = try await client(accessToken: accessToken).uploadCompletionPhoto(id: jobID, imageData: data)
         } catch {
             errorMessage = error.localizedDescription
         }

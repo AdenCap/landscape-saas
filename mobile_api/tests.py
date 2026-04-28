@@ -1,10 +1,12 @@
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from unittest.mock import patch
 from datetime import date, time
 from decimal import Decimal
+import tempfile
 
 from businesses.models import Business
 from customers.models import Customer, Property
@@ -411,6 +413,9 @@ class MobileTodayTests(TestCase):
 
 class MobileJobDetailTests(TestCase):
     def setUp(self):
+        self.media_root = tempfile.TemporaryDirectory()
+        self.media_override = self.settings(MEDIA_ROOT=self.media_root.name)
+        self.media_override.enable()
         self.business = Business.objects.create(name="QA Native Job Detail")
         self.other_business = Business.objects.create(name="Other Detail Company")
         User = get_user_model()
@@ -472,6 +477,10 @@ class MobileJobDetailTests(TestCase):
             data={"email": "detailcrew@example.com", "password": "testpass123"},
             content_type="application/json",
         ).json()
+
+    def tearDown(self):
+        self.media_override.disable()
+        self.media_root.cleanup()
 
     def auth_headers(self):
         return {"HTTP_AUTHORIZATION": f"Bearer {self.login['access_token']}"}
@@ -592,3 +601,43 @@ class MobileJobDetailTests(TestCase):
         self.assertEqual(self.job.status, "skipped")
         self.assertEqual(self.job.skip_reason, "Customer requested next week.")
         self.assertIsNotNone(self.job.skipped_at)
+
+    def test_upload_completion_photo_attaches_proof_and_enables_completion(self):
+        self.business.require_completion_photo = True
+        self.business.save(update_fields=["require_completion_photo"])
+        self.job.status = "in_progress"
+        self.job.started_at = timezone.now()
+        self.job.save(update_fields=["status", "started_at"])
+        photo = SimpleUploadedFile(
+            "completion.jpg",
+            b"fake-jpeg-data",
+            content_type="image/jpeg",
+        )
+
+        response = self.client.post(
+            reverse("mobile_api:job_completion_photo", args=[self.job.id]),
+            data={"image": photo},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(JobCompletionPhoto.objects.filter(job=self.job, uploaded_by=self.crew_user).count(), 1)
+        payload = response.json()
+        self.assertTrue(payload["actions"]["has_completion_photo"])
+        self.assertTrue(payload["actions"]["can_complete"])
+
+    def test_upload_completion_photo_rejects_non_images(self):
+        document = SimpleUploadedFile(
+            "notes.txt",
+            b"not-image",
+            content_type="text/plain",
+        )
+
+        response = self.client.post(
+            reverse("mobile_api:job_completion_photo", args=[self.job.id]),
+            data={"image": document},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "Invalid file type.")

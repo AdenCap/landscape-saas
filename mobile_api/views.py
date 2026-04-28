@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from jobs.models import Job, JobNote, PropertyNote
+from jobs.models import Job, JobCompletionPhoto, JobNote, PropertyNote
 
 from . import auth as mobile_auth
 from .auth import issue_access_token, session_from_refresh_token, session_from_request, user_by_email
@@ -509,5 +509,27 @@ def job_skip(request, job_id):
     job.skipped_at = timezone.now()
     update_fields.extend(["status", "skip_reason", "skipped_at"])
     job.save(update_fields=update_fields)
+    job = _job_queryset_for_mobile(session).get(id=job.id)
+    return JsonResponse(_job_detail_payload(job, session))
+
+
+@csrf_exempt
+@require_POST
+def job_completion_photo(request, job_id):
+    job, session, error = _mobile_job_or_response(request, job_id)
+    if error:
+        return error
+
+    image = request.FILES.get("photo") or request.FILES.get("image")
+    if not image:
+        return JsonResponse({"error": "Photo is required."}, status=400)
+
+    allowed_image_types = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+    if image.content_type not in allowed_image_types:
+        return JsonResponse({"error": "Invalid file type."}, status=400)
+    if image.size > 10 * 1024 * 1024:
+        return JsonResponse({"error": "Photo must be 10 MB or smaller."}, status=400)
+
+    JobCompletionPhoto.objects.create(job=job, image=image, uploaded_by=session.user)
     job = _job_queryset_for_mobile(session).get(id=job.id)
     return JsonResponse(_job_detail_payload(job, session))
