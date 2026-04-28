@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import SwiftData
 
 struct JobDetailScreen: View {
     let jobID: Int
@@ -7,10 +8,13 @@ struct JobDetailScreen: View {
     let previewJob: TodayJob?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var detail: JobDetailResponse?
     @State private var isLoading = false
     @State private var actionInFlight: JobAction?
     @State private var errorMessage: String?
+    @State private var offlineMessage: String?
+    @State private var pendingOfflineCount = 0
     @State private var isShowingSkipSheet = false
     @State private var isShowingNoteSheet = false
     @State private var isShowingIssueSheet = false
@@ -62,6 +66,7 @@ struct JobDetailScreen: View {
         .toolbar(.hidden, for: .navigationBar)
         .task {
             await loadDetail()
+            refreshPendingCount()
         }
         .sheet(isPresented: $isShowingSkipSheet) {
             skipSheet
@@ -230,6 +235,34 @@ struct JobDetailScreen: View {
                 Text(errorMessage)
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(Color.red.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if pendingOfflineCount > 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("\(pendingOfflineCount) offline action\(pendingOfflineCount == 1 ? "" : "s") waiting to sync.", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(FieldLGXTheme.lime)
+
+                    Button {
+                        Task { await flushOfflineActions() }
+                    } label: {
+                        Text("Sync now")
+                            .font(.system(size: 15, weight: .black))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .disabled(actionInFlight != nil)
+                    .foregroundStyle(.black)
+                    .background(FieldLGXTheme.lime)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+            }
+
+            if let offlineMessage {
+                Text(offlineMessage)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(FieldLGXTheme.lime)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -678,7 +711,13 @@ struct JobDetailScreen: View {
                 break
             }
         } catch {
-            errorMessage = error.localizedDescription
+            if action == .start {
+                queueOfflineAction(["action": "start"])
+            } else if action == .complete {
+                queueOfflineAction(["action": "complete"])
+            } else {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 
@@ -695,7 +734,9 @@ struct JobDetailScreen: View {
             isShowingSkipSheet = false
             skipReason = ""
         } catch {
-            errorMessage = error.localizedDescription
+            queueOfflineAction(["action": "skip", "reason": reason])
+            isShowingSkipSheet = false
+            skipReason = ""
         }
     }
 
@@ -756,7 +797,9 @@ struct JobDetailScreen: View {
             noteText = ""
             isShowingNoteSheet = false
         } catch {
-            errorMessage = error.localizedDescription
+            queueOfflineAction(["action": "add_note", "text": text])
+            noteText = ""
+            isShowingNoteSheet = false
         }
     }
 
@@ -778,8 +821,52 @@ struct JobDetailScreen: View {
             selectedIssueType = "access"
             isShowingIssueSheet = false
         } catch {
-            errorMessage = error.localizedDescription
+            queueOfflineAction([
+                "action": "report_issue",
+                "issue_type": selectedIssueType,
+                "description": description
+            ])
+            issueDescription = ""
+            selectedIssueType = "access"
+            isShowingIssueSheet = false
         }
+    }
+
+    private func queueOfflineAction(_ payload: [String: String]) {
+        do {
+            try SyncQueue(modelContext: modelContext).enqueue(
+                entityType: "job_action",
+                serverID: "\(jobID)",
+                operation: .externalAction,
+                payload: payload,
+                baseRevision: nil
+            )
+            errorMessage = nil
+            offlineMessage = "Saved offline. This will sync when the connection is back."
+            refreshPendingCount()
+        } catch {
+            errorMessage = "Could not save this action offline."
+        }
+    }
+
+    private func flushOfflineActions() async {
+        guard let accessToken else { return }
+        actionInFlight = .addNote
+        errorMessage = nil
+        defer { actionInFlight = nil }
+
+        let completed = await SyncQueue(modelContext: modelContext).flush(apiClient: client(accessToken: accessToken))
+        refreshPendingCount()
+        if completed > 0 {
+            offlineMessage = "Synced \(completed) offline action\(completed == 1 ? "" : "s")."
+            await loadDetail()
+        } else if pendingOfflineCount > 0 {
+            errorMessage = "Offline actions are still waiting. Try again when the connection improves."
+        }
+    }
+
+    private func refreshPendingCount() {
+        pendingOfflineCount = (try? SyncQueue(modelContext: modelContext).pendingCount()) ?? 0
     }
 
     private func client(accessToken: String) -> APIClient {

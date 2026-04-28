@@ -72,6 +72,27 @@ struct APIClient {
         ])
     }
 
+    func performQueuedJobMutation(jobID: Int, payload: [String: String]) async throws -> JobDetailResponse {
+        switch payload["action"] {
+        case "start":
+            try await startJob(id: jobID)
+        case "complete":
+            try await completeJob(id: jobID)
+        case "skip":
+            try await skipJob(id: jobID, reason: payload["reason"] ?? "Skipped from offline queue.")
+        case "add_note":
+            try await addJobNote(id: jobID, text: payload["text"] ?? "")
+        case "report_issue":
+            try await reportJobIssue(
+                id: jobID,
+                issueType: payload["issue_type"] ?? "other",
+                description: payload["description"] ?? ""
+            )
+        default:
+            throw APIError.unsupportedQueuedMutation
+        }
+    }
+
     private func get<T: Decodable>(path: String) async throws -> T {
         var request = URLRequest(url: makeURL(path: path))
         request.httpMethod = "GET"
@@ -182,6 +203,7 @@ private struct APIErrorPayload: Decodable {
 enum APIError: LocalizedError {
     case invalidResponse
     case server(statusCode: Int, message: String?)
+    case unsupportedQueuedMutation
 
     var errorDescription: String? {
         switch self {
@@ -189,6 +211,8 @@ enum APIError: LocalizedError {
             "Could not read the server response."
         case let .server(statusCode, message):
             message ?? "Server returned status \(statusCode)."
+        case .unsupportedQueuedMutation:
+            "This offline action is not supported yet."
         }
     }
 }
