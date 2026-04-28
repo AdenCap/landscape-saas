@@ -50,6 +50,10 @@ struct APIClient {
         )
     }
 
+    func addJobNote(id: Int, text: String) async throws -> JobDetailResponse {
+        try await post(path: "/api/mobile/v1/jobs/\(id)/notes/", body: ["text": text, "visibility": "crew"])
+    }
+
     private func get<T: Decodable>(path: String) async throws -> T {
         var request = URLRequest(url: makeURL(path: path))
         request.httpMethod = "GET"

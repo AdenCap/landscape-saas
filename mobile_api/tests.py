@@ -1,12 +1,11 @@
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from unittest.mock import patch
 from datetime import date, time
 from decimal import Decimal
-import tempfile
 
 from businesses.models import Business
 from customers.models import Customer, Property
@@ -411,11 +410,15 @@ class MobileTodayTests(TestCase):
         self.assertEqual(response.status_code, 401)
 
 
+@override_settings(
+    MEDIA_ROOT="/tmp/fieldlgx-mobile-api-test-media",
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    },
+)
 class MobileJobDetailTests(TestCase):
     def setUp(self):
-        self.media_root = tempfile.TemporaryDirectory()
-        self.media_override = self.settings(MEDIA_ROOT=self.media_root.name)
-        self.media_override.enable()
         self.business = Business.objects.create(name="QA Native Job Detail")
         self.other_business = Business.objects.create(name="Other Detail Company")
         User = get_user_model()
@@ -477,10 +480,6 @@ class MobileJobDetailTests(TestCase):
             data={"email": "detailcrew@example.com", "password": "testpass123"},
             content_type="application/json",
         ).json()
-
-    def tearDown(self):
-        self.media_override.disable()
-        self.media_root.cleanup()
 
     def auth_headers(self):
         return {"HTTP_AUTHORIZATION": f"Bearer {self.login['access_token']}"}
@@ -641,3 +640,29 @@ class MobileJobDetailTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["error"], "Invalid file type.")
+
+    def test_crew_can_add_job_note_from_the_field(self):
+        response = self.client.post(
+            reverse("mobile_api:job_notes", args=[self.job.id]),
+            data={"text": "Back gate was locked.", "visibility": JobNote.VISIBILITY_INTERNAL},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        note = JobNote.objects.get(job=self.job, text="Back gate was locked.")
+        self.assertEqual(note.author, self.crew_user)
+        self.assertEqual(note.visibility, JobNote.VISIBILITY_CREW)
+        note_text = " ".join(note["text"] for note in response.json()["job_notes"])
+        self.assertIn("Back gate was locked.", note_text)
+
+    def test_add_job_note_requires_text(self):
+        response = self.client.post(
+            reverse("mobile_api:job_notes", args=[self.job.id]),
+            data={"text": "   "},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "Note text is required.")

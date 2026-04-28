@@ -533,3 +533,31 @@ def job_completion_photo(request, job_id):
     JobCompletionPhoto.objects.create(job=job, image=image, uploaded_by=session.user)
     job = _job_queryset_for_mobile(session).get(id=job.id)
     return JsonResponse(_job_detail_payload(job, session))
+
+
+@csrf_exempt
+@require_POST
+def job_notes(request, job_id):
+    job, session, error = _mobile_job_or_response(request, job_id)
+    if error:
+        return error
+
+    data = _json_body(request)
+    text = (data.get("text") or "").strip()
+    if not text:
+        return JsonResponse({"error": "Note text is required."}, status=400)
+
+    visibility = (data.get("visibility") or JobNote.VISIBILITY_CREW).strip().lower()
+    if visibility not in {JobNote.VISIBILITY_CREW, JobNote.VISIBILITY_INTERNAL}:
+        visibility = JobNote.VISIBILITY_CREW
+    if session.user.role == "crew":
+        visibility = JobNote.VISIBILITY_CREW
+
+    JobNote.objects.create(
+        job=job,
+        author=session.user,
+        text=text,
+        visibility=visibility,
+    )
+    job = _job_queryset_for_mobile(session).get(id=job.id)
+    return JsonResponse(_job_detail_payload(job, session))

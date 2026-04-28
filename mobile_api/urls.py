@@ -13,6 +13,7 @@ urlpatterns = [
     path("jobs/<int:job_id>/complete/", views.job_complete, name="job_complete"),
     path("jobs/<int:job_id>/skip/", views.job_skip, name="job_skip"),
     path("jobs/<int:job_id>/completion-photo/", views.job_completion_photo, name="job_completion_photo"),
+    path("jobs/<int:job_id>/notes/", views.job_notes, name="job_notes"),
     path("sync/pull/", views.sync_pull, name="sync_pull"),
     path("sync/push/", views.sync_push, name="sync_push"),
     path("auth/login/", views.login, name="login"),

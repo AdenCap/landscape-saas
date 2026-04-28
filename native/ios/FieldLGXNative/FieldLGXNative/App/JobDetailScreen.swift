@@ -12,7 +12,9 @@ struct JobDetailScreen: View {
     @State private var actionInFlight: JobAction?
     @State private var errorMessage: String?
     @State private var isShowingSkipSheet = false
+    @State private var isShowingNoteSheet = false
     @State private var skipReason = ""
+    @State private var noteText = ""
     @State private var completionPhotoItem: PhotosPickerItem?
 
     private enum JobAction {
@@ -20,6 +22,7 @@ struct JobDetailScreen: View {
         case complete
         case skip
         case uploadPhoto
+        case addNote
     }
 
     var body: some View {
@@ -55,6 +58,11 @@ struct JobDetailScreen: View {
         }
         .sheet(isPresented: $isShowingSkipSheet) {
             skipSheet
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isShowingNoteSheet) {
+            noteSheet
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
@@ -156,6 +164,19 @@ struct JobDetailScreen: View {
             }
             .disabled(!detail.actions.canSkip || actionInFlight != nil)
             .foregroundStyle(detail.actions.canSkip ? FieldLGXTheme.text : FieldLGXTheme.tertiaryText)
+            .background(FieldLGXTheme.elevatedBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+            Button {
+                isShowingNoteSheet = true
+            } label: {
+                Label("Add field note", systemImage: "text.bubble.fill")
+                    .font(.system(size: 16, weight: .black))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+            }
+            .disabled(actionInFlight != nil)
+            .foregroundStyle(FieldLGXTheme.text)
             .background(FieldLGXTheme.elevatedBackground)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
@@ -382,6 +403,53 @@ struct JobDetailScreen: View {
         }
     }
 
+    private var noteSheet: some View {
+        NavigationStack {
+            ZStack {
+                FieldLGXTheme.background.ignoresSafeArea()
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Add a field note")
+                        .font(.system(size: 24, weight: .black, design: .rounded))
+                        .foregroundStyle(FieldLGXTheme.text)
+
+                    Text("Visible to the crew and attached to this job.")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(FieldLGXTheme.secondaryText)
+
+                    TextField("Gate locked, customer request, or field detail", text: $noteText, axis: .vertical)
+                        .font(.system(size: 17, weight: .semibold))
+                        .lineLimit(4...7)
+                        .padding(16)
+                        .foregroundStyle(FieldLGXTheme.text)
+                        .background(FieldLGXTheme.elevatedBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                    Button {
+                        Task { await addFieldNote() }
+                    } label: {
+                        HStack {
+                            if actionInFlight == .addNote {
+                                ProgressView()
+                                    .tint(.black)
+                            }
+                            Text("Save note")
+                        }
+                        .font(.system(size: 17, weight: .black))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                    }
+                    .disabled(noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || actionInFlight != nil)
+                    .foregroundStyle(.black)
+                    .background(FieldLGXTheme.lime)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                    Spacer()
+                }
+                .padding(24)
+            }
+        }
+    }
+
     private func errorState(_ message: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Could not load job")
@@ -445,7 +513,7 @@ struct JobDetailScreen: View {
                 detail = try await api.startJob(id: jobID)
             case .complete:
                 detail = try await api.completeJob(id: jobID)
-            case .skip, .uploadPhoto:
+            case .skip, .uploadPhoto, .addNote:
                 break
             }
         } catch {
@@ -485,6 +553,23 @@ struct JobDetailScreen: View {
                 return
             }
             detail = try await client(accessToken: accessToken).uploadCompletionPhoto(id: jobID, imageData: data)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func addFieldNote() async {
+        guard let accessToken else { return }
+        let text = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        actionInFlight = .addNote
+        errorMessage = nil
+        defer { actionInFlight = nil }
+
+        do {
+            detail = try await client(accessToken: accessToken).addJobNote(id: jobID, text: text)
+            noteText = ""
+            isShowingNoteSheet = false
         } catch {
             errorMessage = error.localizedDescription
         }
