@@ -50,6 +50,17 @@ struct APIClient {
         )
     }
 
+    func uploadJobPhoto(id: Int, imageData: Data, category: String, fileName: String = "job-photo.jpg") async throws -> JobDetailResponse {
+        try await postMultipart(
+            path: "/api/mobile/v1/jobs/\(id)/photos/",
+            fieldName: "image",
+            fileName: fileName,
+            mimeType: "image/jpeg",
+            fileData: imageData,
+            formFields: ["category": category]
+        )
+    }
+
     func addJobNote(id: Int, text: String) async throws -> JobDetailResponse {
         try await post(path: "/api/mobile/v1/jobs/\(id)/notes/", body: ["text": text, "visibility": "crew"])
     }
@@ -86,7 +97,8 @@ struct APIClient {
         fieldName: String,
         fileName: String,
         mimeType: String,
-        fileData: Data
+        fileData: Data,
+        formFields: [String: String] = [:]
     ) async throws -> T {
         let boundary = "Boundary-\(UUID().uuidString)"
         var request = URLRequest(url: makeURL(path: path))
@@ -97,7 +109,8 @@ struct APIClient {
             fieldName: fieldName,
             fileName: fileName,
             mimeType: mimeType,
-            fileData: fileData
+            fileData: fileData,
+            formFields: formFields
         )
         addAuth(to: &request)
         let (data, response) = try await urlSession.data(for: request)
@@ -110,9 +123,16 @@ struct APIClient {
         fieldName: String,
         fileName: String,
         mimeType: String,
-        fileData: Data
+        fileData: Data,
+        formFields: [String: String]
     ) -> Data {
         var body = Data()
+        for (name, value) in formFields {
+            body.append("--\(boundary)\r\n")
+            body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
+            body.append(value)
+            body.append("\r\n")
+        }
         body.append("--\(boundary)\r\n")
         body.append("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(fileName)\"\r\n")
         body.append("Content-Type: \(mimeType)\r\n\r\n")

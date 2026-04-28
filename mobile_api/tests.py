@@ -9,7 +9,7 @@ from decimal import Decimal
 
 from businesses.models import Business
 from customers.models import Customer, Property
-from jobs.models import Crew, Job, JobCompletionPhoto, JobIssue, JobNote, JobServiceItem, PropertyNote
+from jobs.models import Crew, Job, JobCompletionPhoto, JobIssue, JobNote, JobPhoto, JobServiceItem, PropertyNote
 from pricing.models import ServiceTemplate
 
 
@@ -635,6 +635,41 @@ class MobileJobDetailTests(TestCase):
         response = self.client.post(
             reverse("mobile_api:job_completion_photo", args=[self.job.id]),
             data={"image": document},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "Invalid file type.")
+
+    def test_upload_site_photo_attaches_photo_to_job(self):
+        photo = SimpleUploadedFile(
+            "before.jpg",
+            b"fake-jpeg-data",
+            content_type="image/jpeg",
+        )
+
+        response = self.client.post(
+            reverse("mobile_api:job_photos", args=[self.job.id]),
+            data={"image": photo, "category": "before", "caption": "Before cleanup."},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        site_photo = JobPhoto.objects.get(job=self.job, uploaded_by=self.crew_user)
+        self.assertEqual(site_photo.category, "before")
+        self.assertEqual(site_photo.caption, "Before cleanup.")
+        self.assertEqual(response.json()["job"]["photo_count"], 1)
+
+    def test_upload_site_photo_rejects_non_images(self):
+        document = SimpleUploadedFile(
+            "notes.txt",
+            b"not-image",
+            content_type="text/plain",
+        )
+
+        response = self.client.post(
+            reverse("mobile_api:job_photos", args=[self.job.id]),
+            data={"image": document, "category": "during"},
             **self.auth_headers(),
         )
 

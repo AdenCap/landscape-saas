@@ -19,12 +19,15 @@ struct JobDetailScreen: View {
     @State private var issueDescription = ""
     @State private var selectedIssueType = "access"
     @State private var completionPhotoItem: PhotosPickerItem?
+    @State private var sitePhotoItem: PhotosPickerItem?
+    @State private var selectedSitePhotoCategory = "general"
 
     private enum JobAction {
         case start
         case complete
         case skip
         case uploadPhoto
+        case uploadSitePhoto
         case addNote
         case reportIssue
     }
@@ -79,6 +82,12 @@ struct JobDetailScreen: View {
             guard let newItem else { return }
             Task {
                 await uploadCompletionPhoto(newItem)
+            }
+        }
+        .onChange(of: sitePhotoItem) { _, newItem in
+            guard let newItem else { return }
+            Task {
+                await uploadSitePhoto(newItem)
             }
         }
     }
@@ -202,6 +211,8 @@ struct JobDetailScreen: View {
             .background(FieldLGXTheme.elevatedBackground)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
+            sitePhotoPicker
+
             if detail.actions.requiresCompletionPhoto && !detail.actions.hasCompletionPhoto {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("Completion photo required before this can be marked done.", systemImage: "camera.fill")
@@ -229,6 +240,55 @@ struct JobDetailScreen: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
         )
+    }
+
+    private var sitePhotoPicker: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Menu {
+                ForEach(sitePhotoCategories, id: \.value) { category in
+                    Button(category.label) {
+                        selectedSitePhotoCategory = category.value
+                    }
+                }
+            } label: {
+                HStack {
+                    Text("Photo type")
+                    Spacer()
+                    Text(selectedSitePhotoCategoryLabel)
+                        .foregroundStyle(FieldLGXTheme.lime)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .foregroundStyle(FieldLGXTheme.tertiaryText)
+                }
+                .font(.system(size: 14, weight: .black))
+                .foregroundStyle(FieldLGXTheme.text)
+                .padding(14)
+                .background(FieldLGXTheme.elevatedBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+
+            PhotosPicker(selection: $sitePhotoItem, matching: .images) {
+                HStack(spacing: 9) {
+                    if actionInFlight == .uploadSitePhoto {
+                        ProgressView()
+                            .tint(FieldLGXTheme.lime)
+                    } else {
+                        Image(systemName: "photo.fill")
+                    }
+                    Text("Add site photo")
+                    Spacer()
+                    Text("\(detail?.job.photoCount ?? 0)")
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundStyle(FieldLGXTheme.lime)
+                }
+                .font(.system(size: 16, weight: .black))
+                .padding(.vertical, 14)
+                .padding(.horizontal, 16)
+                .foregroundStyle(FieldLGXTheme.text)
+                .background(FieldLGXTheme.elevatedBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+            .disabled(actionInFlight != nil)
+        }
     }
 
     private func completionPhotoPicker(title: String, isPrimary: Bool) -> some View {
@@ -614,7 +674,7 @@ struct JobDetailScreen: View {
                 detail = try await api.startJob(id: jobID)
             case .complete:
                 detail = try await api.completeJob(id: jobID)
-            case .skip, .uploadPhoto, .addNote, .reportIssue:
+            case .skip, .uploadPhoto, .uploadSitePhoto, .addNote, .reportIssue:
                 break
             }
         } catch {
@@ -654,6 +714,30 @@ struct JobDetailScreen: View {
                 return
             }
             detail = try await client(accessToken: accessToken).uploadCompletionPhoto(id: jobID, imageData: data)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func uploadSitePhoto(_ item: PhotosPickerItem) async {
+        guard let accessToken else { return }
+        actionInFlight = .uploadSitePhoto
+        errorMessage = nil
+        defer {
+            actionInFlight = nil
+            sitePhotoItem = nil
+        }
+
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else {
+                errorMessage = "Could not read that photo."
+                return
+            }
+            detail = try await client(accessToken: accessToken).uploadJobPhoto(
+                id: jobID,
+                imageData: data,
+                category: selectedSitePhotoCategory
+            )
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -714,6 +798,20 @@ struct JobDetailScreen: View {
 
     private var selectedIssueLabel: String {
         issueTypes.first { $0.value == selectedIssueType }?.label ?? "Other"
+    }
+
+    private var sitePhotoCategories: [(value: String, label: String)] {
+        [
+            ("general", "General"),
+            ("before", "Before"),
+            ("during", "During"),
+            ("after", "After"),
+            ("issue", "Issue")
+        ]
+    }
+
+    private var selectedSitePhotoCategoryLabel: String {
+        sitePhotoCategories.first { $0.value == selectedSitePhotoCategory }?.label ?? "General"
     }
 
     private func statusText(_ status: String) -> String {
