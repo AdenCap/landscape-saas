@@ -43,3 +43,21 @@ class MobileDeviceSession(models.Model):
         if not self.revoked_at:
             self.revoked_at = timezone.now()
             self.save(update_fields=["revoked_at"])
+
+
+class MobileSyncConflict(models.Model):
+    business = models.ForeignKey("businesses.Business", on_delete=models.CASCADE, related_name="mobile_sync_conflicts")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="mobile_sync_conflicts")
+    entity_type = models.CharField(max_length=80)
+    server_id = models.CharField(max_length=80, blank=True)
+    local_id = models.CharField(max_length=80, blank=True)
+    base_revision = models.CharField(max_length=120, blank=True)
+    server_revision = models.CharField(max_length=120, blank=True)
+    local_payload = models.JSONField(default=dict, blank=True)
+    server_payload = models.JSONField(default=dict, blank=True)
+    mergeable_fields = models.JSONField(default=list, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]

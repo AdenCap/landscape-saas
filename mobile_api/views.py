@@ -1,6 +1,7 @@
 import json
 
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
@@ -137,4 +138,64 @@ def bootstrap(request):
             "cursor": None,
             "server_time": session.last_seen_at.isoformat(),
         },
+    })
+
+
+SUPPORTED_SYNC_ENTITIES = {
+    "client",
+    "property",
+    "job",
+    "job_note",
+    "property_note",
+    "job_service_item",
+    "estimate",
+    "invoice",
+    "time_entry",
+    "location_event",
+}
+
+
+def sync_pull(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    now = timezone.now()
+    return JsonResponse({
+        "cursor": now.isoformat(),
+        "server_time": now.isoformat(),
+        "changes": {},
+        "conflicts": [],
+    })
+
+
+@csrf_exempt
+@require_POST
+def sync_push(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    data = _json_body(request)
+    accepted = []
+    rejected = []
+    for index, mutation in enumerate(data.get("mutations") or []):
+        entity_type = mutation.get("entity_type")
+        if entity_type not in SUPPORTED_SYNC_ENTITIES:
+            rejected.append({
+                "index": index,
+                "local_id": mutation.get("local_id") or "",
+                "entity_type": entity_type or "",
+                "reason": "Unsupported entity type.",
+            })
+            continue
+        rejected.append({
+            "index": index,
+            "local_id": mutation.get("local_id") or "",
+            "entity_type": entity_type,
+            "reason": "Entity sync handler is not implemented yet.",
+        })
+    return JsonResponse({
+        "accepted": accepted,
+        "rejected": rejected,
+        "conflicts": [],
+        "cursor": timezone.now().isoformat(),
     })

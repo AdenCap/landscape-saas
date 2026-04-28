@@ -218,3 +218,51 @@ class MobileBootstrapTests(TestCase):
         response = self.client.get(reverse("mobile_api:bootstrap"))
 
         self.assertEqual(response.status_code, 401)
+
+
+class MobileSyncTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(name="QA Native Sync")
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username="syncowner",
+            email="sync@example.com",
+            password="testpass123",
+            business=self.business,
+            role="owner",
+        )
+        self.login = self.client.post(
+            reverse("mobile_api:login"),
+            data={"email": "sync@example.com", "password": "testpass123"},
+            content_type="application/json",
+        ).json()
+
+    def auth_headers(self):
+        return {"HTTP_AUTHORIZATION": f"Bearer {self.login['access_token']}"}
+
+    def test_sync_pull_returns_empty_initial_delta(self):
+        response = self.client.get(reverse("mobile_api:sync_pull"), **self.auth_headers())
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["changes"], {})
+        self.assertIn("cursor", payload)
+        self.assertIn("server_time", payload)
+
+    def test_sync_push_rejects_unknown_entity_without_crashing(self):
+        response = self.client.post(
+            reverse("mobile_api:sync_push"),
+            data={"mutations": [{"entity_type": "unknown", "operation": "create", "payload": {}}]},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["accepted"], [])
+        self.assertEqual(payload["rejected"][0]["reason"], "Unsupported entity type.")
+
+    def test_sync_requires_authentication(self):
+        response = self.client.get(reverse("mobile_api:sync_pull"))
+
+        self.assertEqual(response.status_code, 401)
