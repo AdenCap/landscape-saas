@@ -156,3 +156,65 @@ class MobileSocialAuthTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+
+class MobileBootstrapTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(name="QA Native Bootstrap")
+        User = get_user_model()
+        self.owner = User.objects.create_user(
+            username="bootowner",
+            email="boot@example.com",
+            password="testpass123",
+            business=self.business,
+            role="owner",
+        )
+        self.crew = User.objects.create_user(
+            username="bootcrew",
+            email="crewboot@example.com",
+            password="testpass123",
+            business=self.business,
+            role="crew",
+        )
+
+    def _login(self, email):
+        return self.client.post(
+            reverse("mobile_api:login"),
+            data={"email": email, "password": "testpass123"},
+            content_type="application/json",
+        ).json()
+
+    def test_bootstrap_returns_user_business_and_modules(self):
+        login = self._login("boot@example.com")
+
+        response = self.client.get(
+            reverse("mobile_api:bootstrap"),
+            HTTP_AUTHORIZATION=f"Bearer {login['access_token']}",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["user"]["email"], "boot@example.com")
+        self.assertEqual(payload["business"]["name"], "QA Native Bootstrap")
+        self.assertIn("jobs", payload["modules"])
+        self.assertIn("financials", payload["modules"])
+        self.assertIn("sync", payload)
+
+    def test_bootstrap_limits_crew_modules(self):
+        login = self._login("crewboot@example.com")
+
+        response = self.client.get(
+            reverse("mobile_api:bootstrap"),
+            HTTP_AUTHORIZATION=f"Bearer {login['access_token']}",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        modules = response.json()["modules"]
+        self.assertIn("jobs", modules)
+        self.assertNotIn("financials", modules)
+        self.assertNotIn("settings", modules)
+
+    def test_bootstrap_requires_bearer_token(self):
+        response = self.client.get(reverse("mobile_api:bootstrap"))
+
+        self.assertEqual(response.status_code, 401)

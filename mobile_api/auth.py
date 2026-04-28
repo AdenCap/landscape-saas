@@ -71,6 +71,13 @@ def session_from_refresh_token(refresh_token):
     ).first()
 
 
+def session_from_request(request):
+    header = request.META.get("HTTP_AUTHORIZATION", "")
+    if not header.startswith("Bearer "):
+        return None
+    return authenticate_access_token(header.removeprefix("Bearer ").strip())
+
+
 def user_by_email(email):
     User = get_user_model()
     return User.objects.filter(email__iexact=(email or "").strip(), is_active=True).first()

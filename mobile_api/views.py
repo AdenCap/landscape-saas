@@ -5,7 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from . import auth as mobile_auth
-from .auth import issue_access_token, session_from_refresh_token, user_by_email
+from .auth import issue_access_token, session_from_refresh_token, session_from_request, user_by_email
 from .models import MobileDeviceSession
 
 
@@ -23,6 +23,16 @@ def _user_payload(user):
         "name": user.get_full_name() or user.username,
         "role": user.role,
         "business_id": user.business_id,
+    }
+
+
+def _business_payload(business):
+    return {
+        "id": business.id,
+        "name": business.name,
+        "timezone": getattr(business, "timezone", "America/New_York"),
+        "client_card_payments_enabled": bool(getattr(business, "client_card_payments_enabled", False)),
+        "client_saved_cards_enabled": bool(getattr(business, "client_saved_cards_enabled", False)),
     }
 
 
@@ -110,3 +120,21 @@ def apple_login(request):
 @require_POST
 def google_login(request):
     return _login_existing_social_user(request, mobile_auth.verify_google_identity_token)
+
+
+def bootstrap(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    modules = ["dashboard", "jobs", "calendar", "clients", "billing", "time", "sync"]
+    if session.user.role in {"owner", "manager"}:
+        modules.extend(["employees", "financials", "settings", "fertilization", "agreements"])
+    return JsonResponse({
+        "user": _user_payload(session.user),
+        "business": _business_payload(session.business),
+        "modules": modules,
+        "sync": {
+            "cursor": None,
+            "server_time": session.last_seen_at.isoformat(),
+        },
+    })
