@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 @main
@@ -9,5 +10,6 @@ struct FieldLGXNativeApp: App {
             AppShell(session: session)
                 .preferredColorScheme(.dark)
         }
+        .modelContainer(for: PendingMutation.self)
     }
 }

@@ -17,6 +17,8 @@
 		0B1001082B8F500000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0B1002082B8F500000000001 /* Assets.xcassets */; };
 		0B1001092B8F500000000001 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10020A2B8F500000000001 /* APIClient.swift */; };
 		0B10010A2B8F500000000001 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10020B2B8F500000000001 /* KeychainStore.swift */; };
+		0B10010B2B8F500000000001 /* SyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10020C2B8F500000000001 /* SyncModels.swift */; };
+		0B10010C2B8F500000000001 /* SyncQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10020D2B8F500000000001 /* SyncQueue.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +34,8 @@
 		0B1002092B8F500000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		0B10020A2B8F500000000001 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		0B10020B2B8F500000000001 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		0B10020C2B8F500000000001 /* SyncModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncModels.swift; sourceTree = "<group>"; };
+		0B10020D2B8F500000000001 /* SyncQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,6 +65,7 @@
 				0B1005022B8F500000000001 /* Auth */,
 				0B1005032B8F500000000001 /* API */,
 				0B1005052B8F500000000001 /* Security */,
+				0B1005062B8F500000000001 /* Sync */,
 				0B1005042B8F500000000001 /* Design */,
 				0B1002082B8F500000000001 /* Assets.xcassets */,
 				0B1002092B8F500000000001 /* Info.plist */,
@@ -109,6 +114,15 @@
 				0B10020B2B8F500000000001 /* KeychainStore.swift */,
 			);
 			path = Security;
+			sourceTree = "<group>";
+		};
+		0B1005062B8F500000000001 /* Sync */ = {
+			isa = PBXGroup;
+			children = (
+				0B10020C2B8F500000000001 /* SyncModels.swift */,
+				0B10020D2B8F500000000001 /* SyncQueue.swift */,
+			);
+			path = Sync;
 			sourceTree = "<group>";
 		};
 		0B1005042B8F500000000001 /* Design */ = {
@@ -196,6 +210,8 @@
 				0B1001092B8F500000000001 /* APIClient.swift in Sources */,
 				0B1001062B8F500000000001 /* APIModels.swift in Sources */,
 				0B10010A2B8F500000000001 /* KeychainStore.swift in Sources */,
+				0B10010B2B8F500000000001 /* SyncModels.swift in Sources */,
+				0B10010C2B8F500000000001 /* SyncQueue.swift in Sources */,
 				0B1001072B8F500000000001 /* FieldLGXTheme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
