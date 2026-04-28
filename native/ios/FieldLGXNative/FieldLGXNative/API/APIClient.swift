@@ -19,6 +19,11 @@ struct APIClient {
         try await get(path: "/api/mobile/v1/bootstrap/")
     }
 
+    func today(date: Date = Date()) async throws -> TodayResponse {
+        let dateString = Self.dayFormatter.string(from: date)
+        return try await get(path: "/api/mobile/v1/today/?date=\(dateString)")
+    }
+
     private func get<T: Decodable>(path: String) async throws -> T {
         var request = URLRequest(url: makeURL(path: path))
         request.httpMethod = "GET"
@@ -42,6 +47,14 @@ struct APIClient {
     private var decoder: JSONDecoder {
         JSONDecoder()
     }
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 
     private func makeURL(path: String) -> URL {
         let trimmed = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))

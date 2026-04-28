@@ -8,12 +8,7 @@ struct AppShell: View {
             TabView {
                 ForEach(AppTab.tabs(for: user.role)) { tab in
                     NavigationStack {
-                        PlaceholderScreen(
-                            tab: tab,
-                            user: user,
-                            businessName: session.business?.name ?? "FIELDLGX",
-                            signOut: session.signOut
-                        )
+                        screen(for: tab, user: user)
                     }
                     .tabItem {
                         Label(tab.title, systemImage: tab.systemImage)
@@ -23,6 +18,20 @@ struct AppShell: View {
             .tint(FieldLGXTheme.lime)
         } else {
             AuthScreen(session: session)
+        }
+    }
+
+    @ViewBuilder
+    private func screen(for tab: AppTab, user: MobileUser) -> some View {
+        if tab == .today {
+            TodayScreen(accessToken: session.accessToken)
+        } else {
+            PlaceholderScreen(
+                tab: tab,
+                user: user,
+                businessName: session.business?.name ?? "FIELDLGX",
+                signOut: session.signOut
+            )
         }
     }
 }

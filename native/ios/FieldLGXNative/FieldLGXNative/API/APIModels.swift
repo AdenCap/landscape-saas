@@ -63,6 +63,97 @@ struct BootstrapSync: Codable, Equatable {
     }
 }
 
+struct TodayResponse: Codable, Equatable {
+    let date: String
+    let summary: TodaySummary
+    let jobs: [TodayJob]
+}
+
+struct TodaySummary: Codable, Equatable {
+    let total: Int
+    let completed: Int
+    let remaining: Int
+}
+
+struct TodayJob: Codable, Equatable, Identifiable {
+    let id: Int
+    let status: String
+    let scheduledDate: String?
+    let scheduledEndDate: String?
+    let scheduledTime: String?
+    let scheduledEndTime: String?
+    let routeOrder: Int
+    let customer: TodayCustomer
+    let property: TodayProperty
+    let assigned: TodayAssignment
+    let notes: String
+    let alerts: [TodayAlert]
+    let serviceItems: [TodayServiceItem]
+    let photoCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case status
+        case scheduledDate = "scheduled_date"
+        case scheduledEndDate = "scheduled_end_date"
+        case scheduledTime = "scheduled_time"
+        case scheduledEndTime = "scheduled_end_time"
+        case routeOrder = "route_order"
+        case customer
+        case property
+        case assigned
+        case notes
+        case alerts
+        case serviceItems = "service_items"
+        case photoCount = "photo_count"
+    }
+}
+
+struct TodayCustomer: Codable, Equatable {
+    let id: Int
+    let name: String
+    let phone: String
+}
+
+struct TodayProperty: Codable, Equatable {
+    let id: Int
+    let address: String
+    let latitude: String?
+    let longitude: String?
+}
+
+struct TodayAssignment: Codable, Equatable {
+    let crew: String?
+    let employee: String?
+}
+
+struct TodayAlert: Codable, Equatable, Identifiable {
+    var id: String { "\(label)-\(text)" }
+
+    let label: String
+    let text: String
+}
+
+struct TodayServiceItem: Codable, Equatable, Identifiable {
+    let id: Int
+    let name: String
+    let detailDescription: String
+    let quantity: String
+    let unit: String
+    let unitPrice: String
+    let scheduledDate: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case detailDescription = "detail_description"
+        case quantity
+        case unit
+        case unitPrice = "unit_price"
+        case scheduledDate = "scheduled_date"
+    }
+}
+
 extension MobileUser {
     static let previewOwner = MobileUser(
         id: 1,
@@ -71,5 +162,43 @@ extension MobileUser {
         name: "Aden Cappelletti",
         role: .owner,
         businessID: 1
+    )
+}
+
+extension TodayResponse {
+    static let preview = TodayResponse(
+        date: "2026-05-04",
+        summary: TodaySummary(total: 2, completed: 0, remaining: 2),
+        jobs: [
+            TodayJob(
+                id: 1,
+                status: "scheduled",
+                scheduledDate: "2026-05-04",
+                scheduledEndDate: nil,
+                scheduledTime: "08:30",
+                scheduledEndTime: nil,
+                routeOrder: 1,
+                customer: TodayCustomer(id: 1, name: "Maple Ridge", phone: "555-0100"),
+                property: TodayProperty(id: 1, address: "123 Test Lawn Ave", latitude: nil, longitude: nil),
+                assigned: TodayAssignment(crew: "Crew A", employee: nil),
+                notes: "Mow front and back.",
+                alerts: [
+                    TodayAlert(label: "Gate code", text: "2480"),
+                    TodayAlert(label: "Permanent note", text: "Use side gate.")
+                ],
+                serviceItems: [
+                    TodayServiceItem(
+                        id: 1,
+                        name: "Mowing",
+                        detailDescription: "Trim fence line and blow clippings.",
+                        quantity: "1.00",
+                        unit: "visit",
+                        unitPrice: "65.00",
+                        scheduledDate: nil
+                    )
+                ],
+                photoCount: 0
+            )
+        ]
     )
 }
