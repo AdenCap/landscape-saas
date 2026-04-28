@@ -2,13 +2,14 @@ import SwiftUI
 
 struct AuthScreen: View {
     @Bindable var session: AuthSession
-    @State private var selectedRole: AppRole = .owner
+    @State private var email = ""
+    @State private var password = ""
 
     var body: some View {
         ZStack {
             FieldLGXTheme.background.ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 22) {
                 Spacer(minLength: 16)
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -16,29 +17,34 @@ struct AuthScreen: View {
                         .font(.system(size: 38, weight: .black, design: .rounded))
                         .foregroundStyle(FieldLGXTheme.text)
 
-                    Text("Native field operations foundation")
+                    Text("Run the day. Own the season.")
                         .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(FieldLGXTheme.secondaryText)
                 }
 
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Preview Role")
+                    Text("SIGN IN")
                         .font(.system(size: 13, weight: .bold))
                         .tracking(2)
                         .foregroundStyle(FieldLGXTheme.tertiaryText)
 
-                    Picker("Preview Role", selection: $selectedRole) {
-                        ForEach(AppRole.allCases) { role in
-                            Text(role.title).tag(role)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    TextField("Email", text: $email)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
+                        .textContentType(.username)
+                        .fieldLGXInput()
+
+                    SecureField("Password", text: $password)
+                        .textContentType(.password)
+                        .fieldLGXInput()
 
                     Button {
-                        session.signInPreview(role: selectedRole)
+                        Task {
+                            await session.signIn(email: email, password: password)
+                        }
                     } label: {
                         HStack {
-                            Text("Enter \(selectedRole.title) Shell")
+                            Text(session.isLoading ? "Signing in..." : "Sign in")
                             Spacer()
                             Image(systemName: "arrow.right")
                         }
@@ -48,6 +54,13 @@ struct AuthScreen: View {
                         .frame(height: 54)
                         .background(FieldLGXTheme.lime)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .disabled(session.isLoading)
+
+                    if let errorMessage = session.errorMessage {
+                        Text(errorMessage)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.red)
                     }
                 }
                 .padding(18)
@@ -62,6 +75,21 @@ struct AuthScreen: View {
             }
             .padding(24)
         }
+    }
+}
+
+private extension View {
+    func fieldLGXInput() -> some View {
+        self
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(FieldLGXTheme.text)
+            .padding(16)
+            .background(FieldLGXTheme.elevatedBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+            )
     }
 }
 

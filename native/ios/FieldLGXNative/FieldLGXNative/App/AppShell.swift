@@ -8,7 +8,12 @@ struct AppShell: View {
             TabView {
                 ForEach(AppTab.tabs(for: user.role)) { tab in
                     NavigationStack {
-                        PlaceholderScreen(tab: tab, user: user, signOut: session.signOut)
+                        PlaceholderScreen(
+                            tab: tab,
+                            user: user,
+                            businessName: session.business?.name ?? "FIELDLGX",
+                            signOut: session.signOut
+                        )
                     }
                     .tabItem {
                         Label(tab.title, systemImage: tab.systemImage)
@@ -25,6 +30,7 @@ struct AppShell: View {
 private struct PlaceholderScreen: View {
     let tab: AppTab
     let user: MobileUser
+    let businessName: String
     let signOut: () -> Void
 
     var body: some View {
@@ -34,7 +40,7 @@ private struct PlaceholderScreen: View {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(user.businessName.uppercased())
+                        Text(businessName.uppercased())
                             .font(.system(size: 12, weight: .bold))
                             .tracking(2.5)
                             .foregroundStyle(FieldLGXTheme.lime)

@@ -15,6 +15,6 @@ Primary capabilities:
 
 ## Project Status
 
-This scaffold is intentionally lightweight. It includes an iPhone-only SwiftUI app shell, mock authentication session state, role-aware tabs, permission copy, and empty asset catalog metadata. It does not perform real networking yet.
+This scaffold is intentionally lightweight. It includes an iPhone-only SwiftUI app shell, email/password mobile API login, Keychain refresh-token storage, role-aware tabs, permission copy, and empty asset catalog metadata.
 
 The checked-in `FieldLGXNative.xcodeproj` is a minimal hand-authored Xcode project so the foundation can build without touching the existing Capacitor project.
