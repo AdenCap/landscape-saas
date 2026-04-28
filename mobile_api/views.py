@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from jobs.models import Job, JobCompletionPhoto, JobNote, PropertyNote
+from jobs.models import Job, JobCompletionPhoto, JobIssue, JobNote, PropertyNote
 
 from . import auth as mobile_auth
 from .auth import issue_access_token, session_from_refresh_token, session_from_request, user_by_email
@@ -286,6 +286,19 @@ def _job_note_payload(note):
     }
 
 
+def _job_issue_payload(issue):
+    reporter = issue.reported_by
+    return {
+        "id": issue.id,
+        "issue_type": issue.issue_type,
+        "issue_type_display": issue.get_issue_type_display(),
+        "description": issue.description,
+        "status": issue.status,
+        "reported_by": reporter.get_full_name() or reporter.username if reporter else "",
+        "created_at": issue.created_at.isoformat(),
+    }
+
+
 def _job_actions_payload(job, business):
     requires_photo = bool(getattr(business, "require_completion_photo", False))
     has_completion_photo = job.completion_photos.exists()
@@ -307,6 +320,7 @@ def _job_detail_payload(job, session):
         "job": _job_payload(job, target_date),
         "actions": _job_actions_payload(job, session.business),
         "job_notes": [_job_note_payload(note) for note in notes],
+        "job_issues": [_job_issue_payload(issue) for issue in job.issues.all()],
         "server_time": timezone.now().isoformat(),
     }
 
@@ -324,6 +338,7 @@ def _job_queryset_for_mobile(session):
         "service_items__service",
         "completion_photos",
         "job_notes__author",
+        "issues__reported_by",
         Prefetch(
             "property__property_notes",
             queryset=PropertyNote.objects.filter(visibility=PropertyNote.VISIBILITY_CREW).select_related("author"),
@@ -558,6 +573,33 @@ def job_notes(request, job_id):
         author=session.user,
         text=text,
         visibility=visibility,
+    )
+    job = _job_queryset_for_mobile(session).get(id=job.id)
+    return JsonResponse(_job_detail_payload(job, session))
+
+
+@csrf_exempt
+@require_POST
+def job_issues(request, job_id):
+    job, session, error = _mobile_job_or_response(request, job_id)
+    if error:
+        return error
+
+    data = _json_body(request)
+    description = (data.get("description") or "").strip()
+    if not description:
+        return JsonResponse({"error": "Issue description is required."}, status=400)
+
+    issue_type = (data.get("issue_type") or "other").strip().lower()
+    allowed_types = {choice[0] for choice in JobIssue.TYPE_CHOICES}
+    if issue_type not in allowed_types:
+        issue_type = "other"
+
+    JobIssue.objects.create(
+        job=job,
+        reported_by=session.user,
+        issue_type=issue_type,
+        description=description,
     )
     job = _job_queryset_for_mobile(session).get(id=job.id)
     return JsonResponse(_job_detail_payload(job, session))

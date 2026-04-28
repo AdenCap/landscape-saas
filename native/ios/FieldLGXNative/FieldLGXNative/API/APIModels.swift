@@ -158,12 +158,14 @@ struct JobDetailResponse: Codable, Equatable {
     let job: TodayJob
     let actions: JobActions
     let jobNotes: [JobNote]
+    let jobIssues: [JobIssue]
     let serverTime: String
 
     enum CodingKeys: String, CodingKey {
         case job
         case actions
         case jobNotes = "job_notes"
+        case jobIssues = "job_issues"
         case serverTime = "server_time"
     }
 }
@@ -196,6 +198,26 @@ struct JobNote: Codable, Equatable, Identifiable {
         case text
         case visibility
         case author
+        case createdAt = "created_at"
+    }
+}
+
+struct JobIssue: Codable, Equatable, Identifiable {
+    let id: Int
+    let issueType: String
+    let issueTypeDisplay: String
+    let description: String
+    let status: String
+    let reportedBy: String
+    let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case issueType = "issue_type"
+        case issueTypeDisplay = "issue_type_display"
+        case description
+        case status
+        case reportedBy = "reported_by"
         case createdAt = "created_at"
     }
 }
@@ -266,6 +288,17 @@ extension JobDetailResponse {
                 visibility: "crew",
                 author: "Aden Cappelletti",
                 createdAt: "2026-05-04T08:00:00Z"
+            )
+        ],
+        jobIssues: [
+            JobIssue(
+                id: 1,
+                issueType: "access",
+                issueTypeDisplay: "Access / gate / lock",
+                description: "Back gate is locked.",
+                status: "open",
+                reportedBy: "Crew A",
+                createdAt: "2026-05-04T09:00:00Z"
             )
         ],
         serverTime: "2026-05-04T12:00:00Z"

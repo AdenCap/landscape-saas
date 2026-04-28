@@ -13,8 +13,11 @@ struct JobDetailScreen: View {
     @State private var errorMessage: String?
     @State private var isShowingSkipSheet = false
     @State private var isShowingNoteSheet = false
+    @State private var isShowingIssueSheet = false
     @State private var skipReason = ""
     @State private var noteText = ""
+    @State private var issueDescription = ""
+    @State private var selectedIssueType = "access"
     @State private var completionPhotoItem: PhotosPickerItem?
 
     private enum JobAction {
@@ -23,6 +26,7 @@ struct JobDetailScreen: View {
         case skip
         case uploadPhoto
         case addNote
+        case reportIssue
     }
 
     var body: some View {
@@ -63,6 +67,11 @@ struct JobDetailScreen: View {
         }
         .sheet(isPresented: $isShowingNoteSheet) {
             noteSheet
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isShowingIssueSheet) {
+            issueSheet
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
@@ -180,6 +189,19 @@ struct JobDetailScreen: View {
             .background(FieldLGXTheme.elevatedBackground)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
+            Button {
+                isShowingIssueSheet = true
+            } label: {
+                Label("Report issue", systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 16, weight: .black))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+            }
+            .disabled(actionInFlight != nil)
+            .foregroundStyle(FieldLGXTheme.text)
+            .background(FieldLGXTheme.elevatedBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
             if detail.actions.requiresCompletionPhoto && !detail.actions.hasCompletionPhoto {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("Completion photo required before this can be marked done.", systemImage: "camera.fill")
@@ -257,6 +279,18 @@ struct JobDetailScreen: View {
                             .foregroundStyle(FieldLGXTheme.tertiaryText)
                     }
                     .padding(.vertical, 6)
+                }
+            }
+        }
+
+        if !detail.jobIssues.isEmpty {
+            detailSection(title: "Open issues") {
+                ForEach(detail.jobIssues) { issue in
+                    row(
+                        title: "\(issue.issueTypeDisplay) · \(issue.status.capitalized)",
+                        value: issue.description,
+                        systemImage: "exclamationmark.triangle"
+                    )
                 }
             }
         }
@@ -450,6 +484,72 @@ struct JobDetailScreen: View {
         }
     }
 
+    private var issueSheet: some View {
+        NavigationStack {
+            ZStack {
+                FieldLGXTheme.background.ignoresSafeArea()
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Report an issue")
+                        .font(.system(size: 24, weight: .black, design: .rounded))
+                        .foregroundStyle(FieldLGXTheme.text)
+
+                    Text("Use this for access problems, damage, customer concerns, or anything the office needs to review.")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(FieldLGXTheme.secondaryText)
+
+                    Menu {
+                        ForEach(issueTypes, id: \.value) { issueType in
+                            Button(issueType.label) {
+                                selectedIssueType = issueType.value
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Text(selectedIssueLabel)
+                            Spacer()
+                            Image(systemName: "chevron.up.chevron.down")
+                        }
+                        .font(.system(size: 17, weight: .black))
+                        .foregroundStyle(FieldLGXTheme.text)
+                        .padding(16)
+                        .background(FieldLGXTheme.elevatedBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+
+                    TextField("Describe what happened", text: $issueDescription, axis: .vertical)
+                        .font(.system(size: 17, weight: .semibold))
+                        .lineLimit(4...7)
+                        .padding(16)
+                        .foregroundStyle(FieldLGXTheme.text)
+                        .background(FieldLGXTheme.elevatedBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                    Button {
+                        Task { await reportIssue() }
+                    } label: {
+                        HStack {
+                            if actionInFlight == .reportIssue {
+                                ProgressView()
+                                    .tint(.black)
+                            }
+                            Text("Report issue")
+                        }
+                        .font(.system(size: 17, weight: .black))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                    }
+                    .disabled(issueDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || actionInFlight != nil)
+                    .foregroundStyle(.black)
+                    .background(FieldLGXTheme.lime)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                    Spacer()
+                }
+                .padding(24)
+            }
+        }
+    }
+
     private func errorState(_ message: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Could not load job")
@@ -493,6 +593,7 @@ struct JobDetailScreen: View {
                         hasCompletionPhoto: false
                     ),
                     jobNotes: [],
+                    jobIssues: [],
                     serverTime: ""
                 )
             }
@@ -513,7 +614,7 @@ struct JobDetailScreen: View {
                 detail = try await api.startJob(id: jobID)
             case .complete:
                 detail = try await api.completeJob(id: jobID)
-            case .skip, .uploadPhoto, .addNote:
+            case .skip, .uploadPhoto, .addNote, .reportIssue:
                 break
             }
         } catch {
@@ -575,8 +676,44 @@ struct JobDetailScreen: View {
         }
     }
 
+    private func reportIssue() async {
+        guard let accessToken else { return }
+        let description = issueDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !description.isEmpty else { return }
+        actionInFlight = .reportIssue
+        errorMessage = nil
+        defer { actionInFlight = nil }
+
+        do {
+            detail = try await client(accessToken: accessToken).reportJobIssue(
+                id: jobID,
+                issueType: selectedIssueType,
+                description: description
+            )
+            issueDescription = ""
+            selectedIssueType = "access"
+            isShowingIssueSheet = false
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     private func client(accessToken: String) -> APIClient {
         APIClient(baseURL: URL(string: "http://127.0.0.1:8004")!, accessToken: accessToken)
+    }
+
+    private var issueTypes: [(value: String, label: String)] {
+        [
+            ("access", "Access / gate / lock"),
+            ("equipment", "Equipment"),
+            ("customer_request", "Customer request"),
+            ("damage", "Damage / concern"),
+            ("other", "Other")
+        ]
+    }
+
+    private var selectedIssueLabel: String {
+        issueTypes.first { $0.value == selectedIssueType }?.label ?? "Other"
     }
 
     private func statusText(_ status: String) -> String {

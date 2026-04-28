@@ -9,7 +9,7 @@ from decimal import Decimal
 
 from businesses.models import Business
 from customers.models import Customer, Property
-from jobs.models import Crew, Job, JobCompletionPhoto, JobNote, JobServiceItem, PropertyNote
+from jobs.models import Crew, Job, JobCompletionPhoto, JobIssue, JobNote, JobServiceItem, PropertyNote
 from pricing.models import ServiceTemplate
 
 
@@ -666,3 +666,31 @@ class MobileJobDetailTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["error"], "Note text is required.")
+
+    def test_crew_can_report_job_issue_from_the_field(self):
+        response = self.client.post(
+            reverse("mobile_api:job_issues", args=[self.job.id]),
+            data={"issue_type": "access", "description": "Back gate is locked."},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        issue = JobIssue.objects.get(job=self.job, description="Back gate is locked.")
+        self.assertEqual(issue.reported_by, self.crew_user)
+        self.assertEqual(issue.issue_type, "access")
+        self.assertEqual(issue.status, "open")
+        payload = response.json()
+        self.assertEqual(payload["job_issues"][0]["description"], "Back gate is locked.")
+        self.assertEqual(payload["job_issues"][0]["status"], "open")
+
+    def test_report_job_issue_requires_description(self):
+        response = self.client.post(
+            reverse("mobile_api:job_issues", args=[self.job.id]),
+            data={"issue_type": "damage", "description": ""},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "Issue description is required.")
