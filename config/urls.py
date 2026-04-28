@@ -42,6 +42,7 @@ urlpatterns = [
     path("uploads/<path:path>", uploaded_media, name="uploaded_media"),
     path("admin/", admin.site.urls),
     path("api/db-check/", db_check),
+    path("api/mobile/v1/", include("mobile_api.urls")),
     path("accounts/", include("accounts.auth_urls")),
     path("accounts/social/", include("allauth.urls")),
 

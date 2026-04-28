@@ -124,6 +124,7 @@ INSTALLED_APPS = [
     'service_agreements',
     'checklists',
     'inspections',
+    'mobile_api',
 ]
 
 SITE_ID = 1
