@@ -15,6 +15,14 @@ struct APIClient {
         ])
     }
 
+    func appleLogin(identityToken: String) async throws -> LoginResponse {
+        try await post(path: "/api/mobile/v1/auth/apple/", body: [
+            "identity_token": identityToken,
+            "platform": "ios",
+            "device_name": UIDevice.current.name
+        ])
+    }
+
     func bootstrap() async throws -> BootstrapResponse {
         try await get(path: "/api/mobile/v1/bootstrap/")
     }

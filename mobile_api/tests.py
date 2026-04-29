@@ -59,6 +59,21 @@ class MobileAuthTests(TestCase):
         self.assertEqual(payload["user"]["role"], "owner")
         self.assertTrue(MobileDeviceSession.objects.filter(user=self.user, revoked_at__isnull=True).exists())
 
+    def test_login_accepts_username_for_local_native_testing(self):
+        response = self.client.post(
+            reverse("mobile_api:login"),
+            data={
+                "email": "nativeowner",
+                "password": "testpass123",
+                "device_name": "Aden iPhone",
+                "platform": "ios",
+            },
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["user"]["email"], "nativeowner@example.com")
+
     def test_refresh_rotates_access_token(self):
         login = self.client.post(
             reverse("mobile_api:login"),

@@ -26,14 +26,31 @@ final class AuthSession {
         defer { isLoading = false }
 
         do {
-            let response = try await APIClient(baseURL: baseURL).login(email: email, password: password)
-            try keychain.save(response.refreshToken, account: "refresh_token")
-            accessToken = response.accessToken
-            currentUser = response.user
-            await loadBootstrap()
+            let response = try await APIClient(baseURL: baseURL).login(
+                email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+                password: password
+            )
+            await completeSignIn(response)
         } catch {
-            errorMessage = "Could not sign in. Check your credentials and connection."
+            errorMessage = "Sign in failed: \(error.localizedDescription)"
         }
+    }
+
+    func signInWithApple(identityToken: String) async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            let response = try await APIClient(baseURL: baseURL).appleLogin(identityToken: identityToken)
+            await completeSignIn(response)
+        } catch {
+            errorMessage = "Apple Sign-In is wired in the app, but token verification still needs the Apple developer keys on the server."
+        }
+    }
+
+    func showGoogleConfigurationMessage() {
+        errorMessage = "Google Sign-In needs the iOS Google client ID and SDK package configured before App Store release. Email/username login is ready locally."
     }
 
     func loadBootstrap() async {
@@ -65,5 +82,16 @@ final class AuthSession {
         currentUser = nil
         business = nil
         errorMessage = nil
+    }
+
+    private func completeSignIn(_ response: LoginResponse) async {
+        do {
+            try keychain.save(response.refreshToken, account: "refresh_token")
+            accessToken = response.accessToken
+            currentUser = response.user
+            await loadBootstrap()
+        } catch {
+            errorMessage = "Signed in, but this device could not save the session."
+        }
     }
 }

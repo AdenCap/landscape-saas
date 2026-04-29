@@ -12,7 +12,7 @@ from jobs.models import Job, JobCompletionPhoto, JobIssue, JobNote, JobPhoto, Pr
 from time_tracking.models import TimeEntry, TimeEntryLocationPing
 
 from . import auth as mobile_auth
-from .auth import issue_access_token, session_from_refresh_token, session_from_request, user_by_email
+from .auth import issue_access_token, session_from_refresh_token, session_from_request, user_by_email, user_by_identifier
 from .models import MobileDeviceSession
 
 
@@ -123,9 +123,9 @@ def health(request):
 @require_POST
 def login(request):
     data = _json_body(request)
-    email = (data.get("email") or "").strip()
+    identifier = (data.get("email") or data.get("username") or "").strip()
     password = data.get("password") or ""
-    user = user_by_email(email)
+    user = user_by_identifier(identifier)
     if not user or not user.check_password(password) or not user.business_id:
         return JsonResponse({"error": "Invalid email or password."}, status=400)
     session, refresh_token = MobileDeviceSession.issue(

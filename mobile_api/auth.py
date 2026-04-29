@@ -83,6 +83,17 @@ def user_by_email(email):
     return User.objects.filter(email__iexact=(email or "").strip(), is_active=True).first()
 
 
+def user_by_identifier(identifier):
+    User = get_user_model()
+    value = (identifier or "").strip()
+    if not value:
+        return None
+    return User.objects.filter(email__iexact=value, is_active=True).first() or User.objects.filter(
+        username__iexact=value,
+        is_active=True,
+    ).first()
+
+
 def verify_apple_identity_token(identity_token):
     """
     Verify an Apple identity token and return {"email": str, "sub": str}.
