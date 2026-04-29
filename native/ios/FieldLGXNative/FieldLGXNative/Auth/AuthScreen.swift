@@ -8,170 +8,208 @@ struct AuthScreen: View {
 
     var body: some View {
         ZStack {
-            AuthBackdrop()
+            heroBackdrop
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 26) {
-                    Spacer(minLength: 16)
+                VStack(alignment: .leading, spacing: 22) {
+                    logo
+                        .padding(.top, 22)
 
-                    brandHeader
+                    Spacer(minLength: 18)
 
-                    VStack(alignment: .leading, spacing: 18) {
-                        Text("SIGN IN")
-                            .font(.system(size: 12, weight: .black))
-                            .tracking(2.5)
-                            .foregroundStyle(FieldLGXTheme.tertiaryText)
+                    heroCopy
 
-                        VStack(spacing: 12) {
-                            TextField("Email or username", text: $identifier)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled(true)
-                                .keyboardType(.emailAddress)
-                                .textContentType(.username)
-                                .fieldLGXInput(icon: "person.crop.circle")
-                                .accessibilityLabel("Email or username")
-                                .accessibilityIdentifier("auth.email")
+                    signInPanel
 
-                            SecureField("Password", text: $password)
-                                .textContentType(.password)
-                                .fieldLGXInput(icon: "lock")
-                                .accessibilityLabel("Password")
-                                .accessibilityIdentifier("auth.password")
-                        }
-
-                        Button {
-                            Task {
-                                await session.signIn(email: identifier, password: password)
-                            }
-                        } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: "arrow.right.circle.fill")
-                                Text(session.isLoading ? "Signing in" : "Sign in")
-                                Spacer()
-                                Text("FIELDLGX")
-                                    .font(.system(size: 11, weight: .black))
-                                    .tracking(1.8)
-                            }
-                            .font(.system(size: 17, weight: .black))
-                            .foregroundStyle(Color.black)
-                            .padding(.horizontal, 18)
-                            .frame(height: 56)
-                            .background(FieldLGXTheme.lime)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .shadow(color: FieldLGXTheme.lime.opacity(0.22), radius: 18, x: 0, y: 12)
-                        }
-                        .disabled(session.isLoading || identifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty)
-                        .accessibilityLabel("Sign in")
-                        .accessibilityIdentifier("auth.signIn")
-
-                        DividerLabel()
-
-                        VStack(spacing: 10) {
-                            SignInWithAppleButton(.continue) { request in
-                                request.requestedScopes = [.fullName, .email]
-                            } onCompletion: { result in
-                                handleAppleResult(result)
-                            }
-                            .signInWithAppleButtonStyle(.white)
-                            .frame(height: 52)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .accessibilityIdentifier("auth.apple")
-
-                            Button {
-                                session.showGoogleConfigurationMessage()
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Text("G")
-                                        .font(.system(size: 18, weight: .black))
-                                        .foregroundStyle(.black)
-                                        .frame(width: 26, height: 26)
-                                        .background(.white)
-                                        .clipShape(Circle())
-                                    Text("Continue with Google")
-                                    Spacer()
-                                }
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(FieldLGXTheme.text)
-                                .padding(.horizontal, 16)
-                                .frame(height: 52)
-                                .background(FieldLGXTheme.elevatedBackground)
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
-                                )
-                            }
-                            .accessibilityIdentifier("auth.google")
-                        }
-
-                        if let errorMessage = session.errorMessage {
-                            Text(errorMessage)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.red.opacity(0.92))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .padding(18)
-                    .background(FieldLGXTheme.panel.opacity(0.96))
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
-                    )
-
-                    trustRail
-
-                    Spacer(minLength: 20)
+                    Spacer(minLength: 18)
                 }
-                .padding(24)
+                .padding(.horizontal, 22)
+                .padding(.bottom, 24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minHeight: UIScreen.main.bounds.height)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
-    private var brandHeader: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                Text("FL")
-                    .font(.system(size: 22, weight: .black, design: .rounded))
-                    .foregroundStyle(FieldLGXTheme.lime)
-                    .frame(width: 48, height: 48)
-                    .background(FieldLGXTheme.elevatedBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(FieldLGXTheme.lime.opacity(0.55), lineWidth: 1)
-                    )
+    private var heroBackdrop: some View {
+        ZStack {
+            FieldLGXTheme.background.ignoresSafeArea()
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("FIELDLGX")
-                        .font(.system(size: 28, weight: .black, design: .rounded))
-                        .foregroundStyle(FieldLGXTheme.text)
-                    Text("LANDSCAPE OPERATIONS")
-                        .font(.system(size: 10, weight: .black))
-                        .tracking(2.4)
-                        .foregroundStyle(FieldLGXTheme.lime)
-                }
-            }
+            Image("MarketingSkid")
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scaleEffect(1.08)
+                .offset(x: 78, y: -18)
+                .opacity(0.72)
+                .ignoresSafeArea()
 
-            Text("Run the day. Own the season.")
-                .font(.system(size: 42, weight: .black, design: .rounded))
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.96),
+                    Color.black.opacity(0.72),
+                    Color.black.opacity(0.20),
+                    Color.black.opacity(0.80)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .ignoresSafeArea()
+
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.40),
+                    Color.clear,
+                    FieldLGXTheme.background.opacity(0.94)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            GridPattern()
+                .stroke(Color.white.opacity(0.035), lineWidth: 1)
+                .ignoresSafeArea()
+        }
+    }
+
+    private var logo: some View {
+        HStack(spacing: 12) {
+            Image("FieldLGXMonogram")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 30, height: 30)
+
+            Image("FieldLGXWordmark")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 156, height: 38)
+                .accessibilityLabel("FIELDLGX")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.black.opacity(0.44))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+        )
+    }
+
+    private var heroCopy: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Run the day.")
+                .font(.system(size: 52, weight: .black, design: .rounded))
                 .foregroundStyle(FieldLGXTheme.text)
-                .lineLimit(3)
-                .minimumScaleFactor(0.76)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
 
-            Text("Schedule crews, capture field notes, track time, and keep every job moving from one premium mobile command center.")
-                .font(.system(size: 16, weight: .semibold))
-                .lineSpacing(4)
-                .foregroundStyle(FieldLGXTheme.secondaryText)
+            Text("Own the season.")
+                .font(.system(size: 52, weight: .black, design: .rounded))
+                .foregroundStyle(FieldLGXTheme.lime)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
         }
+        .shadow(color: .black.opacity(0.48), radius: 18, x: 0, y: 10)
     }
 
-    private var trustRail: some View {
-        HStack(spacing: 10) {
-            AuthMetric(label: "Offline", value: "Ready")
-            AuthMetric(label: "Time", value: "GPS")
-            AuthMetric(label: "Photos", value: "Proof")
+    private var signInPanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("SIGN IN")
+                        .font(.system(size: 11, weight: .black))
+                        .tracking(2.3)
+                        .foregroundStyle(FieldLGXTheme.lime)
+
+                    Text("Enter your workspace")
+                        .font(.system(size: 20, weight: .black, design: .rounded))
+                        .foregroundStyle(FieldLGXTheme.text)
+                }
+                Spacer()
+            }
+
+            VStack(spacing: 12) {
+                TextField("Email or username", text: $identifier)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .keyboardType(.emailAddress)
+                    .textContentType(.username)
+                    .fieldLGXInput(icon: "person.crop.circle")
+                    .accessibilityLabel("Email or username")
+                    .accessibilityIdentifier("auth.email")
+
+                SecureField("Password", text: $password)
+                    .textContentType(.password)
+                    .fieldLGXInput(icon: "lock")
+                    .accessibilityLabel("Password")
+                    .accessibilityIdentifier("auth.password")
+            }
+
+            Button {
+                Task {
+                    await session.signIn(email: identifier, password: password)
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Text(session.isLoading ? "Signing in" : "Sign in")
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                }
+                .font(.system(size: 17, weight: .black))
+                .foregroundStyle(Color.black)
+                .padding(.horizontal, 18)
+                .frame(height: 56)
+                .background(FieldLGXTheme.lime)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .shadow(color: FieldLGXTheme.lime.opacity(0.22), radius: 18, x: 0, y: 12)
+            }
+            .disabled(session.isLoading || identifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty)
+            .accessibilityLabel("Sign in")
+            .accessibilityIdentifier("auth.signIn")
+
+            DividerLabel()
+
+            HStack(spacing: 10) {
+                SignInWithAppleButton(.signIn) { request in
+                    request.requestedScopes = [.fullName, .email]
+                } onCompletion: { result in
+                    handleAppleResult(result)
+                }
+                .signInWithAppleButtonStyle(.white)
+                .frame(height: 50)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .accessibilityIdentifier("auth.apple")
+
+                Button {
+                    session.showGoogleConfigurationMessage()
+                } label: {
+                    Text("G")
+                        .font(.system(size: 20, weight: .black))
+                        .foregroundStyle(.black)
+                        .frame(width: 56, height: 50)
+                        .background(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .accessibilityLabel("Sign in with Google")
+                .accessibilityIdentifier("auth.google")
+            }
+
+            if let errorMessage = session.errorMessage {
+                Text(errorMessage)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.red.opacity(0.94))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+        .padding(18)
+        .background(.ultraThinMaterial.opacity(0.58), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(FieldLGXTheme.panel.opacity(0.84), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+        )
     }
 
     private func handleAppleResult(_ result: Result<ASAuthorization, Error>) {
@@ -205,7 +243,7 @@ private extension View {
                 .foregroundStyle(FieldLGXTheme.text)
         }
         .padding(16)
-        .background(FieldLGXTheme.elevatedBackground)
+        .background(Color.black.opacity(0.48))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -214,33 +252,10 @@ private extension View {
     }
 }
 
-private struct AuthBackdrop: View {
-    var body: some View {
-        ZStack {
-            FieldLGXTheme.background.ignoresSafeArea()
-
-            LinearGradient(
-                colors: [
-                    FieldLGXTheme.lime.opacity(0.16),
-                    Color.clear,
-                    Color(red: 0.02, green: 0.03, blue: 0.025).opacity(0.9)
-                ],
-                startPoint: .topTrailing,
-                endPoint: .bottomLeading
-            )
-            .ignoresSafeArea()
-
-            GridPattern()
-                .stroke(Color.white.opacity(0.035), lineWidth: 1)
-                .ignoresSafeArea()
-        }
-    }
-}
-
 private struct GridPattern: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        let spacing: CGFloat = 42
+        let spacing: CGFloat = 58
         var x: CGFloat = 0
         while x <= rect.maxX {
             path.move(to: CGPoint(x: x, y: rect.minY))
@@ -271,31 +286,6 @@ private struct DividerLabel: View {
                 .fill(FieldLGXTheme.panelStroke)
                 .frame(height: 1)
         }
-    }
-}
-
-private struct AuthMetric: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label.uppercased())
-                .font(.system(size: 9, weight: .black))
-                .tracking(1.6)
-                .foregroundStyle(FieldLGXTheme.tertiaryText)
-            Text(value)
-                .font(.system(size: 15, weight: .black, design: .rounded))
-                .foregroundStyle(FieldLGXTheme.text)
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FieldLGXTheme.panel.opacity(0.82))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
-        )
     }
 }
 
