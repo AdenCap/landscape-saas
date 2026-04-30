@@ -180,15 +180,32 @@ class DocumentTemplateStudioTests(TestCase):
         self.assertTrue(template.custom_fields[0]["required"])
 
     def test_estimate_and_invoice_pdfs_generate_with_template_settings(self):
+        long_header = (
+            "Header message explains the scope, schedule expectations, access notes, and the complete customer "
+            "experience without being clipped at the first line."
+        )
+        long_terms = (
+            "Terms and conditions include weather delays, access requirements, utility responsibility, change "
+            "approval, payment timing, and all other owner-provided language."
+        )
+        long_payment = (
+            "Payment instructions include card, check, ACH, deposit handling, monthly billing, card-on-file "
+            "authorization, and office contact details."
+        )
+        long_footer = (
+            "Footer message thanks the customer, explains how to reach the office, and stays visible in the PDF "
+            "instead of being dropped."
+        )
         DocumentTemplate.objects.create(
             business=self.business,
             doc_type="estimate",
             name="Proposal",
             template_key="modern_dark",
             primary_color="#88cc44",
-            header_text="Licensed and insured.",
-            terms_and_conditions="Valid for 30 days.",
-            payment_instructions="Deposit due on approval.",
+            header_text=long_header,
+            terms_and_conditions=long_terms,
+            payment_instructions=long_payment,
+            footer_text=long_footer,
         )
         DocumentTemplate.objects.create(
             business=self.business,
@@ -196,8 +213,10 @@ class DocumentTemplateStudioTests(TestCase):
             name="Invoice",
             template_key="clean_light",
             primary_color="#88cc44",
-            terms_and_conditions="Payment due on receipt.",
-            payment_instructions="Card on file may be charged.",
+            header_text=long_header,
+            terms_and_conditions=long_terms,
+            payment_instructions=long_payment,
+            footer_text=long_footer,
         )
         estimate = Estimate.objects.create(
             business=self.business,
@@ -228,8 +247,11 @@ class DocumentTemplateStudioTests(TestCase):
             unit_price=Decimal("85.00"),
         )
 
-        estimate_response = self.client.get(reverse("billing:estimate_pdf", args=[estimate.id]) + "?inline=1")
-        invoice_response = self.client.get(reverse("billing:invoice_pdf", args=[invoice.id]) + "?inline=1")
+        from billing import views as billing_views
+
+        with patch("billing.views._pdf_draw_full_text_section", wraps=billing_views._pdf_draw_full_text_section) as draw_section:
+            estimate_response = self.client.get(reverse("billing:estimate_pdf", args=[estimate.id]) + "?inline=1")
+            invoice_response = self.client.get(reverse("billing:invoice_pdf", args=[invoice.id]) + "?inline=1")
 
         estimate_bytes = b"".join(estimate_response.streaming_content)
         invoice_bytes = b"".join(invoice_response.streaming_content)
@@ -239,6 +261,9 @@ class DocumentTemplateStudioTests(TestCase):
         self.assertTrue(invoice_bytes.startswith(b"%PDF"))
         self.assertGreater(len(estimate_bytes), 1000)
         self.assertGreater(len(invoice_bytes), 1000)
+        drawn_texts = [call.kwargs["text"] for call in draw_section.call_args_list if "text" in call.kwargs]
+        for expected in [long_header, long_terms, long_payment, long_footer]:
+            self.assertIn(expected, drawn_texts)
 
     def test_client_accept_includes_selected_optional_items(self):
         estimate = Estimate.objects.create(

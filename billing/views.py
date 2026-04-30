@@ -1710,8 +1710,12 @@ def _pdf_wrapped_lines(text, max_chars=70, max_lines=6):
         return []
     lines = []
     for raw_line in str(text).replace("\r", "").split("\n"):
-        words = _pdf_safe(raw_line, max_chars * max_lines).split()
+        max_source_chars = max_chars * max_lines if max_lines else len(str(text)) + max_chars
+        words = _pdf_safe(raw_line, max_source_chars).split()
         if not words:
+            lines.append("")
+            if max_lines and len(lines) >= max_lines:
+                return lines
             continue
         current = ""
         for word in words:
@@ -1722,13 +1726,56 @@ def _pdf_wrapped_lines(text, max_chars=70, max_lines=6):
                 if current:
                     lines.append(current)
                 current = word[:max_chars]
-            if len(lines) >= max_lines:
+            if max_lines and len(lines) >= max_lines:
                 return lines
         if current:
             lines.append(current)
-        if len(lines) >= max_lines:
+        if max_lines and len(lines) >= max_lines:
             return lines
     return lines
+
+
+def _pdf_draw_full_text_section(
+    p,
+    *,
+    title,
+    text,
+    x,
+    y,
+    max_chars,
+    accent,
+    text_color,
+    h_font,
+    b_font,
+    new_page,
+    bottom=76,
+    leading=10,
+    font_size=8,
+):
+    lines = _pdf_wrapped_lines(text, max_chars=max_chars, max_lines=None)
+    if not lines:
+        return y
+    if y < bottom + 30:
+        y = new_page(table=False)
+    p.setFont(h_font, 8)
+    p.setFillColorRGB(*accent)
+    p.drawString(x, y, _pdf_safe(title.upper(), 38))
+    y -= 13
+    p.setFont(b_font, font_size)
+    p.setFillColorRGB(*text_color)
+    for line in lines:
+        if y < bottom:
+            y = new_page(table=False)
+            p.setFont(h_font, 8)
+            p.setFillColorRGB(*accent)
+            p.drawString(x, y, _pdf_safe(f"{title.upper()} CONTINUED", 38))
+            y -= 13
+            p.setFont(b_font, font_size)
+            p.setFillColorRGB(*text_color)
+        if line:
+            p.drawString(x, y, line)
+        y -= leading
+    return y - 5
 
 
 # Theme colors for PDFs
@@ -1943,9 +1990,14 @@ def _pdf_customer_address(customer, prop=None):
 
 def _pdf_draw_footer(p, width, mid, right, business, doc_template, accent, b_font):
     if doc_template and doc_template.footer_text:
-        p.setFont(b_font, 7)
-        p.setFillColorRGB(0.48, 0.50, 0.46)
-        p.drawCentredString(mid, 42, _pdf_ellipsize(doc_template.footer_text, 92))
+        footer_lines = _pdf_wrapped_lines(doc_template.footer_text, max_chars=102, max_lines=None)
+        if len(footer_lines) <= 2:
+            p.setFont(b_font, 7)
+            p.setFillColorRGB(0.48, 0.50, 0.46)
+            footer_y = 44
+            for line in footer_lines:
+                p.drawCentredString(mid, footer_y, line)
+                footer_y -= 9
     p.setFont(b_font, 7)
     p.setFillColorRGB(0.58, 0.60, 0.56)
     parts = [business.name] if business else []
@@ -2107,7 +2159,24 @@ def _build_modern_estimate_pdf(estimate, business, compact=False):
             p.drawString(x + 14, line_y, _pdf_ellipsize(line, 34))
             line_y -= 11
 
-    y -= card_h + 34
+    y -= card_h + 24
+    if doc_template and doc_template.header_text:
+        y = _pdf_draw_full_text_section(
+            p,
+            title="Message",
+            text=doc_template.header_text,
+            x=margin,
+            y=y,
+            max_chars=92,
+            accent=accent,
+            text_color=muted,
+            h_font=h_font,
+            b_font=b_font,
+            new_page=new_page,
+        )
+        y -= 10
+    if y < 150:
+        y = new_page(table=False)
     p.setFont(h_font, 14)
     p.setFillColorRGB(*ink)
     p.drawString(margin, y, "Estimate Details")
@@ -2177,33 +2246,6 @@ def _build_modern_estimate_pdf(estimate, business, compact=False):
     notes_w_chars = 52
     totals_x = mid + 10
     totals_w = right - totals_x
-    p.setFont(h_font, 11)
-    p.setFillColorRGB(*ink)
-    p.drawString(notes_x, y, "Payment & Terms")
-    notes_y = y - 16
-    if estimate.notes:
-        notes_y = _pdf_draw_wrapped(p, estimate.notes, notes_x, notes_y, notes_w_chars, 4, 10, b_font, 8, muted)
-    if doc_template and doc_template.payment_instructions:
-        p.setFont(h_font, 8)
-        p.setFillColorRGB(*accent)
-        p.drawString(notes_x, notes_y - 2, "PAYMENT NOTES")
-        notes_y = _pdf_draw_wrapped(p, doc_template.payment_instructions, notes_x, notes_y - 14, notes_w_chars, 4, 10, b_font, 8, muted)
-    if doc_template and doc_template.terms_and_conditions:
-        p.setFont(h_font, 8)
-        p.setFillColorRGB(*accent)
-        p.drawString(notes_x, notes_y - 6, "TERMS")
-        notes_y = _pdf_draw_wrapped(p, doc_template.terms_and_conditions, notes_x, notes_y - 18, notes_w_chars, 5, 10, b_font, 8, muted)
-    if doc_template and doc_template.custom_fields and estimate.custom_field_values:
-        p.setFont(h_font, 8)
-        p.setFillColorRGB(*accent)
-        p.drawString(notes_x, notes_y - 6, "DOCUMENT INFO")
-        notes_y -= 20
-        for field_def in doc_template.custom_fields[:4]:
-            key = field_def.get("key")
-            value = estimate.custom_field_values.get(key) if key else None
-            if value:
-                label = field_def.get("label") or key.replace("_", " ").title()
-                notes_y = draw_info_line(notes_x, notes_y, label, str(value), width_chars=38)
 
     totals_h = 164 if estimate.deposit_required else 144
     _pdf_card(p, totals_x, y + 12, totals_w, totals_h, stroke=border, fill=(1, 1, 1), radius=12)
@@ -2228,6 +2270,80 @@ def _build_modern_estimate_pdf(estimate, business, compact=False):
     p.setFillColorRGB(*accent)
     p.setFont(h_font, 16)
     p.drawRightString(totals_x + totals_w - 14, ty - 6, _pdf_money(grand_total))
+
+    p.setFont(h_font, 11)
+    p.setFillColorRGB(*ink)
+    p.drawString(notes_x, y, "Payment & Terms")
+    notes_y = y - 18
+    if estimate.notes:
+        notes_y = _pdf_draw_full_text_section(
+            p,
+            title="Project Notes",
+            text=estimate.notes,
+            x=notes_x,
+            y=notes_y,
+            max_chars=notes_w_chars,
+            accent=accent,
+            text_color=muted,
+            h_font=h_font,
+            b_font=b_font,
+            new_page=new_page,
+        )
+    if doc_template and doc_template.payment_instructions:
+        notes_y = _pdf_draw_full_text_section(
+            p,
+            title="Payment Notes",
+            text=doc_template.payment_instructions,
+            x=notes_x,
+            y=notes_y,
+            max_chars=notes_w_chars,
+            accent=accent,
+            text_color=muted,
+            h_font=h_font,
+            b_font=b_font,
+            new_page=new_page,
+        )
+    if doc_template and doc_template.terms_and_conditions:
+        notes_y = _pdf_draw_full_text_section(
+            p,
+            title="Terms",
+            text=doc_template.terms_and_conditions,
+            x=notes_x,
+            y=notes_y,
+            max_chars=notes_w_chars,
+            accent=accent,
+            text_color=muted,
+            h_font=h_font,
+            b_font=b_font,
+            new_page=new_page,
+        )
+    if doc_template and doc_template.footer_text:
+        notes_y = _pdf_draw_full_text_section(
+            p,
+            title="Footer Message",
+            text=doc_template.footer_text,
+            x=notes_x,
+            y=notes_y,
+            max_chars=notes_w_chars,
+            accent=accent,
+            text_color=muted,
+            h_font=h_font,
+            b_font=b_font,
+            new_page=new_page,
+        )
+    if doc_template and doc_template.custom_fields and estimate.custom_field_values:
+        if notes_y < 120:
+            notes_y = new_page(table=False)
+        p.setFont(h_font, 8)
+        p.setFillColorRGB(*accent)
+        p.drawString(notes_x, notes_y, "DOCUMENT INFO")
+        notes_y -= 14
+        for field_def in doc_template.custom_fields[:4]:
+            key = field_def.get("key")
+            value = estimate.custom_field_values.get(key) if key else None
+            if value:
+                label = field_def.get("label") or key.replace("_", " ").title()
+                notes_y = draw_info_line(notes_x, notes_y, label, str(value), width_chars=38)
 
     draw_footer()
     p.showPage()
@@ -2388,7 +2504,24 @@ def _build_modern_invoice_pdf(invoice, request):
             p.drawString(x + 14, line_y, _pdf_ellipsize(line, 34))
             line_y -= 11
 
-    y -= card_h + 34
+    y -= card_h + 24
+    if doc_template and doc_template.header_text:
+        y = _pdf_draw_full_text_section(
+            p,
+            title="Message",
+            text=doc_template.header_text,
+            x=margin,
+            y=y,
+            max_chars=92,
+            accent=accent,
+            text_color=muted,
+            h_font=h_font,
+            b_font=b_font,
+            new_page=new_page,
+        )
+        y -= 10
+    if y < 150:
+        y = new_page(table=False)
     p.setFont(h_font, 14)
     p.setFillColorRGB(*ink)
     p.drawString(margin, y, "Invoice Details")
@@ -2439,40 +2572,6 @@ def _build_modern_invoice_pdf(invoice, request):
     totals_x = mid + 10
     totals_w = right - totals_x
 
-    p.setFont(h_font, 11)
-    p.setFillColorRGB(*ink)
-    p.drawString(notes_x, y, "Payment & Terms")
-    notes_y = y - 16
-    if doc_template and doc_template.payment_instructions:
-        p.setFont(h_font, 8)
-        p.setFillColorRGB(*accent)
-        p.drawString(notes_x, notes_y - 2, "PAYMENT INSTRUCTIONS")
-        notes_y = _pdf_draw_wrapped(p, doc_template.payment_instructions, notes_x, notes_y - 14, notes_w_chars, 4, 10, b_font, 8, muted)
-    payment_lines = _pdf_payment_method_lines(business)
-    if payment_lines:
-        p.setFont(h_font, 8)
-        p.setFillColorRGB(*accent)
-        p.drawString(notes_x, notes_y - 6, "PAYMENT METHODS")
-        notes_y -= 14
-        for line in payment_lines[:4]:
-            notes_y = _pdf_draw_wrapped(p, line, notes_x, notes_y, notes_w_chars, 1, 10, b_font, 8, ink)
-    if doc_template and doc_template.terms_and_conditions:
-        p.setFont(h_font, 8)
-        p.setFillColorRGB(*accent)
-        p.drawString(notes_x, notes_y - 6, "TERMS")
-        notes_y = _pdf_draw_wrapped(p, doc_template.terms_and_conditions, notes_x, notes_y - 18, notes_w_chars, 5, 10, b_font, 8, muted)
-    if doc_template and doc_template.custom_fields and invoice.custom_field_values:
-        p.setFont(h_font, 8)
-        p.setFillColorRGB(*accent)
-        p.drawString(notes_x, notes_y - 6, "DOCUMENT INFO")
-        notes_y -= 20
-        for field_def in doc_template.custom_fields[:4]:
-            key = field_def.get("key")
-            value = invoice.custom_field_values.get(key) if key else None
-            if value:
-                label = field_def.get("label") or key.replace("_", " ").title()
-                notes_y = draw_info_line(notes_x, notes_y, label, str(value), width_chars=38)
-
     totals_h = 176
     _pdf_card(p, totals_x, y + 12, totals_w, totals_h, stroke=border, fill=(1, 1, 1), radius=12)
     ty = y - 6
@@ -2497,6 +2596,81 @@ def _build_modern_invoice_pdf(invoice, request):
     p.setFillColorRGB(*accent)
     p.setFont(h_font, 16)
     p.drawRightString(totals_x + totals_w - 14, ty - 6, _pdf_money(Decimal("0") if invoice.status == "paid" else balance_due))
+
+    p.setFont(h_font, 11)
+    p.setFillColorRGB(*ink)
+    p.drawString(notes_x, y, "Payment & Terms")
+    notes_y = y - 18
+    if doc_template and doc_template.payment_instructions:
+        notes_y = _pdf_draw_full_text_section(
+            p,
+            title="Payment Instructions",
+            text=doc_template.payment_instructions,
+            x=notes_x,
+            y=notes_y,
+            max_chars=notes_w_chars,
+            accent=accent,
+            text_color=muted,
+            h_font=h_font,
+            b_font=b_font,
+            new_page=new_page,
+        )
+    payment_lines = _pdf_payment_method_lines(business)
+    if payment_lines:
+        notes_y = _pdf_draw_full_text_section(
+            p,
+            title="Payment Methods",
+            text="\n".join(payment_lines),
+            x=notes_x,
+            y=notes_y,
+            max_chars=notes_w_chars,
+            accent=accent,
+            text_color=ink,
+            h_font=h_font,
+            b_font=b_font,
+            new_page=new_page,
+        )
+    if doc_template and doc_template.terms_and_conditions:
+        notes_y = _pdf_draw_full_text_section(
+            p,
+            title="Terms",
+            text=doc_template.terms_and_conditions,
+            x=notes_x,
+            y=notes_y,
+            max_chars=notes_w_chars,
+            accent=accent,
+            text_color=muted,
+            h_font=h_font,
+            b_font=b_font,
+            new_page=new_page,
+        )
+    if doc_template and doc_template.footer_text:
+        notes_y = _pdf_draw_full_text_section(
+            p,
+            title="Footer Message",
+            text=doc_template.footer_text,
+            x=notes_x,
+            y=notes_y,
+            max_chars=notes_w_chars,
+            accent=accent,
+            text_color=muted,
+            h_font=h_font,
+            b_font=b_font,
+            new_page=new_page,
+        )
+    if doc_template and doc_template.custom_fields and invoice.custom_field_values:
+        if notes_y < 120:
+            notes_y = new_page(table=False)
+        p.setFont(h_font, 8)
+        p.setFillColorRGB(*accent)
+        p.drawString(notes_x, notes_y, "DOCUMENT INFO")
+        notes_y -= 14
+        for field_def in doc_template.custom_fields[:4]:
+            key = field_def.get("key")
+            value = invoice.custom_field_values.get(key) if key else None
+            if value:
+                label = field_def.get("label") or key.replace("_", " ").title()
+                notes_y = draw_info_line(notes_x, notes_y, label, str(value), width_chars=38)
 
     draw_footer()
     p.showPage()
