@@ -233,8 +233,11 @@
             </div>
           </header>
           <section class="ds-doc-banner">
-            <strong>{% if doc_type == "invoice" %}Landscape service invoice{% else %}Landscape service proposal{% endif %}</strong>
-            <span>Prepared for Demo Customer</span>
+            <div>
+              <small>{% if doc_type == "invoice" %}Amount due{% else %}Estimated total{% endif %}</small>
+              <strong>{% if doc_type == "invoice" %}Landscape service invoice{% else %}Landscape service proposal{% endif %}</strong>
+            </div>
+            <b>{% if doc_type == "invoice" %}$85{% else %}$395{% endif %}</b>
           </section>
           <section class="ds-doc-meta">
             <div>
@@ -769,9 +772,22 @@
     color: #081007;
     align-items: end;
   }
+  .ds-doc-banner small {
+    display: block;
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
   .ds-doc-banner strong {
     font-size: 23px;
     line-height: 1;
+  }
+  .ds-doc-banner b {
+    display: block;
+    font-size: 24px;
+    white-space: nowrap;
   }
   .ds-doc-meta {
     border: 1px solid currentColor;
