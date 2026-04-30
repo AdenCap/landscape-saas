@@ -127,6 +127,10 @@ class Business(models.Model):
         blank=True,
         help_text="Phone number clients can use to reach you (shown in estimates/emails)"
     )
+    website_url = models.URLField(
+        blank=True,
+        help_text="Website shown on client-facing estimates and invoices",
+    )
     shop_address = models.CharField(
         max_length=300,
         blank=True,

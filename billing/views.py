@@ -1960,7 +1960,17 @@ def _pdf_business_contact_lines(business):
         lines.append(business.contact_phone)
     if business and business.contact_email:
         lines.append(business.contact_email)
+    website = _pdf_business_website(business)
+    if website:
+        lines.append(website)
     return lines
+
+
+def _pdf_business_website(business):
+    if not business or not getattr(business, "website_url", ""):
+        return ""
+    website = str(business.website_url).strip()
+    return website.replace("https://", "").replace("http://", "").rstrip("/")
 
 
 def _pdf_payment_method_lines(business):
@@ -1988,22 +1998,19 @@ def _pdf_customer_address(customer, prop=None):
     return addr
 
 
-def _pdf_draw_footer(p, width, mid, right, business, doc_template, accent, b_font):
-    if doc_template and doc_template.footer_text:
-        footer_lines = _pdf_wrapped_lines(doc_template.footer_text, max_chars=102, max_lines=None)
-        if len(footer_lines) <= 2:
-            p.setFont(b_font, 7)
-            p.setFillColorRGB(0.48, 0.50, 0.46)
-            footer_y = 44
-            for line in footer_lines:
-                p.drawCentredString(mid, footer_y, line)
-                footer_y -= 9
-    p.setFont(b_font, 7)
+def _pdf_draw_footer(p, width, mid, right, business, accent, h_font, b_font):
+    p.setFillColorRGB(0.86, 0.88, 0.83)
+    p.rect(48, 56, width - 96, 0.6, fill=True, stroke=False)
+    p.setFillColorRGB(0.10, 0.11, 0.10)
+    p.setFont(h_font, 8.5)
+    p.drawCentredString(mid, 42, _pdf_ellipsize(business.name if business else "", 70))
+    p.setFont(b_font, 7.6)
     p.setFillColorRGB(0.58, 0.60, 0.56)
-    parts = [business.name] if business else []
-    parts.extend(_pdf_business_contact_lines(business))
-    p.drawCentredString(mid, 28, _pdf_ellipsize("  |  ".join(parts), 105))
-    p.drawRightString(right, 28, _pdf_safe(f"Page {p.getPageNumber()}"))
+    contact_parts = _pdf_business_contact_lines(business)
+    if contact_parts:
+        p.drawCentredString(mid, 30, _pdf_ellipsize("  |  ".join(contact_parts), 105))
+    p.setFont(b_font, 7)
+    p.drawRightString(right, 18, _pdf_safe(f"Page {p.getPageNumber()}"))
     p.setFillColorRGB(*accent)
     p.rect(0, 0, width, 4, fill=True, stroke=False)
 
@@ -2048,7 +2055,7 @@ def _build_modern_estimate_pdf(estimate, business, compact=False):
         p.rect(0, height - 6, width, 6, fill=True, stroke=False)
 
     def draw_footer():
-        _pdf_draw_footer(p, width, mid, right, business, doc_template, accent, b_font)
+        _pdf_draw_footer(p, width, mid, right, business, accent, h_font, b_font)
 
     def draw_table_header(y_top):
         col_service = margin + 14
@@ -2317,20 +2324,6 @@ def _build_modern_estimate_pdf(estimate, business, compact=False):
             b_font=b_font,
             new_page=new_page,
         )
-    if doc_template and doc_template.footer_text:
-        notes_y = _pdf_draw_full_text_section(
-            p,
-            title="Footer Message",
-            text=doc_template.footer_text,
-            x=notes_x,
-            y=notes_y,
-            max_chars=notes_w_chars,
-            accent=accent,
-            text_color=muted,
-            h_font=h_font,
-            b_font=b_font,
-            new_page=new_page,
-        )
     if doc_template and doc_template.custom_fields and estimate.custom_field_values:
         if notes_y < 120:
             notes_y = new_page(table=False)
@@ -2344,6 +2337,22 @@ def _build_modern_estimate_pdf(estimate, business, compact=False):
             if value:
                 label = field_def.get("label") or key.replace("_", " ").title()
                 notes_y = draw_info_line(notes_x, notes_y, label, str(value), width_chars=38)
+    if doc_template and doc_template.footer_text:
+        totals_bottom = y + 12 - totals_h
+        footer_y = min(notes_y, totals_bottom - 18)
+        footer_y = _pdf_draw_full_text_section(
+            p,
+            title="Footer Message",
+            text=doc_template.footer_text,
+            x=margin,
+            y=footer_y,
+            max_chars=92,
+            accent=accent,
+            text_color=muted,
+            h_font=h_font,
+            b_font=b_font,
+            new_page=new_page,
+        )
 
     draw_footer()
     p.showPage()
@@ -2387,7 +2396,7 @@ def _build_modern_invoice_pdf(invoice, request):
         p.rect(0, height - 6, width, 6, fill=True, stroke=False)
 
     def draw_footer():
-        _pdf_draw_footer(p, width, mid, right, business, doc_template, accent, b_font)
+        _pdf_draw_footer(p, width, mid, right, business, accent, h_font, b_font)
 
     def new_page(table=False):
         draw_footer()
@@ -2644,20 +2653,6 @@ def _build_modern_invoice_pdf(invoice, request):
             b_font=b_font,
             new_page=new_page,
         )
-    if doc_template and doc_template.footer_text:
-        notes_y = _pdf_draw_full_text_section(
-            p,
-            title="Footer Message",
-            text=doc_template.footer_text,
-            x=notes_x,
-            y=notes_y,
-            max_chars=notes_w_chars,
-            accent=accent,
-            text_color=muted,
-            h_font=h_font,
-            b_font=b_font,
-            new_page=new_page,
-        )
     if doc_template and doc_template.custom_fields and invoice.custom_field_values:
         if notes_y < 120:
             notes_y = new_page(table=False)
@@ -2671,6 +2666,22 @@ def _build_modern_invoice_pdf(invoice, request):
             if value:
                 label = field_def.get("label") or key.replace("_", " ").title()
                 notes_y = draw_info_line(notes_x, notes_y, label, str(value), width_chars=38)
+    if doc_template and doc_template.footer_text:
+        totals_bottom = y + 12 - totals_h
+        footer_y = min(notes_y, totals_bottom - 18)
+        footer_y = _pdf_draw_full_text_section(
+            p,
+            title="Footer Message",
+            text=doc_template.footer_text,
+            x=margin,
+            y=footer_y,
+            max_chars=92,
+            accent=accent,
+            text_color=muted,
+            h_font=h_font,
+            b_font=b_font,
+            new_page=new_page,
+        )
 
     draw_footer()
     p.showPage()

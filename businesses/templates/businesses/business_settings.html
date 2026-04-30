@@ -164,6 +164,12 @@
             {{ form.contact_phone.errors }}
           </div>
           <div class="field">
+            <label for="{{ form.website_url.id_for_label }}">Website</label>
+            {{ form.website_url }}
+            {{ form.website_url.errors }}
+            <p class="field-help">Optional. Shown in the footer of estimates and invoices.</p>
+          </div>
+          <div class="field">
             <label for="{{ form.shop_address.id_for_label }}">Shop / Office Address</label>
             {{ form.shop_address }}
             {{ form.shop_address.errors }}
@@ -487,7 +493,7 @@
             </div>
             <div>
               <strong>{{ business.name }}</strong>
-              <small>{{ business.contact_phone|default:"Phone not set" }}</small>
+              <small>{{ business.contact_phone|default:"Phone not set" }}{% if business.website_url %} · {{ business.website_url }}{% endif %}</small>
             </div>
           </div>
           <div class="documents-preview-title">

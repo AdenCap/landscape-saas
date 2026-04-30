@@ -145,6 +145,10 @@ class DocumentTemplateStudioTests(TestCase):
             phone="555-0100",
         )
         self.client.force_login(self.owner)
+        self.business.contact_phone = "555-0111"
+        self.business.contact_email = "office@greenvalley.test"
+        self.business.website_url = "https://greenvalley.test"
+        self.business.save(update_fields=["contact_phone", "contact_email", "website_url"])
 
     def test_owner_can_save_visible_template_options(self):
         response = self.client.post(
@@ -264,6 +268,7 @@ class DocumentTemplateStudioTests(TestCase):
         drawn_texts = [call.kwargs["text"] for call in draw_section.call_args_list if "text" in call.kwargs]
         for expected in [long_header, long_terms, long_payment, long_footer]:
             self.assertIn(expected, drawn_texts)
+        self.assertIn("greenvalley.test", billing_views._pdf_business_contact_lines(self.business))
 
     def test_client_accept_includes_selected_optional_items(self):
         estimate = Estimate.objects.create(

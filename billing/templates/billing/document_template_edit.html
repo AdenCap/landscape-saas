@@ -254,7 +254,7 @@
             <div>
               <span>Prepared by</span>
               <strong>{{ business.name }}</strong>
-              <small>{{ business.contact_phone|default:"555-0100" }}</small>
+              <small>{{ business.contact_phone|default:"555-0100" }}{% if business.website_url %} · {{ business.website_url }}{% endif %}</small>
             </div>
           </section>
           <table>

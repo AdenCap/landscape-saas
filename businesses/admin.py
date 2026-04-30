@@ -21,9 +21,9 @@ class UserInline(admin.TabularInline):
 
 @admin.register(Business)
 class BusinessAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'from_email', 'contact_email', 'contact_phone', 'employee_count', 'created_at')
+    list_display = ('id', 'name', 'from_email', 'contact_email', 'contact_phone', 'website_url', 'employee_count', 'created_at')
     list_filter = ()
-    search_fields = ('name', 'contact_email', 'from_email', 'email_smtp_user')
+    search_fields = ('name', 'contact_email', 'contact_phone', 'website_url', 'from_email', 'email_smtp_user')
     ordering = ('name',)
     inlines = [UserInline]
 
@@ -33,7 +33,7 @@ class BusinessAdmin(admin.ModelAdmin):
             'description': 'Deleting this company will permanently delete all associated users, customers, properties, jobs, crews, invoices, estimates, time entries, and other data. Use with caution.',
         }),
         ('Email / SMTP (sending estimates)', {
-            'fields': ('email_smtp_user', 'email_smtp_password', 'from_email', 'contact_email', 'contact_phone'),
+            'fields': ('email_smtp_user', 'email_smtp_password', 'from_email', 'contact_email', 'contact_phone', 'website_url'),
         }),
         ('Invoicing', {
             'fields': ('auto_invoice', 'default_invoice_due_days', 'venmo_username', 'zelle_email_or_phone', 'cashapp_cashtag'),
