@@ -220,12 +220,18 @@
         <div class="ds-doc-bar"></div>
         <div class="ds-doc-inner">
           <header>
-            <div>
-              {% if logo_url %}
-                <img src="{{ logo_url }}" alt="{{ business.name }} logo" onerror="this.style.display='none'">
-              {% endif %}
-              <strong>{{ business.name }}</strong>
-              <small id="preview-header-text"></small>
+            <div class="ds-doc-brand">
+              <span class="ds-doc-logo-slot">
+                {% if logo_url %}
+                  <img src="{{ logo_url }}" alt="{{ business.name }} logo" onerror="this.style.display='none'">
+                {% else %}
+                  {{ business.name|slice:":1"|upper }}
+                {% endif %}
+              </span>
+              <span>
+                <strong>{{ business.name }}</strong>
+                <small id="preview-header-text"></small>
+              </span>
             </div>
             <div>
               <b>{{ doc_type|upper }}</b>
@@ -730,21 +736,43 @@
     display: grid;
     gap: 16px;
   }
-  .ds-doc-inner header,
-  .ds-doc-meta,
-  .ds-doc-banner,
-  .ds-total {
-    display: flex;
-    justify-content: space-between;
-    gap: 14px;
-  }
-  .ds-doc-inner header img {
-    max-height: 42px;
-    max-width: 130px;
-    object-fit: contain;
-    display: block;
-    margin-bottom: 8px;
-  }
+	  .ds-doc-inner header,
+	  .ds-doc-meta,
+	  .ds-doc-banner,
+	  .ds-total {
+	    display: flex;
+	    justify-content: space-between;
+	    gap: 14px;
+	  }
+	  .ds-doc-brand {
+	    display: flex;
+	    align-items: center;
+	    gap: 12px;
+	    min-width: 0;
+	  }
+	  .ds-doc-logo-slot {
+	    width: 92px;
+	    height: 46px;
+	    border-radius: 14px;
+	    border: 1px solid rgba(255,255,255,.16);
+	    background: #f7f8f4;
+	    color: #081007;
+	    display: grid;
+	    place-items: center;
+	    flex: 0 0 auto;
+	    font-weight: 950;
+	  }
+	  .clean_light .ds-doc-logo-slot {
+	    border-color: #dce2d7;
+	    background: #ffffff;
+	  }
+	  .ds-doc-inner header img {
+	    max-height: 32px;
+	    max-width: 76px;
+	    object-fit: contain;
+	    display: block;
+	    margin: 0;
+	  }
   .ds-doc-inner header strong,
   .ds-doc-inner header b {
     display: block;
@@ -765,13 +793,17 @@
   .clean_light .ds-doc-extra {
     color: #66705f;
   }
-  .ds-doc-banner {
-    border-radius: 20px;
-    padding: 18px;
-    background: var(--preview-accent);
-    color: #081007;
-    align-items: end;
-  }
+	  .ds-doc-banner {
+	    border-radius: 20px;
+	    padding: 18px;
+	    background: #f7f8f4;
+	    color: #081007;
+	    border-left: 8px solid var(--preview-accent);
+	    align-items: end;
+	  }
+	  .clean_light .ds-doc-banner {
+	    background: #ffffff;
+	  }
   .ds-doc-banner small {
     display: block;
     font-size: 10px;

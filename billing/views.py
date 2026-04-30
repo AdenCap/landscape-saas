@@ -1800,13 +1800,111 @@ def _pdf_logo_or_mark(p, business, x, y_top, accent, h_font, max_height=38, max_
     if business and business.logo:
         drawn = _draw_pdf_logo(p, business, x=x, y_top=y_top, max_height=max_height, max_width=max_width)
     if drawn:
-        return
+        return True
     p.setFillColorRGB(*accent)
     p.roundRect(x, y_top - 30, 30, 30, 8, fill=True, stroke=False)
     p.setFillColorRGB(1, 1, 1)
     p.setFont(h_font, 13)
     initial = _pdf_safe((business.name if business else "F")[:1].upper())
     p.drawCentredString(x + 15, y_top - 20, initial)
+    return False
+
+
+def _pdf_document_hero(
+    p,
+    *,
+    business,
+    margin,
+    right,
+    content_w,
+    hero_y,
+    dark,
+    paper,
+    accent,
+    border,
+    muted,
+    h_font,
+    b_font,
+    document_title,
+    document_meta,
+    header_text,
+    amount_label,
+    amount_value,
+    summary_title,
+    summary_text,
+):
+    p.setFillColorRGB(*dark)
+    p.roundRect(margin, hero_y - 140, content_w, 140, 20, fill=True, stroke=False)
+
+    logo_box_x = margin + 18
+    logo_box_y = hero_y - 66
+    logo_box_w = 116
+    logo_box_h = 48
+    has_logo = bool(getattr(business, "logo", None)) if business else False
+    if has_logo:
+        p.setFillColorRGB(*paper)
+        p.roundRect(logo_box_x, logo_box_y, logo_box_w, logo_box_h, 12, fill=True, stroke=False)
+        p.setStrokeColorRGB(*border)
+        p.setLineWidth(0.6)
+        p.roundRect(logo_box_x, logo_box_y, logo_box_w, logo_box_h, 12, stroke=True, fill=False)
+        logo_drawn = _pdf_logo_or_mark(
+            p,
+            business,
+            logo_box_x + 10,
+            logo_box_y + logo_box_h - 8,
+            accent,
+            h_font,
+            max_height=30,
+            max_width=96,
+        )
+        brand_x = logo_box_x + logo_box_w + 14 if logo_drawn else logo_box_x + 48
+    else:
+        _pdf_logo_or_mark(p, business, logo_box_x, hero_y - 20, accent, h_font, max_height=30, max_width=30)
+        brand_x = logo_box_x + 48
+
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont(h_font, 13)
+    p.drawString(brand_x, hero_y - 41, _pdf_ellipsize(business.name if business else "", 28))
+    p.setFont(b_font, 8.3)
+    p.setFillColorRGB(0.70, 0.73, 0.67)
+    p.drawString(brand_x, hero_y - 56, _pdf_ellipsize(header_text, 42))
+
+    p.setFont(h_font, 25)
+    p.setFillColorRGB(1, 1, 1)
+    p.drawRightString(right - 18, hero_y - 34, document_title)
+    p.setFont(b_font, 8.5)
+    p.setFillColorRGB(0.70, 0.73, 0.67)
+    meta_y = hero_y - 51
+    for line in document_meta[:2]:
+        p.drawRightString(right - 18, meta_y, _pdf_safe(line))
+        meta_y -= 13
+
+    amount_w = 178
+    amount_h = 56
+    amount_x = right - amount_w - 18
+    amount_y = hero_y - 124
+    p.setFillColorRGB(*paper)
+    p.roundRect(amount_x, amount_y, amount_w, amount_h, 14, fill=True, stroke=False)
+    p.setStrokeColorRGB(*border)
+    p.setLineWidth(0.6)
+    p.roundRect(amount_x, amount_y, amount_w, amount_h, 14, stroke=True, fill=False)
+    p.setFillColorRGB(*accent)
+    p.roundRect(amount_x, amount_y, 7, amount_h, 4, fill=True, stroke=False)
+    p.setFillColorRGB(*dark)
+    p.setFont(h_font, 8.5)
+    p.drawString(amount_x + 18, amount_y + 34, _pdf_safe(amount_label.upper(), 28))
+    p.setFont(h_font, 18)
+    p.drawRightString(amount_x + amount_w - 14, amount_y + 16, amount_value)
+
+    summary_x = margin + 24
+    summary_right = amount_x - 18
+    summary_chars = max(34, int((summary_right - summary_x) / 4.8))
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont(h_font, 13)
+    p.drawString(summary_x, hero_y - 94, _pdf_ellipsize(summary_title, summary_chars))
+    p.setFont(b_font, 8.6)
+    p.setFillColorRGB(0.70, 0.73, 0.67)
+    p.drawString(summary_x, hero_y - 111, _pdf_ellipsize(summary_text, summary_chars + 12))
 
 
 def _pdf_business_contact_lines(business):
@@ -1951,35 +2049,30 @@ def _build_modern_estimate_pdf(estimate, business, compact=False):
     draw_page_base()
 
     hero_y = 748
-    p.setFillColorRGB(*dark)
-    p.roundRect(margin, hero_y - 140, content_w, 140, 20, fill=True, stroke=False)
-    _pdf_logo_or_mark(p, business, margin + 18, hero_y - 20, accent, h_font, max_height=34, max_width=108)
-    p.setFillColorRGB(1, 1, 1)
-    p.setFont(h_font, 13)
-    p.drawString(margin + 64, hero_y - 40, _pdf_safe(business.name if business else "", 42))
-    p.setFont(b_font, 8.5)
-    p.setFillColorRGB(0.70, 0.73, 0.67)
     header_text = doc_template.header_text if doc_template and doc_template.header_text else "Landscape service proposal"
-    p.drawString(margin + 64, hero_y - 55, _pdf_ellipsize(header_text, 58))
-
-    p.setFont(h_font, 25)
-    p.setFillColorRGB(1, 1, 1)
-    p.drawRightString(right - 18, hero_y - 34, "ESTIMATE")
-    p.setFont(b_font, 8.5)
-    p.setFillColorRGB(0.70, 0.73, 0.67)
-    p.drawRightString(right - 18, hero_y - 51, _pdf_safe(f"# {est_num}"))
-    p.drawRightString(right - 18, hero_y - 64, _pdf_safe(f"Issued {_pdf_date(estimate.created_at)}"))
-
-    p.setFillColorRGB(*accent)
-    p.roundRect(margin + 18, hero_y - 118, content_w - 36, 42, 12, fill=True, stroke=False)
-    p.setFillColorRGB(*dark)
-    p.setFont(h_font, 10)
-    p.drawString(margin + 34, hero_y - 94, "ESTIMATED TOTAL")
-    p.setFont(h_font, 18)
-    p.drawRightString(right - 34, hero_y - 94, _pdf_money(grand_total))
-    p.setFont(b_font, 8.8)
     summary = estimate.notes.split("\n")[0] if estimate.notes else "Prepared for your property and ready for review."
-    p.drawString(margin + 34, hero_y - 110, _pdf_ellipsize(estimate.title or summary, 68))
+    _pdf_document_hero(
+        p,
+        business=business,
+        margin=margin,
+        right=right,
+        content_w=content_w,
+        hero_y=hero_y,
+        dark=dark,
+        paper=paper,
+        accent=accent,
+        border=border,
+        muted=muted,
+        h_font=h_font,
+        b_font=b_font,
+        document_title="ESTIMATE",
+        document_meta=[f"# {est_num}", f"Issued {_pdf_date(estimate.created_at)}"],
+        header_text=header_text,
+        amount_label="Estimated Total",
+        amount_value=_pdf_money(grand_total),
+        summary_title=estimate.title or summary,
+        summary_text=summary,
+    )
 
     y = hero_y - 168
     card_gap = 14
@@ -2127,11 +2220,12 @@ def _build_modern_estimate_pdf(estimate, business, compact=False):
         deposit_due = estimate.deposit_dollar_amount() or Decimal("0")
         ty = draw_summary_line(totals_x + 14, ty, "Deposit due", _pdf_money(deposit_due))
     ty -= 6
-    p.setFillColorRGB(*accent)
-    p.roundRect(totals_x, ty - 27, totals_w, 46, 10, fill=True, stroke=False)
     p.setFillColorRGB(*dark)
+    p.roundRect(totals_x, ty - 27, totals_w, 46, 10, fill=True, stroke=False)
+    p.setFillColorRGB(1, 1, 1)
     p.setFont(h_font, 12)
     p.drawString(totals_x + 14, ty - 5, "Estimated Total")
+    p.setFillColorRGB(*accent)
     p.setFont(h_font, 16)
     p.drawRightString(totals_x + totals_w - 14, ty - 6, _pdf_money(grand_total))
 
@@ -2243,34 +2337,29 @@ def _build_modern_invoice_pdf(invoice, request):
     draw_page_base()
 
     hero_y = 748
-    p.setFillColorRGB(*dark)
-    p.roundRect(margin, hero_y - 140, content_w, 140, 20, fill=True, stroke=False)
-    _pdf_logo_or_mark(p, business, margin + 18, hero_y - 20, accent, h_font, max_height=34, max_width=108)
-    p.setFillColorRGB(1, 1, 1)
-    p.setFont(h_font, 13)
-    p.drawString(margin + 64, hero_y - 40, _pdf_safe(business.name if business else "", 42))
-    p.setFont(b_font, 8.5)
-    p.setFillColorRGB(0.70, 0.73, 0.67)
     header_text = doc_template.header_text if doc_template and doc_template.header_text else "Landscape service invoice"
-    p.drawString(margin + 64, hero_y - 55, _pdf_ellipsize(header_text, 58))
-
-    p.setFont(h_font, 25)
-    p.setFillColorRGB(1, 1, 1)
-    p.drawRightString(right - 18, hero_y - 34, "INVOICE")
-    p.setFont(b_font, 8.5)
-    p.setFillColorRGB(0.70, 0.73, 0.67)
-    p.drawRightString(right - 18, hero_y - 51, _pdf_safe(f"#{invoice.id}"))
-    p.drawRightString(right - 18, hero_y - 64, _pdf_safe(f"Issued {_pdf_date(invoice.issue_date)}"))
-
-    p.setFillColorRGB(*accent)
-    p.roundRect(margin + 18, hero_y - 118, content_w - 36, 42, 12, fill=True, stroke=False)
-    p.setFont(h_font, 10)
-    p.setFillColorRGB(*dark)
-    p.drawString(margin + 34, hero_y - 94, "PAID IN FULL" if invoice.status == "paid" else "AMOUNT DUE")
-    p.setFont(h_font, 18)
-    p.drawRightString(right - 34, hero_y - 94, _pdf_money(balance_due if invoice.status != "paid" else invoice_total))
-    p.setFont(b_font, 8.8)
-    p.drawString(margin + 34, hero_y - 110, _pdf_ellipsize(first_desc, 68))
+    _pdf_document_hero(
+        p,
+        business=business,
+        margin=margin,
+        right=right,
+        content_w=content_w,
+        hero_y=hero_y,
+        dark=dark,
+        paper=paper,
+        accent=accent,
+        border=border,
+        muted=muted,
+        h_font=h_font,
+        b_font=b_font,
+        document_title="INVOICE",
+        document_meta=[f"#{invoice.id}", f"Issued {_pdf_date(invoice.issue_date)}"],
+        header_text=header_text,
+        amount_label="Paid in Full" if invoice.status == "paid" else "Amount Due",
+        amount_value=_pdf_money(balance_due if invoice.status != "paid" else invoice_total),
+        summary_title=first_desc,
+        summary_text=service_period and f"Service period {service_period}" or "Line-item invoice ready for payment.",
+    )
 
     y = hero_y - 168
     card_gap = 14
@@ -2400,11 +2489,12 @@ def _build_modern_invoice_pdf(invoice, request):
     if paid_line_total:
         ty = draw_summary_line(totals_x + 14, ty, "Paid", f"-{_pdf_money(paid_line_total)}")
     ty -= 6
-    p.setFillColorRGB(*accent)
-    p.roundRect(totals_x, ty - 27, totals_w, 46, 10, fill=True, stroke=False)
     p.setFillColorRGB(*dark)
+    p.roundRect(totals_x, ty - 27, totals_w, 46, 10, fill=True, stroke=False)
+    p.setFillColorRGB(1, 1, 1)
     p.setFont(h_font, 12)
     p.drawString(totals_x + 14, ty - 5, "PAID IN FULL" if invoice.status == "paid" else "Balance Due")
+    p.setFillColorRGB(*accent)
     p.setFont(h_font, 16)
     p.drawRightString(totals_x + totals_w - 14, ty - 6, _pdf_money(Decimal("0") if invoice.status == "paid" else balance_due))
 
