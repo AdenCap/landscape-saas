@@ -253,7 +253,8 @@ class DocumentTemplateStudioTests(TestCase):
 
         from billing import views as billing_views
 
-        with patch("billing.views._pdf_draw_full_text_section", wraps=billing_views._pdf_draw_full_text_section) as draw_section:
+        with patch("billing.views._pdf_draw_full_text_section", wraps=billing_views._pdf_draw_full_text_section) as draw_section, \
+             patch("billing.views._pdf_draw_closing_footer_message", wraps=billing_views._pdf_draw_closing_footer_message) as draw_footer_message:
             estimate_response = self.client.get(reverse("billing:estimate_pdf", args=[estimate.id]) + "?inline=1")
             invoice_response = self.client.get(reverse("billing:invoice_pdf", args=[invoice.id]) + "?inline=1")
 
@@ -266,8 +267,11 @@ class DocumentTemplateStudioTests(TestCase):
         self.assertGreater(len(estimate_bytes), 1000)
         self.assertGreater(len(invoice_bytes), 1000)
         drawn_texts = [call.kwargs["text"] for call in draw_section.call_args_list if "text" in call.kwargs]
-        for expected in [long_header, long_terms, long_payment, long_footer]:
+        for expected in [long_header, long_terms, long_payment]:
             self.assertIn(expected, drawn_texts)
+        self.assertNotIn(long_footer, drawn_texts)
+        footer_texts = [call.args[2] for call in draw_footer_message.call_args_list]
+        self.assertEqual(footer_texts.count(long_footer), 2)
         self.assertIn("greenvalley.test", billing_views._pdf_business_contact_lines(self.business))
 
     def test_client_accept_includes_selected_optional_items(self):

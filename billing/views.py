@@ -2015,6 +2015,30 @@ def _pdf_draw_footer(p, width, mid, right, business, accent, h_font, b_font):
     p.rect(0, 0, width, 4, fill=True, stroke=False)
 
 
+def _pdf_footer_message_lines(text):
+    return _pdf_wrapped_lines(text, max_chars=104, max_lines=None)
+
+
+def _pdf_footer_message_top(text, bottom_y=68, leading=9):
+    lines = _pdf_footer_message_lines(text)
+    if not lines:
+        return bottom_y
+    return bottom_y + (len(lines) - 1) * leading
+
+
+def _pdf_draw_closing_footer_message(p, width, text, b_font, muted, bottom_y=68, leading=9):
+    lines = _pdf_footer_message_lines(text)
+    if not lines:
+        return
+    p.setFont(b_font, 7.4)
+    p.setFillColorRGB(*muted)
+    y = _pdf_footer_message_top(text, bottom_y=bottom_y, leading=leading)
+    mid = width / 2
+    for line in lines:
+        p.drawCentredString(mid, y, line)
+        y -= leading
+
+
 def _build_modern_estimate_pdf(estimate, business, compact=False):
     """Build the premium, client-facing estimate PDF."""
     from io import BytesIO
@@ -2338,21 +2362,12 @@ def _build_modern_estimate_pdf(estimate, business, compact=False):
                 label = field_def.get("label") or key.replace("_", " ").title()
                 notes_y = draw_info_line(notes_x, notes_y, label, str(value), width_chars=38)
     if doc_template and doc_template.footer_text:
-        totals_bottom = y + 12 - totals_h
-        footer_y = min(notes_y, totals_bottom - 18)
-        footer_y = _pdf_draw_full_text_section(
-            p,
-            title="Footer Message",
-            text=doc_template.footer_text,
-            x=margin,
-            y=footer_y,
-            max_chars=92,
-            accent=accent,
-            text_color=muted,
-            h_font=h_font,
-            b_font=b_font,
-            new_page=new_page,
-        )
+        message_top = _pdf_footer_message_top(doc_template.footer_text)
+        if notes_y < message_top + 16:
+            draw_footer()
+            p.showPage()
+            draw_page_base()
+        _pdf_draw_closing_footer_message(p, width, doc_template.footer_text, b_font, muted)
 
     draw_footer()
     p.showPage()
@@ -2667,21 +2682,12 @@ def _build_modern_invoice_pdf(invoice, request):
                 label = field_def.get("label") or key.replace("_", " ").title()
                 notes_y = draw_info_line(notes_x, notes_y, label, str(value), width_chars=38)
     if doc_template and doc_template.footer_text:
-        totals_bottom = y + 12 - totals_h
-        footer_y = min(notes_y, totals_bottom - 18)
-        footer_y = _pdf_draw_full_text_section(
-            p,
-            title="Footer Message",
-            text=doc_template.footer_text,
-            x=margin,
-            y=footer_y,
-            max_chars=92,
-            accent=accent,
-            text_color=muted,
-            h_font=h_font,
-            b_font=b_font,
-            new_page=new_page,
-        )
+        message_top = _pdf_footer_message_top(doc_template.footer_text)
+        if notes_y < message_top + 16:
+            draw_footer()
+            p.showPage()
+            draw_page_base()
+        _pdf_draw_closing_footer_message(p, width, doc_template.footer_text, b_font, muted)
 
     draw_footer()
     p.showPage()
