@@ -69,6 +69,23 @@
           Send all drafts
         </button>
       </form>
+      <form method="post" action="{% url 'billing:monthly_invoice_build_missing' %}" class="batch-build-form" onsubmit="return confirm('Build draft monthly invoices for completed, unbilled work in the selected month?');">
+        {% csrf_token %}
+        <select name="month" aria-label="Month to build">
+          {% for value,label in months %}
+          <option value="{{ value }}" {% if build_month == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <select name="year" aria-label="Year to build">
+          {% for y in years %}
+          <option value="{{ y }}" {% if build_year == y %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="batch-secondary-action">
+          <span class="material-symbols-outlined">playlist_add_check</span>
+          Build missing drafts
+        </button>
+      </form>
     </section>
 
     <form method="post" action="{% url 'billing:monthly_invoice_batch_send' %}" class="batch-panel">
@@ -285,7 +302,8 @@
     border-radius: 28px;
     padding: 14px;
   }
-  .batch-filter-form {
+  .batch-filter-form,
+  .batch-build-form {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -297,7 +315,8 @@
     letter-spacing: .16em;
     text-transform: uppercase;
   }
-  .batch-filter-form select {
+  .batch-filter-form select,
+  .batch-build-form select {
     min-height: 44px;
     border: 1px solid rgba(255,255,255,.16);
     border-radius: 999px;
@@ -431,7 +450,8 @@
     }
     .batch-hero-actions,
     .batch-panel-head .batch-primary-action,
-    .batch-toolbar .batch-secondary-action {
+    .batch-toolbar .batch-secondary-action,
+    .batch-build-form {
       width: 100%;
     }
     .batch-stat-grid {
@@ -503,10 +523,15 @@
       gap: 12px;
       border-radius: 26px;
     }
-    .batch-filter-form {
+    .batch-filter-form,
+    .batch-build-form {
       justify-content: space-between;
     }
-    .batch-filter-form select {
+    .batch-build-form {
+      flex-wrap: wrap;
+    }
+    .batch-filter-form select,
+    .batch-build-form select {
       min-width: 148px;
     }
     .batch-panel {

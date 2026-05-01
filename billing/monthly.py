@@ -78,3 +78,60 @@ def generate_monthly_invoice_for_customer(customer, year, month, include_job=Non
 
     invoice.recompute_totals()
     return invoice
+
+
+def build_missing_monthly_invoices_for_period(business, year, month):
+    """
+    Sweep completed, unbilled service items into draft monthly invoices.
+
+    This is intentionally idempotent: only JobServiceItem rows without a
+    billed_invoice are collected, so re-running it will not duplicate invoice
+    lines that have already been attached to an invoice.
+    """
+    from django.db.models import Q
+    from customers.models import Customer
+    from jobs.models import JobServiceItem
+
+    period_start = date(year, month, 1)
+    period_end = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+    uses_monthly_default = getattr(business, "default_invoice_automation_mode", "") == "monthly"
+    monthly_customer_filter = Q(invoice_frequency="monthly")
+    if uses_monthly_default:
+        monthly_customer_filter |= Q(invoice_frequency="")
+
+    customers = (
+        Customer.objects.filter(business=business)
+        .filter(monthly_customer_filter)
+        .filter(
+            properties__jobs__status="completed",
+            properties__jobs__scheduled_date__gte=period_start,
+            properties__jobs__scheduled_date__lt=period_end,
+            properties__jobs__service_items__billed_invoice__isnull=True,
+        )
+        .distinct()
+        .order_by("name", "id")
+    )
+
+    invoices = []
+    items_added = 0
+    for customer in customers:
+        pending_count = JobServiceItem.objects.filter(
+            job__property__customer=customer,
+            job__status="completed",
+            job__scheduled_date__gte=period_start,
+            job__scheduled_date__lt=period_end,
+            billed_invoice__isnull=True,
+        ).count()
+        if not pending_count:
+            continue
+        invoice = generate_monthly_invoice_for_customer(customer, year, month)
+        invoices.append(invoice)
+        items_added += pending_count
+
+    return {
+        "period_start": period_start,
+        "period_end": period_end,
+        "invoices": invoices,
+        "invoice_count": len(invoices),
+        "items_added": items_added,
+    }

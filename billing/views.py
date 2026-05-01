@@ -74,6 +74,7 @@ from .forms import (
     _compute_mulch,
 )
 from .services import auto_charge_invoice_card
+from .monthly import build_missing_monthly_invoices_for_period
 
 @role_required("owner", "manager")
 def invoice_list_view(request):
@@ -232,7 +233,13 @@ def monthly_invoice_list(request):
     from datetime import date as date_type
     from django.utils import timezone as tz
     today = tz.localdate()
+    build_period = today.replace(day=1) - timedelta(days=1)
     years = [today.year, today.year - 1, today.year - 2]
+    months = [
+        (1, "January"), (2, "February"), (3, "March"), (4, "April"),
+        (5, "May"), (6, "June"), (7, "July"), (8, "August"),
+        (9, "September"), (10, "October"), (11, "November"), (12, "December"),
+    ]
     monthly_for_stats = list(monthly[:100])
     draft_invoices = [inv for inv in monthly_for_stats if inv.status == "draft"]
     sent_invoices = [inv for inv in monthly_for_stats if inv.status == "sent"]
@@ -262,7 +269,43 @@ def monthly_invoice_list(request):
         "year_param": year_param,
         "year_int": year_int,
         "years": years,
+        "months": months,
+        "build_year": build_period.year,
+        "build_month": build_period.month,
     })
+
+
+@require_POST
+@role_required("owner", "manager")
+def monthly_invoice_build_missing(request):
+    """Build draft monthly invoices for completed, unbilled work in a selected month."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    today = timezone.localdate()
+    default_period = today.replace(day=1) - timedelta(days=1)
+    try:
+        year = int(request.POST.get("year") or default_period.year)
+        month = int(request.POST.get("month") or default_period.month)
+        if month < 1 or month > 12:
+            raise ValueError
+    except (TypeError, ValueError):
+        messages.error(request, "Choose a valid month to build monthly drafts.")
+        return redirect("billing:monthly_invoice_list")
+
+    result = build_missing_monthly_invoices_for_period(business, year, month)
+    if result["items_added"]:
+        messages.success(
+            request,
+            f"Built {result['invoice_count']} monthly draft invoice"
+            f"{'' if result['invoice_count'] == 1 else 's'} with {result['items_added']} completed service item"
+            f"{'' if result['items_added'] == 1 else 's'} ready for review.",
+        )
+    else:
+        messages.info(request, "No completed unbilled monthly services were found for that month.")
+    return redirect(f"{reverse('billing:monthly_invoice_list')}?year={year}")
 
 
 @role_required("owner", "manager")

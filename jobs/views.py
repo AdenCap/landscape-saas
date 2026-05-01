@@ -1952,17 +1952,27 @@ def complete_job(request, job_id):
     except Exception:
         pass  # notification failures should never block completion
 
+    customer = job.property.customer
+    business = getattr(customer, "business", None)
+    freq = (getattr(customer, "invoice_frequency", None) or "").strip()
+    if not freq and business:
+        freq = (getattr(business, "default_invoice_automation_mode", None) or "").strip()
+    has_items = job.service_items.exists()
+    monthly_invoice = None
+    if has_items and freq == "monthly":
+        d = job.scheduled_date or _business_today(business)
+        monthly_invoice = generate_monthly_invoice_for_customer(customer, d.year, d.month, include_job=job)
+
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return JsonResponse({"status": "ok", "redirect": None})
+        payload = {"status": "ok", "redirect": None}
+        if monthly_invoice:
+            payload.update({
+                "billing_status": "monthly_invoice_queued",
+                "invoice_id": monthly_invoice.id,
+            })
+        return JsonResponse(payload)
 
     if request.user.role in ("owner", "manager"):
-        customer = job.property.customer
-        business = getattr(customer, "business", None)
-        freq = (getattr(customer, "invoice_frequency", None) or "").strip()
-        if not freq and business:
-            freq = (getattr(business, "default_invoice_automation_mode", None) or "").strip()
-        has_items = job.service_items.exists()
-
         if has_items and freq == "per_service":
             invoice = create_draft_invoice_for_job(job)
             if invoice is None:
@@ -1999,16 +2009,18 @@ def complete_job(request, job_id):
                 )
             return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
-        if has_items and freq == "monthly":
+        if monthly_invoice:
             d = job.scheduled_date or _business_today(business)
-            invoice = generate_monthly_invoice_for_customer(customer, d.year, d.month, include_job=job)
             messages.success(
                 request,
-                f"Job completed. Added to {customer.name}'s monthly invoice for {d.strftime('%B %Y')} (Invoice #{invoice.id}).",
+                f"Job completed. Added to {customer.name}'s monthly invoice for {d.strftime('%B %Y')} (Invoice #{monthly_invoice.id}).",
             )
-            return redirect("billing:invoice_detail", invoice_id=invoice.id)
+            return redirect("billing:invoice_detail", invoice_id=monthly_invoice.id)
 
         return redirect("job_billing_options", job_id=job_id)
+    if monthly_invoice:
+        messages.success(request, "Job completed and queued for monthly billing.")
+        return redirect("crew_today")
     messages.success(request, "Job completed. The owner will handle billing.")
     return redirect("crew_today")
 

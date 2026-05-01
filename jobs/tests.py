@@ -661,3 +661,56 @@ class JobCompletionAutoChargeTests(TestCase):
         self.assertEqual(invoice.status, "draft")
         self.assertEqual(invoice.customer, self.customer)
         self.assertEqual(invoice.total, Decimal("85.00"))
+
+
+class MonthlyBillingCompletionTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(
+            name="Green Valley",
+            subscription_status="active",
+        )
+        self.owner = User.objects.create_user(
+            username="monthly-owner",
+            password="password",
+            role="owner",
+            business=self.business,
+        )
+        self.customer = Customer.objects.create(
+            business=self.business,
+            name="Monthly Client",
+            invoice_frequency="monthly",
+        )
+        self.property = Property.objects.create(customer=self.customer, address="42 April Ave")
+        self.service = ServiceTemplate.objects.create(
+            business=self.business,
+            name="Mowing",
+            default_rate=Decimal("90.00"),
+        )
+        self.job = Job.objects.create(
+            property=self.property,
+            scheduled_date=date(2026, 4, 22),
+            status="scheduled",
+        )
+        self.item = JobServiceItem.objects.create(
+            job=self.job,
+            service=self.service,
+            description="Mowing",
+            quantity=Decimal("1.00"),
+            unit_price=Decimal("90.00"),
+        )
+        self.client.force_login(self.owner)
+
+    def test_ajax_owner_completion_adds_job_to_monthly_invoice_queue(self):
+        response = self.client.post(
+            reverse("complete_job", args=[self.job.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.job.refresh_from_db()
+        self.item.refresh_from_db()
+        invoice = Invoice.objects.get(customer=self.customer, period_start=date(2026, 4, 1))
+        self.assertEqual(self.job.status, "completed")
+        self.assertEqual(invoice.status, "draft")
+        self.assertEqual(invoice.total, Decimal("90.00"))
+        self.assertEqual(self.item.billed_invoice, invoice)

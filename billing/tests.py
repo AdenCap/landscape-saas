@@ -7,7 +7,9 @@ from django.urls import reverse
 
 from accounts.models import User
 from businesses.models import Business
-from customers.models import Customer, ClientMessage
+from customers.models import Customer, ClientMessage, Property
+from jobs.models import Job, JobServiceItem
+from pricing.models import ServiceTemplate
 from billing.models import (
     DocumentTemplate,
     Estimate,
@@ -127,6 +129,67 @@ class InvoiceLineItemPaymentTests(TestCase):
         redemption = PromotionRedemption.objects.get(promotion=promo, invoice=self.invoice)
         self.assertEqual(redemption.customer, self.customer)
         self.assertEqual(redemption.discount_amount, Decimal("25.00"))
+
+
+class MonthlyInvoiceRepairTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(
+            name="Green Valley",
+            subscription_status="active",
+        )
+        self.owner = User.objects.create_user(
+            username="monthly-repair-owner",
+            password="password",
+            role="owner",
+            business=self.business,
+        )
+        self.customer = Customer.objects.create(
+            business=self.business,
+            name="April Monthly Client",
+            invoice_frequency="monthly",
+        )
+        self.property = Property.objects.create(customer=self.customer, address="42 April Ave")
+        self.service = ServiceTemplate.objects.create(
+            business=self.business,
+            name="Mowing",
+            default_rate=Decimal("110.00"),
+        )
+        self.client.force_login(self.owner)
+
+    def _completed_job_item(self, scheduled_date, amount=Decimal("110.00")):
+        job = Job.objects.create(
+            property=self.property,
+            scheduled_date=scheduled_date,
+            status="completed",
+        )
+        return JobServiceItem.objects.create(
+            job=job,
+            service=self.service,
+            description="Mowing",
+            quantity=Decimal("1.00"),
+            unit_price=amount,
+        )
+
+    def test_build_missing_monthly_drafts_collects_april_unbilled_jobs(self):
+        first = self._completed_job_item(date(2026, 4, 5), Decimal("110.00"))
+        second = self._completed_job_item(date(2026, 4, 19), Decimal("120.00"))
+        may_item = self._completed_job_item(date(2026, 5, 3), Decimal("130.00"))
+
+        response = self.client.post(
+            reverse("billing:monthly_invoice_build_missing"),
+            data={"year": "2026", "month": "4"},
+        )
+
+        self.assertRedirects(response, reverse("billing:monthly_invoice_list") + "?year=2026")
+        first.refresh_from_db()
+        second.refresh_from_db()
+        may_item.refresh_from_db()
+        invoice = Invoice.objects.get(customer=self.customer, period_start=date(2026, 4, 1))
+        self.assertEqual(invoice.status, "draft")
+        self.assertEqual(invoice.total, Decimal("230.00"))
+        self.assertEqual(first.billed_invoice, invoice)
+        self.assertEqual(second.billed_invoice, invoice)
+        self.assertIsNone(may_item.billed_invoice)
 
 
 class DocumentTemplateStudioTests(TestCase):

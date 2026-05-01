@@ -6,6 +6,7 @@ urlpatterns = [
     path("create/", views.invoice_create, name="invoice_create"),
     path("outstanding/", views.outstanding_invoices, name="outstanding_invoices"),
     path("monthly/", views.monthly_invoice_list, name="monthly_invoice_list"),
+    path("monthly/build-missing/", views.monthly_invoice_build_missing, name="monthly_invoice_build_missing"),
     path("monthly/batch-send/", views.monthly_invoice_batch_send, name="monthly_invoice_batch_send"),
     path("<int:invoice_id>/", views.invoice_detail, name="invoice_detail"),
     path("<int:invoice_id>/update-dates/", views.invoice_update_dates, name="invoice_update_dates"),
