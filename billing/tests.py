@@ -306,6 +306,54 @@ class DocumentTemplateStudioTests(TestCase):
         self.assertEqual(estimate.status, "accepted")
         self.assertEqual(estimate.accepted_total, Decimal("425.00"))
 
+    def test_owner_can_mark_sent_estimate_accepted(self):
+        estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            title="Backyard cleanup",
+            status="sent",
+            view_token="owner-accept-token",
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Cleanup",
+            quantity=2,
+            unit_price=Decimal("125.00"),
+        )
+
+        response = self.client.post(reverse("billing:estimate_owner_accept", args=[estimate.id]))
+
+        self.assertRedirects(response, reverse("billing:estimate_detail", args=[estimate.id]))
+        estimate.refresh_from_db()
+        self.assertEqual(estimate.status, "accepted")
+        self.assertIsNotNone(estimate.accepted_at)
+        self.assertEqual(estimate.accepted_total, Decimal("250.00"))
+
+    def test_estimate_conversion_preserves_line_item_quantity_and_unit_price(self):
+        estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            title="Mulch install",
+            status="accepted",
+            accepted_total=Decimal("250.00"),
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Mulch bed",
+            quantity=2,
+            unit_price=Decimal("125.00"),
+        )
+
+        response = self.client.post(reverse("billing:convert_estimate_to_invoice", args=[estimate.id]))
+
+        self.assertEqual(response.status_code, 302)
+        invoice_id = response["Location"].rstrip("/").split("/")[-1]
+        invoice = Invoice.objects.get(id=invoice_id)
+        item = invoice.line_items.get()
+        self.assertEqual(item.quantity, 2)
+        self.assertEqual(item.unit_price, Decimal("125.00"))
+        self.assertEqual(invoice.total, Decimal("250.00"))
+
     def test_card_payments_can_be_disabled_for_client_deposits(self):
         self.business.stripe_connect_account_id = "acct_test"
         self.business.stripe_connect_charges_enabled = True

@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=28">
+<link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=30">
 <style>
   /* Quick-create line items */
   .qc-line-row { display:grid;grid-template-columns:minmax(0,1fr) 58px 72px 28px;gap:8px;margin-bottom:8px;align-items:start; }
@@ -273,12 +273,15 @@
 
 <!-- Job Modal -->
 <div id="job-modal" class="modal-overlay" role="dialog" aria-modal="true">
-  <div class="modal-card">
-    <div class="modal-header">
-      <h3 id="modal-title">Job Details</h3>
+  <div class="modal-card job-command-card">
+    <div class="modal-header job-command-header">
+      <div>
+        <p class="job-command-eyebrow">Calendar edit</p>
+        <h3 id="modal-title">Job command</h3>
+      </div>
       <button type="button" class="modal-close" aria-label="Close">&times;</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body job-command-body">
       <div class="job-mobile-summary" id="modal-job-summary" aria-label="Job summary">
         <div class="job-summary-topline">
           <span class="job-status-pill" id="modal-status-pill">Scheduled</span>
@@ -301,7 +304,26 @@
           <p id="modal-notes-summary"></p>
         </div>
       </div>
-      <div class="job-note-composer" id="modal-note-composer">
+      <div class="form-row job-command-panel job-schedule-panel job-schedule-editor">
+        <div class="job-panel-title">
+          <span class="material-symbols-outlined">event</span>
+          <strong>Schedule</strong>
+        </div>
+        <div class="form-group">
+          <label for="modal-date-input">Date</label>
+          <input type="date" id="modal-date-input" required>
+          <p id="modal-date" class="modal-readonly"></p>
+        </div>
+        <div class="form-group">
+          <label for="modal-time">Time</label>
+          <input type="time" id="modal-time" placeholder="Optional">
+        </div>
+      </div>
+      <div class="job-note-composer job-command-panel" id="modal-note-composer">
+        <div class="job-panel-title">
+          <span class="material-symbols-outlined">edit_note</span>
+          <strong>Fast note</strong>
+        </div>
         <label for="modal-note-text">Add crew-visible note</label>
         <select id="modal-note-scope" class="job-note-scope">
           <option value="job">This job only</option>
@@ -313,22 +335,20 @@
           <button type="button" id="modal-note-add" class="btn btn-primary btn-sm">Add</button>
         </div>
       </div>
-      <div class="job-notes-list" id="modal-notes-list" aria-live="polite"></div>
-      <div class="form-group">
+      <div class="job-notes-list job-command-panel" id="modal-notes-list" aria-live="polite"></div>
+      <div class="form-group job-command-panel job-address-panel">
+        <div class="job-panel-title">
+          <span class="material-symbols-outlined">location_on</span>
+          <strong>Property</strong>
+        </div>
         <label>Address</label>
         <p id="modal-address" class="modal-readonly"></p>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Date</label>
-          <p id="modal-date" class="modal-readonly"></p>
+      <div id="modal-owner-only" class="owner-only-section job-command-panel">
+        <div class="job-panel-title">
+          <span class="material-symbols-outlined">groups</span>
+          <strong>Assignment</strong>
         </div>
-        <div class="form-group">
-          <label for="modal-time">Time</label>
-          <input type="time" id="modal-time" placeholder="Optional">
-        </div>
-      </div>
-      <div id="modal-owner-only" class="owner-only-section">
         <div class="form-row">
           <div class="form-group">
             <label for="modal-crew">Crew</label>
@@ -375,23 +395,35 @@
           </div>
         </div>
       </div>
-      <div class="form-group">
+      <div class="form-group job-command-panel">
+        <div class="job-panel-title">
+          <span class="material-symbols-outlined">notes</span>
+          <strong>Job notes</strong>
+        </div>
         <label for="modal-notes">Notes</label>
         <textarea id="modal-notes" rows="2" placeholder="Gate codes, access, special instructions"></textarea>
       </div>
-      <div id="modal-services-section" class="form-group" style="display: none;">
+      <div id="modal-services-section" class="form-group job-command-panel" style="display: none;">
+        <div class="job-panel-title">
+          <span class="material-symbols-outlined">format_list_bulleted</span>
+          <strong>Services</strong>
+        </div>
         <label>Services</label>
         <ul id="modal-services-list" class="modal-services-list"></ul>
       </div>
-      <div id="modal-images-section" class="form-group" style="display: none;">
+      <div id="modal-images-section" class="form-group job-command-panel" style="display: none;">
+        <div class="job-panel-title">
+          <span class="material-symbols-outlined">photo_library</span>
+          <strong>Property images</strong>
+        </div>
         <label>Property images</label>
         <div id="modal-images-grid" class="modal-images-grid"></div>
       </div>
-      <div id="modal-owner-actions" class="modal-actions">
+      <div id="modal-owner-actions" class="modal-actions job-command-panel">
         <a id="modal-email-link" href="#" class="btn btn-secondary btn-sm" target="_blank">Email client</a>
         <a id="modal-text-link" href="#" class="btn btn-secondary btn-sm" target="_blank">Text client</a>
       </div>
-      <div id="modal-job-actions" class="modal-job-actions">
+      <div id="modal-job-actions" class="modal-job-actions job-command-panel">
         <h4 class="quick-actions-label">Quick actions</h4>
         <div class="quick-actions-row">
           <button type="button" id="modal-en-route" class="btn btn-primary btn-sm" style="display: none;">
@@ -401,7 +433,7 @@
           <button type="button" id="modal-complete" class="btn btn-primary btn-sm" style="display: none;">Mark complete</button>
           <button type="button" id="modal-uncomplete" class="btn btn-secondary btn-sm" style="display: none; color: #f59e0b;">Undo complete</button>
           <button type="button" id="modal-skip" class="btn btn-secondary btn-sm" style="display: none; color: var(--text-muted);">Skip</button>
-          <button type="button" id="modal-bill-now" class="btn btn-primary btn-sm" style="display: none;">Send invoice</button>
+          <button type="button" id="modal-bill-now" class="btn btn-primary btn-sm" style="display: none;">Create draft invoice</button>
           <button type="button" id="modal-add-monthly" class="btn btn-secondary btn-sm" style="display: none;">Add to monthly</button>
           <div id="modal-mark-paid-wrap" style="display:none;align-items:center;gap:4px;">
             <select id="modal-pay-method" style="padding:4px 6px;font-size:11px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);">
@@ -422,7 +454,7 @@
         </div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer job-command-footer">
       <a id="modal-view-job" href="#" class="btn btn-secondary">View full job</a>
       <button type="button" id="modal-save" class="btn btn-primary">Save</button>
     </div>
@@ -653,5 +685,5 @@ document.getElementById('cal-mobile-fab').addEventListener('click', function() {
   var QC_CREWS = [{% for c in filter_crews %}{id:{{ c.id }},name:"{{ c.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
   var QC_EMPLOYEES = [{% for e in filter_employees %}{id:{{ e.id }},name:"{{ e.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
 </script>
-<script src="{% static 'js/calendar.js' %}?v=38"></script>
+<script src="{% static 'js/calendar.js' %}?v=40"></script>
 {% endblock %}

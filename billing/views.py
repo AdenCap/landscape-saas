@@ -1160,6 +1160,48 @@ def invoice_delete(request, invoice_id):
 
 @require_POST
 @role_required("owner", "manager")
+def estimate_owner_accept(request, estimate_id):
+    """Allow an owner/manager to mark an estimate accepted when approval came in outside the client portal."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+
+    estimate = get_object_or_404(
+        Estimate.objects.prefetch_related("line_items"),
+        id=estimate_id,
+        business=business,
+    )
+    if estimate.status == "accepted":
+        messages.info(request, "This estimate is already accepted.")
+        return redirect("billing:estimate_detail", estimate_id=estimate.id)
+    if estimate.status == "declined":
+        messages.error(request, "Declined estimates cannot be marked accepted. Duplicate or edit the estimate first.")
+        return redirect("billing:estimate_detail", estimate_id=estimate.id)
+    if not estimate.line_items.exists():
+        messages.error(request, "Add at least one line item before marking this estimate accepted.")
+        return redirect("billing:estimate_detail", estimate_id=estimate.id)
+
+    accepted_total = estimate.total()
+    estimate.status = "accepted"
+    estimate.accepted_at = timezone.now()
+    estimate.accepted_total = accepted_total
+    estimate.save(update_fields=["status", "accepted_at", "accepted_total", "updated_at"])
+
+    if estimate.accepted_total:
+        for app in estimate.fertilizer_applications.all():
+            app.charge_amount = estimate.accepted_total
+            app.save(update_fields=["charge_amount", "updated_at"])
+
+    messages.success(
+        request,
+        f"Estimate #{estimate.id} marked accepted for ${accepted_total:,.2f}.",
+    )
+    return redirect("billing:estimate_detail", estimate_id=estimate.id)
+
+
+@require_POST
+@role_required("owner", "manager")
 def convert_estimate_to_invoice(request, estimate_id):
     """Convert an accepted estimate into a draft invoice with all line items."""
     business = _get_business(request)
@@ -1188,8 +1230,9 @@ def convert_estimate_to_invoice(request, estimate_id):
         InvoiceLineItem.objects.create(
             invoice=invoice,
             description=line.description,
+            detail_description=getattr(line, "detail_description", "") or "",
             quantity=line.quantity or 1,
-            unit_price=line.line_total,  # Use the line total as the unit price
+            unit_price=line.unit_price,
         )
 
     # Also copy accepted add-ons if they were selected
@@ -1200,8 +1243,9 @@ def convert_estimate_to_invoice(request, estimate_id):
             InvoiceLineItem.objects.create(
                 invoice=invoice,
                 description=f"{line.description} (add-on)",
+                detail_description=getattr(line, "detail_description", "") or "",
                 quantity=line.quantity or 1,
-                unit_price=line.line_total,
+                unit_price=line.unit_price,
             )
 
     invoice.recompute_totals()

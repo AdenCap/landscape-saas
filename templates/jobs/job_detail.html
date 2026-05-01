@@ -314,12 +314,23 @@
 {% endif %}
 {% endif %}{# end owner/manager pricing block #}
 
-{% if job.status == "completed" and has_unbilled_items %}
+{% if has_unbilled_items and request.user.role == "owner" or has_unbilled_items and request.user.role == "manager" %}
   <div class="card" style="margin-bottom: 20px; background: var(--primary-light); border-color: var(--primary);">
     <h2 class="card-title">Billing</h2>
-    <p style="margin-bottom: 16px;">This job is completed but not yet billed. Choose how to invoice or mark as paid:</p>
+    <p style="margin-bottom: 16px;">
+      {% if job.status == "completed" %}
+      This job is completed but not yet billed. Create an invoice, add it to monthly billing, or mark it paid.
+      {% else %}
+      This job has unbilled service items. Create a draft invoice now and review it before sending.
+      {% endif %}
+    </p>
     <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-      <a href="{% url 'job_billing_options' job.id %}" class="btn btn-primary">Choose billing option</a>
+      <form method="post" action="{% url 'job_bill_now' job.id %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">Create draft invoice</button>
+      </form>
+      {% if job.status == "completed" %}
+      <a href="{% url 'job_billing_options' job.id %}" class="btn btn-secondary">More billing options</a>
       <span style="color:var(--text-muted);font-size:12px;">or</span>
       <form method="post" action="{% url 'mark_job_paid' job.id %}" style="display:inline-flex;align-items:center;gap:6px;">
         {% csrf_token %}
@@ -334,6 +345,7 @@
         </select>
         <button type="submit" class="btn btn-secondary" style="font-size:12px;">Mark Paid</button>
       </form>
+      {% endif %}
     </div>
   </div>
 {% endif %}

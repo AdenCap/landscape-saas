@@ -764,10 +764,15 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(function(data) {
         var job = data.job;
         var userRole = data.user_role || 'owner';
-        var ownerMode = userRole === 'owner';
+        var ownerMode = userRole === 'owner' || userRole === 'manager';
 
         document.getElementById('modal-address').textContent = job.address;
         document.getElementById('modal-date').textContent = job.scheduled_date || 'Unscheduled';
+        var dateInput = document.getElementById('modal-date-input');
+        if (dateInput) {
+          dateInput.value = job.scheduled_date || '';
+          dateInput.disabled = !ownerMode;
+        }
         document.getElementById('modal-time').value = job.scheduled_time || '';
         document.getElementById('modal-notes').value = job.notes || '';
         document.getElementById('modal-notes').readOnly = !ownerMode;
@@ -854,7 +859,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (job.services && job.services.length) {
           svcSection.style.display = 'block';
           svcList.innerHTML = job.services.map(function(s) {
-            return '<li>' + (s.name || '—') + ' — ' + s.quantity + ' ' + (s.unit || 'visit') + '</li>';
+            return '<li><strong>' + escapeHtml(s.name || 'Service') + '</strong><span>' +
+              escapeHtml(s.quantity || 1) + ' ' + escapeHtml(s.unit || 'visit') + '</span></li>';
           }).join('');
         } else { svcSection.style.display = 'none'; }
 
@@ -881,11 +887,16 @@ document.addEventListener('DOMContentLoaded', function () {
           if (uncompleteBtn) uncompleteBtn.style.display = (job.status === 'completed' || job.status === 'in_progress') ? '' : 'none';
           var skipBtn = document.getElementById('modal-skip');
           if (skipBtn) skipBtn.style.display = (job.status === 'scheduled' || job.status === 'en_route') ? '' : 'none';
-          var canBill = job.status === 'completed' && job.has_unbilled_items && job.has_services;
-          document.getElementById('modal-bill-now').style.display = canBill ? '' : 'none';
-          document.getElementById('modal-add-monthly').style.display = canBill ? '' : 'none';
+          var canInvoice = job.has_unbilled_items && job.has_services;
+          var canCompleteBill = job.status === 'completed' && canInvoice;
+          var billNowBtn = document.getElementById('modal-bill-now');
+          if (billNowBtn) {
+            billNowBtn.style.display = canInvoice ? '' : 'none';
+            billNowBtn.textContent = 'Create draft invoice';
+          }
+          document.getElementById('modal-add-monthly').style.display = canCompleteBill ? '' : 'none';
           var markPaidWrap = document.getElementById('modal-mark-paid-wrap');
-          if (markPaidWrap) markPaidWrap.style.display = canBill ? 'flex' : 'none';
+          if (markPaidWrap) markPaidWrap.style.display = canCompleteBill ? 'flex' : 'none';
         }
 
         document.getElementById('modal-save').style.display = ownerMode ? '' : 'none';
@@ -894,6 +905,8 @@ document.addEventListener('DOMContentLoaded', function () {
         modal.dataset.isRecurring = job.is_recurring ? '1' : '0';
         modal.dataset.originalCrewId = job.assigned_crew_id ? String(job.assigned_crew_id) : '';
         modal.dataset.originalAssignedToId = job.assigned_to_id ? String(job.assigned_to_id) : '';
+        modal.dataset.originalScheduledDate = job.scheduled_date || '';
+        modal.dataset.originalScheduledTime = job.scheduled_time || '';
         modal.dataset.originalEmployeeIds = (job.assigned_employee_ids || []).map(function(id) {
           return String(id);
         }).sort().join(',');
@@ -1144,9 +1157,12 @@ document.addEventListener('DOMContentLoaded', function () {
   if (billBtn) billBtn.addEventListener('click', function() {
     var jobId = document.getElementById('job-modal').dataset.jobId;
     if (!jobId) return;
-    ajaxPost('/jobs/' + jobId + '/bill-now/').then(function() {
+    ajaxPost('/jobs/' + jobId + '/bill-now/').then(function(d) {
       calendar.refetchEvents(); if (isOwner) loadUnscheduled(); closeModal('job-modal');
-      showToast('Invoice sent');
+      showToast('Draft invoice created');
+      if (d && d.invoice_id) {
+        window.location.href = '/billing/' + d.invoice_id + '/';
+      }
     }).catch(function(e) { showToast(e.message, 'error'); });
   });
 
@@ -1244,16 +1260,20 @@ document.addEventListener('DOMContentLoaded', function () {
     var selectedEmpIds = [];
     empCheckboxes.forEach(function(cb) { selectedEmpIds.push(parseInt(cb.value, 10)); });
     selectedEmpIds.sort(function(a, b) { return a - b; });
+    var dateInput = document.getElementById('modal-date-input');
+    var selectedDate = dateInput && dateInput.value ? dateInput.value : '';
+    var selectedTime = document.getElementById('modal-time').value || '';
     var payload = {
       assigned_crew_id: crewSel && crewSel.value ? parseInt(crewSel.value, 10) : null,
       assigned_to_id: selectedEmpIds.length ? selectedEmpIds[0] : (empSel && empSel.value ? parseInt(empSel.value, 10) : null),
       assigned_employee_ids: selectedEmpIds.length ? selectedEmpIds : undefined,
       notes: document.getElementById('modal-notes').value,
-      scheduled_time: document.getElementById('modal-time').value || null,
+      scheduled_time: selectedTime || null,
       customer_email: document.getElementById('modal-customer-email').value,
       customer_phone: document.getElementById('modal-customer-phone').value,
       color: (colorInput ? colorInput.value.trim() : '') || null
     };
+    if (selectedDate) payload.scheduled_date = selectedDate;
     var currentCrewId = payload.assigned_crew_id ? String(payload.assigned_crew_id) : '';
     var currentAssignedToId = payload.assigned_to_id ? String(payload.assigned_to_id) : '';
     var currentEmployeeIds = selectedEmpIds.map(function(id) { return String(id); }).join(',');
@@ -1262,15 +1282,51 @@ document.addEventListener('DOMContentLoaded', function () {
       currentAssignedToId !== (modal.dataset.originalAssignedToId || '') ||
       currentEmployeeIds !== (modal.dataset.originalEmployeeIds || '')
     );
+    var scheduleChanged = (
+      selectedDate !== (modal.dataset.originalScheduledDate || '') ||
+      selectedTime !== (modal.dataset.originalScheduledTime || '')
+    );
+    if (scheduleChanged && !selectedDate) {
+      showToast('Choose a date before saving', 'error');
+      return;
+    }
 
-    function submitUpdate(applyAssignmentToFuture) {
-      if (applyAssignmentToFuture) payload.apply_assignment_to_future = true;
-      fetch('/jobs/calendar/job/' + jobId + '/update/', {
+    function postJson(url, body) {
+      return fetch(url, {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
-        body: JSON.stringify(payload)
-      }).then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('Update failed')); })
-        .then(function(data) {
+        body: JSON.stringify(body || {})
+      }).then(function(r) {
+        if (!r.ok) {
+          return r.json().then(function(d) { throw new Error((d && d.error) || 'Update failed'); });
+        }
+        return r.json();
+      });
+    }
+
+    function buildSchedulePayload(applyScheduleToFuture) {
+      var scheduleValue = selectedDate;
+      if (selectedDate && selectedTime) scheduleValue = selectedDate + 'T' + selectedTime + ':00';
+      return {
+        scheduled_date: scheduleValue,
+        all_day: selectedDate && !selectedTime,
+        apply_to_future: !!applyScheduleToFuture
+      };
+    }
+
+    function submitUpdate(applyAssignmentToFuture, applyScheduleToFuture) {
+      if (applyAssignmentToFuture) payload.apply_assignment_to_future = true;
+      var updatePayload = Object.assign({}, payload);
+      if (scheduleChanged) delete updatePayload.scheduled_time;
+      var request = Promise.resolve({ status: 'ok' });
+      if (scheduleChanged && selectedDate) {
+        request = request.then(function() {
+          return postJson('/jobs/calendar/job/' + jobId + '/reschedule/', buildSchedulePayload(applyScheduleToFuture));
+        });
+      }
+      request.then(function() {
+        return postJson('/jobs/calendar/job/' + jobId + '/update/', updatePayload);
+      }).then(function(data) {
           var event = calendar.getEventById(String(jobId));
           if (event && data.backgroundColor) {
             event.setProp('backgroundColor', data.backgroundColor);
@@ -1282,6 +1338,8 @@ document.addEventListener('DOMContentLoaded', function () {
           closeModal('job-modal');
           if (data.future_assignment_updated) {
             showToast('Job updated + ' + data.future_assignment_updated + ' future jobs reassigned');
+          } else if (scheduleChanged && applyScheduleToFuture) {
+            showToast('Job updated + future visits moved');
           } else {
             showToast('Job updated');
           }
@@ -1291,16 +1349,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    if (modal.dataset.isRecurring === '1' && assignmentChanged) {
+    if (modal.dataset.isRecurring === '1' && (assignmentChanged || scheduleChanged)) {
       showRecurringDialog(
-        function() { submitUpdate(false); },
-        function() { submitUpdate(true); },
+        function() { submitUpdate(false, false); },
+        function() { submitUpdate(assignmentChanged, scheduleChanged); },
         function() {}
       );
       return;
     }
 
-    submitUpdate(false);
+    submitUpdate(false, false);
   });
 
   // ══════════════════════════════════════════════════════════════

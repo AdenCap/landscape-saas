@@ -73,6 +73,17 @@
         </form>
         {% endif %}
       {% endif %}
+      {% if estimate.status == 'sent' or estimate.status == 'draft' %}
+        {% if estimate.line_items.exists %}
+        <form method="post" action="{% url 'billing:estimate_owner_accept' estimate.id %}" class="action-inline" onsubmit="return confirm('Mark this estimate as accepted at the current total of {{ estimate.total|currency }}?');">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary">
+            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:4px;">verified</span>
+            Mark Accepted
+          </button>
+        </form>
+        {% endif %}
+      {% endif %}
       {% if estimate.status == 'accepted' %}
       <form method="post" action="{% url 'billing:convert_estimate_to_invoice' estimate.id %}" class="action-inline" onsubmit="return confirm('Create a draft invoice from this estimate?');">
         {% csrf_token %}

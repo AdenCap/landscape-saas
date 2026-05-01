@@ -88,10 +88,10 @@
               <strong>{{ unassigned_jobs_count }}</strong>
               <small>unassigned job{{ unassigned_jobs_count|pluralize }}</small>
             </a>
-            <a href="{% url 'billing:invoice_create' %}" class="fc-command-tile">
-              <span>Ready to bill</span>
-              <strong>${{ completed_not_billed_total|floatformat:0 }}</strong>
-              <small>{{ completed_not_billed_count }} completed visit{{ completed_not_billed_count|pluralize }}</small>
+            <a href="{% url 'calendar' %}" class="fc-command-tile">
+              <span>Scheduled value</span>
+              <strong>${{ todays_anticipated_revenue|floatformat:0 }}</strong>
+              <small>{{ jobs_today }} scheduled visit{{ jobs_today|pluralize }} today</small>
             </a>
           </div>
           <div class="fc-command-strip">

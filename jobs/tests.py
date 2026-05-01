@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import User
+from billing.models import Invoice
 from businesses.models import Business
 from customers.models import Customer, Property
 from jobs.models import Crew, Job, JobNote, JobServiceItem, PropertyNote, RecurringJob
@@ -650,3 +651,13 @@ class JobCompletionAutoChargeTests(TestCase):
         self.assertEqual(invoice.status, "paid")
         self.assertEqual(invoice.payment_method, "card")
         mock_create.assert_called_once()
+
+    def test_owner_can_create_draft_invoice_from_scheduled_job(self):
+        response = self.client.post(reverse("job_bill_now", args=[self.job.id]))
+
+        self.assertEqual(response.status_code, 302)
+        invoice = Invoice.objects.get(job=self.job)
+        self.assertEqual(response["Location"], reverse("billing:invoice_detail", args=[invoice.id]))
+        self.assertEqual(invoice.status, "draft")
+        self.assertEqual(invoice.customer, self.customer)
+        self.assertEqual(invoice.total, Decimal("85.00"))

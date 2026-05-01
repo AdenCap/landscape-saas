@@ -67,34 +67,6 @@ def clock_in(request):
             pass
     TimeEntry.objects.create(**kwargs)
 
-    # Notify owner(s) and managers
-    try:
-        from accounts.models import Notification
-        from accounts.utils import get_business
-        business = get_business(request)
-        if business and request.user.role == "crew":
-            now = timezone.localtime(timezone.now())
-            hour = now.hour % 12 or 12
-            ampm = "AM" if now.hour < 12 else "PM"
-            time_str = f"{hour}:{now.minute:02d} {ampm}"
-            name = request.user.get_full_name() or request.user.username
-            loc_str = ""
-            if lat and lng:
-                loc_str = f" (GPS: {lat[:8]}, {lng[:9]})"
-            msg = f"{name} clocked in at {time_str}{loc_str}"
-            owners_managers = User.objects.filter(
-                business=business, role__in=["owner", "manager"]
-            ).exclude(id=request.user.id)
-            for om in owners_managers:
-                Notification.objects.create(
-                    business=business,
-                    from_user=request.user,
-                    to_user=om,
-                    message=msg,
-                )
-    except Exception:
-        pass  # Don't let notification failure block clock-in
-
     messages.success(request, 'Clocked in successfully.')
     return redirect('time_clock')
 
@@ -118,39 +90,6 @@ def clock_out(request):
             except (ValueError, TypeError):
                 pass
         entry.save()
-
-        # Notify owner(s) and managers
-        try:
-            from accounts.models import Notification
-            from accounts.utils import get_business
-            business = get_business(request)
-            if business and request.user.role == "crew":
-                now = timezone.localtime(timezone.now())
-                hour = now.hour % 12 or 12
-                ampm = "AM" if now.hour < 12 else "PM"
-                time_str = f"{hour}:{now.minute:02d} {ampm}"
-                name = request.user.get_full_name() or request.user.username
-                # Calculate duration
-                dur = ""
-                if entry.clock_in:
-                    mins = int((entry.clock_out - entry.clock_in).total_seconds() / 60)
-                    if mins >= 60:
-                        dur = f" ({mins // 60}h {mins % 60}m)"
-                    else:
-                        dur = f" ({mins}m)"
-                msg = f"{name} clocked out at {time_str}{dur}"
-                owners_managers = User.objects.filter(
-                    business=business, role__in=["owner", "manager"]
-                ).exclude(id=request.user.id)
-                for om in owners_managers:
-                    Notification.objects.create(
-                        business=business,
-                        from_user=request.user,
-                        to_user=om,
-                        message=msg,
-                    )
-        except Exception:
-            pass
 
         messages.success(request, 'Clocked out successfully.')
     else:

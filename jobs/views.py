@@ -2947,16 +2947,11 @@ def mark_job_paid(request, job_id):
 @require_POST
 @role_required("owner", "manager")
 def job_bill_now(request, job_id):
-    """Create and send invoice immediately for completed job."""
+    """Create a draft invoice from a job's unbilled service items."""
     business = get_business(request)
     if not business:
         return JsonResponse({"error": "Forbidden"}, status=403) if request.headers.get("X-Requested-With") == "XMLHttpRequest" else redirect("/")
     job = get_object_or_404(Job, id=job_id, property__customer__business=business)
-    if job.status != "completed":
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return JsonResponse({"error": "Only completed jobs can be invoiced."}, status=400)
-        messages.error(request, "Only completed jobs can be invoiced.")
-        return redirect("job_detail", job_id=job_id)
 
     if not job.service_items.exists():
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -2974,7 +2969,7 @@ def job_bill_now(request, job_id):
         return JsonResponse({"status": "ok", "invoice_id": invoice.id})
     messages.success(
         request,
-        f"Draft invoice #{invoice.id} created. Review and approve & send from Billing.",
+        f"Draft invoice #{invoice.id} created from this job. Review and send from Billing.",
     )
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
