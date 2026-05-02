@@ -223,6 +223,7 @@ def monthly_invoice_list(request):
     monthly = (
         Invoice.objects.filter(business=business, job__isnull=True, period_start__isnull=False)
         .select_related("customer")
+        .prefetch_related("line_items")
         .order_by("-period_start", "-id")
     )
     # Optional year filter
@@ -258,7 +259,14 @@ def monthly_invoice_list(request):
                 send_on = date_type(inv.period_start.year, inv.period_start.month, day)
             except (ValueError, TypeError):
                 pass
-        rows.append({"invoice": inv, "send_on": send_on})
+        line_items = list(inv.line_items.all())
+        preview_items = line_items[:3]
+        rows.append({
+            "invoice": inv,
+            "send_on": send_on,
+            "line_items": preview_items,
+            "extra_line_count": max(len(line_items) - len(preview_items), 0),
+        })
     return render(request, "billing/monthly_invoice_list.html", {
         "rows": rows,
         "draft_count": len(draft_invoices),
@@ -994,6 +1002,13 @@ def mark_invoice_line_item_paid(request, invoice_id, item_id):
         messages.success(request, f"{line_item.description} marked paid.")
 
     _sync_invoice_payment_from_line_items(invoice, request=request)
+    next_url = (request.POST.get("next") or "").strip()
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(next_url)
     return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 

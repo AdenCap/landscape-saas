@@ -6,7 +6,7 @@
   <header class="invoice-edit-header">
     <div>
       <h1 class="page-title">Edit line items &ndash; Invoice #{{ invoice.id }}</h1>
-      <p class="page-subtitle">{{ invoice.customer.name }} &middot; Only draft invoices can be edited</p>
+      <p class="page-subtitle">{{ invoice.customer.name }} &middot; Draft and sent invoices can be edited</p>
     </div>
     <a href="{% url 'billing:invoice_detail' invoice.id %}" class="btn btn-secondary">Back to invoice</a>
   </header>
@@ -59,6 +59,47 @@
           <div class="line-item-total-display">
             Line total: <span class="line-total-value">$0.00</span>
           </div>
+          {% if form.instance.pk and not form.instance.is_discount %}
+          <div class="line-item-payment-strip {% if form.instance.is_paid %}is-paid{% endif %}">
+            <div>
+              <span>{% if form.instance.is_paid %}Paid{% else %}Unpaid{% endif %}</span>
+              <small>
+                {% if form.instance.is_paid %}
+                  {% if form.instance.payment_method %}{{ form.instance.get_payment_method_display }}{% else %}Payment recorded{% endif %}{% if form.instance.paid_at %} · {{ form.instance.paid_at|date:"M j, g:i A" }}{% endif %}
+                {% else %}
+                  Mark this specific service paid without closing the full invoice.
+                {% endif %}
+              </small>
+            </div>
+            {% if form.instance.is_paid %}
+            <button
+              form="line-item-payment-{{ form.instance.pk }}"
+              type="submit"
+              name="action"
+              value="unpaid"
+              formnovalidate
+              class="line-item-payment-button secondary"
+            >Mark unpaid</button>
+            {% else %}
+            <div class="line-item-payment-actions">
+              <select form="line-item-payment-{{ form.instance.pk }}" name="payment_method" aria-label="Payment method for {{ form.instance.description }}">
+                <option value="">Payment method</option>
+                {% for value,label in invoice.PAYMENT_METHOD_CHOICES %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+              <button
+                form="line-item-payment-{{ form.instance.pk }}"
+                type="submit"
+                name="action"
+                value="paid"
+                formnovalidate
+                class="line-item-payment-button"
+              >Mark paid</button>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
         </div>
       </div>
       {% endfor %}
@@ -76,6 +117,15 @@
       <a href="{% url 'billing:invoice_detail' invoice.id %}" class="btn btn-secondary">Cancel</a>
     </div>
   </form>
+
+  {% for item in invoice.line_items.all %}
+  {% if not item.is_discount %}
+  <form id="line-item-payment-{{ item.id }}" method="post" action="{% url 'billing:mark_invoice_line_item_paid' invoice.id item.id %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  </form>
+  {% endif %}
+  {% endfor %}
 
   <p class="help-text">Total is computed from materials + labor, or qty &times; unit price when cost fields are zero.</p>
 </div>
@@ -197,6 +247,68 @@
     border-radius: 16px;
   }
   .line-total-value { font-weight: 600; color: var(--text); }
+  .line-item-payment-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 18px;
+    background: rgba(0,0,0,.18);
+  }
+  .line-item-payment-strip.is-paid {
+    border-color: rgba(155,239,69,.28);
+    background: rgba(155,239,69,.08);
+  }
+  .line-item-payment-strip span {
+    display: block;
+    color: var(--text);
+    font-weight: 900;
+  }
+  .line-item-payment-strip small {
+    display: block;
+    margin-top: 3px;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .line-item-payment-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .line-item-payment-actions select {
+    min-height: 42px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 999px;
+    background: rgba(0,0,0,.28);
+    color: var(--text);
+    padding: 0 12px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .line-item-payment-button {
+    min-height: 42px;
+    border: 0;
+    border-radius: 999px;
+    padding: 0 15px;
+    background: var(--primary);
+    color: #050505;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .line-item-payment-button.secondary {
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.08);
+  }
 
   .add-line-btn { margin-bottom: 20px; }
 
@@ -233,6 +345,18 @@
     .invoice-edit-header .btn,
     .form-actions .btn,
     .add-line-btn { width: 100%; justify-content: center; }
+    .line-item-payment-strip {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .line-item-payment-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    .line-item-payment-actions select,
+    .line-item-payment-button {
+      width: 100%;
+    }
   }
 </style>
 

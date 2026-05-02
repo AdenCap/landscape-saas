@@ -105,6 +105,28 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.assertFalse(self.mowing.is_paid)
         self.assertEqual(self.invoice.status, "sent")
 
+    def test_line_item_edit_screen_exposes_payment_controls(self):
+        response = self.client.get(reverse("billing:invoice_edit_line_items", args=[self.invoice.id]))
+
+        self.assertContains(response, "Mark paid")
+        self.assertContains(response, "Payment method")
+        self.assertContains(
+            response,
+            reverse("billing:mark_invoice_line_item_paid", args=[self.invoice.id, self.mowing.id]),
+        )
+
+    def test_line_item_payment_can_return_to_edit_screen(self):
+        edit_url = reverse("billing:invoice_edit_line_items", args=[self.invoice.id])
+
+        response = self.client.post(
+            reverse("billing:mark_invoice_line_item_paid", args=[self.invoice.id, self.mowing.id]),
+            data={"action": "paid", "payment_method": "cash", "next": edit_url},
+        )
+
+        self.assertRedirects(response, edit_url)
+        self.mowing.refresh_from_db()
+        self.assertTrue(self.mowing.is_paid)
+
     def test_apply_fixed_promotion_creates_discount_line_and_redemption(self):
         promo = Promotion.objects.create(
             business=self.business,
@@ -190,6 +212,37 @@ class MonthlyInvoiceRepairTests(TestCase):
         self.assertEqual(first.billed_invoice, invoice)
         self.assertEqual(second.billed_invoice, invoice)
         self.assertIsNone(may_item.billed_invoice)
+
+    def test_monthly_queue_shows_line_item_preview_and_individual_send(self):
+        invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+            subtotal=Decimal("0"),
+            tax=Decimal("0"),
+            total=Decimal("0"),
+        )
+        InvoiceLineItem.objects.create(
+            invoice=invoice,
+            description="Weekly mowing - April 5",
+            quantity=1,
+            unit_price=Decimal("110.00"),
+        )
+        InvoiceLineItem.objects.create(
+            invoice=invoice,
+            description="Spring cleanup add-on",
+            quantity=1,
+            unit_price=Decimal("250.00"),
+        )
+
+        response = self.client.get(reverse("billing:monthly_invoice_list") + "?year=2026")
+
+        self.assertContains(response, "Weekly mowing - April 5")
+        self.assertContains(response, "Spring cleanup add-on")
+        self.assertContains(response, 'name="invoice_ids" value="%s"' % invoice.id)
+        self.assertContains(response, "Send invoice")
 
 
 class DocumentTemplateStudioTests(TestCase):

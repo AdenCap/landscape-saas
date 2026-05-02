@@ -88,15 +88,17 @@
       </form>
     </section>
 
-    <form method="post" action="{% url 'billing:monthly_invoice_batch_send' %}" class="batch-panel">
-      {% csrf_token %}
-      <input type="hidden" name="year" value="{{ year_param }}">
+    <section class="batch-panel">
+      <form id="batch-selected-form" method="post" action="{% url 'billing:monthly_invoice_batch_send' %}">
+        {% csrf_token %}
+        <input type="hidden" name="year" value="{{ year_param }}">
+      </form>
       <div class="batch-panel-head">
         <div>
           <p>Approval queue</p>
           <h2>Review and send</h2>
         </div>
-        <button type="submit" class="batch-primary-action" {% if not draft_count %}disabled{% endif %}>
+        <button type="submit" form="batch-selected-form" class="batch-primary-action" {% if not draft_count %}disabled{% endif %}>
           <span class="material-symbols-outlined">send</span>
           Send selected
         </button>
@@ -107,7 +109,7 @@
         <article class="batch-row status-{{ row.invoice.status }}">
           <div class="batch-select-cell">
             {% if row.invoice.status == "draft" %}
-            <input type="checkbox" name="invoice_ids" value="{{ row.invoice.id }}" aria-label="Select invoice {{ row.invoice.id }}">
+            <input form="batch-selected-form" type="checkbox" name="invoice_ids" value="{{ row.invoice.id }}" aria-label="Select invoice {{ row.invoice.id }}">
             {% else %}
             <span class="material-symbols-outlined">check_circle</span>
             {% endif %}
@@ -136,6 +138,19 @@
               </span>
               {% endif %}
             </div>
+            <div class="batch-line-preview" aria-label="Invoice {{ row.invoice.id }} line item preview">
+              {% for item in row.line_items %}
+              <div class="batch-line-chip">
+                <span>{{ item.description }}</span>
+                <strong>{{ item.line_total|currency }}</strong>
+              </div>
+              {% empty %}
+              <div class="batch-line-empty">No line items yet.</div>
+              {% endfor %}
+              {% if row.extra_line_count %}
+              <a class="batch-line-more" href="{% url 'billing:invoice_edit_line_items' row.invoice.id %}">+{{ row.extra_line_count }} more</a>
+              {% endif %}
+            </div>
           </div>
           <div class="batch-row-total">
             <span>Total</span>
@@ -144,7 +159,15 @@
           <div class="batch-row-actions">
             <a href="{% url 'billing:invoice_detail' row.invoice.id %}">Open</a>
             {% if row.invoice.status == "draft" or row.invoice.status == "sent" %}
-            <a href="{% url 'billing:invoice_edit_line_items' row.invoice.id %}">Edit</a>
+            <a href="{% url 'billing:invoice_edit_line_items' row.invoice.id %}">Edit items</a>
+            {% endif %}
+            {% if row.invoice.status == "draft" %}
+            <form method="post" action="{% url 'billing:monthly_invoice_batch_send' %}" onsubmit="return confirm('Approve and send invoice #{{ row.invoice.id }}?');">
+              {% csrf_token %}
+              <input type="hidden" name="year" value="{{ year_param }}">
+              <input type="hidden" name="invoice_ids" value="{{ row.invoice.id }}">
+              <button type="submit">Send invoice</button>
+            </form>
             {% endif %}
           </div>
         </article>
@@ -156,7 +179,7 @@
         </div>
         {% endfor %}
       </div>
-    </form>
+    </section>
   </div>
 </section>
 
@@ -407,6 +430,49 @@
   .batch-row-meta .material-symbols-outlined {
     font-size: 18px;
   }
+  .batch-line-preview {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .batch-line-chip,
+  .batch-line-more,
+  .batch-line-empty {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 999px;
+    padding: 0 11px;
+    color: rgba(244,244,241,.78);
+    background: rgba(255,255,255,.045);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+  .batch-line-chip {
+    max-width: min(100%, 360px);
+    gap: 10px;
+  }
+  .batch-line-chip span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .batch-line-chip strong {
+    color: #f4f4f1;
+    white-space: nowrap;
+  }
+  .batch-line-more {
+    color: #9df24a;
+    text-decoration: none;
+  }
+  .batch-line-empty {
+    color: rgba(244,244,241,.48);
+  }
   .batch-row-total {
     min-width: 112px;
     text-align: right;
@@ -416,12 +482,34 @@
     margin-top: 2px;
     font-size: 26px;
   }
-  .batch-row-actions a {
+  .batch-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .batch-row-actions form {
+    margin: 0;
+  }
+  .batch-row-actions a,
+  .batch-row-actions button {
     min-height: 38px;
     padding: 0 16px;
     color: #f4f4f1;
     border: 1px solid rgba(255,255,255,.14);
     background: rgba(255,255,255,.06);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 900;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .batch-row-actions button {
+    color: #050505;
+    border-color: transparent;
+    background: #9df24a;
   }
   .batch-empty {
     border: 1px solid rgba(255,255,255,.12);
@@ -466,8 +554,13 @@
       grid-column: 2;
       text-align: left;
     }
-    .batch-row-actions a {
+    .batch-row-actions a,
+    .batch-row-actions form,
+    .batch-row-actions button {
       flex: 1;
+    }
+    .batch-row-actions button {
+      width: 100%;
     }
   }
   @media (max-width: 768px) {
@@ -561,6 +654,19 @@
       gap: 9px;
       font-size: var(--text-sm);
       line-height: 1.4;
+    }
+    .batch-line-preview {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .batch-line-chip,
+    .batch-line-more,
+    .batch-line-empty {
+      justify-content: space-between;
+      width: 100%;
+      max-width: none;
+      min-height: 38px;
+      border-radius: 16px;
     }
     .batch-row-total strong {
       font-size: 24px;
