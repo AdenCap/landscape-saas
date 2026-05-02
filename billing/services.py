@@ -27,6 +27,84 @@ def get_invoice_due_date(issue_date, business, customer=None):
     return issue_date + timedelta(days=days)
 
 
+@transaction.atomic
+def combine_customer_invoices(*, business, target_invoice_id, invoice_ids, user=None):
+    """Move open same-customer invoices into one invoice and void the emptied sources."""
+    ids = {int(invoice_id) for invoice_id in invoice_ids if str(invoice_id).isdigit()}
+    if target_invoice_id:
+        ids.add(int(target_invoice_id))
+    if len(ids) < 2:
+        raise ValueError("Choose at least two invoices to combine.")
+
+    invoices = list(
+        Invoice.objects.select_for_update()
+        .filter(business=business, id__in=ids)
+        .select_related("customer", "job")
+        .prefetch_related("jobs")
+        .order_by("id")
+    )
+    if len(invoices) != len(ids):
+        raise ValueError("One or more invoices could not be found.")
+
+    allowed_statuses = {"draft", "sent"}
+    if any(invoice.status not in allowed_statuses for invoice in invoices):
+        raise ValueError("Only draft or sent invoices can be combined.")
+
+    customer_ids = {invoice.customer_id for invoice in invoices}
+    if len(customer_ids) != 1:
+        raise ValueError("Invoices can only be combined for the same client.")
+
+    target = next((invoice for invoice in invoices if invoice.id == int(target_invoice_id)), None)
+    if target is None:
+        raise ValueError("Choose which invoice should keep the combined line items.")
+
+    any_sent = any(invoice.status == "sent" for invoice in invoices)
+    source_ids = [invoice.id for invoice in invoices if invoice.id != target.id]
+
+    if target.job_id:
+        target.jobs.add(target.job)
+    for invoice in invoices:
+        if invoice.job_id:
+            target.jobs.add(invoice.job)
+        for job in invoice.jobs.all():
+            target.jobs.add(job)
+        JobServiceItem.objects.filter(billed_invoice=invoice).update(
+            billed_invoice=target,
+            billed_at=timezone.now(),
+        )
+
+    InvoiceLineItem.objects.filter(invoice_id__in=source_ids).update(invoice=target)
+
+    for source in invoices:
+        if source.id == target.id:
+            continue
+        source.job = None
+        source.status = "void"
+        source.subtotal = Decimal("0.00")
+        source.tax = Decimal("0.00")
+        source.total = Decimal("0.00")
+        source.payment_token = None
+        source.save(update_fields=["job", "status", "subtotal", "tax", "total", "payment_token"])
+        InvoiceAuditLog.objects.create(
+            invoice=source,
+            action="void",
+            user=user,
+            details={"source": "combined_into_invoice", "target_invoice_id": target.id},
+        )
+
+    if any_sent and target.status != "sent":
+        target.status = "sent"
+        target.save(update_fields=["status"])
+    target.recompute_totals()
+    InvoiceAuditLog.objects.create(
+        invoice=target,
+        action="line_items_edited",
+        user=user,
+        details={"source": "combine_invoices", "combined_invoice_ids": source_ids},
+    )
+    return target
+
+
 def _get_business_from_job(job):
     if hasattr(job, "property") and job.property and hasattr(job.property, "business"):
         return job.property.business

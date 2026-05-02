@@ -151,6 +151,96 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.invoice.refresh_from_db()
         self.assertFalse(self.invoice.enable_card_payment)
 
+    def test_invoice_command_center_exposes_actionable_totals(self):
+        monthly = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+            total=Decimal("410.00"),
+        )
+        InvoiceLineItem.objects.create(
+            invoice=monthly,
+            description="Monthly mowing",
+            quantity=1,
+            unit_price=Decimal("410.00"),
+        )
+        prop = Property.objects.create(customer=self.customer, address="123 Lawn Ave")
+        job = Job.objects.create(property=prop, scheduled_date=date(2026, 4, 12), status="completed")
+        JobServiceItem.objects.create(
+            job=job,
+            service=self.mowing.service if hasattr(self.mowing, "service") and self.mowing.service else ServiceTemplate.objects.create(
+                business=self.business,
+                name="Mowing",
+                default_rate=Decimal("95.00"),
+            ),
+            description="Mowing",
+            quantity=1,
+            unit_price=Decimal("95.00"),
+        )
+
+        response = self.client.get(reverse("billing:invoice_list"))
+
+        metrics = response.context["command_metrics"]
+        self.assertEqual(metrics["draft_total"], Decimal("410.00"))
+        self.assertEqual(metrics["monthly_draft_total"], Decimal("410.00"))
+        self.assertEqual(metrics["unbilled_total"], Decimal("95.00"))
+        self.assertEqual(metrics["unbilled_item_count"], 1)
+        self.assertContains(response, "Work not invoiced")
+        self.assertContains(response, "$95")
+
+    def test_owner_can_combine_same_customer_draft_invoices(self):
+        first = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+        )
+        second = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+        )
+        InvoiceLineItem.objects.create(invoice=first, description="Mowing", quantity=1, unit_price=Decimal("85.00"))
+        InvoiceLineItem.objects.create(invoice=second, description="Cleanup", quantity=1, unit_price=Decimal("150.00"))
+
+        response = self.client.post(
+            reverse("billing:invoice_combine"),
+            data={
+                "target_invoice_id": first.id,
+                "invoice_ids": [first.id, second.id],
+            },
+        )
+
+        self.assertRedirects(response, reverse("billing:invoice_detail", args=[first.id]))
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.line_items.count(), 2)
+        self.assertEqual(first.total, Decimal("235.00"))
+        self.assertEqual(second.status, "void")
+        self.assertEqual(second.total, Decimal("0.00"))
+
+    def test_combine_rejects_invoices_from_different_customers(self):
+        other_customer = Customer.objects.create(business=self.business, name="Other Client")
+        first = Invoice.objects.create(business=self.business, customer=self.customer, status="draft")
+        second = Invoice.objects.create(business=self.business, customer=other_customer, status="draft")
+        InvoiceLineItem.objects.create(invoice=first, description="Mowing", quantity=1, unit_price=Decimal("85.00"))
+        InvoiceLineItem.objects.create(invoice=second, description="Cleanup", quantity=1, unit_price=Decimal("150.00"))
+
+        response = self.client.post(
+            reverse("billing:invoice_combine"),
+            data={
+                "target_invoice_id": first.id,
+                "invoice_ids": [first.id, second.id],
+            },
+        )
+
+        self.assertRedirects(response, reverse("billing:invoice_list"))
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.line_items.count(), 1)
+        self.assertEqual(second.status, "draft")
+
     def test_apply_fixed_promotion_creates_discount_line_and_redemption(self):
         promo = Promotion.objects.create(
             business=self.business,

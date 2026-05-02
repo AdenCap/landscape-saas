@@ -16,7 +16,7 @@ from django.urls import reverse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Q, Sum
 from django.db.models.functions import Coalesce
 
 from accounts.decorators import role_required
@@ -74,7 +74,7 @@ from .forms import (
     _compute_fertilizing,
     _compute_mulch,
 )
-from .services import auto_charge_invoice_card
+from .services import auto_charge_invoice_card, combine_customer_invoices
 from .monthly import build_missing_monthly_invoices_for_period
 
 @role_required("owner", "manager")
@@ -87,6 +87,69 @@ def invoice_list_view(request):
     return render(request, 'billing/invoice_list.html', {
         'invoices': invoices
     })
+
+
+def _invoice_command_metrics(business, today):
+    from jobs.models import JobServiceItem
+
+    unbilled_amount = ExpressionWrapper(
+        F("quantity") * F("unit_price"),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
+    invoice_base = Invoice.objects.filter(business=business)
+    unbilled_base = JobServiceItem.objects.filter(
+        job__property__customer__business=business,
+        job__status="completed",
+        billed_invoice__isnull=True,
+    )
+    draft_base = invoice_base.filter(status="draft")
+    monthly_draft_base = draft_base.filter(job__isnull=True, period_start__isnull=False)
+    sent_base = invoice_base.filter(status="sent")
+    unbilled_total = unbilled_base.aggregate(
+        total=Coalesce(Sum(unbilled_amount), Decimal("0.00"))
+    )["total"]
+    return {
+        "draft_total": draft_base.aggregate(total=Coalesce(Sum("total"), Decimal("0.00")))["total"],
+        "draft_count": draft_base.count(),
+        "monthly_draft_total": monthly_draft_base.aggregate(total=Coalesce(Sum("total"), Decimal("0.00")))["total"],
+        "monthly_draft_count": monthly_draft_base.count(),
+        "unbilled_total": unbilled_total,
+        "unbilled_item_count": unbilled_base.count(),
+        "unbilled_job_count": unbilled_base.values("job_id").distinct().count(),
+        "sent_total": sent_base.aggregate(total=Coalesce(Sum("total"), Decimal("0.00")))["total"],
+        "sent_count": sent_base.count(),
+        "overdue_total": sent_base.filter(due_date__lt=today).aggregate(total=Coalesce(Sum("total"), Decimal("0.00")))["total"],
+    }
+
+
+def _invoice_combine_candidates(business):
+    groups = []
+    duplicate_customers = (
+        Invoice.objects.filter(business=business, status__in=["draft", "sent"])
+        .values("customer_id")
+        .annotate(invoice_count=Count("id"), total=Coalesce(Sum("total"), Decimal("0.00")))
+        .filter(invoice_count__gt=1)
+        .order_by("-total", "customer_id")[:8]
+    )
+    for group in duplicate_customers:
+        invoices = list(
+            Invoice.objects.filter(
+                business=business,
+                customer_id=group["customer_id"],
+                status__in=["draft", "sent"],
+            )
+            .select_related("customer")
+            .order_by("status", "issue_date", "id")
+        )
+        if len(invoices) < 2:
+            continue
+        groups.append({
+            "customer": invoices[0].customer,
+            "invoices": invoices,
+            "target": invoices[0],
+            "total": sum((invoice.total for invoice in invoices), Decimal("0.00")),
+        })
+    return groups
 
 
 @role_required("owner", "manager")
@@ -174,11 +237,37 @@ def invoice_list(request):
         "invoice_rows": invoice_rows,
         "invoices": invoices,
         "stats": stats,
+        "command_metrics": _invoice_command_metrics(business, today) if business else {},
+        "combine_candidates": _invoice_combine_candidates(business) if business else [],
         "status_tabs": status_tabs,
         "status_filter": status_filter,
         "search_query": search_query,
         "today": today,
     })
+
+
+@require_POST
+@role_required("owner", "manager")
+def invoice_combine(request):
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business.")
+        return redirect("/")
+    target_invoice_id = request.POST.get("target_invoice_id")
+    invoice_ids = request.POST.getlist("invoice_ids")
+    try:
+        target = combine_customer_invoices(
+            business=business,
+            target_invoice_id=target_invoice_id,
+            invoice_ids=invoice_ids,
+            user=request.user,
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("billing:invoice_list")
+
+    messages.success(request, f"Combined invoices into invoice #{target.id}. Review it before sending.")
+    return redirect("billing:invoice_detail", invoice_id=target.id)
 
 
 @role_required("owner", "manager")
