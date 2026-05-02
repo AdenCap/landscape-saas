@@ -1,4 +1,5 @@
 import hashlib
+import json
 import secrets
 import stripe
 from io import BytesIO
@@ -260,12 +261,10 @@ def monthly_invoice_list(request):
             except (ValueError, TypeError):
                 pass
         line_items = list(inv.line_items.all())
-        preview_items = line_items[:3]
         rows.append({
             "invoice": inv,
             "send_on": send_on,
-            "line_items": preview_items,
-            "extra_line_count": max(len(line_items) - len(preview_items), 0),
+            "line_items": line_items,
         })
     return render(request, "billing/monthly_invoice_list.html", {
         "rows": rows,
@@ -364,6 +363,55 @@ def outstanding_invoices(request):
         "total_not_due": total_not_due,
         "today": today,
     })
+
+
+@role_required("owner", "manager")
+def unbilled_work(request):
+    """Show completed service items that still need an invoice decision."""
+    business = getattr(request.user, "business", None)
+    if not business:
+        messages.error(request, "You must be associated with a business to view billing work.")
+        return redirect("/")
+
+    from jobs.models import JobServiceItem
+
+    items = list(
+        JobServiceItem.objects.filter(
+            job__property__customer__business=business,
+            job__status="completed",
+            billed_invoice__isnull=True,
+        )
+        .select_related("job", "job__property", "job__property__customer", "service")
+        .order_by("-job__scheduled_date", "-job_id", "id")[:250]
+    )
+
+    rows_by_job = {}
+    for item in items:
+        job = item.job
+        row = rows_by_job.setdefault(
+            job.id,
+            {
+                "job": job,
+                "customer": job.property.customer,
+                "items": [],
+                "total": Decimal("0"),
+            },
+        )
+        row["items"].append(item)
+        row["total"] += item.line_total()
+
+    rows = list(rows_by_job.values())
+    total = sum((row["total"] for row in rows), Decimal("0"))
+    return render(
+        request,
+        "billing/unbilled_work.html",
+        {
+            "rows": rows,
+            "unbilled_count": len(items),
+            "job_count": len(rows),
+            "unbilled_total": total,
+        },
+    )
 
 
 @role_required("owner", "manager")
@@ -667,7 +715,12 @@ def invoice_edit_line_items(request, invoice_id):
     return render(
         request,
         "billing/invoice_line_items_edit.html",
-        {"invoice": invoice, "formset": formset},
+        {
+            "invoice": invoice,
+            "formset": formset,
+            "can_accept_stripe": getattr(invoice.business, "can_accept_stripe_payments", lambda: False)() if invoice.business else False,
+            "payment_readiness": _owner_payment_readiness(invoice.business),
+        },
     )
 
 
@@ -1373,10 +1426,31 @@ def invoice_toggle_card_payment(request, invoice_id):
     if business:
         qs = qs.filter(business=business)
     invoice = get_object_or_404(qs)
-    data = json.loads(request.body) if request.body else {}
-    invoice.enable_card_payment = bool(data.get("enable", True))
+    wants_json = "application/json" in (request.headers.get("Content-Type") or "")
+    if wants_json:
+        try:
+            data = json.loads(request.body.decode("utf-8") if request.body else "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            data = {}
+        enable = bool(data.get("enable", True))
+    else:
+        enable = request.POST.get("enable_card_payment") == "on"
+    invoice.enable_card_payment = enable
     invoice.save(update_fields=["enable_card_payment"])
-    return JsonResponse({"status": "ok", "enable_card_payment": invoice.enable_card_payment})
+    if wants_json:
+        return JsonResponse({"status": "ok", "enable_card_payment": invoice.enable_card_payment})
+    messages.success(
+        request,
+        "Card checkout is enabled for this invoice." if enable else "Card checkout is disabled for this invoice.",
+    )
+    next_url = (request.POST.get("next") or "").strip()
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(next_url)
+    return redirect("billing:invoice_detail", invoice_id=invoice.id)
 
 
 # ----- Stripe Connect: business accepts card payments for invoices -----

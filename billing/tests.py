@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 from datetime import date
 from unittest.mock import patch
@@ -127,6 +128,29 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.mowing.refresh_from_db()
         self.assertTrue(self.mowing.is_paid)
 
+    def test_invoice_card_payment_toggle_accepts_form_posts(self):
+        edit_url = reverse("billing:invoice_edit_line_items", args=[self.invoice.id])
+
+        response = self.client.post(
+            reverse("billing:invoice_toggle_card_payment", args=[self.invoice.id]),
+            data={"next": edit_url},
+        )
+
+        self.assertRedirects(response, edit_url)
+        self.invoice.refresh_from_db()
+        self.assertFalse(self.invoice.enable_card_payment)
+
+    def test_invoice_card_payment_toggle_accepts_json_posts(self):
+        response = self.client.post(
+            reverse("billing:invoice_toggle_card_payment", args=[self.invoice.id]),
+            data=json.dumps({"enable": False}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.invoice.refresh_from_db()
+        self.assertFalse(self.invoice.enable_card_payment)
+
     def test_apply_fixed_promotion_creates_discount_line_and_redemption(self):
         promo = Promotion.objects.create(
             business=self.business,
@@ -213,6 +237,32 @@ class MonthlyInvoiceRepairTests(TestCase):
         self.assertEqual(second.billed_invoice, invoice)
         self.assertIsNone(may_item.billed_invoice)
 
+    def test_monthly_invoice_uses_clean_mowing_label_for_field_mowing_template(self):
+        self.service.name = "Field Mowing"
+        self.service.save(update_fields=["name"])
+        job = Job.objects.create(
+            property=self.property,
+            scheduled_date=date(2026, 4, 5),
+            status="completed",
+        )
+        JobServiceItem.objects.create(
+            job=job,
+            service=self.service,
+            description="",
+            quantity=Decimal("1.00"),
+            unit_price=Decimal("110.00"),
+        )
+
+        response = self.client.post(
+            reverse("billing:monthly_invoice_build_missing"),
+            data={"year": "2026", "month": "4"},
+        )
+
+        self.assertRedirects(response, reverse("billing:monthly_invoice_list") + "?year=2026")
+        invoice = Invoice.objects.get(customer=self.customer, period_start=date(2026, 4, 1))
+        line = invoice.line_items.get()
+        self.assertEqual(line.description, "Mowing - 42 April Ave (2026-04-05)")
+
     def test_monthly_queue_shows_line_item_preview_and_individual_send(self):
         invoice = Invoice.objects.create(
             business=self.business,
@@ -236,13 +286,37 @@ class MonthlyInvoiceRepairTests(TestCase):
             quantity=1,
             unit_price=Decimal("250.00"),
         )
+        InvoiceLineItem.objects.create(
+            invoice=invoice,
+            description="Mulch bed cleanup",
+            quantity=1,
+            unit_price=Decimal("140.00"),
+        )
+        InvoiceLineItem.objects.create(
+            invoice=invoice,
+            description="Edging",
+            quantity=1,
+            unit_price=Decimal("45.00"),
+        )
 
         response = self.client.get(reverse("billing:monthly_invoice_list") + "?year=2026")
 
         self.assertContains(response, "Weekly mowing - April 5")
         self.assertContains(response, "Spring cleanup add-on")
+        self.assertContains(response, "Mulch bed cleanup")
+        self.assertContains(response, "Edging")
+        self.assertNotContains(response, "+1 more")
         self.assertContains(response, 'name="invoice_ids" value="%s"' % invoice.id)
         self.assertContains(response, "Send invoice")
+
+    def test_unbilled_work_page_lists_completed_uninvoiced_items(self):
+        item = self._completed_job_item(date(2026, 4, 12), Decimal("115.00"))
+
+        response = self.client.get(reverse("billing:unbilled_work"))
+
+        self.assertContains(response, "Work to be billed")
+        self.assertContains(response, item.description)
+        self.assertContains(response, "$115")
 
 
 class DocumentTemplateStudioTests(TestCase):

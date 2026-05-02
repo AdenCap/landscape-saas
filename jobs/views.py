@@ -17,6 +17,7 @@ from accounts.models import Notification
 from billing.services import auto_charge_invoice_card, create_draft_invoice_for_job
 from billing.monthly import generate_monthly_invoice_for_customer
 from .models import Job, JobServiceItem, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobPhoto, JobAssignmentLog, Meeting, JobNote, PropertyNote
+from .service_labels import clean_service_label
 from customers.models import Property
 from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset, ReportIssueForm, MeetingForm
 from pricing.utils import get_effective_rate
@@ -1317,7 +1318,7 @@ def calendar_quick_create(request):
                     from decimal import Decimal
                     rate = Decimal(str(svc_price_override))
                 JobServiceItem.objects.create(
-                    job=job, service=svc, description=svc.name,
+                    job=job, service=svc, description=clean_service_label(service=svc),
                     detail_description=svc_detail[:1000],
                     quantity=svc_qty, unit=unit, unit_price=rate,
                 )
@@ -1325,7 +1326,7 @@ def calendar_quick_create(request):
         # Fallback: single service_id
         unit, rate = get_effective_rate(prop, service)
         JobServiceItem.objects.create(
-            job=job, service=service, description=service.name,
+            job=job, service=service, description=clean_service_label(service=service),
             quantity=1, unit=unit, unit_price=rate,
         )
 
@@ -2629,7 +2630,7 @@ def create_job(request):
                     JobServiceItem.objects.create(
                         job=job,
                         service=service,
-                        description=service.name,
+                        description=clean_service_label(service=service),
                         detail_description=form_data.cleaned_data.get("detail_description") or "",
                         quantity=qty,
                         unit=unit,
@@ -4412,7 +4413,7 @@ def mowing_bulk_schedule(request):
                 JobServiceItem.objects.create(
                     job=job,
                     service=mowing_svc,
-                    description=mowing_svc.name,
+                    description=clean_service_label(service=mowing_svc),
                     quantity=1,
                     unit=job_unit,
                     unit_price=job_rate,

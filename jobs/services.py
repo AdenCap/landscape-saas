@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.utils import timezone
 from accounts.timezone_utils import business_today as _biz_today
 from .models import RecurringJob, Job, JobServiceItem
+from .service_labels import clean_service_label
 from pricing.models import ServiceTemplate
 
 
@@ -44,7 +45,7 @@ def _add_service_items_to_job(job, service_snapshot):
         JobServiceItem.objects.create(
             job=job,
             service=service,
-            description=item.get("description") or service.name,
+            description=clean_service_label(item.get("description"), service),
             detail_description=item.get("detail_description") or "",
             quantity=quantity,
             unit=unit,

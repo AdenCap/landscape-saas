@@ -11,6 +11,36 @@
     <a href="{% url 'billing:invoice_detail' invoice.id %}" class="btn btn-secondary">Back to invoice</a>
   </header>
 
+  <section class="invoice-card-toggle-panel">
+    <div>
+      <span>Client card checkout</span>
+      <strong>
+        {% if can_accept_stripe %}
+          {% if invoice.enable_card_payment %}Enabled{% else %}Disabled{% endif %}
+        {% elif invoice.enable_card_payment %}
+          Setup needed
+        {% else %}
+          Disabled
+        {% endif %}
+      </strong>
+      <small>{{ payment_readiness.card_detail }}</small>
+    </div>
+    {% if can_accept_stripe %}
+    <form method="post" action="{% url 'billing:invoice_toggle_card_payment' invoice.id %}" class="invoice-card-toggle-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <label class="invoice-switch">
+        <input type="checkbox" name="enable_card_payment" {% if invoice.enable_card_payment %}checked{% endif %}>
+        <span></span>
+        <b>{% if invoice.enable_card_payment %}Card payments on{% else %}Card payments off{% endif %}</b>
+      </label>
+      <button type="submit">Save payment setting</button>
+    </form>
+    {% else %}
+    <a href="{% url 'business_settings' %}#integrations" class="invoice-card-connect">Connect Stripe</a>
+    {% endif %}
+  </section>
+
   <form method="post" action="" class="invoice-line-items-form">
     {% csrf_token %}
     {{ formset.management_form }}
@@ -157,6 +187,107 @@
     letter-spacing: 0;
   }
   .page-subtitle { color: var(--text-muted); margin: 0; font-size: 16px; }
+  .invoice-card-toggle-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 16px;
+    padding: clamp(18px, 3vw, 24px);
+    border: 1px solid rgba(155,239,69,.25);
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at 10% 20%, rgba(155,239,69,.14), transparent 38%),
+      linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+  }
+  .invoice-card-toggle-panel span {
+    display: block;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .invoice-card-toggle-panel strong {
+    display: block;
+    margin-top: 5px;
+    color: var(--text);
+    font-size: 28px;
+    line-height: 1;
+  }
+  .invoice-card-toggle-panel small {
+    display: block;
+    max-width: 540px;
+    margin-top: 6px;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .invoice-card-toggle-form {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .invoice-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: var(--text);
+    font-weight: 900;
+  }
+  .invoice-switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .invoice-switch span {
+    position: relative;
+    width: 58px;
+    height: 32px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.16);
+    border: 1px solid rgba(255,255,255,.12);
+    transition: background .18s ease, border-color .18s ease;
+  }
+  .invoice-switch span::after {
+    content: "";
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: #f4f4f1;
+    transition: transform .18s ease;
+  }
+  .invoice-switch input:checked + span {
+    border-color: rgba(155,239,69,.45);
+    background: var(--primary);
+  }
+  .invoice-switch input:checked + span::after {
+    transform: translateX(26px);
+    background: #071006;
+  }
+  .invoice-switch b {
+    white-space: nowrap;
+  }
+  .invoice-card-toggle-form button,
+  .invoice-card-connect {
+    min-height: 44px;
+    border: 0;
+    border-radius: 999px;
+    padding: 0 16px;
+    background: var(--primary);
+    color: #050505;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 900;
+    text-decoration: none;
+    cursor: pointer;
+  }
 
   .line-items-cards { margin-bottom: 16px; }
   .line-item-card {
@@ -341,10 +472,21 @@
 
   @media (max-width: 640px) {
     .line-item-numbers { grid-template-columns: 1fr 1fr; }
-    .invoice-edit-header { flex-direction: column; }
+    .invoice-edit-header,
+    .invoice-card-toggle-panel { flex-direction: column; align-items: stretch; }
     .invoice-edit-header .btn,
     .form-actions .btn,
     .add-line-btn { width: 100%; justify-content: center; }
+    .invoice-card-toggle-form {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .invoice-switch,
+    .invoice-card-toggle-form button,
+    .invoice-card-connect {
+      width: 100%;
+      justify-content: center;
+    }
     .line-item-payment-strip {
       align-items: stretch;
       flex-direction: column;

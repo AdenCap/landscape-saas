@@ -11,6 +11,7 @@ from billing.models import Invoice
 from businesses.models import Business
 from customers.models import Customer, Property
 from jobs.models import Crew, Job, JobNote, JobServiceItem, PropertyNote, RecurringJob
+from jobs.services import generate_jobs
 from pricing.models import ServiceTemplate
 
 
@@ -587,6 +588,27 @@ class MowingFrequencyUpdateTests(TestCase):
             completed_job,
         )
 
+    @patch("jobs.services._biz_today")
+    def test_recurring_generator_uses_clean_mowing_label_for_field_mowing_template(self, mock_today):
+        mock_today.return_value = date(2026, 5, 1)
+        self.mowing_service.name = "Field Mowing"
+        self.mowing_service.save(update_fields=["name"])
+        self.recurring_job.service_snapshot = [
+            {
+                "service_id": self.mowing_service.id,
+                "quantity": "1",
+                "unit": "visit",
+                "unit_price": "85.00",
+            }
+        ]
+        self.recurring_job.start_date = date(2026, 5, 1)
+        self.recurring_job.save(update_fields=["service_snapshot", "start_date"])
+
+        generate_jobs(days_ahead=1)
+
+        item = JobServiceItem.objects.get(job__scheduled_date=date(2026, 5, 1))
+        self.assertEqual(item.description, "Mowing")
+
 
 class JobCompletionAutoChargeTests(TestCase):
     def setUp(self):
@@ -657,10 +679,13 @@ class JobCompletionAutoChargeTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         invoice = Invoice.objects.get(job=self.job)
+        item = self.job.service_items.get()
+        item.refresh_from_db()
         self.assertEqual(response["Location"], reverse("billing:invoice_detail", args=[invoice.id]))
         self.assertEqual(invoice.status, "draft")
         self.assertEqual(invoice.customer, self.customer)
         self.assertEqual(invoice.total, Decimal("85.00"))
+        self.assertEqual(item.billed_invoice, invoice)
 
 
 class MonthlyBillingCompletionTests(TestCase):
@@ -714,3 +739,31 @@ class MonthlyBillingCompletionTests(TestCase):
         self.assertEqual(invoice.status, "draft")
         self.assertEqual(invoice.total, Decimal("90.00"))
         self.assertEqual(self.item.billed_invoice, invoice)
+
+    def test_paid_job_is_not_collected_again_by_monthly_repair(self):
+        self.job.status = "completed"
+        self.job.save(update_fields=["status"])
+
+        response = self.client.post(
+            reverse("mark_job_paid", args=[self.job.id]),
+            data={"payment_method": "cash"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.item.refresh_from_db()
+        paid_invoice = Invoice.objects.get(job=self.job)
+        self.assertEqual(paid_invoice.status, "paid")
+        self.assertEqual(self.item.billed_invoice, paid_invoice)
+
+        self.client.post(
+            reverse("billing:monthly_invoice_build_missing"),
+            data={"year": "2026", "month": "4"},
+        )
+
+        self.assertFalse(
+            Invoice.objects.filter(
+                customer=self.customer,
+                job__isnull=True,
+                period_start=date(2026, 4, 1),
+            ).exists()
+        )

@@ -5,6 +5,7 @@ from accounts.timezone_utils import business_today as _biz_today
 
 from .models import Invoice, InvoiceLineItem, InvoiceAuditLog
 from .services import get_invoice_due_date
+from jobs.service_labels import clean_service_label
 
 
 @transaction.atomic
@@ -63,9 +64,10 @@ def generate_monthly_invoice_for_customer(customer, year, month, include_job=Non
     ).select_related("service", "job", "job__property")
 
     for item in items:
+        service_label = clean_service_label(item.description, item.service)
         InvoiceLineItem.objects.create(
             invoice=invoice,
-            description=f"{item.service.name} - {item.job.property.address}" + (f" ({item.job.scheduled_date})" if item.job.scheduled_date else ""),
+            description=f"{service_label} - {item.job.property.address}" + (f" ({item.job.scheduled_date})" if item.job.scheduled_date else ""),
             quantity=item.quantity,
             unit_price=item.unit_price,
             labor_cost=item.quantity * item.unit_price,

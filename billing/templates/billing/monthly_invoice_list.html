@@ -147,9 +147,6 @@
               {% empty %}
               <div class="batch-line-empty">No line items yet.</div>
               {% endfor %}
-              {% if row.extra_line_count %}
-              <a class="batch-line-more" href="{% url 'billing:invoice_edit_line_items' row.invoice.id %}">+{{ row.extra_line_count }} more</a>
-              {% endif %}
             </div>
           </div>
           <div class="batch-row-total">

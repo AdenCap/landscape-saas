@@ -8,6 +8,7 @@ import stripe
 from accounts.timezone_utils import business_today as _biz_today
 from .models import Invoice, InvoiceLineItem, InvoiceAuditLog
 from jobs.models import JobServiceItem
+from jobs.service_labels import clean_service_label
 
 
 def get_invoice_due_date(issue_date, business, customer=None):
@@ -170,7 +171,7 @@ def create_invoice_for_job(job):
         for item in job.service_items.select_related("service").all():
             InvoiceLineItem.objects.create(
                 invoice=invoice,
-                description=item.description or item.service.name,
+                description=clean_service_label(item.description, item.service),
                 detail_description=getattr(item, "detail_description", "") or "",
                 quantity=item.quantity,
                 unit_price=item.unit_price,
@@ -234,7 +235,10 @@ def create_draft_invoice_for_job(job):
     )
 
     if not created:
-        # already exists; don't duplicate
+        JobServiceItem.objects.filter(
+            job=job,
+            billed_invoice__isnull=True,
+        ).update(billed_invoice=invoice, billed_at=timezone.now())
         return invoice
 
     InvoiceAuditLog.objects.create(invoice=invoice, action="created", user=None, details={"source": "job", "job_id": job.id})
@@ -245,12 +249,15 @@ def create_draft_invoice_for_job(job):
     for ji in job_items:
         InvoiceLineItem.objects.create(
             invoice=invoice,
-            description=ji.description or getattr(ji.service, "name", "Service"),
+            description=clean_service_label(ji.description, ji.service),
             detail_description=getattr(ji, "detail_description", "") or "",
             quantity=ji.quantity,
             unit_price=ji.unit_price,
             labor_cost=ji.quantity * ji.unit_price,
             revenue_category=getattr(ji.service, "revenue_category", None),
         )
+        ji.billed_invoice = invoice
+        ji.billed_at = timezone.now()
+        ji.save(update_fields=["billed_invoice", "billed_at"])
 
     return invoice

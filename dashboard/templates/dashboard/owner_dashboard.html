@@ -22,7 +22,7 @@
             <strong>{{ unassigned_jobs_count }}</strong>
             <small>need crew</small>
           </a>
-          <a href="{% url 'billing:invoice_create' %}">
+          <a href="{% url 'billing:unbilled_work' %}">
             <span>Ready to bill</span>
             <strong>${{ completed_not_billed_total|floatformat:0 }}</strong>
             <small>{{ completed_not_billed_count }} visit{{ completed_not_billed_count|pluralize }}</small>
@@ -136,7 +136,7 @@
           </a>
           {% endif %}
           {% if completed_not_billed_count %}
-          <a href="{% url 'billing:invoice_create' %}" class="fc-brief-item">
+          <a href="{% url 'billing:unbilled_work' %}" class="fc-brief-item">
             <strong>Ready to bill <span>{{ completed_not_billed_count }}</span></strong>
             <p>${{ completed_not_billed_total|floatformat:0 }} in completed work has unbilled service items.</p>
           </a>
