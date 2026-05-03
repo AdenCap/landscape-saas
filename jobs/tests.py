@@ -50,16 +50,20 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
             title="Landscape cleanup",
             status="accepted",
             accepted_total=Decimal("425.00"),
+            notes="Client wants the west bed cleaned first.\nUse dark brown mulch.",
+            site_visit_notes="Gate code 2468. Avoid parking on driveway.",
         )
         EstimateLineItem.objects.create(
             estimate=estimate,
             description="Base cleanup",
+            detail_description="Remove leaves, cut back grasses, and haul debris.",
             quantity=1,
             unit_price=Decimal("300.00"),
         )
         selected = EstimateLineItem.objects.create(
             estimate=estimate,
             description="Mulch refresh",
+            detail_description="Install 3 yards around front beds.",
             quantity=1,
             unit_price=Decimal("125.00"),
             is_addon=True,
@@ -89,6 +93,24 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
         self.assertEqual(descriptions, ["Base cleanup", "Mulch refresh"])
         self.assertNotIn(declined.description, descriptions)
 
+    def test_schedule_from_estimate_transfers_notes_and_descriptions_to_job(self):
+        estimate, _selected, _declined = self._accepted_estimate_with_options()
+
+        response = self.client.post(
+            reverse("schedule_from_estimate", args=[estimate.id]),
+            data={"schedule_date": "2026-05-06"},
+        )
+
+        self.assertRedirects(response, reverse("job_list"))
+        job = Job.objects.get(property=self.property, scheduled_date=date(2026, 5, 6))
+        self.assertIn("Client wants the west bed cleaned first.", job.notes)
+        self.assertIn("Gate code 2468", job.notes)
+        details = list(job.service_items.order_by("id").values_list("detail_description", flat=True))
+        self.assertEqual(details, [
+            "Remove leaves, cut back grasses, and haul debris.",
+            "Install 3 yards around front beds.",
+        ])
+
     def test_create_job_prefill_from_estimate_uses_only_accepted_items(self):
         estimate, _selected, declined = self._accepted_estimate_with_options()
 
@@ -99,6 +121,16 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
         initial_names = [form.initial.get("service_name") for form in formset.forms if form.initial]
         self.assertEqual(initial_names, ["Base cleanup", "Mulch refresh"])
         self.assertNotIn(declined.description, initial_names)
+
+    def test_create_job_prefill_from_estimate_includes_estimate_notes(self):
+        estimate, _selected, _declined = self._accepted_estimate_with_options()
+
+        response = self.client.get(reverse("create_job") + f"?estimate={estimate.id}")
+
+        self.assertEqual(response.status_code, 200)
+        form = response.context["form"]
+        self.assertIn("Client wants the west bed cleaned first.", form.initial["notes"])
+        self.assertIn("Gate code 2468", form.initial["notes"])
 
 
 class CalendarRecurringRescheduleTests(TestCase):

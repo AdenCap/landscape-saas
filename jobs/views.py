@@ -322,7 +322,7 @@ def schedule_from_estimate(request, estimate_id):
         property=prop,
         scheduled_date=schedule_date,
         status="scheduled",
-        notes=f"From estimate #{estimate.id}: {estimate.title}",
+        notes=_job_notes_from_estimate(estimate),
     )
 
     # Copy only accepted line items from estimate to job service items.
@@ -349,6 +349,15 @@ def schedule_from_estimate(request, estimate_id):
 
     messages.success(request, f"Job scheduled for {schedule_date.strftime('%b %d')} from estimate #{estimate.id} ({estimate.customer.name}).")
     return redirect("job_list")
+
+
+def _job_notes_from_estimate(estimate):
+    parts = [f"From estimate #{estimate.id}: {estimate.title}"]
+    if (estimate.notes or "").strip():
+        parts.append("Estimate notes:\n" + estimate.notes.strip())
+    if (estimate.site_visit_notes or "").strip():
+        parts.append("Site visit notes:\n" + estimate.site_visit_notes.strip())
+    return "\n\n".join(parts)[:2000]
 
 
 @role_required("owner", "manager", "crew")
@@ -2674,6 +2683,7 @@ def create_job(request):
             ).select_related("customer").prefetch_related("line_items").first()
             if est:
                 initial["customer"] = est.customer_id
+                initial["notes"] = _job_notes_from_estimate(est)
                 props = list(est.customer.properties.all().order_by("address")[:1])
                 if len(props) == 1:
                     initial["property"] = props[0].id
