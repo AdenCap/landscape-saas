@@ -241,6 +241,23 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.assertEqual(first.line_items.count(), 1)
         self.assertEqual(second.status, "draft")
 
+    def test_combine_without_target_invoice_redirects_instead_of_500(self):
+        first = Invoice.objects.create(business=self.business, customer=self.customer, status="draft")
+        second = Invoice.objects.create(business=self.business, customer=self.customer, status="draft")
+        InvoiceLineItem.objects.create(invoice=first, description="Mowing", quantity=1, unit_price=Decimal("85.00"))
+        InvoiceLineItem.objects.create(invoice=second, description="Cleanup", quantity=1, unit_price=Decimal("150.00"))
+
+        response = self.client.post(
+            reverse("billing:invoice_combine"),
+            data={"invoice_ids": [first.id, second.id]},
+        )
+
+        self.assertRedirects(response, reverse("billing:invoice_list"))
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.line_items.count(), 1)
+        self.assertEqual(second.status, "draft")
+
     def test_apply_fixed_promotion_creates_discount_line_and_redemption(self):
         promo = Promotion.objects.create(
             business=self.business,

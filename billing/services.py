@@ -30,9 +30,11 @@ def get_invoice_due_date(issue_date, business, customer=None):
 @transaction.atomic
 def combine_customer_invoices(*, business, target_invoice_id, invoice_ids, user=None):
     """Move open same-customer invoices into one invoice and void the emptied sources."""
+    if not target_invoice_id or not str(target_invoice_id).isdigit():
+        raise ValueError("Choose which invoice should keep the combined line items.")
+    target_id = int(target_invoice_id)
     ids = {int(invoice_id) for invoice_id in invoice_ids if str(invoice_id).isdigit()}
-    if target_invoice_id:
-        ids.add(int(target_invoice_id))
+    ids.add(target_id)
     if len(ids) < 2:
         raise ValueError("Choose at least two invoices to combine.")
 
@@ -54,7 +56,7 @@ def combine_customer_invoices(*, business, target_invoice_id, invoice_ids, user=
     if len(customer_ids) != 1:
         raise ValueError("Invoices can only be combined for the same client.")
 
-    target = next((invoice for invoice in invoices if invoice.id == int(target_invoice_id)), None)
+    target = next((invoice for invoice in invoices if invoice.id == target_id), None)
     if target is None:
         raise ValueError("Choose which invoice should keep the combined line items.")
 
