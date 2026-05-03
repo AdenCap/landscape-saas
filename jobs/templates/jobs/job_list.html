@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load billing_filters %}
 
 {% block content %}
 <section class="jobs-command">
@@ -75,7 +76,7 @@
       <article class="jc-queue-row">
         <a href="{% url 'billing:estimate_detail' est.id %}" class="jc-queue-main">
           <strong>{{ est.customer.name }}</strong>
-          <small>{{ est.title }} · ${{ est.total|floatformat:2 }}</small>
+          <small>{{ est.title }} · {% if est.accepted_total %}{{ est.accepted_total|currency }}{% else %}{{ est.total|currency }}{% endif %} accepted</small>
         </a>
         <form method="post" action="{% url 'schedule_from_estimate' est.id %}" class="jc-schedule-form">
           {% csrf_token %}

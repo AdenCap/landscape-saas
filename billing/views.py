@@ -751,19 +751,7 @@ def _estimate_acceptance_totals(estimate, selected_optional_ids):
 
 
 def _accepted_optional_line_items(estimate):
-    addon_items = estimate.line_items.filter(is_addon=True)
-    if estimate.accepted_optional_item_ids is not None:
-        selected_ids = [
-            int(item_id)
-            for item_id in estimate.accepted_optional_item_ids
-            if str(item_id).isdigit()
-        ]
-        return addon_items.filter(id__in=selected_ids)
-
-    base_total = sum((item.line_total for item in estimate.line_items.filter(is_addon=False)), Decimal("0.00"))
-    if estimate.accepted_total and estimate.accepted_total > base_total:
-        return addon_items
-    return addon_items.none()
+    return estimate.accepted_line_items().filter(is_addon=True)
 
 
 def _invoice_payment_breakdown(invoice):
@@ -4237,6 +4225,8 @@ def estimate_detail(request, estimate_id):
     owner_optional_items = list(estimate.line_items.filter(is_addon=True).order_by("order", "id"))
     owner_base_total = sum((item.line_total for item in owner_base_items), Decimal("0.00"))
     owner_optional_total = sum((item.line_total for item in owner_optional_items), Decimal("0.00"))
+    accepted_line_items = list(estimate.accepted_line_items()) if estimate.status == "accepted" else []
+    declined_optional_items = list(estimate.declined_optional_line_items()) if estimate.status == "accepted" else []
     
     return render(request, "billing/estimate_detail.html", {
         "estimate": estimate,
@@ -4256,6 +4246,8 @@ def estimate_detail(request, estimate_id):
         "owner_optional_items": owner_optional_items,
         "owner_base_total": owner_base_total,
         "owner_optional_total": owner_optional_total,
+        "accepted_line_items": accepted_line_items,
+        "declined_optional_items": declined_optional_items,
     })
 
 
@@ -5286,20 +5278,27 @@ def estimate_client_accept(request, estimate_id, token):
         if is_email_configured(business):
             owner_email = business.contact_email or (system_user.email if system_user else None)
             if owner_email:
-                line_items = estimate.line_items.all().order_by("order", "id")
-                lines_text = ""
-                for li in line_items:
+                accepted_items = list(estimate.accepted_line_items())
+                declined_items = list(estimate.declined_optional_line_items())
+                accepted_lines_text = ""
+                for li in accepted_items:
                     desc = li.description or "Service"
                     amt = f"${li.line_total:,.2f}" if li.line_total else ""
                     addon_tag = " (add-on)" if li.is_addon else ""
-                    lines_text += f"  - {desc}{addon_tag}: {amt}\n"
+                    accepted_lines_text += f"  - {desc}{addon_tag}: {amt}\n"
+                declined_lines_text = ""
+                for li in declined_items:
+                    desc = li.description or "Service"
+                    amt = f"${li.line_total:,.2f}" if li.line_total else ""
+                    declined_lines_text += f"  - {desc} (optional, not accepted): {amt}\n"
 
                 body_text = (
                     f"Great news! {estimate.customer.name} has accepted your estimate.\n\n"
                     f"Estimate #{estimate.id}: {estimate.title or 'Service Estimate'}\n"
                     f"Customer: {estimate.customer.name}\n"
                     f"Accepted Total: ${total:,.2f}\n\n"
-                    f"Line Items:\n{lines_text}\n"
+                    f"Accepted Work:\n{accepted_lines_text}\n"
+                    f"{f'Optional Items Not Accepted:\\n{declined_lines_text}\\n' if declined_lines_text else ''}"
                     f"Accepted at: {estimate.accepted_at.strftime('%B %d, %Y at %I:%M %p')}\n\n"
                     f"Next steps: Convert to invoice or schedule the work.\n"
                     f"View estimate: {getattr(settings, 'SITE_URL', 'https://fieldlgx.com').rstrip('/')}/billing/estimates/{estimate.id}/\n"

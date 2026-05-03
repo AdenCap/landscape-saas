@@ -325,8 +325,9 @@ def schedule_from_estimate(request, estimate_id):
         notes=f"From estimate #{estimate.id}: {estimate.title}",
     )
 
-    # Copy line items from estimate to job service items
-    for line in estimate.line_items.all():
+    # Copy only accepted line items from estimate to job service items.
+    # Declined optional add-ons stay attached to the estimate for future reference.
+    for line in estimate.accepted_line_items():
         from pricing.models import ServiceTemplate
         svc = ServiceTemplate.objects.filter(business=business, name__icontains=line.description[:30]).first()
         if not svc:
@@ -2676,7 +2677,7 @@ def create_job(request):
                 props = list(est.customer.properties.all().order_by("address")[:1])
                 if len(props) == 1:
                     initial["property"] = props[0].id
-                for item in est.line_items.all():
+                for item in est.accepted_line_items():
                     if item.material_cost or item.labor_cost:
                         price = (item.material_cost or 0) + (item.labor_cost or 0)
                         if item.quantity and item.quantity > 0:

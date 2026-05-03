@@ -45,9 +45,15 @@
         </div>
       </div>
       <div class="er-total-card">
+        {% if estimate.status == 'accepted' and estimate.accepted_total %}
+        <span>Accepted total</span>
+        <strong>{{ estimate.accepted_total|currency }}</strong>
+        <small>{{ estimate.total|currency }} estimate total · optional choices retained</small>
+        {% else %}
         <span>Estimate total</span>
         <strong>{{ estimate.total|currency }}</strong>
         <small>{{ estimate.line_items.count }} line item{{ estimate.line_items.count|pluralize }}</small>
+        {% endif %}
       </div>
     </div>
   </header>
@@ -274,6 +280,30 @@
           </tr>
         </thead>
         <tbody>
+          {% if estimate.status == 'accepted' and accepted_line_items %}
+          {% for item in accepted_line_items %}
+          <tr>
+            <td>
+              {{ item.description }}
+              {% if item.is_addon %}<span class="badge-addon badge-accepted-option">Accepted optional</span>{% else %}<span class="badge-addon badge-required-option">Accepted</span>{% endif %}
+              {% if item.detail_description %}<br><span style="font-size:12px;color:var(--text-muted);">{{ item.detail_description }}</span>{% endif %}
+            </td>
+            <td class="num">{{ item.quantity }}</td>
+            <td class="num">{{ item.material_cost|currency }}</td>
+            <td class="num">{{ item.labor_cost|currency }}</td>
+            <td class="num">{% if item.line_total %}{{ item.line_total|currency }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+          {% for item in declined_optional_items %}
+          <tr class="row-addon row-declined-addon">
+            <td>{{ item.description }} <span class="badge-addon badge-declined-option">Optional not accepted</span></td>
+            <td class="num">{{ item.quantity }}</td>
+            <td class="num">{{ item.material_cost|currency }}</td>
+            <td class="num">{{ item.labor_cost|currency }}</td>
+            <td class="num">{{ item.line_total|currency }}</td>
+          </tr>
+          {% endfor %}
+          {% else %}
           {% for item in estimate.line_items.all %}
           {% if not item.is_addon %}
           <tr>
@@ -296,12 +326,18 @@
           </tr>
           {% endif %}
           {% endfor %}
+          {% endif %}
         </tbody>
       </table>
     </div>
 
     <div class="estimate-preview-total">
+      {% if estimate.status == 'accepted' and estimate.accepted_total %}
+      <strong>Accepted total: {{ estimate.accepted_total|currency }}</strong>
+      <span class="estimate-accepted-note">{{ estimate.total|currency }} original estimate total retained for reference.</span>
+      {% else %}
       <strong>Total: {{ estimate.total|currency }}</strong>
+      {% endif %}
       {% if estimate.deposit_required and estimate.deposit_amount %}
       <span class="estimate-deposit-note">
         Deposit due on approval:
@@ -311,9 +347,6 @@
         {{ estimate.deposit_dollar_amount|currency }}
         {% endif %}
       </span>
-      {% endif %}
-      {% if estimate.status == 'accepted' and estimate.accepted_total %}
-      <span class="estimate-accepted-note">Client accepted at {{ estimate.accepted_total|currency }}</span>
       {% endif %}
     </div>
 
@@ -902,6 +935,21 @@
   .estimate-preview-table td { padding: 14px 16px; border-top: 1px solid var(--border); font-size: 16px; }
   .estimate-preview-table .row-addon { background: var(--surface-alt); }
   .badge-addon { font-size: 11px; padding: 2px 8px; background: rgba(34, 197, 94, 0.2); color: #6ee7b7; border-radius: 6px; margin-left: 8px; font-weight: 500; }
+  .row-declined-addon {
+    opacity: .68;
+  }
+  .badge-accepted-option {
+    background: rgba(157,216,80,.18);
+    color: var(--er-accent);
+  }
+  .badge-required-option {
+    background: rgba(255,255,255,.12);
+    color: var(--er-muted);
+  }
+  .badge-declined-option {
+    background: rgba(255,255,255,.08);
+    color: rgba(255,255,255,.48);
+  }
   .estimate-preview-total {
     padding-top: 20px;
     border-top: 2px solid var(--border);

@@ -7,12 +7,98 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import User
-from billing.models import Invoice
+from billing.models import Estimate, EstimateLineItem, Invoice
 from businesses.models import Business
 from customers.models import Customer, Property
 from jobs.models import Crew, Job, JobNote, JobServiceItem, PropertyNote, RecurringJob
 from jobs.services import generate_jobs
 from pricing.models import ServiceTemplate
+
+
+class EstimateSchedulingOptionalItemsTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(
+            name="Green Valley",
+            subscription_status="active",
+        )
+        self.owner = User.objects.create_user(
+            username="estimate-owner",
+            password="password",
+            role="owner",
+            business=self.business,
+        )
+        self.customer = Customer.objects.create(
+            business=self.business,
+            name="Acme Home",
+        )
+        self.property = Property.objects.create(
+            customer=self.customer,
+            address="123 Lawn Ave",
+        )
+        self.service = ServiceTemplate.objects.create(
+            business=self.business,
+            name="Landscape",
+            active=True,
+        )
+        self.client.force_login(self.owner)
+
+    def _accepted_estimate_with_options(self):
+        estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            property=self.property,
+            title="Landscape cleanup",
+            status="accepted",
+            accepted_total=Decimal("425.00"),
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Base cleanup",
+            quantity=1,
+            unit_price=Decimal("300.00"),
+        )
+        selected = EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Mulch refresh",
+            quantity=1,
+            unit_price=Decimal("125.00"),
+            is_addon=True,
+        )
+        declined = EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Seasonal color",
+            quantity=1,
+            unit_price=Decimal("95.00"),
+            is_addon=True,
+        )
+        estimate.accepted_optional_item_ids = [selected.id]
+        estimate.save(update_fields=["accepted_optional_item_ids"])
+        return estimate, selected, declined
+
+    def test_schedule_from_estimate_copies_only_accepted_items_to_job(self):
+        estimate, _selected, declined = self._accepted_estimate_with_options()
+
+        response = self.client.post(
+            reverse("schedule_from_estimate", args=[estimate.id]),
+            data={"schedule_date": "2026-05-06"},
+        )
+
+        self.assertRedirects(response, reverse("job_list"))
+        job = Job.objects.get(property=self.property, scheduled_date=date(2026, 5, 6))
+        descriptions = list(job.service_items.order_by("id").values_list("description", flat=True))
+        self.assertEqual(descriptions, ["Base cleanup", "Mulch refresh"])
+        self.assertNotIn(declined.description, descriptions)
+
+    def test_create_job_prefill_from_estimate_uses_only_accepted_items(self):
+        estimate, _selected, declined = self._accepted_estimate_with_options()
+
+        response = self.client.get(reverse("create_job") + f"?estimate={estimate.id}")
+
+        self.assertEqual(response.status_code, 200)
+        formset = response.context["formset"]
+        initial_names = [form.initial.get("service_name") for form in formset.forms if form.initial]
+        self.assertEqual(initial_names, ["Base cleanup", "Mulch refresh"])
+        self.assertNotIn(declined.description, initial_names)
 
 
 class CalendarRecurringRescheduleTests(TestCase):

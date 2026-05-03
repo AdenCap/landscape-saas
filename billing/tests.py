@@ -587,6 +587,51 @@ class DocumentTemplateStudioTests(TestCase):
         self.assertEqual(estimate.accepted_total, Decimal("425.00"))
         self.assertEqual(estimate.accepted_optional_item_ids, [optional.id])
 
+    @patch("businesses.email_sender.is_email_configured", return_value=True)
+    @patch("businesses.email_sender.send_business_email")
+    def test_client_accept_owner_email_separates_accepted_and_declined_optional_items(self, mock_send, _mock_configured):
+        estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            title="Spring cleanup",
+            status="sent",
+            view_token="email-token",
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Base cleanup",
+            quantity=1,
+            unit_price=Decimal("300.00"),
+        )
+        selected = EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Mulch refresh",
+            quantity=1,
+            unit_price=Decimal("125.00"),
+            is_addon=True,
+        )
+        declined = EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Seasonal color",
+            quantity=1,
+            unit_price=Decimal("95.00"),
+            is_addon=True,
+        )
+
+        response = self.client.post(
+            reverse("billing:estimate_client_accept", args=[estimate.id, "email-token"]),
+            data={"optional_items": [str(selected.id)]},
+        )
+
+        self.assertRedirects(response, reverse("billing:estimate_client_accepted", args=[estimate.id, "email-token"]))
+        body_text = mock_send.call_args.kwargs["body_text"]
+        self.assertIn("Accepted Work:", body_text)
+        self.assertIn("Optional Items Not Accepted:", body_text)
+        self.assertIn("Base cleanup", body_text)
+        self.assertIn("Mulch refresh", body_text)
+        self.assertIn("Seasonal color", body_text)
+        self.assertNotIn("Line Items:", body_text)
+
     def test_owner_can_mark_sent_estimate_accepted(self):
         estimate = Estimate.objects.create(
             business=self.business,

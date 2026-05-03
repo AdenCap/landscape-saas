@@ -1,5 +1,6 @@
 from decimal import Decimal
 from django.db import models
+from django.db.models import Q
 from django.conf import settings
 from businesses.models import Business
 from customers.models import Customer
@@ -450,6 +451,36 @@ class Estimate(models.Model):
         return sum(
             item.line_total for item in self.line_items.filter(is_addon=True)
         )
+
+    def selected_optional_item_ids(self):
+        """Return explicitly accepted optional line item ids, or None for legacy accepted estimates."""
+        if self.accepted_optional_item_ids is None:
+            return None
+        return {
+            int(item_id)
+            for item_id in self.accepted_optional_item_ids
+            if str(item_id).isdigit()
+        }
+
+    def accepted_line_items(self):
+        """Line items that should become scheduled work or invoice charges."""
+        selected_ids = self.selected_optional_item_ids()
+        if selected_ids is not None:
+            return self.line_items.filter(Q(is_addon=False) | Q(id__in=selected_ids)).order_by("order", "id")
+
+        # Legacy accepted estimates did not store which add-ons were selected.
+        # If the accepted total is above the base total, keep old behavior and
+        # include all add-ons; otherwise only schedule/base-bill required work.
+        if self.accepted_total and self.accepted_total > self.base_total():
+            return self.line_items.all().order_by("order", "id")
+        return self.line_items.filter(is_addon=False).order_by("order", "id")
+
+    def declined_optional_line_items(self):
+        """Optional items retained on the estimate but not accepted by the client/owner."""
+        selected_ids = self.selected_optional_item_ids()
+        if selected_ids is None:
+            return self.line_items.filter(is_addon=True).none()
+        return self.line_items.filter(is_addon=True).exclude(id__in=selected_ids).order_by("order", "id")
 
     def deposit_dollar_amount(self):
         """Return the deposit amount in dollars (computed from percentage if needed)."""
