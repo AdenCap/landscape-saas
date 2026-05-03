@@ -585,6 +585,7 @@ class DocumentTemplateStudioTests(TestCase):
         self.assertRedirects(response, reverse("billing:estimate_client_accepted", args=[estimate.id, "client-token"]))
         self.assertEqual(estimate.status, "accepted")
         self.assertEqual(estimate.accepted_total, Decimal("425.00"))
+        self.assertEqual(estimate.accepted_optional_item_ids, [optional.id])
 
     def test_owner_can_mark_sent_estimate_accepted(self):
         estimate = Estimate.objects.create(
@@ -608,6 +609,77 @@ class DocumentTemplateStudioTests(TestCase):
         self.assertEqual(estimate.status, "accepted")
         self.assertIsNotNone(estimate.accepted_at)
         self.assertEqual(estimate.accepted_total, Decimal("250.00"))
+        self.assertEqual(estimate.accepted_optional_item_ids, [])
+
+    def test_owner_accept_can_include_selected_optional_items(self):
+        estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            title="Backyard renovation",
+            status="sent",
+            view_token="owner-optional-token",
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Base renovation",
+            quantity=1,
+            unit_price=Decimal("1000.00"),
+        )
+        lighting = EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Landscape lighting",
+            quantity=1,
+            unit_price=Decimal("450.00"),
+            is_addon=True,
+        )
+        mulch = EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Premium mulch",
+            quantity=1,
+            unit_price=Decimal("225.00"),
+            is_addon=True,
+        )
+
+        response = self.client.post(
+            reverse("billing:estimate_owner_accept", args=[estimate.id]),
+            data={"optional_items": [str(lighting.id)]},
+        )
+
+        self.assertRedirects(response, reverse("billing:estimate_detail", args=[estimate.id]))
+        estimate.refresh_from_db()
+        self.assertEqual(estimate.status, "accepted")
+        self.assertEqual(estimate.accepted_total, Decimal("1450.00"))
+        self.assertEqual(estimate.accepted_optional_item_ids, [lighting.id])
+        self.assertNotIn(mulch.id, estimate.accepted_optional_item_ids)
+
+    def test_owner_accept_can_decline_all_optional_items(self):
+        estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            title="Front bed refresh",
+            status="sent",
+            view_token="owner-no-options-token",
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Bed cleanup",
+            quantity=1,
+            unit_price=Decimal("300.00"),
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Annual color",
+            quantity=1,
+            unit_price=Decimal("175.00"),
+            is_addon=True,
+        )
+
+        response = self.client.post(reverse("billing:estimate_owner_accept", args=[estimate.id]))
+
+        self.assertRedirects(response, reverse("billing:estimate_detail", args=[estimate.id]))
+        estimate.refresh_from_db()
+        self.assertEqual(estimate.accepted_total, Decimal("300.00"))
+        self.assertEqual(estimate.accepted_optional_item_ids, [])
 
     def test_estimate_conversion_preserves_line_item_quantity_and_unit_price(self):
         estimate = Estimate.objects.create(
@@ -633,6 +705,78 @@ class DocumentTemplateStudioTests(TestCase):
         self.assertEqual(item.quantity, 2)
         self.assertEqual(item.unit_price, Decimal("125.00"))
         self.assertEqual(invoice.total, Decimal("250.00"))
+
+    def test_estimate_conversion_includes_only_accepted_optional_items(self):
+        estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            title="Landscape install",
+            status="accepted",
+            accepted_total=Decimal("1450.00"),
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Base install",
+            quantity=1,
+            unit_price=Decimal("1000.00"),
+        )
+        selected = EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Lighting",
+            quantity=1,
+            unit_price=Decimal("450.00"),
+            is_addon=True,
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Extra mulch",
+            quantity=1,
+            unit_price=Decimal("225.00"),
+            is_addon=True,
+        )
+        estimate.accepted_optional_item_ids = [selected.id]
+        estimate.save(update_fields=["accepted_optional_item_ids"])
+
+        response = self.client.post(reverse("billing:convert_estimate_to_invoice", args=[estimate.id]))
+
+        self.assertEqual(response.status_code, 302)
+        invoice_id = response["Location"].rstrip("/").split("/")[-1]
+        invoice = Invoice.objects.get(id=invoice_id)
+        descriptions = list(invoice.line_items.order_by("id").values_list("description", flat=True))
+        self.assertEqual(descriptions, ["Base install", "Lighting (add-on)"])
+        self.assertEqual(invoice.total, Decimal("1450.00"))
+
+    def test_legacy_estimate_conversion_keeps_old_addon_total_behavior(self):
+        estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            title="Legacy accepted estimate",
+            status="accepted",
+            accepted_total=Decimal("600.00"),
+            accepted_optional_item_ids=None,
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Base cleanup",
+            quantity=1,
+            unit_price=Decimal("400.00"),
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Leaf haul away",
+            quantity=1,
+            unit_price=Decimal("200.00"),
+            is_addon=True,
+        )
+
+        response = self.client.post(reverse("billing:convert_estimate_to_invoice", args=[estimate.id]))
+
+        self.assertEqual(response.status_code, 302)
+        invoice_id = response["Location"].rstrip("/").split("/")[-1]
+        invoice = Invoice.objects.get(id=invoice_id)
+        descriptions = list(invoice.line_items.order_by("id").values_list("description", flat=True))
+        self.assertEqual(descriptions, ["Base cleanup", "Leaf haul away (add-on)"])
+        self.assertEqual(invoice.total, Decimal("600.00"))
 
     def test_card_payments_can_be_disabled_for_client_deposits(self):
         self.business.stripe_connect_account_id = "acct_test"

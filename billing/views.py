@@ -736,6 +736,36 @@ def _sync_invoice_payment_from_line_items(invoice, request=None):
         _log_invoice_audit(invoice, "line_items_edited", request=request, details={"source": "line_item_unpaid"})
 
 
+def _estimate_acceptance_totals(estimate, selected_optional_ids):
+    selected_optional_ids = {int(item_id) for item_id in selected_optional_ids if str(item_id).isdigit()}
+    base_items = list(estimate.line_items.filter(is_addon=False))
+    optional_items = list(estimate.line_items.filter(is_addon=True))
+    valid_optional_ids = {item.id for item in optional_items}
+    selected_optional_ids &= valid_optional_ids
+    base_total = sum((item.line_total for item in base_items), Decimal("0.00"))
+    optional_total = sum(
+        (item.line_total for item in optional_items if item.id in selected_optional_ids),
+        Decimal("0.00"),
+    )
+    return base_total, optional_total, sorted(selected_optional_ids)
+
+
+def _accepted_optional_line_items(estimate):
+    addon_items = estimate.line_items.filter(is_addon=True)
+    if estimate.accepted_optional_item_ids is not None:
+        selected_ids = [
+            int(item_id)
+            for item_id in estimate.accepted_optional_item_ids
+            if str(item_id).isdigit()
+        ]
+        return addon_items.filter(id__in=selected_ids)
+
+    base_total = sum((item.line_total for item in estimate.line_items.filter(is_addon=False)), Decimal("0.00"))
+    if estimate.accepted_total and estimate.accepted_total > base_total:
+        return addon_items
+    return addon_items.none()
+
+
 def _invoice_payment_breakdown(invoice):
     """Return paid, discount, and remaining balances for invoice line payment UI."""
     paid_line_total = Decimal("0")
@@ -1382,11 +1412,16 @@ def estimate_owner_accept(request, estimate_id):
         messages.error(request, "Add at least one line item before marking this estimate accepted.")
         return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
-    accepted_total = estimate.total()
+    _base_total, optional_total, selected_optional_ids = _estimate_acceptance_totals(
+        estimate,
+        request.POST.getlist("optional_items"),
+    )
+    accepted_total = _base_total + optional_total
     estimate.status = "accepted"
     estimate.accepted_at = timezone.now()
     estimate.accepted_total = accepted_total
-    estimate.save(update_fields=["status", "accepted_at", "accepted_total", "updated_at"])
+    estimate.accepted_optional_item_ids = selected_optional_ids
+    estimate.save(update_fields=["status", "accepted_at", "accepted_total", "accepted_optional_item_ids", "updated_at"])
 
     if estimate.accepted_total:
         for app in estimate.fertilizer_applications.all():
@@ -1395,7 +1430,8 @@ def estimate_owner_accept(request, estimate_id):
 
     messages.success(
         request,
-        f"Estimate #{estimate.id} marked accepted for ${accepted_total:,.2f}.",
+        f"Estimate #{estimate.id} marked accepted for ${accepted_total:,.2f}"
+        f"{' with selected optional items.' if selected_optional_ids else '.'}",
     )
     return redirect("billing:estimate_detail", estimate_id=estimate.id)
 
@@ -1435,18 +1471,16 @@ def convert_estimate_to_invoice(request, estimate_id):
             unit_price=line.unit_price,
         )
 
-    # Also copy accepted add-ons if they were selected
-    if estimate.accepted_total and estimate.accepted_total > sum(
-        item.line_total for item in estimate.line_items.filter(is_addon=False)
-    ):
-        for line in estimate.line_items.filter(is_addon=True):
-            InvoiceLineItem.objects.create(
-                invoice=invoice,
-                description=f"{line.description} (add-on)",
-                detail_description=getattr(line, "detail_description", "") or "",
-                quantity=line.quantity or 1,
-                unit_price=line.unit_price,
-            )
+    # Also copy accepted add-ons if they were selected. Legacy accepted
+    # estimates without explicit selection fall back to the old accepted_total heuristic.
+    for line in _accepted_optional_line_items(estimate):
+        InvoiceLineItem.objects.create(
+            invoice=invoice,
+            description=f"{line.description} (add-on)",
+            detail_description=getattr(line, "detail_description", "") or "",
+            quantity=line.quantity or 1,
+            unit_price=line.unit_price,
+        )
 
     invoice.recompute_totals()
 
@@ -4199,6 +4233,10 @@ def estimate_detail(request, estimate_id):
         client_preview_url = request.build_absolute_uri(
             reverse("billing:estimate_client_view", args=[estimate.id, estimate.view_token])
         )
+    owner_base_items = list(estimate.line_items.filter(is_addon=False).order_by("order", "id"))
+    owner_optional_items = list(estimate.line_items.filter(is_addon=True).order_by("order", "id"))
+    owner_base_total = sum((item.line_total for item in owner_base_items), Decimal("0.00"))
+    owner_optional_total = sum((item.line_total for item in owner_optional_items), Decimal("0.00"))
     
     return render(request, "billing/estimate_detail.html", {
         "estimate": estimate,
@@ -4214,6 +4252,10 @@ def estimate_detail(request, estimate_id):
         "can_accept_card_deposit": _estimate_can_accept_card_deposit(estimate),
         "deposit_due": _estimate_deposit_due(estimate),
         "client_preview_url": client_preview_url,
+        "owner_base_items": owner_base_items,
+        "owner_optional_items": owner_optional_items,
+        "owner_base_total": owner_base_total,
+        "owner_optional_total": owner_optional_total,
     })
 
 
@@ -5203,21 +5245,21 @@ def estimate_client_view(request, estimate_id, token):
 def estimate_client_accept(request, estimate_id, token):
     """Client accepts estimate with selected optional items."""
     estimate = get_object_or_404(
-        Estimate.objects.select_related("business", "customer"),
+        Estimate.objects.select_related("business", "customer").prefetch_related("line_items"),
         id=estimate_id,
         view_token=token,
         status="sent",
     )
-    selected_ids = [int(x) for x in request.POST.getlist("optional_items") if str(x).isdigit()]
-    base_total = sum(item.line_total for item in estimate.line_items.filter(is_addon=False))
-    optional_total = sum(
-        item.line_total for item in estimate.line_items.filter(is_addon=True, id__in=selected_ids)
+    base_total, optional_total, selected_ids = _estimate_acceptance_totals(
+        estimate,
+        request.POST.getlist("optional_items"),
     )
     total = base_total + optional_total
     estimate.status = "accepted"
     estimate.accepted_at = timezone.now()
     estimate.accepted_total = total
-    estimate.save()
+    estimate.accepted_optional_item_ids = selected_ids
+    estimate.save(update_fields=["status", "accepted_at", "accepted_total", "accepted_optional_item_ids", "updated_at"])
 
     # Notify business owner(s) that estimate was accepted
     try:

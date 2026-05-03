@@ -38,7 +38,7 @@ from config.db_check import db_check
 from config.media_views import uploaded_media
 
 urlpatterns = [
-    path("favicon.ico", RedirectView.as_view(url="/static/img/favicon.ico", permanent=True)),
+    path("favicon.ico", RedirectView.as_view(url="/static/img/favicon.ico", permanent=False)),
     path("uploads/<path:path>", uploaded_media, name="uploaded_media"),
     path("admin/", admin.site.urls),
     path("api/db-check/", db_check),

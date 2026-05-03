@@ -368,6 +368,11 @@ class Estimate(models.Model):
     view_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
     accepted_at = models.DateTimeField(null=True, blank=True)
     accepted_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    accepted_optional_item_ids = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="EstimateLineItem IDs for optional add-ons selected at acceptance. Null means legacy unknown.",
+    )
     last_follow_up_at = models.DateTimeField(null=True, blank=True, help_text="When a follow-up email was last sent")
     job_scheduled = models.BooleanField(default=False, help_text="Whether a job has been created from this accepted estimate")
 

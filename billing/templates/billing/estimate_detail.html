@@ -75,13 +75,20 @@
       {% endif %}
       {% if estimate.status == 'sent' or estimate.status == 'draft' %}
         {% if estimate.line_items.exists %}
-        <form method="post" action="{% url 'billing:estimate_owner_accept' estimate.id %}" class="action-inline" onsubmit="return confirm('Mark this estimate as accepted at the current total of {{ estimate.total|currency }}?');">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-primary">
+          {% if owner_optional_items %}
+          <a href="#owner-accept-options" class="btn btn-primary">
             <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:4px;">verified</span>
-            Mark Accepted
-          </button>
-        </form>
+            Accept Estimate
+          </a>
+          {% else %}
+          <form method="post" action="{% url 'billing:estimate_owner_accept' estimate.id %}" class="action-inline" onsubmit="return confirm('Mark this estimate as accepted at {{ owner_base_total|currency }}?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">
+              <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:4px;">verified</span>
+              Mark Accepted
+            </button>
+          </form>
+          {% endif %}
         {% endif %}
       {% endif %}
       {% if estimate.status == 'accepted' %}
@@ -124,6 +131,57 @@
   <div class="alert alert-warning estimate-detail-alert">
     Add at least one line item before sending. <a href="{% url 'billing:estimate_edit' estimate.id %}">Edit estimate</a>
   </div>
+  {% endif %}
+
+  {% if estimate.status == 'sent' or estimate.status == 'draft' %}
+    {% if estimate.line_items.exists %}
+    <section class="owner-accept-panel" id="owner-accept-options" aria-label="Owner estimate acceptance">
+      <form method="post" action="{% url 'billing:estimate_owner_accept' estimate.id %}" class="owner-accept-form" data-base-total="{{ owner_base_total|floatformat:2 }}">
+        {% csrf_token %}
+        <div class="owner-accept-head">
+          <div>
+            <p>Owner approval</p>
+            <h2>Accept estimate with the right options</h2>
+            <span>Use this when a customer approves by text, call, or email. Base work is included automatically.</span>
+          </div>
+          <div class="owner-accept-total">
+            <small>Accepted total</small>
+            <strong data-owner-accepted-total>{{ owner_base_total|currency }}</strong>
+          </div>
+        </div>
+        <div class="owner-accept-grid">
+          <article class="owner-accept-summary">
+            <span>Base work</span>
+            <strong>{{ owner_base_total|currency }}</strong>
+            <small>{{ owner_base_items|length }} required item{{ owner_base_items|length|pluralize }} included.</small>
+          </article>
+          <article class="owner-accept-summary">
+            <span>Optional available</span>
+            <strong>{{ owner_optional_total|currency }}</strong>
+            <small>Select only the add-ons the client approved.</small>
+          </article>
+        </div>
+        {% if owner_optional_items %}
+        <div class="owner-option-list">
+          {% for item in owner_optional_items %}
+          <label class="owner-option-card" for="owner-opt-{{ item.id }}" data-owner-option data-line-total="{{ item.line_total|floatformat:2 }}">
+            <input type="checkbox" name="optional_items" value="{{ item.id }}" id="owner-opt-{{ item.id }}">
+            <span class="owner-option-copy">
+              <strong>{{ item.description }}</strong>
+              {% if item.detail_description %}<small>{{ item.detail_description }}</small>{% endif %}
+            </span>
+            <span class="owner-option-price">+{{ item.line_total|currency }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div class="owner-accept-actions">
+          <a href="{{ client_preview_url|default:'#' }}" target="_blank" rel="noopener" class="btn btn-secondary">Open client preview</a>
+          <button type="submit" class="btn btn-primary" data-owner-accept-button>Accept selected total</button>
+        </div>
+      </form>
+    </section>
+    {% endif %}
   {% endif %}
 
   <section class="er-payment-panel" aria-label="Estimate payment readiness">
@@ -376,6 +434,39 @@
 </div>
 </section>
 
+<script>
+  (function() {
+    var form = document.querySelector('[data-base-total]');
+    if (!form) return;
+    var totalEl = document.querySelector('[data-owner-accepted-total]');
+    var button = document.querySelector('[data-owner-accept-button]');
+    var baseTotal = Number(form.getAttribute('data-base-total') || '0');
+    var formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+
+    function refreshTotal() {
+      var total = baseTotal;
+      form.querySelectorAll('[data-owner-option]').forEach(function(card) {
+        var checkbox = card.querySelector('input[type="checkbox"]');
+        var lineTotal = Number(card.getAttribute('data-line-total') || '0');
+        card.classList.toggle('is-selected', Boolean(checkbox && checkbox.checked));
+        if (checkbox && checkbox.checked) total += lineTotal;
+      });
+      if (totalEl) totalEl.textContent = formatter.format(total);
+      if (button) button.textContent = 'Accept ' + formatter.format(total);
+    }
+
+    form.querySelectorAll('input[name="optional_items"]').forEach(function(input) {
+      input.addEventListener('change', refreshTotal);
+    });
+    form.addEventListener('submit', function(event) {
+      if (!window.confirm('Mark this estimate accepted at ' + (totalEl ? totalEl.textContent : formatter.format(baseTotal)) + '?')) {
+        event.preventDefault();
+      }
+    });
+    refreshTotal();
+  })();
+</script>
+
 <style>
   .estimate-review-flow {
     --er-bg: #080908;
@@ -583,6 +674,138 @@
   .estimate-detail-actions .btn-send { background: var(--accent); color: #0a0a0a; }
   .estimate-detail-actions .btn-send:hover { background: var(--primary); }
   .estimate-detail-alert { margin-bottom: 20px; padding: 14px 18px; border-radius: 10px; font-size: 16px; }
+  .owner-accept-panel {
+    margin-bottom: 22px;
+    padding: 22px;
+    border: 1px solid rgba(157,216,80,.28);
+    border-radius: 30px;
+    background:
+      radial-gradient(circle at top right, rgba(157,216,80,.16), transparent 36%),
+      linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.035));
+    box-shadow: 0 22px 70px rgba(0,0,0,.24);
+  }
+  .owner-accept-form { margin: 0; }
+  .owner-accept-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .owner-accept-head p,
+  .owner-accept-summary span {
+    margin: 0 0 6px;
+    color: var(--er-muted);
+    font-size: var(--text-xs);
+    font-weight: 900;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .owner-accept-head h2 {
+    margin: 0;
+    font-size: var(--h3);
+  }
+  .owner-accept-head span,
+  .owner-accept-summary small {
+    display: block;
+    margin-top: 8px;
+    color: var(--er-muted);
+    font-size: var(--text-sm);
+    line-height: 1.45;
+  }
+  .owner-accept-total {
+    min-width: 210px;
+    padding: 16px;
+    border: 1px solid rgba(157,216,80,.35);
+    border-radius: 22px;
+    background: rgba(157,216,80,.1);
+    text-align: right;
+  }
+  .owner-accept-total small {
+    display: block;
+    color: var(--er-muted);
+    font-size: var(--text-xs);
+    font-weight: 900;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .owner-accept-total strong {
+    display: block;
+    margin-top: 6px;
+    color: var(--text);
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    line-height: 1;
+  }
+  .owner-accept-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .owner-accept-summary,
+  .owner-option-card {
+    border: 1px solid rgba(255,255,255,.13);
+    border-radius: 22px;
+    background: rgba(0,0,0,.18);
+  }
+  .owner-accept-summary {
+    padding: 18px;
+  }
+  .owner-accept-summary strong {
+    display: block;
+    color: var(--text);
+    font-size: var(--text-xl);
+    line-height: 1.1;
+  }
+  .owner-option-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .owner-option-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color .18s ease, background .18s ease;
+  }
+  .owner-option-card:hover,
+  .owner-option-card.is-selected {
+    border-color: rgba(157,216,80,.48);
+    background: rgba(157,216,80,.1);
+  }
+  .owner-option-card input {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--accent);
+  }
+  .owner-option-copy strong,
+  .owner-option-price {
+    display: block;
+    color: var(--text);
+    font-size: var(--text-base);
+    font-weight: 900;
+  }
+  .owner-option-copy small {
+    display: block;
+    margin-top: 4px;
+    color: var(--er-muted);
+    font-size: var(--text-sm);
+    line-height: 1.35;
+  }
+  .owner-option-price {
+    white-space: nowrap;
+    color: var(--accent);
+  }
+  .owner-accept-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+  }
   .er-payment-panel {
     margin-bottom: 22px;
     padding: 22px;
@@ -814,6 +1037,28 @@
     }
     .estimate-detail-actions .btn[href*="estimate_list"] {
       grid-column: 1 / -1;
+    }
+    .owner-accept-panel {
+      padding: 18px;
+      border-radius: 28px;
+    }
+    .owner-accept-head,
+    .owner-accept-actions {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .owner-accept-total {
+      min-width: 0;
+      text-align: left;
+    }
+    .owner-accept-grid {
+      grid-template-columns: 1fr;
+    }
+    .owner-option-card {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .owner-option-price {
+      grid-column: 2;
     }
     .er-payment-panel,
     .estimate-review-flow .card {
