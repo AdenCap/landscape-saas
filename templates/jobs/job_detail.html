@@ -182,15 +182,25 @@
         <label>Qty</label>
         {{ form.quantity }}
       </div>
+      <div class="form-group">
+        <label>Start</label>
+        {{ form.scheduled_date }}
+      </div>
+      <div class="form-group">
+        <label>End</label>
+        {{ form.scheduled_end_date }}
+      </div>
       <button type="submit" class="btn btn-primary">Add / Update</button>
     </div>
   </form>
-  <p class="jd-inline-help">Edit quantity or rate directly in the table. Totals update as soon as a value is saved.</p>
+  <p class="jd-inline-help">Edit quantity, rate, or line-item dates directly in the table. Blank dates mean the item follows the full job schedule and still bills under this same job.</p>
   <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
   <table class="data-table">
     <thead>
       <tr>
         <th>Service</th>
+        <th style="width:125px;">Start</th>
+        <th style="width:125px;">End</th>
         <th class="num" style="width:70px;">Qty</th>
         <th class="num" style="width:90px;">Rate</th>
         <th class="num">Total</th>
@@ -205,6 +215,12 @@
           {% if i.detail_description %}
           <div style="margin-top:4px;color:var(--text-muted);font-size:13px;line-height:1.35;">{{ i.detail_description }}</div>
           {% endif %}
+        </td>
+        <td>
+          <input type="date" class="inline-edit" data-field="scheduled_date" value="{{ i.scheduled_date|date:'Y-m-d' }}" style="width:118px;">
+        </td>
+        <td>
+          <input type="date" class="inline-edit" data-field="scheduled_end_date" value="{{ i.scheduled_end_date|date:'Y-m-d' }}" style="width:118px;">
         </td>
         <td class="num">
           <input type="number" class="inline-edit" data-field="quantity" value="{{ i.quantity }}" min="1" step="1" style="width:55px;text-align:right;">
@@ -221,7 +237,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No items yet.</td></tr>
+      <tr><td colspan="7" style="text-align:center;color:var(--text-muted);">No items yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -446,15 +462,24 @@
       var val = this.value;
       var payload = {};
       payload[field] = val;
+      if (field === 'scheduled_date' || field === 'scheduled_end_date') {
+        var startInput = tr.querySelector('[data-field="scheduled_date"]');
+        var endInput = tr.querySelector('[data-field="scheduled_end_date"]');
+        payload.scheduled_date = startInput ? startInput.value : '';
+        payload.scheduled_end_date = endInput ? endInput.value : '';
+      }
       fetch('/jobs/{{ job.id }}/items/' + itemId + '/update/', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfVal },
         body: JSON.stringify(payload)
-      }).then(function(r) { return r.json(); }).then(function(data) {
+      }).then(function(r) { return r.json().then(function(data) { data._status = r.status; return data; }); }).then(function(data) {
         if (data.ok) {
           tr.querySelector('.item-total').textContent = '$' + parseFloat(data.line_total).toFixed(2);
           inp.style.borderColor = 'var(--primary)';
           setTimeout(function() { inp.style.borderColor = ''; }, 800);
+        } else {
+          inp.style.borderColor = '#f87171';
+          alert(data.error || 'Could not update line item.');
         }
       });
     });

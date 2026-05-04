@@ -9,6 +9,16 @@ from .models import Crew, JobIssue, Meeting
 class AddJobServiceItemForm(forms.Form):
     service = forms.ModelChoiceField(queryset=ServiceTemplate.objects.none())
     quantity = forms.DecimalField(max_digits=10, decimal_places=2, initial=Decimal("1.00"), min_value=0)
+    scheduled_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="Optional start date for this line item.",
+    )
+    scheduled_end_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="Optional end date if this line item spans multiple days.",
+    )
 
     def __init__(self, *args, **kwargs):
         business = kwargs.pop("business", None)
@@ -187,6 +197,16 @@ class JobServiceInlineForm(forms.Form):
         decimal_places=2,
         min_value=Decimal("0"),
         widget=forms.NumberInput(attrs={"placeholder": "Price (optional)", "step": "0.01"}),
+    )
+    scheduled_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="Optional start date for this line item.",
+    )
+    scheduled_end_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="Optional end date if this line item spans multiple days.",
     )
 
     def __init__(self, *args, **kwargs):

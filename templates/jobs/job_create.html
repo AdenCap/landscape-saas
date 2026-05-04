@@ -189,6 +189,8 @@
 
           <div class="line-items-header">
             <span class="li-col-service">Service</span>
+            <span class="li-col-schedule">Start</span>
+            <span class="li-col-schedule">End</span>
             <span class="li-col-qty">Qty</span>
             <span class="li-col-price">Price</span>
             <span class="li-col-total">Total</span>
@@ -204,6 +206,12 @@
                 {{ f.detail_description }}
                 {% if f.service_name.errors %}<span class="form-error">{{ f.service_name.errors.0 }}</span>{% endif %}
                 {% if f.detail_description.errors %}<span class="form-error">{{ f.detail_description.errors.0 }}</span>{% endif %}
+              </div>
+              <div class="li-col-schedule li-col-start">
+                {{ f.scheduled_date }}
+              </div>
+              <div class="li-col-schedule li-col-end">
+                {{ f.scheduled_end_date }}
               </div>
               <div class="li-col-qty">
                 {{ f.quantity }}
@@ -620,7 +628,7 @@
   }
   .line-items-header {
     display: grid;
-    grid-template-columns: minmax(220px, 1fr) 96px 128px 116px 42px;
+    grid-template-columns: minmax(220px, 1fr) 128px 128px 96px 128px 116px 42px;
     gap: 12px;
     padding: 0 8px 12px;
     border-bottom: 1px solid var(--jcreate-line);
@@ -635,7 +643,7 @@
   }
   .line-item-row {
     display: grid;
-    grid-template-columns: minmax(220px, 1fr) 96px 128px 116px 42px;
+    grid-template-columns: minmax(220px, 1fr) 128px 128px 96px 128px 116px 42px;
     gap: 12px;
     padding: 12px 8px;
     border-bottom: 1px solid var(--jcreate-line);
@@ -868,6 +876,8 @@
     .li-col-service input {
       padding-right: 54px;
     }
+    .li-col-start::before,
+    .li-col-end::before,
     .li-col-qty::before,
     .li-col-price::before {
       display: block;
@@ -878,6 +888,8 @@
       letter-spacing: .13em;
       text-transform: uppercase;
     }
+    .li-col-start::before { content: 'Start'; }
+    .li-col-end::before { content: 'End'; }
     .li-col-qty::before { content: 'Qty'; }
     .li-col-price::before { content: 'Price'; }
     .li-col-total {
@@ -1106,6 +1118,21 @@
     d1.id = 'id_form-' + n + '-detail_description';
     g1.appendChild(d1);
 
+    // Line item schedule
+    var gs = document.createElement('div');
+    gs.className = 'li-col-schedule li-col-start';
+    var ds = document.createElement('input');
+    ds.type = 'date'; ds.name = 'form-' + n + '-scheduled_date';
+    ds.id = 'id_form-' + n + '-scheduled_date';
+    gs.appendChild(ds);
+
+    var ge = document.createElement('div');
+    ge.className = 'li-col-schedule li-col-end';
+    var de = document.createElement('input');
+    de.type = 'date'; de.name = 'form-' + n + '-scheduled_end_date';
+    de.id = 'id_form-' + n + '-scheduled_end_date';
+    ge.appendChild(de);
+
     // Quantity
     var g2 = document.createElement('div');
     g2.className = 'li-col-qty';
@@ -1146,6 +1173,8 @@
     g5.appendChild(removeBtn);
 
     row.appendChild(g1);
+    row.appendChild(gs);
+    row.appendChild(ge);
     row.appendChild(g2);
     row.appendChild(g3);
     row.appendChild(g4);

@@ -42,6 +42,38 @@ def _append_note_text(existing, text):
     return f"{existing}\n{text}".strip() if existing else text
 
 
+def _parse_iso_date(value):
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        raise ValueError("Invalid date.")
+
+
+def _line_item_active_on(item, target_date):
+    if item.scheduled_date is None:
+        return True
+    item_end = item.scheduled_end_date or item.scheduled_date
+    return item.scheduled_date <= target_date <= item_end
+
+
+def _expand_job_range_for_item(job, item_start, item_end):
+    if not item_start:
+        return
+    item_end = item_end or item_start
+    changed = []
+    if job.scheduled_date is None or item_start < job.scheduled_date:
+        job.scheduled_date = item_start
+        changed.append("scheduled_date")
+    current_end = job.scheduled_end_date or job.scheduled_date
+    if current_end is None or item_end > current_end:
+        job.scheduled_end_date = item_end if item_end > (job.scheduled_date or item_start) else None
+        changed.append("scheduled_end_date")
+    if changed:
+        job.save(update_fields=list(dict.fromkeys(changed)))
+
+
 def _business_today(business):
     """Get today's date in the business's timezone (not server UTC)."""
     from accounts.timezone_utils import business_today
@@ -755,7 +787,13 @@ def calendar_job_data(request, job_id):
 
     # Services list — use prefetched data, don't re-query
     services = [
-        {"name": si.service.name if si.service else "—", "quantity": str(si.quantity), "unit": si.unit or "visit"}
+        {
+            "name": si.service.name if si.service else "—",
+            "quantity": str(si.quantity),
+            "unit": si.unit or "visit",
+            "scheduled_date": si.scheduled_date.isoformat() if si.scheduled_date else "",
+            "scheduled_end_date": si.scheduled_end_date.isoformat() if si.scheduled_end_date else "",
+        }
         for si in job.service_items.all()
     ]
 
@@ -1730,9 +1768,9 @@ def crew_today_view(request):
         )
     ).order_by("is_done", "scheduled_time", "route_order"))
 
-    # Wave 5: for each job, compute filtered_service_items for today.
+    # For each job, compute filtered_service_items for today.
     #   - Single-day job: all items (same as before)
-    #   - Multi-day job: only items with scheduled_date == today OR scheduled_date IS NULL
+    #   - Multi-day job: items scheduled for today, spanning today, or blank
     # Uses prefetched service_items — no extra queries per job.
     for job in jobs:
         all_items = list(job.service_items.all())
@@ -1740,7 +1778,7 @@ def crew_today_view(request):
             # Multi-day: filter by today. Items with scheduled_date=None span the whole job.
             job.filtered_service_items = [
                 si for si in all_items
-                if si.scheduled_date is None or si.scheduled_date == today
+                if _line_item_active_on(si, today)
             ]
         else:
             # Single-day: all items (unchanged behavior)
@@ -2145,6 +2183,8 @@ def skip_job(request, job_id):
                 unit_price=si.unit_price,
                 material_cost=si.material_cost,
                 labor_cost=si.labor_cost,
+                scheduled_date=si.scheduled_date,
+                scheduled_end_date=si.scheduled_end_date,
             )
 
     if is_ajax:
@@ -2637,6 +2677,11 @@ def create_job(request):
                     elif total_price_override:
                         rate = Decimal("0")
                     unit = getattr(service, "default_unit", None) or unit
+                    item_start = form_data.cleaned_data.get("scheduled_date")
+                    item_end = form_data.cleaned_data.get("scheduled_end_date")
+                    if item_start and item_end and item_end < item_start:
+                        messages.error(request, "Line item end date cannot be before the start date.")
+                        return redirect("create_job")
                     JobServiceItem.objects.create(
                         job=job,
                         service=service,
@@ -2645,7 +2690,10 @@ def create_job(request):
                         quantity=qty,
                         unit=unit,
                         unit_price=rate,
+                        scheduled_date=item_start,
+                        scheduled_end_date=item_end if item_start and item_end and item_end > item_start else None,
                     )
+                    _expand_job_range_for_item(job, item_start, item_end)
             if job.scheduled_end_date:
                 msg = f"Multi-day job created for {prop.address} ({sched_date.strftime('%b %d')} — {job.scheduled_end_date.strftime('%b %d')})"
             elif recurring_job:
@@ -2699,6 +2747,8 @@ def create_job(request):
                         "detail_description": getattr(item, "detail_description", "") or "",
                         "quantity": item.quantity,
                         "unit_price": price,
+                        "scheduled_date": "",
+                        "scheduled_end_date": "",
                     })
 
         form = CreateJobForm(initial=initial, business=business)
@@ -3084,6 +3134,11 @@ def add_job_service_item(request, job_id):
 
     service = form.cleaned_data["service"]
     quantity = form.cleaned_data["quantity"]
+    item_start = form.cleaned_data.get("scheduled_date")
+    item_end = form.cleaned_data.get("scheduled_end_date")
+    if item_start and item_end and item_end < item_start:
+        messages.error(request, "Line item end date cannot be before the start date.")
+        return redirect("job_detail", job_id=job.id)
 
     unit, rate = get_effective_rate(job.property, service)
 
@@ -3091,13 +3146,22 @@ def add_job_service_item(request, job_id):
     item, created = JobServiceItem.objects.get_or_create(
         job=job,
         service=service,
-        defaults={"quantity": quantity, "unit": unit, "unit_price": rate},
+        defaults={
+            "quantity": quantity,
+            "unit": unit,
+            "unit_price": rate,
+            "scheduled_date": item_start,
+            "scheduled_end_date": item_end if item_start and item_end and item_end > item_start else None,
+        },
     )
     if not created:
         item.quantity = quantity
         item.unit = unit
         item.unit_price = rate
+        item.scheduled_date = item_start
+        item.scheduled_end_date = item_end if item_start and item_end and item_end > item_start else None
         item.save()
+    _expand_job_range_for_item(job, item.scheduled_date, item.scheduled_end_date)
 
     return redirect("job_detail", job_id=job.id)
 
@@ -3127,8 +3191,24 @@ def update_job_service_item(request, job_id, item_id):
         item.description = (data["description"] or "")[:255]
     if "unit" in data:
         item.unit = (data["unit"] or "ea")[:50]
+    if "scheduled_date" in data or "scheduled_end_date" in data:
+        try:
+            item_start = _parse_iso_date(data.get("scheduled_date"))
+            item_end = _parse_iso_date(data.get("scheduled_end_date"))
+        except ValueError:
+            return JsonResponse({"error": "Invalid line item date."}, status=400)
+        if item_start and item_end and item_end < item_start:
+            return JsonResponse({"error": "Line item end date cannot be before the start date."}, status=400)
+        item.scheduled_date = item_start
+        item.scheduled_end_date = item_end if item_start and item_end and item_end > item_start else None
     item.save()
-    return JsonResponse({"ok": True, "line_total": str(item.line_total())})
+    _expand_job_range_for_item(job, item.scheduled_date, item.scheduled_end_date)
+    return JsonResponse({
+        "ok": True,
+        "line_total": str(item.line_total()),
+        "scheduled_date": item.scheduled_date.isoformat() if item.scheduled_date else "",
+        "scheduled_end_date": item.scheduled_end_date.isoformat() if item.scheduled_end_date else "",
+    })
 
 
 @require_POST

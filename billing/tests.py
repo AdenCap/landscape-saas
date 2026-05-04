@@ -151,6 +151,54 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.invoice.refresh_from_db()
         self.assertFalse(self.invoice.enable_card_payment)
 
+    def test_invoice_list_does_not_show_duplicate_combine_panel(self):
+        duplicate = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            subtotal=Decimal("0"),
+            tax=Decimal("0"),
+            total=Decimal("0"),
+        )
+        InvoiceLineItem.objects.create(
+            invoice=duplicate,
+            description="Cleanup",
+            quantity=1,
+            unit_price=Decimal("150.00"),
+        )
+
+        response = self.client.get(reverse("billing:invoice_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Combine duplicate invoices")
+
+    def test_invoice_detail_exposes_top_due_date_and_card_controls(self):
+        self.business.stripe_connect_account_id = "acct_test"
+        self.business.stripe_connect_charges_enabled = True
+        self.business.client_card_payments_enabled = True
+        self.business.save(update_fields=[
+            "stripe_connect_account_id",
+            "stripe_connect_charges_enabled",
+            "client_card_payments_enabled",
+        ])
+
+        response = self.client.get(reverse("billing:invoice_detail", args=[self.invoice.id]))
+
+        self.assertContains(response, "Save due date")
+        self.assertContains(response, "Card payments")
+        self.assertContains(response, "Accept cards: Yes")
+        self.assertContains(response, 'id="card-payment-toggle"')
+
+    def test_owner_can_update_invoice_due_date_from_detail_controls(self):
+        response = self.client.post(
+            reverse("billing:invoice_update_dates", args=[self.invoice.id]),
+            data={"due_date": "2026-05-31"},
+        )
+
+        self.assertRedirects(response, reverse("billing:invoice_detail", args=[self.invoice.id]))
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.due_date, date(2026, 5, 31))
+
     def test_invoice_command_center_exposes_actionable_totals(self):
         monthly = Invoice.objects.create(
             business=self.business,

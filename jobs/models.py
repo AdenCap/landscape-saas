@@ -416,6 +416,11 @@ class JobServiceItem(models.Model):
             blank=True,
             help_text="For multi-day jobs: which day this line item runs. Null = spans entire job.",
         )
+        scheduled_end_date = models.DateField(
+            null=True,
+            blank=True,
+            help_text="Optional end date when this line item spans multiple days.",
+        )
 
         def line_total(self):
             return self.quantity * self.unit_price

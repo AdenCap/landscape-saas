@@ -133,6 +133,76 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
         self.assertIn("Gate code 2468", form.initial["notes"])
 
 
+class JobServiceItemSchedulingTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(
+            name="Green Valley",
+            subscription_status="active",
+        )
+        self.owner = User.objects.create_user(
+            username="project-owner",
+            password="password",
+            role="owner",
+            business=self.business,
+        )
+        self.customer = Customer.objects.create(
+            business=self.business,
+            name="Acme Home",
+        )
+        self.property = Property.objects.create(
+            customer=self.customer,
+            address="123 Lawn Ave",
+        )
+        self.service = ServiceTemplate.objects.create(
+            business=self.business,
+            name="Patio install",
+            active=True,
+        )
+        self.job = Job.objects.create(
+            property=self.property,
+            scheduled_date=date(2026, 5, 11),
+            scheduled_end_date=date(2026, 5, 15),
+            status="scheduled",
+        )
+        self.item = JobServiceItem.objects.create(
+            job=self.job,
+            service=self.service,
+            description="Base prep",
+            quantity=1,
+            unit_price=Decimal("900.00"),
+        )
+        self.client.force_login(self.owner)
+
+    def test_owner_can_schedule_line_item_start_and_end_dates(self):
+        response = self.client.post(
+            reverse("update_job_service_item", args=[self.job.id, self.item.id]),
+            data=json.dumps({
+                "scheduled_date": "2026-05-12",
+                "scheduled_end_date": "2026-05-14",
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.scheduled_date, date(2026, 5, 12))
+        self.assertEqual(self.item.scheduled_end_date, date(2026, 5, 14))
+
+    def test_line_item_end_date_cannot_be_before_start_date(self):
+        response = self.client.post(
+            reverse("update_job_service_item", args=[self.job.id, self.item.id]),
+            data=json.dumps({
+                "scheduled_date": "2026-05-14",
+                "scheduled_end_date": "2026-05-12",
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.item.refresh_from_db()
+        self.assertIsNone(self.item.scheduled_date)
+
+
 class CalendarRecurringRescheduleTests(TestCase):
     def setUp(self):
         self.business = Business.objects.create(

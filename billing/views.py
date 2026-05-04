@@ -238,7 +238,6 @@ def invoice_list(request):
         "invoices": invoices,
         "stats": stats,
         "command_metrics": _invoice_command_metrics(business, today) if business else {},
-        "combine_candidates": _invoice_combine_candidates(business) if business else [],
         "status_tabs": status_tabs,
         "status_filter": status_filter,
         "search_query": search_query,
