@@ -61,7 +61,11 @@ def generate_monthly_invoice_for_customer(customer, year, month, include_job=Non
     items = JobServiceItem.objects.filter(
         job__in=completed_jobs,
         billed_invoice__isnull=True,
-    ).select_related("service", "job", "job__property")
+    ).select_related("service", "job", "job__property").order_by(
+        "job__scheduled_date",
+        "job_id",
+        "id",
+    )
 
     for item in items:
         service_label = clean_service_label(item.description, item.service)

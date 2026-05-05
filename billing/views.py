@@ -1,10 +1,11 @@
 import hashlib
 import json
+import re
 import secrets
 import stripe
 from io import BytesIO
 from decimal import Decimal
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.contrib import messages
@@ -2105,6 +2106,56 @@ def _pdf_money(value):
     return _fmt_currency(value or Decimal("0"))
 
 
+_INVOICE_LINE_SERVICE_DATE_RE = re.compile(r"\((\d{4}-\d{2}-\d{2})\)\s*$")
+
+
+def _invoice_line_service_date(item):
+    """Best-effort service date for legacy invoice rows without a date column."""
+    description = getattr(item, "description", "") or ""
+    match = _INVOICE_LINE_SERVICE_DATE_RE.search(description)
+    if match:
+        try:
+            return datetime.strptime(match.group(1), "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+    invoice = getattr(item, "invoice", None)
+    job = getattr(invoice, "job", None)
+    if job and getattr(job, "scheduled_date", None):
+        return job.scheduled_date
+
+    return None
+
+
+def _invoice_line_display_description(item):
+    description = getattr(item, "description", "") or ""
+    return _INVOICE_LINE_SERVICE_DATE_RE.sub("", description).strip()
+
+
+def _invoice_line_sort_key(item):
+    service_date = _invoice_line_service_date(item)
+    invoice = getattr(item, "invoice", None)
+    fallback_date = getattr(invoice, "period_start", None)
+    return (
+        service_date is None and fallback_date is None,
+        service_date or fallback_date or datetime.max.date(),
+        getattr(item, "id", 0) or 0,
+    )
+
+
+def _invoice_line_service_date_label(item):
+    service_date = _invoice_line_service_date(item)
+    if service_date:
+        return _pdf_date(service_date)
+
+    invoice = getattr(item, "invoice", None)
+    if invoice and invoice.period_start and invoice.period_end:
+        return f"{_pdf_date(invoice.period_start, fmt='%b %d')} - {_pdf_date(invoice.period_end, fmt='%b %d')}"
+    if invoice and invoice.period_start:
+        return _pdf_date(invoice.period_start)
+    return ""
+
+
 def _pdf_draw_wrapped(p, text, x, y, max_chars=70, max_lines=4, leading=10, font_name="Helvetica", font_size=8, color=None):
     if color:
         p.setFillColorRGB(*color)
@@ -2231,7 +2282,7 @@ def _pdf_document_hero(
 
     summary_x = margin + 24
     summary_right = amount_x - 18
-    summary_chars = max(34, int((summary_right - summary_x) / 4.8))
+    summary_chars = min(48, max(28, int((summary_right - summary_x) / 6.2)))
     p.setFillColorRGB(1, 1, 1)
     p.setFont(h_font, 13)
     p.drawString(summary_x, hero_y - 94, _pdf_ellipsize(summary_title, summary_chars))
@@ -2675,7 +2726,7 @@ def _build_modern_invoice_pdf(invoice, request):
 
     business = invoice.business
     customer = invoice.customer
-    items = list(invoice.line_items.all())
+    items = sorted(list(invoice.line_items.all()), key=_invoice_line_sort_key)
     doc_template = DocumentTemplate.get_default_for_business(business, "invoice") if business else None
     accent = _hex_to_rgb(doc_template.primary_color) if doc_template and doc_template.primary_color else _PDF_GREEN
     accent_soft = tuple(min(1.0, c * 0.08 + 0.92) for c in accent)
@@ -2714,6 +2765,7 @@ def _build_modern_invoice_pdf(invoice, request):
 
     def draw_table_header(y_top):
         col_service = margin + 14
+        col_date = right - 238
         col_qty = right - 164
         col_rate = right - 104
         col_total = right - 14
@@ -2722,6 +2774,7 @@ def _build_modern_invoice_pdf(invoice, request):
         p.setFillColorRGB(0.82, 0.95, 0.74)
         p.setFont(h_font, 7.5)
         p.drawString(col_service, y_top - 12, "SERVICE")
+        p.drawString(col_date, y_top - 12, "DATE")
         p.drawString(col_qty, y_top - 12, "QTY")
         p.drawString(col_rate, y_top - 12, "RATE")
         p.drawRightString(col_total, y_top - 12, "TOTAL")
@@ -2838,13 +2891,14 @@ def _build_modern_invoice_pdf(invoice, request):
     y -= 18
     y = draw_table_header(y)
     col_service = margin + 14
+    col_date = right - 238
     col_qty = right - 164
     col_rate = right - 104
     col_total = right - 14
     computed_total = Decimal("0")
     for idx, item in enumerate(items):
         detail = (getattr(item, "detail_description", "") or "").strip()
-        detail_lines = _pdf_wrapped_lines(detail, 72, 3)
+        detail_lines = _pdf_wrapped_lines(detail, 55, 3)
         if getattr(item, "is_paid", False) and invoice.status != "paid":
             detail_lines = (["Paid line item"] + detail_lines)[:3]
         row_h = 28 + len(detail_lines) * 10
@@ -2857,8 +2911,9 @@ def _build_modern_invoice_pdf(invoice, request):
         computed_total += lt
         p.setFillColorRGB(*ink)
         p.setFont(h_font, 9)
-        p.drawString(col_service, y, _pdf_ellipsize(item.description, 62))
+        p.drawString(col_service, y, _pdf_ellipsize(_invoice_line_display_description(item), 46))
         p.setFont(b_font, 8.5)
+        p.drawString(col_date, y, _invoice_line_service_date_label(item))
         p.drawString(col_qty, y, str(item.quantity or 1))
         p.drawString(col_rate, y, _pdf_money(item.unit_price))
         p.setFont(h_font, 9)

@@ -392,6 +392,28 @@ class MonthlyInvoiceRepairTests(TestCase):
         self.assertEqual(second.billed_invoice, invoice)
         self.assertIsNone(may_item.billed_invoice)
 
+    def test_monthly_invoice_lines_are_created_in_service_date_order(self):
+        self._completed_job_item(date(2026, 4, 21), Decimal("110.00"))
+        self._completed_job_item(date(2026, 4, 7), Decimal("110.00"))
+        self._completed_job_item(date(2026, 4, 14), Decimal("110.00"))
+
+        response = self.client.post(
+            reverse("billing:monthly_invoice_build_missing"),
+            data={"year": "2026", "month": "4"},
+        )
+
+        self.assertRedirects(response, reverse("billing:monthly_invoice_list") + "?year=2026")
+        invoice = Invoice.objects.get(customer=self.customer, period_start=date(2026, 4, 1))
+        descriptions = list(invoice.line_items.order_by("id").values_list("description", flat=True))
+        self.assertEqual(
+            descriptions,
+            [
+                "Mowing - 42 April Ave (2026-04-07)",
+                "Mowing - 42 April Ave (2026-04-14)",
+                "Mowing - 42 April Ave (2026-04-21)",
+            ],
+        )
+
     def test_monthly_invoice_uses_clean_mowing_label_for_field_mowing_template(self):
         self.service.name = "Field Mowing"
         self.service.save(update_fields=["name"])
@@ -618,6 +640,38 @@ class DocumentTemplateStudioTests(TestCase):
         footer_texts = [call.args[2] for call in draw_footer_message.call_args_list]
         self.assertEqual(footer_texts.count(long_footer), 2)
         self.assertIn("greenvalley.test", billing_views._pdf_business_contact_lines(self.business))
+
+    def test_invoice_pdf_service_dates_sort_and_strip_from_service_label(self):
+        invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            subtotal=Decimal("0"),
+            tax=Decimal("0"),
+            total=Decimal("0"),
+        )
+        later = InvoiceLineItem.objects.create(
+            invoice=invoice,
+            description="Mowing - 9302 North Bayland Drive (2026-04-28)",
+            quantity=1,
+            unit_price=Decimal("40.00"),
+        )
+        earlier = InvoiceLineItem.objects.create(
+            invoice=invoice,
+            description="Mowing - 9302 North Bayland Drive (2026-04-07)",
+            quantity=1,
+            unit_price=Decimal("40.00"),
+        )
+
+        from billing import views as billing_views
+
+        ordered = sorted([later, earlier], key=billing_views._invoice_line_sort_key)
+        self.assertEqual(ordered, [earlier, later])
+        self.assertEqual(billing_views._invoice_line_service_date(earlier), date(2026, 4, 7))
+        self.assertEqual(
+            billing_views._invoice_line_display_description(earlier),
+            "Mowing - 9302 North Bayland Drive",
+        )
 
     def test_client_accept_includes_selected_optional_items(self):
         estimate = Estimate.objects.create(
