@@ -179,8 +179,20 @@
         {{ form.service }}
       </div>
       <div class="form-group">
+        <label>Optional title</label>
+        {{ form.description }}
+      </div>
+      <div class="form-group jd-form-wide">
+        <label>Description</label>
+        {{ form.detail_description }}
+      </div>
+      <div class="form-group">
         <label>Qty</label>
         {{ form.quantity }}
+      </div>
+      <div class="form-group">
+        <label>Price</label>
+        {{ form.unit_price }}
       </div>
       <div class="form-group">
         <label>Start</label>
@@ -193,7 +205,7 @@
       <button type="submit" class="btn btn-primary">Add / Update</button>
     </div>
   </form>
-  <p class="jd-inline-help">Edit quantity, rate, or line-item dates directly in the table. Blank dates mean the item follows the full job schedule and still bills under this same job.</p>
+  <p class="jd-inline-help">Edit title, description, quantity, rate, or line-item dates directly below. Titles and descriptions show on the job, crew view, and invoices.</p>
   <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
   <table class="data-table">
     <thead>
@@ -210,11 +222,11 @@
     <tbody>
       {% for i in items %}
       <tr data-item-id="{{ i.id }}">
-        <td>
-          <strong>{{ i.description|default:i.service.name }}</strong>
-          {% if i.detail_description %}
-          <div style="margin-top:4px;color:var(--text-muted);font-size:13px;line-height:1.35;">{{ i.detail_description }}</div>
-          {% endif %}
+        <td class="jd-line-copy-cell">
+          <label class="jd-inline-label">Title</label>
+          <input type="text" class="inline-edit jd-line-title-input" data-field="description" value="{{ i.description|default:i.service.name }}" placeholder="{{ i.service.name }}">
+          <label class="jd-inline-label">Description</label>
+          <textarea class="inline-edit jd-line-description-input" data-field="detail_description" rows="2" placeholder="Add scope, crew instructions, or client-facing detail...">{{ i.detail_description }}</textarea>
         </td>
         <td>
           <input type="date" class="inline-edit" data-field="scheduled_date" value="{{ i.scheduled_date|date:'Y-m-d' }}" style="width:118px;">
@@ -917,6 +929,7 @@ window.filterPhotos = function(cat, btn) {
   .jd-quick-edit textarea,
   .jd-item-composer input,
   .jd-item-composer select,
+  .jd-item-composer textarea,
   .job-detail-page .form-control {
     width: 100%;
     min-height: 48px;
@@ -1075,11 +1088,42 @@ window.filterPhotos = function(cat, btn) {
   .jd-item-composer .form-group {
     flex: 1 1 190px;
   }
+  .jd-item-composer .jd-form-wide {
+    flex: 2 1 320px;
+  }
   .jd-inline-help {
     margin: 0 0 12px;
     color: var(--jd-muted);
     font-size: var(--text-sm);
     line-height: 1.4;
+  }
+  .jd-line-copy-cell {
+    min-width: 320px;
+  }
+  .jd-inline-label {
+    display: block;
+    margin: 0 0 5px;
+    color: var(--jd-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .jd-line-copy-cell .jd-inline-label + .inline-edit {
+    margin-bottom: 10px;
+  }
+  .job-detail-page .jd-line-title-input,
+  .job-detail-page .jd-line-description-input {
+    width: 100%;
+    min-width: 260px;
+    text-align: left;
+  }
+  .job-detail-page .jd-line-description-input {
+    min-height: 74px;
+    resize: vertical;
+    line-height: 1.4;
+    font-weight: 600;
+    color: var(--text);
   }
   .job-detail-page .inline-edit {
     min-height: 36px;

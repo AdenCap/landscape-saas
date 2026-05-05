@@ -859,7 +859,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (job.services && job.services.length) {
           svcSection.style.display = 'block';
           svcList.innerHTML = job.services.map(function(s) {
-            return '<li><strong>' + escapeHtml(s.name || 'Service') + '</strong><span>' +
+            var detail = s.detail_description ? '<small>' + escapeHtml(s.detail_description) + '</small>' : '';
+            return '<li><div><strong>' + escapeHtml(s.name || 'Service') + '</strong>' + detail + '</div><span>' +
               escapeHtml(s.quantity || 1) + ' ' + escapeHtml(s.unit || 'visit') + '</span></li>';
           }).join('');
         } else { svcSection.style.display = 'none'; }

@@ -79,7 +79,12 @@
       {% if services %}
       <div class="jc-services">
         {% for si in services %}
-        <span class="jc-service-tag">{{ si.description|default:si.service.name }}</span>
+        <div class="jc-service-card">
+          <span class="jc-service-tag">{{ si.description|default:si.service.name }}</span>
+          {% if si.detail_description %}
+          <small>{{ si.detail_description }}</small>
+          {% endif %}
+        </div>
         {% endfor %}
       </div>
       {% endif %}
@@ -301,8 +306,10 @@
   .jc-head { display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px; }
   .jc-customer { font-size:19px;font-weight:850;line-height:1.1;letter-spacing:0; }
   .jc-address { font-size:13px;color:var(--text-muted);margin-top:5px;line-height:1.35; }
-  .jc-services { display:flex;gap:5px;flex-wrap:wrap;margin-top:9px; }
+  .jc-services { display:grid;gap:6px;margin-top:9px; }
+  .jc-service-card { padding:8px 9px;border-radius:14px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.075); }
   .jc-service-tag { font-size:11px;font-weight:800;padding:5px 9px;border-radius:999px;background:rgba(163,255,77,.13);color:var(--primary); }
+  .jc-service-card small { display:block;margin-top:6px;color:var(--text-muted);font-size:12px;line-height:1.35; }
   .jc-status { font-size:11px;font-weight:800;padding:6px 10px;border-radius:999px;white-space:nowrap; }
   .jc-status-scheduled { background:rgba(59,130,246,0.15);color:#7db1ff; }
   .jc-status-in_progress { background:rgba(245,158,11,0.16);color:#fbbf24; }

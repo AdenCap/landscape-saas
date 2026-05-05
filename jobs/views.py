@@ -788,7 +788,10 @@ def calendar_job_data(request, job_id):
     # Services list — use prefetched data, don't re-query
     services = [
         {
-            "name": si.service.name if si.service else "—",
+            "name": si.description or (si.service.name if si.service else "Service"),
+            "service_name": si.service.name if si.service else "",
+            "description": si.description or "",
+            "detail_description": si.detail_description or "",
             "quantity": str(si.quantity),
             "unit": si.unit or "visit",
             "scheduled_date": si.scheduled_date.isoformat() if si.scheduled_date else "",
@@ -3133,7 +3136,10 @@ def add_job_service_item(request, job_id):
         return redirect("job_detail", job_id=job.id)
 
     service = form.cleaned_data["service"]
+    description = (form.cleaned_data.get("description") or "").strip()
+    detail_description = (form.cleaned_data.get("detail_description") or "").strip()
     quantity = form.cleaned_data["quantity"]
+    unit_price = form.cleaned_data.get("unit_price")
     item_start = form.cleaned_data.get("scheduled_date")
     item_end = form.cleaned_data.get("scheduled_end_date")
     if item_start and item_end and item_end < item_start:
@@ -3141,26 +3147,35 @@ def add_job_service_item(request, job_id):
         return redirect("job_detail", job_id=job.id)
 
     unit, rate = get_effective_rate(job.property, service)
+    rate = unit_price if unit_price is not None else rate
 
-    # If item already exists on job, update quantity (simple behavior)
-    item, created = JobServiceItem.objects.get_or_create(
-        job=job,
-        service=service,
-        defaults={
-            "quantity": quantity,
-            "unit": unit,
-            "unit_price": rate,
-            "scheduled_date": item_start,
-            "scheduled_end_date": item_end if item_start and item_end and item_end > item_start else None,
-        },
-    )
-    if not created:
+    item = None
+    if description:
+        item = JobServiceItem.objects.filter(job=job, service=service, description=description).first()
+    elif not detail_description and unit_price is None and not item_start and not item_end:
+        item = JobServiceItem.objects.filter(job=job, service=service, description="").first()
+
+    if item:
+        item.description = description
+        item.detail_description = detail_description
         item.quantity = quantity
         item.unit = unit
         item.unit_price = rate
         item.scheduled_date = item_start
         item.scheduled_end_date = item_end if item_start and item_end and item_end > item_start else None
         item.save()
+    else:
+        item = JobServiceItem.objects.create(
+            job=job,
+            service=service,
+            description=description,
+            detail_description=detail_description,
+            quantity=quantity,
+            unit=unit,
+            unit_price=rate,
+            scheduled_date=item_start,
+            scheduled_end_date=item_end if item_start and item_end and item_end > item_start else None,
+        )
     _expand_job_range_for_item(job, item.scheduled_date, item.scheduled_end_date)
 
     return redirect("job_detail", job_id=job.id)
@@ -3179,7 +3194,9 @@ def update_job_service_item(request, job_id, item_id):
     from decimal import Decimal
     if "quantity" in data:
         try:
-            item.quantity = int(data["quantity"]) if data["quantity"] else 1
+            item.quantity = Decimal(str(data["quantity"])) if data["quantity"] else Decimal("1")
+            if item.quantity <= 0:
+                item.quantity = Decimal("1")
         except (ValueError, TypeError):
             pass
     if "unit_price" in data:
@@ -3189,6 +3206,8 @@ def update_job_service_item(request, job_id, item_id):
             pass
     if "description" in data:
         item.description = (data["description"] or "")[:255]
+    if "detail_description" in data:
+        item.detail_description = (data["detail_description"] or "")[:1000]
     if "unit" in data:
         item.unit = (data["unit"] or "ea")[:50]
     if "scheduled_date" in data or "scheduled_end_date" in data:
@@ -3206,6 +3225,8 @@ def update_job_service_item(request, job_id, item_id):
     return JsonResponse({
         "ok": True,
         "line_total": str(item.line_total()),
+        "description": item.description or "",
+        "detail_description": item.detail_description or "",
         "scheduled_date": item.scheduled_date.isoformat() if item.scheduled_date else "",
         "scheduled_end_date": item.scheduled_end_date.isoformat() if item.scheduled_end_date else "",
     })

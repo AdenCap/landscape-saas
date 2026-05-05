@@ -202,6 +202,84 @@ class JobServiceItemSchedulingTests(TestCase):
         self.item.refresh_from_db()
         self.assertIsNone(self.item.scheduled_date)
 
+    def test_owner_can_update_job_line_item_title_description_quantity_and_price(self):
+        response = self.client.post(
+            reverse("update_job_service_item", args=[self.job.id, self.item.id]),
+            data=json.dumps({
+                "description": "Patio base prep",
+                "detail_description": "Excavate, compact stone, and prepare the paver base.",
+                "quantity": "2.50",
+                "unit_price": "475.25",
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.description, "Patio base prep")
+        self.assertEqual(self.item.detail_description, "Excavate, compact stone, and prepare the paver base.")
+        self.assertEqual(self.item.quantity, Decimal("2.50"))
+        self.assertEqual(self.item.unit_price, Decimal("475.25"))
+
+    def test_owner_can_add_multiple_titled_line_items_for_same_service(self):
+        response = self.client.post(
+            reverse("add_job_service_item", args=[self.job.id]),
+            data={
+                "service": self.service.id,
+                "description": "Paver base",
+                "detail_description": "Stone base and compaction.",
+                "quantity": "1.00",
+                "unit_price": "450.00",
+            },
+        )
+        self.assertRedirects(response, reverse("job_detail", args=[self.job.id]))
+
+        response = self.client.post(
+            reverse("add_job_service_item", args=[self.job.id]),
+            data={
+                "service": self.service.id,
+                "description": "Edge restraint",
+                "detail_description": "Install edge restraint and spikes.",
+                "quantity": "1.00",
+                "unit_price": "175.00",
+            },
+        )
+        self.assertRedirects(response, reverse("job_detail", args=[self.job.id]))
+
+        descriptions = list(
+            self.job.service_items.order_by("id").values_list("description", flat=True)
+        )
+        self.assertIn("Paver base", descriptions)
+        self.assertIn("Edge restraint", descriptions)
+
+    def test_calendar_job_data_includes_job_line_item_descriptions(self):
+        self.item.description = "Patio base prep"
+        self.item.detail_description = "Excavate, compact stone, and prepare the paver base."
+        self.item.save(update_fields=["description", "detail_description"])
+
+        response = self.client.get(reverse("calendar_job_data", args=[self.job.id]))
+
+        self.assertEqual(response.status_code, 200)
+        service = response.json()["job"]["services"][0]
+        self.assertEqual(service["name"], "Patio base prep")
+        self.assertEqual(service["service_name"], "Patio install")
+        self.assertEqual(service["description"], "Patio base prep")
+        self.assertEqual(service["detail_description"], "Excavate, compact stone, and prepare the paver base.")
+
+    def test_crew_today_shows_line_item_descriptions(self):
+        today = date.today()
+        self.job.scheduled_date = today
+        self.job.scheduled_end_date = None
+        self.job.save(update_fields=["scheduled_date", "scheduled_end_date"])
+        self.item.description = "Patio base prep"
+        self.item.detail_description = "Excavate, compact stone, and prepare the paver base."
+        self.item.save(update_fields=["description", "detail_description"])
+
+        response = self.client.get(reverse("crew_today"))
+
+        self.assertContains(response, "Patio base prep")
+        self.assertContains(response, "Excavate, compact stone, and prepare the paver base.")
+
 
 class CalendarRecurringRescheduleTests(TestCase):
     def setUp(self):

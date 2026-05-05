@@ -1541,6 +1541,15 @@ body.modal-open {
   font-weight: 850;
 }
 
+#job-modal .modal-services-list li small {
+  display: block;
+  margin-top: 4px;
+  max-width: 52ch;
+  color: rgba(255,255,255,0.62);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 #job-modal .modal-services-list li span {
   color: rgba(255,255,255,0.58);
   font-size: 13px;

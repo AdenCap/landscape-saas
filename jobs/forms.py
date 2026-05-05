@@ -8,7 +8,32 @@ from .models import Crew, JobIssue, Meeting
 
 class AddJobServiceItemForm(forms.Form):
     service = forms.ModelChoiceField(queryset=ServiceTemplate.objects.none())
-    quantity = forms.DecimalField(max_digits=10, decimal_places=2, initial=Decimal("1.00"), min_value=0)
+    description = forms.CharField(
+        required=False,
+        max_length=255,
+        label="Optional title",
+        widget=forms.TextInput(attrs={
+            "placeholder": "Customer-facing title for job and invoice",
+        }),
+    )
+    detail_description = forms.CharField(
+        required=False,
+        max_length=1000,
+        label="Description",
+        widget=forms.Textarea(attrs={
+            "rows": 2,
+            "placeholder": "Scope, special instructions, or what the crew/client should know...",
+        }),
+    )
+    quantity = forms.DecimalField(max_digits=10, decimal_places=2, initial=Decimal("1.00"), min_value=Decimal("0.01"))
+    unit_price = forms.DecimalField(
+        required=False,
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0"),
+        label="Price",
+        widget=forms.NumberInput(attrs={"step": "0.01", "placeholder": "Use default"}),
+    )
     scheduled_date = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={"type": "date"}),
