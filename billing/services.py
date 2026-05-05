@@ -223,6 +223,21 @@ def create_and_send_invoice_for_job(job, send=True):
     return invoice
 
 
+def _copy_job_item_to_invoice(invoice, job_item):
+    InvoiceLineItem.objects.create(
+        invoice=invoice,
+        description=clean_service_label(job_item.description, job_item.service),
+        detail_description=getattr(job_item, "detail_description", "") or "",
+        quantity=job_item.quantity,
+        unit_price=job_item.unit_price,
+        labor_cost=job_item.quantity * job_item.unit_price,
+        revenue_category=getattr(job_item.service, "revenue_category", None),
+    )
+    job_item.billed_invoice = invoice
+    job_item.billed_at = timezone.now()
+    job_item.save(update_fields=["billed_invoice", "billed_at"])
+
+
 @transaction.atomic
 def create_invoice_for_job(job):
     # derive business/customer from your existing relationships
@@ -249,14 +264,7 @@ def create_invoice_for_job(job):
 
     if job.service_items.exists():
         for item in job.service_items.select_related("service").all():
-            InvoiceLineItem.objects.create(
-                invoice=invoice,
-                description=clean_service_label(item.description, item.service),
-                detail_description=getattr(item, "detail_description", "") or "",
-                quantity=item.quantity,
-                unit_price=item.unit_price,
-                labor_cost=item.quantity * item.unit_price,
-            )
+            _copy_job_item_to_invoice(invoice, item)
         invoice.recompute_totals()
 
     return invoice
@@ -315,10 +323,17 @@ def create_draft_invoice_for_job(job):
     )
 
     if not created:
-        JobServiceItem.objects.filter(
-            job=job,
-            billed_invoice__isnull=True,
-        ).update(billed_invoice=invoice, billed_at=timezone.now())
+        if invoice.line_items.exists():
+            job_items = JobServiceItem.objects.filter(
+                job=job,
+                billed_invoice__isnull=True,
+            ).select_related("service")
+        else:
+            job_items = JobServiceItem.objects.filter(job=job).select_related("service")
+        for ji in job_items:
+            _copy_job_item_to_invoice(invoice, ji)
+        if job_items:
+            invoice.recompute_totals()
         return invoice
 
     InvoiceAuditLog.objects.create(invoice=invoice, action="created", user=None, details={"source": "job", "job_id": job.id})
@@ -327,17 +342,6 @@ def create_draft_invoice_for_job(job):
     job_items = JobServiceItem.objects.filter(job=job).select_related("service")
 
     for ji in job_items:
-        InvoiceLineItem.objects.create(
-            invoice=invoice,
-            description=clean_service_label(ji.description, ji.service),
-            detail_description=getattr(ji, "detail_description", "") or "",
-            quantity=ji.quantity,
-            unit_price=ji.unit_price,
-            labor_cost=ji.quantity * ji.unit_price,
-            revenue_category=getattr(ji.service, "revenue_category", None),
-        )
-        ji.billed_invoice = invoice
-        ji.billed_at = timezone.now()
-        ji.save(update_fields=["billed_invoice", "billed_at"])
+        _copy_job_item_to_invoice(invoice, ji)
 
     return invoice

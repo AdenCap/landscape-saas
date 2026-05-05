@@ -953,6 +953,35 @@ class JobCompletionAutoChargeTests(TestCase):
         self.assertEqual(invoice.total, Decimal("85.00"))
         self.assertEqual(item.billed_invoice, invoice)
 
+    def test_bill_now_populates_existing_empty_job_invoice(self):
+        invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            job=self.job,
+            status="draft",
+            total=Decimal("0.00"),
+            subtotal=Decimal("0.00"),
+        )
+        item = self.job.service_items.get()
+        item.description = "Front lawn mowing"
+        item.detail_description = "Cut, trim, edge, and clean up clippings."
+        item.quantity = Decimal("1.00")
+        item.unit_price = Decimal("85.00")
+        item.save(update_fields=["description", "detail_description", "quantity", "unit_price"])
+
+        response = self.client.post(reverse("job_bill_now", args=[self.job.id]))
+
+        self.assertEqual(response.status_code, 302)
+        invoice.refresh_from_db()
+        line = invoice.line_items.get()
+        item.refresh_from_db()
+        self.assertEqual(response["Location"], reverse("billing:invoice_detail", args=[invoice.id]))
+        self.assertEqual(line.description, "Front lawn mowing")
+        self.assertEqual(line.detail_description, "Cut, trim, edge, and clean up clippings.")
+        self.assertEqual(line.unit_price, Decimal("85.00"))
+        self.assertEqual(invoice.total, Decimal("85.00"))
+        self.assertEqual(item.billed_invoice, invoice)
+
 
 class MonthlyBillingCompletionTests(TestCase):
     def setUp(self):
