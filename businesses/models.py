@@ -334,6 +334,10 @@ class Business(models.Model):
         default=True,
         help_text="If enabled and Stripe is connected, clients can pay invoices and estimate deposits by credit card.",
     )
+    default_invoice_card_payments_enabled = models.BooleanField(
+        default=True,
+        help_text="Default whether newly created invoices allow client card checkout. Owners can still override each invoice.",
+    )
     client_saved_cards_enabled = models.BooleanField(
         default=True,
         help_text="If enabled, owners can securely save authorized customer cards for future off-session charges.",

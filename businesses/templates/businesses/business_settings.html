@@ -748,6 +748,10 @@
               <strong>{% if business.client_card_payments_enabled %}Allowed{% else %}Off{% endif %}</strong>
             </article>
             <article>
+              <span>Invoice default</span>
+              <strong>{% if business.default_invoice_card_payments_enabled %}On{% else %}Off{% endif %}</strong>
+            </article>
+            <article>
               <span>Saved cards</span>
               <strong>{% if business.client_saved_cards_enabled %}Allowed{% else %}Off{% endif %}</strong>
             </article>
@@ -796,6 +800,16 @@
             </div>
             <label class="settings-switch">
               {{ form.client_card_payments_enabled }}
+              <span></span>
+            </label>
+          </div>
+          <div class="setting-toggle-row">
+            <div>
+              <strong>Default card checkout on invoices</strong>
+              <p class="field-help">New invoices use this as the starting point. The invoice detail page still has a per-invoice card payment toggle.</p>
+            </div>
+            <label class="settings-switch">
+              {{ form.default_invoice_card_payments_enabled }}
               <span></span>
             </label>
           </div>

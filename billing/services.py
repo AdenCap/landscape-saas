@@ -27,6 +27,11 @@ def get_invoice_due_date(issue_date, business, customer=None):
     return issue_date + timedelta(days=days)
 
 
+def invoice_card_payment_default(business):
+    """Return the business default for whether new invoices allow card checkout."""
+    return bool(getattr(business, "default_invoice_card_payments_enabled", True))
+
+
 @transaction.atomic
 def combine_customer_invoices(*, business, target_invoice_id, invoice_ids, user=None):
     """Move open same-customer invoices into one invoice and void the emptied sources."""
@@ -256,6 +261,7 @@ def create_invoice_for_job(job):
             "customer": customer,
             "due_date": due_date,
             "status": "draft",
+            "enable_card_payment": invoice_card_payment_default(business),
         },
     )
 
@@ -319,6 +325,7 @@ def create_draft_invoice_for_job(job):
             "period_start": job.scheduled_date,
             "period_end": job.scheduled_date,
             "status": "draft",
+            "enable_card_payment": invoice_card_payment_default(business),
         }
     )
 
