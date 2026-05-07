@@ -113,6 +113,8 @@ class InvoiceLineItemForm(forms.ModelForm):
         self.fields["description"].required = False
         self.fields["quantity"].required = False
         self.fields["unit_price"].required = False
+        self.fields["material_cost"].required = False
+        self.fields["labor_cost"].required = False
 
 
 InvoiceLineItemFormSet = inlineformset_factory(

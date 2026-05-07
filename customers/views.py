@@ -828,13 +828,32 @@ def api_quick_create_customer(request):
     if not name:
         return JsonResponse({"error": "Client name is required."}, status=400)
 
-    # Prevent duplicates: if a client with the same name already exists, return them
+    # Prevent duplicates, but do not drop fresh contact info from inline flows.
     existing = Customer.objects.filter(business=business, name__iexact=name).first()
     if existing:
+        update_fields = []
+        if email and not existing.email:
+            existing.email = email
+            update_fields.append("email")
+        if phone and not existing.phone:
+            existing.phone = phone
+            update_fields.append("phone")
+        if address and not existing.address_line1:
+            existing.address_line1 = address
+            update_fields.append("address_line1")
+        if update_fields:
+            existing.save(update_fields=update_fields)
+        if address and not existing.properties.filter(address__iexact=address).exists():
+            Property.objects.create(customer=existing, address=address)
         props = list(existing.properties.all().values("id", "address"))
         return JsonResponse({
             "ok": True,
-            "customer": {"id": existing.id, "name": existing.name},
+            "customer": {
+                "id": existing.id,
+                "name": existing.name,
+                "email": existing.email,
+                "phone": existing.phone,
+            },
             "properties": [{"id": p["id"], "address": p["address"]} for p in props],
             "existing": True,
         })
@@ -853,7 +872,12 @@ def api_quick_create_customer(request):
 
     result = {
         "ok": True,
-        "customer": {"id": customer.id, "name": customer.name},
+        "customer": {
+            "id": customer.id,
+            "name": customer.name,
+            "email": customer.email,
+            "phone": customer.phone,
+        },
         "properties": [],
     }
     if prop:

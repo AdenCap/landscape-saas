@@ -135,6 +135,46 @@
       {% endfor %}
     </div>
 
+    <template id="line-item-empty-template">
+      <div class="line-item-card" data-form-index="__prefix__">
+        {{ formset.empty_form.id }}
+        <div class="line-item-card-header">
+          <span class="line-item-card-number">#__number__</span>
+        </div>
+        <div class="line-item-card-body">
+          <div class="form-group form-group-desc">
+            <label>Service Name</label>
+            {{ formset.empty_form.description }}
+          </div>
+          <div class="form-group form-group-desc" style="margin-top:8px;">
+            <label>Description <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+            {{ formset.empty_form.detail_description }}
+          </div>
+          <div class="line-item-numbers">
+            <div class="form-group">
+              <label>Qty</label>
+              {{ formset.empty_form.quantity }}
+            </div>
+            <div class="form-group">
+              <label>Unit price ($)</label>
+              {{ formset.empty_form.unit_price }}
+            </div>
+            <div class="form-group">
+              <label>Materials ($)</label>
+              {{ formset.empty_form.material_cost }}
+            </div>
+            <div class="form-group">
+              <label>Labor ($)</label>
+              {{ formset.empty_form.labor_cost }}
+            </div>
+          </div>
+          <div class="line-item-total-display">
+            Line total: <span class="line-total-value">$0.00</span>
+          </div>
+        </div>
+      </div>
+    </template>
+
     <button type="button" class="btn btn-secondary add-line-btn" id="add-line-item">+ Add line item</button>
 
     <div class="running-total-bar">
@@ -542,27 +582,15 @@ document.addEventListener('DOMContentLoaded', function() {
   /* Add line item */
   document.getElementById('add-line-item').addEventListener('click', function() {
     var count = parseInt(totalFormsInput.value);
-    var firstCard = container.querySelector('.line-item-card');
-    if (!firstCard) return;
-    var newCard = firstCard.cloneNode(true);
-    newCard.dataset.formIndex = count;
-    newCard.querySelector('.line-item-card-number').textContent = '#' + (count + 1);
-    /* Clear values and update name/id indices */
-    newCard.querySelectorAll('input, select, textarea').forEach(function(inp) {
-      if (inp.name) inp.name = inp.name.replace(/-\d+-/, '-' + count + '-');
-      if (inp.id) inp.id = inp.id.replace(/-\d+-/, '-' + count + '-');
-      if (inp.type === 'hidden' && inp.name.endsWith('-id')) inp.value = '';
-      else if (inp.type === 'checkbox') inp.checked = false;
-      else if (inp.type !== 'hidden') inp.value = '';
-    });
-    newCard.querySelectorAll('label[for]').forEach(function(lbl) {
-      lbl.setAttribute('for', lbl.getAttribute('for').replace(/-\d+-/, '-' + count + '-'));
-    });
-    /* Remove delete toggle from new (unsaved) items */
-    var delToggle = newCard.querySelector('.delete-toggle');
-    if (delToggle) delToggle.remove();
-    /* Remove any error messages */
-    newCard.querySelectorAll('.field-error').forEach(function(el) { el.remove(); });
+    var template = document.getElementById('line-item-empty-template');
+    if (!template) return;
+    var html = template.innerHTML
+      .replace(/__prefix__/g, count)
+      .replace(/__number__/g, count + 1);
+    var wrapper = document.createElement('div');
+    wrapper.innerHTML = html.trim();
+    var newCard = wrapper.firstElementChild;
+    if (!newCard) return;
     container.appendChild(newCard);
     totalFormsInput.value = count + 1;
     updateAllTotals();

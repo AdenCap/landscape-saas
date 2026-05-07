@@ -196,6 +196,8 @@ def invoice_list(request):
 
     search_query = (request.GET.get("q") or "").strip()
     if search_query:
+        if status_filter == "all":
+            qs = base_qs
         search_filter = (
             Q(customer__name__icontains=search_query)
             | Q(customer__email__icontains=search_query)
@@ -821,6 +823,8 @@ def invoice_edit_line_items(request, invoice_id):
             obj.description = desc
             obj.quantity = obj.quantity or 1
             obj.unit_price = getattr(obj, "unit_price", None) or 0
+            obj.material_cost = getattr(obj, "material_cost", None) or 0
+            obj.labor_cost = getattr(obj, "labor_cost", None) or 0
             obj.save()
         invoice.recompute_totals()
         _log_invoice_audit(

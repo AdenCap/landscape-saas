@@ -128,6 +128,49 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.mowing.refresh_from_db()
         self.assertTrue(self.mowing.is_paid)
 
+    def test_owner_can_add_multiple_invoice_line_items_in_one_save(self):
+        edit_url = reverse("billing:invoice_edit_line_items", args=[self.invoice.id])
+
+        response = self.client.post(edit_url, {
+            "line_items-TOTAL_FORMS": "4",
+            "line_items-INITIAL_FORMS": "2",
+            "line_items-MIN_NUM_FORMS": "0",
+            "line_items-MAX_NUM_FORMS": "1000",
+            "line_items-0-id": str(self.mowing.id),
+            "line_items-0-description": "Mowing",
+            "line_items-0-detail_description": "Weekly cut",
+            "line_items-0-quantity": "1",
+            "line_items-0-unit_price": "85.00",
+            "line_items-0-material_cost": "",
+            "line_items-0-labor_cost": "",
+            "line_items-1-id": str(self.landscaping.id),
+            "line_items-1-description": "Landscaping",
+            "line_items-1-detail_description": "Bed cleanup",
+            "line_items-1-quantity": "1",
+            "line_items-1-unit_price": "240.00",
+            "line_items-1-material_cost": "",
+            "line_items-1-labor_cost": "",
+            "line_items-2-description": "Mulch install",
+            "line_items-2-detail_description": "Front beds",
+            "line_items-2-quantity": "2",
+            "line_items-2-unit_price": "150.00",
+            "line_items-2-material_cost": "",
+            "line_items-2-labor_cost": "",
+            "line_items-3-description": "Edging",
+            "line_items-3-detail_description": "Drive and walk",
+            "line_items-3-quantity": "1",
+            "line_items-3-unit_price": "65.00",
+            "line_items-3-material_cost": "",
+            "line_items-3-labor_cost": "",
+        })
+
+        self.assertRedirects(response, reverse("billing:invoice_detail", args=[self.invoice.id]))
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.line_items.count(), 4)
+        self.assertEqual(self.invoice.total, Decimal("690.00"))
+        self.assertTrue(self.invoice.line_items.filter(description="Mulch install").exists())
+        self.assertTrue(self.invoice.line_items.filter(description="Edging").exists())
+
     def test_invoice_card_payment_toggle_accepts_form_posts(self):
         edit_url = reverse("billing:invoice_edit_line_items", args=[self.invoice.id])
 
@@ -238,6 +281,48 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.assertContains(response, "Work not invoiced")
         self.assertContains(response, "Building batches")
         self.assertContains(response, "$95")
+
+    def test_invoice_search_surfaces_building_monthly_invoices(self):
+        Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+            total=Decimal("410.00"),
+        )
+
+        response = self.client.get(reverse("billing:invoice_list"), {"q": self.customer.name})
+
+        self.assertEqual(response.status_code, 200)
+        invoice_ids = [row["invoice"].id for row in response.context["invoice_rows"]]
+        self.assertIn(self.invoice.id, invoice_ids)
+        self.assertEqual(len(invoice_ids), 2)
+
+    def test_quick_add_existing_client_preserves_new_email_for_estimate_send(self):
+        self.customer.email = ""
+        self.customer.phone = ""
+        self.customer.save(update_fields=["email", "phone"])
+
+        response = self.client.post(
+            reverse("api_quick_create_customer"),
+            data=json.dumps({
+                "name": self.customer.name,
+                "email": "acme@example.com",
+                "phone": "555-0100",
+                "address": "42 Lawn Lane",
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["existing"])
+        self.customer.refresh_from_db()
+        self.assertEqual(self.customer.email, "acme@example.com")
+        self.assertEqual(self.customer.phone, "555-0100")
+        self.assertTrue(self.customer.properties.filter(address="42 Lawn Lane").exists())
 
     def test_owner_can_combine_same_customer_draft_invoices(self):
         first = Invoice.objects.create(
