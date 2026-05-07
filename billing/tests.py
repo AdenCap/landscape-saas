@@ -231,11 +231,12 @@ class InvoiceLineItemPaymentTests(TestCase):
         response = self.client.get(reverse("billing:invoice_list"))
 
         metrics = response.context["command_metrics"]
-        self.assertEqual(metrics["draft_total"], Decimal("410.00"))
+        self.assertEqual(metrics["draft_total"], Decimal("0"))
         self.assertEqual(metrics["monthly_draft_total"], Decimal("410.00"))
         self.assertEqual(metrics["unbilled_total"], Decimal("95.00"))
         self.assertEqual(metrics["unbilled_item_count"], 1)
         self.assertContains(response, "Work not invoiced")
+        self.assertContains(response, "Building batches")
         self.assertContains(response, "$95")
 
     def test_owner_can_combine_same_customer_draft_invoices(self):
@@ -1113,6 +1114,82 @@ class DocumentTemplateStudioTests(TestCase):
         self.assertContains(response, "Payment readiness")
         self.assertContains(response, "Client pay page")
         self.assertContains(response, "Card payments off")
+
+    @patch("businesses.email_sender.is_email_configured", return_value=True)
+    @patch("businesses.email_sender.send_business_email", return_value=(True, "ok"))
+    def test_send_invoice_email_attaches_pdf(self, mock_send, _mock_configured):
+        invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            subtotal=Decimal("0"),
+            tax=Decimal("0"),
+            total=Decimal("0"),
+        )
+        InvoiceLineItem.objects.create(invoice=invoice, description="Mowing", quantity=1, unit_price=Decimal("85.00"))
+
+        response = self.client.post(reverse("billing:send_invoice", args=[invoice.id]))
+
+        self.assertRedirects(response, reverse("billing:invoice_detail", args=[invoice.id]))
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, "sent")
+        attachments = mock_send.call_args.kwargs["attachments"]
+        self.assertEqual(len(attachments), 1)
+        self.assertEqual(attachments[0]["filename"], f"invoice_{invoice.id}.pdf")
+        self.assertEqual(attachments[0]["mimetype"], "application/pdf")
+        self.assertTrue(attachments[0]["content"].startswith(b"%PDF"))
+
+    @patch("businesses.email_sender.is_email_configured", return_value=True)
+    @patch("businesses.email_sender.send_business_email", return_value=(True, "ok"))
+    def test_resend_invoice_email_attaches_pdf(self, mock_send, _mock_configured):
+        invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="sent",
+            payment_token="invoice-token",
+            subtotal=Decimal("0"),
+            tax=Decimal("0"),
+            total=Decimal("0"),
+        )
+        InvoiceLineItem.objects.create(invoice=invoice, description="Mowing", quantity=1, unit_price=Decimal("85.00"))
+
+        response = self.client.post(reverse("billing:resend_invoice", args=[invoice.id]))
+
+        self.assertRedirects(response, reverse("billing:invoice_detail", args=[invoice.id]))
+        attachments = mock_send.call_args.kwargs["attachments"]
+        self.assertEqual(len(attachments), 1)
+        self.assertEqual(attachments[0]["filename"], f"invoice_{invoice.id}.pdf")
+        self.assertEqual(attachments[0]["mimetype"], "application/pdf")
+        self.assertTrue(attachments[0]["content"].startswith(b"%PDF"))
+
+    @patch("businesses.email_sender.is_email_configured", return_value=True)
+    @patch("businesses.email_sender.send_business_email", return_value=(True, "ok"))
+    def test_monthly_batch_invoice_email_attaches_pdf(self, mock_send, _mock_configured):
+        invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            subtotal=Decimal("0"),
+            tax=Decimal("0"),
+            total=Decimal("0"),
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+        )
+        InvoiceLineItem.objects.create(invoice=invoice, description="April mowing", quantity=1, unit_price=Decimal("200.00"))
+
+        response = self.client.post(
+            reverse("billing:monthly_invoice_batch_send"),
+            data={"invoice_ids": [str(invoice.id)]},
+        )
+
+        self.assertRedirects(response, reverse("billing:monthly_invoice_list"))
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, "sent")
+        attachments = mock_send.call_args.kwargs["attachments"]
+        self.assertEqual(len(attachments), 1)
+        self.assertEqual(attachments[0]["filename"], f"invoice_{invoice.id}.pdf")
+        self.assertEqual(attachments[0]["mimetype"], "application/pdf")
+        self.assertTrue(attachments[0]["content"].startswith(b"%PDF"))
 
     def test_public_invoice_pay_page_shows_manual_methods_when_card_is_off(self):
         self.business.client_card_payments_enabled = False

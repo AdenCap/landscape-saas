@@ -160,6 +160,13 @@ class Command(BaseCommand):
         )
 
         reply_to = [business.contact_email] if business.contact_email else None
+        try:
+            from billing.views import _invoice_pdf_attachment
+            attachments = [_invoice_pdf_attachment(invoice, request=None)]
+        except Exception as exc:
+            self.stdout.write(self.style.WARNING(f"  Invoice #{invoice.id}: PDF generation failed: {exc}"))
+            return False
+
         ok, detail = send_business_email(
             business=business,
             to=invoice.customer.email,
@@ -167,6 +174,7 @@ class Command(BaseCommand):
             body_text=body_text,
             body_html=html_content,
             reply_to=reply_to,
+            attachments=attachments,
         )
         if ok:
             self.stdout.write(f"  Invoice #{invoice.id}: emailed to {invoice.customer.email}")

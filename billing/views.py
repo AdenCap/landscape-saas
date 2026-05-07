@@ -75,7 +75,7 @@ from .forms import (
     _compute_fertilizing,
     _compute_mulch,
 )
-from .services import auto_charge_invoice_card, combine_customer_invoices
+from .services import auto_charge_invoice_card, combine_customer_invoices, invoice_card_payment_default
 from .monthly import build_missing_monthly_invoices_for_period
 
 @role_required("owner", "manager")
@@ -93,6 +93,7 @@ def invoice_list_view(request):
 def _invoice_command_metrics(business, today):
     from jobs.models import JobServiceItem
 
+    building_invoice_q = Q(status="draft", job__isnull=True, period_start__isnull=False)
     unbilled_amount = ExpressionWrapper(
         F("quantity") * F("unit_price"),
         output_field=DecimalField(max_digits=12, decimal_places=2),
@@ -103,8 +104,8 @@ def _invoice_command_metrics(business, today):
         job__status="completed",
         billed_invoice__isnull=True,
     )
-    draft_base = invoice_base.filter(status="draft")
-    monthly_draft_base = draft_base.filter(job__isnull=True, period_start__isnull=False)
+    draft_base = invoice_base.filter(status="draft").exclude(building_invoice_q)
+    monthly_draft_base = invoice_base.filter(building_invoice_q)
     sent_base = invoice_base.filter(status="sent")
     unbilled_total = unbilled_base.aggregate(
         total=Coalesce(Sum(unbilled_amount), Decimal("0.00"))
@@ -158,12 +159,15 @@ def invoice_list(request):
     business = getattr(request.user, "business", None)
     today = _biz_today(business) if business else timezone.localdate()
     month_start = today.replace(day=1)
+    building_invoice_q = Q(status="draft", job__isnull=True, period_start__isnull=False)
 
     base_qs = Invoice.objects.select_related("customer")
     if business:
         base_qs = base_qs.filter(business=business)
+    attention_qs = base_qs.exclude(building_invoice_q)
+    building_qs = base_qs.filter(building_invoice_q)
 
-    stats = base_qs.aggregate(
+    stats = attention_qs.aggregate(
         total_count=Count("id"),
         draft_count=Count("id", filter=Q(status="draft")),
         sent_count=Count("id", filter=Q(status="sent")),
@@ -172,17 +176,23 @@ def invoice_list(request):
         overdue_total=Coalesce(Sum("total", filter=Q(status="sent", due_date__lt=today)), Decimal("0")),
         paid_month_total=Coalesce(Sum("total", filter=Q(status="paid", paid_at__date__gte=month_start)), Decimal("0")),
     )
-    overdue_count = base_qs.filter(status="sent", due_date__lt=today).count()
-    due_soon_count = base_qs.filter(status="sent", due_date__gte=today, due_date__lte=today + timedelta(days=7)).count()
+    building_stats = building_qs.aggregate(
+        count=Count("id"),
+        total=Coalesce(Sum("total"), Decimal("0")),
+    )
+    overdue_count = attention_qs.filter(status="sent", due_date__lt=today).count()
+    due_soon_count = attention_qs.filter(status="sent", due_date__gte=today, due_date__lte=today + timedelta(days=7)).count()
 
-    qs = base_qs
+    qs = attention_qs
     status_filter = (request.GET.get("status") or "all").strip().lower()
     if status_filter in {"draft", "sent", "paid", "void"}:
-        qs = qs.filter(status=status_filter)
+        qs = attention_qs.filter(status=status_filter)
     elif status_filter == "overdue":
-        qs = qs.filter(status="sent", due_date__lt=today)
+        qs = attention_qs.filter(status="sent", due_date__lt=today)
     elif status_filter == "due_soon":
-        qs = qs.filter(status="sent", due_date__gte=today, due_date__lte=today + timedelta(days=7))
+        qs = attention_qs.filter(status="sent", due_date__gte=today, due_date__lte=today + timedelta(days=7))
+    elif status_filter == "building":
+        qs = building_qs
 
     search_query = (request.GET.get("q") or "").strip()
     if search_query:
@@ -231,6 +241,7 @@ def invoice_list(request):
         {"key": "sent", "label": "Sent", "count": stats["sent_count"], "url": f"{reverse('billing:invoice_list')}?status=sent"},
         {"key": "overdue", "label": "Overdue", "count": overdue_count, "url": f"{reverse('billing:invoice_list')}?status=overdue"},
         {"key": "due_soon", "label": "Due soon", "count": due_soon_count, "url": f"{reverse('billing:invoice_list')}?status=due_soon"},
+        {"key": "building", "label": "Building", "count": building_stats["count"], "url": f"{reverse('billing:invoice_list')}?status=building"},
         {"key": "paid", "label": "Paid", "count": stats["paid_count"], "url": f"{reverse('billing:invoice_list')}?status=paid"},
     ]
 
@@ -239,6 +250,7 @@ def invoice_list(request):
         "invoices": invoices,
         "stats": stats,
         "command_metrics": _invoice_command_metrics(business, today) if business else {},
+        "building_stats": building_stats,
         "status_tabs": status_tabs,
         "status_filter": status_filter,
         "search_query": search_query,
@@ -294,6 +306,7 @@ def invoice_create(request):
             subtotal=Decimal("0"),
             tax=Decimal("0"),
             total=Decimal("0"),
+            enable_card_payment=invoice_card_payment_default(business),
         )
         _log_invoice_audit(invoice, "created", request=request, details={"method": "manual"})
         messages.success(request, f"Draft invoice #{invoice.id} created. Add your line items below.")
@@ -901,16 +914,22 @@ def _approve_and_deliver_invoice(invoice, request=None, user=None, source="manua
                 body_text += f"{'Pay online' if invoice.enable_card_payment else 'View invoice'}: {pay_url}\n\n"
             body_text += closing + "\n\n" + business.name
             reply_to = [business.contact_email] if business.contact_email else None
-            ok, detail = send_business_email(
-                business=business,
-                to=invoice.customer.email,
-                subject=subject,
-                body_text=body_text,
-                body_html=html_content,
-                reply_to=reply_to,
-            )
-            email_state = "sent" if ok else "failed"
-            email_detail = detail
+            try:
+                attachments = [_invoice_pdf_attachment(invoice, request=request)]
+                ok, detail = send_business_email(
+                    business=business,
+                    to=invoice.customer.email,
+                    subject=subject,
+                    body_text=body_text,
+                    body_html=html_content,
+                    reply_to=reply_to,
+                    attachments=attachments,
+                )
+                email_state = "sent" if ok else "failed"
+                email_detail = detail
+            except Exception as exc:
+                email_state = "failed"
+                email_detail = f"Invoice PDF could not be generated: {exc}"
         else:
             email_state = "not_configured"
     else:
@@ -922,6 +941,16 @@ def _approve_and_deliver_invoice(invoice, request=None, user=None, source="manua
         "charge_message": charge_message,
         "email": email_state,
         "email_detail": email_detail,
+    }
+
+
+def _invoice_pdf_attachment(invoice, request=None):
+    invoice.recompute_totals()
+    pdf_bytes = _build_invoice_pdf(invoice, request)
+    return {
+        "filename": f"invoice_{invoice.id}.pdf",
+        "content": pdf_bytes,
+        "mimetype": "application/pdf",
     }
 
 
@@ -1447,6 +1476,7 @@ def convert_estimate_to_invoice(request, estimate_id):
         customer=estimate.customer,
         status="draft",
         due_date=_biz_today(business) + timedelta(days=int(due_days)),
+        enable_card_payment=invoice_card_payment_default(business),
     )
 
     # Copy line items from estimate to invoice
@@ -3622,6 +3652,12 @@ def resend_invoice(request, invoice_id):
         "terms_text": doc_template.terms_and_conditions if doc_template else "",
     })
 
+    try:
+        attachments = [_invoice_pdf_attachment(invoice, request=request)]
+    except Exception as exc:
+        messages.error(request, f"Invoice PDF could not be generated: {exc}")
+        return redirect("billing:invoice_detail", invoice_id=invoice.id)
+
     ok, detail = send_business_email(
         business=business,
         to=invoice.customer.email,
@@ -3629,6 +3665,7 @@ def resend_invoice(request, invoice_id):
         body_text=body_text,
         body_html=html_content,
         reply_to=reply_to,
+        attachments=attachments,
     )
     if ok:
         messages.success(request, f"Invoice #{invoice.id} resent to {invoice.customer.email}.")
