@@ -364,16 +364,23 @@ def schedule_from_estimate(request, estimate_id):
         svc = ServiceTemplate.objects.filter(business=business, name__icontains=line.description[:30]).first()
         if not svc:
             svc = ServiceTemplate.objects.filter(business=business, active=True).first()
-        if svc:
-            JobServiceItem.objects.create(
-                job=job,
-                service=svc,
-                description=line.description,
-                detail_description=getattr(line, "detail_description", "") or "",
-                quantity=line.quantity or 1,
-                unit=line.unit or "visit",
-                unit_price=line.unit_price or 0,
+        if not svc:
+            svc = ServiceTemplate.objects.create(
+                business=business,
+                name=(line.description or estimate.title or "Estimate work")[:120],
+                active=True,
+                default_unit=line.unit or "visit",
+                default_rate=line.unit_price or 0,
             )
+        JobServiceItem.objects.create(
+            job=job,
+            service=svc,
+            description=line.description,
+            detail_description=getattr(line, "detail_description", "") or "",
+            quantity=line.quantity or 1,
+            unit=line.unit or "visit",
+            unit_price=line.unit_price or 0,
+        )
 
     # Mark estimate as scheduled
     estimate.job_scheduled = True

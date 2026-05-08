@@ -351,4 +351,7 @@ def create_draft_invoice_for_job(job):
     for ji in job_items:
         _copy_job_item_to_invoice(invoice, ji)
 
+    if job_items:
+        invoice.recompute_totals()
+
     return invoice

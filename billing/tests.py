@@ -116,6 +116,14 @@ class InvoiceLineItemPaymentTests(TestCase):
             reverse("billing:mark_invoice_line_item_paid", args=[self.invoice.id, self.mowing.id]),
         )
 
+    def test_owner_delete_invoice_redirects_to_invoice_list(self):
+        invoice_id = self.invoice.id
+
+        response = self.client.post(reverse("billing:invoice_delete", args=[invoice_id]))
+
+        self.assertRedirects(response, reverse("billing:invoice_list"))
+        self.assertFalse(Invoice.objects.filter(id=invoice_id).exists())
+
     def test_line_item_payment_can_return_to_edit_screen(self):
         edit_url = reverse("billing:invoice_edit_line_items", args=[self.invoice.id])
 
@@ -127,6 +135,39 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.assertRedirects(response, edit_url)
         self.mowing.refresh_from_db()
         self.assertTrue(self.mowing.is_paid)
+
+    def test_client_invoice_page_marks_invoice_viewed(self):
+        self.invoice.payment_token = "client-view-token"
+        self.invoice.save(update_fields=["payment_token"])
+
+        response = self.client.get(reverse("billing:invoice_pay_page", args=[self.invoice.id, "client-view-token"]))
+
+        self.assertEqual(response.status_code, 200)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.view_count, 1)
+        self.assertIsNotNone(self.invoice.first_viewed_at)
+        self.assertIsNotNone(self.invoice.last_viewed_at)
+
+    def test_client_invoice_pdf_marks_invoice_viewed(self):
+        self.invoice.payment_token = "client-pdf-token"
+        self.invoice.save(update_fields=["payment_token"])
+
+        response = self.client.get(reverse("billing:invoice_client_pdf", args=[self.invoice.id, "client-pdf-token"]))
+
+        self.assertEqual(response.status_code, 200)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.view_count, 1)
+        self.assertIsNotNone(self.invoice.first_viewed_at)
+        self.assertIsNotNone(self.invoice.last_viewed_at)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+
+    def test_owner_invoice_pdf_does_not_mark_client_viewed(self):
+        response = self.client.get(reverse("billing:invoice_pdf", args=[self.invoice.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.view_count, 0)
+        self.assertIsNone(self.invoice.first_viewed_at)
 
     def test_owner_can_add_multiple_invoice_line_items_in_one_save(self):
         edit_url = reverse("billing:invoice_edit_line_items", args=[self.invoice.id])
@@ -1223,6 +1264,46 @@ class DocumentTemplateStudioTests(TestCase):
         self.assertEqual(attachments[0]["filename"], f"invoice_{invoice.id}.pdf")
         self.assertEqual(attachments[0]["mimetype"], "application/pdf")
         self.assertTrue(attachments[0]["content"].startswith(b"%PDF"))
+        body_html = mock_send.call_args.kwargs["body_html"]
+        body_text = mock_send.call_args.kwargs["body_text"]
+        self.assertIn(reverse("billing:invoice_client_pdf", args=[invoice.id, invoice.payment_token]), body_html)
+        self.assertIn("Download PDF:", body_text)
+        self.assertIn("Open the invoice to review", body_html)
+        self.assertNotIn("Mowing", body_html)
+
+    @patch("businesses.email_sender.is_email_configured", return_value=True)
+    @patch("businesses.email_sender.send_business_email", return_value=(True, "ok"))
+    def test_estimate_email_shows_base_price_and_hides_optional_line_items(self, mock_send, _mock_configured):
+        estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            title="Patio refresh",
+            status="draft",
+            view_token="estimate-token",
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Base patio cleanup",
+            quantity=1,
+            unit_price=Decimal("500.00"),
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Optional lighting",
+            quantity=1,
+            unit_price=Decimal("250.00"),
+            is_addon=True,
+        )
+
+        response = self.client.post(reverse("billing:estimate_send", args=[estimate.id]))
+
+        self.assertRedirects(response, reverse("billing:estimate_detail", args=[estimate.id]))
+        body_html = mock_send.call_args.kwargs["body_html"]
+        self.assertIn("Base price", body_html)
+        self.assertIn("$500", body_html)
+        self.assertNotIn("Optional lighting", body_html)
+        self.assertNotIn("$250", body_html)
+        self.assertIn("View Estimate", body_html)
 
     @patch("businesses.email_sender.is_email_configured", return_value=True)
     @patch("businesses.email_sender.send_business_email", return_value=(True, "ok"))

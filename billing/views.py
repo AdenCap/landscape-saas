@@ -559,9 +559,13 @@ def invoice_detail(request, invoice_id):
         due_state = "draft"
         due_label = "Draft"
     pay_url = ""
+    pdf_url = ""
     if invoice.payment_token:
         pay_url = request.build_absolute_uri(
             reverse("billing:invoice_pay_page", args=[invoice.id, invoice.payment_token])
+        )
+        pdf_url = request.build_absolute_uri(
+            reverse("billing:invoice_client_pdf", args=[invoice.id, invoice.payment_token])
         )
     payment_readiness = _owner_payment_readiness(invoice.business, can_accept_stripe)
     today = _biz_today(invoice.business) if invoice.business_id else timezone.localdate()
@@ -878,6 +882,14 @@ def _approve_and_deliver_invoice(invoice, request=None, user=None, source="manua
                 else:
                     site_url = getattr(settings, "SITE_URL", "https://fieldlgx.com").rstrip("/")
                     pay_url = site_url + path
+            pdf_url = ""
+            if invoice.payment_token:
+                pdf_path = reverse("billing:invoice_client_pdf", args=[invoice.id, invoice.payment_token])
+                if request:
+                    pdf_url = request.build_absolute_uri(pdf_path)
+                else:
+                    site_url = getattr(settings, "SITE_URL", "https://fieldlgx.com").rstrip("/")
+                    pdf_url = site_url + pdf_path
             logo_url = _get_logo_url(business, request) if request else ""
             doc_template = DocumentTemplate.get_default_for_business(business, "invoice")
             accent_color = doc_template.primary_color if doc_template and getattr(doc_template, "primary_color", None) else "#22c55e"
@@ -903,6 +915,7 @@ def _approve_and_deliver_invoice(invoice, request=None, user=None, source="manua
                 "invoice": invoice,
                 "business": business,
                 "pay_url": pay_url,
+                "pdf_url": pdf_url,
                 "enable_card_payment": invoice.enable_card_payment,
                 "logo_url": logo_url,
                 "email_intro": intro,
@@ -916,6 +929,8 @@ def _approve_and_deliver_invoice(invoice, request=None, user=None, source="manua
             body_text = intro + f"\n\nInvoice #{invoice.id} · Total: ${invoice.total}\n\n"
             if pay_url:
                 body_text += f"{'Pay online' if invoice.enable_card_payment else 'View invoice'}: {pay_url}\n\n"
+            if pdf_url:
+                body_text += f"Download PDF: {pdf_url}\n\n"
             body_text += closing + "\n\n" + business.name
             reply_to = [business.contact_email] if business.contact_email else None
             try:
@@ -956,6 +971,17 @@ def _invoice_pdf_attachment(invoice, request=None):
         "content": pdf_bytes,
         "mimetype": "application/pdf",
     }
+
+
+def _track_invoice_client_view(invoice):
+    """Mark an invoice as viewed by the client-facing page or tokenized PDF."""
+    now = timezone.now()
+    if not invoice.first_viewed_at:
+        invoice.first_viewed_at = now
+    invoice.last_viewed_at = now
+    invoice.view_count = (invoice.view_count or 0) + 1
+    invoice.save(update_fields=["first_viewed_at", "last_viewed_at", "view_count"])
+    return invoice
 
 
 @require_POST
@@ -1096,13 +1122,7 @@ def invoice_pay_page(request, invoice_id, token):
         id=invoice_id,
         payment_token=token,
     )
-    # Track client view
-    now = timezone.now()
-    if not invoice.first_viewed_at:
-        invoice.first_viewed_at = now
-    invoice.last_viewed_at = now
-    invoice.view_count = (invoice.view_count or 0) + 1
-    invoice.save(update_fields=["first_viewed_at", "last_viewed_at", "view_count"])
+    _track_invoice_client_view(invoice)
 
     invoice.recompute_totals()
     business = invoice.business
@@ -1115,6 +1135,7 @@ def invoice_pay_page(request, invoice_id, token):
         **payment_context,
         "can_accept_stripe": can_accept_stripe,
         "line_items": line_items,
+        "pdf_url": reverse("billing:invoice_client_pdf", args=[invoice.id, invoice.payment_token]),
     })
 
 
@@ -1406,7 +1427,7 @@ def invoice_delete(request, invoice_id):
     inv_id = invoice.id
     invoice.delete()
     messages.success(request, f"Invoice #{inv_id} has been deleted.")
-    return redirect("billing:invoice_detail", invoice_id=invoice.id)
+    return redirect("billing:invoice_list")
 
 
 @require_POST
@@ -3557,6 +3578,23 @@ def invoice_pdf(request, invoice_id):
     return response
 
 
+def invoice_client_pdf(request, invoice_id, token):
+    """Public PDF download for clients; tokenized so PDF opens count as invoice views."""
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("business", "customer"),
+        id=invoice_id,
+        payment_token=token,
+    )
+    _track_invoice_client_view(invoice)
+    invoice.recompute_totals()
+    pdf_bytes = _build_invoice_pdf(invoice, request)
+    inline = request.GET.get("inline") == "1"
+    response = FileResponse(BytesIO(pdf_bytes), as_attachment=not inline, filename=f"invoice_{invoice.id}.pdf")
+    if inline:
+        response["Content-Type"] = "application/pdf"
+    return response
+
+
 @require_POST
 @role_required("owner", "manager")
 def resend_invoice(request, invoice_id):
@@ -3591,9 +3629,13 @@ def resend_invoice(request, invoice_id):
 
     invoice.recompute_totals()
     pay_url = ""
+    pdf_url = ""
     if invoice.payment_token:
         pay_url = request.build_absolute_uri(
             reverse("billing:invoice_pay_page", args=[invoice.id, invoice.payment_token])
+        )
+        pdf_url = request.build_absolute_uri(
+            reverse("billing:invoice_client_pdf", args=[invoice.id, invoice.payment_token])
         )
 
     reply_to = [business.contact_email] if business.contact_email else None
@@ -3625,6 +3667,8 @@ def resend_invoice(request, invoice_id):
             body_text += f"Pay online: {pay_url}\n\n"
         else:
             body_text += f"View invoice: {pay_url}\n\n"
+    if pdf_url:
+        body_text += f"Download PDF: {pdf_url}\n\n"
     # Include alternative payment methods in plain text
     alt_methods = []
     if business.venmo_username:
@@ -3645,6 +3689,7 @@ def resend_invoice(request, invoice_id):
         "invoice": invoice,
         "business": business,
         "pay_url": pay_url,
+        "pdf_url": pdf_url,
         "enable_card_payment": invoice.enable_card_payment,
         "logo_url": logo_url,
         "email_intro": intro,
@@ -3705,9 +3750,13 @@ def send_reminder(request, invoice_id):
 
     invoice.recompute_totals()
     pay_url = ""
+    pdf_url = ""
     if invoice.payment_token:
         pay_url = request.build_absolute_uri(
             reverse("billing:invoice_pay_page", args=[invoice.id, invoice.payment_token])
+        )
+        pdf_url = request.build_absolute_uri(
+            reverse("billing:invoice_client_pdf", args=[invoice.id, invoice.payment_token])
         )
 
     days_overdue = ""
@@ -3724,6 +3773,8 @@ def send_reminder(request, invoice_id):
     body_text = intro + "\n\n"
     if pay_url:
         body_text += f"Pay online: {pay_url}\n\n"
+    if pdf_url:
+        body_text += f"Download PDF: {pdf_url}\n\n"
     body_text += closing + "\n\n" + business.name
 
     logo_url = _get_logo_url(business, request)
@@ -3733,6 +3784,7 @@ def send_reminder(request, invoice_id):
         "invoice": invoice,
         "business": business,
         "pay_url": pay_url,
+        "pdf_url": pdf_url,
         "enable_card_payment": invoice.enable_card_payment,
         "logo_url": logo_url,
         "email_intro": intro,
@@ -5668,16 +5720,17 @@ def email_template_preview(request, doc_type):
     if doc_type == "invoice":
         html = render_to_string("billing/invoice_email.html", {
             "invoice": type("Inv", (), {
-                "id": 1042, "total": lambda: "170.00", "issue_date": "Mar 21, 2026", "due_date": "Apr 4, 2026",
+                "id": 1042, "total": Decimal("170.00"), "issue_date": "Mar 21, 2026", "due_date": "Apr 4, 2026",
                 "customer": type("C", (), {"name": "John Smith"})(),
                 "line_items": type("LI", (), {"all": lambda: [
-                    type("I", (), {"description": "Weekly Mowing", "line_total": "85.00"})(),
-                    type("I", (), {"description": "Edging & Blowing", "line_total": "25.00"})(),
-                    type("I", (), {"description": "Bush Trimming", "line_total": "60.00"})(),
+                    type("I", (), {"description": "Weekly Mowing", "line_total": Decimal("85.00")})(),
+                    type("I", (), {"description": "Edging & Blowing", "line_total": Decimal("25.00")})(),
+                    type("I", (), {"description": "Bush Trimming", "line_total": Decimal("60.00")})(),
                 ]})(),
             })(),
             "business": business,
             "pay_url": "#",
+            "pdf_url": "#",
             "logo_url": logo_url,
             "email_intro": business.invoice_email_intro or "Hi John, please find your invoice below.",
             "email_closing": business.invoice_email_closing or "Thank you for your business.",
@@ -5688,22 +5741,29 @@ def email_template_preview(request, doc_type):
             "terms_text": doc_template.terms_and_conditions if doc_template else "",
         })
     else:
+        from types import SimpleNamespace
+
+        class _PreviewLineItems:
+            def all(self):
+                return [
+                    SimpleNamespace(description="Lawn Renovation (4,500 sq ft)", line_total=Decimal("1200.00"), is_addon=False),
+                    SimpleNamespace(description="Mulch Installation (12 yards)", line_total=Decimal("850.00"), is_addon=False),
+                    SimpleNamespace(description="Shrub Planting (6 plants)", line_total=Decimal("400.00"), is_addon=False),
+                ]
+
         html = render_to_string("billing/estimate_email.html", {
-            "estimate": type("Est", (), {
-                "id": 205, "title": "Landscape Renovation Estimate",
-                "valid_until": "Apr 30, 2026",
-                "notes": "Work to begin within 2 weeks of acceptance.",
-                "base_total": lambda: "2,450.00",
-                "addons_total": lambda: 0,
-                "deposit_required": False,
-                "deposit_amount": None,
-                "images": type("Imgs", (), {"exists": lambda: False})(),
-                "line_items": type("LI", (), {"all": lambda: [
-                    type("I", (), {"description": "Lawn Renovation (4,500 sq ft)", "line_total": "1,200.00", "is_addon": False})(),
-                    type("I", (), {"description": "Mulch Installation (12 yards)", "line_total": "850.00", "is_addon": False})(),
-                    type("I", (), {"description": "Shrub Planting (6 plants)", "line_total": "400.00", "is_addon": False})(),
-                ]})(),
-            })(),
+            "estimate": SimpleNamespace(
+                id=205,
+                title="Landscape Renovation Estimate",
+                valid_until="Apr 30, 2026",
+                notes="Work to begin within 2 weeks of acceptance.",
+                base_total=Decimal("2450.00"),
+                addons_total=Decimal("0.00"),
+                deposit_required=False,
+                deposit_amount=None,
+                images=SimpleNamespace(exists=lambda: False),
+                line_items=_PreviewLineItems(),
+            ),
             "customer": type("C", (), {"name": "Sarah Johnson"})(),
             "business": business,
             "request": request,

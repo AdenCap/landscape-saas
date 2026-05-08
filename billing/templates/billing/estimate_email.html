@@ -36,9 +36,17 @@
     <!-- Accent bar -->
     <tr><td style="height:4px;background:{{ accent_color|default:'#22c55e' }};"></td></tr>
 
-    <!-- Logo + Header -->
-    <tr><td class="inner" style="padding:28px 32px 0;">
-      {% if logo_url %}<img src="{{ logo_url }}" alt="{{ business.name }}" style="max-height:40px;max-width:160px;display:block;margin-bottom:16px;">{% endif %}
+    <!-- Brand -->
+    <tr><td class="inner" style="padding:30px 32px 0;text-align:left;">
+      {% if logo_url %}
+      <img src="{{ logo_url }}" alt="{{ business.name }}" style="max-height:72px;max-width:240px;width:auto;height:auto;display:block;margin:0 0 18px;">
+      {% else %}
+      <p class="txt-primary" style="margin:0 0 18px;font-size:24px;line-height:1.1;font-weight:800;color:#18181b;letter-spacing:-0.01em;">{{ business.name }}</p>
+      {% endif %}
+    </td></tr>
+
+    <!-- Header -->
+    <tr><td class="inner" style="padding:0 32px;">
       {% if header_text %}<p class="txt-muted" style="margin:0 0 8px;font-size:13px;color:#71717a;">{{ header_text|linebreaksbr }}</p>{% endif %}
     </td></tr>
 
@@ -70,7 +78,7 @@
             <tr><td colspan="2" class="divider" style="height:1px;background:#e4e4e7;"></td></tr>
             {% endif %}
             <tr>
-              <td class="txt-muted" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#71717a;padding-top:8px;">Total estimate</td>
+              <td class="txt-muted" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#71717a;padding-top:8px;">Base price</td>
               <td style="text-align:right;font-size:20px;font-weight:800;color:{{ accent_color|default:'#22c55e' }};padding-top:8px;">{{ estimate.base_total|currency }}</td>
             </tr>
           </table>
@@ -78,19 +86,11 @@
       </table>
     </td></tr>
 
-    <!-- Line items -->
+    <!-- Estimate prompt -->
     <tr><td class="inner" style="padding:0 32px 20px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-        {% for item in estimate.line_items.all %}
-        <tr class="detail-row">
-          <td style="padding:10px 0;border-bottom:1px solid #f4f4f5;font-size:14px;color:#3f3f46;">
-            {{ item.description }}
-            {% if item.is_addon %}<span style="display:inline-block;padding:1px 6px;background:#fef9c3;color:#854d0e;font-size:10px;font-weight:600;border-radius:4px;margin-left:4px;">Optional</span>{% endif %}
-          </td>
-          <td style="text-align:right;padding:10px 0;border-bottom:1px solid #f4f4f5;font-size:14px;font-weight:600;color:#18181b;white-space:nowrap;">{{ item.line_total|currency }}</td>
-        </tr>
-        {% endfor %}
-      </table>
+      <p class="txt-secondary" style="margin:0;font-size:14px;color:#52525b;line-height:1.6;">
+        Open the estimate to review the full scope, photos, notes, payment terms, and any optional upgrades before approving.
+      </p>
     </td></tr>
 
     <!-- CTA Button -->

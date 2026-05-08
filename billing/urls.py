@@ -19,6 +19,7 @@ urlpatterns = [
     path("<int:invoice_id>/remind/", views.send_reminder, name="send_reminder"),
     path("<int:invoice_id>/pdf/", views.invoice_pdf, name="invoice_pdf"),
     path("<int:invoice_id>/pay/<str:token>/", views.invoice_pay_page, name="invoice_pay_page"),
+    path("<int:invoice_id>/pay/<str:token>/pdf/", views.invoice_client_pdf, name="invoice_client_pdf"),
     path("<int:invoice_id>/pay/<str:token>/stripe/", views.create_invoice_checkout_session, name="create_invoice_checkout"),
     path("<int:invoice_id>/pay/<str:token>/notify-paid/", views.invoice_customer_paid_notify, name="invoice_customer_paid_notify"),
     path("connect/onboarding/", views.connect_onboarding, name="connect_onboarding"),

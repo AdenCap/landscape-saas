@@ -111,6 +111,32 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
             "Install 3 yards around front beds.",
         ])
 
+    def test_accepted_estimate_can_be_scheduled_and_invoiced_without_existing_service_templates(self):
+        self.service.delete()
+        estimate, _selected, _declined = self._accepted_estimate_with_options()
+
+        response = self.client.post(
+            reverse("schedule_from_estimate", args=[estimate.id]),
+            data={"schedule_date": "2026-05-06"},
+        )
+
+        self.assertRedirects(response, reverse("job_list"))
+        job = Job.objects.get(property=self.property, scheduled_date=date(2026, 5, 6))
+        self.assertEqual(job.service_items.count(), 2)
+
+        response = self.client.post(reverse("job_bill_now", args=[job.id]))
+
+        invoice = Invoice.objects.get(job=job)
+        descriptions = list(invoice.line_items.order_by("id").values_list("description", flat=True))
+        details = list(invoice.line_items.order_by("id").values_list("detail_description", flat=True))
+        self.assertEqual(response["Location"], reverse("billing:invoice_detail", args=[invoice.id]))
+        self.assertEqual(descriptions, ["Base cleanup", "Mulch refresh"])
+        self.assertEqual(details, [
+            "Remove leaves, cut back grasses, and haul debris.",
+            "Install 3 yards around front beds.",
+        ])
+        self.assertEqual(invoice.total, Decimal("425.00"))
+
     def test_create_job_prefill_from_estimate_uses_only_accepted_items(self):
         estimate, _selected, declined = self._accepted_estimate_with_options()
 

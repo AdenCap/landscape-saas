@@ -263,6 +263,19 @@
       font-weight: 900;
       padding: 0 18px;
     }
+    .pdf-link {
+      min-height: 52px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0 18px;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 900;
+      background: rgba(255,255,255,.06);
+    }
     .notify-done {
       display: none;
       border: 1px solid rgba(155, 239, 69, .25);
@@ -371,6 +384,11 @@
           <span>Total due</span>
           <span>{{ invoice.total|currency }}</span>
         </div>
+        {% if pdf_url %}
+        <div style="margin-top:16px;">
+          <a href="{{ pdf_url }}" class="pdf-link">Download PDF</a>
+        </div>
+        {% endif %}
         {% else %}
         <div class="empty">No line items were listed on this invoice.</div>
         {% endif %}
