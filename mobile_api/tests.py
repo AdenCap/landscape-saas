@@ -4,11 +4,13 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from unittest.mock import patch
-from datetime import date, time
+from datetime import date, time, timedelta
 from decimal import Decimal
 
+from billing.models import Estimate, EstimateImage, EstimateLineItem, Invoice, InvoiceLineItem
 from businesses.models import Business
 from customers.models import Customer, Property
+from financials.models import Receipt
 from jobs.models import Crew, Job, JobCompletionPhoto, JobIssue, JobNote, JobPhoto, JobServiceItem, PropertyNote
 from pricing.models import ServiceTemplate
 from time_tracking.models import TimeEntry, TimeEntryLocationPing
@@ -243,6 +245,731 @@ class MobileBootstrapTests(TestCase):
         self.assertEqual(response.status_code, 401)
 
 
+class MobileCommandTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(name="QA Native Command")
+        self.other_business = Business.objects.create(name="Other Command")
+        User = get_user_model()
+        self.owner = User.objects.create_user(
+            username="commandowner",
+            email="command@example.com",
+            password="testpass123",
+            business=self.business,
+            role="owner",
+        )
+        self.crew = User.objects.create_user(
+            username="commandcrew",
+            email="commandcrew@example.com",
+            password="testpass123",
+            business=self.business,
+            role="crew",
+        )
+        self.customer = Customer.objects.create(business=self.business, name="Maple Ridge")
+        self.property = Property.objects.create(customer=self.customer, address="123 Command Ave")
+        self.today = date(2026, 5, 6)
+        Job.objects.create(
+            property=self.property,
+            scheduled_date=self.today,
+            scheduled_time=time(8, 0),
+            status="scheduled",
+            assigned_to=self.crew,
+        )
+        Job.objects.create(
+            property=self.property,
+            scheduled_date=self.today,
+            scheduled_time=time(10, 0),
+            status="scheduled",
+        )
+        Job.objects.create(
+            property=self.property,
+            scheduled_date=None,
+            schedule_by_date=self.today,
+            status="scheduled",
+        )
+        Job.objects.create(
+            property=self.property,
+            scheduled_date=self.today,
+            status="completed",
+            completed_at=timezone.now(),
+        )
+        Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="sent",
+            total=Decimal("125.00"),
+            due_date=self.today,
+        )
+        Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            property=self.property,
+            title="Patio Cleanup",
+            status="sent",
+        )
+        other_customer = Customer.objects.create(business=self.other_business, name="Other")
+        other_property = Property.objects.create(customer=other_customer, address="999 Away")
+        Job.objects.create(property=other_property, scheduled_date=self.today, status="scheduled")
+        self.login = self.client.post(
+            reverse("mobile_api:login"),
+            data={"email": "command@example.com", "password": "testpass123"},
+            content_type="application/json",
+        ).json()
+
+    def auth_headers(self):
+        return {"HTTP_AUTHORIZATION": f"Bearer {self.login['access_token']}"}
+
+    def test_command_returns_owner_operational_summary(self):
+        response = self.client.get(
+            reverse("mobile_api:command"),
+            {"date": self.today.isoformat()},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["date"], "2026-05-06")
+        self.assertEqual(payload["summary"]["today_jobs"], 3)
+        self.assertEqual(payload["summary"]["active_routes"], 1)
+        self.assertEqual(payload["summary"]["unassigned_jobs"], 2)
+        self.assertEqual(payload["summary"]["needs_scheduled"], 1)
+        self.assertEqual(payload["summary"]["ready_to_bill"], 1)
+        self.assertEqual(payload["summary"]["outstanding_total"], "125.00")
+        self.assertEqual(payload["summary"]["open_estimates"], 1)
+        self.assertEqual(payload["attention"][0]["kind"], "schedule")
+        self.assertEqual(payload["next_jobs"][0]["customer"]["name"], "Maple Ridge")
+
+    def test_command_requires_owner_or_manager(self):
+        crew_login = self.client.post(
+            reverse("mobile_api:login"),
+            data={"email": "commandcrew@example.com", "password": "testpass123"},
+            content_type="application/json",
+        ).json()
+
+        response = self.client.get(
+            reverse("mobile_api:command"),
+            HTTP_AUTHORIZATION=f"Bearer {crew_login['access_token']}",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+
+class MobileWorkTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(name="QA Native Work")
+        self.other_business = Business.objects.create(name="Other Work")
+        User = get_user_model()
+        self.owner = User.objects.create_user(
+            username="workowner",
+            email="work@example.com",
+            password="testpass123",
+            business=self.business,
+            role="owner",
+        )
+        self.customer = Customer.objects.create(business=self.business, name="Birch Lawn")
+        self.property = Property.objects.create(customer=self.customer, address="500 Work Way")
+        self.service = ServiceTemplate.objects.create(
+            business=self.business,
+            name="Mowing",
+            default_rate=Decimal("70.00"),
+        )
+        self.today = date(2026, 5, 7)
+        self.upcoming = Job.objects.create(
+            property=self.property,
+            scheduled_date=self.today + timedelta(days=2),
+            scheduled_time=time(9, 0),
+            status="scheduled",
+        )
+        JobServiceItem.objects.create(job=self.upcoming, service=self.service, quantity=1, unit_price=Decimal("70.00"))
+        self.needs_scheduled = Job.objects.create(
+            property=self.property,
+            scheduled_date=None,
+            schedule_by_date=self.today,
+            status="scheduled",
+        )
+        JobServiceItem.objects.create(job=self.needs_scheduled, service=self.service, quantity=1, unit_price=Decimal("70.00"))
+        self.finished = Job.objects.create(
+            property=self.property,
+            scheduled_date=self.today - timedelta(days=1),
+            status="completed",
+            completed_at=timezone.now(),
+        )
+        JobServiceItem.objects.create(job=self.finished, service=self.service, quantity=1, unit_price=Decimal("70.00"))
+        self.billed = Job.objects.create(
+            property=self.property,
+            scheduled_date=self.today - timedelta(days=2),
+            status="completed",
+            completed_at=timezone.now(),
+        )
+        Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            job=self.billed,
+            status="draft",
+            total=Decimal("70.00"),
+        )
+        other_customer = Customer.objects.create(business=self.other_business, name="Other")
+        other_property = Property.objects.create(customer=other_customer, address="999 Away")
+        Job.objects.create(property=other_property, scheduled_date=self.today + timedelta(days=1), status="scheduled")
+        self.login = self.client.post(
+            reverse("mobile_api:login"),
+            data={"email": "work@example.com", "password": "testpass123"},
+            content_type="application/json",
+        ).json()
+
+    def auth_headers(self):
+        return {"HTTP_AUTHORIZATION": f"Bearer {self.login['access_token']}"}
+
+    def test_work_returns_owner_pipeline_sections(self):
+        response = self.client.get(
+            reverse("mobile_api:work"),
+            {"date": self.today.isoformat()},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["summary"]["upcoming"], 1)
+        self.assertEqual(payload["summary"]["needs_scheduled"], 1)
+        self.assertEqual(payload["summary"]["finished"], 2)
+        self.assertEqual(payload["summary"]["needs_billing"], 1)
+        self.assertEqual(payload["sections"]["upcoming"][0]["id"], self.upcoming.id)
+        self.assertEqual(payload["sections"]["needs_scheduled"][0]["id"], self.needs_scheduled.id)
+        self.assertEqual(payload["sections"]["finished"][0]["customer"]["name"], "Birch Lawn")
+        self.assertEqual(payload["sections"]["needs_billing"][0]["id"], self.finished.id)
+        self.assertEqual(payload["service_filters"][0]["label"], "All")
+        self.assertIn("Mowing", [item["label"] for item in payload["service_filters"]])
+
+    def test_work_filters_by_service(self):
+        response = self.client.get(
+            reverse("mobile_api:work"),
+            {"date": self.today.isoformat(), "service": "mowing"},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["summary"]["upcoming"], 1)
+
+    def test_work_requires_owner_or_manager(self):
+        self.owner.role = "crew"
+        self.owner.save(update_fields=["role"])
+
+        response = self.client.get(
+            reverse("mobile_api:work"),
+            {"date": self.today.isoformat()},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+
+class MobileClientTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(name="QA Native Clients")
+        self.other_business = Business.objects.create(name="Other Clients")
+        User = get_user_model()
+        self.owner = User.objects.create_user(
+            username="clientowner",
+            email="clients@example.com",
+            password="testpass123",
+            business=self.business,
+            role="owner",
+        )
+        self.customer = Customer.objects.create(
+            business=self.business,
+            name="Willow Creek",
+            email="willow@example.com",
+            phone="555-1000",
+            invoice_frequency="monthly",
+            card_last4="4242",
+            card_brand="visa",
+            auto_charge_monthly_invoices=True,
+            notes="Prefers Thursday mornings.",
+        )
+        self.property = Property.objects.create(
+            customer=self.customer,
+            address="42 Willow Lane",
+            gate_code="9012",
+            has_dog=True,
+        )
+        other_customer = Customer.objects.create(business=self.other_business, name="Other")
+        Property.objects.create(customer=other_customer, address="999 Away")
+        self.login = self.client.post(
+            reverse("mobile_api:login"),
+            data={"email": "clients@example.com", "password": "testpass123"},
+            content_type="application/json",
+        ).json()
+
+    def auth_headers(self):
+        return {"HTTP_AUTHORIZATION": f"Bearer {self.login['access_token']}"}
+
+    def test_clients_list_returns_business_clients_and_billing_context(self):
+        response = self.client.get(reverse("mobile_api:clients"), **self.auth_headers())
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["summary"]["total"], 1)
+        self.assertEqual(payload["clients"][0]["name"], "Willow Creek")
+        self.assertEqual(payload["clients"][0]["primary_address"], "42 Willow Lane")
+        self.assertEqual(payload["clients"][0]["billing"]["invoice_frequency"], "monthly")
+        self.assertTrue(payload["clients"][0]["billing"]["has_card_on_file"])
+        self.assertEqual(payload["clients"][0]["properties"][0]["gate_code"], "9012")
+
+    def test_client_detail_returns_full_profile(self):
+        response = self.client.get(
+            reverse("mobile_api:client_detail", args=[self.customer.id]),
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["client"]["notes"], "Prefers Thursday mornings.")
+
+    def test_create_client_creates_property_for_native_inline_flow(self):
+        response = self.client.post(
+            reverse("mobile_api:clients"),
+            data={
+                "name": "Native New Client",
+                "email": "nativeclient@example.com",
+                "phone": "555-2020",
+                "address": "77 Native Court",
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 201)
+        created = Customer.objects.get(name="Native New Client")
+        self.assertEqual(created.business, self.business)
+        self.assertEqual(created.properties.first().address, "77 Native Court")
+        self.assertEqual(response.json()["client"]["primary_address"], "77 Native Court")
+
+
+class MobileCalendarTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(name="QA Native Calendar")
+        self.other_business = Business.objects.create(name="Other Calendar")
+        User = get_user_model()
+        self.owner = User.objects.create_user(
+            username="calendarowner",
+            email="calendar@example.com",
+            password="testpass123",
+            business=self.business,
+            role="owner",
+        )
+        self.customer = Customer.objects.create(business=self.business, name="Calendar Client")
+        self.property = Property.objects.create(customer=self.customer, address="88 Calendar Ave")
+        self.today = date(2026, 5, 8)
+        self.job = Job.objects.create(
+            property=self.property,
+            scheduled_date=self.today,
+            scheduled_time=time(8, 30),
+            status="scheduled",
+        )
+        self.multi_day = Job.objects.create(
+            property=self.property,
+            scheduled_date=self.today - timedelta(days=1),
+            scheduled_end_date=self.today + timedelta(days=1),
+            status="scheduled",
+        )
+        other_customer = Customer.objects.create(business=self.other_business, name="Other")
+        other_property = Property.objects.create(customer=other_customer, address="999 Away")
+        Job.objects.create(property=other_property, scheduled_date=self.today, status="scheduled")
+        self.login = self.client.post(
+            reverse("mobile_api:login"),
+            data={"email": "calendar@example.com", "password": "testpass123"},
+            content_type="application/json",
+        ).json()
+
+    def auth_headers(self):
+        return {"HTTP_AUTHORIZATION": f"Bearer {self.login['access_token']}"}
+
+    def test_calendar_returns_day_jobs_and_multi_day_overlap(self):
+        response = self.client.get(
+            reverse("mobile_api:calendar"),
+            {"date": self.today.isoformat(), "view": "day"},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["range"]["start"], "2026-05-08")
+        self.assertEqual(payload["range"]["end"], "2026-05-08")
+        self.assertEqual(payload["summary"]["total"], 2)
+        self.assertEqual({job["id"] for job in payload["jobs"]}, {self.job.id, self.multi_day.id})
+
+    def test_calendar_week_view_expands_range(self):
+        response = self.client.get(
+            reverse("mobile_api:calendar"),
+            {"date": self.today.isoformat(), "view": "week"},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["range"]["start"], "2026-05-04")
+        self.assertEqual(response.json()["range"]["end"], "2026-05-10")
+
+    def test_create_job_from_native_updates_shared_calendar_data(self):
+        service = ServiceTemplate.objects.create(
+            business=self.business,
+            name="Mulch",
+            default_rate=Decimal("250.00"),
+            default_unit="yard",
+        )
+
+        response = self.client.post(
+            reverse("mobile_api:jobs"),
+            data={
+                "property_id": self.property.id,
+                "scheduled_date": "2026-05-09",
+                "scheduled_time": "10:15",
+                "notes": "Native-created job.",
+                "service_items": [
+                    {
+                        "service_id": service.id,
+                        "description": "Mulch install",
+                        "detail_description": "Freshen front beds.",
+                        "quantity": "3",
+                        "unit": "yard",
+                        "unit_price": "250.00",
+                    }
+                ],
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 201)
+        job = Job.objects.get(id=response.json()["job"]["id"])
+        self.assertEqual(job.property, self.property)
+        self.assertEqual(job.scheduled_date.isoformat(), "2026-05-09")
+        self.assertEqual(job.service_items.first().detail_description, "Freshen front beds.")
+
+    def test_update_job_from_native_changes_schedule_and_notes(self):
+        response = self.client.patch(
+            reverse("mobile_api:job_detail", args=[self.job.id]),
+            data={
+                "scheduled_date": "2026-05-10",
+                "scheduled_end_date": "2026-05-12",
+                "scheduled_time": "13:45",
+                "scheduled_end_time": "16:15",
+                "notes": "Moved from native app.",
+                "status": "in_progress",
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.scheduled_date.isoformat(), "2026-05-10")
+        self.assertEqual(self.job.scheduled_end_date.isoformat(), "2026-05-12")
+        self.assertEqual(self.job.scheduled_time.strftime("%H:%M"), "13:45")
+        self.assertEqual(self.job.scheduled_end_time.strftime("%H:%M"), "16:15")
+        self.assertEqual(self.job.status, "in_progress")
+        self.assertEqual(self.job.notes, "Moved from native app.")
+
+    def test_job_options_returns_properties_services_and_crews(self):
+        service = ServiceTemplate.objects.create(business=self.business, name="Edging", default_rate=Decimal("45.00"))
+        crew = Crew.objects.create(business=self.business, name="Crew Native")
+
+        response = self.client.get(reverse("mobile_api:job_options"), **self.auth_headers())
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn(self.property.id, [item["id"] for item in payload["properties"]])
+        self.assertIn(service.id, [item["id"] for item in payload["services"]])
+        self.assertIn(crew.id, [item["id"] for item in payload["crews"]])
+
+
+class MobileMoneyTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(name="QA Native Money")
+        User = get_user_model()
+        self.owner = User.objects.create_user(
+            username="moneyowner",
+            email="money@example.com",
+            password="testpass123",
+            business=self.business,
+            role="owner",
+        )
+        self.customer = Customer.objects.create(business=self.business, name="Money Client")
+        self.property = Property.objects.create(customer=self.customer, address="90 Money Ave")
+        self.invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="sent",
+            total=Decimal("180.00"),
+            due_date=date(2026, 5, 1),
+        )
+        self.estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            property=self.property,
+            title="Landscape Refresh",
+            status="sent",
+            accepted_total=Decimal("950.00"),
+        )
+        self.login = self.client.post(
+            reverse("mobile_api:login"),
+            data={"email": "money@example.com", "password": "testpass123"},
+            content_type="application/json",
+        ).json()
+
+    def auth_headers(self):
+        return {"HTTP_AUTHORIZATION": f"Bearer {self.login['access_token']}"}
+
+    def test_money_returns_invoice_and_estimate_queue(self):
+        response = self.client.get(reverse("mobile_api:money"), **self.auth_headers())
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["summary"]["outstanding"], "180.00")
+        self.assertEqual(payload["summary"]["open_estimates"], 1)
+        self.assertEqual(payload["invoices"][0]["id"], self.invoice.id)
+        self.assertEqual(payload["estimates"][0]["title"], "Landscape Refresh")
+
+    def test_invoice_detail_returns_line_items_for_native_review(self):
+        InvoiceLineItem.objects.create(
+            invoice=self.invoice,
+            description="April mowing",
+            detail_description="Weekly maintenance visits",
+            quantity=2,
+            unit_price=Decimal("90.00"),
+        )
+
+        response = self.client.get(reverse("mobile_api:invoice_detail", args=[self.invoice.id]), **self.auth_headers())
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["invoice"]["id"], self.invoice.id)
+        self.assertEqual(payload["line_items"][0]["description"], "April mowing")
+        self.assertEqual(payload["line_items"][0]["line_total"], "180.00")
+
+    def test_estimate_detail_returns_deposit_and_line_items_for_native_review(self):
+        self.estimate.deposit_required = True
+        self.estimate.deposit_type = "percent"
+        self.estimate.deposit_amount = Decimal("25.00")
+        self.estimate.save(update_fields=["deposit_required", "deposit_type", "deposit_amount"])
+        EstimateLineItem.objects.create(
+            estimate=self.estimate,
+            description="Landscape bed cleanup",
+            detail_description="Remove debris and reset bed edges",
+            quantity=Decimal("1.00"),
+            unit="project",
+            unit_price=Decimal("950.00"),
+        )
+
+        response = self.client.get(reverse("mobile_api:estimate_detail", args=[self.estimate.id]), **self.auth_headers())
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["estimate"]["title"], "Landscape Refresh")
+        self.assertEqual(payload["deposit"]["type"], "percent")
+        self.assertEqual(payload["deposit"]["amount_due"], "237.50")
+        self.assertEqual(payload["line_items"][0]["description"], "Landscape bed cleanup")
+
+    def test_create_invoice_from_native_with_line_item(self):
+        response = self.client.post(
+            reverse("mobile_api:invoices"),
+            data={
+                "customer_id": self.customer.id,
+                "due_date": "2026-05-30",
+                "enable_card_payment": False,
+                "line_items": [
+                    {
+                        "description": "May mowing",
+                        "detail_description": "Weekly service",
+                        "quantity": "2",
+                        "unit_price": "85.00",
+                    }
+                ],
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 201)
+        invoice = Invoice.objects.get(id=response.json()["invoice"]["id"])
+        self.assertEqual(invoice.customer, self.customer)
+        self.assertEqual(invoice.total, Decimal("170.00"))
+        self.assertFalse(invoice.enable_card_payment)
+
+    def test_create_estimate_from_native_with_deposit(self):
+        response = self.client.post(
+            reverse("mobile_api:estimates"),
+            data={
+                "customer_id": self.customer.id,
+                "property_id": self.property.id,
+                "title": "Native Patio Quote",
+                "notes": "Created from iPhone.",
+                "deposit_required": True,
+                "deposit_type": "fixed",
+                "deposit_amount": "150.00",
+                "line_items": [
+                    {
+                        "description": "Patio prep",
+                        "detail_description": "Excavation and base prep",
+                        "quantity": "1",
+                        "unit": "project",
+                        "unit_price": "900.00",
+                    }
+                ],
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 201)
+        estimate = Estimate.objects.get(id=response.json()["estimate"]["id"])
+        self.assertEqual(estimate.title, "Native Patio Quote")
+        self.assertTrue(estimate.deposit_required)
+        self.assertEqual(estimate.total(), Decimal("900.00"))
+
+    def test_upload_estimate_photo_from_native(self):
+        photo = SimpleUploadedFile(
+            "before.jpg",
+            b"fake-image",
+            content_type="image/jpeg",
+        )
+
+        response = self.client.post(
+            reverse("mobile_api:estimate_photos", args=[self.estimate.id]),
+            data={"image": photo, "caption": "Front bed before cleanup."},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["photo_count"], 1)
+        estimate_image = EstimateImage.objects.get(estimate=self.estimate)
+        self.assertEqual(estimate_image.caption, "Front bed before cleanup.")
+
+    def test_upload_receipt_from_native_links_to_job(self):
+        job = Job.objects.create(
+            property=self.property,
+            status="scheduled",
+            scheduled_date=date(2026, 5, 6),
+        )
+        photo = SimpleUploadedFile(
+            "receipt.jpg",
+            b"fake-image",
+            content_type="image/jpeg",
+        )
+
+        response = self.client.post(
+            reverse("mobile_api:receipts"),
+            data={
+                "file": photo,
+                "job_id": job.id,
+                "receipt_date": "2026-05-06",
+                "amount": "42.18",
+                "vendor": "Landscape Supply",
+                "description": "Mulch bags",
+                "category": "materials",
+            },
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 201)
+        receipt = Receipt.objects.get(id=response.json()["receipt"]["id"])
+        self.assertEqual(receipt.job, job)
+        self.assertEqual(receipt.amount, Decimal("42.18"))
+        self.assertEqual(receipt.category, "materials")
+
+    def test_send_invoice_from_native_approves_draft(self):
+        draft = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            total=Decimal("25.00"),
+        )
+
+        response = self.client.post(
+            reverse("mobile_api:invoice_action", args=[draft.id]),
+            data={"action": "send"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, "sent")
+        self.assertTrue(draft.payment_token)
+
+    def test_monthly_invoice_queue_returns_drafts_for_native_batch_review(self):
+        monthly = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            period_start=date(2026, 5, 1),
+            period_end=date(2026, 5, 31),
+            total=Decimal("240.00"),
+        )
+
+        response = self.client.get(reverse("mobile_api:monthly_invoices"), **self.auth_headers())
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["summary"]["draft_count"], 1)
+        self.assertEqual(payload["summary"]["draft_total"], "240.00")
+        self.assertEqual(payload["invoices"][0]["id"], monthly.id)
+        self.assertTrue(payload["invoices"][0]["is_monthly"])
+
+    def test_monthly_invoice_batch_send_from_native_approves_selected_drafts(self):
+        monthly = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            period_start=date(2026, 5, 1),
+            period_end=date(2026, 5, 31),
+            total=Decimal("240.00"),
+        )
+        InvoiceLineItem.objects.create(
+            invoice=monthly,
+            description="May mowing",
+            quantity=1,
+            unit_price=Decimal("240.00"),
+        )
+
+        response = self.client.post(
+            reverse("mobile_api:monthly_invoices"),
+            data={"action": "send_selected", "invoice_ids": [monthly.id]},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        monthly.refresh_from_db()
+        self.assertEqual(monthly.status, "sent")
+        self.assertEqual(response.json()["result"]["sent"], 1)
+
+    def test_mark_invoice_line_item_paid_from_native_updates_invoice_payment_state(self):
+        invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="sent",
+        )
+        line_item = InvoiceLineItem.objects.create(
+            invoice=invoice,
+            description="Mowing",
+            quantity=1,
+            unit_price=Decimal("85.00"),
+        )
+
+        response = self.client.post(
+            reverse("mobile_api:invoice_line_item_action", args=[invoice.id, line_item.id]),
+            data={"action": "paid", "payment_method": "card"},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        line_item.refresh_from_db()
+        invoice.refresh_from_db()
+        self.assertTrue(line_item.is_paid)
+        self.assertEqual(line_item.payment_method, "card")
+        self.assertEqual(invoice.status, "paid")
+        self.assertEqual(response.json()["summary"]["paid_items"], 1)
+
+
 class MobileSyncTests(TestCase):
     def setUp(self):
         self.business = Business.objects.create(name="QA Native Sync")
@@ -268,9 +995,28 @@ class MobileSyncTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload["changes"], {})
+        self.assertEqual(payload["changes"]["clients"], [])
+        self.assertEqual(payload["changes"]["jobs"], [])
+        self.assertEqual(payload["changes"]["invoices"], [])
+        self.assertEqual(payload["changes"]["estimates"], [])
         self.assertIn("cursor", payload)
         self.assertIn("server_time", payload)
+
+    def test_sync_pull_returns_business_snapshot_for_native_cache(self):
+        customer = Customer.objects.create(business=self.business, name="Pull Client")
+        property_obj = Property.objects.create(customer=customer, address="300 Pull Lane")
+        job = Job.objects.create(property=property_obj, scheduled_date=date(2026, 5, 21), notes="Pull job")
+        invoice = Invoice.objects.create(business=self.business, customer=customer, status="draft", total=Decimal("25.00"))
+        estimate = Estimate.objects.create(business=self.business, customer=customer, title="Pull Estimate", status="draft")
+
+        response = self.client.get(reverse("mobile_api:sync_pull"), **self.auth_headers())
+
+        self.assertEqual(response.status_code, 200)
+        changes = response.json()["changes"]
+        self.assertEqual(changes["clients"][0]["id"], customer.id)
+        self.assertEqual(changes["jobs"][0]["id"], job.id)
+        self.assertEqual(changes["invoices"][0]["id"], invoice.id)
+        self.assertEqual(changes["estimates"][0]["id"], estimate.id)
 
     def test_sync_push_rejects_unknown_entity_without_crashing(self):
         response = self.client.post(
@@ -284,6 +1030,153 @@ class MobileSyncTests(TestCase):
         payload = response.json()
         self.assertEqual(payload["accepted"], [])
         self.assertEqual(payload["rejected"][0]["reason"], "Unsupported entity type.")
+
+    def test_sync_push_creates_client_for_offline_native_mutation(self):
+        response = self.client.post(
+            reverse("mobile_api:sync_push"),
+            data={
+                "mutations": [
+                    {
+                        "local_id": "client-local-1",
+                        "entity_type": "client",
+                        "operation": "create",
+                        "payload": {
+                            "name": "Offline Client",
+                            "email": "offline@example.com",
+                            "phone": "555-0199",
+                            "address": "101 Offline Way",
+                            "notes": "Created while offline.",
+                        },
+                    }
+                ]
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["rejected"], [])
+        self.assertEqual(payload["accepted"][0]["local_id"], "client-local-1")
+        customer = Customer.objects.get(name="Offline Client")
+        self.assertEqual(customer.business, self.business)
+        self.assertEqual(customer.properties.first().address, "101 Offline Way")
+
+    def test_sync_push_creates_job_for_offline_native_mutation(self):
+        customer = Customer.objects.create(business=self.business, name="Sync Job Client")
+        property_obj = Property.objects.create(customer=customer, address="222 Sync Lane")
+
+        response = self.client.post(
+            reverse("mobile_api:sync_push"),
+            data={
+                "mutations": [
+                    {
+                        "local_id": "job-local-1",
+                        "entity_type": "job",
+                        "operation": "create",
+                        "payload": {
+                            "property_id": property_obj.id,
+                            "scheduled_date": "2026-05-20",
+                            "scheduled_time": "08:15",
+                            "notes": "Queued job.",
+                        },
+                    }
+                ]
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["rejected"], [])
+        created_job = Job.objects.get(id=payload["accepted"][0]["server_id"])
+        self.assertEqual(created_job.property, property_obj)
+        self.assertEqual(created_job.scheduled_date, date(2026, 5, 20))
+
+    def test_sync_push_creates_invoice_for_offline_native_mutation(self):
+        customer = Customer.objects.create(business=self.business, name="Sync Invoice Client")
+
+        response = self.client.post(
+            reverse("mobile_api:sync_push"),
+            data={
+                "mutations": [
+                    {
+                        "local_id": "invoice-local-1",
+                        "entity_type": "invoice",
+                        "operation": "create",
+                        "payload": {
+                            "customer_id": customer.id,
+                            "due_date": "2026-05-31",
+                            "enable_card_payment": False,
+                            "line_items": [
+                                {
+                                    "description": "Offline mowing",
+                                    "detail_description": "Front and back lawn.",
+                                    "quantity": "2",
+                                    "unit_price": "45.00",
+                                }
+                            ],
+                        },
+                    }
+                ]
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["rejected"], [])
+        invoice = Invoice.objects.get(id=payload["accepted"][0]["server_id"])
+        self.assertEqual(invoice.customer, customer)
+        self.assertEqual(invoice.total, Decimal("90.00"))
+        self.assertFalse(invoice.enable_card_payment)
+
+    def test_sync_push_creates_estimate_for_offline_native_mutation(self):
+        customer = Customer.objects.create(business=self.business, name="Sync Estimate Client")
+
+        response = self.client.post(
+            reverse("mobile_api:sync_push"),
+            data={
+                "mutations": [
+                    {
+                        "local_id": "estimate-local-1",
+                        "entity_type": "estimate",
+                        "operation": "create",
+                        "payload": {
+                            "customer_id": customer.id,
+                            "title": "Offline landscape quote",
+                            "notes": "Created from the native app.",
+                            "valid_until": "2026-06-15",
+                            "deposit_required": True,
+                            "deposit_type": "fixed",
+                            "deposit_amount": "250.00",
+                            "line_items": [
+                                {
+                                    "description": "Mulch install",
+                                    "detail_description": "Premium dark mulch.",
+                                    "quantity": "10",
+                                    "unit": "yard",
+                                    "unit_price": "80.00",
+                                }
+                            ],
+                        },
+                    }
+                ]
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["rejected"], [])
+        estimate = Estimate.objects.get(id=payload["accepted"][0]["server_id"])
+        self.assertEqual(estimate.customer, customer)
+        self.assertEqual(estimate.title, "Offline landscape quote")
+        self.assertEqual(estimate.total(), Decimal("800.00"))
+        self.assertTrue(estimate.deposit_required)
 
     def test_sync_requires_authentication(self):
         response = self.client.get(reverse("mobile_api:sync_pull"))
@@ -312,14 +1205,15 @@ class MobileTimeClockTests(TestCase):
         return {"HTTP_AUTHORIZATION": f"Bearer {self.login['access_token']}"}
 
     def test_time_clock_status_returns_active_entry_and_today_total(self):
+        now = timezone.now()
         first = TimeEntry.objects.create(
             user=self.crew_user,
-            clock_in=timezone.now() - timezone.timedelta(hours=3),
-            clock_out=timezone.now() - timezone.timedelta(hours=1),
+            clock_in=now - timezone.timedelta(minutes=50),
+            clock_out=now - timezone.timedelta(minutes=20),
         )
         active = TimeEntry.objects.create(
             user=self.crew_user,
-            clock_in=timezone.now() - timezone.timedelta(minutes=20),
+            clock_in=now - timezone.timedelta(minutes=10),
             clock_in_latitude=Decimal("39.7684000"),
             clock_in_longitude=Decimal("-86.1581000"),
         )

@@ -2,10 +2,15 @@ import base64
 import json
 import secrets
 import time
+import urllib.request
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+from cryptography.hazmat.primitives import hashes
+from cryptography.exceptions import InvalidSignature
 
 from .models import MobileDeviceSession, hash_token
 
@@ -97,14 +102,108 @@ def user_by_identifier(identifier):
 def verify_apple_identity_token(identity_token):
     """
     Verify an Apple identity token and return {"email": str, "sub": str}.
-    The full JWKS validation belongs in the production social-auth pass.
     """
-    raise NotImplementedError("Apple identity token verification is not configured yet.")
+    apple_client_id = _apple_client_id()
+    if not apple_client_id:
+        raise ValueError("Apple client ID is not configured.")
+    header, payload, signing_input, signature = _decode_jwt(identity_token)
+    if payload.get("iss") != "https://appleid.apple.com":
+        raise ValueError("Invalid Apple token issuer.")
+    if payload.get("aud") != apple_client_id:
+        raise ValueError("Invalid Apple token audience.")
+    if int(payload.get("exp", 0)) < int(time.time()):
+        raise ValueError("Apple token expired.")
+    _verify_jwks_signature(
+        jwks_url="https://appleid.apple.com/auth/keys",
+        key_id=header.get("kid"),
+        algorithm=header.get("alg"),
+        signing_input=signing_input,
+        signature=signature,
+    )
+    email = (payload.get("email") or "").strip()
+    if not email:
+        raise ValueError("Apple token did not include an email address.")
+    return {"email": email, "sub": payload.get("sub") or ""}
 
 
 def verify_google_identity_token(identity_token):
     """
     Verify a Google identity token and return {"email": str, "sub": str}.
-    The full Google token validation belongs in the production social-auth pass.
     """
-    raise NotImplementedError("Google identity token verification is not configured yet.")
+    audience_values = _google_client_ids()
+    if not audience_values:
+        raise ValueError("Google client ID is not configured.")
+    try:
+        from google.auth.transport import requests as google_requests
+        from google.oauth2 import id_token
+    except ImportError as exc:
+        raise ValueError("google-auth is not installed.") from exc
+
+    last_error = None
+    for audience in audience_values:
+        try:
+            payload = id_token.verify_oauth2_token(identity_token, google_requests.Request(), audience)
+            if payload.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}:
+                raise ValueError("Invalid Google token issuer.")
+            if payload.get("email_verified") is False:
+                raise ValueError("Google email is not verified.")
+            email = (payload.get("email") or "").strip()
+            if not email:
+                raise ValueError("Google token did not include an email address.")
+            return {"email": email, "sub": payload.get("sub") or ""}
+        except Exception as exc:
+            last_error = exc
+    raise ValueError("Could not verify Google identity token.") from last_error
+
+
+def _apple_client_id():
+    provider = getattr(settings, "SOCIALACCOUNT_PROVIDERS", {}).get("apple", {})
+    return (
+        getattr(settings, "APPLE_IOS_CLIENT_ID", "")
+        or provider.get("APP", {}).get("client_id", "")
+        or getattr(settings, "APPLE_CLIENT_ID", "")
+    )
+
+
+def _google_client_ids():
+    provider = getattr(settings, "SOCIALACCOUNT_PROVIDERS", {}).get("google", {})
+    values = [
+        getattr(settings, "GOOGLE_IOS_CLIENT_ID", ""),
+        provider.get("APP", {}).get("client_id", ""),
+        getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", ""),
+    ]
+    return [value for value in dict.fromkeys(v.strip() for v in values if v and v.strip())]
+
+
+def _decode_jwt(identity_token):
+    parts = (identity_token or "").split(".")
+    if len(parts) != 3:
+        raise ValueError("Malformed identity token.")
+    header = json.loads(_urlsafe_b64decode(parts[0]))
+    payload = json.loads(_urlsafe_b64decode(parts[1]))
+    signing_input = f"{parts[0]}.{parts[1]}".encode()
+    signature = _urlsafe_b64decode(parts[2])
+    return header, payload, signing_input, signature
+
+
+def _urlsafe_b64decode(value):
+    return base64.urlsafe_b64decode((value + "=" * (-len(value) % 4)).encode())
+
+
+def _verify_jwks_signature(jwks_url, key_id, algorithm, signing_input, signature):
+    if algorithm != "RS256" or not key_id:
+        raise ValueError("Unsupported identity token signature.")
+    with urllib.request.urlopen(jwks_url, timeout=5) as response:
+        jwks = json.loads(response.read().decode("utf-8"))
+    key = next((candidate for candidate in jwks.get("keys", []) if candidate.get("kid") == key_id), None)
+    if not key:
+        raise ValueError("Identity token signing key not found.")
+    public_numbers = RSAPublicNumbers(
+        e=int.from_bytes(_urlsafe_b64decode(key["e"]), "big"),
+        n=int.from_bytes(_urlsafe_b64decode(key["n"]), "big"),
+    )
+    public_key = public_numbers.public_key()
+    try:
+        public_key.verify(signature, signing_input, padding.PKCS1v15(), hashes.SHA256())
+    except InvalidSignature as exc:
+        raise ValueError("Invalid identity token signature.") from exc

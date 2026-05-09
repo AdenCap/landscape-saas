@@ -1,14 +1,21 @@
 import json
-from datetime import date
+from calendar import monthrange
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
-from django.db.models import Case, Count, IntegerField, Prefetch, Q, Value, When
+from django.db.models import Case, Count, IntegerField, Prefetch, Q, Sum, Value, When
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 
-from jobs.models import Job, JobCompletionPhoto, JobIssue, JobNote, JobPhoto, PropertyNote
+from billing.models import Estimate, EstimateImage, EstimateLineItem, Invoice, InvoiceLineItem
+from billing.services import invoice_card_payment_default
+from billing.views import _approve_and_deliver_invoice, _log_invoice_audit, _sync_invoice_payment_from_line_items
+from customers.models import Customer, Property
+from financials.models import Receipt
+from jobs.models import Crew, Job, JobCompletionPhoto, JobIssue, JobNote, JobPhoto, JobServiceItem, PropertyNote
+from pricing.models import ServiceTemplate
 from time_tracking.models import TimeEntry, TimeEntryLocationPing
 
 from . import auth as mobile_auth
@@ -19,7 +26,16 @@ from .models import MobileDeviceSession
 def _json_body(request):
     if not request.body:
         return {}
-    return json.loads(request.body.decode("utf-8"))
+    try:
+        return json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return request.POST
+
+
+def _scalar(value):
+    if isinstance(value, (list, tuple)):
+        return value[0] if value else None
+    return value
 
 
 def _user_payload(user):
@@ -39,11 +55,13 @@ def _business_payload(business):
         "name": business.name,
         "timezone": getattr(business, "timezone", "America/New_York"),
         "client_card_payments_enabled": bool(getattr(business, "client_card_payments_enabled", False)),
+        "default_invoice_card_payments_enabled": bool(getattr(business, "default_invoice_card_payments_enabled", True)),
         "client_saved_cards_enabled": bool(getattr(business, "client_saved_cards_enabled", False)),
     }
 
 
 def _parse_date(value):
+    value = _scalar(value)
     if not value:
         return date.today()
     try:
@@ -53,12 +71,47 @@ def _parse_date(value):
 
 
 def _parse_decimal(value):
+    value = _scalar(value)
     if value in (None, ""):
         return None
     try:
         return Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
         return None
+
+
+def _parse_bool(value, default=False):
+    value = _scalar(value)
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _uploaded_image_or_error(request):
+    image = request.FILES.get("photo") or request.FILES.get("image") or request.FILES.get("file")
+    if not image:
+        return None, JsonResponse({"error": "Photo is required."}, status=400)
+
+    allowed_image_types = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+    if image.content_type not in allowed_image_types:
+        return None, JsonResponse({"error": "Invalid file type."}, status=400)
+    if image.size > 10 * 1024 * 1024:
+        return None, JsonResponse({"error": "Photo must be 10 MB or smaller."}, status=400)
+    return image, None
+
+
+def _parse_time_value(value):
+    if value in (None, ""):
+        return None
+    try:
+        hour, minute = str(value).split(":")[:2]
+        return timezone.datetime(2000, 1, 1, int(hour), int(minute)).time()
+    except (TypeError, ValueError):
+        return "invalid"
 
 
 def _time_entry_payload(entry):
@@ -83,8 +136,20 @@ def _active_time_entry(user):
 
 def _time_clock_payload(user):
     active_entry = _active_time_entry(user)
+    current_timezone = timezone.get_current_timezone()
     today = timezone.localdate()
-    today_entries = TimeEntry.objects.filter(user=user, clock_in__date=today).order_by("clock_in")
+    day_start = timezone.make_aware(
+        timezone.datetime.combine(today, timezone.datetime.min.time()),
+        current_timezone,
+    )
+    day_end = timezone.make_aware(
+        timezone.datetime.combine(today, timezone.datetime.max.time()),
+        current_timezone,
+    )
+    today_filter = Q(clock_in__lte=day_end) & (Q(clock_out__isnull=True) | Q(clock_out__gte=day_start))
+    if active_entry:
+        today_filter |= Q(id=active_entry.id)
+    today_entries = TimeEntry.objects.filter(user=user).filter(today_filter).order_by("clock_in")
     now = timezone.now()
     today_minutes = 0
     for entry in today_entries:
@@ -215,6 +280,1178 @@ def bootstrap(request):
     })
 
 
+def command(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Command is only available to owners and managers."}, status=403)
+
+    target_date = _parse_date(request.GET.get("date"))
+    if not target_date:
+        return JsonResponse({"error": "Invalid date."}, status=400)
+
+    business = session.business
+    business_jobs = Job.objects.filter(property__customer__business=business)
+    today_jobs = business_jobs.filter(
+        Q(scheduled_date=target_date) |
+        Q(scheduled_date__lte=target_date, scheduled_end_date__gte=target_date)
+    ).exclude(status__in=["skipped"])
+    open_jobs = today_jobs.exclude(status__in=["completed", "skipped"])
+    unassigned_jobs = business_jobs.filter(
+        status__in=["scheduled", "in_progress"],
+    ).filter(
+        Q(assigned_to__isnull=True),
+        Q(assigned_crew__isnull=True),
+    ).distinct()
+    needs_scheduled = business_jobs.filter(
+        scheduled_date__isnull=True,
+        status__in=["scheduled", "in_progress"],
+    )
+    ready_to_bill = business_jobs.filter(
+        status="completed",
+        invoice__isnull=True,
+        invoices__isnull=True,
+    ).distinct()
+    invoices = Invoice.objects.filter(business=business)
+    outstanding_total = invoices.filter(status__in=["sent", "draft"]).aggregate(
+        total=Sum("total"),
+    )["total"] or Decimal("0")
+    open_estimates = Estimate.objects.filter(business=business, status__in=["draft", "sent"]).count()
+    active_routes = today_jobs.filter(
+        Q(assigned_crew__isnull=False) |
+        Q(assigned_to__isnull=False) |
+        Q(assigned_employees__isnull=False)
+    ).distinct().count()
+
+    attention = []
+    if needs_scheduled.exists():
+        attention.append({
+            "kind": "schedule",
+            "title": "Needs scheduled",
+            "detail": f"{needs_scheduled.count()} job{'s' if needs_scheduled.count() != 1 else ''} waiting for a date.",
+            "count": needs_scheduled.count(),
+        })
+    if unassigned_jobs.exists():
+        attention.append({
+            "kind": "crew",
+            "title": "Needs crew",
+            "detail": f"{unassigned_jobs.count()} job{'s' if unassigned_jobs.count() != 1 else ''} not assigned.",
+            "count": unassigned_jobs.count(),
+        })
+    if ready_to_bill.exists():
+        attention.append({
+            "kind": "billing",
+            "title": "Ready to bill",
+            "detail": f"{ready_to_bill.count()} completed visit{'s' if ready_to_bill.count() != 1 else ''} ready for invoice review.",
+            "count": ready_to_bill.count(),
+        })
+    if not attention:
+        attention.append({
+            "kind": "stable",
+            "title": "Day looks stable",
+            "detail": "No urgent scheduling, crew, or billing issues.",
+            "count": 0,
+        })
+
+    next_jobs = list(open_jobs.select_related(
+        "property",
+        "property__customer",
+        "assigned_to",
+        "assigned_crew",
+    ).prefetch_related("service_items__service").annotate(
+        site_photo_count=Count("site_photos"),
+    ).order_by("route_order", "scheduled_time", "id")[:5])
+
+    return JsonResponse({
+        "date": target_date.isoformat(),
+        "summary": {
+            "today_jobs": today_jobs.count(),
+            "active_routes": active_routes,
+            "unassigned_jobs": unassigned_jobs.count(),
+            "needs_scheduled": needs_scheduled.count(),
+            "ready_to_bill": ready_to_bill.count(),
+            "outstanding_total": f"{outstanding_total:.2f}",
+            "open_estimates": open_estimates,
+            "customers": Customer.objects.filter(business=business).count(),
+        },
+        "attention": attention[:4],
+        "next_jobs": [_job_payload(job, target_date) for job in next_jobs],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+def _service_filter_payload(business):
+    filters = [{"key": "all", "label": "All"}]
+    for service in ServiceTemplate.objects.filter(business=business).order_by("name"):
+        filters.append({
+            "key": service.name.lower().replace(" ", "-"),
+            "label": service.name,
+        })
+    defaults = [
+        ("mowing", "Mowing"),
+        ("fertilization", "Fertilization"),
+        ("landscaping", "Landscaping"),
+        ("other", "Other"),
+    ]
+    existing = {item["key"] for item in filters}
+    for key, label in defaults:
+        if key not in existing:
+            filters.append({"key": key, "label": label})
+    return filters
+
+
+def _apply_service_filter(jobs, service_key):
+    service_key = (service_key or "all").strip().lower()
+    if service_key in {"", "all"}:
+        return jobs
+    label = service_key.replace("-", " ")
+    return jobs.filter(
+        Q(service_items__service__name__iexact=label) |
+        Q(service_items__description__iexact=label)
+    ).distinct()
+
+
+def work(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Work is only available to owners and managers."}, status=403)
+
+    target_date = _parse_date(request.GET.get("date"))
+    if not target_date:
+        return JsonResponse({"error": "Invalid date."}, status=400)
+
+    base_jobs = _job_queryset_for_mobile(session)
+    base_jobs = _apply_service_filter(base_jobs, request.GET.get("service"))
+    upcoming_end = target_date + timedelta(days=14)
+    recent_start = target_date - timedelta(days=7)
+
+    upcoming = base_jobs.filter(
+        scheduled_date__gte=target_date,
+        scheduled_date__lte=upcoming_end,
+        status__in=["scheduled", "in_progress"],
+    ).order_by("scheduled_date", "scheduled_time", "route_order", "id")
+    needs_scheduled = base_jobs.filter(
+        scheduled_date__isnull=True,
+        status__in=["scheduled", "in_progress"],
+    ).order_by("schedule_by_date", "id")
+    finished = base_jobs.filter(
+        status="completed",
+    ).filter(
+        Q(scheduled_date__gte=recent_start) | Q(completed_at__date__gte=recent_start)
+    ).order_by("-completed_at", "-scheduled_date", "id")
+    needs_billing = finished.filter(
+        invoice__isnull=True,
+        invoices__isnull=True,
+    ).distinct()
+
+    return JsonResponse({
+        "date": target_date.isoformat(),
+        "summary": {
+            "upcoming": upcoming.count(),
+            "needs_scheduled": needs_scheduled.count(),
+            "finished": finished.count(),
+            "needs_billing": needs_billing.count(),
+        },
+        "service_filters": _service_filter_payload(session.business),
+        "sections": {
+            "upcoming": [_job_payload(job, job.scheduled_date or target_date) for job in upcoming[:20]],
+            "needs_scheduled": [_job_payload(job, target_date) for job in needs_scheduled[:20]],
+            "finished": [_job_payload(job, job.scheduled_date or target_date) for job in finished[:20]],
+            "needs_billing": [_job_payload(job, job.scheduled_date or target_date) for job in needs_billing[:20]],
+        },
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+def _property_payload(property_obj):
+    return {
+        "id": property_obj.id,
+        "address": property_obj.address,
+        "latitude": str(property_obj.latitude) if property_obj.latitude is not None else None,
+        "longitude": str(property_obj.longitude) if property_obj.longitude is not None else None,
+        "notes": property_obj.notes,
+        "gate_code": property_obj.gate_code,
+        "has_dog": property_obj.has_dog,
+        "yard_sqft": property_obj.yard_sqft,
+    }
+
+
+def _client_payload(customer, include_notes=True):
+    properties = list(customer.properties.all())
+    primary_property = properties[0] if properties else None
+    job_count = Job.objects.filter(property__customer=customer).count()
+    invoice_count = Invoice.objects.filter(customer=customer).count()
+    estimate_count = Estimate.objects.filter(customer=customer).count()
+    return {
+        "id": customer.id,
+        "name": customer.name,
+        "email": customer.email,
+        "phone": customer.phone,
+        "primary_address": primary_property.address if primary_property else customer.full_address,
+        "mailing_address": customer.full_address,
+        "notes": customer.notes if include_notes else "",
+        "billing": {
+            "invoice_frequency": customer.invoice_frequency,
+            "monthly_invoice_send_day": customer.monthly_invoice_send_day,
+            "invoice_due_days": customer.invoice_due_days,
+            "has_card_on_file": bool(customer.stripe_customer_id and customer.stripe_payment_method_id) or bool(customer.card_last4),
+            "card_last4": customer.card_last4,
+            "card_brand": customer.card_brand,
+            "auto_charge": customer.auto_charge,
+            "auto_charge_completed_jobs": customer.auto_charge_completed_jobs,
+            "auto_charge_monthly_invoices": customer.auto_charge_monthly_invoices,
+        },
+        "stats": {
+            "jobs": job_count,
+            "invoices": invoice_count,
+            "estimates": estimate_count,
+        },
+        "properties": [_property_payload(prop) for prop in properties],
+        "updated_at": customer.updated_at.isoformat(),
+    }
+
+
+def _client_or_response(request, client_id):
+    session = session_from_request(request)
+    if not session:
+        return None, None, JsonResponse({"error": "Authentication required."}, status=401)
+    try:
+        customer = Customer.objects.prefetch_related("properties").get(id=client_id, business=session.business)
+    except Customer.DoesNotExist:
+        return None, session, JsonResponse({"error": "Client not found."}, status=404)
+    return customer, session, None
+
+
+def _create_client_from_payload(data, business):
+    name = (data.get("name") or "").strip()
+    if not name:
+        return None, JsonResponse({"error": "Client name is required."}, status=400)
+    customer = Customer.objects.create(
+        business=business,
+        name=name,
+        email=(data.get("email") or "").strip(),
+        phone=(data.get("phone") or "").strip(),
+        notes=(data.get("notes") or "").strip(),
+    )
+    address = (data.get("address") or "").strip()
+    if address:
+        Property.objects.create(customer=customer, address=address)
+    return Customer.objects.prefetch_related("properties").get(id=customer.id), None
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def clients(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Clients are only available to owners and managers."}, status=403)
+
+    if request.method == "POST":
+        data = _json_body(request)
+        customer, error = _create_client_from_payload(data, session.business)
+        if error:
+            return error
+        return JsonResponse({"client": _client_payload(customer)}, status=201)
+
+    query = (request.GET.get("q") or "").strip()
+    customers = Customer.objects.filter(business=session.business).prefetch_related("properties").order_by("name")
+    if query:
+        customers = customers.filter(
+            Q(name__icontains=query) |
+            Q(email__icontains=query) |
+            Q(phone__icontains=query) |
+            Q(properties__address__icontains=query)
+        ).distinct()
+    customer_list = list(customers[:50])
+    return JsonResponse({
+        "summary": {
+            "total": Customer.objects.filter(business=session.business).count(),
+            "shown": len(customer_list),
+        },
+        "clients": [_client_payload(customer, include_notes=False) for customer in customer_list],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PATCH"])
+def client_detail(request, client_id):
+    customer, session, error = _client_or_response(request, client_id)
+    if error:
+        return error
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Clients are only available to owners and managers."}, status=403)
+
+    if request.method == "PATCH":
+        data = _json_body(request)
+        update_fields = []
+        for field in ("name", "email", "phone", "notes", "invoice_frequency"):
+            if field in data:
+                setattr(customer, field, (data.get(field) or "").strip())
+                update_fields.append(field)
+        if update_fields:
+            customer.save(update_fields=update_fields + ["updated_at"])
+            customer = Customer.objects.prefetch_related("properties").get(id=customer.id)
+
+    return JsonResponse({
+        "client": _client_payload(customer),
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+def _calendar_range(target_date, view):
+    if view == "week":
+        start = target_date - timedelta(days=target_date.weekday())
+        return start, start + timedelta(days=6)
+    if view == "month":
+        return target_date.replace(day=1), target_date.replace(day=monthrange(target_date.year, target_date.month)[1])
+    return target_date, target_date
+
+
+def calendar(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Calendar is only available to owners and managers."}, status=403)
+
+    target_date = _parse_date(request.GET.get("date"))
+    if not target_date:
+        return JsonResponse({"error": "Invalid date."}, status=400)
+    view = (request.GET.get("view") or "week").strip().lower()
+    if view not in {"day", "week", "month"}:
+        view = "week"
+    start, end = _calendar_range(target_date, view)
+
+    jobs = _job_queryset_for_mobile(session).filter(
+        Q(scheduled_date__gte=start, scheduled_date__lte=end) |
+        Q(scheduled_date__lte=end, scheduled_end_date__gte=start)
+    ).exclude(status="skipped").order_by("scheduled_date", "scheduled_time", "route_order", "id")
+    job_list = list(jobs[:200])
+    return JsonResponse({
+        "view": view,
+        "date": target_date.isoformat(),
+        "range": {
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+        },
+        "summary": {
+            "total": len(job_list),
+            "unassigned": sum(1 for job in job_list if not job.assigned_to_id and not job.assigned_crew_id),
+            "completed": sum(1 for job in job_list if job.status == "completed"),
+        },
+        "jobs": [_job_payload(job, job.scheduled_date or start) for job in job_list],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+def _apply_job_write_fields(job, data, business):
+    update_fields = []
+    if "scheduled_date" in data:
+        value = data.get("scheduled_date")
+        parsed = _parse_date(value) if value else None
+        if value and not parsed:
+            return JsonResponse({"error": "Invalid scheduled date."}, status=400)
+        job.scheduled_date = parsed
+        update_fields.append("scheduled_date")
+    if "scheduled_end_date" in data:
+        value = data.get("scheduled_end_date")
+        parsed = _parse_date(value) if value else None
+        if value and not parsed:
+            return JsonResponse({"error": "Invalid scheduled end date."}, status=400)
+        job.scheduled_end_date = parsed
+        update_fields.append("scheduled_end_date")
+    if "scheduled_time" in data:
+        parsed = _parse_time_value(data.get("scheduled_time"))
+        if parsed == "invalid":
+            return JsonResponse({"error": "Invalid scheduled time."}, status=400)
+        job.scheduled_time = parsed
+        update_fields.append("scheduled_time")
+    if "scheduled_end_time" in data:
+        parsed = _parse_time_value(data.get("scheduled_end_time"))
+        if parsed == "invalid":
+            return JsonResponse({"error": "Invalid scheduled end time."}, status=400)
+        job.scheduled_end_time = parsed
+        update_fields.append("scheduled_end_time")
+    if "notes" in data:
+        job.notes = (data.get("notes") or "").strip()
+        update_fields.append("notes")
+    if "status" in data:
+        status = (data.get("status") or "").strip()
+        if status not in {choice[0] for choice in Job.STATUS_CHOICES}:
+            return JsonResponse({"error": "Invalid job status."}, status=400)
+        job.status = status
+        update_fields.append("status")
+    if "assigned_crew_id" in data:
+        crew_id = data.get("assigned_crew_id")
+        if crew_id in (None, ""):
+            job.assigned_crew = None
+        else:
+            try:
+                job.assigned_crew = Crew.objects.get(id=crew_id, business=business)
+            except (Crew.DoesNotExist, ValueError, TypeError):
+                return JsonResponse({"error": "Crew not found."}, status=404)
+        update_fields.append("assigned_crew")
+    if update_fields:
+        job.save(update_fields=update_fields)
+    return None
+
+
+def _replace_job_service_items(job, items, business):
+    if items is None:
+        return None
+    if not isinstance(items, list):
+        return JsonResponse({"error": "Service items must be a list."}, status=400)
+    job.service_items.all().delete()
+    for item in items:
+        try:
+            service = ServiceTemplate.objects.get(id=item.get("service_id"), business=business)
+        except (ServiceTemplate.DoesNotExist, ValueError, TypeError, AttributeError):
+            return JsonResponse({"error": "Service not found."}, status=404)
+        quantity = _parse_decimal(item.get("quantity")) or Decimal("1.00")
+        unit_price = _parse_decimal(item.get("unit_price"))
+        if unit_price is None:
+            unit_price = service.default_rate
+        JobServiceItem.objects.create(
+            job=job,
+            service=service,
+            description=(item.get("description") or "").strip(),
+            detail_description=(item.get("detail_description") or "").strip(),
+            quantity=quantity,
+            unit=(item.get("unit") or service.default_unit or "visit").strip(),
+            unit_price=unit_price,
+        )
+    return None
+
+
+def job_options(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Job options are only available to owners and managers."}, status=403)
+
+    properties = Property.objects.filter(customer__business=session.business).select_related("customer").order_by("customer__name", "address")[:200]
+    services = ServiceTemplate.objects.filter(business=session.business, active=True).order_by("name")
+    crews = Crew.objects.filter(business=session.business).order_by("name")
+    return JsonResponse({
+        "properties": [
+            {
+                "id": prop.id,
+                "customer_id": prop.customer_id,
+                "customer_name": prop.customer.name,
+                "address": prop.address,
+            }
+            for prop in properties
+        ],
+        "services": [
+            {
+                "id": service.id,
+                "name": service.name,
+                "unit": service.default_unit,
+                "unit_price": f"{service.default_rate:.2f}",
+            }
+            for service in services
+        ],
+        "crews": [
+            {
+                "id": crew.id,
+                "name": crew.name,
+            }
+            for crew in crews
+        ],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+@csrf_exempt
+@require_POST
+def jobs(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Jobs can only be created by owners and managers."}, status=403)
+
+    data = _json_body(request)
+    try:
+        property_obj = Property.objects.get(id=data.get("property_id"), customer__business=session.business)
+    except (Property.DoesNotExist, ValueError, TypeError):
+        return JsonResponse({"error": "Property not found."}, status=404)
+
+    job = Job.objects.create(property=property_obj, status="scheduled")
+    error = _apply_job_write_fields(job, data, session.business)
+    if error:
+        job.delete()
+        return error
+    error = _replace_job_service_items(job, data.get("service_items"), session.business)
+    if error:
+        job.delete()
+        return error
+
+    job = _job_queryset_for_mobile(session).get(id=job.id)
+    return JsonResponse({
+        "job": _job_payload(job, job.scheduled_date or date.today()),
+        "server_time": timezone.now().isoformat(),
+    }, status=201)
+
+
+def _invoice_payload(invoice):
+    return {
+        "id": invoice.id,
+        "number": f"#{invoice.id}",
+        "customer": {
+            "id": invoice.customer_id,
+            "name": invoice.customer.name,
+        },
+        "status": invoice.status,
+        "issue_date": invoice.issue_date.isoformat() if invoice.issue_date else None,
+        "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
+        "total": f"{invoice.total:.2f}",
+        "enable_card_payment": invoice.enable_card_payment,
+        "is_monthly": bool(invoice.job_id is None and invoice.period_start),
+        "period_start": invoice.period_start.isoformat() if invoice.period_start else None,
+        "period_end": invoice.period_end.isoformat() if invoice.period_end else None,
+    }
+
+
+def _monthly_invoice_send_on(invoice):
+    send_day = (
+        getattr(invoice.customer, "monthly_invoice_send_day", None)
+        or getattr(invoice.business, "default_monthly_invoice_send_day", None)
+    )
+    if invoice.status != "draft" or not invoice.period_start or not send_day:
+        return None
+    day = min(send_day, 28)
+    try:
+        return date(invoice.period_start.year, invoice.period_start.month, day)
+    except (TypeError, ValueError):
+        return None
+
+
+def _monthly_invoice_payload(invoice):
+    payload = _invoice_payload(invoice)
+    send_on = _monthly_invoice_send_on(invoice)
+    payload["send_on"] = send_on.isoformat() if send_on else None
+    return payload
+
+
+def _estimate_payload(estimate):
+    total = estimate.accepted_total if estimate.accepted_total is not None else estimate.total()
+    return {
+        "id": estimate.id,
+        "title": estimate.title,
+        "customer": {
+            "id": estimate.customer_id,
+            "name": estimate.customer.name,
+        },
+        "status": estimate.status,
+        "valid_until": estimate.valid_until.isoformat() if estimate.valid_until else None,
+        "total": f"{total:.2f}",
+        "deposit_required": estimate.deposit_required,
+        "photo_count": estimate.images.count() if hasattr(estimate, "images") else 0,
+    }
+
+
+def _receipt_payload(receipt):
+    return {
+        "id": receipt.id,
+        "vendor": receipt.vendor,
+        "description": receipt.description,
+        "category": receipt.category,
+        "amount": f"{(receipt.amount or Decimal('0')):.2f}",
+        "receipt_date": receipt.receipt_date.isoformat(),
+        "job_id": receipt.job_id,
+        "file_url": receipt.file.url if receipt.file else "",
+        "created_at": receipt.created_at.isoformat(),
+    }
+
+
+def _invoice_line_item_payload(item):
+    return {
+        "id": item.id,
+        "description": item.description,
+        "detail_description": item.detail_description,
+        "quantity": str(item.quantity),
+        "unit": "",
+        "unit_price": f"{item.unit_price:.2f}",
+        "line_total": f"{item.line_total:.2f}",
+        "is_paid": item.is_paid,
+        "is_optional": False,
+        "is_discount": item.is_discount,
+    }
+
+
+def _estimate_line_item_payload(item):
+    return {
+        "id": item.id,
+        "description": item.description,
+        "detail_description": item.detail_description,
+        "quantity": str(item.quantity),
+        "unit": item.unit,
+        "unit_price": f"{item.unit_price:.2f}",
+        "line_total": f"{item.line_total:.2f}",
+        "is_paid": False,
+        "is_optional": item.is_addon,
+        "is_discount": False,
+    }
+
+
+def _money_customer_or_error(session, customer_id):
+    try:
+        return Customer.objects.get(id=customer_id, business=session.business), None
+    except (Customer.DoesNotExist, ValueError, TypeError):
+        return None, JsonResponse({"error": "Customer not found."}, status=404)
+
+
+def _create_invoice_line_items(invoice, items):
+    if not isinstance(items, list) or not items:
+        return JsonResponse({"error": "At least one line item is required."}, status=400)
+    for item in items:
+        description = (item.get("description") or "").strip()
+        if not description:
+            return JsonResponse({"error": "Line item description is required."}, status=400)
+        InvoiceLineItem.objects.create(
+            invoice=invoice,
+            description=description,
+            detail_description=(item.get("detail_description") or "").strip(),
+            quantity=int(_parse_decimal(item.get("quantity")) or Decimal("1")),
+            unit_price=_parse_decimal(item.get("unit_price")) or Decimal("0"),
+            material_cost=_parse_decimal(item.get("material_cost")) or Decimal("0"),
+            labor_cost=_parse_decimal(item.get("labor_cost")) or Decimal("0"),
+        )
+    invoice.refresh_from_db()
+    return None
+
+
+def _create_estimate_line_items(estimate, items):
+    if not isinstance(items, list) or not items:
+        return JsonResponse({"error": "At least one line item is required."}, status=400)
+    for index, item in enumerate(items):
+        description = (item.get("description") or "").strip()
+        if not description:
+            return JsonResponse({"error": "Line item description is required."}, status=400)
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description=description,
+            detail_description=(item.get("detail_description") or "").strip(),
+            quantity=_parse_decimal(item.get("quantity")) or Decimal("1"),
+            unit=(item.get("unit") or "ea").strip(),
+            unit_price=_parse_decimal(item.get("unit_price")) or Decimal("0"),
+            material_cost=_parse_decimal(item.get("material_cost")) or Decimal("0"),
+            labor_cost=_parse_decimal(item.get("labor_cost")) or Decimal("0"),
+            is_addon=bool(item.get("is_optional")),
+            order=index,
+        )
+    return None
+
+
+def money(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Money is only available to owners and managers."}, status=403)
+
+    today = timezone.localdate()
+    invoices = Invoice.objects.filter(business=session.business).select_related("customer")
+    estimates = Estimate.objects.filter(business=session.business).select_related("customer")
+    building_invoice_q = Q(status="draft", job__isnull=True, period_start__isnull=False)
+    attention_invoices = invoices.exclude(building_invoice_q)
+    building_invoices = invoices.filter(building_invoice_q)
+    outstanding = attention_invoices.filter(status__in=["sent", "draft"]).aggregate(total=Sum("total"))["total"] or Decimal("0")
+    overdue = invoices.filter(status="sent", due_date__lt=today).aggregate(total=Sum("total"))["total"] or Decimal("0")
+    paid_month = invoices.filter(status="paid", paid_at__date__year=today.year, paid_at__date__month=today.month).aggregate(total=Sum("total"))["total"] or Decimal("0")
+    building_total = building_invoices.aggregate(total=Sum("total"))["total"] or Decimal("0")
+
+    return JsonResponse({
+        "summary": {
+            "outstanding": f"{outstanding:.2f}",
+            "overdue": f"{overdue:.2f}",
+            "drafts": attention_invoices.filter(status="draft").count(),
+            "paid_month": f"{paid_month:.2f}",
+            "open_estimates": estimates.filter(status__in=["draft", "sent"]).count(),
+            "building_invoices": building_invoices.count(),
+            "building_total": f"{building_total:.2f}",
+        },
+        "invoices": [_invoice_payload(invoice) for invoice in attention_invoices.order_by("-issue_date", "-id")[:30]],
+        "estimates": [_estimate_payload(estimate) for estimate in estimates.order_by("-updated_at", "-id")[:30]],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def monthly_invoices(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Monthly invoices are only available to owners and managers."}, status=403)
+
+    monthly = Invoice.objects.filter(
+        business=session.business,
+        job__isnull=True,
+        period_start__isnull=False,
+    ).select_related("business", "customer").prefetch_related("line_items")
+
+    year_param = (request.GET.get("year") or "").strip()
+    data = _json_body(request) if request.method == "POST" else {}
+    if request.method == "POST" and not year_param:
+        year_param = str(data.get("year") or "").strip()
+    year_int = int(year_param) if year_param.isdigit() else None
+    if year_int:
+        monthly = monthly.filter(period_start__year=year_int)
+
+    if request.method == "POST":
+        action = (data.get("action") or "").strip()
+        if action not in {"send_selected", "send_all_ready"}:
+            return JsonResponse({"error": "Unsupported monthly invoice action."}, status=400)
+        if action == "send_all_ready":
+            send_qs = monthly.filter(status="draft")
+        else:
+            invoice_ids = [pk for pk in data.get("invoice_ids", []) if str(pk).isdigit()]
+            send_qs = monthly.filter(id__in=invoice_ids, status="draft")
+        invoices_to_send = list(send_qs.order_by("period_start", "id"))
+        if not invoices_to_send:
+            return JsonResponse({"error": "No draft monthly invoices selected."}, status=400)
+
+        sent_count = emailed_count = charged_count = failed_email_count = 0
+        request.user = session.user
+        for invoice in invoices_to_send:
+            result = _approve_and_deliver_invoice(invoice, request=request, user=session.user, source="native_monthly_batch")
+            if not result.get("sent"):
+                continue
+            sent_count += 1
+            if result.get("email") == "sent":
+                emailed_count += 1
+            elif result.get("email") == "failed":
+                failed_email_count += 1
+            if result.get("charged"):
+                charged_count += 1
+        monthly = Invoice.objects.filter(
+            business=session.business,
+            job__isnull=True,
+            period_start__isnull=False,
+        ).select_related("business", "customer").prefetch_related("line_items")
+        if year_int:
+            monthly = monthly.filter(period_start__year=year_int)
+        response = _monthly_invoice_queue_response(monthly)
+        response["result"] = {
+            "sent": sent_count,
+            "emailed": emailed_count,
+            "charged": charged_count,
+            "email_failed": failed_email_count,
+            "message": f"Sent {sent_count} monthly invoice{'' if sent_count == 1 else 's'}.",
+        }
+        return JsonResponse(response)
+
+    return JsonResponse(_monthly_invoice_queue_response(monthly))
+
+
+def _monthly_invoice_queue_response(monthly):
+    monthly_for_stats = list(monthly.order_by("-period_start", "-id")[:100])
+    draft_invoices = [invoice for invoice in monthly_for_stats if invoice.status == "draft"]
+    sent_invoices = [invoice for invoice in monthly_for_stats if invoice.status == "sent"]
+    paid_invoices = [invoice for invoice in monthly_for_stats if invoice.status == "paid"]
+    return {
+        "summary": {
+            "draft_count": len(draft_invoices),
+            "sent_count": len(sent_invoices),
+            "paid_count": len(paid_invoices),
+            "draft_total": f"{sum((invoice.total for invoice in draft_invoices), Decimal('0')):.2f}",
+            "sent_total": f"{sum((invoice.total for invoice in sent_invoices), Decimal('0')):.2f}",
+            "paid_total": f"{sum((invoice.total for invoice in paid_invoices), Decimal('0')):.2f}",
+        },
+        "invoices": [_monthly_invoice_payload(invoice) for invoice in monthly_for_stats],
+        "server_time": timezone.now().isoformat(),
+    }
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def invoices(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Invoices are only available to owners and managers."}, status=403)
+
+    data = _json_body(request)
+    customer, error = _money_customer_or_error(session, data.get("customer_id"))
+    if error:
+        return error
+    invoice = Invoice.objects.create(
+        business=session.business,
+        customer=customer,
+        status="draft",
+        due_date=_parse_date(data.get("due_date")),
+        enable_card_payment=_parse_bool(
+            data.get("enable_card_payment"),
+            default=invoice_card_payment_default(session.business),
+        ),
+    )
+    error = _create_invoice_line_items(invoice, data.get("line_items"))
+    if error:
+        invoice.delete()
+        return error
+    invoice = Invoice.objects.select_related("customer").prefetch_related("line_items").get(id=invoice.id)
+    return JsonResponse({
+        "invoice": _invoice_payload(invoice),
+        "summary": {
+            "subtotal": f"{invoice.subtotal:.2f}",
+            "tax": f"{invoice.tax:.2f}",
+            "total": f"{invoice.total:.2f}",
+            "paid_items": 0,
+            "line_items": invoice.line_items.count(),
+        },
+        "line_items": [_invoice_line_item_payload(item) for item in invoice.line_items.all()],
+        "server_time": timezone.now().isoformat(),
+    }, status=201)
+
+
+@require_http_methods(["GET"])
+def invoice_detail(request, invoice_id):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Invoices are only available to owners and managers."}, status=403)
+
+    try:
+        invoice = Invoice.objects.select_related("customer").prefetch_related("line_items").get(
+            id=invoice_id,
+            business=session.business,
+        )
+    except Invoice.DoesNotExist:
+        return JsonResponse({"error": "Invoice not found."}, status=404)
+
+    return JsonResponse({
+        "invoice": _invoice_payload(invoice),
+        "summary": {
+            "subtotal": f"{invoice.subtotal:.2f}",
+            "tax": f"{invoice.tax:.2f}",
+            "total": f"{invoice.total:.2f}",
+            "paid_items": invoice.line_items.filter(is_paid=True).count(),
+            "line_items": invoice.line_items.count(),
+        },
+        "line_items": [_invoice_line_item_payload(item) for item in invoice.line_items.all()],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def invoice_action(request, invoice_id):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Invoices are only available to owners and managers."}, status=403)
+    try:
+        invoice = Invoice.objects.select_related("customer", "business").prefetch_related("line_items").get(
+            id=invoice_id,
+            business=session.business,
+        )
+    except Invoice.DoesNotExist:
+        return JsonResponse({"error": "Invoice not found."}, status=404)
+
+    action = (_json_body(request).get("action") or "").strip()
+    if action == "send":
+        request.user = session.user
+        result = _approve_and_deliver_invoice(invoice, request=request, user=session.user, source="native_ios")
+        invoice = Invoice.objects.select_related("customer").prefetch_related("line_items").get(id=invoice.id)
+        return JsonResponse({
+            "result": result,
+            "invoice": _invoice_payload(invoice),
+            "server_time": timezone.now().isoformat(),
+        })
+    if action == "reminder":
+        if invoice.status != "sent":
+            return JsonResponse({"error": "Reminders can only be sent for outstanding invoices."}, status=400)
+        invoice.last_reminder_at = timezone.now()
+        invoice.save(update_fields=["last_reminder_at"])
+        return JsonResponse({
+            "result": {
+                "sent": False,
+                "email": "queued_for_office",
+                "message": "Reminder noted. Use web email settings to send configured reminder templates.",
+            },
+            "invoice": _invoice_payload(invoice),
+            "server_time": timezone.now().isoformat(),
+        })
+    return JsonResponse({"error": "Unsupported invoice action."}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def invoice_line_item_action(request, invoice_id, item_id):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Invoices are only available to owners and managers."}, status=403)
+    try:
+        invoice = Invoice.objects.select_related("customer", "business").prefetch_related("line_items").get(
+            id=invoice_id,
+            business=session.business,
+        )
+        line_item = invoice.line_items.get(id=item_id)
+    except Invoice.DoesNotExist:
+        return JsonResponse({"error": "Invoice not found."}, status=404)
+    except InvoiceLineItem.DoesNotExist:
+        return JsonResponse({"error": "Line item not found."}, status=404)
+
+    data = _json_body(request)
+    action = (data.get("action") or "paid").strip()
+    request.user = session.user
+    if action == "unpaid":
+        line_item.is_paid = False
+        line_item.paid_at = None
+        line_item.paid_by = None
+        line_item.payment_method = ""
+        line_item.save(update_fields=["is_paid", "paid_at", "paid_by", "payment_method"])
+        paid = False
+    elif action == "paid":
+        line_item.is_paid = True
+        line_item.paid_at = timezone.now()
+        line_item.paid_by = session.user
+        line_item.payment_method = (data.get("payment_method") or "").strip()
+        line_item.save(update_fields=["is_paid", "paid_at", "paid_by", "payment_method"])
+        paid = True
+    else:
+        return JsonResponse({"error": "Unsupported line item action."}, status=400)
+
+    _log_invoice_audit(
+        invoice,
+        "line_items_edited",
+        request=request,
+        details={"line_item_id": line_item.id, "line_item": line_item.description, "paid": paid},
+    )
+    invoice = Invoice.objects.prefetch_related("line_items").get(id=invoice.id)
+    _sync_invoice_payment_from_line_items(invoice, request=request)
+    invoice = Invoice.objects.select_related("customer").prefetch_related("line_items").get(id=invoice.id)
+    return JsonResponse({
+        "invoice": _invoice_payload(invoice),
+        "summary": {
+            "subtotal": f"{invoice.subtotal:.2f}",
+            "tax": f"{invoice.tax:.2f}",
+            "total": f"{invoice.total:.2f}",
+            "paid_items": invoice.line_items.filter(is_paid=True).count(),
+            "line_items": invoice.line_items.count(),
+        },
+        "line_items": [_invoice_line_item_payload(item) for item in invoice.line_items.all()],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def estimates(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Estimates are only available to owners and managers."}, status=403)
+
+    data = _json_body(request)
+    customer, error = _money_customer_or_error(session, data.get("customer_id"))
+    if error:
+        return error
+    property_obj = None
+    if data.get("property_id"):
+        try:
+            property_obj = Property.objects.get(id=data.get("property_id"), customer__business=session.business)
+        except (Property.DoesNotExist, ValueError, TypeError):
+            return JsonResponse({"error": "Property not found."}, status=404)
+
+    estimate = Estimate.objects.create(
+        business=session.business,
+        customer=customer,
+        property=property_obj,
+        title=(data.get("title") or "FIELDLGX Service Estimate").strip(),
+        notes=(data.get("notes") or "").strip(),
+        valid_until=_parse_date(data.get("valid_until")),
+        deposit_required=bool(data.get("deposit_required", False)),
+        deposit_type=(data.get("deposit_type") or "fixed").strip() if data.get("deposit_required") else "fixed",
+        deposit_amount=_parse_decimal(data.get("deposit_amount")),
+    )
+    error = _create_estimate_line_items(estimate, data.get("line_items"))
+    if error:
+        estimate.delete()
+        return error
+    estimate = Estimate.objects.select_related("customer", "property").prefetch_related("line_items").get(id=estimate.id)
+    return JsonResponse({
+        "estimate": _estimate_payload(estimate),
+        "summary": {
+            "base_total": f"{estimate.base_total():.2f}",
+            "addons_total": f"{estimate.addons_total():.2f}",
+            "total": f"{estimate.total():.2f}",
+            "line_items": estimate.line_items.count(),
+        },
+        "deposit": {
+            "required": estimate.deposit_required,
+            "type": estimate.deposit_type,
+            "amount": f"{(estimate.deposit_amount or Decimal('0')):.2f}",
+            "amount_due": f"{estimate.deposit_dollar_amount():.2f}",
+            "paid": estimate.deposit_paid,
+        },
+        "line_items": [_estimate_line_item_payload(item) for item in estimate.line_items.all()],
+        "server_time": timezone.now().isoformat(),
+    }, status=201)
+
+
+@require_http_methods(["GET"])
+def estimate_detail(request, estimate_id):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Estimates are only available to owners and managers."}, status=403)
+
+    try:
+        estimate = Estimate.objects.select_related("customer", "property").prefetch_related("line_items").get(
+            id=estimate_id,
+            business=session.business,
+        )
+    except Estimate.DoesNotExist:
+        return JsonResponse({"error": "Estimate not found."}, status=404)
+
+    deposit_due = estimate.deposit_dollar_amount()
+    return JsonResponse({
+        "estimate": _estimate_payload(estimate),
+        "summary": {
+            "base_total": f"{estimate.base_total():.2f}",
+            "addons_total": f"{estimate.addons_total():.2f}",
+            "total": f"{estimate.total():.2f}",
+            "line_items": estimate.line_items.count(),
+        },
+        "deposit": {
+            "required": estimate.deposit_required,
+            "type": estimate.deposit_type,
+            "amount": f"{(estimate.deposit_amount or Decimal('0')):.2f}",
+            "amount_due": f"{deposit_due:.2f}",
+            "paid": estimate.deposit_paid,
+        },
+        "line_items": [_estimate_line_item_payload(item) for item in estimate.line_items.all()],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def estimate_action(request, estimate_id):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Estimates are only available to owners and managers."}, status=403)
+    try:
+        estimate = Estimate.objects.select_related("customer").get(id=estimate_id, business=session.business)
+    except Estimate.DoesNotExist:
+        return JsonResponse({"error": "Estimate not found."}, status=404)
+
+    action = (_json_body(request).get("action") or "").strip()
+    if action == "mark_sent":
+        estimate.status = "sent"
+        estimate.sent_at = timezone.now()
+        estimate.save(update_fields=["status", "sent_at"])
+    elif action == "followup":
+        if estimate.status == "accepted":
+            return JsonResponse({"error": "Accepted estimates do not need follow-up."}, status=400)
+        estimate.last_follow_up_at = timezone.now()
+        estimate.save(update_fields=["last_follow_up_at"])
+    else:
+        return JsonResponse({"error": "Unsupported estimate action."}, status=400)
+    return JsonResponse({
+        "estimate": _estimate_payload(estimate),
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+@csrf_exempt
+@require_POST
+def estimate_photos(request, estimate_id):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Estimate photos are only available to owners and managers."}, status=403)
+    try:
+        estimate = Estimate.objects.get(id=estimate_id, business=session.business)
+    except Estimate.DoesNotExist:
+        return JsonResponse({"error": "Estimate not found."}, status=404)
+
+    image, error = _uploaded_image_or_error(request)
+    if error:
+        return error
+
+    caption = (request.POST.get("caption") or "").strip()[:255]
+    next_order = estimate.images.count()
+    EstimateImage.objects.create(
+        estimate=estimate,
+        image=image,
+        caption=caption,
+        order=next_order,
+    )
+    estimate = Estimate.objects.select_related("customer", "property").prefetch_related("line_items", "images").get(id=estimate.id)
+    return JsonResponse({
+        "estimate": _estimate_payload(estimate),
+        "photo_count": estimate.images.count(),
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+@csrf_exempt
+@require_POST
+def receipts(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+
+    image, error = _uploaded_image_or_error(request)
+    if error:
+        return error
+
+    job = None
+    job_id = request.POST.get("job_id")
+    if job_id:
+        try:
+            job = Job.objects.get(id=job_id, property__customer__business=session.business)
+        except (Job.DoesNotExist, ValueError, TypeError):
+            return JsonResponse({"error": "Job not found."}, status=404)
+
+    receipt_date = _parse_date(request.POST.get("receipt_date"))
+    if not receipt_date:
+        return JsonResponse({"error": "Invalid receipt date."}, status=400)
+    amount = _parse_decimal(request.POST.get("amount"))
+    category = (request.POST.get("category") or "other").strip().lower()
+    allowed_categories = {choice[0] for choice in Receipt.CATEGORY_CHOICES}
+    if category not in allowed_categories:
+        category = "other"
+
+    receipt = Receipt.objects.create(
+        business=session.business,
+        file=image,
+        receipt_date=receipt_date,
+        amount=amount,
+        vendor=(request.POST.get("vendor") or "").strip()[:255],
+        description=(request.POST.get("description") or "").strip()[:500],
+        category=category,
+        job=job,
+        uploaded_by=session.user,
+    )
+    return JsonResponse({
+        "receipt": _receipt_payload(receipt),
+        "server_time": timezone.now().isoformat(),
+    }, status=201)
+
+
 def time_clock_status(request):
     session = session_from_request(request)
     if not session:
@@ -319,10 +1556,19 @@ def sync_pull(request):
     if not session:
         return JsonResponse({"error": "Authentication required."}, status=401)
     now = timezone.now()
+    clients = Customer.objects.filter(business=session.business).prefetch_related("properties").order_by("-updated_at", "id")[:100]
+    jobs = _job_queryset_for_mobile(session).order_by("-created_at", "id")[:100]
+    invoices = Invoice.objects.filter(business=session.business).select_related("customer").order_by("-issue_date", "-id")[:100]
+    estimates = Estimate.objects.filter(business=session.business).select_related("customer").order_by("-updated_at", "-id")[:100]
     return JsonResponse({
         "cursor": now.isoformat(),
         "server_time": now.isoformat(),
-        "changes": {},
+        "changes": {
+            "clients": [_client_payload(customer) for customer in clients],
+            "jobs": [_job_payload(job, job.scheduled_date or date.today()) for job in jobs],
+            "invoices": [_invoice_payload(invoice) for invoice in invoices],
+            "estimates": [_estimate_payload(estimate) for estimate in estimates],
+        },
         "conflicts": [],
     })
 
@@ -346,9 +1592,198 @@ def sync_push(request):
                 "reason": "Unsupported entity type.",
             })
             continue
+        operation = mutation.get("operation")
+        payload = mutation.get("payload") or {}
+        local_id = mutation.get("local_id") or ""
+        if entity_type == "client" and operation == "create":
+            if session.user.role not in {"owner", "manager"}:
+                rejected.append({
+                    "index": index,
+                    "local_id": local_id,
+                    "entity_type": entity_type,
+                    "reason": "Clients are only available to owners and managers.",
+                })
+                continue
+            customer, error = _create_client_from_payload(payload, session.business)
+            if error:
+                rejected.append({
+                    "index": index,
+                    "local_id": local_id,
+                    "entity_type": entity_type,
+                    "reason": json.loads(error.content.decode("utf-8")).get("error", "Client sync failed."),
+                })
+                continue
+            accepted.append({
+                "index": index,
+                "local_id": local_id,
+                "entity_type": entity_type,
+                "operation": operation,
+                "server_id": customer.id,
+                "payload": _client_payload(customer),
+            })
+            continue
+        if entity_type == "job" and operation == "create":
+            if session.user.role not in {"owner", "manager"}:
+                rejected.append({
+                    "index": index,
+                    "local_id": local_id,
+                    "entity_type": entity_type,
+                    "reason": "Jobs can only be created by owners and managers.",
+                })
+                continue
+            try:
+                property_obj = Property.objects.get(id=payload.get("property_id"), customer__business=session.business)
+            except (Property.DoesNotExist, ValueError, TypeError):
+                rejected.append({
+                    "index": index,
+                    "local_id": local_id,
+                    "entity_type": entity_type,
+                    "reason": "Property not found.",
+                })
+                continue
+            job = Job.objects.create(property=property_obj, status="scheduled")
+            error = _apply_job_write_fields(job, payload, session.business)
+            if error:
+                job.delete()
+                rejected.append({
+                    "index": index,
+                    "local_id": local_id,
+                    "entity_type": entity_type,
+                    "reason": json.loads(error.content.decode("utf-8")).get("error", "Job sync failed."),
+                })
+                continue
+            error = _replace_job_service_items(job, payload.get("service_items"), session.business)
+            if error:
+                job.delete()
+                rejected.append({
+                    "index": index,
+                    "local_id": local_id,
+                    "entity_type": entity_type,
+                    "reason": json.loads(error.content.decode("utf-8")).get("error", "Job sync failed."),
+                })
+                continue
+            job = _job_queryset_for_mobile(session).get(id=job.id)
+            accepted.append({
+                "index": index,
+                "local_id": local_id,
+                "entity_type": entity_type,
+                "operation": operation,
+                "server_id": job.id,
+                "payload": _job_payload(job, job.scheduled_date or date.today()),
+            })
+            continue
+        if entity_type == "invoice" and operation == "create":
+            if session.user.role not in {"owner", "manager"}:
+                rejected.append({
+                    "index": index,
+                    "local_id": local_id,
+                    "entity_type": entity_type,
+                    "reason": "Invoices can only be created by owners and managers.",
+                })
+                continue
+            customer, error = _money_customer_or_error(session, payload.get("customer_id"))
+            if error:
+                rejected.append({
+                    "index": index,
+                    "local_id": local_id,
+                    "entity_type": entity_type,
+                    "reason": json.loads(error.content.decode("utf-8")).get("error", "Invoice sync failed."),
+                })
+                continue
+            invoice = Invoice.objects.create(
+                business=session.business,
+                customer=customer,
+                status="draft",
+                due_date=_parse_date(payload.get("due_date")),
+                enable_card_payment=_parse_bool(
+                    payload.get("enable_card_payment"),
+                    default=invoice_card_payment_default(session.business),
+                ),
+            )
+            error = _create_invoice_line_items(invoice, payload.get("line_items"))
+            if error:
+                invoice.delete()
+                rejected.append({
+                    "index": index,
+                    "local_id": local_id,
+                    "entity_type": entity_type,
+                    "reason": json.loads(error.content.decode("utf-8")).get("error", "Invoice sync failed."),
+                })
+                continue
+            invoice = Invoice.objects.select_related("customer").prefetch_related("line_items").get(id=invoice.id)
+            accepted.append({
+                "index": index,
+                "local_id": local_id,
+                "entity_type": entity_type,
+                "operation": operation,
+                "server_id": invoice.id,
+                "payload": _invoice_payload(invoice),
+            })
+            continue
+        if entity_type == "estimate" and operation == "create":
+            if session.user.role not in {"owner", "manager"}:
+                rejected.append({
+                    "index": index,
+                    "local_id": local_id,
+                    "entity_type": entity_type,
+                    "reason": "Estimates can only be created by owners and managers.",
+                })
+                continue
+            customer, error = _money_customer_or_error(session, payload.get("customer_id"))
+            if error:
+                rejected.append({
+                    "index": index,
+                    "local_id": local_id,
+                    "entity_type": entity_type,
+                    "reason": json.loads(error.content.decode("utf-8")).get("error", "Estimate sync failed."),
+                })
+                continue
+            property_obj = None
+            if payload.get("property_id"):
+                try:
+                    property_obj = Property.objects.get(id=payload.get("property_id"), customer__business=session.business)
+                except (Property.DoesNotExist, ValueError, TypeError):
+                    rejected.append({
+                        "index": index,
+                        "local_id": local_id,
+                        "entity_type": entity_type,
+                        "reason": "Property not found.",
+                    })
+                    continue
+            estimate = Estimate.objects.create(
+                business=session.business,
+                customer=customer,
+                property=property_obj,
+                title=(payload.get("title") or "FIELDLGX Service Estimate").strip(),
+                notes=(payload.get("notes") or "").strip(),
+                valid_until=_parse_date(payload.get("valid_until")),
+                deposit_required=bool(payload.get("deposit_required", False)),
+                deposit_type=(payload.get("deposit_type") or "fixed").strip() if payload.get("deposit_required") else "fixed",
+                deposit_amount=_parse_decimal(payload.get("deposit_amount")),
+            )
+            error = _create_estimate_line_items(estimate, payload.get("line_items"))
+            if error:
+                estimate.delete()
+                rejected.append({
+                    "index": index,
+                    "local_id": local_id,
+                    "entity_type": entity_type,
+                    "reason": json.loads(error.content.decode("utf-8")).get("error", "Estimate sync failed."),
+                })
+                continue
+            estimate = Estimate.objects.select_related("customer", "property").prefetch_related("line_items").get(id=estimate.id)
+            accepted.append({
+                "index": index,
+                "local_id": local_id,
+                "entity_type": entity_type,
+                "operation": operation,
+                "server_id": estimate.id,
+                "payload": _estimate_payload(estimate),
+            })
+            continue
         rejected.append({
             "index": index,
-            "local_id": mutation.get("local_id") or "",
+            "local_id": local_id,
             "entity_type": entity_type,
             "reason": "Entity sync handler is not implemented yet.",
         })
@@ -594,10 +2029,22 @@ def today(request):
     })
 
 
+@csrf_exempt
 def job_detail(request, job_id):
     job, session, error = _mobile_job_or_response(request, job_id)
     if error:
         return error
+    if request.method == "PATCH":
+        if session.user.role not in {"owner", "manager"}:
+            return JsonResponse({"error": "Jobs can only be edited by owners and managers."}, status=403)
+        data = _json_body(request)
+        error = _apply_job_write_fields(job, data, session.business)
+        if error:
+            return error
+        error = _replace_job_service_items(job, data.get("service_items"), session.business)
+        if error:
+            return error
+        job = _job_queryset_for_mobile(session).get(id=job.id)
     return JsonResponse(_job_detail_payload(job, session))
 
 
