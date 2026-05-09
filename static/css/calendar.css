@@ -1556,6 +1556,107 @@ body.modal-open {
   white-space: nowrap;
 }
 
+#job-modal .modal-services-list li span em {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--primary);
+  font-style: normal;
+  font-weight: 800;
+}
+
+#job-modal .modal-return-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#job-modal .modal-visit-heading {
+  color: rgba(255,255,255,0.62);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+#job-modal .modal-return-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  background: rgba(185,255,101,0.06);
+}
+
+#job-modal .modal-return-row--primary {
+  grid-template-columns: minmax(0, 1fr) auto;
+  background: rgba(255,255,255,0.045);
+}
+
+#job-modal .modal-return-row strong {
+  display: block;
+  font-size: 13px;
+}
+
+#job-modal .modal-return-row small,
+#job-modal .modal-return-empty {
+  display: block;
+  margin: 3px 0 0;
+  color: rgba(255,255,255,0.62);
+  font-size: 12px;
+}
+
+#job-modal .modal-return-row span {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+#job-modal .modal-return-remove {
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 999px;
+  background: rgba(0,0,0,0.18);
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 6px 9px;
+}
+
+#job-modal .modal-return-remove:hover {
+  border-color: rgba(255,120,120,0.55);
+  color: #ff9b9b;
+}
+
+#job-modal .modal-return-form {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(110px, .85fr) minmax(110px, .85fr) minmax(160px, 1.2fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.cal-event-card.cal-event--return {
+  border-left: 3px solid var(--primary);
+  background: linear-gradient(135deg, rgba(185,255,101,0.18), rgba(255,255,255,0.04));
+}
+
+.cal-event-card.cal-event--return .cal-event-name {
+  color: var(--primary);
+}
+
+.cal-event-visit-note {
+  display: block;
+  overflow: hidden;
+  color: rgba(255,255,255,0.7);
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #job-modal .modal-img-thumb {
   width: 86px;
   height: 86px;
@@ -2580,10 +2681,20 @@ body.modal-open {
 
   #job-modal .modal-body .form-row,
   #job-modal .modal-actions,
+  #job-modal .modal-return-form,
   #job-modal .quick-actions-row {
     display: grid;
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+
+  #job-modal .modal-return-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  #job-modal .modal-return-remove {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
 
   #job-modal .quick-actions-row .btn,

@@ -429,6 +429,46 @@ class JobServiceItem(models.Model):
             return f"{self.job} - {self.service.name}"
 
 
+class JobWorkVisit(models.Model):
+    """Additional scheduled visit for the same job, often used when project work pauses and resumes later."""
+
+    STATUS_CHOICES = [
+        ("scheduled", "Scheduled"),
+        ("completed", "Completed"),
+        ("skipped", "Skipped"),
+    ]
+
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="work_visits")
+    service_item = models.ForeignKey(
+        JobServiceItem,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="work_visits",
+        help_text="Optional line item this return visit is for.",
+    )
+    scheduled_date = models.DateField()
+    scheduled_end_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Optional end date when this return visit spans multiple days.",
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="scheduled")
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["scheduled_date", "id"]
+
+    def active_on(self, target_date):
+        end = self.scheduled_end_date or self.scheduled_date
+        return self.scheduled_date <= target_date <= end
+
+    def __str__(self):
+        return f"{self.job} return visit - {self.scheduled_date}"
+
+
 class RecurringJob(models.Model):
     FREQUENCY_CHOICES = [
         ("weekly", "Weekly"),

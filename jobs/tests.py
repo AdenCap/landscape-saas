@@ -5,12 +5,13 @@ from unittest.mock import patch
 
 from django.test import TestCase
 from django.urls import reverse
+from django.db.models import Q
 
 from accounts.models import User
 from billing.models import Estimate, EstimateLineItem, Invoice
 from businesses.models import Business
 from customers.models import Customer, Property
-from jobs.models import Crew, Job, JobNote, JobServiceItem, PropertyNote, RecurringJob
+from jobs.models import Crew, Job, JobNote, JobServiceItem, JobWorkVisit, PropertyNote, RecurringJob
 from jobs.services import generate_jobs
 from pricing.models import ServiceTemplate
 
@@ -305,6 +306,137 @@ class JobServiceItemSchedulingTests(TestCase):
 
         self.assertContains(response, "Patio base prep")
         self.assertContains(response, "Excavate, compact stone, and prepare the paver base.")
+
+    def test_owner_can_add_non_consecutive_return_visit_to_same_job_item(self):
+        response = self.client.post(
+            reverse("add_job_work_visit", args=[self.job.id]),
+            data={
+                "service_item": self.item.id,
+                "scheduled_date": "2026-05-19",
+                "notes": "Return after pavers arrive.",
+            },
+        )
+
+        self.assertRedirects(response, reverse("job_detail", args=[self.job.id]))
+        visit = JobWorkVisit.objects.get(job=self.job)
+        self.assertEqual(visit.service_item, self.item)
+        self.assertEqual(visit.scheduled_date, date(2026, 5, 19))
+        self.assertIsNone(visit.scheduled_end_date)
+        self.assertEqual(visit.notes, "Return after pavers arrive.")
+
+    def test_owner_can_add_return_visit_inline_from_calendar_modal(self):
+        response = self.client.post(
+            reverse("add_job_work_visit", args=[self.job.id]),
+            data={
+                "service_item": self.item.id,
+                "scheduled_date": "2026-05-21",
+                "scheduled_end_date": "2026-05-22",
+                "notes": "Finish cleanup after inspection.",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["visit"]["service_item_id"], self.item.id)
+        self.assertEqual(payload["visit"]["scheduled_date"], "2026-05-21")
+        self.assertEqual(payload["visit"]["scheduled_end_date"], "2026-05-22")
+        self.assertEqual(payload["visit"]["notes"], "Finish cleanup after inspection.")
+
+    def test_owner_can_move_return_visit_without_moving_original_job(self):
+        visit = JobWorkVisit.objects.create(
+            job=self.job,
+            service_item=self.item,
+            scheduled_date=date(2026, 5, 19),
+            notes="Return after pavers arrive.",
+        )
+
+        response = self.client.post(
+            reverse("update_job_work_visit", args=[self.job.id, visit.id]),
+            data=json.dumps({
+                "scheduled_date": "2026-05-23",
+                "scheduled_end_date": "2026-05-24",
+            }),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        visit.refresh_from_db()
+        self.job.refresh_from_db()
+        self.assertEqual(visit.scheduled_date, date(2026, 5, 23))
+        self.assertEqual(visit.scheduled_end_date, date(2026, 5, 24))
+        self.assertEqual(self.job.scheduled_date, date(2026, 5, 11))
+
+    def test_owner_can_remove_return_visit_inline_from_calendar_modal(self):
+        visit = JobWorkVisit.objects.create(
+            job=self.job,
+            service_item=self.item,
+            scheduled_date=date(2026, 5, 19),
+        )
+
+        response = self.client.post(
+            reverse("remove_job_work_visit", args=[self.job.id, visit.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "ok")
+        self.assertFalse(JobWorkVisit.objects.filter(id=visit.id).exists())
+
+    def test_calendar_events_include_return_visit_without_moving_original_job(self):
+        JobWorkVisit.objects.create(
+            job=self.job,
+            service_item=self.item,
+            scheduled_date=date(2026, 5, 19),
+            notes="Return after pavers arrive.",
+        )
+
+        response = self.client.get(reverse("calendar_events"), {"start": "2026-05-01", "end": "2026-05-31"})
+
+        self.assertEqual(response.status_code, 200)
+        events = response.json()
+        original = [e for e in events if e["id"] == str(self.job.id)]
+        returns = [e for e in events if e["id"] == f"visit-{self.job.id}-{self.item.id}-2026-05-19"]
+        self.assertEqual(len(original), 1)
+        self.assertEqual(original[0]["start"], "2026-05-11")
+        self.assertEqual(len(returns), 1)
+        self.assertEqual(returns[0]["start"], "2026-05-19T08:00:00")
+        self.assertEqual(returns[0]["extendedProps"]["jobId"], self.job.id)
+        self.assertTrue(returns[0]["extendedProps"]["returnVisit"])
+
+    def test_crew_today_includes_non_consecutive_return_visit(self):
+        from accounts.timezone_utils import business_today
+        today = business_today(self.business)
+        self.job.scheduled_date = date(2026, 5, 11)
+        self.job.scheduled_end_date = None
+        self.job.save(update_fields=["scheduled_date", "scheduled_end_date"])
+        JobWorkVisit.objects.create(
+            job=self.job,
+            service_item=self.item,
+            scheduled_date=today,
+            notes="Return after pavers arrive.",
+        )
+        self.assertEqual(JobWorkVisit.objects.filter(job=self.job, scheduled_date=today).count(), 1)
+        self.assertEqual(
+            Job.objects.filter(
+                Q(scheduled_date=today)
+                | Q(scheduled_date__lte=today, scheduled_end_date__gte=today)
+                | Q(work_visits__scheduled_date=today)
+                | Q(work_visits__scheduled_date__lte=today, work_visits__scheduled_end_date__gte=today),
+                property__customer__business=self.business,
+            ).distinct().count(),
+            1,
+        )
+
+        response = self.client.get(reverse("crew_today"))
+
+        self.assertEqual(response.status_code, 200)
+        route_jobs = list(response.context["jobs"])
+        self.assertEqual(len(route_jobs), 1)
+        self.assertEqual(route_jobs[0].filtered_service_items[0].description, "Base prep")
+        self.assertEqual(route_jobs[0].active_return_visits[0].notes, "Return after pavers arrive.")
 
 
 class CalendarRecurringRescheduleTests(TestCase):

@@ -89,6 +89,16 @@
       </div>
       {% endif %}
       {% endwith %}
+      {% if job.active_return_visits %}
+      <div class="jc-services">
+        {% for visit in job.active_return_visits %}
+        <div class="jc-service-card">
+          <span class="jc-service-tag">Return visit{% if visit.service_item %} · {{ visit.service_item.description|default:visit.service_item.service.name }}{% endif %}</span>
+          {% if visit.notes %}<small>{{ visit.notes }}</small>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
     <span class="jc-status jc-status-{{ job.status }}">
       {% if job.status == "scheduled" %}Scheduled{% elif job.status == "in_progress" %}In Progress{% elif job.status == "completed" %}Done{% else %}{{ job.status|title }}{% endif %}

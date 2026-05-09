@@ -269,12 +269,13 @@ document.addEventListener('DOMContentLoaded', function () {
       var isCompleted = props.status === 'completed';
       if (isCompleted) container.classList.add('cal-event--completed');
       if (props.type === 'meeting') container.classList.add('cal-event--meeting');
+      if (props.returnVisit) container.classList.add('cal-event--return');
       if (arg.view.type.indexOf('list') === 0) container.classList.add('cal-event-card--list');
 
       // Customer name (primary text)
       var name = document.createElement('span');
       name.className = 'cal-event-name';
-      name.textContent = props.customer || arg.event.title;
+      name.textContent = props.returnVisit ? 'Return visit' : (props.customer || arg.event.title);
       container.appendChild(name);
 
       // Address (secondary — only in list/time views, not month)
@@ -283,6 +284,13 @@ document.addEventListener('DOMContentLoaded', function () {
         addr.className = 'cal-event-addr';
         addr.textContent = arg.event.title.replace(/^✓\s*/, '');
         container.appendChild(addr);
+      }
+
+      if (props.returnVisit && props.visitNotes) {
+        var note = document.createElement('span');
+        note.className = 'cal-event-visit-note';
+        note.textContent = props.visitNotes;
+        container.appendChild(note);
       }
 
       // Completed checkmark + duration
@@ -327,6 +335,38 @@ document.addEventListener('DOMContentLoaded', function () {
       var props = info.event.extendedProps || {};
       var start = info.event.start;
       var end = info.event.end;
+      if (props.returnVisit && props.visitId) {
+        var returnPayload = {
+          scheduled_date: formatDateStr(start),
+          scheduled_end_date: null
+        };
+        if (end) {
+          if (info.event.allDay) {
+            var returnLastDay = new Date(end.getTime() - 86400000);
+            returnPayload.scheduled_end_date = returnLastDay > start ? formatDateStr(returnLastDay) : null;
+          } else if (formatDateStr(end) > formatDateStr(start)) {
+            returnPayload.scheduled_end_date = formatDateStr(end);
+          }
+        }
+        fetch('/jobs/' + jobId + '/visits/' + props.visitId + '/update/', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF(), 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify(returnPayload)
+        }).then(function(r) {
+          if (!r.ok) {
+            info.revert();
+            return r.json().then(function(d) { throw new Error((d && d.error) || 'Could not move return visit'); });
+          }
+          return r.json();
+        }).then(function() {
+          calendar.refetchEvents();
+          showToast('Return visit moved');
+        }).catch(function(err) {
+          info.revert();
+          showToast(err.message || 'Could not move return visit', 'error');
+        });
+        return;
+      }
       var payload = { scheduled_date: info.event.allDay ? formatDateStr(start) : formatDateTimeStr(start) };
       if (info.event.allDay) payload.all_day = true;
       if (end && !info.event.allDay) {
@@ -393,6 +433,39 @@ document.addEventListener('DOMContentLoaded', function () {
       var props = info.event.extendedProps || {};
       var start = info.event.start;
       var end = info.event.end;
+      if (props.returnVisit && props.visitId) {
+        var returnPayload = {
+          scheduled_date: formatDateStr(start),
+          scheduled_end_date: null
+        };
+        if (end) {
+          if (info.event.allDay) {
+            var returnLastDay = new Date(end.getTime() - 86400000);
+            returnPayload.scheduled_end_date = returnLastDay > start ? formatDateStr(returnLastDay) : null;
+          } else if (formatDateStr(end) > formatDateStr(start)) {
+            returnPayload.scheduled_end_date = formatDateStr(end);
+          }
+        }
+        fetch('/jobs/' + jobId + '/visits/' + props.visitId + '/update/', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF(), 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify(returnPayload)
+        }).then(function(r) {
+          if (!r.ok) {
+            info.revert();
+            return r.json().then(function(d) { throw new Error((d && d.error) || 'Could not resize return visit'); });
+          }
+          return r.json();
+        }).then(function() {
+          calendar.refetchEvents();
+          showToast('Return visit updated');
+        }).catch(function(err) {
+          info.revert();
+          showToast(err.message || 'Could not resize return visit', 'error');
+        });
+        return;
+      }
       var payload = {};
       if (info.event.allDay) {
         // Multi-day resize in month view
@@ -683,6 +756,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var sel = document.getElementById(id);
     if (sel) {
       sel.addEventListener('change', function() {
+        if (id === 'filter-crews') syncCrewCommand();
         sel.classList.toggle('active-filter', !!sel.value);
         calendar.refetchEvents();
       });
@@ -757,6 +831,48 @@ document.addEventListener('DOMContentLoaded', function () {
   addSwipeDismiss('rain-modal');
 
   // ── Job Modal ──
+  var activeModalJob = null;
+  var activeModalOwnerMode = false;
+
+  function formatDateRange(start, end) {
+    if (!start) return 'Unscheduled';
+    return start + (end ? ' - ' + end : '');
+  }
+
+  function renderReturnVisits(job, ownerMode) {
+    var returnList = document.getElementById('modal-return-list');
+    if (!returnList) return;
+    var rows = [];
+    if (job && job.scheduled_date) {
+      rows.push(
+        '<div class="modal-return-row modal-return-row--primary">' +
+          '<div><strong>' + escapeHtml(formatDateRange(job.scheduled_date, job.scheduled_end_date)) + '</strong>' +
+            '<small>Main scheduled visit' + (job.scheduled_time ? ' · ' + escapeHtml(formatJobTimeLabel(job.scheduled_time)) : '') + '</small></div>' +
+          '<span>Original</span>' +
+        '</div>'
+      );
+    }
+    (job && job.work_visits ? job.work_visits : []).forEach(function(v, index) {
+      var range = formatDateRange(v.scheduled_date, v.scheduled_end_date);
+      var note = v.notes ? '<small>' + escapeHtml(v.notes) + '</small>' : '<small>Return visit #' + (index + 1) + '</small>';
+      var remove = ownerMode
+        ? '<button type="button" class="modal-return-remove" data-visit-id="' + escapeHtml(v.id) + '" aria-label="Remove return visit">Remove</button>'
+        : '';
+      rows.push(
+        '<div class="modal-return-row" data-visit-id="' + escapeHtml(v.id) + '">' +
+          '<div><strong>' + escapeHtml(range) + '</strong>' + note + '</div>' +
+          '<span>' + escapeHtml(v.service_name || 'Whole job') + '</span>' +
+          remove +
+        '</div>'
+      );
+    });
+    if (rows.length) {
+      returnList.innerHTML = '<div class="modal-visit-heading">Visit history</div>' + rows.join('');
+    } else {
+      returnList.innerHTML = '<p class="modal-return-empty">No dates are scheduled for this job yet.</p>';
+    }
+  }
+
   function openJobModal(jobId) {
     openModal('job-modal');
     fetch('/jobs/calendar/job/' + jobId + '/')
@@ -765,6 +881,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var job = data.job;
         var userRole = data.user_role || 'owner';
         var ownerMode = userRole === 'owner' || userRole === 'manager';
+        activeModalJob = job;
+        activeModalOwnerMode = ownerMode;
 
         document.getElementById('modal-address').textContent = job.address;
         document.getElementById('modal-date').textContent = job.scheduled_date || 'Unscheduled';
@@ -856,14 +974,37 @@ document.addEventListener('DOMContentLoaded', function () {
         // Services
         var svcSection = document.getElementById('modal-services-section');
         var svcList = document.getElementById('modal-services-list');
+        var returnList = document.getElementById('modal-return-list');
+        var returnForm = document.getElementById('modal-return-form');
+        var returnService = document.getElementById('modal-return-service');
         if (job.services && job.services.length) {
           svcSection.style.display = 'block';
           svcList.innerHTML = job.services.map(function(s) {
             var detail = s.detail_description ? '<small>' + escapeHtml(s.detail_description) + '</small>' : '';
-            return '<li><div><strong>' + escapeHtml(s.name || 'Service') + '</strong>' + detail + '</div><span>' +
-              escapeHtml(s.quantity || 1) + ' ' + escapeHtml(s.unit || 'visit') + '</span></li>';
+            var schedule = s.scheduled_date ? escapeHtml(s.scheduled_date + (s.scheduled_end_date ? ' - ' + s.scheduled_end_date : '')) : 'Same as job';
+            return '<li><div><strong>' + escapeHtml(s.name || 'Service') + '</strong>' + detail + '</div><span><em>' +
+              schedule + '</em>' + escapeHtml(s.quantity || 1) + ' ' + escapeHtml(s.unit || 'visit') + '</span></li>';
           }).join('');
-        } else { svcSection.style.display = 'none'; }
+          if (returnService) {
+            returnService.innerHTML = '<option value="">Whole job</option>' + job.services.map(function(s) {
+              return '<option value="' + escapeHtml(s.id || '') + '">' + escapeHtml(s.name || 'Service') + '</option>';
+            }).join('');
+          }
+        } else {
+          svcSection.style.display = 'none';
+          if (returnService) returnService.innerHTML = '<option value="">Whole job</option>';
+        }
+        renderReturnVisits(job, ownerMode);
+        if (returnForm) {
+          returnForm.action = '/jobs/' + jobId + '/visits/add/';
+          returnForm.style.display = ownerMode ? 'grid' : 'none';
+          var returnDate = document.getElementById('modal-return-date');
+          var returnEndDate = document.getElementById('modal-return-end-date');
+          var returnNotes = document.getElementById('modal-return-notes');
+          if (returnDate) returnDate.value = '';
+          if (returnEndDate) returnEndDate.value = '';
+          if (returnNotes) returnNotes.value = '';
+        }
 
         // Images
         var imgSection = document.getElementById('modal-images-section');
@@ -1223,6 +1364,92 @@ document.addEventListener('DOMContentLoaded', function () {
   var deleteForm = document.getElementById('modal-delete-form');
   if (deleteForm) deleteForm.addEventListener('submit', function(e) {
     if (!confirm('Delete this job? This cannot be undone.')) e.preventDefault();
+  });
+
+  var returnFormEl = document.getElementById('modal-return-form');
+  if (returnFormEl) returnFormEl.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var modal = document.getElementById('job-modal');
+    var jobId = modal ? modal.dataset.jobId : '';
+    if (!jobId) return;
+    var dateEl = document.getElementById('modal-return-date');
+    var endDateEl = document.getElementById('modal-return-end-date');
+    var serviceEl = document.getElementById('modal-return-service');
+    var notesEl = document.getElementById('modal-return-notes');
+    var scheduledDate = dateEl ? dateEl.value : '';
+    if (!scheduledDate) {
+      showToast('Choose a return date', 'error');
+      return;
+    }
+    var payload = {
+      service_item: serviceEl ? serviceEl.value : '',
+      scheduled_date: scheduledDate,
+      scheduled_end_date: endDateEl ? endDateEl.value : '',
+      notes: notesEl ? notesEl.value : ''
+    };
+    var btn = returnFormEl.querySelector('button[type="submit"]');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Adding...';
+    }
+    fetch('/jobs/' + jobId + '/visits/add/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify(payload)
+    }).then(function(r) {
+      if (!r.ok) return r.json().then(function(d) { throw new Error((d && d.error) || 'Could not add return visit'); });
+      return r.json();
+    }).then(function(data) {
+      if (!activeModalJob) activeModalJob = { work_visits: [] };
+      activeModalJob.work_visits = activeModalJob.work_visits || [];
+      activeModalJob.work_visits.push(data.visit);
+      renderReturnVisits(activeModalJob, activeModalOwnerMode);
+      if (dateEl) dateEl.value = '';
+      if (endDateEl) endDateEl.value = '';
+      if (notesEl) notesEl.value = '';
+      calendar.refetchEvents();
+      showToast('Return visit added');
+    }).catch(function(err) {
+      showToast(err.message || 'Could not add return visit', 'error');
+    }).finally(function() {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Add return';
+      }
+    });
+  });
+
+  var returnListEl = document.getElementById('modal-return-list');
+  if (returnListEl) returnListEl.addEventListener('click', function(e) {
+    var btn = e.target.closest('.modal-return-remove');
+    if (!btn) return;
+    var modal = document.getElementById('job-modal');
+    var jobId = modal ? modal.dataset.jobId : '';
+    var visitId = btn.getAttribute('data-visit-id');
+    if (!jobId || !visitId) return;
+    btn.disabled = true;
+    fetch('/jobs/' + jobId + '/visits/' + visitId + '/remove/', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({})
+    }).then(function(r) {
+      if (!r.ok) return r.json().then(function(d) { throw new Error((d && d.error) || 'Could not remove return visit'); });
+      return r.json();
+    }).then(function() {
+      if (activeModalJob && activeModalJob.work_visits) {
+        activeModalJob.work_visits = activeModalJob.work_visits.filter(function(v) {
+          return String(v.id) !== String(visitId);
+        });
+      }
+      renderReturnVisits(activeModalJob, activeModalOwnerMode);
+      calendar.refetchEvents();
+      showToast('Return visit removed');
+    }).catch(function(err) {
+      btn.disabled = false;
+      showToast(err.message || 'Could not remove return visit', 'error');
+    });
   });
 
   var modalNoteAdd = document.getElementById('modal-note-add');
@@ -1880,6 +2107,32 @@ document.addEventListener('DOMContentLoaded', function () {
         calendar.refetchEvents();
       }
     });
+  }
+
+  // ── Crew command strip: one-tap crew focus for multi-crew owners ──
+  var crewCommand = document.getElementById('calendar-crew-command');
+  function syncCrewCommand() {
+    if (!crewCommand) return;
+    var crewSelect = document.getElementById('filter-crews');
+    var selected = crewSelect ? (crewSelect.value || '') : '';
+    crewCommand.querySelectorAll('.cal-crew-chip').forEach(function(chip) {
+      chip.classList.toggle('active', (chip.dataset.crewId || '') === selected);
+    });
+  }
+  if (crewCommand) {
+    crewCommand.addEventListener('click', function(e) {
+      var chip = e.target.closest('.cal-crew-chip');
+      if (!chip) return;
+      var crewSelect = document.getElementById('filter-crews');
+      if (crewSelect) {
+        crewSelect.value = chip.dataset.crewId || '';
+        crewSelect.dispatchEvent(new Event('change'));
+      } else {
+        syncCrewCommand();
+        calendar.refetchEvents();
+      }
+    });
+    syncCrewCommand();
   }
 
   // ══════════════════════════════════════════════════════════════

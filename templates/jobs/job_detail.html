@@ -206,6 +206,77 @@
     </div>
   </form>
   <p class="jd-inline-help">Edit title, description, quantity, rate, or line-item dates directly below. Titles and descriptions show on the job, crew view, and invoices.</p>
+  <div class="jd-work-plan">
+    <div class="jd-work-plan-head">
+      <div>
+        <span class="jd-card-kicker">Schedule plan</span>
+        <h3>Same job, flexible work days</h3>
+      </div>
+      <span class="jd-card-count">
+        {% if job.scheduled_end_date %}{{ job.scheduled_date|date:"M j" }} - {{ job.scheduled_end_date|date:"M j" }}{% else %}{{ job.scheduled_date|date:"M j"|default:"Unscheduled" }}{% endif %}
+      </span>
+    </div>
+    <div class="jd-plan-grid">
+      {% for i in items %}
+      <article class="jd-plan-item">
+        <div>
+          <strong>{{ i.description|default:i.service.name }}</strong>
+          {% if i.detail_description %}<p>{{ i.detail_description }}</p>{% endif %}
+        </div>
+        <span>
+          {% if i.scheduled_date %}
+            {{ i.scheduled_date|date:"M j" }}{% if i.scheduled_end_date %} - {{ i.scheduled_end_date|date:"M j" }}{% endif %}
+          {% else %}
+            Same as job
+          {% endif %}
+        </span>
+      </article>
+      {% empty %}
+      <p class="jd-inline-help">Add line items to build the work plan.</p>
+      {% endfor %}
+    </div>
+    <form method="post" action="{% url 'add_job_work_visit' job.id %}" class="jd-return-form">
+      {% csrf_token %}
+      <div>
+        <label>Return for</label>
+        <select name="service_item">
+          <option value="">Whole job</option>
+          {% for i in items %}
+          <option value="{{ i.id }}">{{ i.description|default:i.service.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Return date</label>
+        <input type="date" name="scheduled_date" required>
+      </div>
+      <div>
+        <label>End date</label>
+        <input type="date" name="scheduled_end_date">
+      </div>
+      <div class="jd-form-wide">
+        <label>Return note</label>
+        <input type="text" name="notes" placeholder="Why the crew is coming back or what needs finished">
+      </div>
+      <button type="submit" class="btn btn-secondary">Add return visit</button>
+    </form>
+    {% if job.work_visits.all %}
+    <div class="jd-return-list">
+      {% for visit in job.work_visits.all %}
+      <div class="jd-return-row">
+        <div>
+          <strong>{{ visit.scheduled_date|date:"M j, Y" }}{% if visit.scheduled_end_date %} - {{ visit.scheduled_end_date|date:"M j, Y" }}{% endif %}</strong>
+          <span>{% if visit.service_item %}{{ visit.service_item.description|default:visit.service_item.service.name }}{% else %}Whole job{% endif %}{% if visit.notes %} · {{ visit.notes }}{% endif %}</span>
+        </div>
+        <form method="post" action="{% url 'remove_job_work_visit' job.id visit.id %}" onsubmit="return confirm('Remove this return visit?')">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-secondary btn-sm" style="color:#f87171;">Remove</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
   <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
   <table class="data-table">
     <thead>
@@ -1097,6 +1168,96 @@ window.filterPhotos = function(cat, btn) {
     font-size: var(--text-sm);
     line-height: 1.4;
   }
+  .jd-work-plan {
+    margin: 14px 0 16px;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 24px;
+    background: linear-gradient(145deg, rgba(255,255,255,.06), rgba(255,255,255,.025));
+  }
+  .jd-work-plan-head,
+  .jd-return-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .jd-work-plan h3 {
+    margin: 3px 0 0;
+    font-size: 21px;
+  }
+  .jd-plan-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 10px;
+    margin: 12px 0;
+  }
+  .jd-plan-item,
+  .jd-return-row {
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    background: rgba(0,0,0,.2);
+  }
+  .jd-plan-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .jd-plan-item strong,
+  .jd-return-row strong {
+    display: block;
+    font-size: 15px;
+  }
+  .jd-plan-item p,
+  .jd-return-row span {
+    display: block;
+    margin: 4px 0 0;
+    color: var(--jd-muted);
+    font-size: var(--text-sm);
+    line-height: 1.35;
+  }
+  .jd-plan-item > span {
+    white-space: nowrap;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: rgba(185,255,101,.12);
+    color: var(--jd-accent);
+    font-size: var(--type-caption-size);
+    font-weight: 800;
+  }
+  .jd-return-form {
+    display: grid;
+    grid-template-columns: minmax(150px, 1.1fr) minmax(130px, .8fr) minmax(130px, .8fr) minmax(220px, 1.4fr) auto;
+    gap: 10px;
+    align-items: end;
+    margin-top: 12px;
+  }
+  .jd-return-form label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--jd-muted);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    letter-spacing: var(--type-label-spacing);
+    text-transform: uppercase;
+  }
+  .jd-return-form input,
+  .jd-return-form select {
+    width: 100%;
+    min-height: 42px;
+    border-radius: 14px;
+    background: rgba(0,0,0,.22);
+    color: var(--jd-ink);
+    border: 1px solid rgba(255,255,255,.11);
+    padding: 9px 12px;
+  }
+  .jd-return-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+  }
   .jd-line-copy-cell {
     min-width: 320px;
   }
@@ -1151,6 +1312,10 @@ window.filterPhotos = function(cat, btn) {
     .jd-hero h1 { font-size: 40px; }
     .jd-quick-grid { grid-template-columns: 1fr; }
     .jd-action-grid { grid-template-columns: 1fr 1fr; }
+    .jd-plan-item,
+    .jd-return-row,
+    .jd-return-form { grid-template-columns: 1fr; }
+    .jd-return-row { align-items: stretch; }
     .jd-section-nav { top: 8px; border-radius: 22px; }
     .jd-section-nav a { flex: 0 0 auto; }
     .job-detail-page .card { padding: 18px; }

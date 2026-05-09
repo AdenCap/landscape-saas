@@ -16,7 +16,7 @@ from accounts.utils import get_business
 from accounts.models import Notification
 from billing.services import auto_charge_invoice_card, create_draft_invoice_for_job
 from billing.monthly import generate_monthly_invoice_for_customer
-from .models import Job, JobServiceItem, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobPhoto, JobAssignmentLog, Meeting, JobNote, PropertyNote
+from .models import Job, JobServiceItem, JobWorkVisit, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobPhoto, JobAssignmentLog, Meeting, JobNote, PropertyNote
 from .service_labels import clean_service_label
 from customers.models import Property
 from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset, ReportIssueForm, MeetingForm
@@ -51,11 +51,36 @@ def _parse_iso_date(value):
         raise ValueError("Invalid date.")
 
 
+def _wants_json(request):
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest" or "application/json" in request.headers.get("Accept", "")
+
+
+def _serialize_job_work_visit(visit):
+    service_item = visit.service_item
+    service_name = "Whole job"
+    if service_item:
+        service_name = service_item.description or (service_item.service.name if service_item.service else "Line item")
+    return {
+        "id": visit.id,
+        "service_item_id": visit.service_item_id,
+        "service_name": service_name,
+        "scheduled_date": visit.scheduled_date.isoformat(),
+        "scheduled_end_date": visit.scheduled_end_date.isoformat() if visit.scheduled_end_date else "",
+        "notes": visit.notes or "",
+        "status": visit.status,
+    }
+
+
 def _line_item_active_on(item, target_date):
     if item.scheduled_date is None:
         return True
     item_end = item.scheduled_end_date or item.scheduled_date
     return item.scheduled_date <= target_date <= item_end
+
+
+def _visit_active_on(visit, target_date):
+    visit_end = visit.scheduled_end_date or visit.scheduled_date
+    return visit.scheduled_date <= target_date <= visit_end
 
 
 def _expand_job_range_for_item(job, item_start, item_end):
@@ -472,16 +497,28 @@ def calendar_events(request):
     jobs = Job.objects.select_related(
         'property', 'property__customer', 'assigned_to', 'assigned_crew',
         'recurring_job'
-    ).prefetch_related('service_items__service', 'assigned_employees', 'crews').filter(scheduled_date__isnull=False)
+    ).prefetch_related(
+        'service_items__service',
+        'assigned_employees',
+        'crews',
+        'work_visits__service_item__service',
+    ).filter(Q(scheduled_date__isnull=False) | Q(work_visits__isnull=False)).distinct()
 
     # Filter by visible date range (critical for performance)
     start_date = request.GET.get("start")
     end_date = request.GET.get("end")
+    visible_start = None
+    visible_end = None
     if start_date and end_date:
         try:
-            s = datetime.strptime(start_date, "%Y-%m-%d").date()
-            e = datetime.strptime(end_date, "%Y-%m-%d").date()
-            jobs = jobs.filter(scheduled_date__gte=s, scheduled_date__lte=e)
+            visible_start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            visible_end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            jobs = jobs.filter(
+                Q(scheduled_date__gte=visible_start, scheduled_date__lte=visible_end)
+                | Q(scheduled_date__lte=visible_end, scheduled_end_date__gte=visible_start)
+                | Q(work_visits__scheduled_date__gte=visible_start, work_visits__scheduled_date__lte=visible_end)
+                | Q(work_visits__scheduled_date__lte=visible_end, work_visits__scheduled_end_date__gte=visible_start)
+            ).distinct()
         except (ValueError, TypeError):
             pass
 
@@ -631,7 +668,7 @@ def calendar_events(request):
             title = '✓ ' + title
 
         # Multi-day jobs: render as all-day spanning events
-        is_multi_day = job.scheduled_end_date and job.scheduled_end_date > job.scheduled_date
+        is_multi_day = bool(job.scheduled_date and job.scheduled_end_date and job.scheduled_end_date > job.scheduled_date)
 
         # Wave 3: additional crews (excluding primary, which is already shown as the main crew)
         # Uses prefetched .crews — no extra queries. Empty list for single-crew jobs.
@@ -665,7 +702,9 @@ def calendar_events(request):
             "additionalCrews": additional_crews,
         }
 
-        if is_multi_day:
+        if not job.scheduled_date:
+            evt = None
+        elif is_multi_day:
             # Multi-day: all-day event spanning from start date to end date
             # FullCalendar uses exclusive end dates, so add 1 day
             start_str = job.scheduled_date.strftime("%Y-%m-%d")
@@ -722,7 +761,49 @@ def calendar_events(request):
                 "borderColor": bg,
                 "extendedProps": ext_props,
             }
-        events.append(evt)
+        if evt:
+            events.append(evt)
+
+        for visit in job.work_visits.all():
+            visit_end = visit.scheduled_end_date or visit.scheduled_date
+            if visible_start and visible_end and (visit.scheduled_date > visible_end or visit_end < visible_start):
+                continue
+            visit_title = title
+            if visit.service_item:
+                item_label = visit.service_item.description or (visit.service_item.service.name if visit.service_item.service else "")
+                if item_label:
+                    visit_title = f"Return: {item_label} · {customer_name}"
+            visit_ext_props = dict(ext_props)
+            visit_ext_props.update({
+                "returnVisit": True,
+                "visitId": visit.id,
+                "serviceItemId": visit.service_item_id,
+                "visitNotes": visit.notes or "",
+                "multiDay": bool(visit.scheduled_end_date and visit.scheduled_end_date > visit.scheduled_date),
+            })
+            if visit.scheduled_end_date and visit.scheduled_end_date > visit.scheduled_date:
+                visit_evt = {
+                    "id": f"visit-{job.id}-{visit.service_item_id or 'job'}-{visit.scheduled_date.isoformat()}",
+                    "title": visit_title,
+                    "start": visit.scheduled_date.strftime("%Y-%m-%d"),
+                    "end": (visit.scheduled_end_date + timedelta(days=1)).strftime("%Y-%m-%d"),
+                    "allDay": True,
+                    "backgroundColor": bg,
+                    "borderColor": bg,
+                    "extendedProps": visit_ext_props,
+                }
+            else:
+                visit_start = datetime.combine(visit.scheduled_date, job.scheduled_time or datetime.min.time().replace(hour=8))
+                visit_evt = {
+                    "id": f"visit-{job.id}-{visit.service_item_id or 'job'}-{visit.scheduled_date.isoformat()}",
+                    "title": visit_title,
+                    "start": visit_start.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "end": (visit_start + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S"),
+                    "backgroundColor": bg,
+                    "borderColor": bg,
+                    "extendedProps": visit_ext_props,
+                }
+            events.append(visit_evt)
 
     # Owner-only: add meetings to calendar (filtered by date range)
     if business and getattr(request.user, "role", None) in ("owner", "manager"):
@@ -773,7 +854,7 @@ def calendar_job_data(request, job_id):
         return JsonResponse({"error": "No business"}, status=403)
     job = get_object_or_404(
         Job.objects.select_related('property', 'property__customer', 'assigned_to', 'assigned_crew')
-        .prefetch_related('service_items__service'),
+        .prefetch_related('service_items__service', 'work_visits__service_item__service'),
         id=job_id,
         property__customer__business=business,
     )
@@ -795,6 +876,7 @@ def calendar_job_data(request, job_id):
     # Services list — use prefetched data, don't re-query
     services = [
         {
+            "id": si.id,
             "name": si.description or (si.service.name if si.service else "Service"),
             "service_name": si.service.name if si.service else "",
             "description": si.description or "",
@@ -805,6 +887,10 @@ def calendar_job_data(request, job_id):
             "scheduled_end_date": si.scheduled_end_date.isoformat() if si.scheduled_end_date else "",
         }
         for si in job.service_items.all()
+    ]
+    work_visits = [
+        _serialize_job_work_visit(visit)
+        for visit in job.work_visits.select_related("service_item__service").all()
     ]
 
     # Property images from estimates (Property Estimator)
@@ -831,6 +917,7 @@ def calendar_job_data(request, job_id):
             "status": job.status,
             "notes": job.notes or "",
             "services": services,
+            "work_visits": work_visits,
             "images": images,
             "is_recurring": bool(job.recurring_job_id),
             "recurring_job_id": job.recurring_job_id if is_owner else None,
@@ -1740,11 +1827,14 @@ def crew_today_view(request):
     # clause never matches them).
     jobs = Job.objects.filter(
         Q(scheduled_date=today) |
-        Q(scheduled_date__lte=today, scheduled_end_date__gte=today)
+        Q(scheduled_date__lte=today, scheduled_end_date__gte=today) |
+        Q(work_visits__scheduled_date=today) |
+        Q(work_visits__scheduled_date__lte=today, work_visits__scheduled_end_date__gte=today)
     ).select_related(
         "property", "property__customer", "assigned_to", "assigned_crew"
     ).prefetch_related(
         "service_items__service",
+        "work_visits__service_item__service",
         "assigned_employees",
         Prefetch(
             "property__property_notes",
@@ -1784,7 +1874,8 @@ def crew_today_view(request):
     # Uses prefetched service_items — no extra queries per job.
     for job in jobs:
         all_items = list(job.service_items.all())
-        if job.scheduled_end_date and job.scheduled_end_date > job.scheduled_date:
+        active_visits = [visit for visit in job.work_visits.all() if _visit_active_on(visit, today)]
+        if job.scheduled_date and job.scheduled_end_date and job.scheduled_end_date > job.scheduled_date:
             # Multi-day: filter by today. Items with scheduled_date=None span the whole job.
             job.filtered_service_items = [
                 si for si in all_items
@@ -1793,6 +1884,16 @@ def crew_today_view(request):
         else:
             # Single-day: all items (unchanged behavior)
             job.filtered_service_items = all_items
+        if active_visits:
+            visit_items = [visit.service_item for visit in active_visits if visit.service_item_id]
+            if visit_items:
+                existing_ids = {item.id for item in job.filtered_service_items}
+                job.filtered_service_items = list(job.filtered_service_items) + [
+                    item for item in visit_items if item.id not in existing_ids
+                ]
+            elif job.scheduled_date != today and not (job.scheduled_end_date and job.scheduled_date and job.scheduled_date <= today <= job.scheduled_end_date):
+                job.filtered_service_items = all_items
+        job.active_return_visits = active_visits
         property_alerts = []
         if job.property.gate_code:
             property_alerts.append({"label": "Gate code", "text": job.property.gate_code})
@@ -3091,7 +3192,12 @@ def job_detail(request, job_id):
     if not business:
         return redirect("/")
     job = get_object_or_404(
-        Job.objects.prefetch_related("issues__photos", "completion_photos", "issues__reported_by"),
+        Job.objects.prefetch_related(
+            "issues__photos",
+            "completion_photos",
+            "issues__reported_by",
+            "work_visits__service_item__service",
+        ),
         id=job_id, property__customer__business=business,
     )
 
@@ -3237,6 +3343,104 @@ def update_job_service_item(request, job_id, item_id):
         "scheduled_date": item.scheduled_date.isoformat() if item.scheduled_date else "",
         "scheduled_end_date": item.scheduled_end_date.isoformat() if item.scheduled_end_date else "",
     })
+
+
+@require_POST
+@role_required("owner", "manager")
+def add_job_work_visit(request, job_id):
+    """Add a non-consecutive return visit to the same job or line item."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403) if _wants_json(request) else redirect("/")
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
+    data = _request_data(request)
+    service_item_id = (data.get("service_item") or "").strip()
+    service_item = None
+    if service_item_id:
+        service_item = JobServiceItem.objects.filter(id=service_item_id, job=job).first()
+        if service_item is None:
+            if _wants_json(request):
+                return JsonResponse({"error": "Choose a valid line item for this return visit."}, status=400)
+            messages.error(request, "Choose a valid line item for this return visit.")
+            return redirect("job_detail", job_id=job.id)
+    try:
+        visit_start = _parse_iso_date(data.get("scheduled_date"))
+        visit_end = _parse_iso_date(data.get("scheduled_end_date"))
+    except ValueError:
+        if _wants_json(request):
+            return JsonResponse({"error": "Choose valid return visit dates."}, status=400)
+        messages.error(request, "Choose valid return visit dates.")
+        return redirect("job_detail", job_id=job.id)
+    if not visit_start:
+        if _wants_json(request):
+            return JsonResponse({"error": "Choose a return visit date."}, status=400)
+        messages.error(request, "Choose a return visit date.")
+        return redirect("job_detail", job_id=job.id)
+    if visit_start and visit_end and visit_end < visit_start:
+        if _wants_json(request):
+            return JsonResponse({"error": "Return visit end date cannot be before the start date."}, status=400)
+        messages.error(request, "Return visit end date cannot be before the start date.")
+        return redirect("job_detail", job_id=job.id)
+    visit = JobWorkVisit.objects.create(
+        job=job,
+        service_item=service_item,
+        scheduled_date=visit_start,
+        scheduled_end_date=visit_end if visit_end and visit_end > visit_start else None,
+        notes=(data.get("notes") or "").strip(),
+    )
+    if _wants_json(request):
+        return JsonResponse({"status": "ok", "visit": _serialize_job_work_visit(visit)})
+    messages.success(request, "Return visit added to this job.")
+    return redirect("job_detail", job_id=job.id)
+
+
+@require_POST
+@role_required("owner", "manager")
+def update_job_work_visit(request, job_id, visit_id):
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
+    visit = get_object_or_404(JobWorkVisit.objects.select_related("service_item__service"), id=visit_id, job=job)
+    data = _request_data(request)
+    try:
+        visit_start = _parse_iso_date(data.get("scheduled_date"))
+        visit_end = _parse_iso_date(data.get("scheduled_end_date"))
+    except ValueError:
+        return JsonResponse({"error": "Choose valid return visit dates."}, status=400)
+    if not visit_start:
+        return JsonResponse({"error": "Choose a return visit date."}, status=400)
+    if visit_start and visit_end and visit_end < visit_start:
+        return JsonResponse({"error": "Return visit end date cannot be before the start date."}, status=400)
+    visit.scheduled_date = visit_start
+    visit.scheduled_end_date = visit_end if visit_end and visit_end > visit_start else None
+    if "notes" in data:
+        visit.notes = (data.get("notes") or "").strip()
+    if "service_item" in data:
+        service_item_id = (data.get("service_item") or "").strip()
+        if service_item_id:
+            service_item = JobServiceItem.objects.filter(id=service_item_id, job=job).first()
+            if service_item is None:
+                return JsonResponse({"error": "Choose a valid line item for this return visit."}, status=400)
+            visit.service_item = service_item
+        else:
+            visit.service_item = None
+    visit.save()
+    return JsonResponse({"status": "ok", "visit": _serialize_job_work_visit(visit)})
+
+
+@require_POST
+@role_required("owner", "manager")
+def remove_job_work_visit(request, job_id, visit_id):
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403) if _wants_json(request) else redirect("/")
+    job = get_object_or_404(Job, id=job_id, property__customer__business=business)
+    JobWorkVisit.objects.filter(id=visit_id, job=job).delete()
+    if _wants_json(request):
+        return JsonResponse({"status": "ok", "visit_id": visit_id})
+    messages.success(request, "Return visit removed.")
+    return redirect("job_detail", job_id=job.id)
 
 
 @require_POST

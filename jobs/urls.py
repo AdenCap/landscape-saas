@@ -58,6 +58,9 @@ urlpatterns = [
     path("<int:job_id>/items/add/", views.add_job_service_item, name="add_job_service_item"),
     path("<int:job_id>/items/<int:item_id>/update/", views.update_job_service_item, name="update_job_service_item"),
     path("<int:job_id>/items/<int:item_id>/remove/", views.remove_job_service_item, name="remove_job_service_item"),
+    path("<int:job_id>/visits/add/", views.add_job_work_visit, name="add_job_work_visit"),
+    path("<int:job_id>/visits/<int:visit_id>/update/", views.update_job_work_visit, name="update_job_work_visit"),
+    path("<int:job_id>/visits/<int:visit_id>/remove/", views.remove_job_work_visit, name="remove_job_work_visit"),
     path("<int:job_id>/costs/", views.job_update_costs, name="job_update_costs"),
     path("<int:job_id>/mark-paid/", views.mark_job_paid, name="mark_job_paid"),
     
