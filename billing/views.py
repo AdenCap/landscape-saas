@@ -75,7 +75,7 @@ from .forms import (
     _compute_fertilizing,
     _compute_mulch,
 )
-from .services import auto_charge_invoice_card, combine_customer_invoices, invoice_card_payment_default
+from .services import auto_charge_invoice_card, combine_customer_invoices, invoice_card_payment_default, mark_invoice_paid_from_stripe
 from .monthly import build_missing_monthly_invoices_for_period
 
 @role_required("owner", "manager")
@@ -1126,6 +1126,32 @@ def invoice_pay_page(request, invoice_id, token):
 
     invoice.recompute_totals()
     business = invoice.business
+    checkout_session_id = (request.GET.get("session_id") or "").strip()
+    if checkout_session_id and invoice.status != "paid" and getattr(business, "stripe_connect_account_id", ""):
+        try:
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            session = stripe.checkout.Session.retrieve(
+                checkout_session_id,
+                stripe_account=business.stripe_connect_account_id,
+            )
+            metadata = session.get("metadata") or {}
+            if (
+                str(metadata.get("invoice_id") or "") == str(invoice.id)
+                and session.get("mode") == "payment"
+                and session.get("payment_status") == "paid"
+            ):
+                amount = None
+                if session.get("amount_total") is not None:
+                    amount = (Decimal(str(session.get("amount_total"))) / Decimal("100")).quantize(Decimal("0.01"))
+                invoice = mark_invoice_paid_from_stripe(
+                    invoice,
+                    checkout_session_id=session.get("id", ""),
+                    payment_intent_id=session.get("payment_intent") or "",
+                    amount=amount,
+                    source="stripe_success_return",
+                )
+        except Exception:
+            pass
     can_accept_stripe = getattr(business, "can_accept_stripe_payments", lambda: False)()
     payment_context = _public_payment_method_context(business, invoice.total)
     line_items = invoice.line_items.all()
@@ -1741,7 +1767,7 @@ def create_invoice_checkout_session(request, invoice_id, token):
         messages.error(request, "Minimum payment is $0.50.")
         return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
     success_url = request.build_absolute_uri(
-        reverse("billing:invoice_pay_page", args=[invoice.id, token]) + "?paid=1"
+        reverse("billing:invoice_pay_page", args=[invoice.id, token]) + "?paid=1&session_id={CHECKOUT_SESSION_ID}"
     )
     cancel_url = request.build_absolute_uri(
         reverse("billing:invoice_pay_page", args=[invoice.id, token])

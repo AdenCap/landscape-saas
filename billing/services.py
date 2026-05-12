@@ -32,6 +32,97 @@ def invoice_card_payment_default(business):
     return bool(getattr(business, "default_invoice_card_payments_enabled", True))
 
 
+def _notify_invoice_card_payment(invoice, amount=None):
+    """Notify owners/managers that a client card payment completed."""
+    try:
+        from accounts.models import Notification, User
+
+        owners = list(User.objects.filter(
+            business=invoice.business,
+            role__in=["owner", "manager"],
+            is_active=True,
+        ))
+        if not owners:
+            return
+        system_user = owners[0]
+        amount_value = amount if amount is not None else invoice.total
+        message = (
+            f"Card payment received from {invoice.customer.name} for Invoice #{invoice.id} "
+            f"(${Decimal(str(amount_value or 0)).quantize(Decimal('0.01'))}). "
+            f"View at /billing/{invoice.id}/"
+        )
+        for owner in owners:
+            Notification.objects.create(
+                business=invoice.business,
+                from_user=system_user,
+                to_user=owner,
+                message=message,
+            )
+    except Exception:
+        pass
+
+
+@transaction.atomic
+def mark_invoice_paid_from_stripe(
+    invoice,
+    *,
+    checkout_session_id="",
+    payment_intent_id="",
+    charge_id="",
+    amount=None,
+    source="stripe_checkout",
+):
+    """
+    Mark an invoice and all of its line items paid after Stripe confirms money moved.
+
+    This is intentionally shared by webhook handling and the client return page so a
+    paid Stripe Checkout session cannot leave the invoice in a sent/unpaid state.
+    """
+    invoice = Invoice.objects.select_for_update().select_related("business", "customer").get(pk=invoice.pk)
+    was_paid = invoice.status == "paid"
+    paid_at = invoice.paid_at or timezone.now()
+
+    invoice.status = "paid"
+    invoice.payment_method = "card"
+    invoice.paid_at = paid_at
+    if checkout_session_id:
+        invoice.stripe_checkout_session_id = checkout_session_id
+    if payment_intent_id:
+        invoice.stripe_payment_intent_id = payment_intent_id
+    if charge_id:
+        invoice.stripe_charge_id = charge_id
+    invoice.save(update_fields=[
+        "status",
+        "payment_method",
+        "paid_at",
+        "stripe_checkout_session_id",
+        "stripe_payment_intent_id",
+        "stripe_charge_id",
+    ])
+    invoice.line_items.filter(is_paid=False).update(
+        is_paid=True,
+        paid_at=paid_at,
+        paid_by=None,
+        payment_method="card",
+    )
+
+    if not was_paid:
+        InvoiceAuditLog.objects.create(
+            invoice=invoice,
+            action="paid",
+            details={
+                "method": "stripe_card",
+                "source": source,
+                "amount": str(amount if amount is not None else invoice.total),
+                "payment_intent_id": payment_intent_id or "",
+                "checkout_session_id": checkout_session_id or "",
+                "charge_id": charge_id or "",
+            },
+        )
+        _notify_invoice_card_payment(invoice, amount=amount)
+    return invoice
+
+
 @transaction.atomic
 def combine_customer_invoices(*, business, target_invoice_id, invoice_ids, user=None):
     """Move open same-customer invoices into one invoice and void the emptied sources."""

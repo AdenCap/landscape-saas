@@ -6,7 +6,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.urls import reverse
 
-from accounts.models import User
+from accounts.models import Notification, User
 from businesses.models import Business
 from customers.models import Customer, ClientMessage, Property
 from jobs.models import Job, JobServiceItem
@@ -211,6 +211,79 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.assertEqual(self.invoice.total, Decimal("690.00"))
         self.assertTrue(self.invoice.line_items.filter(description="Mulch install").exists())
         self.assertTrue(self.invoice.line_items.filter(description="Edging").exists())
+
+    @patch("stripe.PaymentIntent.retrieve")
+    def test_stripe_checkout_webhook_marks_invoice_paid_and_notifies_owner(self, mock_retrieve):
+        from subscription.handlers import handle_stripe_webhook
+
+        mock_retrieve.return_value = {"latest_charge": "ch_paid_invoice"}
+        self.business.stripe_connect_account_id = "acct_test"
+        self.business.save(update_fields=["stripe_connect_account_id"])
+        self.invoice.recompute_totals()
+
+        handle_stripe_webhook({
+            "type": "checkout.session.completed",
+            "account": "acct_test",
+            "data": {
+                "object": {
+                    "id": "cs_paid_invoice",
+                    "mode": "payment",
+                    "payment_status": "paid",
+                    "amount_total": 32500,
+                    "payment_intent": "pi_paid_invoice",
+                    "metadata": {
+                        "invoice_id": str(self.invoice.id),
+                        "business_id": str(self.business.id),
+                    },
+                }
+            },
+        })
+
+        self.invoice.refresh_from_db()
+        self.mowing.refresh_from_db()
+        self.landscaping.refresh_from_db()
+        self.assertEqual(self.invoice.status, "paid")
+        self.assertEqual(self.invoice.payment_method, "card")
+        self.assertIsNotNone(self.invoice.paid_at)
+        self.assertEqual(self.invoice.stripe_checkout_session_id, "cs_paid_invoice")
+        self.assertEqual(self.invoice.stripe_payment_intent_id, "pi_paid_invoice")
+        self.assertEqual(self.invoice.stripe_charge_id, "ch_paid_invoice")
+        self.assertTrue(self.mowing.is_paid)
+        self.assertTrue(self.landscaping.is_paid)
+        self.assertEqual(self.mowing.payment_method, "card")
+        self.assertTrue(Notification.objects.filter(
+            to_user=self.owner,
+            message__icontains=f"Invoice #{self.invoice.id}",
+        ).exists())
+
+    @patch("billing.views.stripe.checkout.Session.retrieve")
+    def test_invoice_success_return_reconciles_paid_checkout_session(self, mock_retrieve):
+        self.business.stripe_connect_account_id = "acct_test"
+        self.business.stripe_connect_charges_enabled = True
+        self.business.save(update_fields=["stripe_connect_account_id", "stripe_connect_charges_enabled"])
+        self.invoice.payment_token = "return-token"
+        self.invoice.save(update_fields=["payment_token"])
+        self.invoice.recompute_totals()
+        mock_retrieve.return_value = {
+            "id": "cs_return_paid",
+            "mode": "payment",
+            "payment_status": "paid",
+            "amount_total": 32500,
+            "payment_intent": "pi_return_paid",
+            "metadata": {"invoice_id": str(self.invoice.id)},
+        }
+
+        response = self.client.get(
+            reverse("billing:invoice_pay_page", args=[self.invoice.id, "return-token"])
+            + "?paid=1&session_id=cs_return_paid"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.status, "paid")
+        self.assertEqual(self.invoice.payment_method, "card")
+        self.assertEqual(self.invoice.stripe_checkout_session_id, "cs_return_paid")
+        self.assertTrue(self.invoice.line_items.filter(is_paid=False).count() == 0)
 
     def test_invoice_card_payment_toggle_accepts_form_posts(self):
         edit_url = reverse("billing:invoice_edit_line_items", args=[self.invoice.id])

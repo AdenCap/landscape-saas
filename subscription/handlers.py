@@ -113,6 +113,9 @@ def _checkout_session_completed(event):
     invoice_id = metadata.get("invoice_id")
     if not invoice_id:
         return
+    payment_status = session.get("payment_status")
+    if payment_status and payment_status != "paid":
+        return
     
     from billing.models import Invoice
     try:
@@ -120,14 +123,10 @@ def _checkout_session_completed(event):
     except (Invoice.DoesNotExist, ValueError, TypeError):
         return
     
-    if invoice.status != "sent":
-        return  # Only update if invoice is in "sent" status
-    
     # Extract payment intent ID from session
     payment_intent_id = session.get("payment_intent")
+    charge_id = ""
     if payment_intent_id:
-        invoice.stripe_payment_intent_id = payment_intent_id
-        
         # Try to get charge ID from payment intent (if available)
         # Note: For Connect accounts, we may need to fetch this separately
         # For now, we'll store what we have from the session
@@ -148,39 +147,36 @@ def _checkout_session_completed(event):
                 # Platform payment intent
                 pi = stripe.PaymentIntent.retrieve(payment_intent_id)
             
-            # Get the charge ID from the payment intent
-            charges = pi.get("charges", {}).get("data", [])
-            if charges and len(charges) > 0:
-                invoice.stripe_charge_id = charges[0].get("id", "")
+            latest_charge = pi.get("latest_charge")
+            if latest_charge:
+                charge_id = latest_charge if isinstance(latest_charge, str) else latest_charge.get("id", "")
+            if not charge_id:
+                charges = pi.get("charges", {}).get("data", [])
+                if charges and len(charges) > 0:
+                    charge_id = charges[0].get("id", "")
         except Exception:
             # If we can't fetch payment intent details, continue anyway
             # The payment intent ID is already stored
             pass
-    
-    # Update invoice status and store Stripe IDs
-    invoice.status = "paid"
-    invoice.stripe_checkout_session_id = session.get("id", "")
-    invoice.save(update_fields=[
-        "status",
-        "stripe_checkout_session_id",
-        "stripe_payment_intent_id",
-        "stripe_charge_id",
-    ])
 
-    # Create audit log entry for the payment
-    try:
-        from billing.models import InvoiceAuditLog
-        InvoiceAuditLog.objects.create(
-            invoice=invoice,
-            action="paid",
-            details={
-                "method": "stripe_card",
-                "payment_intent_id": payment_intent_id or "",
-                "checkout_session_id": session.get("id", ""),
-            },
-        )
-    except Exception:
-        pass  # Don't fail the payment flow over audit logging
+    amount_total = session.get("amount_total")
+    amount = None
+    if amount_total is not None:
+        try:
+            from decimal import Decimal
+            amount = (Decimal(str(amount_total)) / Decimal("100")).quantize(Decimal("0.01"))
+        except Exception:
+            amount = None
+
+    from billing.services import mark_invoice_paid_from_stripe
+    mark_invoice_paid_from_stripe(
+        invoice,
+        checkout_session_id=session.get("id", ""),
+        payment_intent_id=payment_intent_id or "",
+        charge_id=charge_id,
+        amount=amount,
+        source="stripe_webhook",
+    )
 
 
 def _estimate_deposit_checkout_completed(event, session, estimate_id):
