@@ -275,7 +275,7 @@ class MobileCommandTests(TestCase):
             default_rate=Decimal("0.00"),
         )
         self.today = date(2026, 5, 6)
-        assigned_job = Job.objects.create(
+        self.assigned_job = Job.objects.create(
             property=self.property,
             scheduled_date=self.today,
             scheduled_time=time(8, 0),
@@ -283,20 +283,20 @@ class MobileCommandTests(TestCase):
             assigned_crew=self.route_crew,
         )
         JobServiceItem.objects.create(
-            job=assigned_job,
+            job=self.assigned_job,
             service=self.service,
             description="Mowing",
             quantity=Decimal("1"),
             unit_price=Decimal("80.00"),
         )
-        open_job = Job.objects.create(
+        self.open_job = Job.objects.create(
             property=self.property,
             scheduled_date=self.today,
             scheduled_time=time(10, 0),
             status="scheduled",
         )
         JobServiceItem.objects.create(
-            job=open_job,
+            job=self.open_job,
             service=self.service,
             description="Cleanup",
             quantity=Decimal("2"),
@@ -368,6 +368,43 @@ class MobileCommandTests(TestCase):
         self.assertEqual(payload["summary"]["open_estimates"], 1)
         self.assertEqual(payload["attention"][0]["kind"], "schedule")
         self.assertEqual(payload["next_jobs"][0]["customer"]["name"], "Maple Ridge")
+
+    def test_command_defaults_to_business_today(self):
+        with patch("mobile_api.views.business_today", return_value=self.today):
+            response = self.client.get(
+                reverse("mobile_api:command"),
+                **self.auth_headers(),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["date"], "2026-05-06")
+        self.assertEqual(payload["summary"]["today_jobs"], 3)
+        self.assertEqual(payload["summary"]["active_routes"], 1)
+
+    def test_calendar_defaults_to_business_today_and_returns_desktop_colors(self):
+        Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            job=self.assigned_job,
+            status="sent",
+            total=Decimal("80.00"),
+        )
+
+        with patch("mobile_api.views.business_today", return_value=self.today):
+            response = self.client.get(
+                reverse("mobile_api:calendar"),
+                {"view": "day"},
+                **self.auth_headers(),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["date"], "2026-05-06")
+        job = next(item for item in payload["jobs"] if item["id"] == self.assigned_job.id)
+        self.assertEqual(job["status_color"], "#3b82f6")
+        self.assertEqual(job["payment_status"], "invoiced")
+        self.assertEqual(job["payment_color"], "#3b82f6")
 
     def test_command_requires_owner_or_manager(self):
         crew_login = self.client.post(

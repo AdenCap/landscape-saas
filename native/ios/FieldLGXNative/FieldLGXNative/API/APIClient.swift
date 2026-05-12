@@ -48,9 +48,12 @@ struct APIClient {
         try await get(path: "/api/mobile/v1/bootstrap/")
     }
 
-    func command(date: Date = Date()) async throws -> CommandResponse {
-        let dateString = Self.dayFormatter.string(from: date)
-        return try await get(path: "/api/mobile/v1/command/?date=\(dateString)")
+    func command(date: Date? = nil) async throws -> CommandResponse {
+        if let date {
+            let dateString = Self.dayFormatter.string(from: date)
+            return try await get(path: "/api/mobile/v1/command/?date=\(dateString)")
+        }
+        return try await get(path: "/api/mobile/v1/command/")
     }
 
     func work(date: Date = Date(), service: String = "all") async throws -> WorkResponse {
@@ -59,9 +62,12 @@ struct APIClient {
         return try await get(path: "/api/mobile/v1/work/?date=\(dateString)&service=\(serviceValue)")
     }
 
-    func calendar(date: Date = Date(), view: String = "week") async throws -> CalendarResponse {
-        let dateString = Self.dayFormatter.string(from: date)
-        return try await get(path: "/api/mobile/v1/calendar/?date=\(dateString)&view=\(view)")
+    func calendar(date: Date? = nil, view: String = "week") async throws -> CalendarResponse {
+        if let date {
+            let dateString = Self.dayFormatter.string(from: date)
+            return try await get(path: "/api/mobile/v1/calendar/?date=\(dateString)&view=\(view)")
+        }
+        return try await get(path: "/api/mobile/v1/calendar/?view=\(view)")
     }
 
     func money() async throws -> MoneyResponse {

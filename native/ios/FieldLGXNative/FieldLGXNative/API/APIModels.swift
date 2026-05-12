@@ -1218,6 +1218,8 @@ struct TodayJob: Codable, Equatable, Identifiable {
     var assigneeColor: String? = nil
     var crewColor: String? = nil
     var jobColorOverride: String? = nil
+    var paymentStatus: String? = nil
+    var paymentColor: String? = nil
     let scheduledDate: String?
     let scheduledEndDate: String?
     let scheduledTime: String?
@@ -1239,6 +1241,8 @@ struct TodayJob: Codable, Equatable, Identifiable {
         case assigneeColor = "assignee_color"
         case crewColor = "crew_color"
         case jobColorOverride = "job_color_override"
+        case paymentStatus = "payment_status"
+        case paymentColor = "payment_color"
         case scheduledDate = "scheduled_date"
         case scheduledEndDate = "scheduled_end_date"
         case scheduledTime = "scheduled_time"

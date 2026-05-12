@@ -14,8 +14,15 @@ struct CalendarScreen: View {
     @State private var errorMessage: String?
     @State private var quickEditJob: TodayJob?
     @State private var scheduleMessage: String?
+    @State private var didLoadServerDate = false
+    @AppStorage("fieldlgx_calendar_color_mode") private var colorMode = "status"
 
     private let views = ["day", "week", "month"]
+    private let colorModes = [
+        ("status", "Status"),
+        ("assignee", "Crew"),
+        ("payment", "Payment")
+    ]
 
     var body: some View {
         ZStack {
@@ -25,6 +32,7 @@ struct CalendarScreen: View {
                 VStack(alignment: .leading, spacing: 18) {
                     calendarToolbar
                     viewPicker
+                    colorModePicker
 
                     if isLoading && calendar == nil {
                         ProgressView()
@@ -129,6 +137,29 @@ struct CalendarScreen: View {
         }
         .padding(5)
         .background(Color.black.opacity(0.22))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(FieldLGXTheme.panelStroke, lineWidth: 1))
+    }
+
+    private var colorModePicker: some View {
+        HStack(spacing: 8) {
+            ForEach(colorModes, id: \.0) { mode in
+                Button {
+                    colorMode = mode.0
+                } label: {
+                    Text(mode.1)
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundStyle(colorMode == mode.0 ? .black : FieldLGXTheme.secondaryText)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                        .background(colorMode == mode.0 ? FieldLGXTheme.lime : FieldLGXTheme.elevatedBackground)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(5)
+        .background(Color.black.opacity(0.18))
         .clipShape(Capsule())
         .overlay(Capsule().stroke(FieldLGXTheme.panelStroke, lineWidth: 1))
     }
@@ -515,8 +546,8 @@ struct CalendarScreen: View {
     private func dayTimelineJobCard(_ job: TodayJob) -> some View {
         let accent = serviceAccent(for: job)
 
-        return Button {
-            quickEditJob = job
+        return NavigationLink {
+            JobDetailScreen(jobID: job.id, accessToken: accessToken, previewJob: job)
         } label: {
             HStack(spacing: 10) {
                 VStack(spacing: 2) {
@@ -609,8 +640,8 @@ struct CalendarScreen: View {
                         ForEach(section.jobs) { job in
                             let accent = serviceAccent(for: job)
 
-                            Button {
-                                quickEditJob = job
+                            NavigationLink {
+                                JobDetailScreen(jobID: job.id, accessToken: accessToken, previewJob: job)
                             } label: {
                                 HStack(spacing: 12) {
                                     VStack(spacing: 2) {
@@ -772,8 +803,8 @@ struct CalendarScreen: View {
     private func weekLaneJobCard(_ job: TodayJob) -> some View {
         let accent = serviceAccent(for: job)
 
-        return Button {
-            quickEditJob = job
+        return NavigationLink {
+            JobDetailScreen(jobID: job.id, accessToken: accessToken, previewJob: job)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
@@ -961,8 +992,8 @@ struct CalendarScreen: View {
     private func calendarJobBlock(_ job: TodayJob, index: Int) -> some View {
         let accent = serviceAccent(for: job)
 
-        return Button {
-            quickEditJob = job
+        return NavigationLink {
+            JobDetailScreen(jobID: job.id, accessToken: accessToken, previewJob: job)
         } label: {
             VStack(alignment: .leading, spacing: 3) {
                 Text(job.customer.name)
@@ -1233,32 +1264,28 @@ struct CalendarScreen: View {
     }
 
     private func serviceAccent(for job: TodayJob) -> Color {
-        if let override = job.jobColorOverride, let color = Color(hex: override) {
-            return color
+        if colorMode == "payment" {
+            if let paymentColor = job.paymentColor, let color = Color(hex: paymentColor) {
+                return color
+            }
+            return Color(hex: "#6b7280") ?? FieldLGXTheme.tertiaryText
+        }
+        if colorMode == "assignee" {
+            if let override = job.jobColorOverride, let color = Color(hex: override) {
+                return color
+            }
+            if let assigneeColor = job.assigneeColor, let color = Color(hex: assigneeColor) {
+                return color
+            }
+            if let crewColor = job.crewColor, let color = Color(hex: crewColor) {
+                return color
+            }
+            return Color(hex: "#94a3b8") ?? FieldLGXTheme.tertiaryText
         }
         if let statusColor = job.statusColor, let color = Color(hex: statusColor) {
             return color
         }
-        if let colorValue = job.color, let color = Color(hex: colorValue) {
-            return color
-        }
-        let key = serviceKey(for: job)
-        if key.contains("fert") || key.contains("spray") || key.contains("weed") {
-            return Color(red: 0.64, green: 0.94, blue: 0.29)
-        }
-        if key.contains("land") || key.contains("mulch") || key.contains("install") || key.contains("project") {
-            return Color(red: 0.98, green: 0.66, blue: 0.28)
-        }
-        if key.contains("snow") || key.contains("ice") {
-            return Color(red: 0.55, green: 0.82, blue: 1.00)
-        }
-        if key.contains("hardscape") || key.contains("patio") || key.contains("stone") {
-            return Color(red: 0.72, green: 0.66, blue: 1.00)
-        }
-        if key.contains("mow") || key.contains("lawn") {
-            return Color(red: 0.25, green: 0.52, blue: 0.96)
-        }
-        return FieldLGXTheme.lime
+        return Color(hex: "#3b82f6") ?? FieldLGXTheme.lime
     }
 
     private func serviceGradient(for job: TodayJob) -> LinearGradient {
@@ -1446,8 +1473,16 @@ struct CalendarScreen: View {
         defer { isLoading = false }
 
         do {
-            calendar = try await APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken)
-                .calendar(date: focusedDate, view: selectedView)
+            let shouldUseServerDate = !didLoadServerDate && calendar == nil
+            let response = try await APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken)
+                .calendar(date: shouldUseServerDate ? nil : focusedDate, view: selectedView)
+            if shouldUseServerDate {
+                didLoadServerDate = true
+                if let serverDate = Self.dayFormatter.date(from: response.date) {
+                    focusedDate = serverDate
+                }
+            }
+            calendar = response
         } catch {
             #if DEBUG
             print("FIELDLGX calendar load failed: \(error)")

@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_http_methods
 
+from accounts.timezone_utils import business_today
 from billing.models import Estimate, EstimateImage, EstimateLineItem, Invoice, InvoiceLineItem
 from billing.services import invoice_card_payment_default
 from billing.views import _approve_and_deliver_invoice, _log_invoice_audit, _sync_invoice_payment_from_line_items
@@ -32,6 +33,12 @@ STATUS_CALENDAR_COLORS = {
     "completed": "#22c55e",
     "skipped": "#6b7280",
     "cancelled": "#6b7280",
+}
+PAYMENT_CALENDAR_COLORS = {
+    "paid": "#10b981",
+    "invoiced": "#3b82f6",
+    "draft": "#f59e0b",
+    "not_invoiced": "#6b7280",
 }
 
 
@@ -299,7 +306,7 @@ def command(request):
     if session.user.role not in {"owner", "manager"}:
         return JsonResponse({"error": "Command is only available to owners and managers."}, status=403)
 
-    target_date = _parse_date(request.GET.get("date"))
+    target_date = _parse_date(request.GET.get("date")) if request.GET.get("date") else business_today(session.business)
     if not target_date:
         return JsonResponse({"error": "Invalid date."}, status=400)
 
@@ -453,7 +460,7 @@ def work(request):
     if session.user.role not in {"owner", "manager"}:
         return JsonResponse({"error": "Work is only available to owners and managers."}, status=403)
 
-    target_date = _parse_date(request.GET.get("date"))
+    target_date = _parse_date(request.GET.get("date")) if request.GET.get("date") else business_today(session.business)
     if not target_date:
         return JsonResponse({"error": "Invalid date."}, status=400)
 
@@ -654,7 +661,7 @@ def calendar(request):
     if session.user.role not in {"owner", "manager"}:
         return JsonResponse({"error": "Calendar is only available to owners and managers."}, status=403)
 
-    target_date = _parse_date(request.GET.get("date"))
+    target_date = _parse_date(request.GET.get("date")) if request.GET.get("date") else business_today(session.business)
     if not target_date:
         return JsonResponse({"error": "Invalid date."}, status=400)
     view = (request.GET.get("view") or "week").strip().lower()
@@ -667,6 +674,33 @@ def calendar(request):
         Q(scheduled_date__lte=end, scheduled_end_date__gte=start)
     ).exclude(status="skipped").order_by("scheduled_date", "scheduled_time", "route_order", "id")
     job_list = list(jobs[:200])
+    job_ids = [job.id for job in job_list]
+    job_payment = {}
+    if job_ids:
+        for job_id, status in Invoice.objects.filter(job_id__in=job_ids).values_list("job_id", "status"):
+            if status == "paid":
+                job_payment[job_id] = "paid"
+            elif status == "sent":
+                job_payment[job_id] = "invoiced"
+            elif status == "draft":
+                job_payment.setdefault(job_id, "draft")
+        for job_id, status in Invoice.objects.filter(jobs__id__in=job_ids).values_list("jobs__id", "status"):
+            if status == "paid":
+                job_payment[job_id] = "paid"
+            elif status == "sent":
+                job_payment.setdefault(job_id, "invoiced")
+            elif status == "draft":
+                job_payment.setdefault(job_id, "draft")
+        for job_id, status in JobServiceItem.objects.filter(
+            job_id__in=job_ids,
+            billed_invoice__isnull=False,
+        ).select_related("billed_invoice").values_list("job_id", "billed_invoice__status"):
+            if status == "paid":
+                job_payment[job_id] = "paid"
+            elif status == "sent":
+                job_payment.setdefault(job_id, "invoiced")
+            elif status == "draft":
+                job_payment.setdefault(job_id, "draft")
     return JsonResponse({
         "view": view,
         "date": target_date.isoformat(),
@@ -679,7 +713,14 @@ def calendar(request):
             "unassigned": sum(1 for job in job_list if not job.assigned_to_id and not job.assigned_crew_id),
             "completed": sum(1 for job in job_list if job.status == "completed"),
         },
-        "jobs": [_job_payload(job, job.scheduled_date or start) for job in job_list],
+        "jobs": [
+            _job_payload(
+                job,
+                job.scheduled_date or start,
+                payment_status=job_payment.get(job.id, "not_invoiced"),
+            )
+            for job in job_list
+        ],
         "server_time": timezone.now().isoformat(),
     })
 
@@ -2051,7 +2092,7 @@ def _service_item_payload(item):
     }
 
 
-def _job_payload(job, target_date):
+def _job_payload(job, target_date, payment_status=None):
     items = list(job.service_items.all())
     if job.scheduled_end_date and job.scheduled_date and job.scheduled_end_date > job.scheduled_date:
         items = [item for item in items if item.scheduled_date is None or item.scheduled_date == target_date]
@@ -2063,6 +2104,7 @@ def _job_payload(job, target_date):
     )
     status_color = STATUS_CALENDAR_COLORS.get(job.status, STATUS_CALENDAR_COLORS["scheduled"])
     job_color_override = (job.color or "").strip() or None
+    payment_status = payment_status or "not_invoiced"
     return {
         "id": job.id,
         "status": job.status,
@@ -2071,6 +2113,8 @@ def _job_payload(job, target_date):
         "assignee_color": crew_color,
         "crew_color": crew_color,
         "job_color_override": job_color_override,
+        "payment_status": payment_status,
+        "payment_color": PAYMENT_CALENDAR_COLORS.get(payment_status, PAYMENT_CALENDAR_COLORS["not_invoiced"]),
         "scheduled_date": job.scheduled_date.isoformat() if job.scheduled_date else None,
         "scheduled_end_date": job.scheduled_end_date.isoformat() if job.scheduled_end_date else None,
         "scheduled_time": job.scheduled_time.strftime("%H:%M") if job.scheduled_time else None,
