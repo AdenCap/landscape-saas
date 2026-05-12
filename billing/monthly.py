@@ -4,7 +4,7 @@ from django.utils import timezone
 from accounts.timezone_utils import business_today as _biz_today
 
 from .models import Invoice, InvoiceLineItem, InvoiceAuditLog
-from .services import get_invoice_due_date
+from .services import get_invoice_due_date, invoice_card_payment_default
 from jobs.service_labels import clean_service_label
 
 
@@ -43,6 +43,7 @@ def generate_monthly_invoice_for_customer(customer, year, month, include_job=Non
             issue_date=issue_date,
             due_date=due_date,
             status="draft",
+            enable_card_payment=invoice_card_payment_default(customer.business),
         )
         InvoiceAuditLog.objects.create(
             invoice=invoice,

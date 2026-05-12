@@ -12,8 +12,8 @@
     <header class="batch-hero">
       <div>
         <p class="batch-eyebrow"><span></span> Batch invoicing</p>
-        <h1>Monthly invoice queue</h1>
-        <p>Review monthly drafts, edit the details, send selected invoices, and collect from one focused workspace.</p>
+        <h1>Recurring invoice queue</h1>
+        <p>Review monthly and recurring drafts, see what is still building, send individual invoices, or approve a batch when the period closes.</p>
       </div>
       <div class="batch-hero-actions">
         <a href="{% url 'billing:invoice_create' %}" class="batch-primary-action">
@@ -41,7 +41,7 @@
       <article class="batch-stat">
         <span>Paid</span>
         <strong>{{ paid_count }}</strong>
-        <small>Monthly invoices collected</small>
+        <small>Recurring invoices collected</small>
       </article>
       <article class="batch-stat">
         <span>Total queue</span>
@@ -60,7 +60,7 @@
           {% endfor %}
         </select>
       </form>
-      <form method="post" action="{% url 'billing:monthly_invoice_batch_send' %}" class="batch-send-all-form" onsubmit="return confirm('Approve and send every draft monthly invoice in this queue?');">
+      <form method="post" action="{% url 'billing:monthly_invoice_batch_send' %}" class="batch-send-all-form" onsubmit="return confirm('Approve and send every draft recurring invoice in this queue?');">
         {% csrf_token %}
         <input type="hidden" name="year" value="{{ year_param }}">
         <input type="hidden" name="send_all_ready" value="1">
@@ -69,7 +69,7 @@
           Send all drafts
         </button>
       </form>
-      <form method="post" action="{% url 'billing:monthly_invoice_build_missing' %}" class="batch-build-form" onsubmit="return confirm('Build draft monthly invoices for completed, unbilled work in the selected month?');">
+      <form method="post" action="{% url 'billing:monthly_invoice_build_missing' %}" class="batch-build-form" onsubmit="return confirm('Build draft recurring invoices for completed, unbilled work in the selected month?');">
         {% csrf_token %}
         <select name="month" aria-label="Month to build">
           {% for value,label in months %}
@@ -171,8 +171,8 @@
         {% empty %}
         <div class="batch-empty">
           <span class="material-symbols-outlined">receipt_long</span>
-          <h3>No monthly invoices yet.</h3>
-          <p>Completed jobs for clients on monthly billing will appear here as drafts for approval.</p>
+          <h3>No recurring invoices yet.</h3>
+          <p>Completed jobs for clients on recurring billing will appear here as drafts for approval.</p>
         </div>
         {% endfor %}
       </div>

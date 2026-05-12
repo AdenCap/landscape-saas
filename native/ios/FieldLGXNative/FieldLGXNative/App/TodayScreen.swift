@@ -6,6 +6,7 @@ struct TodayScreen: View {
     let accessToken: String?
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openURL) private var openURL
 
     @State private var today: TodayResponse?
     @State private var timeClock: TimeClockResponse?
@@ -13,11 +14,14 @@ struct TodayScreen: View {
     @State private var isClocking = false
     @State private var errorMessage: String?
     @State private var timeClockMessage: String?
+    @State private var syncMessage: String?
+    @State private var pendingOfflineCount = 0
+    @State private var isSyncing = false
     @State private var locationProvider = FieldLocationProvider()
 
     var body: some View {
         ZStack {
-            FieldLGXTheme.background.ignoresSafeArea()
+            FieldLGXScreenBackground()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -28,8 +32,11 @@ struct TodayScreen: View {
                             .tint(FieldLGXTheme.lime)
                             .frame(maxWidth: .infinity, minHeight: 180)
                     } else if let today {
+                        syncCard
+                        nextStopPanel(today)
+                        fieldPacketCard
                         timeClockCard
-                        summary(today.summary)
+                        routeStatusStrip(today.summary)
 
                         if today.jobs.isEmpty {
                             emptyState
@@ -51,7 +58,9 @@ struct TodayScreen: View {
                         errorState(errorMessage)
                     }
                 }
-                .padding(24)
+                .padding(.horizontal, 16)
+                .padding(.top, 20)
+                .padding(.bottom, 96)
             }
             .refreshable {
                 await loadToday()
@@ -59,9 +68,11 @@ struct TodayScreen: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .task {
             await loadToday()
             await loadTimeClock()
+            refreshPendingCount()
         }
         .task(id: timeClock?.isClockedIn ?? false) {
             guard timeClock?.isClockedIn == true else { return }
@@ -70,16 +81,11 @@ struct TodayScreen: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("FIELD ROUTE")
-                .font(.system(size: 12, weight: .black))
-                .tracking(2.5)
-                .foregroundStyle(FieldLGXTheme.lime)
-
-            Text("Today")
-                .font(.system(size: 44, weight: .black, design: .rounded))
-                .foregroundStyle(FieldLGXTheme.text)
-        }
+        FieldLGXMobileHeader(
+            eyebrow: "Field route",
+            title: "Today",
+            subtitle: "Clock in, follow the route, and update each job from the field."
+        )
     }
 
     private func summary(_ summary: TodaySummary) -> some View {
@@ -88,6 +94,134 @@ struct TodayScreen: View {
             metric("Open", summary.remaining)
             metric("Done", summary.completed)
         }
+    }
+
+    @ViewBuilder
+    private func nextStopPanel(_ today: TodayResponse) -> some View {
+        if let job = today.jobs.first(where: { $0.status != "completed" && $0.status != "cancelled" }) ?? today.jobs.first {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("NEXT STOP")
+                            .font(.system(size: 11, weight: .black))
+                            .tracking(2.0)
+                            .foregroundStyle(FieldLGXTheme.tertiaryText)
+                        Text(job.customer.name)
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                            .foregroundStyle(FieldLGXTheme.text)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.76)
+                        Text(job.property.address)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(FieldLGXTheme.secondaryText)
+                            .lineLimit(2)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Text(job.scheduledTime ?? "Any")
+                        .font(.system(size: 15, weight: .black, design: .rounded))
+                        .foregroundStyle(.black)
+                        .frame(width: 62, height: 52)
+                        .background(FieldLGXTheme.lime)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                }
+
+                HStack(spacing: 10) {
+                    NavigationLink {
+                        JobDetailScreen(jobID: job.id, accessToken: accessToken, previewJob: job)
+                    } label: {
+                        Label("Open job", systemImage: "arrow.right.circle.fill")
+                            .font(.system(size: 15, weight: .black))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                    }
+                    .foregroundStyle(.black)
+                    .background(FieldLGXTheme.lime)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                    Button {
+                        openURL(directionsURL(for: job))
+                    } label: {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 17, weight: .black))
+                            .frame(width: 52, height: 48)
+                    }
+                    .foregroundStyle(FieldLGXTheme.text)
+                    .background(FieldLGXTheme.elevatedBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+                    )
+                    .accessibilityLabel("Open directions")
+                }
+            }
+            .fieldPanel()
+        }
+    }
+
+    private func routeStatusStrip(_ summary: TodaySummary) -> some View {
+        HStack(spacing: 8) {
+            routeStatusPill("Stops", summary.total)
+            routeStatusPill("Open", summary.remaining)
+            routeStatusPill("Done", summary.completed)
+        }
+    }
+
+    private func routeStatusPill(_ label: String, _ value: Int) -> some View {
+        HStack(spacing: 6) {
+            Text(label)
+                .font(.system(size: 11, weight: .black))
+            Text("\(value)")
+                .font(.system(size: 13, weight: .black))
+                .foregroundStyle(value == 0 ? FieldLGXTheme.secondaryText : FieldLGXTheme.lime)
+        }
+        .foregroundStyle(FieldLGXTheme.text)
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity)
+        .frame(height: 36)
+        .background(FieldLGXTheme.elevatedBackground)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(FieldLGXTheme.panelStroke, lineWidth: 1))
+    }
+
+    private var fieldPacketCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: pendingOfflineCount > 0 ? "arrow.triangle.2.circlepath" : "checkmark.seal.fill")
+                .font(.system(size: 18, weight: .black))
+                .foregroundStyle(FieldLGXTheme.lime)
+                .frame(width: 42, height: 42)
+                .background(FieldLGXTheme.elevatedBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(pendingOfflineCount > 0 ? "Offline actions waiting" : "Field packet ready")
+                    .font(.system(size: 15, weight: .black))
+                    .foregroundStyle(FieldLGXTheme.text)
+                Text(pendingOfflineCount > 0 ? "\(pendingOfflineCount) update\(pendingOfflineCount == 1 ? "" : "s") will sync when connection returns." : "Today’s route is cached for low-service areas.")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(FieldLGXTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                Task { await flushOfflineActions() }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 15, weight: .black))
+                    .foregroundStyle(.black)
+                    .frame(width: 40, height: 40)
+                    .background(FieldLGXTheme.lime)
+                    .clipShape(Circle())
+            }
+            .disabled(isSyncing || pendingOfflineCount == 0)
+            .opacity(pendingOfflineCount == 0 ? 0.42 : 1)
+            .accessibilityLabel("Sync offline actions")
+        }
+        .fieldPanel(padding: 14)
     }
 
     private var timeClockCard: some View {
@@ -145,15 +279,9 @@ struct TodayScreen: View {
             .disabled(isClocking)
             .foregroundStyle(timeClock?.isClockedIn == true ? FieldLGXTheme.text : .black)
             .background(timeClock?.isClockedIn == true ? FieldLGXTheme.elevatedBackground : FieldLGXTheme.lime)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .padding(18)
-        .background(FieldLGXTheme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
-        )
+        .fieldPanel()
     }
 
     private var timeClockSubtitle: String {
@@ -164,6 +292,47 @@ struct TodayScreen: View {
             return "\(timeClock.todayDisplay) tracked today"
         }
         return "\(timeClock.todayDisplay) logged today"
+    }
+
+    @ViewBuilder
+    private var syncCard: some View {
+        if pendingOfflineCount > 0 || syncMessage != nil {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(
+                    pendingOfflineCount > 0 ? "\(pendingOfflineCount) offline update\(pendingOfflineCount == 1 ? "" : "s") waiting" : "Sync is current",
+                    systemImage: "arrow.triangle.2.circlepath"
+                )
+                .font(.system(size: 15, weight: .black))
+                .foregroundStyle(FieldLGXTheme.text)
+
+                if let syncMessage {
+                    Text(syncMessage)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(FieldLGXTheme.secondaryText)
+                }
+
+                Button {
+                    Task { await flushOfflineActions() }
+                } label: {
+                    HStack {
+                        Text(isSyncing ? "Syncing" : "Sync now")
+                        if isSyncing {
+                            Spacer()
+                            ProgressView()
+                                .tint(.black)
+                        }
+                    }
+                    .font(.system(size: 15, weight: .black))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                }
+                .disabled(isSyncing || pendingOfflineCount == 0)
+                .foregroundStyle(.black)
+                .background(FieldLGXTheme.lime)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            .fieldPanel()
+        }
     }
 
     private func metric(_ label: String, _ value: Int) -> some View {
@@ -177,14 +346,8 @@ struct TodayScreen: View {
                 .font(.system(size: 28, weight: .black, design: .rounded))
                 .foregroundStyle(FieldLGXTheme.text)
         }
-        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FieldLGXTheme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
-        )
+        .fieldPanel(padding: 14)
     }
 
     private var emptyState: some View {
@@ -212,9 +375,7 @@ struct TodayScreen: View {
             .tint(FieldLGXTheme.lime)
             .foregroundStyle(.black)
         }
-        .padding(18)
-        .background(FieldLGXTheme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .fieldPanel()
     }
 
     private func loadToday() async {
@@ -231,6 +392,9 @@ struct TodayScreen: View {
             today = response
             cacheToday(response)
         } catch {
+            #if DEBUG
+            print("FIELDLGX today load failed: \(error)")
+            #endif
             if let cached = cachedToday() {
                 today = cached
                 errorMessage = nil
@@ -314,9 +478,31 @@ struct TodayScreen: View {
         }
     }
 
+    private func flushOfflineActions() async {
+        guard let accessToken, accessToken != "preview-token" else { return }
+        isSyncing = true
+        syncMessage = nil
+        defer { isSyncing = false }
+
+        let completed = await SyncQueue(modelContext: modelContext).flush(apiClient: apiClient)
+        refreshPendingCount()
+        if completed > 0 {
+            syncMessage = "Synced \(completed) offline update\(completed == 1 ? "" : "s")."
+            await loadToday()
+        } else if pendingOfflineCount > 0 {
+            syncMessage = "Some updates are still waiting. Try again when service improves."
+        } else {
+            syncMessage = "Everything is synced."
+        }
+    }
+
+    private func refreshPendingCount() {
+        pendingOfflineCount = (try? SyncQueue(modelContext: modelContext).pendingCount()) ?? 0
+    }
+
     private var apiClient: APIClient {
         APIClient(
-            baseURL: URL(string: "http://127.0.0.1:8004")!,
+            baseURL: FieldLGXConfig.apiBaseURL,
             accessToken: accessToken
         )
     }
@@ -346,9 +532,24 @@ struct TodayScreen: View {
         else { return nil }
         return try? JSONDecoder().decode(TodayResponse.self, from: data)
     }
+
+    private func directionsURL(for job: TodayJob) -> URL {
+        if
+            let latitude = job.property.latitude,
+            let longitude = job.property.longitude,
+            !latitude.isEmpty,
+            !longitude.isEmpty,
+            let url = URL(string: "http://maps.apple.com/?daddr=\(latitude),\(longitude)")
+        {
+            return url
+        }
+
+        let encodedAddress = job.property.address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? job.property.address
+        return URL(string: "http://maps.apple.com/?daddr=\(encodedAddress)") ?? URL(string: "http://maps.apple.com/")!
+    }
 }
 
-private final class FieldLocationProvider: NSObject, CLLocationManagerDelegate {
+final class FieldLocationProvider: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     private var continuation: CheckedContinuation<CLLocationCoordinate2D?, Never>?
 
@@ -356,12 +557,15 @@ private final class FieldLocationProvider: NSObject, CLLocationManagerDelegate {
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.allowsBackgroundLocationUpdates = true
+        manager.pausesLocationUpdatesAutomatically = false
     }
 
     func currentCoordinate() async -> CLLocationCoordinate2D? {
-        let status = manager.authorizationStatus
+        var status = manager.authorizationStatus
         if status == .notDetermined {
-            manager.requestWhenInUseAuthorization()
+            manager.requestAlwaysAuthorization()
+            status = manager.authorizationStatus
         }
         guard status == .authorizedAlways || status == .authorizedWhenInUse || manager.authorizationStatus == .authorizedAlways || manager.authorizationStatus == .authorizedWhenInUse else {
             return nil
@@ -383,7 +587,7 @@ private final class FieldLocationProvider: NSObject, CLLocationManagerDelegate {
     }
 }
 
-private struct TodayJobCard: View {
+struct TodayJobCard: View {
     let job: TodayJob
 
     var body: some View {
@@ -440,17 +644,304 @@ private struct TodayJobCard: View {
                 }
             }
         }
-        .padding(18)
-        .background(FieldLGXTheme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
-        )
+        .fieldPanel()
     }
 
     private var timeText: String {
         job.scheduledTime ?? "Anytime"
+    }
+}
+
+struct RouteScreen: View {
+    let accessToken: String?
+
+    @State private var today: TodayResponse?
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        ZStack {
+            FieldLGXScreenBackground()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    FieldLGXMobileHeader(
+                        eyebrow: "Field route",
+                        title: "Route",
+                        subtitle: "Stop order, addresses, timing, and job context for the crew."
+                    )
+
+                    if isLoading {
+                        ProgressView()
+                            .tint(FieldLGXTheme.lime)
+                            .frame(maxWidth: .infinity, minHeight: 220)
+                    } else if let today {
+                        routeSummary(today.summary)
+                        if today.jobs.isEmpty {
+                            routeEmpty
+                        } else {
+                            ForEach(Array(today.jobs.enumerated()), id: \.element.id) { index, job in
+                                NavigationLink {
+                                    JobDetailScreen(jobID: job.id, accessToken: accessToken, previewJob: job)
+                                } label: {
+                                    RouteStopCard(index: index + 1, job: job)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    } else if let errorMessage {
+                        Text(errorMessage)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(FieldLGXTheme.secondaryText)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 20)
+                .padding(.bottom, 96)
+            }
+            .refreshable {
+                await loadRoute()
+            }
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
+        .task {
+            await loadRoute()
+        }
+    }
+
+    private func routeSummary(_ summary: TodaySummary) -> some View {
+        HStack(spacing: 10) {
+            routeMetric("Stops", summary.total)
+            routeMetric("Open", summary.remaining)
+            routeMetric("Done", summary.completed)
+        }
+    }
+
+    private func routeMetric(_ title: String, _ value: Int) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .black))
+                .tracking(1.8)
+                .foregroundStyle(FieldLGXTheme.tertiaryText)
+            Text("\(value)")
+                .font(.system(size: 28, weight: .black, design: .rounded))
+                .foregroundStyle(FieldLGXTheme.text)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fieldPanel(padding: 16)
+    }
+
+    private var routeEmpty: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("No route assigned.")
+                .font(.system(size: 24, weight: .black, design: .rounded))
+                .foregroundStyle(FieldLGXTheme.text)
+            Text("Assigned jobs will appear here with stop order, address, time, and job context.")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(FieldLGXTheme.secondaryText)
+        }
+        .fieldPanel()
+    }
+
+    private func loadRoute() async {
+        guard let accessToken, accessToken != "preview-token" else {
+            today = .preview
+            return
+        }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            today = try await APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken).today()
+        } catch {
+            errorMessage = "Could not load route."
+        }
+    }
+}
+
+private struct RouteStopCard: View {
+    let index: Int
+    let job: TodayJob
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Text("\(index)")
+                .font(.system(size: 16, weight: .black))
+                .foregroundStyle(.black)
+                .frame(width: 34, height: 34)
+                .background(FieldLGXTheme.lime)
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(job.customer.name)
+                    .font(.system(size: 21, weight: .black, design: .rounded))
+                    .foregroundStyle(FieldLGXTheme.text)
+                Text(job.property.address)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(FieldLGXTheme.secondaryText)
+                    .lineLimit(2)
+                HStack(spacing: 8) {
+                    Label(job.scheduledTime ?? "Anytime", systemImage: "clock")
+                    Label(job.status.capitalized, systemImage: "checklist")
+                }
+                .font(.system(size: 12, weight: .black))
+                .foregroundStyle(FieldLGXTheme.lime)
+            }
+            Spacer()
+        }
+        .fieldPanel()
+    }
+}
+
+struct TimeScreen: View {
+    let accessToken: String?
+
+    @State private var timeClock: TimeClockResponse?
+    @State private var isLoading = false
+    @State private var isClocking = false
+    @State private var message: String?
+    @State private var errorMessage: String?
+    @State private var locationProvider = FieldLocationProvider()
+
+    var body: some View {
+        ZStack {
+            FieldLGXScreenBackground()
+
+            VStack(alignment: .leading, spacing: 18) {
+                FieldLGXMobileHeader(
+                    eyebrow: "Time clock",
+                    title: "Time",
+                    subtitle: "Clock in, track location while working, and keep payroll context clean."
+                )
+
+                if isLoading {
+                    ProgressView()
+                        .tint(FieldLGXTheme.lime)
+                        .frame(maxWidth: .infinity, minHeight: 220)
+                } else {
+                    timeCard
+                    detailCard
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.red)
+                    }
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 20)
+            .padding(.bottom, 96)
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
+        .task {
+            await loadTime()
+        }
+        .task(id: timeClock?.isClockedIn ?? false) {
+            guard timeClock?.isClockedIn == true else { return }
+            await runLocationPingLoop()
+        }
+    }
+
+    private var timeCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(timeClock?.isClockedIn == true ? "On shift" : "Ready")
+                .font(.system(size: 34, weight: .black, design: .rounded))
+                .foregroundStyle(FieldLGXTheme.text)
+            Text(timeClock?.todayDisplay ?? "0h 0m")
+                .font(.system(size: 54, weight: .black, design: .rounded))
+                .foregroundStyle(FieldLGXTheme.lime)
+            if let message {
+                Text(message)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(FieldLGXTheme.secondaryText)
+            }
+            Button {
+                Task { await toggleClock() }
+            } label: {
+                HStack {
+                    Image(systemName: timeClock?.isClockedIn == true ? "stop.fill" : "play.fill")
+                    Text(timeClock?.isClockedIn == true ? "Clock out" : "Clock in")
+                    if isClocking {
+                        Spacer()
+                        ProgressView().tint(timeClock?.isClockedIn == true ? FieldLGXTheme.lime : .black)
+                    }
+                }
+                .font(.system(size: 17, weight: .black))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 15)
+            }
+            .disabled(isClocking)
+            .foregroundStyle(timeClock?.isClockedIn == true ? FieldLGXTheme.text : .black)
+            .background(timeClock?.isClockedIn == true ? FieldLGXTheme.elevatedBackground : FieldLGXTheme.lime)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .fieldPanel(padding: 20)
+    }
+
+    private var detailCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Location timeline", systemImage: "location.fill")
+                .font(.system(size: 16, weight: .black))
+                .foregroundStyle(FieldLGXTheme.text)
+            Text("When clocked in, FIELDLGX attaches periodic location context to the time record so the office can verify route progress and payroll history.")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(FieldLGXTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .fieldPanel()
+    }
+
+    private func loadTime() async {
+        guard let accessToken, accessToken != "preview-token" else {
+            timeClock = TimeClockResponse.preview
+            return
+        }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            timeClock = try await APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken).timeClockStatus()
+        } catch {
+            errorMessage = "Could not load time clock."
+        }
+    }
+
+    private func toggleClock() async {
+        guard let accessToken, accessToken != "preview-token" else {
+            timeClock = TimeClockResponse.previewClockedIn
+            return
+        }
+        isClocking = true
+        errorMessage = nil
+        defer { isClocking = false }
+        let coordinate = await locationProvider.currentCoordinate()
+        do {
+            let client = APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken)
+            if timeClock?.isClockedIn == true {
+                timeClock = try await client.clockOut(latitude: coordinate?.latitude, longitude: coordinate?.longitude)
+                message = "Clocked out."
+            } else {
+                timeClock = try await client.clockIn(latitude: coordinate?.latitude, longitude: coordinate?.longitude)
+                message = "Clocked in."
+            }
+        } catch {
+            errorMessage = "Could not update time clock."
+        }
+    }
+
+    private func runLocationPingLoop() async {
+        guard let accessToken, accessToken != "preview-token" else { return }
+        let client = APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken)
+        while !Task.isCancelled && timeClock?.isClockedIn == true {
+            if let coordinate = await locationProvider.currentCoordinate() {
+                _ = try? await client.sendTimeClockLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            }
+            try? await Task.sleep(for: .seconds(180))
+        }
     }
 }
 

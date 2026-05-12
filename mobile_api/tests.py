@@ -13,6 +13,7 @@ from customers.models import Customer, Property
 from financials.models import Receipt
 from jobs.models import Crew, Job, JobCompletionPhoto, JobIssue, JobNote, JobPhoto, JobServiceItem, PropertyNote
 from pricing.models import ServiceTemplate
+from service_agreements.models import ServiceAgreement
 from time_tracking.models import TimeEntry, TimeEntryLocationPing
 
 
@@ -266,19 +267,40 @@ class MobileCommandTests(TestCase):
         )
         self.customer = Customer.objects.create(business=self.business, name="Maple Ridge")
         self.property = Property.objects.create(customer=self.customer, address="123 Command Ave")
+        self.route_crew = Crew.objects.create(business=self.business, name="Crew A")
+        self.service = ServiceTemplate.objects.create(
+            business=self.business,
+            name="Dashboard service",
+            default_unit="visit",
+            default_rate=Decimal("0.00"),
+        )
         self.today = date(2026, 5, 6)
-        Job.objects.create(
+        assigned_job = Job.objects.create(
             property=self.property,
             scheduled_date=self.today,
             scheduled_time=time(8, 0),
             status="scheduled",
-            assigned_to=self.crew,
+            assigned_crew=self.route_crew,
         )
-        Job.objects.create(
+        JobServiceItem.objects.create(
+            job=assigned_job,
+            service=self.service,
+            description="Mowing",
+            quantity=Decimal("1"),
+            unit_price=Decimal("80.00"),
+        )
+        open_job = Job.objects.create(
             property=self.property,
             scheduled_date=self.today,
             scheduled_time=time(10, 0),
             status="scheduled",
+        )
+        JobServiceItem.objects.create(
+            job=open_job,
+            service=self.service,
+            description="Cleanup",
+            quantity=Decimal("2"),
+            unit_price=Decimal("45.00"),
         )
         Job.objects.create(
             property=self.property,
@@ -286,11 +308,18 @@ class MobileCommandTests(TestCase):
             schedule_by_date=self.today,
             status="scheduled",
         )
-        Job.objects.create(
+        completed_job = Job.objects.create(
             property=self.property,
             scheduled_date=self.today,
             status="completed",
             completed_at=timezone.now(),
+        )
+        JobServiceItem.objects.create(
+            job=completed_job,
+            service=self.service,
+            description="Mulch",
+            quantity=Decimal("1"),
+            unit_price=Decimal("250.00"),
         )
         Invoice.objects.create(
             business=self.business,
@@ -330,9 +359,11 @@ class MobileCommandTests(TestCase):
         self.assertEqual(payload["date"], "2026-05-06")
         self.assertEqual(payload["summary"]["today_jobs"], 3)
         self.assertEqual(payload["summary"]["active_routes"], 1)
-        self.assertEqual(payload["summary"]["unassigned_jobs"], 2)
+        self.assertEqual(payload["summary"]["unassigned_jobs"], 1)
         self.assertEqual(payload["summary"]["needs_scheduled"], 1)
         self.assertEqual(payload["summary"]["ready_to_bill"], 1)
+        self.assertEqual(payload["summary"]["ready_to_bill_total"], "250.00")
+        self.assertEqual(payload["summary"]["scheduled_value"], "420.00")
         self.assertEqual(payload["summary"]["outstanding_total"], "125.00")
         self.assertEqual(payload["summary"]["open_estimates"], 1)
         self.assertEqual(payload["attention"][0]["kind"], "schedule")
@@ -726,6 +757,40 @@ class MobileMoneyTests(TestCase):
         self.assertEqual(payload["summary"]["open_estimates"], 1)
         self.assertEqual(payload["invoices"][0]["id"], self.invoice.id)
         self.assertEqual(payload["estimates"][0]["title"], "Landscape Refresh")
+
+    def test_owner_mobile_financials_team_agreements_and_settings_are_available(self):
+        Receipt.objects.create(
+            business=self.business,
+            receipt_date=date.today(),
+            amount=Decimal("42.50"),
+            vendor="Supply Yard",
+            category="materials",
+        )
+        ServiceAgreement.objects.create(
+            business=self.business,
+            customer=self.customer,
+            name="Spring maintenance",
+            status="active",
+            start_date=date.today(),
+            billing_frequency="monthly",
+            price=Decimal("300.00"),
+            visits_included=4,
+            visits_used=1,
+        )
+
+        financials = self.client.get(reverse("mobile_api:financials"), **self.auth_headers())
+        team = self.client.get(reverse("mobile_api:team"), **self.auth_headers())
+        agreements = self.client.get(reverse("mobile_api:agreements"), **self.auth_headers())
+        settings = self.client.get(reverse("mobile_api:settings"), **self.auth_headers())
+
+        self.assertEqual(financials.status_code, 200)
+        self.assertEqual(financials.json()["receipts"][0]["vendor"], "Supply Yard")
+        self.assertEqual(team.status_code, 200)
+        self.assertEqual(team.json()["summary"]["employees"], 1)
+        self.assertEqual(agreements.status_code, 200)
+        self.assertEqual(agreements.json()["summary"]["active"], 1)
+        self.assertEqual(settings.status_code, 200)
+        self.assertIn("default_invoice_card_payments_enabled", settings.json()["billing"])
 
     def test_invoice_detail_returns_line_items_for_native_review(self):
         InvoiceLineItem.objects.create(

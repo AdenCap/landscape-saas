@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import SwiftData
+import UIKit
 
 struct JobDetailScreen: View {
     let jobID: Int
@@ -9,6 +10,7 @@ struct JobDetailScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openURL) private var openURL
     @State private var detail: JobDetailResponse?
     @State private var isLoading = false
     @State private var actionInFlight: JobAction?
@@ -18,6 +20,7 @@ struct JobDetailScreen: View {
     @State private var isShowingSkipSheet = false
     @State private var isShowingNoteSheet = false
     @State private var isShowingIssueSheet = false
+    @State private var editingJob: TodayJob?
     @State private var skipReason = ""
     @State private var noteText = ""
     @State private var issueDescription = ""
@@ -25,6 +28,7 @@ struct JobDetailScreen: View {
     @State private var completionPhotoItem: PhotosPickerItem?
     @State private var sitePhotoItem: PhotosPickerItem?
     @State private var selectedSitePhotoCategory = "general"
+    @State private var cameraMode: CameraMode?
 
     private enum JobAction {
         case start
@@ -36,9 +40,16 @@ struct JobDetailScreen: View {
         case reportIssue
     }
 
+    private enum CameraMode: String, Identifiable {
+        case completion
+        case site
+
+        var id: String { rawValue }
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            FieldLGXTheme.background.ignoresSafeArea()
+            FieldLGXScreenBackground()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -50,20 +61,23 @@ struct JobDetailScreen: View {
                             .frame(maxWidth: .infinity, minHeight: 260)
                     } else if let detail {
                         hero(detail.job)
+                        mobileWorkshopPanel(detail)
                         actionPanel(detail)
                         contextSections(detail)
                     } else if let errorMessage {
                         errorState(errorMessage)
                     }
                 }
-                .padding(24)
-                .padding(.bottom, 24)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 18)
             }
             .refreshable {
                 await loadDetail()
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .task {
             await loadDetail()
             refreshPendingCount()
@@ -82,6 +96,21 @@ struct JobDetailScreen: View {
             issueSheet
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $editingJob) { job in
+            EditJobSheet(accessToken: accessToken, job: job) { response in
+                detail = response
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $cameraMode) { mode in
+            CameraCaptureSheet { image in
+                Task {
+                    await uploadCameraImage(image, mode: mode)
+                }
+            }
+            .ignoresSafeArea()
         }
         .onChange(of: completionPhotoItem) { _, newItem in
             guard let newItem else { return }
@@ -102,30 +131,55 @@ struct JobDetailScreen: View {
             Button {
                 dismiss()
             } label: {
-                Label("Route", systemImage: "chevron.left")
+                Label("Back", systemImage: "chevron.left")
                     .font(.system(size: 15, weight: .black))
                     .foregroundStyle(FieldLGXTheme.text)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
-                    .background(FieldLGXTheme.elevatedBackground)
+                    .background(Color.black.opacity(0.24))
                     .clipShape(Capsule())
+                    .overlay(Capsule().stroke(FieldLGXTheme.panelStroke, lineWidth: 1))
             }
             .accessibilityLabel("Back to route")
 
             Spacer()
+
+            if let activeJob {
+                Button {
+                    editingJob = activeJob
+                } label: {
+                    Label("Edit", systemImage: "slider.horizontal.3")
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .background(FieldLGXTheme.lime)
+                        .clipShape(Capsule())
+                }
+                .accessibilityLabel("Edit job")
+            }
         }
+    }
+
+    private var activeJob: TodayJob? {
+        detail?.job ?? previewJob
     }
 
     private func hero(_ job: TodayJob) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 7) {
-                Text(statusText(job.status))
-                    .font(.system(size: 12, weight: .black))
-                    .tracking(2.2)
-                    .foregroundStyle(FieldLGXTheme.lime)
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(FieldLGXTheme.lime)
+                        .frame(width: 8, height: 8)
+                    Text(statusText(job.status))
+                        .font(.system(size: 12, weight: .black))
+                        .tracking(2.2)
+                        .foregroundStyle(FieldLGXTheme.tertiaryText)
+                }
 
                 Text(job.customer.name)
-                    .font(.system(size: 42, weight: .black, design: .rounded))
+                    .font(.system(size: 40, weight: .black, design: .rounded))
                     .foregroundStyle(FieldLGXTheme.text)
                     .lineLimit(3)
                     .minimumScaleFactor(0.75)
@@ -139,43 +193,31 @@ struct JobDetailScreen: View {
                 infoPill("TIME", job.scheduledTime ?? "Anytime")
                 infoPill("CREW", job.assigned.crew ?? job.assigned.employee ?? "Unassigned")
             }
+
+            HStack(spacing: 8) {
+                fieldSignalPill("Items", "\(job.serviceItems.count)")
+                fieldSignalPill("Photos", "\(job.photoCount)")
+                if job.scheduledEndDate != nil {
+                    fieldSignalPill("Multi-day", "On")
+                }
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FieldLGXTheme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(FieldLGXTheme.panelGradient)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
         )
     }
 
     private func actionPanel(_ detail: JobDetailResponse) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("FIELD ACTIONS")
+            Text("MORE FIELD ACTIONS")
                 .font(.system(size: 12, weight: .black))
                 .tracking(2.2)
                 .foregroundStyle(FieldLGXTheme.tertiaryText)
-
-            HStack(spacing: 10) {
-                actionButton(
-                    title: "Start",
-                    systemImage: "play.fill",
-                    action: .start,
-                    isEnabled: detail.actions.canStart
-                ) {
-                    await perform(.start)
-                }
-
-                actionButton(
-                    title: "Complete",
-                    systemImage: "checkmark",
-                    action: .complete,
-                    isEnabled: detail.actions.canComplete
-                ) {
-                    await perform(.complete)
-                }
-            }
 
             Button {
                 isShowingSkipSheet = true
@@ -188,35 +230,7 @@ struct JobDetailScreen: View {
             .disabled(!detail.actions.canSkip || actionInFlight != nil)
             .foregroundStyle(detail.actions.canSkip ? FieldLGXTheme.text : FieldLGXTheme.tertiaryText)
             .background(FieldLGXTheme.elevatedBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-            Button {
-                isShowingNoteSheet = true
-            } label: {
-                Label("Add field note", systemImage: "text.bubble.fill")
-                    .font(.system(size: 16, weight: .black))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-            }
-            .disabled(actionInFlight != nil)
-            .foregroundStyle(FieldLGXTheme.text)
-            .background(FieldLGXTheme.elevatedBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-            Button {
-                isShowingIssueSheet = true
-            } label: {
-                Label("Report issue", systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(size: 16, weight: .black))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-            }
-            .disabled(actionInFlight != nil)
-            .foregroundStyle(FieldLGXTheme.text)
-            .background(FieldLGXTheme.elevatedBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-            sitePhotoPicker
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
             if detail.actions.requiresCompletionPhoto && !detail.actions.hasCompletionPhoto {
                 VStack(alignment: .leading, spacing: 10) {
@@ -267,12 +281,160 @@ struct JobDetailScreen: View {
             }
         }
         .padding(16)
-        .background(FieldLGXTheme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(FieldLGXTheme.panelGradient)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
         )
+    }
+
+    private func mobileWorkshopPanel(_ detail: JobDetailResponse) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("FIELD ACTIONS")
+                        .font(.system(size: 12, weight: .black))
+                        .tracking(2.2)
+                        .foregroundStyle(FieldLGXTheme.tertiaryText)
+                    Text("Update the job without leaving the field.")
+                        .font(.system(size: 16, weight: .black, design: .rounded))
+                        .foregroundStyle(FieldLGXTheme.text)
+                }
+                Spacer()
+                Text(detail.job.status.capitalized)
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(FieldLGXTheme.lime)
+                    .clipShape(Capsule())
+            }
+
+            HStack(spacing: 10) {
+                actionButton(
+                    title: "Start",
+                    systemImage: "play.fill",
+                    action: .start,
+                    isEnabled: detail.actions.canStart
+                ) {
+                    await perform(.start)
+                }
+
+                actionButton(
+                    title: "Done",
+                    systemImage: "checkmark",
+                    action: .complete,
+                    isEnabled: detail.actions.canComplete
+                ) {
+                    await perform(.complete)
+                }
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                workshopTile("Schedule", "calendar.badge.clock") {
+                    editingJob = detail.job
+                }
+
+                workshopTile("Note", "text.bubble.fill") {
+                    isShowingNoteSheet = true
+                }
+
+                workshopTile("Issue", "exclamationmark.triangle.fill") {
+                    isShowingIssueSheet = true
+                }
+
+                PhotosPicker(selection: $sitePhotoItem, matching: .images) {
+                    workshopTileLabel("Photo", "camera.fill")
+                }
+                .disabled(actionInFlight != nil)
+
+                workshopTile("Directions", "location.fill") {
+                    openURL(directionsURL(for: detail.job))
+                }
+
+                workshopTile("Call", "phone.fill") {
+                    if let url = phoneURL(for: detail.job) {
+                        openURL(url)
+                    }
+                }
+                .opacity(phoneURL(for: detail.job) == nil ? 0.45 : 1)
+                .disabled(phoneURL(for: detail.job) == nil)
+            }
+        }
+        .padding(18)
+        .background(FieldLGXTheme.panelGradient)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+        )
+    }
+
+    private func workshopTile(_ title: String, _ systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            workshopTileLabel(title, systemImage)
+        }
+        .buttonStyle(.plain)
+        .disabled(actionInFlight != nil)
+    }
+
+    private func fieldSignalPill(_ label: String, _ value: String) -> some View {
+        HStack(spacing: 5) {
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .black))
+                .tracking(1.4)
+                .foregroundStyle(FieldLGXTheme.tertiaryText)
+            Text(value)
+                .font(.system(size: 12, weight: .black))
+                .foregroundStyle(FieldLGXTheme.lime)
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 32)
+        .background(FieldLGXTheme.elevatedBackground)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(FieldLGXTheme.panelStroke, lineWidth: 1))
+    }
+
+    private func workshopTileLabel(_ title: String, _ systemImage: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .black))
+                .foregroundStyle(FieldLGXTheme.lime)
+            Text(title)
+                .font(.system(size: 15, weight: .black))
+                .foregroundStyle(FieldLGXTheme.text)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 13)
+        .frame(maxWidth: .infinity, minHeight: 52)
+        .background(FieldLGXTheme.elevatedBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+        )
+    }
+
+    private func directionsURL(for job: TodayJob) -> URL {
+        if
+            let latitude = job.property.latitude,
+            let longitude = job.property.longitude,
+            !latitude.isEmpty,
+            !longitude.isEmpty,
+            let url = URL(string: "http://maps.apple.com/?daddr=\(latitude),\(longitude)")
+        {
+            return url
+        }
+
+        let encodedAddress = job.property.address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? job.property.address
+        return URL(string: "http://maps.apple.com/?daddr=\(encodedAddress)") ?? URL(string: "http://maps.apple.com/")!
+    }
+
+    private func phoneURL(for job: TodayJob) -> URL? {
+        let digits = job.customer.phone.filter(\.isNumber)
+        guard !digits.isEmpty else { return nil }
+        return URL(string: "tel://\(digits)")
     }
 
     private var sitePhotoPicker: some View {
@@ -321,26 +483,51 @@ struct JobDetailScreen: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             .disabled(actionInFlight != nil)
+
+            cameraButton(title: "Take site photo", mode: .site, isPrimary: false)
         }
     }
 
     private func completionPhotoPicker(title: String, isPrimary: Bool) -> some View {
-        PhotosPicker(selection: $completionPhotoItem, matching: .images) {
-            HStack(spacing: 9) {
-                if actionInFlight == .uploadPhoto {
-                    ProgressView()
-                        .tint(isPrimary ? .black : FieldLGXTheme.lime)
-                } else {
-                    Image(systemName: "camera.fill")
+        VStack(spacing: 10) {
+            PhotosPicker(selection: $completionPhotoItem, matching: .images) {
+                HStack(spacing: 9) {
+                    if actionInFlight == .uploadPhoto {
+                        ProgressView()
+                            .tint(isPrimary ? .black : FieldLGXTheme.lime)
+                    } else {
+                        Image(systemName: "photo.fill")
+                    }
+                    Text(title)
                 }
-                Text(title)
+                .font(.system(size: 16, weight: .black))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .foregroundStyle(isPrimary ? .black : FieldLGXTheme.text)
+                .background(isPrimary ? FieldLGXTheme.lime : FieldLGXTheme.elevatedBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
-            .font(.system(size: 16, weight: .black))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .foregroundStyle(isPrimary ? .black : FieldLGXTheme.text)
-            .background(isPrimary ? FieldLGXTheme.lime : FieldLGXTheme.elevatedBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .disabled(actionInFlight != nil)
+
+            cameraButton(title: "Take completion photo", mode: .completion, isPrimary: isPrimary)
+        }
+    }
+
+    private func cameraButton(title: String, mode: CameraMode, isPrimary: Bool) -> some View {
+        Button {
+            guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+                errorMessage = "Camera is not available on this simulator."
+                return
+            }
+            cameraMode = mode
+        } label: {
+            Label(title, systemImage: "camera.fill")
+                .font(.system(size: 16, weight: .black))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .foregroundStyle(isPrimary ? .black : FieldLGXTheme.text)
+                .background(isPrimary ? FieldLGXTheme.lime : FieldLGXTheme.elevatedBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .disabled(actionInFlight != nil)
     }
@@ -418,10 +605,10 @@ struct JobDetailScreen: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FieldLGXTheme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(FieldLGXTheme.panelGradient)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
         )
     }
@@ -461,7 +648,7 @@ struct JobDetailScreen: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(FieldLGXTheme.elevatedBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private func actionButton(
@@ -490,13 +677,13 @@ struct JobDetailScreen: View {
         .disabled(!isEnabled || actionInFlight != nil)
         .foregroundStyle(.black)
         .background(isEnabled ? FieldLGXTheme.lime : FieldLGXTheme.tertiaryText)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var skipSheet: some View {
         NavigationStack {
             ZStack {
-                FieldLGXTheme.background.ignoresSafeArea()
+                FieldLGXScreenBackground()
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Why is this job being skipped?")
                         .font(.system(size: 24, weight: .black, design: .rounded))
@@ -533,7 +720,7 @@ struct JobDetailScreen: View {
     private var noteSheet: some View {
         NavigationStack {
             ZStack {
-                FieldLGXTheme.background.ignoresSafeArea()
+                FieldLGXScreenBackground()
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Add a field note")
                         .font(.system(size: 24, weight: .black, design: .rounded))
@@ -580,7 +767,7 @@ struct JobDetailScreen: View {
     private var issueSheet: some View {
         NavigationStack {
             ZStack {
-                FieldLGXTheme.background.ignoresSafeArea()
+                FieldLGXScreenBackground()
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Report an issue")
                         .font(.system(size: 24, weight: .black, design: .rounded))
@@ -784,6 +971,49 @@ struct JobDetailScreen: View {
         }
     }
 
+    private func uploadCameraImage(_ image: UIImage, mode: CameraMode) async {
+        guard let data = image.jpegData(compressionQuality: 0.82) else {
+            errorMessage = "Could not prepare that photo."
+            return
+        }
+        switch mode {
+        case .completion:
+            await uploadCompletionPhotoData(data)
+        case .site:
+            await uploadSitePhotoData(data)
+        }
+    }
+
+    private func uploadCompletionPhotoData(_ data: Data) async {
+        guard let accessToken else { return }
+        actionInFlight = .uploadPhoto
+        errorMessage = nil
+        defer { actionInFlight = nil }
+
+        do {
+            detail = try await client(accessToken: accessToken).uploadCompletionPhoto(id: jobID, imageData: data)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func uploadSitePhotoData(_ data: Data) async {
+        guard let accessToken else { return }
+        actionInFlight = .uploadSitePhoto
+        errorMessage = nil
+        defer { actionInFlight = nil }
+
+        do {
+            detail = try await client(accessToken: accessToken).uploadJobPhoto(
+                id: jobID,
+                imageData: data,
+                category: selectedSitePhotoCategory
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     private func addFieldNote() async {
         guard let accessToken else { return }
         let text = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -870,7 +1100,7 @@ struct JobDetailScreen: View {
     }
 
     private func client(accessToken: String) -> APIClient {
-        APIClient(baseURL: URL(string: "http://127.0.0.1:8004")!, accessToken: accessToken)
+        APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken)
     }
 
     private var issueTypes: [(value: String, label: String)] {
@@ -911,6 +1141,292 @@ struct JobDetailScreen: View {
             "SKIPPED"
         default:
             "SCHEDULED"
+        }
+    }
+}
+
+private struct EditJobSheet: View {
+    let accessToken: String?
+    let job: TodayJob
+    let onSaved: (JobDetailResponse) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var scheduledDate: Date
+    @State private var scheduledTime: Date
+    @State private var notes: String
+    @State private var options: JobOptionsResponse?
+    @State private var selectedCrewID: Int?
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+
+    init(accessToken: String?, job: TodayJob, onSaved: @escaping (JobDetailResponse) -> Void) {
+        self.accessToken = accessToken
+        self.job = job
+        self.onSaved = onSaved
+        _scheduledDate = State(initialValue: Self.parseDay(job.scheduledDate))
+        _scheduledTime = State(initialValue: Self.parseTime(job.scheduledTime))
+        _notes = State(initialValue: job.notes)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                FieldLGXScreenBackground()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        header
+                        scheduleCard
+                        crewCard
+                        notesCard
+
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.red)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Button {
+                            Task { await save() }
+                        } label: {
+                            HStack {
+                                if isSaving {
+                                    ProgressView()
+                                        .tint(.black)
+                                }
+                                Text(isSaving ? "Saving" : "Save job")
+                                Spacer()
+                                Image(systemName: "checkmark")
+                            }
+                            .font(.system(size: 17, weight: .black))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 16)
+                            .frame(height: 54)
+                            .background(FieldLGXTheme.lime)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                        .disabled(isSaving)
+                    }
+                    .padding(24)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .font(.system(size: 15, weight: .bold))
+                }
+            }
+        }
+        .task {
+            await loadOptions()
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("QUICK EDIT")
+                .font(.system(size: 12, weight: .black))
+                .tracking(2.4)
+                .foregroundStyle(FieldLGXTheme.lime)
+
+            Text(job.customer.name)
+                .font(.system(size: 32, weight: .black, design: .rounded))
+                .foregroundStyle(FieldLGXTheme.text)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+
+            Text(job.property.address)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(FieldLGXTheme.secondaryText)
+        }
+    }
+
+    private var scheduleCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            label("Schedule")
+            DatePicker("Date", selection: $scheduledDate, displayedComponents: .date)
+            DatePicker("Time", selection: $scheduledTime, displayedComponents: .hourAndMinute)
+        }
+        .font(.system(size: 16, weight: .bold))
+        .foregroundStyle(FieldLGXTheme.text)
+        .padding(16)
+        .background(FieldLGXTheme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private var crewCard: some View {
+        if let options, !options.crews.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                label("Crew")
+                Picker("Crew", selection: $selectedCrewID) {
+                    Text("Keep current").tag(Int?.none)
+                    ForEach(options.crews) { crew in
+                        Text(crew.name).tag(Optional(crew.id))
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(FieldLGXTheme.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(FieldLGXTheme.panel)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    private var notesCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            label("Job notes")
+            TextField("Crew instructions, customer requests, access details", text: $notes, axis: .vertical)
+                .font(.system(size: 17, weight: .semibold))
+                .lineLimit(4...8)
+                .foregroundStyle(FieldLGXTheme.text)
+                .padding(16)
+                .background(FieldLGXTheme.panel)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+                )
+        }
+    }
+
+    private func label(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(size: 10, weight: .black))
+            .tracking(1.8)
+            .foregroundStyle(FieldLGXTheme.tertiaryText)
+    }
+
+    private func loadOptions() async {
+        guard let accessToken, accessToken != "preview-token" else {
+            let response = JobOptionsResponse(
+                properties: [],
+                services: [],
+                crews: [JobOptionCrew(id: 1, name: job.assigned.crew ?? "Crew A")],
+                serverTime: ""
+            )
+            options = response
+            selectedCrewID = matchingCrewID(in: response)
+            return
+        }
+
+        do {
+            let response = try await APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken).jobOptions()
+            options = response
+            selectedCrewID = matchingCrewID(in: response)
+        } catch {
+            errorMessage = "Crew options are unavailable, but schedule and notes can still be edited."
+        }
+    }
+
+    private func matchingCrewID(in options: JobOptionsResponse) -> Int? {
+        guard let name = job.assigned.crew else { return nil }
+        return options.crews.first { $0.name == name }?.id
+    }
+
+    private func save() async {
+        guard let accessToken, accessToken != "preview-token" else {
+            dismiss()
+            return
+        }
+
+        isSaving = true
+        errorMessage = nil
+        defer { isSaving = false }
+
+        do {
+            let response = try await APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken).updateJob(
+                id: job.id,
+                scheduledDate: Self.dayFormatter.string(from: scheduledDate),
+                scheduledTime: Self.timeFormatter.string(from: scheduledTime),
+                notes: notes,
+                crewID: selectedCrewID
+            )
+            onSaved(response)
+            dismiss()
+        } catch {
+            errorMessage = "Could not save this job. Check the connection and try again."
+        }
+    }
+
+    private static func parseDay(_ value: String?) -> Date {
+        guard let value, let date = dayFormatter.date(from: value) else {
+            return Date()
+        }
+        return date
+    }
+
+    private static func parseTime(_ value: String?) -> Date {
+        guard let value, let date = timeFormatter.date(from: value) else {
+            return Date()
+        }
+        return date
+    }
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+}
+
+private struct CameraCaptureSheet: UIViewControllerRepresentable {
+    let onCapture: (UIImage) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = context.coordinator
+        picker.allowsEditing = false
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onCapture: onCapture, dismiss: dismiss)
+    }
+
+    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        let onCapture: (UIImage) -> Void
+        let dismiss: DismissAction
+
+        init(onCapture: @escaping (UIImage) -> Void, dismiss: DismissAction) {
+            self.onCapture = onCapture
+            self.dismiss = dismiss
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                onCapture(image)
+            }
+            dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            dismiss()
         }
     }
 }

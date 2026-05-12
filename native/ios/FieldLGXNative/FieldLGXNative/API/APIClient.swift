@@ -1,6 +1,21 @@
 import Foundation
 import UIKit
 
+enum FieldLGXConfig {
+    static var apiBaseURL: URL {
+        if let value = Bundle.main.object(forInfoDictionaryKey: "FIELDLGX_API_BASE_URL") as? String,
+           let url = URL(string: value),
+           !value.isEmpty {
+            return url
+        }
+        #if DEBUG
+        return URL(string: "http://127.0.0.1:8004")!
+        #else
+        return URL(string: "https://fieldlgx.com")!
+        #endif
+    }
+}
+
 struct APIClient {
     var baseURL: URL
     var accessToken: String?
@@ -12,6 +27,12 @@ struct APIClient {
             "password": password,
             "platform": "ios",
             "device_name": UIDevice.current.name
+        ])
+    }
+
+    func refresh(refreshToken: String) async throws -> LoginResponse {
+        try await post(path: "/api/mobile/v1/auth/refresh/", body: [
+            "refresh_token": refreshToken
         ])
     }
 
@@ -27,9 +48,215 @@ struct APIClient {
         try await get(path: "/api/mobile/v1/bootstrap/")
     }
 
+    func command(date: Date = Date()) async throws -> CommandResponse {
+        let dateString = Self.dayFormatter.string(from: date)
+        return try await get(path: "/api/mobile/v1/command/?date=\(dateString)")
+    }
+
+    func work(date: Date = Date(), service: String = "all") async throws -> WorkResponse {
+        let dateString = Self.dayFormatter.string(from: date)
+        let serviceValue = service.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? service
+        return try await get(path: "/api/mobile/v1/work/?date=\(dateString)&service=\(serviceValue)")
+    }
+
+    func calendar(date: Date = Date(), view: String = "week") async throws -> CalendarResponse {
+        let dateString = Self.dayFormatter.string(from: date)
+        return try await get(path: "/api/mobile/v1/calendar/?date=\(dateString)&view=\(view)")
+    }
+
+    func money() async throws -> MoneyResponse {
+        try await get(path: "/api/mobile/v1/money/")
+    }
+
+    func financials() async throws -> FinancialsResponse {
+        try await get(path: "/api/mobile/v1/financials/")
+    }
+
+    func team() async throws -> TeamResponse {
+        try await get(path: "/api/mobile/v1/team/")
+    }
+
+    func agreements() async throws -> AgreementsResponse {
+        try await get(path: "/api/mobile/v1/agreements/")
+    }
+
+    func ownerSettings() async throws -> OwnerSettingsResponse {
+        try await get(path: "/api/mobile/v1/settings/")
+    }
+
+    func monthlyInvoices() async throws -> MonthlyInvoiceQueueResponse {
+        try await get(path: "/api/mobile/v1/monthly-invoices/")
+    }
+
+    func sendMonthlyInvoices(invoiceIDs: [Int], sendAllReady: Bool = false) async throws -> MonthlyInvoiceQueueResponse {
+        try await postJSONObject(path: "/api/mobile/v1/monthly-invoices/", body: [
+            "action": sendAllReady ? "send_all_ready" : "send_selected",
+            "invoice_ids": invoiceIDs
+        ])
+    }
+
+    func invoiceDetail(id: Int) async throws -> InvoiceDetailResponse {
+        try await get(path: "/api/mobile/v1/invoices/\(id)/")
+    }
+
+    func estimateDetail(id: Int) async throws -> EstimateDetailResponse {
+        try await get(path: "/api/mobile/v1/estimates/\(id)/")
+    }
+
+    func createInvoice(customerID: Int, dueDate: String, enableCardPayment: Bool, description: String, detailDescription: String, quantity: String, unitPrice: String) async throws -> InvoiceDetailResponse {
+        try await createInvoice(payload: [
+            "customer_id": customerID,
+            "due_date": dueDate,
+            "enable_card_payment": enableCardPayment,
+            "line_items": [[
+                "description": description,
+                "detail_description": detailDescription,
+                "quantity": quantity,
+                "unit_price": unitPrice
+            ]]
+        ])
+    }
+
+    func createInvoice(payload: [String: Any]) async throws -> InvoiceDetailResponse {
+        try await postJSONObject(path: "/api/mobile/v1/invoices/", body: payload)
+    }
+
+    func createEstimate(customerID: Int, title: String, notes: String, validUntil: String, depositRequired: Bool, depositType: String, depositAmount: String, description: String, detailDescription: String, quantity: String, unit: String, unitPrice: String) async throws -> EstimateDetailResponse {
+        try await createEstimate(payload: [
+            "customer_id": customerID,
+            "title": title,
+            "notes": notes,
+            "valid_until": validUntil,
+            "deposit_required": depositRequired,
+            "deposit_type": depositType,
+            "deposit_amount": depositAmount,
+            "line_items": [[
+                "description": description,
+                "detail_description": detailDescription,
+                "quantity": quantity,
+                "unit": unit,
+                "unit_price": unitPrice
+            ]]
+        ])
+    }
+
+    func createEstimate(payload: [String: Any]) async throws -> EstimateDetailResponse {
+        try await postJSONObject(path: "/api/mobile/v1/estimates/", body: payload)
+    }
+
+    func invoiceAction(id: Int, action: String) async throws -> InvoiceActionResponse {
+        try await post(path: "/api/mobile/v1/invoices/\(id)/action/", body: ["action": action])
+    }
+
+    func setInvoiceLineItemPaid(invoiceID: Int, itemID: Int, paid: Bool, paymentMethod: String = "") async throws -> InvoiceDetailResponse {
+        try await post(path: "/api/mobile/v1/invoices/\(invoiceID)/line-items/\(itemID)/action/", body: [
+            "action": paid ? "paid" : "unpaid",
+            "payment_method": paymentMethod
+        ])
+    }
+
+    func estimateAction(id: Int, action: String) async throws -> EstimateActionResponse {
+        try await post(path: "/api/mobile/v1/estimates/\(id)/action/", body: ["action": action])
+    }
+
+    func uploadEstimatePhoto(id: Int, imageData: Data, caption: String = "", fileName: String = "estimate-photo.jpg") async throws -> EstimatePhotoUploadResponse {
+        try await postMultipart(
+            path: "/api/mobile/v1/estimates/\(id)/photos/",
+            fieldName: "image",
+            fileName: fileName,
+            mimeType: "image/jpeg",
+            fileData: imageData,
+            formFields: ["caption": caption]
+        )
+    }
+
+    func uploadReceipt(imageData: Data, jobID: Int? = nil, receiptDate: String, amount: String, vendor: String, description: String, category: String = "materials", fileName: String = "receipt.jpg") async throws -> ReceiptUploadResponse {
+        var fields = [
+            "receipt_date": receiptDate,
+            "amount": amount,
+            "vendor": vendor,
+            "description": description,
+            "category": category
+        ]
+        if let jobID {
+            fields["job_id"] = "\(jobID)"
+        }
+        return try await postMultipart(
+            path: "/api/mobile/v1/receipts/",
+            fieldName: "file",
+            fileName: fileName,
+            mimeType: "image/jpeg",
+            fileData: imageData,
+            formFields: fields
+        )
+    }
+
+    func jobOptions() async throws -> JobOptionsResponse {
+        try await get(path: "/api/mobile/v1/jobs/options/")
+    }
+
+    func createJob(propertyID: Int, scheduledDate: String, scheduledTime: String, notes: String, serviceItem: JobCreateServiceItem?, crewID: Int? = nil) async throws -> JobDetailResponse {
+        var body: [String: Any] = [
+            "property_id": propertyID,
+            "scheduled_date": scheduledDate,
+            "scheduled_time": scheduledTime,
+            "notes": notes
+        ]
+        if let crewID {
+            body["assigned_crew_id"] = crewID
+        }
+        if let serviceItem {
+            body["service_items"] = [serviceItem.dictionary]
+        }
+        return try await postJSONObject(path: "/api/mobile/v1/jobs/", body: body)
+    }
+
+    func updateJob(id: Int, scheduledDate: String, scheduledTime: String, scheduledEndDate: String? = nil, scheduledEndTime: String? = nil, notes: String, status: String? = nil, crewID: Int? = nil, color: String? = nil) async throws -> JobDetailResponse {
+        var body: [String: Any] = [
+            "scheduled_date": scheduledDate,
+            "scheduled_time": scheduledTime,
+            "notes": notes
+        ]
+        if let scheduledEndDate {
+            body["scheduled_end_date"] = scheduledEndDate
+        }
+        if let scheduledEndTime {
+            body["scheduled_end_time"] = scheduledEndTime
+        }
+        if let status {
+            body["status"] = status
+        }
+        if let crewID {
+            body["assigned_crew_id"] = crewID
+        }
+        if let color {
+            body["color"] = color
+        }
+        return try await patch(path: "/api/mobile/v1/jobs/\(id)/", body: body)
+    }
+
     func today(date: Date = Date()) async throws -> TodayResponse {
         let dateString = Self.dayFormatter.string(from: date)
         return try await get(path: "/api/mobile/v1/today/?date=\(dateString)")
+    }
+
+    func clients(query: String = "") async throws -> ClientsResponse {
+        let value = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+        return try await get(path: "/api/mobile/v1/clients/?q=\(value)")
+    }
+
+    func client(id: Int) async throws -> ClientDetailResponse {
+        try await get(path: "/api/mobile/v1/clients/\(id)/")
+    }
+
+    func createClient(name: String, email: String, phone: String, address: String, notes: String) async throws -> ClientDetailResponse {
+        try await post(path: "/api/mobile/v1/clients/", body: [
+            "name": name,
+            "email": email,
+            "phone": phone,
+            "address": address,
+            "notes": notes
+        ])
     }
 
     func timeClockStatus() async throws -> TimeClockResponse {
@@ -121,13 +348,26 @@ struct APIClient {
         }
     }
 
+    func syncPush(localID: String, entityType: String, operation: String, payload: [String: Any]) async throws -> SyncPushResponse {
+        try await postJSONObject(path: "/api/mobile/v1/sync/push/", body: [
+            "mutations": [
+                [
+                    "local_id": localID,
+                    "entity_type": entityType,
+                    "operation": operation,
+                    "payload": payload
+                ]
+            ]
+        ])
+    }
+
     private func get<T: Decodable>(path: String) async throws -> T {
         var request = URLRequest(url: makeURL(path: path))
         request.httpMethod = "GET"
         addAuth(to: &request)
         let (data, response) = try await urlSession.data(for: request)
-        try validate(response: response, data: data)
-        return try decoder.decode(T.self, from: data)
+        try validate(response: response, data: data, path: path)
+        return try decode(T.self, from: data, path: path)
     }
 
     private func post<T: Decodable>(path: String, body: [String: String]) async throws -> T {
@@ -137,8 +377,30 @@ struct APIClient {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         addAuth(to: &request)
         let (data, response) = try await urlSession.data(for: request)
-        try validate(response: response, data: data)
-        return try decoder.decode(T.self, from: data)
+        try validate(response: response, data: data, path: path)
+        return try decode(T.self, from: data, path: path)
+    }
+
+    private func patch<T: Decodable>(path: String, body: [String: Any]) async throws -> T {
+        var request = URLRequest(url: makeURL(path: path))
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        addAuth(to: &request)
+        let (data, response) = try await urlSession.data(for: request)
+        try validate(response: response, data: data, path: path)
+        return try decode(T.self, from: data, path: path)
+    }
+
+    private func postJSONObject<T: Decodable>(path: String, body: [String: Any]) async throws -> T {
+        var request = URLRequest(url: makeURL(path: path))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        addAuth(to: &request)
+        let (data, response) = try await urlSession.data(for: request)
+        try validate(response: response, data: data, path: path)
+        return try decode(T.self, from: data, path: path)
     }
 
     private func postMultipart<T: Decodable>(
@@ -163,8 +425,8 @@ struct APIClient {
         )
         addAuth(to: &request)
         let (data, response) = try await urlSession.data(for: request)
-        try validate(response: response, data: data)
-        return try decoder.decode(T.self, from: data)
+        try validate(response: response, data: data, path: path)
+        return try decode(T.self, from: data, path: path)
     }
 
     private func multipartBody(
@@ -194,6 +456,19 @@ struct APIClient {
         JSONDecoder()
     }
 
+    private func decode<T: Decodable>(_ type: T.Type, from data: Data, path: String) throws -> T {
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            #if DEBUG
+            let body = String(data: data, encoding: .utf8) ?? "<non-utf8 response>"
+            print("FIELDLGX API decode failed for \(path): \(error)")
+            print("FIELDLGX API response body for \(path): \(body.prefix(4000))")
+            #endif
+            throw error
+        }
+    }
+
     private static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
@@ -203,8 +478,9 @@ struct APIClient {
     }()
 
     private func makeURL(path: String) -> URL {
-        let trimmed = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return URL(string: trimmed, relativeTo: baseURL.appendingPathComponent(""))!.absoluteURL
+        let baseString = baseURL.absoluteString.hasSuffix("/") ? baseURL.absoluteString : "\(baseURL.absoluteString)/"
+        let relativePath = path.hasPrefix("/") ? String(path.dropFirst()) : path
+        return URL(string: relativePath, relativeTo: URL(string: baseString)!)!.absoluteURL
     }
 
     private func addAuth(to request: inout URLRequest) {
@@ -221,12 +497,17 @@ struct APIClient {
         ]
     }
 
-    private func validate(response: URLResponse, data: Data) throws {
+    private func validate(response: URLResponse, data: Data, path: String) throws {
         guard let http = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
         guard (200..<300).contains(http.statusCode) else {
             let message = try? decoder.decode(APIErrorPayload.self, from: data).error
+            #if DEBUG
+            let body = String(data: data, encoding: .utf8) ?? "<non-utf8 response>"
+            print("FIELDLGX API server error for \(path): status \(http.statusCode), message \(message ?? "none")")
+            print("FIELDLGX API error body for \(path): \(body.prefix(4000))")
+            #endif
             throw APIError.server(statusCode: http.statusCode, message: message)
         }
     }
@@ -250,6 +531,13 @@ enum APIError: LocalizedError {
         case .unsupportedQueuedMutation:
             "This offline action is not supported yet."
         }
+    }
+
+    var statusCode: Int? {
+        if case let .server(statusCode, _) = self {
+            return statusCode
+        }
+        return nil
     }
 }
 

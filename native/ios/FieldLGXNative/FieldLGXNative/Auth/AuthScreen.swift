@@ -7,42 +7,44 @@ struct AuthScreen: View {
     @State private var password = ""
 
     var body: some View {
-        ZStack {
-            heroBackdrop
+        GeometryReader { proxy in
+            let compact = proxy.size.height < 900
+            let titleSize = min(proxy.size.width * (compact ? 0.086 : 0.098), compact ? 35 : 40)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    logo
-                        .padding(.top, 22)
+            ZStack {
+                heroBackdrop(size: proxy.size, compact: compact)
 
-                    Spacer(minLength: 18)
+                VStack(alignment: .leading, spacing: 0) {
+                    logo(compact: compact)
 
-                    heroCopy
+                    heroCopy(titleSize: titleSize)
+                        .padding(.top, compact ? 42 : 58)
 
-                    signInPanel
+                    Spacer(minLength: compact ? 22 : 30)
 
-                    Spacer(minLength: 18)
+                    signInPanel(compact: compact)
+                        .padding(.bottom, compact ? 94 : 104)
                 }
-                .padding(.horizontal, 22)
-                .padding(.bottom, 24)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(minHeight: UIScreen.main.bounds.height)
+                .padding(.horizontal, compact ? 16 : 22)
+                .padding(.top, proxy.safeAreaInsets.top + (compact ? 8 : 14))
+                .padding(.bottom, proxy.safeAreaInsets.bottom + (compact ? 8 : 12))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .scrollIndicators(.hidden)
         }
+        .dynamicTypeSize(.medium ... .xLarge)
     }
 
-    private var heroBackdrop: some View {
+    private func heroBackdrop(size: CGSize, compact: Bool) -> some View {
         ZStack {
-            FieldLGXTheme.background.ignoresSafeArea()
+            FieldLGXScreenBackground()
 
             Image("MarketingSkid")
                 .resizable()
                 .scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .scaleEffect(1.08)
-                .offset(x: 78, y: -18)
-                .opacity(0.72)
+                .frame(width: size.width, height: size.height)
+                .scaleEffect(compact ? 1.02 : 1.08)
+                .offset(x: size.width * (compact ? 0.26 : 0.20), y: compact ? -8 : -18)
+                .opacity(compact ? 0.58 : 0.68)
                 .ignoresSafeArea()
 
             LinearGradient(
@@ -74,21 +76,22 @@ struct AuthScreen: View {
         }
     }
 
-    private var logo: some View {
-        HStack(spacing: 12) {
+    private func logo(compact: Bool) -> some View {
+        HStack(spacing: compact ? 9 : 11) {
             Image("FieldLGXMonogram")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 30, height: 30)
+                .frame(width: compact ? 30 : 34, height: compact ? 30 : 34)
 
-            Image("FieldLGXWordmark")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 156, height: 38)
-                .accessibilityLabel("FIELDLGX")
+            Text("FIELDLGX")
+                .font(.system(size: compact ? 18 : 20, weight: .black))
+                .tracking(1.8)
+                .foregroundStyle(FieldLGXTheme.text)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("FIELDLGX")
+        .padding(.horizontal, compact ? 12 : 14)
+        .padding(.vertical, compact ? 10 : 11)
         .background(Color.black.opacity(0.44))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
@@ -97,52 +100,43 @@ struct AuthScreen: View {
         )
     }
 
-    private var heroCopy: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private func heroCopy(titleSize: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             Text("Run the day.")
-                .font(.system(size: 52, weight: .black, design: .rounded))
+                .font(.system(size: titleSize, weight: .black, design: .rounded))
                 .foregroundStyle(FieldLGXTheme.text)
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.68)
 
             Text("Own the season.")
-                .font(.system(size: 52, weight: .black, design: .rounded))
+                .font(.system(size: titleSize, weight: .black, design: .rounded))
                 .foregroundStyle(FieldLGXTheme.lime)
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.68)
         }
         .shadow(color: .black.opacity(0.48), radius: 18, x: 0, y: 10)
     }
 
-    private var signInPanel: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("SIGN IN")
-                        .font(.system(size: 11, weight: .black))
-                        .tracking(2.3)
-                        .foregroundStyle(FieldLGXTheme.lime)
+    private func signInPanel(compact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: compact ? 8 : 11) {
+            Text("SIGN IN")
+                .font(.system(size: 11, weight: .black))
+                .tracking(2.3)
+                .foregroundStyle(FieldLGXTheme.lime)
 
-                    Text("Enter your workspace")
-                        .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(FieldLGXTheme.text)
-                }
-                Spacer()
-            }
-
-            VStack(spacing: 12) {
+            VStack(spacing: compact ? 8 : 10) {
                 TextField("Email or username", text: $identifier)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                     .keyboardType(.emailAddress)
                     .textContentType(.username)
-                    .fieldLGXInput(icon: "person.crop.circle")
+                    .fieldLGXInput(icon: "person.crop.circle", compact: compact)
                     .accessibilityLabel("Email or username")
                     .accessibilityIdentifier("auth.email")
 
                 SecureField("Password", text: $password)
                     .textContentType(.password)
-                    .fieldLGXInput(icon: "lock")
+                    .fieldLGXInput(icon: "lock", compact: compact)
                     .accessibilityLabel("Password")
                     .accessibilityIdentifier("auth.password")
             }
@@ -159,8 +153,8 @@ struct AuthScreen: View {
                 }
                 .font(.system(size: 17, weight: .black))
                 .foregroundStyle(Color.black)
-                .padding(.horizontal, 18)
-                .frame(height: 56)
+                .padding(.horizontal, compact ? 14 : 18)
+                .frame(height: compact ? 46 : 54)
                 .background(FieldLGXTheme.lime)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .shadow(color: FieldLGXTheme.lime.opacity(0.22), radius: 18, x: 0, y: 12)
@@ -171,30 +165,15 @@ struct AuthScreen: View {
 
             DividerLabel()
 
-            HStack(spacing: 10) {
-                SignInWithAppleButton(.signIn) { request in
-                    request.requestedScopes = [.fullName, .email]
-                } onCompletion: { result in
-                    handleAppleResult(result)
-                }
-                .signInWithAppleButtonStyle(.white)
-                .frame(height: 50)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .accessibilityIdentifier("auth.apple")
-
-                Button {
-                    session.showGoogleConfigurationMessage()
-                } label: {
-                    Text("G")
-                        .font(.system(size: 20, weight: .black))
-                        .foregroundStyle(.black)
-                        .frame(width: 56, height: 50)
-                        .background(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-                .accessibilityLabel("Sign in with Google")
-                .accessibilityIdentifier("auth.google")
+            SignInWithAppleButton(.signIn) { request in
+                request.requestedScopes = [.fullName, .email]
+            } onCompletion: { result in
+                handleAppleResult(result)
             }
+            .signInWithAppleButtonStyle(.white)
+            .frame(height: compact ? 42 : 48)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .accessibilityIdentifier("auth.apple")
 
             if let errorMessage = session.errorMessage {
                 Text(errorMessage)
@@ -203,9 +182,9 @@ struct AuthScreen: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(18)
-        .background(.ultraThinMaterial.opacity(0.58), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .background(FieldLGXTheme.panel.opacity(0.84), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(compact ? 12 : 16)
+        .background(.ultraThinMaterial.opacity(0.42), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(FieldLGXTheme.panel.opacity(0.94), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
@@ -232,17 +211,17 @@ struct AuthScreen: View {
 }
 
 private extension View {
-    func fieldLGXInput(icon: String) -> some View {
-        HStack(spacing: 12) {
+    func fieldLGXInput(icon: String, compact: Bool) -> some View {
+        HStack(spacing: compact ? 10 : 12) {
             Image(systemName: icon)
-                .font(.system(size: 17, weight: .bold))
+                .font(.system(size: compact ? 14 : 17, weight: .bold))
                 .foregroundStyle(FieldLGXTheme.tertiaryText)
-                .frame(width: 22)
+                .frame(width: compact ? 20 : 22)
             self
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: compact ? 14 : 17, weight: .semibold))
                 .foregroundStyle(FieldLGXTheme.text)
         }
-        .padding(16)
+        .padding(compact ? 10 : 16)
         .background(Color.black.opacity(0.48))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(

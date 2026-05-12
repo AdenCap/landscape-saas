@@ -3,7 +3,8 @@ from calendar import monthrange
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
-from django.db.models import Case, Count, IntegerField, Prefetch, Q, Sum, Value, When
+from django.db.models import Case, Count, DecimalField, F, IntegerField, Prefetch, Q, Sum, Value, When
+from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -16,11 +17,22 @@ from customers.models import Customer, Property
 from financials.models import Receipt
 from jobs.models import Crew, Job, JobCompletionPhoto, JobIssue, JobNote, JobPhoto, JobServiceItem, PropertyNote
 from pricing.models import ServiceTemplate
-from time_tracking.models import TimeEntry, TimeEntryLocationPing
+from accounts.models import EmployeePayment, User
+from service_agreements.models import AgreementVisit, ServiceAgreement
+from time_tracking.models import EmployeeSchedule, TimeEntry, TimeEntryLocationPing, TimeOffRequest
 
 from . import auth as mobile_auth
 from .auth import issue_access_token, session_from_refresh_token, session_from_request, user_by_email, user_by_identifier
 from .models import MobileDeviceSession
+
+UNASSIGNED_CALENDAR_COLOR = "#94a3b8"
+STATUS_CALENDAR_COLORS = {
+    "scheduled": "#3b82f6",
+    "in_progress": "#f59e0b",
+    "completed": "#22c55e",
+    "skipped": "#6b7280",
+    "cancelled": "#6b7280",
+}
 
 
 def _json_body(request):
@@ -297,32 +309,52 @@ def command(request):
         Q(scheduled_date=target_date) |
         Q(scheduled_date__lte=target_date, scheduled_end_date__gte=target_date)
     ).exclude(status__in=["skipped"])
+    todays_jobs_qs = business_jobs.filter(scheduled_date=target_date)
     open_jobs = today_jobs.exclude(status__in=["completed", "skipped"])
-    unassigned_jobs = business_jobs.filter(
-        status__in=["scheduled", "in_progress"],
-    ).filter(
-        Q(assigned_to__isnull=True),
-        Q(assigned_crew__isnull=True),
-    ).distinct()
+    active_routes = todays_jobs_qs.filter(assigned_crew__isnull=False).values("assigned_crew_id").distinct().count()
+    unassigned_jobs = todays_jobs_qs.filter(
+        status="scheduled",
+        assigned_to__isnull=True,
+        assigned_crew__isnull=True,
+    )
     needs_scheduled = business_jobs.filter(
         scheduled_date__isnull=True,
         status__in=["scheduled", "in_progress"],
     )
-    ready_to_bill = business_jobs.filter(
+    ready_to_bill_qs = business_jobs.filter(
         status="completed",
-        invoice__isnull=True,
-        invoices__isnull=True,
+        service_items__billed_invoice__isnull=True,
     ).distinct()
+    ready_to_bill_total = (
+        JobServiceItem.objects.filter(
+            job__property__customer__business=business,
+            job__status="completed",
+            billed_invoice__isnull=True,
+        ).aggregate(
+            total=Coalesce(
+                Sum(F("quantity") * F("unit_price")),
+                Decimal("0.00"),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            )
+        )["total"]
+    )
+    scheduled_value = (
+        JobServiceItem.objects.filter(
+            job__property__customer__business=business,
+            job__scheduled_date=target_date,
+        ).aggregate(
+            total=Coalesce(
+                Sum(F("quantity") * F("unit_price")),
+                Decimal("0.00"),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            )
+        )["total"]
+    )
     invoices = Invoice.objects.filter(business=business)
     outstanding_total = invoices.filter(status__in=["sent", "draft"]).aggregate(
         total=Sum("total"),
     )["total"] or Decimal("0")
     open_estimates = Estimate.objects.filter(business=business, status__in=["draft", "sent"]).count()
-    active_routes = today_jobs.filter(
-        Q(assigned_crew__isnull=False) |
-        Q(assigned_to__isnull=False) |
-        Q(assigned_employees__isnull=False)
-    ).distinct().count()
 
     attention = []
     if needs_scheduled.exists():
@@ -339,12 +371,12 @@ def command(request):
             "detail": f"{unassigned_jobs.count()} job{'s' if unassigned_jobs.count() != 1 else ''} not assigned.",
             "count": unassigned_jobs.count(),
         })
-    if ready_to_bill.exists():
+    if ready_to_bill_qs.exists():
         attention.append({
             "kind": "billing",
             "title": "Ready to bill",
-            "detail": f"{ready_to_bill.count()} completed visit{'s' if ready_to_bill.count() != 1 else ''} ready for invoice review.",
-            "count": ready_to_bill.count(),
+            "detail": f"{ready_to_bill_qs.count()} completed visit{'s' if ready_to_bill_qs.count() != 1 else ''} ready for invoice review.",
+            "count": ready_to_bill_qs.count(),
         })
     if not attention:
         attention.append({
@@ -370,7 +402,9 @@ def command(request):
             "active_routes": active_routes,
             "unassigned_jobs": unassigned_jobs.count(),
             "needs_scheduled": needs_scheduled.count(),
-            "ready_to_bill": ready_to_bill.count(),
+            "ready_to_bill": ready_to_bill_qs.count(),
+            "ready_to_bill_total": f"{ready_to_bill_total:.2f}",
+            "scheduled_value": f"{scheduled_value:.2f}",
             "outstanding_total": f"{outstanding_total:.2f}",
             "open_estimates": open_estimates,
             "customers": Customer.objects.filter(business=business).count(),
@@ -687,6 +721,12 @@ def _apply_job_write_fields(job, data, business):
             return JsonResponse({"error": "Invalid job status."}, status=400)
         job.status = status
         update_fields.append("status")
+    if "color" in data:
+        color = (data.get("color") or "").strip()
+        if color and (len(color) != 7 or not color.startswith("#")):
+            return JsonResponse({"error": "Invalid job color."}, status=400)
+        job.color = color
+        update_fields.append("color")
     if "assigned_crew_id" in data:
         crew_id = data.get("assigned_crew_id")
         if crew_id in (None, ""):
@@ -981,6 +1021,196 @@ def money(request):
         },
         "invoices": [_invoice_payload(invoice) for invoice in attention_invoices.order_by("-issue_date", "-id")[:30]],
         "estimates": [_estimate_payload(estimate) for estimate in estimates.order_by("-updated_at", "-id")[:30]],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+def financials(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Financials are only available to owners and managers."}, status=403)
+
+    today = timezone.localdate()
+    month_start = today.replace(day=1)
+    month_end = today.replace(day=monthrange(today.year, today.month)[1])
+    invoices = Invoice.objects.filter(business=session.business).select_related("customer")
+    receipts = Receipt.objects.filter(business=session.business)
+    payments = EmployeePayment.objects.filter(business=session.business)
+    month_revenue = invoices.filter(status="paid", paid_at__date__gte=month_start, paid_at__date__lte=month_end).aggregate(total=Sum("total"))["total"] or Decimal("0")
+    open_invoice_total = invoices.filter(status__in=["draft", "sent"]).aggregate(total=Sum("total"))["total"] or Decimal("0")
+    expense_total = receipts.filter(receipt_date__gte=month_start, receipt_date__lte=month_end).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    payroll_total = payments.filter(paid_date__gte=month_start, paid_date__lte=month_end).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    recent_receipts = receipts.select_related("job").order_by("-receipt_date", "-created_at")[:12]
+    return JsonResponse({
+        "summary": {
+            "month_revenue": f"{month_revenue:.2f}",
+            "open_invoice_total": f"{open_invoice_total:.2f}",
+            "expense_total": f"{expense_total:.2f}",
+            "payroll_total": f"{payroll_total:.2f}",
+            "net_month": f"{(month_revenue - expense_total - payroll_total):.2f}",
+        },
+        "receipts": [_receipt_payload(receipt) for receipt in recent_receipts],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+def team(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Team is only available to owners and managers."}, status=403)
+
+    today = timezone.localdate()
+    current_timezone = timezone.get_current_timezone()
+    day_start = timezone.make_aware(timezone.datetime.combine(today, timezone.datetime.min.time()), current_timezone)
+    day_end = timezone.make_aware(timezone.datetime.combine(today, timezone.datetime.max.time()), current_timezone)
+    employees = User.objects.filter(business=session.business).order_by("first_name", "last_name", "username")
+    today_entries = TimeEntry.objects.filter(
+        user__business=session.business,
+        clock_in__lte=day_end,
+    ).filter(Q(clock_out__isnull=True) | Q(clock_out__gte=day_start)).select_related("user").order_by("-clock_in")
+    active_entries = TimeEntry.objects.filter(
+        user__business=session.business,
+        clock_out__isnull=True,
+    ).select_related("user").order_by("-clock_in")
+    pending_time = TimeEntry.objects.filter(user__business=session.business, status="pending_approval").count()
+    pending_time_off = TimeOffRequest.objects.filter(business=session.business, status="pending").count()
+    schedules = EmployeeSchedule.objects.filter(user__business=session.business).select_related("user").order_by("user__first_name", "day_of_week")
+    schedule_map = {}
+    for slot in schedules:
+        schedule_map.setdefault(slot.user_id, []).append({
+            "day": slot.get_day_of_week_display(),
+            "start": slot.start_time.strftime("%H:%M") if slot.start_time else "",
+            "end": slot.end_time.strftime("%H:%M") if slot.end_time else "",
+        })
+
+    return JsonResponse({
+        "summary": {
+            "employees": employees.count(),
+            "clocked_in": active_entries.count(),
+            "pending_time": pending_time,
+            "pending_time_off": pending_time_off,
+        },
+        "employees": [
+            {
+                "id": employee.id,
+                "name": employee.get_full_name() or employee.username,
+                "email": employee.email,
+                "phone": employee.phone,
+                "role": employee.role,
+                "hourly_rate": f"{employee.hourly_rate:.2f}" if employee.hourly_rate is not None else "",
+                "color": employee.color,
+                "is_active": employee.is_active,
+                "is_clocked_in": any(entry.user_id == employee.id for entry in active_entries),
+                "schedule": schedule_map.get(employee.id, []),
+            }
+            for employee in employees
+        ],
+        "today_entries": [
+            {
+                **_time_entry_payload(entry),
+                "employee": entry.user.get_full_name() or entry.user.username,
+            }
+            for entry in today_entries[:20]
+        ],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+def agreements(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Agreements are only available to owners and managers."}, status=403)
+
+    agreements_qs = ServiceAgreement.objects.filter(business=session.business).select_related("customer").prefetch_related("line_items")
+    visits = AgreementVisit.objects.filter(agreement__business=session.business)
+    return JsonResponse({
+        "summary": {
+            "active": agreements_qs.filter(status="active").count(),
+            "draft": agreements_qs.filter(status="draft").count(),
+            "expired": agreements_qs.filter(status="expired").count(),
+            "scheduled_visits": visits.filter(status="scheduled").count(),
+        },
+        "agreements": [
+            {
+                "id": agreement.id,
+                "name": agreement.name,
+                "customer": {"id": agreement.customer_id, "name": agreement.customer.name},
+                "status": agreement.status,
+                "agreement_type": agreement.get_agreement_type_display(),
+                "billing_frequency": agreement.get_billing_frequency_display(),
+                "start_date": agreement.start_date.isoformat() if agreement.start_date else None,
+                "end_date": agreement.end_date.isoformat() if agreement.end_date else None,
+                "price": f"{agreement.price:.2f}",
+                "visits_included": agreement.visits_included,
+                "visits_used": agreement.visits_used,
+                "visits_remaining": agreement.visits_remaining,
+                "auto_renew": agreement.auto_renew,
+                "prepaid": agreement.prepaid,
+                "line_items": [
+                    {
+                        "id": item.id,
+                        "service_name": item.service_name,
+                        "description": item.description,
+                        "frequency": item.get_frequency_display(),
+                        "quantity": str(item.quantity),
+                        "unit": item.unit,
+                        "unit_price": f"{item.unit_price:.2f}",
+                        "line_total": f"{item.line_total:.2f}",
+                        "progress": item.progress_display,
+                    }
+                    for item in agreement.line_items.all()
+                ],
+            }
+            for agreement in agreements_qs.order_by("-start_date", "-id")[:50]
+        ],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
+def settings(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Settings are only available to owners and managers."}, status=403)
+
+    business = session.business
+    return JsonResponse({
+        "business": _business_payload(business),
+        "contact": {
+            "from_email": business.from_email,
+            "contact_email": business.contact_email,
+            "contact_phone": business.contact_phone,
+            "website_url": business.website_url,
+            "shop_address": business.shop_address,
+            "logo_url": business.logo.url if business.logo else "",
+        },
+        "billing": {
+            "default_invoice_automation_mode": business.default_invoice_automation_mode,
+            "auto_invoice_send_behavior": business.auto_invoice_send_behavior,
+            "default_monthly_invoice_send_day": business.default_monthly_invoice_send_day,
+            "default_invoice_due_days": business.default_invoice_due_days,
+            "default_estimate_valid_days": business.default_estimate_valid_days,
+            "client_card_payments_enabled": business.client_card_payments_enabled,
+            "default_invoice_card_payments_enabled": business.default_invoice_card_payments_enabled,
+            "client_saved_cards_enabled": business.client_saved_cards_enabled,
+            "stripe_connected": business.can_accept_stripe_payments(),
+        },
+        "notifications": {
+            "job_scheduled": business.notify_job_scheduled,
+            "crew_en_route": business.notify_crew_en_route,
+            "job_completed": business.notify_job_completed,
+            "completion_photos": business.notify_include_completion_photos,
+            "invoice_reminders": business.invoice_reminder_enabled,
+            "estimate_follow_up_days": business.estimate_follow_up_days,
+            "google_review_requests": business.google_review_requests_enabled,
+        },
         "server_time": timezone.now().isoformat(),
     })
 
@@ -1826,9 +2056,21 @@ def _job_payload(job, target_date):
     if job.scheduled_end_date and job.scheduled_date and job.scheduled_end_date > job.scheduled_date:
         items = [item for item in items if item.scheduled_date is None or item.scheduled_date == target_date]
     customer = job.property.customer
+    crew_color = (
+        job.assigned_crew.color
+        if getattr(job, "assigned_crew", None) and getattr(job.assigned_crew, "color", None)
+        else UNASSIGNED_CALENDAR_COLOR
+    )
+    status_color = STATUS_CALENDAR_COLORS.get(job.status, STATUS_CALENDAR_COLORS["scheduled"])
+    job_color_override = (job.color or "").strip() or None
     return {
         "id": job.id,
         "status": job.status,
+        "color": job_color_override or status_color,
+        "status_color": status_color,
+        "assignee_color": crew_color,
+        "crew_color": crew_color,
+        "job_color_override": job_color_override,
         "scheduled_date": job.scheduled_date.isoformat() if job.scheduled_date else None,
         "scheduled_end_date": job.scheduled_end_date.isoformat() if job.scheduled_end_date else None,
         "scheduled_time": job.scheduled_time.strftime("%H:%M") if job.scheduled_time else None,

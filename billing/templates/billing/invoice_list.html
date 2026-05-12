@@ -13,7 +13,7 @@
       <div>
         <p class="ic-eyebrow"><span></span> Money Command</p>
         <h1>Invoices</h1>
-        <p class="ic-subcopy">Track drafts, collect open balances, and move customers from service completed to paid.</p>
+        <p class="ic-subcopy">Focus on invoices that need action now while recurring batches keep building quietly in the background.</p>
       </div>
       <div class="ic-hero-actions">
         <a href="{% url 'billing:invoice_create' %}" class="ic-primary-action">
@@ -21,7 +21,7 @@
           <span>Create invoice</span>
         </a>
         <a href="{% url 'billing:outstanding_invoices' %}" class="ic-secondary-action">Outstanding</a>
-        <a href="{% url 'billing:monthly_invoice_list' %}" class="ic-secondary-action">Monthly</a>
+        <a href="{% url 'billing:monthly_invoice_list' %}" class="ic-secondary-action">Batches</a>
       </div>
     </header>
 
@@ -29,12 +29,12 @@
       <a href="{% url 'billing:invoice_list' %}?status=draft" class="ic-stat ic-command-stat">
         <span>Ready to send</span>
         <strong>{{ command_metrics.draft_total|currency }}</strong>
-        <small>{{ command_metrics.draft_count }} draft invoice{{ command_metrics.draft_count|pluralize }}</small>
+        <small>{{ command_metrics.draft_count }} invoice{{ command_metrics.draft_count|pluralize }} needing review</small>
       </a>
       <a href="{% url 'billing:monthly_invoice_list' %}" class="ic-stat ic-command-stat">
-        <span>Monthly drafts</span>
+        <span>Building batches</span>
         <strong>{{ command_metrics.monthly_draft_total|currency }}</strong>
-        <small>{{ command_metrics.monthly_draft_count }} monthly invoice{{ command_metrics.monthly_draft_count|pluralize }}</small>
+        <small>{{ command_metrics.monthly_draft_count }} recurring invoice{{ command_metrics.monthly_draft_count|pluralize }} still collecting work</small>
       </a>
       <a href="{% url 'billing:unbilled_work' %}" class="ic-stat ic-command-stat ic-stat-work">
         <span>Work not invoiced</span>
@@ -89,7 +89,10 @@
       <div class="ic-panel-head">
         <div>
           <p>Billing queue</p>
-          <h2>{% if status_filter == "draft" %}Draft invoices{% elif status_filter == "sent" %}Sent invoices{% elif status_filter == "overdue" %}Overdue invoices{% elif status_filter == "due_soon" %}Due soon{% elif status_filter == "paid" %}Paid invoices{% else %}Recent invoices{% endif %}</h2>
+          <h2>{% if status_filter == "draft" %}Ready to send{% elif status_filter == "building" %}Building batches{% elif status_filter == "sent" %}Sent invoices{% elif status_filter == "overdue" %}Overdue invoices{% elif status_filter == "due_soon" %}Due soon{% elif status_filter == "paid" %}Paid invoices{% else %}Needs attention{% endif %}</h2>
+          {% if status_filter == "building" %}
+          <small class="ic-panel-sub">Recurring invoices are visible here while services are still being added. Review and send them from the batch workspace when the billing period closes.</small>
+          {% endif %}
         </div>
         <span>{{ invoice_rows|length }}</span>
       </div>
@@ -458,6 +461,14 @@
     margin: 6px 0 0;
     font-size: clamp(2rem, 4vw, 3.1rem);
     letter-spacing: 0;
+  }
+  .ic-panel-sub {
+    display: block;
+    max-width: 720px;
+    margin-top: 8px;
+    color: var(--ic-muted);
+    font-size: var(--text-base);
+    line-height: 1.45;
   }
   .ic-panel-head > span {
     min-width: 52px;

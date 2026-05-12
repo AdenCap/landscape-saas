@@ -22,6 +22,13 @@ enum AppTab: String, CaseIterable, Identifiable {
     case work
     case clients
     case money
+    case estimates
+    case financials
+    case employees
+    case agreements
+    case settings
+    case mowing
+    case fertilization
     case today
     case route
     case time
@@ -32,11 +39,18 @@ enum AppTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .command: "Command"
+        case .command: "Dashboard"
         case .calendar: "Calendar"
-        case .work: "Work"
+        case .work: "Jobs"
         case .clients: "Clients"
-        case .money: "Money"
+        case .money: "Invoices"
+        case .estimates: "Estimates"
+        case .financials: "Financials"
+        case .employees: "Employees"
+        case .agreements: "Agreements"
+        case .settings: "Settings"
+        case .mowing: "Mowing"
+        case .fertilization: "Fertilization"
         case .today: "Today"
         case .route: "Route"
         case .time: "Time"
@@ -51,7 +65,14 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .calendar: "calendar"
         case .work: "checklist"
         case .clients: "person.2"
-        case .money: "dollarsign.circle"
+        case .money: "doc.text"
+        case .estimates: "doc.badge.plus"
+        case .financials: "chart.line.uptrend.xyaxis"
+        case .employees: "person.3"
+        case .agreements: "doc.plaintext"
+        case .settings: "gearshape"
+        case .mowing: "leaf"
+        case .fertilization: "sprout"
         case .today: "sun.max"
         case .route: "map"
         case .time: "clock"
@@ -60,27 +81,12 @@ enum AppTab: String, CaseIterable, Identifiable {
         }
     }
 
-    var placeholderCopy: String {
-        switch self {
-        case .command: "Today’s work, crew status, billing alerts, and anything needing your eye."
-        case .calendar: "Daily schedules, recurring work, multi-day jobs, and crew assignments."
-        case .work: "Jobs, service items, notes, photos, issues, and completion status."
-        case .clients: "Customers, properties, permanent notes, billing preferences, and history."
-        case .money: "Estimates, invoices, deposits, monthly batches, reminders, and payments."
-        case .today: "Your assigned stops, job details, notes, photos, maps, and field actions."
-        case .route: "Stop order, property context, directions, and status for the day."
-        case .time: "Clock in, clock out, breaks, and location-backed timeline events."
-        case .messages: "Owner updates, manager notes, and field communication."
-        case .more: "Profile, offline queue, settings, permissions, and support."
-        }
-    }
-
     static func tabs(for role: AppRole) -> [AppTab] {
         switch role {
         case .owner, .manager:
-            [.command, .calendar, .work, .clients, .money, .more]
+            [.command, .work, .calendar, .clients, .money, .estimates, .financials, .employees, .agreements, .mowing, .fertilization, .settings]
         case .crew:
-            [.today, .route, .time, .messages, .more]
+            [.today, .route, .time, .more]
         }
     }
 }

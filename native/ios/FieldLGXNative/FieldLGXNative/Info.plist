@@ -20,6 +20,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>FIELDLGX_API_BASE_URL</key>
+	<string>$(FIELDLGX_API_BASE_URL)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -40,21 +42,25 @@
 			</dict>
 		</dict>
 	</dict>
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>FIELDLGX uses the camera to capture job photos, completion proof, estimate images, receipts, and field issue documentation.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>FIELDLGX uses your photo library so you can attach existing photos to jobs, estimates, properties, receipts, and issues.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>FIELDLGX uses location while you are clocked in to record time and job timeline events for field operations.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>FIELDLGX can record periodic location timeline events while you are clocked in, even if the app is in the background.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>FIELDLGX uses location while you are clocked in to record time and job timeline events for field operations.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>FIELDLGX can save field photos and generated business documents to your photo library when you choose to export them.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FIELDLGX uses your photo library so you can attach existing photos to jobs, estimates, properties, receipts, and issues.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
 	</array>
 </dict>
 </plist>

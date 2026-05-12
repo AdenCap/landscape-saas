@@ -6,11 +6,14 @@ final class AuthSession {
     private(set) var currentUser: MobileUser?
     private(set) var business: MobileBusiness?
     private(set) var accessToken: String?
+    private var accessTokenExpiresAt: Date?
+    private var refreshTask: Task<Void, Never>?
     var isLoading = false
+    var isRestoring = false
     var errorMessage: String?
 
-    private let keychain = KeychainStore(service: "com.fieldlgx.native.auth")
-    private let baseURL = URL(string: "http://127.0.0.1:8004")!
+    private let keychain = KeychainStore(service: "com.fieldlgx.app.auth")
+    private let baseURL = FieldLGXConfig.apiBaseURL
 
     var isAuthenticated: Bool {
         currentUser != nil && accessToken != nil
@@ -36,6 +39,31 @@ final class AuthSession {
         }
     }
 
+    func restoreSessionIfPossible() async {
+        guard currentUser == nil, accessToken == nil, !isRestoring else { return }
+        isRestoring = true
+        defer { isRestoring = false }
+
+        do {
+            guard let refreshToken = try keychain.read(account: "refresh_token") else {
+                return
+            }
+            let response = try await APIClient(baseURL: baseURL).refresh(refreshToken: refreshToken)
+            await completeSignIn(response)
+        } catch {
+            keychain.delete(account: "refresh_token")
+            accessToken = nil
+            currentUser = nil
+            business = nil
+        }
+    }
+
+    func refreshSessionIfNeeded() async {
+        guard currentUser != nil, accessToken != "preview-token" else { return }
+        guard shouldRefreshAccessToken else { return }
+        await refreshAccessToken()
+    }
+
     func signInWithApple(identityToken: String) async {
         isLoading = true
         errorMessage = nil
@@ -45,12 +73,8 @@ final class AuthSession {
             let response = try await APIClient(baseURL: baseURL).appleLogin(identityToken: identityToken)
             await completeSignIn(response)
         } catch {
-            errorMessage = "Apple Sign-In is wired in the app, but token verification still needs the Apple developer keys on the server."
+            errorMessage = "Apple Sign-In failed: \(error.localizedDescription)"
         }
-    }
-
-    func showGoogleConfigurationMessage() {
-        errorMessage = "Google Sign-In needs the iOS Google client ID and SDK package configured before App Store release. Email/username login is ready locally."
     }
 
     func loadBootstrap() async {
@@ -60,6 +84,9 @@ final class AuthSession {
             currentUser = response.user
             business = response.business
         } catch {
+            #if DEBUG
+            print("FIELDLGX bootstrap load failed: \(error)")
+            #endif
             errorMessage = "Signed in, but the workspace could not load."
         }
     }
@@ -77,8 +104,11 @@ final class AuthSession {
     }
 
     func signOut() {
+        refreshTask?.cancel()
+        refreshTask = nil
         keychain.delete(account: "refresh_token")
         accessToken = nil
+        accessTokenExpiresAt = nil
         currentUser = nil
         business = nil
         errorMessage = nil
@@ -86,12 +116,72 @@ final class AuthSession {
 
     private func completeSignIn(_ response: LoginResponse) async {
         do {
-            try keychain.save(response.refreshToken, account: "refresh_token")
+            if let refreshToken = response.refreshToken {
+                try keychain.save(refreshToken, account: "refresh_token")
+            }
             accessToken = response.accessToken
+            accessTokenExpiresAt = Self.expirationDate(from: response.accessToken)
             currentUser = response.user
+            scheduleAccessTokenRefresh()
             await loadBootstrap()
         } catch {
             errorMessage = "Signed in, but this device could not save the session."
         }
+    }
+
+    private var shouldRefreshAccessToken: Bool {
+        guard let accessTokenExpiresAt else { return true }
+        return accessTokenExpiresAt.timeIntervalSinceNow < 90
+    }
+
+    private func refreshAccessToken() async {
+        do {
+            guard let refreshToken = try keychain.read(account: "refresh_token") else {
+                signOut()
+                return
+            }
+            let response = try await APIClient(baseURL: baseURL).refresh(refreshToken: refreshToken)
+            await completeSignIn(response)
+        } catch {
+            signOut()
+        }
+    }
+
+    private func scheduleAccessTokenRefresh() {
+        refreshTask?.cancel()
+        guard accessToken != "preview-token" else { return }
+
+        let delay: TimeInterval
+        if let accessTokenExpiresAt {
+            delay = max(accessTokenExpiresAt.timeIntervalSinceNow - 60, 30)
+        } else {
+            delay = 8 * 60
+        }
+
+        refreshTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(delay))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            await self?.refreshAccessToken()
+        }
+    }
+
+    private static func expirationDate(from token: String) -> Date? {
+        let parts = token.split(separator: ".")
+        guard parts.count > 1 else { return nil }
+        let body = parts[1]
+        var value = String(body)
+        value += String(repeating: "=", count: (4 - value.count % 4) % 4)
+        guard
+            let data = Data(base64Encoded: value.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")),
+            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let exp = object["exp"] as? TimeInterval
+        else {
+            return nil
+        }
+        return Date(timeIntervalSince1970: exp)
     }
 }

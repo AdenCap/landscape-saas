@@ -55,21 +55,40 @@ final class SyncQueue {
 
         var completed = 0
         for mutation in mutations {
-            guard mutation.entityType == "job_action",
-                  let serverID = mutation.serverID,
-                  let jobID = Int(serverID),
-                  let data = mutation.payloadJSON.data(using: .utf8),
-                  let payload = try? JSONDecoder().decode([String: String].self, from: data)
-            else {
+            guard let data = mutation.payloadJSON.data(using: .utf8) else {
                 mutation.retryCount += 1
-                mutation.failureReason = "Could not read queued action."
+                mutation.failureReason = "Could not read queued mutation."
                 continue
             }
 
             do {
-                _ = try await apiClient.performQueuedJobMutation(jobID: jobID, payload: payload)
-                modelContext.delete(mutation)
-                completed += 1
+                if mutation.entityType == "job_action",
+                   let serverID = mutation.serverID,
+                   let jobID = Int(serverID),
+                   let payload = try? JSONDecoder().decode([String: String].self, from: data) {
+                    _ = try await apiClient.performQueuedJobMutation(jobID: jobID, payload: payload)
+                    modelContext.delete(mutation)
+                    completed += 1
+                } else if mutation.operation == SyncOperation.create.rawValue,
+                          ["client", "job", "invoice", "estimate"].contains(mutation.entityType),
+                          let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    let response = try await apiClient.syncPush(
+                        localID: mutation.localID.uuidString,
+                        entityType: mutation.entityType,
+                        operation: mutation.operation,
+                        payload: payload
+                    )
+                    if response.accepted.contains(where: { $0.localID == mutation.localID.uuidString }) {
+                        modelContext.delete(mutation)
+                        completed += 1
+                    } else {
+                        mutation.retryCount += 1
+                        mutation.failureReason = response.rejected.first?.reason ?? "Server rejected queued mutation."
+                    }
+                } else {
+                    mutation.retryCount += 1
+                    mutation.failureReason = "Queued mutation type is not supported yet."
+                }
             } catch {
                 mutation.retryCount += 1
                 mutation.failureReason = error.localizedDescription
