@@ -1,9 +1,34 @@
 import os
 from unittest.mock import Mock, patch
 
-from django.test import SimpleTestCase, override_settings
+from django.test import Client, SimpleTestCase, override_settings
 
 from config.supabase_storage import SupabaseStorage
+
+
+class CanonicalHostRedirectTests(SimpleTestCase):
+    @override_settings(
+        ALLOWED_HOSTS=["fieldlgx.com", "www.fieldlgx.com"],
+        CANONICAL_HOST="fieldlgx.com",
+        CANONICAL_REDIRECT_HOSTS=["www.fieldlgx.com"],
+        DEBUG=False,
+    )
+    def test_www_redirects_to_canonical_host(self):
+        response = Client().get("/", HTTP_HOST="www.fieldlgx.com", secure=True)
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response["Location"], "https://fieldlgx.com/")
+
+    @override_settings(
+        ALLOWED_HOSTS=["fieldlgx.com", "www.fieldlgx.com"],
+        CANONICAL_HOST="fieldlgx.com",
+        CANONICAL_REDIRECT_HOSTS=["www.fieldlgx.com"],
+        DEBUG=False,
+    )
+    def test_canonical_host_does_not_redirect(self):
+        response = Client().get("/", HTTP_HOST="fieldlgx.com", secure=True)
+
+        self.assertNotEqual(response.status_code, 301)
 
 
 class SupabaseStorageTests(SimpleTestCase):

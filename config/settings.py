@@ -39,26 +39,48 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
 
 # Site URL for self-referencing (logo proxy, emails, etc.)
 SITE_URL = os.environ.get("SITE_URL", "").strip() or "https://fieldlgx.com"
+CANONICAL_BASE_URL = os.environ.get("CANONICAL_BASE_URL", SITE_URL).strip().rstrip("/") or "https://fieldlgx.com"
+CANONICAL_HOST = os.environ.get("CANONICAL_HOST", "fieldlgx.com").strip().lower()
+
+
+def _csv_env(name):
+    return [value.strip() for value in os.environ.get(name, "").split(",") if value.strip()]
+
+
+def _unique(values):
+    seen = set()
+    result = []
+    for value in values:
+        key = value.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(value)
+    return result
 
 # In production, set ALLOWED_HOSTS (comma-separated) or leave unset.
 # When PORT is set (e.g. App Platform, Render), allow .ondigitalocean.app so the app accepts requests.
-_allowed = os.environ.get("ALLOWED_HOSTS", "").strip()
+_default_public_hosts = ["fieldlgx.com", "www.fieldlgx.com"]
+_allowed = _csv_env("ALLOWED_HOSTS")
 if _allowed:
-    ALLOWED_HOSTS = [h.strip() for h in _allowed.split(",") if h.strip()]
+    ALLOWED_HOSTS = _unique(_allowed + _default_public_hosts)
 elif os.environ.get("VERCEL"):
-    ALLOWED_HOSTS = [".vercel.app", ".now.sh"]
+    ALLOWED_HOSTS = _unique(_default_public_hosts + [".vercel.app", ".now.sh"])
 elif os.environ.get("PORT"):
     # App Platform, Render, etc. set PORT; allow default platform hostnames
-    ALLOWED_HOSTS = [".ondigitalocean.app", ".render.com", "127.0.0.1", "localhost"]
+    ALLOWED_HOSTS = _unique(_default_public_hosts + [".ondigitalocean.app", ".render.com", "127.0.0.1", "localhost"])
 elif DEBUG:
     ALLOWED_HOSTS = ["*"]
 else:
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+    ALLOWED_HOSTS = _unique(_default_public_hosts + ["127.0.0.1", "localhost"])
 
 # For HTTPS in production, set CSRF_TRUSTED_ORIGINS (comma-separated), e.g. https://yourapp.com,https://www.yourapp.com
 # On Vercel, set to your deployment URL(s), e.g. https://your-project.vercel.app
-_csrf_origins = os.environ.get("CSRF_TRUSTED_ORIGINS", "").strip()
-CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()] if _csrf_origins else []
+_default_csrf_origins = ["https://fieldlgx.com", "https://www.fieldlgx.com"]
+_csrf_origins = _csv_env("CSRF_TRUSTED_ORIGINS")
+CSRF_TRUSTED_ORIGINS = _unique(_csrf_origins + _default_csrf_origins)
+
+CANONICAL_REDIRECT_HOSTS = _unique(_csv_env("CANONICAL_REDIRECT_HOSTS") or ["www.fieldlgx.com"])
 
 # ── Security headers (always applied) ─────────────────────────────────────
 # These are safe in dev and critical in prod; always enforce.
@@ -153,6 +175,7 @@ try:
 except ImportError:
     pass
 _middleware += [
+    'config.middleware.CanonicalHostRedirectMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
