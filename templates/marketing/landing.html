@@ -10,10 +10,10 @@
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"FIELDLGX","alternateName":["lawn care software","landscape management software","landscaping CRM"],"applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"Premium lawn care and landscape management software for scheduling, recurring jobs, route planning, client CRM, estimates, invoices, online payments, mowing management, fertilization programs, job photos, notes, crew management, batch invoicing, and financial reporting.","offers":[{"@type":"Offer","name":"Solo Starter","price":"{{ pricing.solo_price }}","priceCurrency":"USD","availability":"https://schema.org/InStock"},{"@type":"Offer","name":"Pro All-Access","price":"{{ pricing.pro_price }}","priceCurrency":"USD","availability":"https://schema.org/InStock"}],"featureList":["Field Command dashboard","Drag-and-drop calendar scheduling","Recurring job management","Daily route planning","Job detail notes and photos","Client and property CRM","Estimate builder","Invoice builder","Monthly and batch invoicing","Online card payments with Stripe Connect","Mowing frequency management","Fertilization program management","Service agreements","Crew and employee management","Financial dashboards","Document templates"]}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is FIELDLGX?","acceptedAnswer":{"@type":"Answer","text":"FIELDLGX is premium business software built for landscaping and lawn care companies. It brings scheduling, recurring jobs, client records, routes, estimates, invoices, payments, crew notes, photos, mowing, fertilization, and financial visibility into one platform."}},{"@type":"Question","name":"Does FIELDLGX include a free trial?","acceptedAnswer":{"@type":"Answer","text":"Yes. New landscaping businesses can start with a 14-day free trial."}},{"@type":"Question","name":"Can crews use FIELDLGX on mobile?","acceptedAnswer":{"@type":"Answer","text":"Yes. FIELDLGX is mobile-optimized so field teams can view jobs, access property details, read crew-visible notes, upload photos, and complete work from the field."}},{"@type":"Question","name":"Can FIELDLGX handle invoices and payments?","acceptedAnswer":{"@type":"Answer","text":"Yes. FIELDLGX supports estimates, invoices, line items, discounts and promotions, monthly invoice workflows, and online card payments through Stripe Connect when enabled by the business owner."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is FIELDLGX?","acceptedAnswer":{"@type":"Answer","text":"FIELDLGX is premium business software built for landscaping and lawn care companies. It brings scheduling, recurring jobs, client records, routes, estimates, invoices, payments, crew notes, photos, mowing, fertilization, and financial visibility into one platform."}},{"@type":"Question","name":"Does FIELDLGX include a free trial?","acceptedAnswer":{"@type":"Answer","text":"Yes. New landscaping businesses can start with a 14-day free trial."}},{"@type":"Question","name":"Can crews use FIELDLGX on mobile?","acceptedAnswer":{"@type":"Answer","text":"Yes. FIELDLGX is mobile-optimized so field teams can view jobs, access property details, read crew-visible notes, upload photos, and complete work from the field."}},{"@type":"Question","name":"Can FIELDLGX handle invoices and payments?","acceptedAnswer":{"@type":"Answer","text":"Yes. FIELDLGX supports estimates, invoices, line items, discounts and promotions, monthly invoice workflows, and online card payments through Stripe Connect when enabled by the business owner."}},{"@type":"Question","name":"How does FIELDLGX handle payment workflows?","acceptedAnswer":{"@type":"Answer","text":"FIELDLGX uses Stripe Connect for online card payment workflows when the business owner enables card payments. Owners can choose whether card payments are available for estimates and invoices."}},{"@type":"Question","name":"Can owners control what crews can see?","acceptedAnswer":{"@type":"Answer","text":"Yes. FIELDLGX is built with owner, manager, and crew workflows so field teams can access job information while business and billing controls stay owner-managed."}},{"@type":"Question","name":"Where can customers review FIELDLGX policies or get support?","acceptedAnswer":{"@type":"Answer","text":"FIELDLGX provides public Terms and Privacy pages and support can be reached at support@fieldlgx.com."}}]}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Organization","name":"FIELDLGX","url":"https://fieldlgx.com","logo":"https://fieldlgx.com/static/img/icon-512.png","sameAs":[]}
+{"@context":"https://schema.org","@type":"Organization","name":"FIELDLGX","url":"https://fieldlgx.com","logo":"https://fieldlgx.com/static/img/icon-512.png","contactPoint":[{"@type":"ContactPoint","email":"support@fieldlgx.com","contactType":"customer support","availableLanguage":"English"}],"sameAs":[]}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebSite","name":"FIELDLGX","url":"https://fieldlgx.com"}
@@ -162,6 +162,20 @@ body{background:var(--lgx-black)}
 .lgx-proof-card span{display:block;color:var(--lgx-lime-2);font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
 .lgx-proof-card h3{margin:0;color:#fff;font-size:22px;line-height:1.05;letter-spacing:-.035em}
 .lgx-proof-card p{margin:0;color:var(--lgx-muted);font-size:14px;line-height:1.55}
+.lgx-trust{background:radial-gradient(circle at 76% 18%,rgba(157,216,80,.12),transparent 32%),linear-gradient(to bottom,#080a08,var(--lgx-black))}
+.lgx-trust-panel{position:relative;overflow:hidden;border:1px solid var(--lgx-line-strong);border-radius:34px;background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.03));box-shadow:var(--lgx-shadow);padding:clamp(24px,4vw,38px)}
+.lgx-trust-panel::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 20% 20%,rgba(157,216,80,.12),transparent 28%),linear-gradient(90deg,rgba(255,255,255,.035),transparent 42%);pointer-events:none}
+.lgx-trust-head{position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,.9fr) minmax(280px,.42fr);gap:24px;align-items:end;margin-bottom:24px}
+.lgx-trust-head h2{margin:0;color:#fff;font-size:clamp(34px,5vw,62px);line-height:.95;letter-spacing:-.055em;font-weight:900}
+.lgx-trust-head p{margin:0;color:var(--lgx-muted);font-size:15px;line-height:1.65}
+.lgx-trust-grid{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.lgx-trust-card{min-height:170px;border:1px solid rgba(255,255,255,.11);border-radius:24px;background:rgba(0,0,0,.22);padding:20px;backdrop-filter:blur(18px)}
+.lgx-trust-card span{display:inline-flex;margin-bottom:18px;color:var(--lgx-lime-2);font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+.lgx-trust-card h3{margin:0;color:#fff;font-size:20px;letter-spacing:-.03em}
+.lgx-trust-card p{margin:10px 0 0;color:var(--lgx-muted);font-size:13px;line-height:1.56}
+.lgx-trust-links{position:relative;z-index:2;display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.lgx-trust-links a{color:var(--lgx-mist);border:1px solid var(--lgx-line);border-radius:999px;padding:10px 13px;background:rgba(255,255,255,.045);font-size:12px;font-weight:850;text-decoration:none}
+.lgx-trust-links a:hover{border-color:rgba(157,216,80,.35);color:var(--lgx-lime-2)}
 .lgx-pricing{background:var(--lgx-black)}
 .lgx-price-grid{display:grid;grid-template-columns:repeat(2,minmax(0,390px));gap:18px;justify-content:center}
 .lgx-price-card{border:1px solid var(--lgx-line);border-radius:30px;background:linear-gradient(145deg,rgba(255,255,255,.085),rgba(255,255,255,.035));padding:30px;position:relative;overflow:hidden}
@@ -177,8 +191,8 @@ body{background:var(--lgx-black)}
 @media(max-width:940px){
   .lgx-skid-grid,.lgx-show-grid{grid-template-columns:1fr}
   .lgx-hero-art{min-height:420px}
-  .lgx-workflow,.lgx-feature-grid,.lgx-capability-grid{grid-template-columns:repeat(2,1fr)}
-  .lgx-proof-head,.lgx-proof-card{grid-template-columns:1fr}
+  .lgx-workflow,.lgx-feature-grid,.lgx-capability-grid,.lgx-trust-grid{grid-template-columns:repeat(2,1fr)}
+  .lgx-proof-head,.lgx-proof-card,.lgx-trust-head{grid-template-columns:1fr}
   .lgx-hero-art{right:-30vw;bottom:-2vh;width:880px;height:520px;opacity:.68}
   .lgx-hero-floating{display:none}
   .lgx-mower-machine{width:660px;left:-24%;top:38%}
@@ -194,8 +208,9 @@ body{background:var(--lgx-black)}
   .lgx-hero-art::before{inset:-18% -10% -10% -12%;background:linear-gradient(90deg,var(--lgx-black) 0%,rgba(4,5,4,.92) 34%,rgba(4,5,4,.38) 66%,transparent 100%)}
   .lgx-hero-floating{display:none}
   .lgx-hero-actions,.lgx-final .lgx-hero-actions{display:grid}
-  .lgx-workflow,.lgx-feature-grid,.lgx-price-grid,.lgx-capability-grid,.lgx-command-board{grid-template-columns:1fr}
+  .lgx-workflow,.lgx-feature-grid,.lgx-price-grid,.lgx-capability-grid,.lgx-command-board,.lgx-trust-grid{grid-template-columns:1fr}
   .lgx-proof-panel{border-radius:24px;padding:22px}
+  .lgx-trust-panel{border-radius:24px;padding:22px}
   .lgx-proof-card{gap:10px;padding:18px}
   .lgx-section{padding-top:88px;scroll-margin-top:112px}
   .lgx-command-tile.wide{grid-column:auto}
@@ -326,6 +341,34 @@ body{background:var(--lgx-black)}
           <article class="lgx-proof-card lgx-reveal"><span>03</span><h3>Billing starts when work is done.</h3><p>Completed jobs can move into invoice queues, monthly batches, line items, reminders, and optional card-on-file workflows.</p></article>
           <article class="lgx-proof-card lgx-reveal"><span>04</span><h3>Owners keep control.</h3><p>Payments, automation, crew-visible notes, estimate approvals, invoice sending, and customer billing settings stay owner-controlled.</p></article>
           <article class="lgx-proof-card lgx-reveal"><span>05</span><h3>Built for lawn care and landscaping.</h3><p>Mowing, fertilization, estimates, invoices, service agreements, client CRM, employee management, and financial dashboards live in one system.</p></article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lgx-section lgx-trust" id="trust">
+    <div class="lgx-shell">
+      <div class="lgx-trust-panel lgx-reveal">
+        <div class="lgx-trust-head">
+          <div>
+            <p class="lgx-kicker">Built for Confidence</p>
+            <h2>A serious platform should look trustworthy before sign up.</h2>
+          </div>
+          <p>FIELDLGX keeps the public promise clear: transparent trial terms, visible support, owner-controlled payments, and documented policies without hiding behind vague claims.</p>
+        </div>
+        <div class="lgx-trust-grid">
+          <article class="lgx-trust-card lgx-reveal"><span>Secure access</span><h3>HTTPS on fieldlgx.com</h3><p>The platform runs on a secure fieldlgx.com connection with canonical domain handling for the public site and app workflows.</p></article>
+          <article class="lgx-trust-card lgx-reveal"><span>Payments</span><h3>Stripe-powered when enabled</h3><p>Card payment workflows are available through Stripe Connect when the business owner chooses to accept online payments.</p></article>
+          <article class="lgx-trust-card lgx-reveal"><span>Controls</span><h3>Owner, manager, and crew roles</h3><p>Owners can manage business settings and billing while crews see the job context they need in the field.</p></article>
+          <article class="lgx-trust-card lgx-reveal"><span>Policies</span><h3>Terms and privacy are public</h3><p>Prospects, customers, and security tools can review the core policy pages before creating an account.</p></article>
+          <article class="lgx-trust-card lgx-reveal"><span>Trial</span><h3>Clear 14-day trial</h3><p>The subscription path starts with a 14-day trial so landscaping companies can try real workflows before committing.</p></article>
+          <article class="lgx-trust-card lgx-reveal"><span>Support</span><h3>Direct support path</h3><p>Questions about access, billing, setup, or account support can go directly to support@fieldlgx.com.</p></article>
+        </div>
+        <div class="lgx-trust-links">
+          <a href="/privacy/">Privacy policy</a>
+          <a href="/terms/">Terms of service</a>
+          <a href="mailto:support@fieldlgx.com">Contact support</a>
+          <a href="/pricing/">View pricing</a>
         </div>
       </div>
     </div>

@@ -1,14 +1,46 @@
 import SwiftUI
+import UIKit
 
 enum FieldLGXTheme {
-    static let background = Color(red: 0.02, green: 0.025, blue: 0.02)
-    static let elevatedBackground = Color(red: 0.055, green: 0.060, blue: 0.055)
-    static let panel = Color(red: 0.10, green: 0.11, blue: 0.10)
-    static let panelStroke = Color.white.opacity(0.14)
+    private static func adaptive(light: UIColor, dark: UIColor) -> Color {
+        Color(UIColor { traits in
+            traits.userInterfaceStyle == .dark ? dark : light
+        })
+    }
+
+    static let background = adaptive(
+        light: UIColor(red: 0.965, green: 0.975, blue: 0.945, alpha: 1),
+        dark: UIColor(red: 0.020, green: 0.025, blue: 0.020, alpha: 1)
+    )
+    static let elevatedBackground = adaptive(
+        light: UIColor(red: 1.000, green: 1.000, blue: 0.985, alpha: 1),
+        dark: UIColor(red: 0.055, green: 0.060, blue: 0.055, alpha: 1)
+    )
+    static let panel = adaptive(
+        light: UIColor(red: 0.985, green: 0.995, blue: 0.965, alpha: 1),
+        dark: UIColor(red: 0.100, green: 0.110, blue: 0.100, alpha: 1)
+    )
+    static let panelStroke = adaptive(
+        light: UIColor(red: 0.090, green: 0.130, blue: 0.080, alpha: 0.14),
+        dark: UIColor.white.withAlphaComponent(0.14)
+    )
     static let lime = Color(red: 0.63, green: 0.91, blue: 0.29)
-    static let text = Color.white
-    static let secondaryText = Color.white.opacity(0.62)
-    static let tertiaryText = Color.white.opacity(0.42)
+    static let text = adaptive(
+        light: UIColor(red: 0.065, green: 0.095, blue: 0.060, alpha: 1),
+        dark: UIColor.white
+    )
+    static let secondaryText = adaptive(
+        light: UIColor(red: 0.260, green: 0.315, blue: 0.240, alpha: 1),
+        dark: UIColor.white.withAlphaComponent(0.62)
+    )
+    static let tertiaryText = adaptive(
+        light: UIColor(red: 0.415, green: 0.455, blue: 0.390, alpha: 1),
+        dark: UIColor.white.withAlphaComponent(0.42)
+    )
+    static let gridLine = adaptive(
+        light: UIColor(red: 0.090, green: 0.130, blue: 0.080, alpha: 0.040),
+        dark: UIColor.white.withAlphaComponent(0.032)
+    )
 
     static let cardRadius: CGFloat = 24
     static let pagePadding: CGFloat = 16
@@ -16,9 +48,9 @@ enum FieldLGXTheme {
     static var panelGradient: LinearGradient {
         LinearGradient(
             colors: [
-                Color.white.opacity(0.095),
+                elevatedBackground.opacity(0.96),
                 panel.opacity(0.96),
-                Color.black.opacity(0.24)
+                background.opacity(0.88)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -63,7 +95,7 @@ struct FieldLGXScreenBackground: View {
             )
 
             FieldLGXGridPattern()
-                .stroke(Color.white.opacity(0.032), lineWidth: 1)
+                .stroke(FieldLGXTheme.gridLine, lineWidth: 1)
         }
         .ignoresSafeArea()
     }

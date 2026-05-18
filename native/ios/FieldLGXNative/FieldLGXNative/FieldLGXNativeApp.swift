@@ -11,9 +11,17 @@ struct FieldLGXNativeApp: App {
 
         let appearance = UITabBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(red: 0.018, green: 0.022, blue: 0.018, alpha: 0.98)
+        appearance.backgroundColor = UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.018, green: 0.022, blue: 0.018, alpha: 0.98)
+                : UIColor(red: 0.985, green: 0.995, blue: 0.965, alpha: 0.98)
+        }
 
-        let normalColor = UIColor.white.withAlphaComponent(0.48)
+        let normalColor = UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor.white.withAlphaComponent(0.48)
+                : UIColor(red: 0.27, green: 0.32, blue: 0.25, alpha: 0.70)
+        }
         let selectedColor = UIColor(red: 0.63, green: 0.91, blue: 0.29, alpha: 1)
         for itemAppearance in [
             appearance.stackedLayoutAppearance,
@@ -49,7 +57,6 @@ struct FieldLGXNativeApp: App {
     var body: some Scene {
         WindowGroup {
             FieldLGXRootView(session: session)
-                .preferredColorScheme(.dark)
         }
         .modelContainer(for: [PendingMutation.self, CachedTodaySnapshot.self])
     }
@@ -107,13 +114,13 @@ private struct FieldLGXStartupSplash: View {
             .ignoresSafeArea()
 
             FieldLGXGridPattern()
-                .stroke(Color.white.opacity(0.035), lineWidth: 1)
+                .stroke(FieldLGXTheme.gridLine, lineWidth: 1)
                 .ignoresSafeArea()
 
             VStack(spacing: 18) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 38, style: .continuous)
-                        .fill(Color.black.opacity(0.22))
+                        .fill(FieldLGXTheme.elevatedBackground.opacity(0.84))
                         .frame(width: 132, height: 132)
                         .overlay(
                             RoundedRectangle(cornerRadius: 38, style: .continuous)

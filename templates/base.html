@@ -26,10 +26,6 @@
   <link rel="stylesheet" href="{% static 'css/messaging.css' %}?v=13">
 
   <style>
-    :root {
-      --surface-alt: #131313;
-    }
-    
     /* App-specific layout styles */
     body {
       display: flex;
@@ -101,7 +97,7 @@
     }
     .sidebar::-webkit-scrollbar { width: 4px; }
     .sidebar::-webkit-scrollbar-track { background: transparent; }
-    .sidebar::-webkit-scrollbar-thumb { background: #353534; border-radius: 10px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--surface-highest); border-radius: 10px; }
     .sidebar-brand {
       font-family: var(--font-headline, 'Manrope');
       font-size: 22px;
@@ -443,7 +439,7 @@
         cursor: pointer;
         -webkit-tap-highlight-color: transparent;
       }
-      .topbar-mobile .menu-btn:hover { background: rgba(255,255,255,0.08); }
+      .topbar-mobile .menu-btn:hover { background: var(--surface-high); }
       .topbar-mobile .menu-btn svg { width: 22px; height: 22px; }
       .content { padding: 16px 16px 88px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
       .bottom-nav {
@@ -485,26 +481,28 @@
       .bottom-nav-plus {
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
         padding: 10px 8px; min-height: 56px; width: 100%;
-        background: var(--primary); border: none; color: #000; font-size: 11px; font-weight: 700;
+        background: var(--primary); border: none; color: var(--on-primary); font-size: 11px; font-weight: 700;
         cursor: pointer; -webkit-tap-highlight-color: transparent; font-family: inherit;
         border-radius: 12px; margin: 4px 2px;
       }
       .bottom-nav-plus:hover { opacity: 0.9; }
-      .bottom-nav-plus .nav-icon { width: 26px; height: 26px; stroke: #000; }
+      .bottom-nav-plus .nav-icon { width: 26px; height: 26px; stroke: currentColor; }
       .bottom-nav-create-popover {
         position: absolute; bottom: calc(100% + 12px); right: 0;
-        min-width: 200px; padding: 10px; background: #1c1c1e; border: 1.5px solid #3a3a3c;
-        border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06);
+        min-width: 200px; padding: 10px; background: var(--glass-strong); border: 1.5px solid var(--border-hover);
+        border-radius: 16px; box-shadow: var(--shadow-lg), 0 0 0 1px var(--glass-border);
+        backdrop-filter: blur(20px) saturate(160%);
+        -webkit-backdrop-filter: blur(20px) saturate(160%);
         display: none; flex-direction: column; gap: 2px; z-index: 200;
       }
       .bottom-nav-create-popover.is-open { display: flex; animation: popoverIn var(--motion-base) var(--motion-ease-out); }
       .bottom-nav-create-popover a {
-        display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 10px; color: #f5f5f5; text-decoration: none;
+        display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 10px; color: var(--text); text-decoration: none;
         font-size: 16px; font-weight: 600; -webkit-tap-highlight-color: transparent;
         letter-spacing: -0.01em;
       }
-      .bottom-nav-create-popover a:active { background: rgba(157,216,80,0.2); }
-      .bottom-nav-create-popover a:hover { background: rgba(157,216,80,0.15); color: var(--primary); }
+      .bottom-nav-create-popover a:active { background: var(--primary-light); }
+      .bottom-nav-create-popover a:hover { background: var(--primary-light); color: var(--primary-hover); }
       .mobile-drawer {
         position: fixed;
         top: 0;
@@ -567,7 +565,7 @@
         color: var(--text-muted);
         cursor: pointer;
       }
-      .mobile-drawer-header .close-btn:hover { background: var(--surface-alt); color: var(--text); }
+      .mobile-drawer-header .close-btn:hover { background: var(--surface-high); color: var(--text); }
       .mobile-drawer-nav {
         padding: 12px 0;
         display: flex;
@@ -585,7 +583,7 @@
         font-weight: 500;
         -webkit-tap-highlight-color: transparent;
       }
-      .mobile-drawer-nav a:hover { background: rgba(34, 197, 94, 0.1); color: var(--primary); }
+      .mobile-drawer-nav a:hover { background: var(--primary-light); color: var(--primary-hover); }
       .mobile-drawer-nav a .nav-icon { width: 22px; height: 22px; flex-shrink: 0; }
       .mobile-drawer-create {
         margin: 16px 20px 0;
@@ -607,6 +605,12 @@
         width: 100%;
         justify-content: center;
         color: var(--text-muted);
+      }
+      [data-theme="light"] .mobile-drawer {
+        background: rgba(16, 28, 13, 0.24);
+      }
+      @media (prefers-color-scheme: light) {
+        [data-theme="system"] .mobile-drawer { background: rgba(16, 28, 13, 0.24); }
       }
     }
     /* Desktop: ensure mobile shell never shows, content area correct */
@@ -1048,7 +1052,7 @@
     var meta=document.getElementById('theme-color-meta');
     if(meta){
       var isDark=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);
-      meta.content=isDark?'#0a0a0a':'#ffffff';
+      meta.content=isDark?'#0a0a0a':'#f6f8f2';
     }
     document.querySelectorAll('.theme-label').forEach(function(el){el.textContent=labels[t];});
   }

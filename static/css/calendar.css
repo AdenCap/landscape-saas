@@ -5,25 +5,25 @@
 
 /* ── FullCalendar CSS Variable Overrides (Terraform Pro) ── */
 .fc {
-  --fc-border-color: rgba(66, 72, 68, 0.1);
-  --fc-bg-color: #131313;
+  --fc-border-color: var(--border);
+  --fc-bg-color: var(--bg);
   --fc-highlight-color: rgba(157, 216, 80, 0.06);
   --fc-today-bg-color: transparent;
   --fc-now-indicator-color: #ef4444;
-  --fc-neutral-bg-color: #1c1b1b;
-  --fc-list-event-hover-bg-color: #201f1f;
-  --fc-page-bg-color: #131313;
-  --fc-neutral-text-color: #c2c8c2;
-  --fc-button-bg-color: #2a2a2a;
-  --fc-button-border-color: rgba(66, 72, 68, 0.2);
-  --fc-button-text-color: #e5e2e1;
-  --fc-button-hover-bg-color: #353534;
+  --fc-neutral-bg-color: var(--bg-elevated);
+  --fc-list-event-hover-bg-color: var(--surface-high);
+  --fc-page-bg-color: var(--bg);
+  --fc-neutral-text-color: var(--text-secondary);
+  --fc-button-bg-color: var(--surface-high);
+  --fc-button-border-color: var(--border);
+  --fc-button-text-color: var(--text);
+  --fc-button-hover-bg-color: var(--surface-highest);
   --fc-button-hover-border-color: var(--border-hover);
   --fc-button-active-bg-color: var(--primary);
   --fc-button-active-border-color: var(--primary);
   /* Event colors controlled by eventDidMount in JS — do NOT set CSS defaults here */
   --fc-event-text-color: #fff;
-  --fc-non-business-color: rgba(0, 0, 0, 0.15);
+  --fc-non-business-color: rgba(0, 0, 0, 0.06);
   font-family: var(--font-family);
 }
 
