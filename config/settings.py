@@ -11,9 +11,12 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+TESTING = any(arg == "test" or arg.startswith("test_") for arg in sys.argv)
 
 # Load .env from project root if present (secrets stay out of version control)
 try:
@@ -232,8 +235,6 @@ def _get_db_url():
 
 _db_url = _get_db_url()
 _platform_runtime = bool(os.environ.get("PORT"))  # App Platform, Render, etc. set PORT
-
-import sys
 
 if _platform_runtime and not _db_url:
     print(
