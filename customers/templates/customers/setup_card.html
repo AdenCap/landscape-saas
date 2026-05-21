@@ -29,7 +29,7 @@
   var stripe = Stripe('{{ stripe_publishable_key }}', {
     stripeAccount: '{{ stripe_account_id }}'
   });
-  var isLightTheme = document.documentElement.getAttribute('data-theme') === 'light';
+  var isLightTheme = document.documentElement.classList.contains('theme-light-effective') || document.documentElement.getAttribute('data-theme') === 'light';
   var elements = stripe.elements({
     appearance: {
       theme: isLightTheme ? 'stripe' : 'night',
