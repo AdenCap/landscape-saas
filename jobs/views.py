@@ -1,5 +1,6 @@
 import json
 from datetime import date, datetime, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import quote
 
 from django.conf import settings
@@ -395,7 +396,7 @@ def schedule_from_estimate(request, estimate_id):
                 name=(line.description or estimate.title or "Estimate work")[:120],
                 active=True,
                 default_unit=line.unit or "visit",
-                default_rate=line.unit_price or 0,
+                default_rate=_job_unit_price_from_estimate_line(line),
             )
         JobServiceItem.objects.create(
             job=job,
@@ -404,7 +405,19 @@ def schedule_from_estimate(request, estimate_id):
             detail_description=getattr(line, "detail_description", "") or "",
             quantity=line.quantity or 1,
             unit=line.unit or "visit",
-            unit_price=line.unit_price or 0,
+            unit_price=_job_unit_price_from_estimate_line(line),
+        )
+
+    # Attach the estimate photos to the scheduled job so the owner and crew can see
+    # the same site/reference images that were quoted. The ImageField path is reused
+    # instead of duplicating the media file.
+    for estimate_image in estimate.images.all():
+        JobPhoto.objects.create(
+            job=job,
+            image=estimate_image.image,
+            category="before",
+            caption=estimate_image.caption,
+            uploaded_by=request.user if request.user.is_authenticated else None,
         )
 
     # Mark estimate as scheduled
@@ -413,6 +426,20 @@ def schedule_from_estimate(request, estimate_id):
 
     messages.success(request, f"Job scheduled for {schedule_date.strftime('%b %d')} from estimate #{estimate.id} ({estimate.customer.name}).")
     return redirect("job_list")
+
+
+def _job_unit_price_from_estimate_line(line):
+    """Return a per-unit price that preserves the accepted estimate line total.
+
+    Estimate lines can be priced by unit_price, material/labor costs, or a total
+    override. JobServiceItem only stores quantity + unit_price, so convert the
+    accepted quoted total into the job's unit price snapshot.
+    """
+    quantity = Decimal(str(line.quantity or 1))
+    if quantity == 0:
+        quantity = Decimal("1")
+    line_total = Decimal(str(line.line_total or 0))
+    return (line_total / quantity).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def _job_notes_from_estimate(estimate):

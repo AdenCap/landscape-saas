@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.db.models import Q
 
 from accounts.models import User
-from billing.models import Estimate, EstimateLineItem, Invoice
+from billing.models import Estimate, EstimateImage, EstimateLineItem, Invoice
 from businesses.models import Business
 from customers.models import Customer, Property
 from jobs.models import Crew, Job, JobNote, JobServiceItem, JobWorkVisit, PropertyNote, RecurringJob
@@ -59,7 +59,9 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
             description="Base cleanup",
             detail_description="Remove leaves, cut back grasses, and haul debris.",
             quantity=1,
-            unit_price=Decimal("300.00"),
+            unit_price=Decimal("0.00"),
+            material_cost=Decimal("180.00"),
+            labor_cost=Decimal("120.00"),
         )
         selected = EstimateLineItem.objects.create(
             estimate=estimate,
@@ -78,6 +80,18 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
         )
         estimate.accepted_optional_item_ids = [selected.id]
         estimate.save(update_fields=["accepted_optional_item_ids"])
+        EstimateImage.objects.create(
+            estimate=estimate,
+            image="estimates/2026/05/front-bed-before.jpg",
+            caption="Front bed before cleanup",
+            order=1,
+        )
+        EstimateImage.objects.create(
+            estimate=estimate,
+            image="estimates/2026/05/gate-access.jpg",
+            caption="Gate/access point",
+            order=2,
+        )
         return estimate, selected, declined
 
     def test_schedule_from_estimate_copies_only_accepted_items_to_job(self):
@@ -111,6 +125,61 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
             "Remove leaves, cut back grasses, and haul debris.",
             "Install 3 yards around front beds.",
         ])
+
+    def test_schedule_from_estimate_transfers_photos_to_job_site_photos(self):
+        estimate, _selected, _declined = self._accepted_estimate_with_options()
+
+        response = self.client.post(
+            reverse("schedule_from_estimate", args=[estimate.id]),
+            data={"schedule_date": "2026-05-06"},
+        )
+
+        self.assertRedirects(response, reverse("job_list"))
+        job = Job.objects.get(property=self.property, scheduled_date=date(2026, 5, 6))
+        photos = list(job.site_photos.order_by("caption"))
+        self.assertEqual(len(photos), 2)
+        self.assertEqual({photo.caption for photo in photos}, {"Front bed before cleanup", "Gate/access point"})
+        self.assertEqual({photo.category for photo in photos}, {"before"})
+        self.assertEqual({photo.uploaded_by_id for photo in photos}, {self.owner.id})
+        self.assertIn("estimates/2026/05/front-bed-before.jpg", {photo.image.name for photo in photos})
+
+    def test_estimate_to_scheduled_job_to_completed_job_to_invoice_preserves_quote_details(self):
+        self.customer.invoice_frequency = "per_service"
+        self.customer.save(update_fields=["invoice_frequency"])
+        estimate, _selected, _declined = self._accepted_estimate_with_options()
+
+        response = self.client.post(
+            reverse("schedule_from_estimate", args=[estimate.id]),
+            data={"schedule_date": "2026-05-06"},
+        )
+        self.assertRedirects(response, reverse("job_list"))
+        job = Job.objects.get(property=self.property, scheduled_date=date(2026, 5, 6))
+
+        self.assertIn("From estimate", job.notes)
+        self.assertEqual(job.site_photos.count(), 2)
+        job_items = list(job.service_items.order_by("id"))
+        self.assertEqual([item.description for item in job_items], ["Base cleanup", "Mulch refresh"])
+        self.assertEqual([item.detail_description for item in job_items], [
+            "Remove leaves, cut back grasses, and haul debris.",
+            "Install 3 yards around front beds.",
+        ])
+        self.assertEqual([item.unit_price for item in job_items], [Decimal("300.00"), Decimal("125.00")])
+
+        response = self.client.post(reverse("complete_job", args=[job.id]))
+
+        invoice = Invoice.objects.get(job=job)
+        self.assertRedirects(response, reverse("billing:invoice_detail", args=[invoice.id]))
+        job.refresh_from_db()
+        self.assertEqual(job.status, "completed")
+        self.assertEqual(job.site_photos.count(), 2)
+        invoice_items = list(invoice.line_items.order_by("id"))
+        self.assertEqual([item.description for item in invoice_items], ["Base cleanup", "Mulch refresh"])
+        self.assertEqual([item.detail_description for item in invoice_items], [
+            "Remove leaves, cut back grasses, and haul debris.",
+            "Install 3 yards around front beds.",
+        ])
+        self.assertEqual([item.unit_price for item in invoice_items], [Decimal("300.00"), Decimal("125.00")])
+        self.assertEqual(invoice.total, Decimal("425.00"))
 
     def test_accepted_estimate_can_be_scheduled_and_invoiced_without_existing_service_templates(self):
         self.service.delete()
