@@ -636,6 +636,39 @@ class CalendarRecurringRescheduleTests(TestCase):
         self.assertIsNone(job.started_at)
         self.assertIsNone(job.completed_at)
 
+    def test_calendar_events_use_planned_time_not_completed_actual_time(self):
+        job = self._create_job(date(2026, 5, 4), start_time=time(8, 0), end_time=time(9, 0))
+        job.status = "completed"
+        job.started_at = timezone.make_aware(datetime(2026, 5, 4, 14, 15))
+        job.completed_at = timezone.make_aware(datetime(2026, 5, 4, 15, 45))
+        job.save(update_fields=["status", "started_at", "completed_at"])
+
+        response = self.client.get(
+            reverse("calendar_events"),
+            {"start": "2026-05-04", "end": "2026-05-05"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        event = next(e for e in response.json() if e["id"] == str(job.id))
+        self.assertEqual(event["start"], "2026-05-04T08:00:00")
+        self.assertEqual(event["end"], "2026-05-04T09:00:00")
+
+    def test_calendar_events_use_planned_time_not_in_progress_actual_time(self):
+        job = self._create_job(date(2026, 5, 4), start_time=time(8, 0), end_time=time(9, 0))
+        job.status = "in_progress"
+        job.started_at = timezone.make_aware(datetime(2026, 5, 4, 11, 20))
+        job.save(update_fields=["status", "started_at"])
+
+        response = self.client.get(
+            reverse("calendar_events"),
+            {"start": "2026-05-04", "end": "2026-05-05"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        event = next(e for e in response.json() if e["id"] == str(job.id))
+        self.assertEqual(event["start"], "2026-05-04T08:00:00")
+        self.assertEqual(event["end"], "2026-05-04T09:00:00")
+
     def test_meeting_can_be_rescheduled_from_calendar_drag_without_defaulting_time(self):
         meeting = Meeting.objects.create(
             business=self.business,
