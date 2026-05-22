@@ -100,14 +100,36 @@
 </style>
 {% if google_maps_api_key %}
 <script>
+function restoreManualCustomerAddressInput() {
+  var input = document.getElementById('id_address_line1');
+  if (!input) return;
+  // Google Maps disables Autocomplete inputs when the API key/referrer/quota fails.
+  // Keep the CRM usable by falling back to normal manual address entry.
+  input.disabled = false;
+  if (input.classList) input.classList.remove('gm-err-autocomplete');
+  if (input.placeholder === 'Oops! Something went wrong.') {
+    input.placeholder = 'Enter service address...';
+  }
+  input.style.backgroundImage = '';
+}
+window.gm_authFailure = function() {
+  restoreManualCustomerAddressInput();
+  if (window.console && console.warn) {
+    console.warn('Google Maps Places failed to authorize; manual address entry remains enabled.');
+  }
+};
 function initAutocomplete() {
   var input = document.getElementById('id_address_line1');
   if (!input) return;
+  restoreManualCustomerAddressInput();
   var autocomplete = new google.maps.places.Autocomplete(input, {
     componentRestrictions: { country: 'us' },
     fields: ['address_components', 'formatted_address', 'geometry'],
     types: ['address']
   });
+  // If Google Maps later marks the field as unusable, restore manual entry.
+  setTimeout(restoreManualCustomerAddressInput, 1500);
+  setTimeout(restoreManualCustomerAddressInput, 4000);
   autocomplete.addListener('place_changed', function() {
     var place = autocomplete.getPlace();
     if (!place.address_components) return;

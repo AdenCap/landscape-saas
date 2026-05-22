@@ -196,13 +196,40 @@
 
 {% if google_maps_api_key %}
 <script>
+function restoreManualQuickAddAddressInputs() {
+  [
+    ['qa-client-address', 'Start typing an address...'],
+    ['qa-prop-address', 'Start typing an address...'],
+    ['id_address_line1', 'Enter service address...'],
+    ['id_address', 'Enter property address...']
+  ].forEach(function(item) {
+    var input = document.getElementById(item[0]);
+    var placeholder = item[1];
+    if (!input) return;
+    input.disabled = false;
+    if (input.classList) input.classList.remove('gm-err-autocomplete');
+    if (input.placeholder === 'Oops! Something went wrong.') {
+      input.placeholder = placeholder;
+    }
+    input.style.backgroundImage = '';
+  });
+}
+window.gm_authFailure = function() {
+  restoreManualQuickAddAddressInputs();
+  if (window.console && console.warn) {
+    console.warn('Google Maps Places failed to authorize; quick-add address fields remain manual.');
+  }
+};
 function initQuickAddAutocomplete() {
+  restoreManualQuickAddAddressInputs();
   var opts = { types: ['address'], componentRestrictions: { country: 'us' } };
 
   // Client address autocomplete
   var clientAddr = document.getElementById('qa-client-address');
   if (clientAddr && google.maps.places) {
     var ac1 = new google.maps.places.Autocomplete(clientAddr, opts);
+    setTimeout(restoreManualQuickAddAddressInputs, 1500);
+    setTimeout(restoreManualQuickAddAddressInputs, 4000);
     ac1.addListener('place_changed', function() {
       var place = ac1.getPlace();
       if (place && place.formatted_address) {
@@ -222,6 +249,8 @@ function initQuickAddAutocomplete() {
   var propAddr = document.getElementById('qa-prop-address');
   if (propAddr && google.maps.places) {
     var ac2 = new google.maps.places.Autocomplete(propAddr, opts);
+    setTimeout(restoreManualQuickAddAddressInputs, 1500);
+    setTimeout(restoreManualQuickAddAddressInputs, 4000);
     ac2.addListener('place_changed', function() {
       var place = ac2.getPlace();
       if (place && place.formatted_address) {
