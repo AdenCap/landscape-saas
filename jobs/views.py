@@ -796,16 +796,15 @@ def calendar_events(request):
                 "extendedProps": ext_props,
             }
         elif job.scheduled_time:
-            # Timed event (week/day view)
+            # Timed event (week/day view). The calendar is the planned schedule,
+            # so render from scheduled fields only. Actual started/completed
+            # timestamps are still shown in job details/duration, but using them
+            # here makes completed or in-progress jobs appear in random actual-work
+            # slots and then snap back after a user drags them to a new time.
             dt = datetime.combine(job.scheduled_date, job.scheduled_time)
-            # Only use started_at for completed/in_progress jobs — NOT scheduled ones
-            if job.started_at and job.status in ("completed", "in_progress"):
-                dt = datetime.combine(job.started_at.date(), job.started_at.time())
             start_str = dt.strftime("%Y-%m-%dT%H:%M:%S")
-            # End time: completed > scheduled_end_time > default 1 hour
-            if job.completed_at and job.started_at and job.status == "completed":
-                end_str = datetime.combine(job.completed_at.date(), job.completed_at.time()).strftime("%Y-%m-%dT%H:%M:%S")
-            elif job.scheduled_end_time:
+            # End time: scheduled_end_time > default 1 hour
+            if job.scheduled_end_time:
                 end_str = datetime.combine(job.scheduled_date, job.scheduled_end_time).strftime("%Y-%m-%dT%H:%M:%S")
             else:
                 end_dt = dt + timedelta(hours=1)
