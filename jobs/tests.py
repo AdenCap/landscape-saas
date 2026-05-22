@@ -1,6 +1,6 @@
 import json
 from decimal import Decimal
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -12,7 +12,7 @@ from accounts.models import User
 from billing.models import Estimate, EstimateImage, EstimateLineItem, Invoice
 from businesses.models import Business
 from customers.models import Customer, Property
-from jobs.models import Crew, Job, JobDayAssignment, JobNote, JobServiceItem, JobWorkVisit, PropertyNote, RecurringJob
+from jobs.models import Crew, Job, JobDayAssignment, JobNote, JobServiceItem, JobWorkVisit, Meeting, PropertyNote, RecurringJob
 from jobs.services import generate_jobs
 from pricing.models import ServiceTemplate
 
@@ -608,6 +608,55 @@ class CalendarRecurringRescheduleTests(TestCase):
         self.assertEqual(next_job.scheduled_time, time(8, 0))
         self.assertEqual(next_job.scheduled_end_time, time(9, 0))
         self.assertEqual(self.recurring_job.start_date, date(2026, 5, 4))
+
+    def test_reschedule_in_progress_job_clears_actual_times_so_calendar_does_not_snap_back(self):
+        job = self._create_job(date(2026, 5, 4), start_time=time(8, 0), end_time=time(9, 0))
+        started_at = timezone.make_aware(datetime(2026, 5, 4, 8, 15))
+        job.status = "in_progress"
+        job.started_at = started_at
+        job.save(update_fields=["status", "started_at"])
+
+        response = self.client.post(
+            reverse("calendar_job_reschedule", args=[job.id]),
+            data=json.dumps(
+                {
+                    "scheduled_date": "2026-05-06T10:30:00",
+                    "scheduled_end": "2026-05-06T12:00:00",
+                    "apply_to_future": False,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        job.refresh_from_db()
+        self.assertEqual(job.scheduled_date, date(2026, 5, 6))
+        self.assertEqual(job.scheduled_time, time(10, 30))
+        self.assertEqual(job.scheduled_end_time, time(12, 0))
+        self.assertIsNone(job.started_at)
+        self.assertIsNone(job.completed_at)
+
+    def test_meeting_can_be_rescheduled_from_calendar_drag_without_defaulting_time(self):
+        meeting = Meeting.objects.create(
+            business=self.business,
+            title="Estimate walk-through",
+            customer=self.customer,
+            scheduled_at=timezone.make_aware(datetime(2026, 5, 4, 9, 0)),
+            duration_minutes=45,
+            created_by=self.owner,
+        )
+
+        response = self.client.post(
+            reverse("calendar_meeting_reschedule", args=[meeting.id]),
+            data=json.dumps({"scheduled_at": "2026-05-06T14:35:00"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        meeting.refresh_from_db()
+        self.assertEqual(timezone.localtime(meeting.scheduled_at).date(), date(2026, 5, 6))
+        self.assertEqual(timezone.localtime(meeting.scheduled_at).time().replace(tzinfo=None), time(14, 35))
+        self.assertEqual(meeting.duration_minutes, 45)
 
     def test_reschedule_recurring_job_to_future_updates_times_when_date_does_not_change(self):
         selected_job = self._create_job(date(2026, 5, 4))

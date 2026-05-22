@@ -29,6 +29,7 @@ urlpatterns = [
     path('calendar/unscheduled/', views.calendar_unscheduled_jobs, name='calendar_unscheduled_jobs'),
     path('calendar/bulk-reschedule/', views.calendar_bulk_reschedule, name='calendar_bulk_reschedule'),
     path('calendar/meeting/<int:meeting_id>/', views.calendar_meeting_data, name='calendar_meeting_data'),
+    path('calendar/meeting/<int:meeting_id>/reschedule/', views.calendar_meeting_reschedule, name='calendar_meeting_reschedule'),
 
     path('meetings/', views.meeting_list, name='meeting_list'),
     path('meetings/create/', views.meeting_create, name='meeting_create'),

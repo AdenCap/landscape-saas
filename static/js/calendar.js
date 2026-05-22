@@ -325,14 +325,40 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Drag event to reschedule ──
     eventDrop: function(info) {
-      var jobId = info.event.extendedProps?.jobId;
+      var props = info.event.extendedProps || {};
+      var meetingId = props.meetingId;
+      if (props.type === 'meeting' && meetingId) {
+        var meetingStart = info.event.start;
+        var meetingEnd = info.event.end;
+        var meetingPayload = { scheduled_at: formatDateTimeStr(meetingStart) };
+        if (meetingStart && meetingEnd) {
+          meetingPayload.duration_minutes = Math.max(1, Math.round((meetingEnd.getTime() - meetingStart.getTime()) / 60000));
+        }
+        fetch('/jobs/calendar/meeting/' + meetingId + '/reschedule/', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+          body: JSON.stringify(meetingPayload)
+        }).then(function(r) {
+          if (!r.ok) {
+            info.revert();
+            return r.json().then(function(d) { throw new Error((d && d.error) || 'Could not move meeting'); });
+          }
+          return r.json();
+        }).then(function() {
+          showToast('Meeting rescheduled');
+        }).catch(function(err) {
+          info.revert();
+          showToast(err.message || 'Could not move meeting', 'error');
+        });
+        return;
+      }
+      var jobId = props?.jobId;
       if (!jobId) return;
       // Guard against rapid double-fires (debounce at 120ms)
       if (window._calDropBusy) { info.revert(); return; }
       window._calDropBusy = true;
       setTimeout(function() { window._calDropBusy = false; }, 120);
 
-      var props = info.event.extendedProps || {};
       var start = info.event.start;
       var end = info.event.end;
       if (props.returnVisit && props.visitId) {
@@ -428,9 +454,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Resize event (change duration) ──
     eventResize: function(info) {
-      var jobId = info.event.extendedProps?.jobId;
-      if (!jobId) return;
       var props = info.event.extendedProps || {};
+      var meetingId = props.meetingId;
+      if (props.type === 'meeting' && meetingId) {
+        var meetingStart = info.event.start;
+        var meetingEnd = info.event.end;
+        var meetingPayload = { scheduled_at: formatDateTimeStr(meetingStart) };
+        if (meetingStart && meetingEnd) {
+          meetingPayload.duration_minutes = Math.max(1, Math.round((meetingEnd.getTime() - meetingStart.getTime()) / 60000));
+        }
+        fetch('/jobs/calendar/meeting/' + meetingId + '/reschedule/', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+          body: JSON.stringify(meetingPayload)
+        }).then(function(r) {
+          if (!r.ok) {
+            info.revert();
+            return r.json().then(function(d) { throw new Error((d && d.error) || 'Could not resize meeting'); });
+          }
+          return r.json();
+        }).then(function() {
+          showToast('Meeting duration updated');
+        }).catch(function(err) {
+          info.revert();
+          showToast(err.message || 'Could not resize meeting', 'error');
+        });
+        return;
+      }
+      var jobId = props?.jobId;
+      if (!jobId) return;
       var start = info.event.start;
       var end = info.event.end;
       if (props.returnVisit && props.visitId) {

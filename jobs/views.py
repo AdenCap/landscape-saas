@@ -33,6 +33,20 @@ def _request_data(request):
     return request.POST
 
 
+def _parse_calendar_datetime(value):
+    """Parse FullCalendar local date/datetime strings into an aware datetime."""
+    if not value:
+        raise ValueError("Missing datetime")
+    value = str(value).strip()
+    if value.endswith("Z"):
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        dt = datetime.fromisoformat(value)
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, timezone.get_current_timezone())
+    return dt
+
+
 def _append_note_text(existing, text):
     existing = (existing or "").strip()
     text = (text or "").strip()
@@ -1323,9 +1337,11 @@ def calendar_job_reschedule(request, job_id):
         elif time_obj is not None:
             job.scheduled_time = time_obj
 
-        # Clear started_at/completed_at if the job is being rescheduled while in "scheduled" status
-        # This prevents the calendar from showing the event at the old started_at position
-        if job.status == "scheduled":
+        # Clear actual tracking timestamps whenever an active/scheduled job is manually
+        # moved on the calendar. Calendar event rendering intentionally prefers
+        # started_at/completed_at for active jobs, so leaving stale actual times makes
+        # a successfully rescheduled event refetch back to its previous slot.
+        if job.status in ("scheduled", "en_route", "in_progress"):
             job.started_at = None
             job.completed_at = None
 
@@ -1720,6 +1736,35 @@ def calendar_meeting_data(request, meeting_id):
         "customer_id": meeting.customer_id,
         "location": meeting.location or "",
         "notes": meeting.notes or "",
+    })
+
+
+@require_POST
+@role_required("owner", "manager")
+def calendar_meeting_reschedule(request, meeting_id):
+    """Move a meeting from FullCalendar drag/drop while preserving the exact time."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+    meeting = get_object_or_404(Meeting, id=meeting_id, business=business)
+    data = json.loads(request.body) if request.body else {}
+    scheduled_at_raw = data.get("scheduled_at") or data.get("scheduled_date") or data.get("date")
+    if not scheduled_at_raw:
+        return JsonResponse({"error": "Missing scheduled_at"}, status=400)
+    try:
+        meeting.scheduled_at = _parse_calendar_datetime(scheduled_at_raw)
+        if "duration_minutes" in data:
+            try:
+                meeting.duration_minutes = max(1, int(data.get("duration_minutes") or 60))
+            except (TypeError, ValueError):
+                pass
+        meeting.save(update_fields=["scheduled_at", "duration_minutes"])
+    except (TypeError, ValueError) as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    return JsonResponse({
+        "status": "ok",
+        "scheduled_at": timezone.localtime(meeting.scheduled_at).strftime("%Y-%m-%dT%H:%M:%S"),
+        "duration_minutes": meeting.duration_minutes or 60,
     })
 
 
