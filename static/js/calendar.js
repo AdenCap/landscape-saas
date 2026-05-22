@@ -962,6 +962,8 @@ document.addEventListener('DOMContentLoaded', function () {
             colorPicker.value = '#94a3b8';
           }
 
+          renderDayAssignmentEditor(job, data);
+
           // Contact links
           var email = customer.email || '';
           var phone = (customer.phone || '').replace(/\D/g, '');
@@ -1205,6 +1207,82 @@ document.addEventListener('DOMContentLoaded', function () {
         showToast('Failed to load meeting', 'error');
       });
   }
+
+  function renderDayAssignmentEditor(job, data) {
+    var panel = document.getElementById('modal-day-assignment-panel');
+    var list = document.getElementById('modal-day-assignment-list');
+    if (!panel || !list) return;
+    var days = job.assignment_days || [];
+    if (!days || days.length <= 1) {
+      panel.style.display = 'none';
+      list.innerHTML = '';
+      return;
+    }
+    panel.style.display = 'block';
+    var assignments = {};
+    (job.day_assignments || []).forEach(function(a) { assignments[a.date] = a; });
+    list.innerHTML = days.map(function(day) {
+      var a = assignments[day] || {};
+      var crewOptions = '<option value="">Use employee(s) / unassigned</option>' + (data.crews || []).map(function(c) {
+        return '<option value="' + c.id + '"' + (a.assigned_crew_id === c.id ? ' selected' : '') + '>' + escapeHtml(c.name) + '</option>';
+      }).join('');
+      var employeeChecks = (data.employees || []).map(function(e) {
+        var checked = (a.assigned_employee_ids || []).indexOf(e.id) !== -1;
+        return '<label><input type="checkbox" value="' + e.id + '"' + (checked ? ' checked' : '') + '> ' + escapeHtml(e.name) + '</label>';
+      }).join('');
+      return '<div class="job-day-assignment-row" data-date="' + escapeHtml(day) + '">' +
+        '<div class="job-day-assignment-date">' + escapeHtml(day) + '</div>' +
+        '<select class="job-day-crew"><option value="">Use job default</option>' + crewOptions + '</select>' +
+        '<div class="job-day-employee-pills">' + employeeChecks + '</div>' +
+        '<button type="button" class="btn btn-secondary btn-sm job-day-save">Save day</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  function saveDayAssignment(row) {
+    var modal = document.getElementById('job-modal');
+    var jobId = modal && modal.dataset.jobId;
+    if (!jobId || !row) return;
+    var crewSelect = row.querySelector('.job-day-crew');
+    var crewId = crewSelect && crewSelect.value ? parseInt(crewSelect.value, 10) : null;
+    var employeeIds = [];
+    if (!crewId) {
+      row.querySelectorAll('.job-day-employee-pills input:checked').forEach(function(cb) {
+        employeeIds.push(parseInt(cb.value, 10));
+      });
+    }
+    fetch('/jobs/calendar/job/' + jobId + '/day-assignment/', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ date: row.dataset.date, assigned_crew_id: crewId, assigned_employee_ids: employeeIds })
+    }).then(function(r) {
+      if (!r.ok) return r.json().then(function(d) { throw new Error((d && d.error) || 'Failed to save day assignment'); });
+      return r.json();
+    }).then(function(data) {
+      calendar.refetchEvents();
+      showToast(data.date + ' assigned to ' + data.assignment_name);
+    }).catch(function(e) {
+      showToast(e.message || 'Failed to save day assignment', 'error');
+    });
+  }
+
+  document.addEventListener('click', function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('job-day-save')) {
+      saveDayAssignment(e.target.closest('.job-day-assignment-row'));
+    }
+  });
+
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('job-day-crew') && e.target.value) {
+      var row = e.target.closest('.job-day-assignment-row');
+      if (row) row.querySelectorAll('.job-day-employee-pills input').forEach(function(cb) { cb.checked = false; });
+    }
+    if (e.target && e.target.closest && e.target.closest('.job-day-employee-pills') && e.target.checked) {
+      var employeeRow = e.target.closest('.job-day-assignment-row');
+      var employeeCrew = employeeRow && employeeRow.querySelector('.job-day-crew');
+      if (employeeCrew) employeeCrew.value = '';
+    }
+  });
 
   // ── Modal field handlers ──
   var crewSel = document.getElementById('modal-crew');

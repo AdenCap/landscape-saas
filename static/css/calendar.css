@@ -1393,7 +1393,11 @@ body.modal-open {
 }
 
 #job-modal .job-command-card {
+  display: flex;
+  flex-direction: column;
   max-width: 760px;
+  max-height: min(92vh, 900px);
+  overflow: hidden;
   border-radius: 28px;
   border-color: rgba(255,255,255,0.16);
   background:
@@ -1427,7 +1431,9 @@ body.modal-open {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 0.78fr);
   gap: 14px;
-  padding: 16px 24px 4px;
+  padding: 16px 24px 96px;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 #job-modal .job-mobile-summary {
@@ -3403,4 +3409,68 @@ html.theme-light-effective .fc .fc-day-other {
 html.theme-light-effective .mobile-fab,
 html.theme-light-effective .color-mode-btn.active {
   color: var(--on-primary) !important;
+}
+
+/* Per-day crew assignment editor */
+.job-day-assignment-panel {
+  grid-column: 1 / -1;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.035);
+}
+.job-panel-subtitle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 10px 0 8px;
+}
+.job-panel-subtitle strong { color: var(--text); font-size: 13px; }
+.job-panel-subtitle span { color: var(--text-muted); font-size: 11px; }
+.job-day-assignment-list {
+  display: grid;
+  gap: 8px;
+}
+.job-day-assignment-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-surface-hover);
+}
+.job-day-assignment-date {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  padding-top: 8px;
+}
+.job-day-assignment-row select,
+.job-day-assignment-row input {
+  width: 100%;
+  min-height: 34px;
+}
+.job-day-employee-pills {
+  display: grid;
+  gap: 4px;
+  max-height: 150px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.job-day-employee-pills label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  font-size: 12px;
+  color: var(--text);
+}
+@media (max-width: 760px) {
+  .job-day-assignment-row { grid-template-columns: 1fr; }
 }

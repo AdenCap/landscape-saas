@@ -332,6 +332,48 @@ class JobAssignmentLog(models.Model):
         ordering = ["-created_at"]
 
 
+class JobDayAssignment(models.Model):
+    """Per-date assignment override for a multi-day job.
+
+    The parent Job keeps the default crew/employee assignment. These rows let owners
+    change who works a specific day without rewriting prior days or the whole job.
+    """
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="day_assignments")
+    date = models.DateField()
+    assigned_crew = models.ForeignKey(
+        Crew,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="day_assignments",
+    )
+    assigned_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="day_assignments",
+        help_text="Primary employee for this date (kept for compatibility with single-assignee UI).",
+    )
+    assigned_employees = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name="multi_day_assignments",
+    )
+    notes = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["date"]
+        constraints = [
+            models.UniqueConstraint(fields=["job", "date"], name="unique_job_day_assignment"),
+        ]
+
+    def __str__(self):
+        return f"{self.job_id} · {self.date}"
+
+
 class Meeting(models.Model):
     """Owner-scheduled meeting (e.g. with clients). Shown on calendar; owner gets reminder notifications."""
     business = models.ForeignKey(

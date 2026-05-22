@@ -17,7 +17,7 @@ from accounts.utils import get_business
 from accounts.models import Notification
 from billing.services import auto_charge_invoice_card, create_draft_invoice_for_job
 from billing.monthly import generate_monthly_invoice_for_customer
-from .models import Job, JobServiceItem, JobWorkVisit, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobPhoto, JobAssignmentLog, Meeting, JobNote, PropertyNote
+from .models import Job, JobServiceItem, JobWorkVisit, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobPhoto, JobAssignmentLog, JobDayAssignment, Meeting, JobNote, PropertyNote
 from .service_labels import clean_service_label
 from customers.models import Property
 from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset, ReportIssueForm, MeetingForm
@@ -77,6 +77,41 @@ def _line_item_active_on(item, target_date):
         return True
     item_end = item.scheduled_end_date or item.scheduled_date
     return item.scheduled_date <= target_date <= item_end
+
+
+def _job_date_range(job):
+    if not job.scheduled_date:
+        return []
+    end_date = job.scheduled_end_date if job.scheduled_end_date and job.scheduled_end_date > job.scheduled_date else job.scheduled_date
+    days = (end_date - job.scheduled_date).days
+    return [job.scheduled_date + timedelta(days=i) for i in range(days + 1)]
+
+
+def _assignment_name_for(day_assignment=None, job=None):
+    source = day_assignment or job
+    if not source:
+        return "Unassigned"
+    if getattr(source, "assigned_crew", None):
+        return source.assigned_crew.name
+    employees = list(source.assigned_employees.all()) if hasattr(source, "assigned_employees") else []
+    if employees:
+        return ", ".join((u.get_full_name() or u.username) for u in employees)
+    if getattr(source, "assigned_to", None):
+        return source.assigned_to.get_full_name() or source.assigned_to.username
+    return "Unassigned"
+
+
+def _user_matches_day_assignment(user, day_assignment):
+    if day_assignment.assigned_to_id == user.id:
+        return True
+    if day_assignment.assigned_employees.filter(id=user.id).exists():
+        return True
+    if day_assignment.assigned_crew_id:
+        crew = day_assignment.assigned_crew
+        if crew.crew_leader_id == user.id:
+            return True
+        return crew.members.filter(id=user.id).exists()
+    return False
 
 
 def _visit_active_on(visit, target_date):
@@ -881,7 +916,14 @@ def calendar_job_data(request, job_id):
         return JsonResponse({"error": "No business"}, status=403)
     job = get_object_or_404(
         Job.objects.select_related('property', 'property__customer', 'assigned_to', 'assigned_crew')
-        .prefetch_related('service_items__service', 'work_visits__service_item__service'),
+        .prefetch_related(
+            'service_items__service',
+            'work_visits__service_item__service',
+            'assigned_employees',
+            'day_assignments__assigned_crew',
+            'day_assignments__assigned_to',
+            'day_assignments__assigned_employees',
+        ),
         id=job_id,
         property__customer__business=business,
     )
@@ -957,6 +999,19 @@ def calendar_job_data(request, job_id):
                 u.get_full_name() or u.username
                 for u in job.assigned_employees.all()
             ],
+            "assignment_days": [d.isoformat() for d in _job_date_range(job)],
+            "day_assignments": [
+                {
+                    "id": day_assignment.id,
+                    "date": day_assignment.date.isoformat(),
+                    "assigned_crew_id": day_assignment.assigned_crew_id,
+                    "assigned_to_id": day_assignment.assigned_to_id,
+                    "assigned_employee_ids": list(day_assignment.assigned_employees.values_list('id', flat=True)),
+                    "assignment_name": _assignment_name_for(day_assignment=day_assignment),
+                    "notes": day_assignment.notes or "",
+                }
+                for day_assignment in job.day_assignments.all()
+            ] if is_owner else [],
             "color": job.color or "",
             "has_unbilled_items": job.service_items.filter(billed_at__isnull=True).exists() if is_owner else False,
             "has_services": job.service_items.exists(),
@@ -1156,6 +1211,71 @@ def calendar_job_update(request, job_id):
         "borderColor": bg,
         "crew": assignee_name,
         "future_assignment_updated": future_assignment_updated,
+    })
+
+
+@require_POST
+@role_required("owner", "manager")
+def calendar_job_day_assignment_update(request, job_id):
+    """Set a crew/employee assignment for one date of a multi-day job.
+
+    This intentionally stores a per-day override instead of changing the parent Job,
+    so previous days and other days in the span keep their original crew.
+    """
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    job = get_object_or_404(
+        Job.objects.select_related("property", "property__customer"),
+        id=job_id,
+        property__customer__business=business,
+    )
+    data = json.loads(request.body) if request.body else {}
+    try:
+        assignment_date = _parse_iso_date(data.get("date"))
+    except ValueError:
+        return JsonResponse({"error": "Invalid date."}, status=400)
+    if not assignment_date:
+        return JsonResponse({"error": "Missing date."}, status=400)
+    job_days = _job_date_range(job)
+    if assignment_date not in job_days:
+        return JsonResponse({"error": "Date is outside this job's scheduled range."}, status=400)
+
+    crew = None
+    employee_ids = data.get("assigned_employee_ids") or []
+    employees = User.objects.none()
+    if data.get("assigned_crew_id"):
+        crew = Crew.objects.filter(business=business, id=data.get("assigned_crew_id")).first()
+        if not crew:
+            return JsonResponse({"error": "Crew not found."}, status=404)
+        employee_ids = []
+    elif employee_ids:
+        if not isinstance(employee_ids, list):
+            return JsonResponse({"error": "assigned_employee_ids must be a list."}, status=400)
+        employees = User.objects.filter(business=business, role__in=["crew", "owner"], id__in=employee_ids)
+        found_ids = set(employees.values_list("id", flat=True))
+        if set(int(eid) for eid in employee_ids) - found_ids:
+            return JsonResponse({"error": "One or more employees were not found."}, status=404)
+
+    day_assignment, _created = JobDayAssignment.objects.get_or_create(job=job, date=assignment_date)
+    day_assignment.assigned_crew = crew
+    day_assignment.assigned_to = employees.first() if employee_ids else None
+    day_assignment.notes = (data.get("notes") or "")[:500]
+    day_assignment.save()
+    day_assignment.assigned_employees.set(employees if employee_ids else [])
+
+    JobAssignmentLog.objects.create(
+        job=job,
+        user=request.user,
+        details=f"{assignment_date.isoformat()} assignment set to {_assignment_name_for(day_assignment=day_assignment)}",
+    )
+    return JsonResponse({
+        "status": "ok",
+        "date": assignment_date.isoformat(),
+        "assignment_name": _assignment_name_for(day_assignment=day_assignment),
+        "assigned_crew_id": day_assignment.assigned_crew_id,
+        "assigned_to_id": day_assignment.assigned_to_id,
+        "assigned_employee_ids": list(day_assignment.assigned_employees.values_list("id", flat=True)),
     })
 
 
@@ -1863,6 +1983,10 @@ def crew_today_view(request):
         "service_items__service",
         "work_visits__service_item__service",
         "assigned_employees",
+        "day_assignments__assigned_crew__members",
+        "day_assignments__assigned_crew__crew_leader",
+        "day_assignments__assigned_to",
+        "day_assignments__assigned_employees",
         Prefetch(
             "property__property_notes",
             queryset=PropertyNote.objects.filter(visibility=PropertyNote.VISIBILITY_CREW).select_related("author"),
@@ -1882,7 +2006,11 @@ def crew_today_view(request):
             Q(assigned_to=request.user) |                    # Direct assignment
             Q(assigned_employees=request.user) |             # M2M assignment
             Q(assigned_crew__members=request.user) |         # Crew member
-            Q(assigned_crew__crew_leader=request.user)       # Crew leader
+            Q(assigned_crew__crew_leader=request.user) |      # Crew leader
+            Q(day_assignments__date=today, day_assignments__assigned_to=request.user) |
+            Q(day_assignments__date=today, day_assignments__assigned_employees=request.user) |
+            Q(day_assignments__date=today, day_assignments__assigned_crew__members=request.user) |
+            Q(day_assignments__date=today, day_assignments__assigned_crew__crew_leader=request.user)
         ).distinct()
 
     # Sort: match the owner's calendar order (time + route), but push done jobs to bottom
@@ -1894,6 +2022,18 @@ def crew_today_view(request):
             output_field=IntegerField(),
         )
     ).order_by("is_done", "scheduled_time", "route_order"))
+
+    if request.user.role == "crew":
+        filtered_jobs = []
+        for job in jobs:
+            today_override = next((da for da in job.day_assignments.all() if da.date == today), None)
+            if today_override:
+                if _user_matches_day_assignment(request.user, today_override):
+                    job.effective_day_assignment = today_override
+                    filtered_jobs.append(job)
+            else:
+                filtered_jobs.append(job)
+        jobs = filtered_jobs
 
     # For each job, compute filtered_service_items for today.
     #   - Single-day job: all items (same as before)
@@ -1978,6 +2118,9 @@ def _user_can_access_job(user, job):
         if job.assigned_crew.crew_leader_id == user.id:
             return True
         if job.assigned_crew.members.filter(id=user.id).exists():
+            return True
+    for day_assignment in job.day_assignments.select_related("assigned_crew", "assigned_to").prefetch_related("assigned_crew__members", "assigned_employees"):
+        if _user_matches_day_assignment(user, day_assignment):
             return True
     return False
 

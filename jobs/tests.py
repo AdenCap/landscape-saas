@@ -1,17 +1,18 @@
 import json
 from decimal import Decimal
-from datetime import date, time
+from datetime import date, time, timedelta
 from unittest.mock import patch
 
 from django.test import TestCase
 from django.urls import reverse
 from django.db.models import Q
+from django.utils import timezone
 
 from accounts.models import User
 from billing.models import Estimate, EstimateImage, EstimateLineItem, Invoice
 from businesses.models import Business
 from customers.models import Customer, Property
-from jobs.models import Crew, Job, JobNote, JobServiceItem, JobWorkVisit, PropertyNote, RecurringJob
+from jobs.models import Crew, Job, JobDayAssignment, JobNote, JobServiceItem, JobWorkVisit, PropertyNote, RecurringJob
 from jobs.services import generate_jobs
 from pricing.models import ServiceTemplate
 
@@ -916,6 +917,51 @@ class CalendarRecurringRescheduleTests(TestCase):
         self.assertEqual(list(future_job.assigned_employees.values_list("id", flat=True)), [employee.id])
         self.assertIsNone(self.recurring_job.assigned_crew_id)
         self.assertEqual(self.recurring_job.assigned_to_id, employee.id)
+
+    def test_multi_day_day_assignment_changes_one_day_without_touching_other_days(self):
+        crew_a = Crew.objects.create(business=self.business, name="Crew A")
+        crew_b = Crew.objects.create(business=self.business, name="Crew B")
+        job = self._create_job(date(2026, 5, 4), start_time=None, end_time=None)
+        job.scheduled_end_date = date(2026, 5, 6)
+        job.assigned_crew = crew_a
+        job.save(update_fields=["scheduled_end_date", "assigned_crew"])
+
+        response = self.client.post(
+            reverse("calendar_job_day_assignment_update", args=[job.id]),
+            data=json.dumps({"date": "2026-05-05", "assigned_crew_id": crew_b.id}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        job.refresh_from_db()
+        self.assertEqual(job.assigned_crew_id, crew_a.id)
+        self.assertEqual(JobDayAssignment.objects.get(job=job, date=date(2026, 5, 5)).assigned_crew_id, crew_b.id)
+        self.assertFalse(JobDayAssignment.objects.filter(job=job, date=date(2026, 5, 4)).exists())
+        self.assertFalse(JobDayAssignment.objects.filter(job=job, date=date(2026, 5, 6)).exists())
+
+    def test_crew_today_uses_day_assignment_override_for_multi_day_job(self):
+        today = timezone.localdate()
+        crew_a_user = User.objects.create_user(username="crew-a", password="password", role="crew", business=self.business)
+        crew_b_user = User.objects.create_user(username="crew-b", password="password", role="crew", business=self.business)
+        crew_a = Crew.objects.create(business=self.business, name="Crew A")
+        crew_b = Crew.objects.create(business=self.business, name="Crew B")
+        crew_a.members.add(crew_a_user)
+        crew_b.members.add(crew_b_user)
+        job = self._create_job(today, start_time=None, end_time=None)
+        job.scheduled_end_date = today + timedelta(days=2)
+        job.assigned_crew = crew_a
+        job.save(update_fields=["scheduled_end_date", "assigned_crew"])
+        JobDayAssignment.objects.create(job=job, date=today, assigned_crew=crew_b)
+
+        self.client.force_login(crew_a_user)
+        response_a = self.client.get(reverse("crew_today"))
+        self.assertEqual(response_a.status_code, 200)
+        self.assertNotIn(job, list(response_a.context["jobs"]))
+
+        self.client.force_login(crew_b_user)
+        response_b = self.client.get(reverse("crew_today"))
+        self.assertEqual(response_b.status_code, 200)
+        self.assertIn(job, list(response_b.context["jobs"]))
 
 
 class MowingFrequencyUpdateTests(TestCase):
