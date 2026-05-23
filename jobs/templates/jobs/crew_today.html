@@ -46,16 +46,16 @@
         {% endif %}
       </div>
       <div class="route-progress-ring">
-        <strong>{{ completed_jobs }}</strong>
-        <span>/ {{ total_jobs }}</span>
+        <strong id="route-completed-count">{{ completed_jobs }}</strong>
+        <span>/ <span id="route-total-count">{{ total_jobs }}</span></span>
       </div>
     </div>
     <div class="route-stat-row">
-      <div><strong>{{ total_jobs }}</strong><span>Stops</span></div>
-      <div><strong>{{ remaining_jobs }}</strong><span>Open</span></div>
-      <div><strong>{{ completed_jobs }}</strong><span>Done</span></div>
+      <div><strong id="route-total-stat">{{ total_jobs }}</strong><span>Stops</span></div>
+      <div><strong id="route-open-count">{{ remaining_jobs }}</strong><span>Open</span></div>
+      <div><strong id="route-done-count">{{ completed_jobs }}</strong><span>Done</span></div>
     </div>
-    <div class="route-progress-track"><span style="width: {{ route_progress_percent }}%;"></span></div>
+    <div class="route-progress-track"><span id="route-progress-bar" style="width: {{ route_progress_percent }}%;"></span></div>
   </section>
 
 {% for job in jobs %}
@@ -189,7 +189,7 @@
       Upload Photo to Complete
     </a>
     {% else %}
-    <form method="post" action="{% url 'complete_job' job.id %}">
+    <form method="post" action="{% url 'complete_job' job.id %}" class="js-complete-job-form" data-job-id="{{ job.id }}">
       {% csrf_token %}
       <input type="hidden" name="latitude" class="geo-lat">
       <input type="hidden" name="longitude" class="geo-lng">
@@ -430,6 +430,90 @@ function toggleTools(jobId) {
     chevron.classList.remove('open');
   }
 }
+
+function updateRouteCountsAfterCompletion() {
+  var totalEl = document.getElementById('route-total-count') || document.getElementById('route-total-stat');
+  var openEl = document.getElementById('route-open-count');
+  var doneEl = document.getElementById('route-done-count');
+  var ringDoneEl = document.getElementById('route-completed-count');
+  var progressBar = document.getElementById('route-progress-bar');
+  var total = parseInt(totalEl ? totalEl.textContent : '0', 10) || 0;
+  var open = Math.max(0, (parseInt(openEl ? openEl.textContent : '0', 10) || 0) - 1);
+  var done = Math.min(total, (parseInt(doneEl ? doneEl.textContent : '0', 10) || 0) + 1);
+
+  if (openEl) openEl.textContent = open;
+  if (doneEl) doneEl.textContent = done;
+  if (ringDoneEl) ringDoneEl.textContent = done;
+  if (progressBar && total > 0) progressBar.style.width = Math.round((done / total) * 100) + '%';
+}
+
+function markCrewJobCardComplete(jobId) {
+  var card = document.getElementById('job-' + jobId);
+  if (!card) return;
+
+  card.classList.add('jc-done');
+  card.classList.remove('jc-up-next');
+
+  var statusEl = card.querySelector('.jc-status');
+  if (statusEl) {
+    statusEl.className = 'jc-status jc-status-completed';
+    statusEl.textContent = 'Done';
+  }
+
+  var upNext = card.querySelector('.jc-stop-row strong');
+  if (upNext) upNext.remove();
+
+  ['.jc-quick-bar', '.jc-notes-preview', '.jc-alert-stack', '.jc-flow', '.jc-tools'].forEach(function(selector) {
+    var el = card.querySelector(selector);
+    if (el) el.style.display = 'none';
+  });
+
+  if (!card.querySelector('.jc-complete-summary')) {
+    var summary = document.createElement('div');
+    summary.className = 'jc-complete-summary';
+    var now = new Date();
+    summary.innerHTML = '<span class="material-symbols-outlined">task_alt</span>' +
+      '<div><strong>Completed</strong><span>' + now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</span></div>';
+    var head = card.querySelector('.jc-head');
+    if (head && head.nextSibling) head.parentNode.insertBefore(summary, head.nextSibling);
+    else card.appendChild(summary);
+  }
+
+  var list = card.parentNode;
+  if (list) list.appendChild(card);
+  updateRouteCountsAfterCompletion();
+}
+
+document.querySelectorAll('.js-complete-job-form').forEach(function(form) {
+  form.addEventListener('submit', function(event) {
+    event.preventDefault();
+    var jobId = form.dataset.jobId;
+    var button = form.querySelector('button[type="submit"]');
+    if (button) {
+      button.disabled = true;
+      button.dataset.originalText = button.textContent;
+      button.textContent = 'Completing…';
+    }
+
+    fetch(form.action, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': CSRF },
+      body: new FormData(form)
+    }).then(function(r) {
+      return r.json().then(function(data) { return { ok: r.ok, data: data }; });
+    }).then(function(result) {
+      if (!result.ok) throw new Error(result.data && result.data.error ? result.data.error : 'Could not complete job');
+      markCrewJobCardComplete(jobId);
+    }).catch(function(error) {
+      alert(error.message || 'Could not complete job. Please try again.');
+      if (button) {
+        button.disabled = false;
+        button.textContent = button.dataset.originalText || 'Complete Job';
+      }
+    });
+  });
+});
 
 function submitNote(jobId) {
   var textarea = document.getElementById('note-' + jobId);
