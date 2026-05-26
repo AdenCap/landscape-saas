@@ -2022,11 +2022,17 @@ def crew_today_view(request):
         Q(work_visits__scheduled_date=today) |
         Q(work_visits__scheduled_date__lte=today, work_visits__scheduled_end_date__gte=today)
     ).select_related(
-        "property", "property__customer", "assigned_to", "assigned_crew"
+        "property", "property__customer", "assigned_to", "assigned_crew", "recurring_job"
     ).prefetch_related(
         "service_items__service",
         "work_visits__service_item__service",
         "assigned_employees",
+        "job_notes__author",
+        Prefetch(
+            "site_photos",
+            queryset=JobPhoto.objects.select_related("uploaded_by").order_by("-uploaded_at"),
+            to_attr="crew_site_photos",
+        ),
         "day_assignments__assigned_crew__members",
         "day_assignments__assigned_crew__crew_leader",
         "day_assignments__assigned_to",
@@ -2057,7 +2063,9 @@ def crew_today_view(request):
             Q(day_assignments__date=today, day_assignments__assigned_crew__crew_leader=request.user)
         ).distinct()
 
-    # Sort: match the owner's calendar order (time + route), but push done jobs to bottom
+    # Sort to match the owner's calendar order, but push done jobs to bottom.
+    # FullCalendar shows timed jobs by scheduled_time; route_order is the tie-breaker
+    # for jobs at the same time or jobs without explicit times.
     from django.db.models import Case, When, IntegerField, Value
     jobs = list(jobs.annotate(
         is_done=Case(
@@ -2065,7 +2073,7 @@ def crew_today_view(request):
             default=Value(0),
             output_field=IntegerField(),
         )
-    ).order_by("is_done", "scheduled_time", "route_order"))
+    ).order_by("is_done", "scheduled_time", "route_order", "id"))
 
     if request.user.role == "crew":
         filtered_jobs = []
@@ -2115,6 +2123,30 @@ def crew_today_view(request):
         for note in getattr(job.property, "crew_visible_notes", [])[:3]:
             property_alerts.append({"label": "Permanent note", "text": note.text})
         job.property_alerts = property_alerts
+
+        note_previews = []
+        seen_note_texts = set()
+
+        def add_note_preview(label, text):
+            normalized = (text or "").strip()
+            if not normalized or normalized in seen_note_texts:
+                return
+            seen_note_texts.add(normalized)
+            note_previews.append({"label": label, "text": normalized})
+
+        if job.recurring_job_id:
+            add_note_preview("Recurring note", getattr(job.recurring_job, "notes", ""))
+        add_note_preview("Crew note", job.notes)
+        visible_job_notes = list(job.job_notes.all())
+        if request.user.role == "crew":
+            visible_job_notes = [note for note in visible_job_notes if note.visibility == JobNote.VISIBILITY_CREW]
+        for note in visible_job_notes[:3]:
+            add_note_preview("Job note", note.text)
+        job.note_previews = note_previews
+
+        site_photos = list(getattr(job, "crew_site_photos", []))
+        job.photo_previews = site_photos[:4]
+        job.extra_photo_count = max(len(site_photos) - len(job.photo_previews), 0)
 
     job_ids_with_photos = set(
         JobCompletionPhoto.objects.filter(job__in=jobs).values_list("job_id", flat=True)

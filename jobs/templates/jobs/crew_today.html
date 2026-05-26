@@ -131,9 +131,14 @@
 
   <!-- Quick actions bar -->
   <div class="jc-quick-bar">
-    <a href="https://www.google.com/maps/dir/?api=1&destination={{ job.property.address|urlencode }}" target="_blank" class="jc-quick-btn jc-quick-primary">
-      <span class="material-symbols-outlined">directions</span> Navigate
-    </a>
+    <div class="jc-direction-grid" aria-label="Directions to {{ job.property.address }}">
+      <a href="https://maps.apple.com/?daddr={{ job.property.address|urlencode }}" target="_blank" rel="noopener" class="jc-quick-btn jc-quick-primary" aria-label="Open directions in Apple Maps">
+        <span class="material-symbols-outlined">near_me</span> <span class="jc-map-label-full">Apple Maps</span><span class="jc-map-label-short">Apple</span>
+      </a>
+      <a href="https://www.google.com/maps/dir/?api=1&destination={{ job.property.address|urlencode }}" target="_blank" rel="noopener" class="jc-quick-btn" aria-label="Open directions in Google Maps">
+        <span class="material-symbols-outlined">directions</span> <span class="jc-map-label-full">Google Maps</span><span class="jc-map-label-short">Google</span>
+      </a>
+    </div>
     {% if job.property.customer.phone %}
     <a href="tel:{{ job.property.customer.phone }}" class="jc-quick-btn">
       <span class="material-symbols-outlined">call</span> Call
@@ -144,13 +149,34 @@
     {% endif %}
   </div>
 
-  <!-- Notes (job notes visible by default if they exist) -->
-  {% if job.notes %}
-  <div class="jc-notes-preview">
-    <span class="material-symbols-outlined">description</span>
-    <div>
-      <strong>Crew note</strong>
-      <span>{{ job.notes }}</span>
+  <!-- Notes (job, recurring, and job-note entries visible by default if they exist) -->
+  {% if job.note_previews %}
+  <div class="jc-notes-stack">
+    {% for note in job.note_previews %}
+    <div class="jc-notes-preview">
+      <span class="material-symbols-outlined">description</span>
+      <div>
+        <strong>{{ note.label }}</strong>
+        <span>{{ note.text }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if job.photo_previews %}
+  <div class="jc-photo-preview" aria-label="Attached job photos">
+    <div class="jc-photo-preview-head">
+      <span><span class="material-symbols-outlined">photo_library</span> Job photos</span>
+      <a href="{% url 'upload_job_photo' job.id %}">View / add{% if job.extra_photo_count %} +{{ job.extra_photo_count }} more{% endif %}</a>
+    </div>
+    <div class="jc-photo-grid">
+      {% for photo in job.photo_previews %}
+      <a href="{{ photo.image.url }}" target="_blank" class="jc-photo-thumb" aria-label="Open job photo{% if photo.caption %}: {{ photo.caption }}{% endif %}">
+        <img src="{{ photo.image.url }}" alt="{{ photo.caption|default:'Job site photo' }}">
+        <span>{{ photo.get_category_display }}</span>
+      </a>
+      {% endfor %}
     </div>
   </div>
   {% endif %}
@@ -175,6 +201,22 @@
       <input type="hidden" name="longitude" class="geo-lng">
       <button type="submit" class="jc-action-btn jc-btn-secondary">Start Without Notifying</button>
     </form>
+    {% if require_completion_photo and job.id not in job_ids_with_photos %}
+    <a href="{% url 'upload_completion_photo' job.id %}" class="jc-action-btn jc-btn-photo" style="margin-top:6px;">
+      <span class="material-symbols-outlined">add_a_photo</span>
+      Upload Photo to Complete
+    </a>
+    {% else %}
+    <form method="post" action="{% url 'complete_job' job.id %}" class="js-complete-job-form" data-job-id="{{ job.id }}" style="margin-top:6px;">
+      {% csrf_token %}
+      <input type="hidden" name="latitude" class="geo-lat">
+      <input type="hidden" name="longitude" class="geo-lng">
+      <button type="submit" class="jc-action-btn jc-btn-complete">
+        <span class="material-symbols-outlined">check_circle</span>
+        Complete Job
+      </button>
+    </form>
+    {% endif %}
 
     {% elif job.status == "in_progress" %}
     <!-- Step 2: In Progress — show complete button -->
@@ -325,16 +367,28 @@
   .jc-status-in_progress { background:rgba(245,158,11,0.16);color:#fbbf24; }
   .jc-status-completed { background:rgba(34,197,94,0.15);color:#86efac; }
 
-  .jc-quick-bar { display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:7px;margin-bottom:10px; }
-  .jc-quick-btn { display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:10px 11px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:12px;text-decoration:none;color:var(--text);font-size:12px;font-weight:750;min-height:42px; }
+  .jc-quick-bar { display:grid;grid-template-columns:minmax(0,1.6fr) minmax(88px,.7fr) minmax(88px,.7fr);gap:7px;margin-bottom:10px; }
+  .jc-direction-grid { display:grid;grid-template-columns:1fr 1fr;gap:7px;min-width:0; }
+  .jc-quick-btn { display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:10px 11px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:12px;text-decoration:none;color:var(--text);font-size:12px;font-weight:750;min-height:48px;text-align:center;-webkit-tap-highlight-color:transparent; }
   .jc-quick-primary { background:rgba(163,255,77,.13);border-color:rgba(163,255,77,.24);color:var(--primary); }
   .jc-quick-btn:active { transform:scale(.985); }
   .jc-quick-btn .material-symbols-outlined { font-size:17px; }
+  .jc-map-label-short { display:none; }
 
-  .jc-notes-preview { display:flex;gap:10px;padding:12px;background:rgba(163,255,77,.08);border:1px solid rgba(163,255,77,.16);border-radius:15px;font-size:13px;color:var(--text-muted);margin-bottom:10px;line-height:1.4; }
+  .jc-notes-stack { display:grid;gap:8px;margin-bottom:10px; }
+  .jc-notes-preview { display:flex;gap:10px;padding:12px;background:rgba(163,255,77,.08);border:1px solid rgba(163,255,77,.16);border-radius:15px;font-size:13px;color:var(--text-muted);line-height:1.4; }
   .jc-notes-preview > .material-symbols-outlined { font-size:18px;color:var(--primary);flex-shrink:0;margin-top:1px; }
   .jc-notes-preview strong { display:block;margin-bottom:2px;color:var(--text);font-size:12px;text-transform:uppercase;letter-spacing:.08em; }
   .jc-notes-preview span { display:block; }
+  .jc-photo-preview { margin-bottom:10px;padding:11px;border-radius:16px;background:rgba(59,130,246,.09);border:1px solid rgba(59,130,246,.18); }
+  .jc-photo-preview-head { display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;font-size:12px;font-weight:850;text-transform:uppercase;letter-spacing:.08em;color:#bfdbfe; }
+  .jc-photo-preview-head span { display:inline-flex;align-items:center;gap:6px; }
+  .jc-photo-preview-head .material-symbols-outlined { font-size:17px;color:#93c5fd; }
+  .jc-photo-preview-head a { color:#93c5fd;text-decoration:none;font-size:11px;letter-spacing:0;text-transform:none;white-space:nowrap; }
+  .jc-photo-grid { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px; }
+  .jc-photo-thumb { position:relative;display:block;aspect-ratio:1.25/1;border-radius:12px;overflow:hidden;background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.1);text-decoration:none;color:white; }
+  .jc-photo-thumb img { width:100%;height:100%;object-fit:cover;display:block; }
+  .jc-photo-thumb span { position:absolute;left:5px;bottom:5px;max-width:calc(100% - 10px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 6px;border-radius:999px;background:rgba(0,0,0,.62);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em; }
   .jc-alert-stack { display:grid;gap:7px;margin-bottom:10px; }
   .jc-property-alert { display:flex;gap:10px;padding:12px;border-radius:15px;background:rgba(245,158,11,.11);border:1px solid rgba(245,158,11,.24);color:var(--text-muted);font-size:13px;line-height:1.35; }
   .jc-property-alert > .material-symbols-outlined { flex-shrink:0;margin-top:1px;font-size:18px;color:#fbbf24; }
@@ -385,7 +439,7 @@
 
   @media (max-width:768px) {
     .crew-field-shell { padding-bottom:118px; }
-    .crew-header { align-items:stretch; }
+    .crew-header { flex-direction:column;align-items:stretch; }
     .crew-header h1 { font-size:34px; }
     .crew-date { font-size:14px; }
     .clock-widget form { width:100%; }
@@ -400,9 +454,35 @@
     .route-stat-row strong { font-size:20px; }
     .route-progress-track { margin-top:10px; }
     .job-card { padding:14px;border-radius:20px; }
-    .jc-quick-bar { grid-template-columns:1fr 1fr 1fr; }
-    .jc-quick-btn { white-space:nowrap; }
+    .jc-quick-bar { grid-template-columns:1fr; }
+    .jc-direction-grid { grid-template-columns:1fr; }
+    .jc-quick-btn { min-width:0;white-space:normal;line-height:1.15; }
+    .jc-map-label-full { display:none; }
+    .jc-map-label-short { display:inline; }
     .chat-fab { display:none!important; }
+  }
+
+  @media (max-width:480px) {
+    .crew-field-shell { margin-left:-6px;margin-right:-6px;padding-bottom:124px; }
+    .crew-header { flex-direction:column;align-items:stretch; }
+    .route-summary-top { align-items:stretch; }
+    .route-progress-ring { width:54px;height:54px;border-radius:17px; }
+    .job-card { padding:13px 12px;border-radius:18px;margin-bottom:10px; }
+    .jc-head { flex-direction:column;gap:8px; }
+    .jc-status { align-self:flex-start; }
+    .jc-customer { font-size:18px; }
+    .jc-address { font-size:13px; }
+    .jc-service-card { padding:9px; }
+    .jc-quick-bar { grid-template-columns:1fr; gap:8px; }
+    .jc-direction-grid { grid-template-columns:1fr; gap:8px; }
+    .jc-quick-btn { min-height:48px;padding:11px 9px;font-size:12px; }
+    .jc-photo-preview-head { align-items:flex-start;flex-direction:column;gap:6px; }
+    .jc-photo-preview-head a { font-size:12px; }
+    .jc-photo-grid { grid-template-columns:repeat(2,minmax(0,1fr));gap:8px; }
+    .jc-photo-thumb { aspect-ratio:1.35/1; }
+    .jc-tool-row { grid-template-columns:1fr; }
+    .jc-tool-btn, .jc-tool-toggle, .jc-select, .jc-note-submit { min-height:48px; }
+    .jc-note-form { align-items:stretch; }
   }
 </style>
 
@@ -463,7 +543,7 @@ function markCrewJobCardComplete(jobId) {
   var upNext = card.querySelector('.jc-stop-row strong');
   if (upNext) upNext.remove();
 
-  ['.jc-quick-bar', '.jc-notes-preview', '.jc-alert-stack', '.jc-flow', '.jc-tools'].forEach(function(selector) {
+  ['.jc-quick-bar', '.jc-notes-stack', '.jc-photo-preview', '.jc-notes-preview', '.jc-alert-stack', '.jc-flow', '.jc-tools'].forEach(function(selector) {
     var el = card.querySelector(selector);
     if (el) el.style.display = 'none';
   });
