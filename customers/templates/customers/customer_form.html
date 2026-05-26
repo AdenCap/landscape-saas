@@ -6,7 +6,7 @@
   <p>{% if customer %}Editing {{ customer.name }}{% else %}Add a new client to your CRM{% endif %}</p>
 </div>
 
-<div class="card" style="max-width: 600px;">
+<div class="card customer-form-card">
   <form method="post">
     {% csrf_token %}
     {% if next_value %}<input type="hidden" name="next" value="{{ next_value }}">{% endif %}
@@ -83,9 +83,11 @@
   .form-section { margin-bottom: 24px; }
   .form-section h3 { font-size: 14px; font-weight: 600; color: var(--text-muted); margin: 0 0 10px 0; text-transform: uppercase; }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .customer-form-card { max-width: 600px; box-sizing: border-box; }
+  .form-section, .form-section .field { min-width: 0; }
+  .form-section .help { overflow-wrap: anywhere; }
   .form-row.three { grid-template-columns: 2fr 1fr 1fr; }
-  .form-row.three { grid-template-columns: 2fr 1fr 1fr; }
-  .form-section input, .form-section textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; font-family: inherit; }
+  .form-section input, .form-section textarea, .form-section select { width: 100%; padding: 12px 13px; border-radius: 10px; border: 1px solid var(--border); font-size: 16px; font-family: inherit; min-height: 46px; box-sizing: border-box; }
   .form-section .field { margin-bottom: 14px; }
   .form-section .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
   .form-section .field ul { color: #fca5a5; font-size: 13px; margin: 4px 0 0 0; }
@@ -97,6 +99,16 @@
   .pac-item-query { color: var(--text, #fafafa) !important; font-weight: 600 !important; }
   .pac-matched { font-weight: 700 !important; }
   .pac-icon { display: none !important; }
+  @media (max-width: 640px) {
+    .page-header { margin-bottom: 16px; }
+    .customer-form-card { max-width: none; padding: 16px; border-radius: 18px; }
+    .form-row, .form-row.three { grid-template-columns: 1fr; gap: 0; }
+    .form-section { margin-bottom: 22px; }
+    .form-section h3 { font-size: 13px; margin-bottom: 12px; }
+    .form-section .field { margin-bottom: 13px; }
+    .form-actions { flex-direction: column; gap: 8px; }
+    .form-actions .btn { width: 100%; min-height: 48px; justify-content: center; }
+  }
 </style>
 {% if google_maps_api_key %}
 <script>
@@ -165,6 +177,6 @@ function initAutocomplete() {
   });
 }
 </script>
-<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initAutocomplete" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key|urlencode }}&libraries=places&callback=initAutocomplete" async defer></script>
 {% endif %}
 {% endblock %}

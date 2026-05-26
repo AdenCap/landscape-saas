@@ -274,7 +274,7 @@ if (typeof google !== 'undefined' && google.maps && google.maps.places) {
   var existing = document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]');
   if (!existing) {
     var s = document.createElement('script');
-    s.src = 'https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initQuickAddAutocomplete';
+    s.src = 'https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key|urlencode }}&libraries=places&callback=initQuickAddAutocomplete';
     s.async = true;
     s.defer = true;
     document.body.appendChild(s);
