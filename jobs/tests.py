@@ -1,8 +1,10 @@
 import json
+from pathlib import Path
 from decimal import Decimal
 from datetime import date, datetime, time, timedelta
 from unittest.mock import patch
 
+from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 from django.db.models import Q
@@ -415,6 +417,8 @@ class JobServiceItemSchedulingTests(TestCase):
         self.assertEqual(payload["visit"]["notes"], "Finish cleanup after inspection.")
 
     def test_owner_can_move_return_visit_without_moving_original_job(self):
+        self.job.scheduled_time = time(8, 0)
+        self.job.save(update_fields=["scheduled_time"])
         visit = JobWorkVisit.objects.create(
             job=self.job,
             service_item=self.item,
@@ -427,6 +431,8 @@ class JobServiceItemSchedulingTests(TestCase):
             data=json.dumps({
                 "scheduled_date": "2026-05-23",
                 "scheduled_end_date": "2026-05-24",
+                "scheduled_time": "13:30",
+                "scheduled_end_time": "15:00",
             }),
             content_type="application/json",
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
@@ -437,7 +443,40 @@ class JobServiceItemSchedulingTests(TestCase):
         self.job.refresh_from_db()
         self.assertEqual(visit.scheduled_date, date(2026, 5, 23))
         self.assertEqual(visit.scheduled_end_date, date(2026, 5, 24))
+        self.assertEqual(visit.scheduled_time, time(13, 30))
+        self.assertEqual(visit.scheduled_end_time, time(15, 0))
+        self.assertEqual(response.json()["visit"]["scheduled_time"], "13:30")
+        self.assertEqual(response.json()["visit"]["scheduled_end_time"], "15:00")
         self.assertEqual(self.job.scheduled_date, date(2026, 5, 11))
+        self.assertEqual(self.job.scheduled_time, time(8, 0))
+
+    def test_partial_return_visit_update_preserves_existing_times(self):
+        visit = JobWorkVisit.objects.create(
+            job=self.job,
+            service_item=self.item,
+            scheduled_date=date(2026, 5, 19),
+            scheduled_time=time(10, 0),
+            scheduled_end_time=time(11, 15),
+            notes="Return after pavers arrive.",
+        )
+
+        response = self.client.post(
+            reverse("update_job_work_visit", args=[self.job.id, visit.id]),
+            data=json.dumps({
+                "scheduled_date": "2026-05-20",
+                "scheduled_end_date": "",
+            }),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        visit.refresh_from_db()
+        self.assertEqual(visit.scheduled_date, date(2026, 5, 20))
+        self.assertEqual(visit.scheduled_time, time(10, 0))
+        self.assertEqual(visit.scheduled_end_time, time(11, 15))
+        self.assertEqual(response.json()["visit"]["scheduled_time"], "10:00")
+        self.assertEqual(response.json()["visit"]["scheduled_end_time"], "11:15")
 
     def test_owner_can_remove_return_visit_inline_from_calendar_modal(self):
         visit = JobWorkVisit.objects.create(
@@ -456,10 +495,14 @@ class JobServiceItemSchedulingTests(TestCase):
         self.assertFalse(JobWorkVisit.objects.filter(id=visit.id).exists())
 
     def test_calendar_events_include_return_visit_without_moving_original_job(self):
+        self.job.scheduled_time = time(8, 0)
+        self.job.save(update_fields=["scheduled_time"])
         JobWorkVisit.objects.create(
             job=self.job,
             service_item=self.item,
             scheduled_date=date(2026, 5, 19),
+            scheduled_time=time(13, 30),
+            scheduled_end_time=time(15, 0),
             notes="Return after pavers arrive.",
         )
 
@@ -472,7 +515,8 @@ class JobServiceItemSchedulingTests(TestCase):
         self.assertEqual(len(original), 1)
         self.assertEqual(original[0]["start"], "2026-05-11")
         self.assertEqual(len(returns), 1)
-        self.assertEqual(returns[0]["start"], "2026-05-19T08:00:00")
+        self.assertEqual(returns[0]["start"], "2026-05-19T13:30:00")
+        self.assertEqual(returns[0]["end"], "2026-05-19T15:00:00")
         self.assertEqual(returns[0]["extendedProps"]["jobId"], self.job.id)
         self.assertTrue(returns[0]["extendedProps"]["returnVisit"])
 
@@ -1044,6 +1088,80 @@ class CalendarRecurringRescheduleTests(TestCase):
         response_b = self.client.get(reverse("crew_today"))
         self.assertEqual(response_b.status_code, 200)
         self.assertIn(job, list(response_b.context["jobs"]))
+
+    def test_calendar_crew_filter_uses_day_assignment_override_for_multi_day_job(self):
+        crew_a = Crew.objects.create(business=self.business, name="Crew A")
+        crew_b = Crew.objects.create(business=self.business, name="Crew B")
+        job = self._create_job(date(2026, 5, 4), start_time=None, end_time=None)
+        job.scheduled_end_date = date(2026, 5, 6)
+        job.assigned_crew = crew_a
+        job.save(update_fields=["scheduled_end_date", "assigned_crew"])
+        JobDayAssignment.objects.create(job=job, date=date(2026, 5, 5), assigned_crew=crew_b)
+
+        response_a = self.client.get(reverse("calendar_events"), {
+            "start": "2026-05-05",
+            "end": "2026-05-06",
+            "crews": str(crew_a.id),
+        })
+        response_b = self.client.get(reverse("calendar_events"), {
+            "start": "2026-05-05",
+            "end": "2026-05-06",
+            "crews": str(crew_b.id),
+        })
+        response_b_week = self.client.get(reverse("calendar_events"), {
+            "start": "2026-05-04",
+            "end": "2026-05-07",
+            "crews": str(crew_b.id),
+        })
+        response_all_week = self.client.get(reverse("calendar_events"), {
+            "start": "2026-05-04",
+            "end": "2026-05-07",
+        })
+
+        self.assertEqual(response_a.status_code, 200)
+        self.assertEqual(response_b.status_code, 200)
+        self.assertEqual(response_b_week.status_code, 200)
+        self.assertEqual(response_all_week.status_code, 200)
+        self.assertEqual(response_a.json(), [])
+        self.assertEqual(response_b.json()[0]["extendedProps"]["jobId"], job.id)
+        self.assertEqual(response_b.json()[0]["start"], "2026-05-05")
+        self.assertEqual(response_b.json()[0]["end"], "2026-05-06")
+        self.assertEqual(response_b.json()[0]["extendedProps"]["crew"], "Crew B")
+        self.assertEqual(response_b.json()[0]["extendedProps"]["crewIds"], [crew_b.id])
+        self.assertIs(response_b.json()[0]["editable"], False)
+        self.assertIs(response_b.json()[0]["durationEditable"], False)
+        self.assertEqual(len(response_b_week.json()), 1)
+        self.assertEqual(response_b_week.json()[0]["start"], "2026-05-05")
+        self.assertEqual(response_b_week.json()[0]["end"], "2026-05-06")
+        self.assertEqual(response_b_week.json()[0]["extendedProps"]["crewIds"], [crew_b.id])
+        self.assertEqual(
+            [(event["start"], event["end"], event["extendedProps"]["crewIds"]) for event in response_all_week.json()],
+            [
+                ("2026-05-04", "2026-05-05", [crew_a.id]),
+                ("2026-05-05", "2026-05-06", [crew_b.id]),
+                ("2026-05-06", "2026-05-07", [crew_a.id]),
+            ],
+        )
+
+    def test_calendar_template_loads_current_split_crew_javascript(self):
+        response = self.client.get(reverse("calendar"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "static/js/calendar.js?v=46")
+        self.assertContains(response, "modal-apple-directions")
+        self.assertContains(response, "modal-google-directions")
+
+        js = Path(settings.BASE_DIR) / "static" / "js" / "calendar.js"
+        script = js.read_text()
+        self.assertIn("function crewEventOrder", script)
+        self.assertIn("slotEventOverlap: false", script)
+        self.assertIn("calendar.rerenderEvents()", script)
+        self.assertIn("modal-apple-directions", script)
+        self.assertIn("modal-google-directions", script)
+        self.assertIn("https://maps.apple.com/?daddr=", script)
+        self.assertIn("function buildReturnVisitCalendarPayload", script)
+        self.assertIn("payload.scheduled_time = formatTimeInput(start)", script)
+        self.assertIn("payload.scheduled_end_time = end ? formatTimeInput(end) : ''", script)
 
 
 class MowingFrequencyUpdateTests(TestCase):

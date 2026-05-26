@@ -495,6 +495,8 @@ class JobWorkVisit(models.Model):
         blank=True,
         help_text="Optional end date when this return visit spans multiple days.",
     )
+    scheduled_time = models.TimeField(null=True, blank=True)
+    scheduled_end_time = models.TimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="scheduled")
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
