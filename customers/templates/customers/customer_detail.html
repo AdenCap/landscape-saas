@@ -304,26 +304,20 @@
             <span class="cc-panel-kicker">History</span>
             <h2>Recent work</h2>
           </div>
-          <span class="cc-count">{{ all_jobs|length }}</span>
+          <span class="cc-count">{{ service_history|length }}</span>
         </div>
         <div class="cc-list">
-          {% for job in all_jobs|slice:":12" %}
-          <a href="{% url 'job_detail' job.id %}" class="cc-row">
-            <span class="cc-dot{% if job.status == 'completed' %} cc-dot-muted{% endif %}"></span>
+          {% for item in service_history|slice:":20" %}
+          <a href="{{ item.url }}" class="cc-row">
+            <span class="cc-dot{% if item.kind == 'fertilization' or item.status == 'Completed' %} cc-dot-muted{% endif %}"></span>
             <span>
-              <strong>
-                {% for item in job.service_items.all %}
-                  {% if forloop.first %}{{ item.description|default:item.service.name }}{% endif %}
-                {% empty %}
-                  Job
-                {% endfor %}
-              </strong>
-              <small>{{ job.property.address|truncatechars:38 }} · {{ job.scheduled_date|date:"M j, Y" }}</small>
+              <strong>{{ item.title }}</strong>
+              <small>{{ item.address|truncatechars:38 }} · {{ item.date|date:"M j, Y" }}{% if item.detail %} · {{ item.detail|truncatechars:70 }}{% endif %}</small>
             </span>
-            <em>{{ job.status|title }}</em>
+            <em>{{ item.status }}</em>
           </a>
           {% empty %}
-          <div class="cc-empty"><strong>No job history yet.</strong></div>
+          <div class="cc-empty"><strong>No service history yet.</strong></div>
           {% endfor %}
         </div>
       </section>

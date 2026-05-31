@@ -60,6 +60,13 @@
     <div id="program-info" style="display:none;margin-top:8px;padding:10px 14px;background:var(--surface-highest);border-radius:var(--radius-md);font-size:12px;color:var(--text-secondary);">
       <span id="program-rounds">0</span> rounds per year
     </div>
+    {% if not edit_enrollment %}
+    <div class="pb-field" id="start-round-wrap" style="display:none;margin-top:12px;">
+      <label>Start with application</label>
+      <select id="enr-start-round" name="start_round_number"></select>
+      <p style="font-size:11px;color:var(--text-muted);margin:4px 0 0;">Use this when enrolling a customer after the season has already started.</p>
+    </div>
+    {% endif %}
     <div class="pb-field" style="margin-top:12px;">
       <label>Year</label>
       <input type="number" name="year" value="{{ current_year }}" min="2024" max="2030" style="max-width:120px;">
@@ -244,8 +251,11 @@
 
   window.updateProgramInfo = function() {
     var pid = progSel.value;
+    var startWrap = document.getElementById('start-round-wrap');
+    var startSel = document.getElementById('enr-start-round');
     if (!pid) {
       document.getElementById('program-info').style.display = 'none';
+      if (startWrap) startWrap.style.display = 'none';
       currentRounds = 0;
       return;
     }
@@ -253,6 +263,20 @@
     currentRounds = prog ? prog.rounds : 0;
     document.getElementById('program-rounds').textContent = currentRounds;
     document.getElementById('program-info').style.display = '';
+    if (startSel && prog) {
+      startSel.innerHTML = '';
+      var options = prog.round_options || [];
+      if (!options.length) {
+        for (var i = 1; i <= currentRounds; i++) options.push({ number: i, name: 'Application ' + i });
+      }
+      options.forEach(function(r) {
+        var o = document.createElement('option');
+        o.value = r.number;
+        o.textContent = 'Application ' + r.number + (r.name ? ' - ' + r.name : '');
+        startSel.appendChild(o);
+      });
+      if (startWrap) startWrap.style.display = options.length ? '' : 'none';
+    }
     calcPrice();
   };
 

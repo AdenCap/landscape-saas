@@ -888,6 +888,32 @@ FertHub._optionsPrograms = function(selected) {
   return html;
 };
 
+FertHub._optionsStartRounds = function(programId, selected) {
+  var html = '';
+  var program = FertHub._programs.find(function(p) { return String(p.id) === String(programId); });
+  var rounds = program && program.round_options ? program.round_options : [];
+  if (!rounds.length && program && program.num_rounds) {
+    for (var i = 1; i <= program.num_rounds; i++) {
+      rounds.push({ number: i, name: 'Application ' + i });
+    }
+  }
+  rounds.forEach(function(r) {
+    html += '<option value="' + r.number + '"' + (r.number == selected ? ' selected' : '') + '>Application ' + r.number + (r.name ? ' - ' + r.name : '') + '</option>';
+  });
+  return html;
+};
+
+FertHub._refreshEnrollmentStartRounds = function() {
+  var form = document.getElementById('fert-enrollment-form');
+  if (!form) return;
+  var programEl = form.querySelector('[name=program_id]');
+  var startWrap = document.getElementById('fert-start-round-wrap');
+  var startEl = form.querySelector('[name=start_round_number]');
+  if (!programEl || !startEl || !startWrap) return;
+  startEl.innerHTML = FertHub._optionsStartRounds(programEl.value);
+  startWrap.style.display = startEl.options.length ? '' : 'none';
+};
+
 FertHub._optionsMonths = function(selected) {
   var html = '<option value="">--</option>';
   for (var i = 1; i <= 12; i++) {
@@ -1182,7 +1208,10 @@ FertHub._enrollmentFormHtml = function(e) {
     '<div class="form-group"><label class="form-label">Property *</label>' +
     '<select name="property_id" class="form-control">' + FertHub._optionsProperties(e.property_id) + '</select></div>' +
     '<div class="form-group"><label class="form-label">Program *</label>' +
-    '<select name="program_id" class="form-control">' + FertHub._optionsPrograms(e.program_id) + '</select></div>' +
+    '<select name="program_id" class="form-control" onchange="FertHub._refreshEnrollmentStartRounds()">' + FertHub._optionsPrograms(e.program_id) + '</select></div>' +
+    (!e.id ? '<div class="form-group" id="fert-start-round-wrap"><label class="form-label">Start with application</label>' +
+    '<select name="start_round_number" class="form-control">' + FertHub._optionsStartRounds(e.program_id) + '</select>' +
+    '<div style="margin-top:5px;font-size:12px;color:var(--text-muted);">Use this when enrolling a customer in the middle of the season.</div></div>' : '') +
     '<div class="form-group"><label class="form-label">Year</label>' +
     '<input type="number" name="year" class="form-control" value="' + (e.year || currentYear) + '"></div>' +
     '<div class="form-group"><label class="form-label">Pricing Method</label>' +
@@ -1256,6 +1285,7 @@ FertHub.addEnrollment = function() {
   var footer = '<button type="button" class="btn btn-secondary" onclick="FertHub.closeModal()">Cancel</button> ' +
     '<button type="button" class="btn btn-primary" id="fert-save-btn" onclick="FertHub._submitEnrollment(null)">Save</button>';
   FertHub.openModal('Enroll Customer', body, footer);
+  FertHub._refreshEnrollmentStartRounds();
 };
 
 FertHub.editEnrollment = function(id) {
