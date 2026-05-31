@@ -32,7 +32,6 @@ from .pricing import (
     calculate_enrollment_pricing,
     calculate_suggested_price,
 )
-from jobs.views import _fertilization_dates_for_year
 
 
 # ─────────────────────────────────────────────────────────────
@@ -196,33 +195,25 @@ def enrollment_builder(request):
                     price_per_sqft=Decimal(price_per_sqft) if price_per_sqft else None,
                     notes=notes,
                 )
-                # Smart mid-year enrollment: only create pending rounds for
-                # months that haven't passed. Earlier rounds get marked as skipped.
-                today = dt_date.today()
+                start_round = _start_round_number(request, program)
                 sched_year = int(year)
                 pending_count = 0
-                skipped_count = 0
-                for rnd in program.rounds.order_by('round_number'):
+                for rnd in _program_rounds_from_start(program, start_round):
                     try:
                         sched_date = dt_date(sched_year, rnd.target_month_start, 15)
                     except ValueError:
                         sched_date = dt_date(sched_year, rnd.target_month_start, 1)
-                    # If the round's target month is in the past for this year
-                    is_past = sched_date < today and sched_year == today.year
                     ScheduledRound.objects.create(
                         enrollment=enrollment,
                         round_template=rnd,
                         round_number=rnd.round_number,
                         scheduled_date=sched_date,
-                        status='skipped' if is_past else 'pending',
+                        status='pending',
                     )
-                    if is_past:
-                        skipped_count += 1
-                    else:
-                        pending_count += 1
+                    pending_count += 1
                 msg = f"Enrolled {prop.address} in {program.name} ({year}) — {pending_count} round{'' if pending_count == 1 else 's'} scheduled"
-                if skipped_count:
-                    msg += f", {skipped_count} past round{'' if skipped_count == 1 else 's'} skipped (season already started)"
+                if start_round > 1:
+                    msg += f" starting at application {start_round}"
                 messages.success(request, msg)
         except Exception as e:
             messages.error(request, f"Error: {e}")
@@ -241,7 +232,19 @@ def enrollment_builder(request):
 
     programs_data = []
     for p in programs:
-        programs_data.append({"id": p.id, "name": p.name, "rounds": p.rounds.count()})
+        programs_data.append({
+            "id": p.id,
+            "name": p.name,
+            "rounds": p.rounds.count(),
+            "round_options": [
+                {
+                    "number": r.round_number,
+                    "name": r.name,
+                    "month": r.target_month_start,
+                }
+                for r in p.rounds.order_by("round_number")
+            ],
+        })
 
     # Support editing: ?edit=<enrollment_id>
     edit_enrollment = None
@@ -379,7 +382,7 @@ def hub(request):
         for sr in enr.scheduled_rounds.all():
             if sr.status == 'completed':
                 rounds_completed += 1
-            elif sr.status == 'pending':
+            elif sr.status in ('pending', 'skipped'):
                 all_pending_ids.append(sr.id)
                 month_num = sr.round_template.target_month_start if sr.round_template else sr.scheduled_date.month
                 all_pending_rounds.append({
@@ -457,6 +460,15 @@ def hub(request):
             'name': prog.name,
             'num_rounds': len(prog.rounds.all()),
             'grass_type': prog.grass_type,
+            'round_options': [
+                {
+                    'id': rnd.id,
+                    'number': rnd.round_number,
+                    'name': rnd.name,
+                    'month': rnd.target_month_start,
+                }
+                for rnd in prog.rounds.all()
+            ],
         }
         for prog in programs.filter(is_active=True)
     ])
@@ -573,6 +585,36 @@ def _int_or_none(request, field):
         return int(val)
     except (ValueError, TypeError):
         return None
+
+
+def _start_round_number(request, program):
+    """Return the first program round number to create for a new enrollment."""
+    rounds = list(program.rounds.order_by('round_number'))
+    if not rounds:
+        return 1
+    first_round = rounds[0].round_number
+    last_round = rounds[-1].round_number
+    raw = (
+        request.POST.get('start_round_number')
+        or request.POST.get('start_application_round')
+        or request.POST.get('start_application')
+        or ''
+    )
+    try:
+        start = int(raw)
+    except (ValueError, TypeError):
+        return first_round
+    return max(first_round, min(last_round, start))
+
+
+def _program_rounds_from_start(program, start_round_number):
+    """Return program rounds beginning with the selected starting application."""
+    return list(
+        program.rounds
+        .prefetch_related('products')
+        .filter(round_number__gte=start_round_number)
+        .order_by('round_number')
+    )
 
 
 def _validate_fk_ownership(model_class, pk_value, business, field_name="id"):
@@ -1187,13 +1229,13 @@ def enrollment_list_create(request):
         )
 
         # --- generate scheduled rounds ---
-        rounds = list(program.rounds.prefetch_related('products').all())
+        start_round = _start_round_number(request, program)
+        rounds = _program_rounds_from_start(program, start_round)
         n_rounds = len(rounds)
 
         start_month = getattr(biz, 'growing_season_start_month', None) or 3
         end_month = getattr(biz, 'growing_season_end_month', None) or 10
 
-        dates = _fertilization_dates_for_year(year, n_rounds, start_month, end_month)
         square_feet = prop.yard_sqft or 0
 
         for i, rnd_template in enumerate(rounds):
@@ -1212,7 +1254,10 @@ def enrollment_list_create(request):
             # Calculate price using markup
             price = calculate_suggested_price(mat_cost, enrollment.markup_pct, enrollment.base_fee)
 
-            scheduled_date = dates[i] if i < len(dates) else date(year, 6, 15)
+            try:
+                scheduled_date = date(year, rnd_template.target_month_start, 15)
+            except ValueError:
+                scheduled_date = date(year, start_month if start_month <= end_month else 6, 15)
 
             ScheduledRound.objects.create(
                 enrollment=enrollment,
@@ -1981,7 +2026,7 @@ def batch_schedule_rounds(request):
         rounds_qs = ScheduledRound.objects.filter(
             id__in=unique_ids,
             enrollment__business=business,
-            status='pending',
+            status__in=['pending', 'skipped'],
         ).select_related('enrollment__property__customer', 'enrollment__program', 'round_template')
 
         # If a specific round template was selected, filter to only those rounds
@@ -2020,7 +2065,8 @@ def batch_schedule_rounds(request):
 
             sr.job = job
             sr.status = 'scheduled'
-            sr.save(update_fields=['job', 'status'])
+            sr.scheduled_date = job_date
+            sr.save(update_fields=['job', 'status', 'scheduled_date'])
             created += 1
     except Exception as e:
         messages.error(request, f"Error scheduling: {e}")

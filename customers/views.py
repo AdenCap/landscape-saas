@@ -1,4 +1,5 @@
 import csv
+from datetime import date
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
@@ -220,6 +221,42 @@ def customer_detail(request, customer_id):
         .order_by('-scheduled_date')[:100]
     )
 
+    from billing.models import FertilizerApplication
+    fertilizer_applications = (
+        FertilizerApplication.objects.filter(property__customer=customer, business=business)
+        .select_related('property', 'product', 'applied_by')
+        .order_by('-application_date', '-id')[:100]
+    )
+    service_history = []
+    for job in all_jobs:
+        first_item = next(iter(job.service_items.all()), None)
+        title = "Job"
+        detail = ""
+        if first_item:
+            title = first_item.description or (first_item.service.name if first_item.service else "Job")
+            detail = getattr(first_item, "detail_description", "") or ""
+        service_history.append({
+            "kind": "job",
+            "date": job.scheduled_date,
+            "title": title,
+            "detail": detail or job.notes,
+            "address": job.property.address,
+            "status": job.status.title(),
+            "url": reverse("job_detail", args=[job.id]),
+        })
+    for app in fertilizer_applications:
+        title = app.product.name if app.product else "Fertilization application"
+        service_history.append({
+            "kind": "fertilization",
+            "date": app.application_date,
+            "title": title,
+            "detail": app.notes,
+            "address": app.property.address,
+            "status": "Applied",
+            "url": reverse("fertilization:hub") + "#applications",
+        })
+    service_history.sort(key=lambda item: (item["date"] or date.min), reverse=True)
+
     upcoming_jobs = (
         Job.objects.filter(
             property__customer=customer,
@@ -331,6 +368,7 @@ def customer_detail(request, customer_id):
         "primary_property": primary_property,
         "past_jobs": past_jobs,
         "all_jobs": all_jobs,
+        "service_history": service_history[:100],
         "upcoming_jobs": upcoming_jobs,
         "contracts": contracts,
         "invoices": invoices,
