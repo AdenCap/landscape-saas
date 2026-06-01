@@ -36,7 +36,7 @@ The Xcode project sets it per configuration:
 
 ```text
 Debug: http://127.0.0.1:8004
-Release: https://fieldlgx.com
+Release: https://app.fieldlgx.com
 ```
 
 Before TestFlight or App Store submission, confirm the Release value matches the production HTTPS API host and that the backend exposes `/api/mobile/v1/`.

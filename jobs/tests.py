@@ -3,15 +3,16 @@ from decimal import Decimal
 from datetime import date, time
 from unittest.mock import patch
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 from django.db.models import Q
 
 from accounts.models import User
-from billing.models import Estimate, EstimateLineItem, Invoice
+from billing.models import Estimate, EstimateImage, EstimateLineItem, Invoice
 from businesses.models import Business
 from customers.models import Customer, Property
-from jobs.models import Crew, Job, JobNote, JobServiceItem, JobWorkVisit, PropertyNote, RecurringJob
+from jobs.models import Crew, Job, JobNote, JobPhoto, JobServiceItem, JobWorkVisit, PropertyNote, RecurringJob
 from jobs.services import generate_jobs
 from pricing.models import ServiceTemplate
 
@@ -137,6 +138,57 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
             "Install 3 yards around front beds.",
         ])
         self.assertEqual(invoice.total, Decimal("425.00"))
+
+    def test_schedule_from_estimate_copies_quote_photos_to_job_site_photos(self):
+        estimate, _selected, _declined = self._accepted_estimate_with_options()
+        EstimateImage.objects.create(
+            estimate=estimate,
+            image=SimpleUploadedFile("before-bed.jpg", b"fake image", content_type="image/jpeg"),
+            caption="Front bed before cleanup.",
+        )
+
+        response = self.client.post(
+            reverse("schedule_from_estimate", args=[estimate.id]),
+            data={"schedule_date": "2026-05-06"},
+        )
+
+        self.assertRedirects(response, reverse("job_list"))
+        job = Job.objects.get(property=self.property, scheduled_date=date(2026, 5, 6))
+        photo = JobPhoto.objects.get(job=job)
+        self.assertEqual(photo.caption, "Front bed before cleanup.")
+        self.assertEqual(photo.category, "before")
+        self.assertIn("before-bed", photo.image.name)
+
+    def test_schedule_from_estimate_preserves_line_total_when_estimate_uses_total_override(self):
+        estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            property=self.property,
+            title="Retaining wall",
+            status="accepted",
+            accepted_total=Decimal("1200.00"),
+        )
+        EstimateLineItem.objects.create(
+            estimate=estimate,
+            description="Wall rebuild",
+            quantity=Decimal("1.00"),
+            unit_price=Decimal("0.00"),
+            total_override=Decimal("1200.00"),
+        )
+
+        response = self.client.post(
+            reverse("schedule_from_estimate", args=[estimate.id]),
+            data={"schedule_date": "2026-05-06"},
+        )
+
+        self.assertRedirects(response, reverse("job_list"))
+        job = Job.objects.get(property=self.property, scheduled_date=date(2026, 5, 6))
+        item = job.service_items.get()
+        self.assertEqual(item.unit_price, Decimal("1200.00"))
+
+        self.client.post(reverse("job_bill_now", args=[job.id]))
+        invoice = Invoice.objects.get(job=job)
+        self.assertEqual(invoice.total, Decimal("1200.00"))
 
     def test_create_job_prefill_from_estimate_uses_only_accepted_items(self):
         estimate, _selected, declined = self._accepted_estimate_with_options()

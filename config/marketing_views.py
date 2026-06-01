@@ -17,6 +17,8 @@ def _marketing_redirect_for_auth(request):
 
 def _marketing_context():
     return {
+        "app_url": getattr(settings, "APP_BASE_URL", "https://app.fieldlgx.com").rstrip("/"),
+        "public_site_url": getattr(settings, "PUBLIC_SITE_URL", "https://fieldlgx.com").rstrip("/"),
         "pricing": {
             "solo_price": getattr(settings, "PLATFORM_SOLO_PRICE", "29.99"),
             "pro_price": getattr(settings, "PLATFORM_PRO_PRICE", "99.99"),

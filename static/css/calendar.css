@@ -109,13 +109,13 @@
 
 /* ── Column Headers (Terraform Pro) ── */
 .fc .fc-col-header-cell {
-  background: #0e0e0e;
+  background: var(--surface-lowest);
   border-color: rgba(66, 72, 68, 0.1);
   padding: 12px 0;
 }
 
 .fc .fc-col-header-cell-cushion {
-  color: #8c928d;
+  color: var(--text-muted);
   font-family: 'Manrope', sans-serif;
   font-size: 10px;
   font-weight: 800;
@@ -134,7 +134,7 @@
 }
 
 .fc .fc-daygrid-day-number {
-  color: #c2c8c2;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 700;
   padding: 8px;
@@ -1755,6 +1755,187 @@ body.modal-open {
 .job-note-entry textarea {
   min-height: 50px;
   resize: vertical;
+}
+
+/* ==========================================================================
+   Light Theme Calendar Polish
+   ========================================================================== */
+
+[data-theme="light"] .fc {
+  --fc-page-bg-color: var(--bg);
+  --fc-bg-color: var(--surface-lowest);
+  --fc-neutral-bg-color: var(--surface-high);
+  --fc-list-event-hover-bg-color: var(--surface-high);
+}
+
+[data-theme="light"] .calendar-toolbar,
+[data-theme="light"] .crew-legend-bar,
+[data-theme="light"] .unscheduled-panel,
+[data-theme="light"] .fc .fc-scrollgrid,
+[data-theme="light"] .fc .fc-list,
+[data-theme="light"] .fc .fc-more-popover {
+  background: var(--surface-container);
+  border-color: var(--border);
+}
+
+[data-theme="light"] .fc .fc-col-header-cell {
+  background: var(--surface-lowest);
+  border-color: var(--border);
+}
+
+[data-theme="light"] .fc .fc-day-other {
+  background: color-mix(in srgb, var(--surface-high) 68%, transparent);
+}
+
+[data-theme="light"] .fc .fc-daygrid-day:hover {
+  background: var(--primary-light);
+}
+
+[data-theme="light"] .fc .fc-timegrid-slot {
+  border-bottom-color: var(--border);
+}
+
+[data-theme="light"] .modal-overlay {
+  background: var(--overlay);
+}
+
+[data-theme="light"] #job-modal .job-command-card {
+  border-color: var(--border);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(126, 185, 54, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255,255,255,0.98), rgba(244,248,237,0.96));
+  box-shadow: var(--shadow-xl);
+}
+
+[data-theme="light"] #job-modal .job-command-header {
+  border-bottom-color: var(--border);
+}
+
+[data-theme="light"] #job-modal .job-mobile-summary,
+[data-theme="light"] #job-modal .job-command-panel,
+[data-theme="light"] #job-modal .job-summary-grid > div,
+[data-theme="light"] #job-modal .job-summary-notes,
+[data-theme="light"] #job-modal .modal-services-list li,
+[data-theme="light"] #job-modal .modal-return-row,
+[data-theme="light"] #job-modal .modal-return-row--primary,
+[data-theme="light"] .job-note-composer,
+[data-theme="light"] .job-notes-list {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface-container) 84%, var(--primary-light));
+}
+
+[data-theme="light"] #job-modal .job-summary-address,
+[data-theme="light"] #job-modal .modal-services-list li small,
+[data-theme="light"] #job-modal .modal-services-list li span,
+[data-theme="light"] #job-modal .modal-visit-heading,
+[data-theme="light"] #job-modal .modal-return-row small,
+[data-theme="light"] #job-modal .modal-return-empty {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] #job-modal .modal-body label {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] #job-modal .modal-body input,
+[data-theme="light"] #job-modal .modal-body select,
+[data-theme="light"] #job-modal .modal-body textarea {
+  border-color: var(--border);
+  background: var(--surface-lowest);
+  color: var(--text);
+}
+
+[data-theme="light"] #job-modal .modal-footer.job-command-footer {
+  border-top-color: var(--border);
+  background: color-mix(in srgb, var(--surface-container) 92%, transparent);
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] .fc {
+    --fc-page-bg-color: var(--bg);
+    --fc-bg-color: var(--surface-lowest);
+    --fc-neutral-bg-color: var(--surface-high);
+    --fc-list-event-hover-bg-color: var(--surface-high);
+  }
+
+  [data-theme="system"] .calendar-toolbar,
+  [data-theme="system"] .crew-legend-bar,
+  [data-theme="system"] .unscheduled-panel,
+  [data-theme="system"] .fc .fc-scrollgrid,
+  [data-theme="system"] .fc .fc-list,
+  [data-theme="system"] .fc .fc-more-popover {
+    background: var(--surface-container);
+    border-color: var(--border);
+  }
+
+  [data-theme="system"] .fc .fc-col-header-cell {
+    background: var(--surface-lowest);
+    border-color: var(--border);
+  }
+
+  [data-theme="system"] .fc .fc-day-other {
+    background: color-mix(in srgb, var(--surface-high) 68%, transparent);
+  }
+
+  [data-theme="system"] .fc .fc-daygrid-day:hover {
+    background: var(--primary-light);
+  }
+
+  [data-theme="system"] .fc .fc-timegrid-slot {
+    border-bottom-color: var(--border);
+  }
+
+  [data-theme="system"] .modal-overlay {
+    background: var(--overlay);
+  }
+
+  [data-theme="system"] #job-modal .job-command-card {
+    border-color: var(--border);
+    background:
+      radial-gradient(circle at 16% 0%, rgba(126, 185, 54, 0.16), transparent 34%),
+      linear-gradient(145deg, rgba(255,255,255,0.98), rgba(244,248,237,0.96));
+    box-shadow: var(--shadow-xl);
+  }
+
+  [data-theme="system"] #job-modal .job-command-header {
+    border-bottom-color: var(--border);
+  }
+
+  [data-theme="system"] #job-modal .job-mobile-summary,
+  [data-theme="system"] #job-modal .job-command-panel,
+  [data-theme="system"] #job-modal .job-summary-grid > div,
+  [data-theme="system"] #job-modal .job-summary-notes,
+  [data-theme="system"] #job-modal .modal-services-list li,
+  [data-theme="system"] #job-modal .modal-return-row,
+  [data-theme="system"] #job-modal .modal-return-row--primary,
+  [data-theme="system"] .job-note-composer,
+  [data-theme="system"] .job-notes-list {
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--surface-container) 84%, var(--primary-light));
+  }
+
+  [data-theme="system"] #job-modal .job-summary-address,
+  [data-theme="system"] #job-modal .modal-services-list li small,
+  [data-theme="system"] #job-modal .modal-services-list li span,
+  [data-theme="system"] #job-modal .modal-visit-heading,
+  [data-theme="system"] #job-modal .modal-return-row small,
+  [data-theme="system"] #job-modal .modal-return-empty,
+  [data-theme="system"] #job-modal .modal-body label {
+    color: var(--text-muted);
+  }
+
+  [data-theme="system"] #job-modal .modal-body input,
+  [data-theme="system"] #job-modal .modal-body select,
+  [data-theme="system"] #job-modal .modal-body textarea {
+    border-color: var(--border);
+    background: var(--surface-lowest);
+    color: var(--text);
+  }
+
+  [data-theme="system"] #job-modal .modal-footer.job-command-footer {
+    border-top-color: var(--border);
+    background: color-mix(in srgb, var(--surface-container) 92%, transparent);
+  }
 }
 
 /* ==========================================================================

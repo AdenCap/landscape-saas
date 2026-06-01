@@ -22,7 +22,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <style>.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:-4px;}</style>
-  <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=14">
+  <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=15">
   <link rel="stylesheet" href="{% static 'css/messaging.css' %}?v=13">
 
   <style>
@@ -230,7 +230,9 @@
       right: 0;
       height: 48px;
       padding: 0 24px;
-      background: #131313;
+      background: var(--glass-strong);
+      -webkit-backdrop-filter: blur(18px) saturate(160%);
+      backdrop-filter: blur(18px) saturate(160%);
       z-index: 50;
       border-bottom: 1px solid var(--border);
     }
@@ -371,7 +373,7 @@
       border-color: var(--primary);
       box-shadow: 0 0 0 2px rgba(157, 216, 80, 0.08);
     }
-    input::placeholder, textarea::placeholder { color: rgba(140, 146, 141, 0.4); }
+    input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: .58; }
     @media (max-width: 768px) {
       input, select, textarea { font-size: 16px; }
     }
@@ -392,7 +394,7 @@
     .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: var(--text-sm); font-weight: 500; }
     .alert a { color: inherit; font-weight: 700; }
     .alert-success { background: rgba(157, 216, 80, 0.06); color: var(--primary); border: 1px solid rgba(157, 216, 80, 0.15); }
-    .alert-error { background: rgba(255, 180, 171, 0.06); color: #ffb4ab; border: 1px solid rgba(255, 180, 171, 0.15); }
+    .alert-error { background: var(--danger-surface); color: var(--danger-text); border: 1px solid var(--danger-border); }
     .alert-warning { background: rgba(226, 193, 155, 0.06); color: var(--tertiary); border: 1px solid rgba(226, 193, 155, 0.15); }
     .alert-info { background: rgba(157, 216, 80, 0.04); color: #b7f569; border: 1px solid rgba(157, 216, 80, 0.08); }
 
@@ -509,7 +511,7 @@
         right: 0;
         bottom: 0;
         left: 0;
-        background: rgba(0,0,0,0.5);
+        background: var(--overlay);
         z-index: 1100;
         opacity: 0;
         visibility: hidden;
@@ -606,11 +608,9 @@
         justify-content: center;
         color: var(--text-muted);
       }
-      [data-theme="light"] .mobile-drawer {
-        background: rgba(16, 28, 13, 0.24);
-      }
+      [data-theme="light"] .mobile-drawer { background: var(--overlay); }
       @media (prefers-color-scheme: light) {
-        [data-theme="system"] .mobile-drawer { background: rgba(16, 28, 13, 0.24); }
+        [data-theme="system"] .mobile-drawer { background: var(--overlay); }
       }
     }
     /* Desktop: ensure mobile shell never shows, content area correct */
@@ -921,6 +921,257 @@
       {% endif %}
   {% endif %}
     {% block content %}{% endblock %}
+    <style>
+      /* Late light-theme audit overrides for premium pages with local palettes. */
+      [data-theme="light"] {
+        --audit-panel: rgba(255, 255, 255, 0.84);
+        --audit-panel-strong: rgba(255, 255, 255, 0.96);
+        --audit-line: rgba(23, 33, 22, 0.13);
+        --audit-line-strong: rgba(23, 33, 22, 0.24);
+        --audit-ink: #11180f;
+        --audit-muted: #5f6b59;
+        --audit-soft: #8c9785;
+        --audit-page-bg:
+          radial-gradient(circle at 18% 8%, rgba(157, 216, 80, 0.16), transparent 28rem),
+          linear-gradient(135deg, #fbfcf7 0%, #f5f8ef 52%, #eef4e6 100%);
+        --audit-grid:
+          radial-gradient(circle at 50% -10%, rgba(157, 216, 80, 0.10), transparent 32%),
+          linear-gradient(90deg, rgba(23, 33, 22, 0.035) 1px, transparent 1px),
+          linear-gradient(rgba(23, 33, 22, 0.035) 1px, transparent 1px);
+      }
+      [data-theme="light"] :is(.field-command,.jobs-command,.clients-command,.client-command,.invoice-command,.estimate-command,.estimate-review,.estimate-form,.estimate-edit-command,.unbilled-command,.batch-command,.document-studio,.money-command,.settings-page) {
+        --fc-line: var(--audit-line);
+        --fc-line-2: var(--audit-line-strong);
+        --fc-panel: var(--audit-panel);
+        --jc-ink: var(--audit-ink);
+        --jc-muted: var(--audit-muted);
+        --jc-dim: var(--audit-soft);
+        --jc-line: var(--audit-line);
+        --jc-line-strong: var(--audit-line-strong);
+        --cl-ink: var(--audit-ink);
+        --cl-muted: var(--audit-muted);
+        --cl-dim: var(--audit-soft);
+        --cl-line: var(--audit-line);
+        --cl-line-strong: var(--audit-line-strong);
+        --cc-ink: var(--audit-ink);
+        --cc-muted: var(--audit-muted);
+        --cc-dim: var(--audit-soft);
+        --cc-line: var(--audit-line);
+        --cc-line-strong: var(--audit-line-strong);
+        --ic-bg: #f6f8f2;
+        --ic-panel: var(--audit-panel);
+        --ic-panel-strong: var(--audit-panel-strong);
+        --ic-line: var(--audit-line);
+        --ic-line-strong: var(--audit-line-strong);
+        --ic-ink: var(--audit-ink);
+        --ic-muted: var(--audit-muted);
+        --ic-soft: var(--audit-soft);
+        --ec-bg: #f6f8f2;
+        --ec-panel: var(--audit-panel);
+        --ec-panel-strong: var(--audit-panel-strong);
+        --ec-line: var(--audit-line);
+        --ec-line-strong: var(--audit-line-strong);
+        --ec-ink: var(--audit-ink);
+        --ec-muted: var(--audit-muted);
+        --ec-soft: var(--audit-soft);
+        --er-bg: #f6f8f2;
+        --er-panel: var(--audit-panel);
+        --er-panel-strong: var(--audit-panel-strong);
+        --er-line: var(--audit-line);
+        --er-line-strong: var(--audit-line-strong);
+        --er-ink: var(--audit-ink);
+        --er-muted: var(--audit-muted);
+        --ef-bg: #f6f8f2;
+        --ef-panel: var(--audit-panel);
+        --ef-panel-strong: var(--audit-panel-strong);
+        --ef-line: var(--audit-line);
+        --ef-line-strong: var(--audit-line-strong);
+        --ef-ink: var(--audit-ink);
+        --ef-muted: var(--audit-muted);
+        --ub-panel: var(--audit-panel);
+        --ub-line: var(--audit-line);
+        --ub-ink: var(--audit-ink);
+        --ub-muted: var(--audit-muted);
+        --ds-bg: #f6f8f2;
+        --ds-panel: var(--audit-panel);
+        --ds-panel-strong: var(--audit-panel-strong);
+        --ds-border: var(--audit-line);
+        --ds-border-strong: var(--audit-line-strong);
+        --ds-text: var(--audit-ink);
+        --ds-muted: var(--audit-muted);
+        --ds-soft: var(--audit-soft);
+        color: var(--text) !important;
+      }
+      [data-theme="light"] .settings-page::before,
+      [data-theme="light"] .money-command::before {
+        background: var(--audit-page-bg) !important;
+      }
+      [data-theme="light"] .batch-command {
+        background: var(--audit-page-bg) !important;
+      }
+      [data-theme="light"] :is(.fc-panel,.fc-stat,.jc-panel,.jc-summary a,.cl-panel,.cl-stat,.cl-client-card,.cl-new-card,.cc-panel,.cc-stat,.cc-contact-card,.cc-property-card,.ic-stat,.ic-panel,.ic-toolbar,.ic-tabs,.ec-stat,.ec-panel,.ec-toolbar,.ec-tabs,.ec-estimate-card,.batch-panel,.batch-row,.ub-panel,.ub-work-row,.ds-hero,.ds-panel,.panel-card,.settings-brand-card,.settings-command-grid > *,.payments-command-card,.payment-note-card,.documents-command,.documents-preview-card,.document-template-card,.mc-command-panel,.mc-card,.mc-stat) {
+        border-color: var(--audit-line) !important;
+        background: linear-gradient(145deg, var(--audit-panel-strong), rgba(244, 248, 237, 0.86)) !important;
+        box-shadow: var(--shadow-lg) !important;
+      }
+      [data-theme="light"] :is(.fc-dispatch,.jc-summary,.cl-table-wrap,.cc-table-wrap,.ic-table-wrap,.ec-table-wrap,.batch-toolbar,.settings-tabs,.mc-tabs) {
+        border-color: var(--audit-line) !important;
+        background: color-mix(in srgb, var(--surface-container) 82%, var(--primary-light)) !important;
+      }
+      [data-theme="light"] :is(.settings-hero-copy h1,.mc-hero h1,.batch-hero h1,.ic-hero h1,.ec-hero h1,.er-hero h1,.ef-hero h1,.ub-hero h1,.ds-hero h1) {
+        color: var(--text) !important;
+      }
+      [data-theme="light"] :is(.settings-hero-copy p,.mc-hero p,.batch-hero p,.ic-subcopy,.ec-subcopy,.er-hero p,.ef-hero p,.ub-hero p,.ds-hero p,.settings-kicker,.settings-section-label,.mc-kicker,.mc-section-label,.batch-eyebrow,.batch-panel-head p,.ic-eyebrow,.ec-eyebrow) {
+        color: var(--text-muted) !important;
+      }
+      [data-theme="light"] :is(.settings-page h2,.settings-page h3,.settings-page h4,.settings-page strong,.payments-command-main h2,.payments-state-grid strong,.payment-note-card strong,.documents-command-main h2,.documents-preview-head strong,.documents-preview-total strong,.document-template-card h3,.documents-readiness-grid strong) {
+        color: var(--text) !important;
+      }
+      [data-theme="light"] :is(.settings-page small,.settings-page p,.settings-page .field-help,.settings-page .help-text,.settings-page .field label,.settings-page .settings-field label,.payments-command-main p,.payments-state-grid span,.payment-note-card p,.payment-note-card span,.documents-command-main p,.documents-preview-head small,.documents-preview-total span,.document-template-card p,.document-template-card span,.documents-readiness-grid p) {
+        color: var(--text-muted) !important;
+      }
+      [data-theme="light"] :is(.settings-back,.settings-page .btn-secondary,.settings-save-bar,.settings-tabs,.settings-tab,.setting-toggle-row,.payments-state-grid article,.payment-control-grid .setting-toggle-row,.payment-note-card,.documents-readiness-grid article,.document-template-card a) {
+        border-color: var(--border) !important;
+        background: var(--glass) !important;
+        color: var(--text) !important;
+      }
+      [data-theme="light"] :is(.settings-page input,.settings-page textarea,.settings-page select) {
+        border-color: var(--border) !important;
+        background: var(--surface-lowest) !important;
+        color: var(--text) !important;
+      }
+      [data-theme="light"] .settings-tab.active,
+      [data-theme="light"] .settings-page .btn-primary,
+      [data-theme="light"] .settings-switch input:checked + span,
+      [data-theme="light"] .documents-preview-title,
+      [data-theme="light"] .documents-preview-bar,
+      [data-theme="light"] .documents-readiness-grid article.ready span {
+        background: var(--primary) !important;
+        border-color: var(--primary) !important;
+        color: var(--on-primary) !important;
+      }
+      [data-theme="light"] :is(.settings-tab.active svg,.documents-preview-title span,.documents-preview-title strong) {
+        color: var(--on-primary) !important;
+      }
+      [data-theme="light"] .settings-switch input:checked + span::after {
+        background: var(--on-primary) !important;
+      }
+      @media (prefers-color-scheme: light) {
+        [data-theme="system"] {
+          --audit-panel: rgba(255, 255, 255, 0.84);
+          --audit-panel-strong: rgba(255, 255, 255, 0.96);
+          --audit-line: rgba(23, 33, 22, 0.13);
+          --audit-line-strong: rgba(23, 33, 22, 0.24);
+          --audit-ink: #11180f;
+          --audit-muted: #5f6b59;
+          --audit-soft: #8c9785;
+          --audit-page-bg:
+            radial-gradient(circle at 18% 8%, rgba(157, 216, 80, 0.16), transparent 28rem),
+            linear-gradient(135deg, #fbfcf7 0%, #f5f8ef 52%, #eef4e6 100%);
+        }
+        [data-theme="system"] :is(.field-command,.jobs-command,.clients-command,.client-command,.invoice-command,.estimate-command,.estimate-review,.estimate-form,.estimate-edit-command,.unbilled-command,.batch-command,.document-studio,.money-command,.settings-page) {
+          --fc-line: var(--audit-line);
+          --fc-line-2: var(--audit-line-strong);
+          --fc-panel: var(--audit-panel);
+          --jc-ink: var(--audit-ink);
+          --jc-muted: var(--audit-muted);
+          --jc-dim: var(--audit-soft);
+          --jc-line: var(--audit-line);
+          --jc-line-strong: var(--audit-line-strong);
+          --cl-ink: var(--audit-ink);
+          --cl-muted: var(--audit-muted);
+          --cl-dim: var(--audit-soft);
+          --cl-line: var(--audit-line);
+          --cl-line-strong: var(--audit-line-strong);
+          --cc-ink: var(--audit-ink);
+          --cc-muted: var(--audit-muted);
+          --cc-dim: var(--audit-soft);
+          --cc-line: var(--audit-line);
+          --cc-line-strong: var(--audit-line-strong);
+          --ic-bg: #f6f8f2;
+          --ic-panel: var(--audit-panel);
+          --ic-panel-strong: var(--audit-panel-strong);
+          --ic-line: var(--audit-line);
+          --ic-line-strong: var(--audit-line-strong);
+          --ic-ink: var(--audit-ink);
+          --ic-muted: var(--audit-muted);
+          --ic-soft: var(--audit-soft);
+          --ec-bg: #f6f8f2;
+          --ec-panel: var(--audit-panel);
+          --ec-panel-strong: var(--audit-panel-strong);
+          --ec-line: var(--audit-line);
+          --ec-line-strong: var(--audit-line-strong);
+          --ec-ink: var(--audit-ink);
+          --ec-muted: var(--audit-muted);
+          --ec-soft: var(--audit-soft);
+          --er-bg: #f6f8f2;
+          --er-panel: var(--audit-panel);
+          --er-panel-strong: var(--audit-panel-strong);
+          --er-line: var(--audit-line);
+          --er-line-strong: var(--audit-line-strong);
+          --er-ink: var(--audit-ink);
+          --er-muted: var(--audit-muted);
+          --ef-bg: #f6f8f2;
+          --ef-panel: var(--audit-panel);
+          --ef-panel-strong: var(--audit-panel-strong);
+          --ef-line: var(--audit-line);
+          --ef-line-strong: var(--audit-line-strong);
+          --ef-ink: var(--audit-ink);
+          --ef-muted: var(--audit-muted);
+          --ub-panel: var(--audit-panel);
+          --ub-line: var(--audit-line);
+          --ub-ink: var(--audit-ink);
+          --ub-muted: var(--audit-muted);
+          --ds-bg: #f6f8f2;
+          --ds-panel: var(--audit-panel);
+          --ds-panel-strong: var(--audit-panel-strong);
+          --ds-border: var(--audit-line);
+          --ds-border-strong: var(--audit-line-strong);
+          --ds-text: var(--audit-ink);
+          --ds-muted: var(--audit-muted);
+          --ds-soft: var(--audit-soft);
+          color: var(--text) !important;
+        }
+        [data-theme="system"] .settings-page::before,
+        [data-theme="system"] .money-command::before { background: var(--audit-page-bg) !important; }
+        [data-theme="system"] .batch-command { background: var(--audit-page-bg) !important; }
+        [data-theme="system"] :is(.fc-panel,.fc-stat,.jc-panel,.jc-summary a,.cl-panel,.cl-stat,.cl-client-card,.cl-new-card,.cc-panel,.cc-stat,.cc-contact-card,.cc-property-card,.ic-stat,.ic-panel,.ic-toolbar,.ic-tabs,.ec-stat,.ec-panel,.ec-toolbar,.ec-tabs,.ec-estimate-card,.batch-panel,.batch-row,.ub-panel,.ub-work-row,.ds-hero,.ds-panel,.panel-card,.settings-brand-card,.settings-command-grid > *,.payments-command-card,.payment-note-card,.documents-command,.documents-preview-card,.document-template-card,.mc-command-panel,.mc-card,.mc-stat) {
+          border-color: var(--audit-line) !important;
+          background: linear-gradient(145deg, var(--audit-panel-strong), rgba(244, 248, 237, 0.86)) !important;
+          box-shadow: var(--shadow-lg) !important;
+        }
+        [data-theme="system"] :is(.fc-dispatch,.jc-summary,.cl-table-wrap,.cc-table-wrap,.ic-table-wrap,.ec-table-wrap,.batch-toolbar,.settings-tabs,.mc-tabs) {
+          border-color: var(--audit-line) !important;
+          background: color-mix(in srgb, var(--surface-container) 82%, var(--primary-light)) !important;
+        }
+        [data-theme="system"] :is(.settings-hero-copy h1,.mc-hero h1,.batch-hero h1,.ic-hero h1,.ec-hero h1,.er-hero h1,.ef-hero h1,.ub-hero h1,.ds-hero h1) { color: var(--text) !important; }
+        [data-theme="system"] :is(.settings-hero-copy p,.mc-hero p,.batch-hero p,.ic-subcopy,.ec-subcopy,.er-hero p,.ef-hero p,.ub-hero p,.ds-hero p,.settings-kicker,.settings-section-label,.mc-kicker,.mc-section-label,.batch-eyebrow,.batch-panel-head p,.ic-eyebrow,.ec-eyebrow) { color: var(--text-muted) !important; }
+        [data-theme="system"] :is(.settings-page h2,.settings-page h3,.settings-page h4,.settings-page strong,.payments-command-main h2,.payments-state-grid strong,.payment-note-card strong,.documents-command-main h2,.documents-preview-head strong,.documents-preview-total strong,.document-template-card h3,.documents-readiness-grid strong) { color: var(--text) !important; }
+        [data-theme="system"] :is(.settings-page small,.settings-page p,.settings-page .field-help,.settings-page .help-text,.settings-page .field label,.settings-page .settings-field label,.payments-command-main p,.payments-state-grid span,.payment-note-card p,.payment-note-card span,.documents-command-main p,.documents-preview-head small,.documents-preview-total span,.document-template-card p,.document-template-card span,.documents-readiness-grid p) { color: var(--text-muted) !important; }
+        [data-theme="system"] :is(.settings-back,.settings-page .btn-secondary,.settings-save-bar,.settings-tabs,.settings-tab,.setting-toggle-row,.payments-state-grid article,.payment-control-grid .setting-toggle-row,.payment-note-card,.documents-readiness-grid article,.document-template-card a) {
+          border-color: var(--border) !important;
+          background: var(--glass) !important;
+          color: var(--text) !important;
+        }
+        [data-theme="system"] :is(.settings-page input,.settings-page textarea,.settings-page select) {
+          border-color: var(--border) !important;
+          background: var(--surface-lowest) !important;
+          color: var(--text) !important;
+        }
+        [data-theme="system"] .settings-tab.active,
+        [data-theme="system"] .settings-page .btn-primary,
+        [data-theme="system"] .settings-switch input:checked + span,
+        [data-theme="system"] .documents-preview-title,
+        [data-theme="system"] .documents-preview-bar,
+        [data-theme="system"] .documents-readiness-grid article.ready span {
+          background: var(--primary) !important;
+          border-color: var(--primary) !important;
+          color: var(--on-primary) !important;
+        }
+        [data-theme="system"] :is(.settings-tab.active svg,.documents-preview-title span,.documents-preview-title strong) { color: var(--on-primary) !important; }
+        [data-theme="system"] .settings-switch input:checked + span::after { background: var(--on-primary) !important; }
+      }
+    </style>
     </div>
   </main>
 

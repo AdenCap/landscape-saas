@@ -338,6 +338,16 @@ class Business(models.Model):
         default=True,
         help_text="Default whether newly created invoices allow client card checkout. Owners can still override each invoice.",
     )
+    card_processing_fee_enabled = models.BooleanField(
+        default=False,
+        help_text="If enabled, client card checkout adds the configured processing fee on top of the invoice total.",
+    )
+    card_processing_fee_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=3,
+        help_text="Percentage added to client card checkout when card processing fees are enabled.",
+    )
     client_saved_cards_enabled = models.BooleanField(
         default=True,
         help_text="If enabled, owners can securely save authorized customer cards for future off-session charges.",

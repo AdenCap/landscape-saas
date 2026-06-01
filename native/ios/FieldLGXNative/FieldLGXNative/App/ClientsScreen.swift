@@ -30,7 +30,7 @@ struct ClientsScreen: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 16)
+                .padding(.top, FieldLGXTheme.ownerTopOffset)
                 .padding(.bottom, 18)
             }
             .refreshable {
@@ -89,7 +89,7 @@ struct ClientsScreen: View {
         }
         .font(.system(size: 16, weight: .semibold))
         .padding(17)
-        .background(Color.black.opacity(0.24))
+        .background(FieldLGXTheme.elevatedBackground.opacity(0.92))
         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 26, style: .continuous)

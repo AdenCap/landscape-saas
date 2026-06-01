@@ -1,9 +1,11 @@
 import json
 from decimal import Decimal
 from datetime import date
+from io import StringIO
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.core.management import call_command
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import Notification, User
@@ -284,6 +286,66 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.assertEqual(self.invoice.payment_method, "card")
         self.assertEqual(self.invoice.stripe_checkout_session_id, "cs_return_paid")
         self.assertTrue(self.invoice.line_items.filter(is_paid=False).count() == 0)
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test")
+    @patch("billing.views._stripe_connect_enabled", return_value=True)
+    @patch("billing.views.stripe.checkout.Session.create")
+    def test_card_checkout_adds_optional_processing_fee(self, mock_create, _mock_enabled):
+        mock_create.return_value.id = "cs_fee_test"
+        mock_create.return_value.url = "https://checkout.stripe.test/pay"
+        self.business.stripe_connect_account_id = "acct_test"
+        self.business.stripe_connect_charges_enabled = True
+        self.business.client_card_payments_enabled = True
+        self.business.card_processing_fee_enabled = True
+        self.business.card_processing_fee_percent = Decimal("3.00")
+        self.business.save(update_fields=[
+            "stripe_connect_account_id",
+            "stripe_connect_charges_enabled",
+            "client_card_payments_enabled",
+            "card_processing_fee_enabled",
+            "card_processing_fee_percent",
+        ])
+        self.invoice.payment_token = "fee-token"
+        self.invoice.enable_card_payment = True
+        self.invoice.save(update_fields=["payment_token", "enable_card_payment"])
+        self.invoice.recompute_totals()
+
+        response = self.client.post(reverse("billing:create_invoice_checkout", args=[self.invoice.id, "fee-token"]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "https://checkout.stripe.test/pay")
+        call_kwargs = mock_create.call_args.kwargs
+        self.assertEqual(len(call_kwargs["line_items"]), 2)
+        self.assertEqual(call_kwargs["line_items"][0]["price_data"]["unit_amount"], 32500)
+        self.assertEqual(call_kwargs["line_items"][1]["price_data"]["unit_amount"], 975)
+        self.assertEqual(call_kwargs["metadata"]["card_processing_fee"], "9.75")
+        self.assertEqual(call_kwargs["metadata"]["card_checkout_total"], "334.75")
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test")
+    @patch("billing.management.commands.reconcile_stripe_invoice_payments.stripe.checkout.Session.retrieve")
+    def test_reconcile_command_repairs_paid_invoice_checkout_session(self, mock_retrieve):
+        self.business.stripe_connect_account_id = "acct_test"
+        self.business.stripe_connect_charges_enabled = True
+        self.business.save(update_fields=["stripe_connect_account_id", "stripe_connect_charges_enabled"])
+        self.invoice.stripe_checkout_session_id = "cs_old_paid"
+        self.invoice.save(update_fields=["stripe_checkout_session_id"])
+        self.invoice.recompute_totals()
+        mock_retrieve.return_value = {
+            "id": "cs_old_paid",
+            "payment_status": "paid",
+            "amount_total": 32500,
+            "payment_intent": "pi_old_paid",
+        }
+
+        out = StringIO()
+        call_command("reconcile_stripe_invoice_payments", invoice_id=self.invoice.id, stdout=out)
+
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.status, "paid")
+        self.assertEqual(self.invoice.payment_method, "card")
+        self.assertEqual(self.invoice.stripe_checkout_session_id, "cs_old_paid")
+        self.assertTrue(self.invoice.line_items.filter(is_paid=False).count() == 0)
+        self.assertIn("marked paid", out.getvalue())
 
     def test_invoice_card_payment_toggle_accepts_form_posts(self):
         edit_url = reverse("billing:invoice_edit_line_items", args=[self.invoice.id])

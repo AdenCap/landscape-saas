@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django import forms
 from .models import Business
 from .email_credentials import encrypt_password
@@ -55,6 +57,8 @@ class BusinessSettingsForm(forms.ModelForm):
             "paypal_link",
             "client_card_payments_enabled",
             "default_invoice_card_payments_enabled",
+            "card_processing_fee_enabled",
+            "card_processing_fee_percent",
             "client_saved_cards_enabled",
             "invoice_email_subject",
             "invoice_email_intro",
@@ -81,6 +85,8 @@ class BusinessSettingsForm(forms.ModelForm):
             "cashapp_cashtag": "Cash App handle",
             "client_card_payments_enabled": "Accept client credit card payments",
             "default_invoice_card_payments_enabled": "Default invoice card checkout",
+            "card_processing_fee_enabled": "Add card processing fee",
+            "card_processing_fee_percent": "Card processing fee %",
             "client_saved_cards_enabled": "Allow saved cards on file",
             "notify_job_scheduled": "Job scheduled",
             "notify_crew_en_route": "Crew on the way",
@@ -123,6 +129,8 @@ class BusinessSettingsForm(forms.ModelForm):
             "cashapp_cashtag": "e.g. $YourBusiness — shown at the bottom of every sent invoice.",
             "client_card_payments_enabled": "When enabled and Stripe is connected, clients can pay invoices and estimate deposits by credit card.",
             "default_invoice_card_payments_enabled": "When enabled, newly created invoices allow card checkout by default. You can still override a single invoice.",
+            "card_processing_fee_enabled": "When enabled, customers who choose credit card checkout see this fee before Stripe checkout. Confirm surcharge rules for your state and card network.",
+            "card_processing_fee_percent": "Percent added only to card checkout, not to the invoice total. Default is 3%.",
             "client_saved_cards_enabled": "When enabled, owners can save authorized customer cards and turn on customer-level auto-charge.",
             "invoice_email_subject": "Leave blank for: Invoice #{{invoice_id}} from {{business_name}}",
             "invoice_email_intro": "e.g. Hi {{customer_name}}, please find your invoice below.",
@@ -152,6 +160,7 @@ class BusinessSettingsForm(forms.ModelForm):
             "google_review_max_attempts": forms.NumberInput(attrs={"min": 1, "max": 10}),
             "google_review_sms_template": forms.Textarea(attrs={"rows": 2, "placeholder": "Hi {{customer_name}}, if you have 30 seconds we'd love your review: {{review_link}}"}),
             "default_monthly_invoice_send_day": forms.NumberInput(attrs={"min": 1, "max": 28, "placeholder": "e.g. 1 or 15"}),
+            "card_processing_fee_percent": forms.NumberInput(attrs={"min": 0, "max": 3, "step": "0.01", "placeholder": "3.00"}),
             "growing_season_start_month": forms.NumberInput(attrs={"min": 1, "max": 12, "placeholder": "3"}),
             "growing_season_end_month": forms.NumberInput(attrs={"min": 1, "max": 12, "placeholder": "10"}),
             "invoice_email_intro": forms.Textarea(attrs={"rows": 2, "placeholder": "Hi {{customer_name}}, please find your invoice below."}),
@@ -173,6 +182,16 @@ class BusinessSettingsForm(forms.ModelForm):
         # and empty fields on hidden tabs should not block saving
         for field_name, field in self.fields.items():
             field.required = False
+
+    def clean_card_processing_fee_percent(self):
+        percent = self.cleaned_data.get("card_processing_fee_percent")
+        if percent in (None, ""):
+            return Decimal("3.00")
+        if percent < 0:
+            raise forms.ValidationError("Card processing fee cannot be negative.")
+        if percent > Decimal("3.00"):
+            raise forms.ValidationError("Card processing fee cannot be more than 3%.")
+        return percent
 
     def save(self, commit=True):
         # Capture the existing password BEFORE super().save() overwrites it with

@@ -75,7 +75,15 @@ from .forms import (
     _compute_fertilizing,
     _compute_mulch,
 )
-from .services import auto_charge_invoice_card, combine_customer_invoices, invoice_card_payment_default, mark_invoice_paid_from_stripe
+from .services import (
+    auto_charge_invoice_card,
+    combine_customer_invoices,
+    estimate_line_unit_price,
+    invoice_card_checkout_total,
+    invoice_card_payment_default,
+    invoice_card_processing_fee,
+    mark_invoice_paid_from_stripe,
+)
 from .monthly import build_missing_monthly_invoices_for_period
 
 @role_required("owner", "manager")
@@ -880,7 +888,7 @@ def _approve_and_deliver_invoice(invoice, request=None, user=None, source="manua
                 if request:
                     pay_url = request.build_absolute_uri(path)
                 else:
-                    site_url = getattr(settings, "SITE_URL", "https://fieldlgx.com").rstrip("/")
+                    site_url = getattr(settings, "SITE_URL", "https://app.fieldlgx.com").rstrip("/")
                     pay_url = site_url + path
             pdf_url = ""
             if invoice.payment_token:
@@ -888,7 +896,7 @@ def _approve_and_deliver_invoice(invoice, request=None, user=None, source="manua
                 if request:
                     pdf_url = request.build_absolute_uri(pdf_path)
                 else:
-                    site_url = getattr(settings, "SITE_URL", "https://fieldlgx.com").rstrip("/")
+                    site_url = getattr(settings, "SITE_URL", "https://app.fieldlgx.com").rstrip("/")
                     pdf_url = site_url + pdf_path
             logo_url = _get_logo_url(business, request) if request else ""
             doc_template = DocumentTemplate.get_default_for_business(business, "invoice")
@@ -1154,12 +1162,17 @@ def invoice_pay_page(request, invoice_id, token):
             pass
     can_accept_stripe = getattr(business, "can_accept_stripe_payments", lambda: False)()
     payment_context = _public_payment_method_context(business, invoice.total)
+    card_processing_fee = invoice_card_processing_fee(invoice)
+    card_checkout_total = invoice_card_checkout_total(invoice)
     line_items = invoice.line_items.all()
     return render(request, "billing/invoice_pay_page.html", {
         "invoice": invoice,
         "business": business,
         **payment_context,
         "can_accept_stripe": can_accept_stripe,
+        "card_processing_fee": card_processing_fee,
+        "card_checkout_total": card_checkout_total,
+        "has_card_processing_fee": card_processing_fee > 0,
         "line_items": line_items,
         "pdf_url": reverse("billing:invoice_client_pdf", args=[invoice.id, invoice.payment_token]),
     })
@@ -1537,7 +1550,7 @@ def convert_estimate_to_invoice(request, estimate_id):
             description=line.description,
             detail_description=getattr(line, "detail_description", "") or "",
             quantity=line.quantity or 1,
-            unit_price=line.unit_price,
+            unit_price=estimate_line_unit_price(line),
         )
 
     # Also copy accepted add-ons if they were selected. Legacy accepted
@@ -1548,7 +1561,7 @@ def convert_estimate_to_invoice(request, estimate_id):
             description=f"{line.description} (add-on)",
             detail_description=getattr(line, "detail_description", "") or "",
             quantity=line.quantity or 1,
-            unit_price=line.unit_price,
+            unit_price=estimate_line_unit_price(line),
         )
 
     invoice.recompute_totals()
@@ -1762,7 +1775,9 @@ def create_invoice_checkout_session(request, invoice_id, token):
         return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
     stripe.api_key = settings.STRIPE_SECRET_KEY
     invoice.recompute_totals()
-    amount_cents = int(invoice.total * 100)
+    card_processing_fee = invoice_card_processing_fee(invoice)
+    card_checkout_total = invoice_card_checkout_total(invoice)
+    amount_cents = int(card_checkout_total * 100)
     if amount_cents < 50:
         messages.error(request, "Minimum payment is $0.50.")
         return redirect("billing:invoice_pay_page", invoice_id=invoice.id, token=token)
@@ -1779,26 +1794,42 @@ def create_invoice_checkout_session(request, invoice_id, token):
     if fee_percent is None:
         fee_percent = getattr(settings, "STRIPE_CONNECT_APPLICATION_FEE_PERCENT", 0) or 0
     
-    # Use idempotency key to prevent duplicate sessions
-    idempotency_key = f"invoice:{invoice.id}:checkout:{hashlib.md5(str(invoice.id).encode()).hexdigest()[:8]}"
+    # Keep the session idempotent for the current payable amount, while allowing a
+    # new session if the invoice total or optional card fee setting changes.
+    checkout_key_source = f"{invoice.id}:{amount_cents}:{card_processing_fee}"
+    idempotency_key = f"invoice:{invoice.id}:checkout:{hashlib.md5(checkout_key_source.encode()).hexdigest()[:10]}"
     
     # Create checkout session in the CONNECTED ACCOUNT context (merchant-of-record)
     # Funds go directly to the connected account, not the platform
     try:
         # Use stripeAccount parameter to make the connected account the merchant
-        session = stripe.checkout.Session.create(
-            payment_method_types=["card"],
-            line_items=[{
+        line_items = [{
+            "price_data": {
+                "currency": "usd",
+                "unit_amount": int(invoice.total * 100),
+                "product_data": {
+                    "name": f"Invoice #{invoice.id}",
+                    "description": f"Payment for invoice from {business.name}",
+                },
+            },
+            "quantity": 1,
+        }]
+        if card_processing_fee > 0:
+            line_items.append({
                 "price_data": {
                     "currency": "usd",
-                    "unit_amount": amount_cents,
+                    "unit_amount": int(card_processing_fee * 100),
                     "product_data": {
-                        "name": f"Invoice #{invoice.id}",
-                        "description": f"Payment for invoice from {business.name}",
+                        "name": "Card processing fee",
+                        "description": f"{business.card_processing_fee_percent}% credit card processing fee",
                     },
                 },
                 "quantity": 1,
-            }],
+            })
+
+        session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=line_items,
             mode="payment",
             success_url=success_url,
             cancel_url=cancel_url,
@@ -1806,6 +1837,9 @@ def create_invoice_checkout_session(request, invoice_id, token):
                 "invoice_id": str(invoice.id),
                 "business_id": str(business.id),
                 "platform_user_id": str(business.id),
+                "invoice_total": str(invoice.total),
+                "card_processing_fee": str(card_processing_fee),
+                "card_checkout_total": str(card_checkout_total),
             },
             # Optional: Add application fee if we enable platform fees later
             # For now, fee_percent is 0, so no fee is applied
@@ -1965,6 +1999,7 @@ def _draw_pdf_logo(p, business, x=50, y_top=770, max_height=48, max_width=160, p
                 for site_url in [
                     getattr(_settings, 'SITE_URL', ''),
                     getattr(_settings, 'BASE_URL', ''),
+                    'https://app.fieldlgx.com',
                     'https://fieldlgx.com',
                     'http://localhost:8000',
                 ]:
@@ -5474,7 +5509,7 @@ def estimate_client_accept(request, estimate_id, token):
                     f"{f'Optional Items Not Accepted:\\n{declined_lines_text}\\n' if declined_lines_text else ''}"
                     f"Accepted at: {estimate.accepted_at.strftime('%B %d, %Y at %I:%M %p')}\n\n"
                     f"Next steps: Convert to invoice or schedule the work.\n"
-                    f"View estimate: {getattr(settings, 'SITE_URL', 'https://fieldlgx.com').rstrip('/')}/billing/estimates/{estimate.id}/\n"
+                    f"View estimate: {getattr(settings, 'SITE_URL', 'https://app.fieldlgx.com').rstrip('/')}/billing/estimates/{estimate.id}/\n"
                 )
                 send_business_email(
                     business=business,

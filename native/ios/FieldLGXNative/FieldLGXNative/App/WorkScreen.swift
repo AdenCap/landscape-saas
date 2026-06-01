@@ -83,7 +83,7 @@ struct WorkScreen: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 20)
+                .padding(.top, FieldLGXTheme.ownerTopOffset)
                 .padding(.bottom, 18)
             }
             .refreshable {

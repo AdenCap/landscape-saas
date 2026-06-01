@@ -31,7 +31,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=4">
+  <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=15">
   <style>
     /* Marketing-specific overrides */
     .progress{position:fixed;top:0;left:0;height:2px;background:var(--primary);width:var(--sp,0%);z-index:var(--z-sticky);transition:width 0.1s linear}
@@ -60,7 +60,7 @@
       .brand-mark span{font-size:14px;letter-spacing:.06em}
       .links{gap:10px}
       .links a.hide-sm{display:none}
-      .links a[href="/accounts/login/"]{display:none}
+      .links a[href="{{ APP_BASE_URL }}/accounts/login/"]{display:none}
       .nav .btn{min-height:42px;padding:0 15px;font-size:12px}
       .nav-cta-full{display:none}
       .nav-cta-short{display:inline}
@@ -90,8 +90,8 @@
       <a class="hide-sm" href="/automation/">Automation</a>
       <a class="hide-sm" href="/#trust">Trust</a>
       <a class="hide-sm" href="/pricing/">Pricing</a>
-      <a href="/accounts/login/">Sign in</a>
-      <a class="btn btn-primary nav-cta" href="/accounts/signup/"><span class="nav-cta-full">Start free trial</span><span class="nav-cta-short">Start trial</span></a>
+      <a href="{{ APP_BASE_URL }}/accounts/login/">Sign in</a>
+      <a class="btn btn-primary nav-cta" href="{{ APP_BASE_URL }}/accounts/signup/"><span class="nav-cta-full">Start free trial</span><span class="nav-cta-short">Start trial</span></a>
     </nav>
   </header>
 
@@ -136,13 +136,13 @@
     let stored={};
     try{stored=JSON.parse(localStorage.getItem('pfo_utm')||'{}')||{};}catch(e){}
 
-    const ctas=document.querySelectorAll('[data-cta],a[href^="/accounts/signup/"]');
+    const ctas=document.querySelectorAll('[data-cta],a[href^="/accounts/signup/"],a[href*="/accounts/signup/"]');
     ctas.forEach(el=>{
       const href=el.getAttribute('href')||'';
-      if(href.startsWith('/accounts/signup/')){
+      if(href.includes('/accounts/signup/')){
         const u=new URL(href,window.location.origin);
         Object.entries(stored).forEach(([k,v])=>{if(!u.searchParams.get(k))u.searchParams.set(k,v)});
-        el.setAttribute('href',u.pathname+u.search);
+        el.setAttribute('href',u.origin+u.pathname+u.search);
       }
       el.addEventListener('click',()=>{
         const payload={event:'pfo_cta_click',cta:el.getAttribute('data-cta')||'signup-link',href:el.getAttribute('href')||null,ts:Date.now(),...stored};

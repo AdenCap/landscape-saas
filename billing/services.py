@@ -32,6 +32,33 @@ def invoice_card_payment_default(business):
     return bool(getattr(business, "default_invoice_card_payments_enabled", True))
 
 
+def invoice_card_processing_fee(invoice):
+    """Return the optional card checkout fee for this invoice without changing invoice totals."""
+    business = invoice.business
+    if not business or not getattr(business, "card_processing_fee_enabled", False):
+        return Decimal("0.00")
+    percent = Decimal(str(getattr(business, "card_processing_fee_percent", Decimal("0")) or 0))
+    if percent <= 0:
+        return Decimal("0.00")
+    invoice_total = Decimal(str(invoice.total or 0)).quantize(Decimal("0.01"))
+    return ((invoice_total * percent) / Decimal("100")).quantize(Decimal("0.01"))
+
+
+def invoice_card_checkout_total(invoice):
+    """Return total collected through card checkout, including optional card fee."""
+    invoice_total = Decimal(str(invoice.total or 0)).quantize(Decimal("0.01"))
+    return (invoice_total + invoice_card_processing_fee(invoice)).quantize(Decimal("0.01"))
+
+
+def estimate_line_unit_price(line):
+    """Return the per-unit sell price that preserves an estimate line's displayed total."""
+    total = Decimal(str(line.line_total or 0))
+    quantity = Decimal(str(line.quantity or 1))
+    if quantity <= 0:
+        quantity = Decimal("1")
+    return (total / quantity).quantize(Decimal("0.01"))
+
+
 def _notify_invoice_card_payment(invoice, amount=None):
     """Notify owners/managers that a client card payment completed."""
     try:

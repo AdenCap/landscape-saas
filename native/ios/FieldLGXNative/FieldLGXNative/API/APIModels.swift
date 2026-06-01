@@ -1272,8 +1272,17 @@ struct TodayProperty: Codable, Equatable {
 }
 
 struct TodayAssignment: Codable, Equatable {
+    let crewID: Int?
+    let employeeID: Int?
     let crew: String?
     let employee: String?
+
+    enum CodingKeys: String, CodingKey {
+        case crewID = "crew_id"
+        case employeeID = "employee_id"
+        case crew
+        case employee
+    }
 }
 
 struct TodayAlert: Codable, Equatable, Identifiable {
@@ -1285,6 +1294,7 @@ struct TodayAlert: Codable, Equatable, Identifiable {
 
 struct TodayServiceItem: Codable, Equatable, Identifiable {
     let id: Int
+    let serviceID: Int?
     let name: String
     let detailDescription: String
     let quantity: String
@@ -1294,6 +1304,7 @@ struct TodayServiceItem: Codable, Equatable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id
+        case serviceID = "service_id"
         case name
         case detailDescription = "detail_description"
         case quantity
@@ -1397,7 +1408,7 @@ extension TodayResponse {
                 routeOrder: 1,
                 customer: TodayCustomer(id: 1, name: "Maple Ridge", phone: "555-0100"),
                 property: TodayProperty(id: 1, address: "123 Test Lawn Ave", latitude: nil, longitude: nil),
-                assigned: TodayAssignment(crew: "Crew A", employee: nil),
+                assigned: TodayAssignment(crewID: 1, employeeID: nil, crew: "Crew A", employee: nil),
                 notes: "Mow front and back.",
                 alerts: [
                     TodayAlert(label: "Gate code", text: "2480"),
@@ -1406,6 +1417,7 @@ extension TodayResponse {
                 serviceItems: [
                     TodayServiceItem(
                         id: 1,
+                        serviceID: 1,
                         name: "Mowing",
                         detailDescription: "Trim fence line and blow clippings.",
                         quantity: "1.00",

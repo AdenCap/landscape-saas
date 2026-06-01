@@ -1,4 +1,5 @@
 import Foundation
+import LocalAuthentication
 import Observation
 
 @Observable
@@ -10,6 +11,8 @@ final class AuthSession {
     private var refreshTask: Task<Void, Never>?
     var isLoading = false
     var isRestoring = false
+    var isBiometricLocked = false
+    private(set) var hasSavedSession = false
     var errorMessage: String?
 
     private let keychain = KeychainStore(service: "com.fieldlgx.app.auth")
@@ -46,15 +49,18 @@ final class AuthSession {
 
         do {
             guard let refreshToken = try keychain.read(account: "refresh_token") else {
+                hasSavedSession = false
+                return
+            }
+            hasSavedSession = true
+            if canUseDeviceAuthentication {
+                isBiometricLocked = true
                 return
             }
             let response = try await APIClient(baseURL: baseURL).refresh(refreshToken: refreshToken)
             await completeSignIn(response)
         } catch {
-            keychain.delete(account: "refresh_token")
-            accessToken = nil
-            currentUser = nil
-            business = nil
+            clearSavedSession(deleteRefreshToken: true)
         }
     }
 
@@ -106,24 +112,96 @@ final class AuthSession {
     func signOut() {
         refreshTask?.cancel()
         refreshTask = nil
-        keychain.delete(account: "refresh_token")
+        clearSavedSession(deleteRefreshToken: true)
+    }
+
+    private func clearSavedSession(deleteRefreshToken: Bool = false) {
+        if deleteRefreshToken {
+            keychain.delete(account: "refresh_token")
+        }
         accessToken = nil
         accessTokenExpiresAt = nil
         currentUser = nil
         business = nil
+        isBiometricLocked = false
+        hasSavedSession = false
         errorMessage = nil
     }
 
-    private func completeSignIn(_ response: LoginResponse) async {
+    func lockForQuickUnlock() {
+        guard isAuthenticated, canUseDeviceAuthentication else { return }
+        isBiometricLocked = true
+    }
+
+    @MainActor
+    func unlockWithDeviceAuthentication() async {
+        guard isBiometricLocked else { return }
+        let context = LAContext()
+        context.localizedCancelTitle = "Use password"
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            isBiometricLocked = false
+            return
+        }
+
+        do {
+            let unlocked = try await context.evaluatePolicy(
+                .deviceOwnerAuthentication,
+                localizedReason: "Unlock FIELDLGX to view your business."
+            )
+            if unlocked {
+                isBiometricLocked = false
+                errorMessage = nil
+                if currentUser == nil || accessToken == nil {
+                    await restoreUnlockedSavedSession()
+                } else {
+                    await refreshSessionIfNeeded()
+                }
+            }
+        } catch {
+            errorMessage = "Could not unlock with Face ID. You can sign out and use your password."
+        }
+    }
+
+    private func restoreUnlockedSavedSession() async {
+        isRestoring = true
+        defer { isRestoring = false }
+
+        do {
+            guard let refreshToken = try keychain.read(account: "refresh_token") else {
+                clearSavedSession()
+                return
+            }
+            let response = try await APIClient(baseURL: baseURL).refresh(refreshToken: refreshToken)
+            await completeSignIn(response)
+        } catch {
+            clearSavedSession(deleteRefreshToken: true)
+            errorMessage = "Your saved session expired. Please sign in again."
+        }
+    }
+
+    private var canUseDeviceAuthentication: Bool {
+        let context = LAContext()
+        var error: NSError?
+        return context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
+    }
+
+    private func completeSignIn(_ response: LoginResponse, lockBehindBiometrics: Bool = false) async {
         do {
             if let refreshToken = response.refreshToken {
                 try keychain.save(refreshToken, account: "refresh_token")
+                hasSavedSession = true
             }
             accessToken = response.accessToken
             accessTokenExpiresAt = Self.expirationDate(from: response.accessToken)
             currentUser = response.user
             scheduleAccessTokenRefresh()
             await loadBootstrap()
+            if lockBehindBiometrics && canUseDeviceAuthentication {
+                isBiometricLocked = true
+            } else {
+                isBiometricLocked = false
+            }
         } catch {
             errorMessage = "Signed in, but this device could not save the session."
         }

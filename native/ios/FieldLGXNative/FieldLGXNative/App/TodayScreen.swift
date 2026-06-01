@@ -7,6 +7,7 @@ struct TodayScreen: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
+    @Environment(\.fieldLGXUsesOwnerChrome) private var usesOwnerChrome
 
     @State private var today: TodayResponse?
     @State private var timeClock: TimeClockResponse?
@@ -59,7 +60,7 @@ struct TodayScreen: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 20)
+                .padding(.top, usesOwnerChrome ? FieldLGXTheme.ownerTopOffset : 20)
                 .padding(.bottom, 96)
             }
             .refreshable {
@@ -461,7 +462,7 @@ struct TodayScreen: View {
             if let coordinate = await locationProvider.currentCoordinate() {
                 await sendLocationPing(coordinate: coordinate)
             }
-            try? await Task.sleep(for: .seconds(120))
+            try? await Task.sleep(for: .seconds(300))
         }
     }
 
@@ -556,9 +557,10 @@ final class FieldLocationProvider: NSObject, CLLocationManagerDelegate {
     override init() {
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        manager.distanceFilter = 75
         manager.allowsBackgroundLocationUpdates = true
-        manager.pausesLocationUpdatesAutomatically = false
+        manager.pausesLocationUpdatesAutomatically = true
     }
 
     func currentCoordinate() async -> CLLocationCoordinate2D? {
@@ -654,6 +656,7 @@ struct TodayJobCard: View {
 
 struct RouteScreen: View {
     let accessToken: String?
+    @Environment(\.fieldLGXUsesOwnerChrome) private var usesOwnerChrome
 
     @State private var today: TodayResponse?
     @State private var isLoading = false
@@ -696,7 +699,7 @@ struct RouteScreen: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 20)
+                .padding(.top, usesOwnerChrome ? FieldLGXTheme.ownerTopOffset : 20)
                 .padding(.bottom, 96)
             }
             .refreshable {
@@ -797,6 +800,7 @@ private struct RouteStopCard: View {
 
 struct TimeScreen: View {
     let accessToken: String?
+    @Environment(\.fieldLGXUsesOwnerChrome) private var usesOwnerChrome
 
     @State private var timeClock: TimeClockResponse?
     @State private var isLoading = false
@@ -832,7 +836,7 @@ struct TimeScreen: View {
                 Spacer()
             }
             .padding(.horizontal, 16)
-            .padding(.top, 20)
+            .padding(.top, usesOwnerChrome ? FieldLGXTheme.ownerTopOffset : 20)
             .padding(.bottom, 96)
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -940,7 +944,7 @@ struct TimeScreen: View {
             if let coordinate = await locationProvider.currentCoordinate() {
                 _ = try? await client.sendTimeClockLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
             }
-            try? await Task.sleep(for: .seconds(180))
+            try? await Task.sleep(for: .seconds(300))
         }
     }
 }

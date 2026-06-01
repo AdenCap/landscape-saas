@@ -14,7 +14,7 @@ from django.contrib import messages
 from accounts.decorators import role_required
 from accounts.utils import get_business
 from accounts.models import Notification
-from billing.services import auto_charge_invoice_card, create_draft_invoice_for_job
+from billing.services import auto_charge_invoice_card, create_draft_invoice_for_job, estimate_line_unit_price
 from billing.monthly import generate_monthly_invoice_for_customer
 from .models import Job, JobServiceItem, JobWorkVisit, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobPhoto, JobAssignmentLog, Meeting, JobNote, PropertyNote
 from .service_labels import clean_service_label
@@ -386,6 +386,7 @@ def schedule_from_estimate(request, estimate_id):
     # Declined optional add-ons stay attached to the estimate for future reference.
     for line in estimate.accepted_line_items():
         from pricing.models import ServiceTemplate
+        line_price = estimate_line_unit_price(line)
         svc = ServiceTemplate.objects.filter(business=business, name__icontains=line.description[:30]).first()
         if not svc:
             svc = ServiceTemplate.objects.filter(business=business, active=True).first()
@@ -395,7 +396,7 @@ def schedule_from_estimate(request, estimate_id):
                 name=(line.description or estimate.title or "Estimate work")[:120],
                 active=True,
                 default_unit=line.unit or "visit",
-                default_rate=line.unit_price or 0,
+                default_rate=line_price,
             )
         JobServiceItem.objects.create(
             job=job,
@@ -404,7 +405,16 @@ def schedule_from_estimate(request, estimate_id):
             detail_description=getattr(line, "detail_description", "") or "",
             quantity=line.quantity or 1,
             unit=line.unit or "visit",
-            unit_price=line.unit_price or 0,
+            unit_price=line_price,
+        )
+
+    for image in estimate.images.all():
+        JobPhoto.objects.create(
+            job=job,
+            image=image.image,
+            category="before",
+            caption=image.caption,
+            uploaded_by=request.user,
         )
 
     # Mark estimate as scheduled
@@ -2847,12 +2857,7 @@ def create_job(request):
                 if len(props) == 1:
                     initial["property"] = props[0].id
                 for item in est.accepted_line_items():
-                    if item.material_cost or item.labor_cost:
-                        price = (item.material_cost or 0) + (item.labor_cost or 0)
-                        if item.quantity and item.quantity > 0:
-                            price = price / item.quantity
-                    else:
-                        price = item.unit_price
+                    price = estimate_line_unit_price(item)
                     formset_initial.append({
                         "service_name": item.description[:120],
                         "detail_description": getattr(item, "detail_description", "") or "",

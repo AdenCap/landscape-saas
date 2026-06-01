@@ -22,6 +22,7 @@
   --surface-variant: #353534;
   --surface: var(--surface-container);
   --surface-alt: var(--surface-low);
+  --surface2: var(--surface-high);
 
   /* Ghost borders */
   --border: rgba(66, 72, 68, 0.2);
@@ -33,6 +34,7 @@
   --text-secondary: #c2c8c2;
   --text-muted: #8c928d;
   --text-disabled: #424844;
+  --muted: var(--text-muted);
 
   /* Primary — Terraform lime */
   --primary: #9dd850;
@@ -54,6 +56,10 @@
   --glass: rgba(19, 19, 19, 0.7);
   --glass-strong: rgba(19, 19, 19, 0.85);
   --glass-border: rgba(66, 72, 68, 0.2);
+  --overlay: rgba(0, 0, 0, 0.58);
+  --danger-surface: rgba(255, 180, 171, 0.08);
+  --danger-border: rgba(255, 180, 171, 0.24);
+  --danger-text: #ffb4ab;
 
   /* Spacing */
   --space-1: 4px;
@@ -160,6 +166,7 @@
   --surface-variant: #e8efe0;
   --surface: var(--surface-container);
   --surface-alt: var(--surface-low);
+  --surface2: var(--surface-high);
 
   --border: rgba(23, 33, 22, 0.13);
   --border-hover: rgba(23, 33, 22, 0.26);
@@ -169,6 +176,7 @@
   --text-secondary: #44503f;
   --text-muted: #6a7464;
   --text-disabled: #a8b0a2;
+  --muted: var(--text-muted);
 
   --primary: #9dd850;
   --primary-hover: #7fb936;
@@ -188,6 +196,10 @@
   --glass: rgba(255, 255, 255, 0.78);
   --glass-strong: rgba(255, 255, 255, 0.92);
   --glass-border: rgba(23, 33, 22, 0.14);
+  --overlay: rgba(16, 28, 13, 0.28);
+  --danger-surface: #fff0ed;
+  --danger-border: rgba(185, 28, 28, 0.24);
+  --danger-text: #991b1b;
 
   --shadow-sm: 0 1px 3px rgba(24, 34, 22, 0.08);
   --shadow-md: 0 8px 20px rgba(24, 34, 22, 0.10);
@@ -219,6 +231,7 @@
     --surface-variant: #e8efe0;
     --surface: var(--surface-container);
     --surface-alt: var(--surface-low);
+    --surface2: var(--surface-high);
 
     --border: rgba(23, 33, 22, 0.13);
     --border-hover: rgba(23, 33, 22, 0.26);
@@ -228,6 +241,7 @@
     --text-secondary: #44503f;
     --text-muted: #6a7464;
     --text-disabled: #a8b0a2;
+    --muted: var(--text-muted);
 
     --primary: #9dd850;
     --primary-hover: #7fb936;
@@ -247,6 +261,10 @@
     --glass: rgba(255, 255, 255, 0.78);
     --glass-strong: rgba(255, 255, 255, 0.92);
     --glass-border: rgba(23, 33, 22, 0.14);
+    --overlay: rgba(16, 28, 13, 0.28);
+    --danger-surface: #fff0ed;
+    --danger-border: rgba(185, 28, 28, 0.24);
+    --danger-text: #991b1b;
 
     --shadow-sm: 0 1px 3px rgba(24, 34, 22, 0.08);
     --shadow-md: 0 8px 20px rgba(24, 34, 22, 0.10);

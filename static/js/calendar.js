@@ -111,10 +111,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var overlay = document.createElement('div');
     overlay.id = 'recurring-dialog-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:var(--overlay);display:flex;align-items:center;justify-content:center;';
 
     var card = document.createElement('div');
-    card.style.cssText = 'background:var(--surface,#1a1a1a);border:1px solid var(--border,#333);border-radius:12px;padding:24px;max-width:340px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+    card.style.cssText = 'background:var(--surface-container);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:340px;width:90%;box-shadow:var(--shadow-lg);';
 
     var title = document.createElement('div');
     title.style.cssText = 'font-size:16px;font-weight:700;margin-bottom:6px;color:var(--text,#fff);';

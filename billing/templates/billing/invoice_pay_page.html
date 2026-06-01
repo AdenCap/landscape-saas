@@ -408,7 +408,11 @@
               {% csrf_token %}
               <button type="submit" class="method-card">
                 <strong>Pay securely by card</strong>
-                <small>{{ invoice.total|currency }} through encrypted Stripe checkout.</small>
+                {% if has_card_processing_fee %}
+                  <small>{{ card_checkout_total|currency }} total through encrypted Stripe checkout, including {{ card_processing_fee|currency }} card processing fee.</small>
+                {% else %}
+                  <small>{{ invoice.total|currency }} through encrypted Stripe checkout.</small>
+                {% endif %}
               </button>
             </form>
             {% endif %}

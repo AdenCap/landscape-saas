@@ -6,5 +6,12 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:app.fieldlgx.com</string>
+		<string>applinks:app.fieldlgx.com</string>
+		<string>webcredentials:fieldlgx.com</string>
+		<string>applinks:fieldlgx.com</string>
+	</array>
 </dict>
 </plist>

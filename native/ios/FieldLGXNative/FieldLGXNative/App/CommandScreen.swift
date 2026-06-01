@@ -15,8 +15,6 @@ struct CommandScreen: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    commandHeader
-
                     if isLoading && command == nil {
                         ProgressView()
                             .tint(FieldLGXTheme.lime)
@@ -111,7 +109,7 @@ struct CommandScreen: View {
         }
         .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
         .padding(.horizontal, 18)
-        .background(Color.black.opacity(0.28))
+        .background(commandInsetBackground)
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(commandPanelStroke(cornerRadius: 28))
     }
@@ -210,7 +208,7 @@ struct CommandScreen: View {
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, minHeight: 172, alignment: .leading)
-                .background(Color.black.opacity(0.18))
+                .background(commandInsetBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .overlay(commandPanelStroke(cornerRadius: 24))
             }
@@ -246,7 +244,7 @@ struct CommandScreen: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, minHeight: 150, alignment: .leading)
-            .background(Color.black.opacity(0.18))
+            .background(commandInsetBackground)
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(commandPanelStroke(cornerRadius: 24))
         }
@@ -280,14 +278,14 @@ struct CommandScreen: View {
     private func todayCommandStrip(_ command: CommandResponse) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionKicker("OPERATIONS")
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ownerFocusMetric("Today", "\(command.summary.todayJobs)", "jobs scheduled")
-                ownerFocusMetric("Crews", "\(command.summary.activeRoutes)", "active routes")
-                ownerFocusMetric("Unassigned", "\(command.summary.unassignedJobs)", "need crew")
-                ownerFocusMetric("Ready bill", money(command.summary.readyToBillTotal), "\(command.summary.readyToBill) completed visits")
+            HStack(spacing: 6) {
+                ownerFocusMetric("Today", "\(command.summary.todayJobs)", "jobs")
+                ownerFocusMetric("Crews", "\(command.summary.activeRoutes)", "routes")
+                ownerFocusMetric("Open", "\(command.summary.unassignedJobs)", "need crew")
+                ownerFocusMetric("Bill", money(command.summary.readyToBillTotal), "\(command.summary.readyToBill) visits")
             }
         }
-        .padding(14)
+        .padding(12)
         .background(commandPanelGradient)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(commandPanelStroke(cornerRadius: 22))
@@ -301,19 +299,20 @@ struct CommandScreen: View {
                 .foregroundStyle(FieldLGXTheme.tertiaryText)
                 .lineLimit(1)
             Text(value)
-                .font(.system(size: 26, weight: .black, design: .rounded))
+                .font(.system(size: 21, weight: .black, design: .rounded))
                 .foregroundStyle(FieldLGXTheme.text)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.56)
             Text(detail)
-                .font(.system(size: 11, weight: .bold))
+                .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(FieldLGXTheme.secondaryText)
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.62)
         }
-        .frame(maxWidth: .infinity, minHeight: 82, alignment: .leading)
-        .padding(.horizontal, 12)
-        .background(Color.black.opacity(0.18))
+        .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(commandInsetBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(commandPanelStroke(cornerRadius: 16))
     }
@@ -407,7 +406,7 @@ struct CommandScreen: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.black.opacity(0.18))
+        .background(commandInsetBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(commandPanelStroke(cornerRadius: 16))
     }
@@ -444,7 +443,7 @@ struct CommandScreen: View {
                 .minimumScaleFactor(0.7)
         }
         .padding(12)
-        .background(Color.black.opacity(0.18))
+        .background(commandInsetBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
@@ -485,7 +484,7 @@ struct CommandScreen: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
         .frame(minHeight: 64)
-        .background(Color.black.opacity(0.18))
+        .background(commandInsetBackground)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(commandPanelStroke(cornerRadius: 18))
     }
@@ -507,9 +506,9 @@ struct CommandScreen: View {
                     .foregroundStyle(FieldLGXTheme.secondaryText)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(Color.white.opacity(0.075))
+                    .background(commandInsetBackground)
                     .clipShape(Capsule())
-                    .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
+                    .overlay(Capsule().stroke(FieldLGXTheme.panelStroke, lineWidth: 1))
             }
 
             if attention.isEmpty {
@@ -532,7 +531,7 @@ struct CommandScreen: View {
                 .font(.system(size: 16, weight: .black))
                 .foregroundStyle(FieldLGXTheme.lime)
                 .frame(width: 30, height: 30)
-                .background(Color.white.opacity(0.06))
+                .background(FieldLGXTheme.elevatedBackground.opacity(0.78))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             VStack(alignment: .leading, spacing: 6) {
@@ -552,7 +551,7 @@ struct CommandScreen: View {
                 .foregroundStyle(FieldLGXTheme.lime)
         }
         .padding(14)
-        .background(Color.black.opacity(0.22))
+        .background(commandInsetBackground)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(commandPanelStroke(cornerRadius: 20))
     }
@@ -616,7 +615,7 @@ struct CommandScreen: View {
                     .foregroundStyle(FieldLGXTheme.secondaryText)
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.black.opacity(0.18))
+                    .background(commandInsetBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                     .overlay(commandPanelStroke(cornerRadius: 20))
             } else {
@@ -694,28 +693,24 @@ struct CommandScreen: View {
     }
 
     private var commandPanelGradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.white.opacity(0.105),
-                Color(red: 0.12, green: 0.13, blue: 0.12).opacity(0.96),
-                Color.black.opacity(0.28)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        FieldLGXTheme.panelGradient
+    }
+
+    private var commandInsetBackground: some ShapeStyle {
+        FieldLGXTheme.elevatedBackground.opacity(0.78)
     }
 
     private var commandGridPanel: some View {
         ZStack {
             commandPanelGradient
             FieldLGXGridPattern()
-                .stroke(Color.white.opacity(0.045), lineWidth: 1)
+                .stroke(FieldLGXTheme.gridLine, lineWidth: 1)
         }
     }
 
     private func commandPanelStroke(cornerRadius: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .stroke(Color.white.opacity(0.13), lineWidth: 1)
+            .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
     }
 }
 

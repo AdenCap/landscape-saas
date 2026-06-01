@@ -37,7 +37,7 @@
       <form method="post" action="{% url 'invite_accept' invite.token %}" style="display:grid;gap:12px;">
         {% csrf_token %}
         {% if pw_form.non_field_errors %}
-        <div style="padding:10px;border:1px solid #7f1d1d;background:#450a0a;color:#fecaca;border-radius:10px;font-size:14px;">
+        <div style="padding:10px;border:1px solid var(--danger-border);background:var(--danger-surface);color:var(--danger-text);border-radius:10px;font-size:14px;">
           {{ pw_form.non_field_errors }}
         </div>
         {% endif %}
@@ -68,7 +68,7 @@
   </div>
 </section>
 <style>
-.auth-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text);transition:border-color .2s ease,box-shadow .2s ease;outline:none}
+.auth-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-lowest);color:var(--text);transition:border-color .2s ease,box-shadow .2s ease;outline:none}
 .auth-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(34,197,94,.15)}
 .auth-input:hover:not(:focus){border-color:var(--text-muted)}
 .social-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border-radius:10px;border:1px solid var(--border);font-size:15px;font-weight:500;text-decoration:none;transition:all .2s ease;cursor:pointer}

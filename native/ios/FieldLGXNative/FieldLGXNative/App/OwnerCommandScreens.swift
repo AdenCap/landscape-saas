@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct FinancialsScreen: View {
     let accessToken: String?
@@ -29,13 +30,42 @@ struct FinancialsScreen: View {
     }
 
     private func financialSummary(_ summary: FinancialsSummary) -> some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-            ownerMetric("Revenue", "$\(summary.monthRevenue)", "paid this month")
-            ownerMetric("Open", "$\(summary.openInvoiceTotal)", "draft + sent")
-            ownerMetric("Expenses", "$\(summary.expenseTotal)", "receipts this month")
-            ownerMetric("Payroll", "$\(summary.payrollTotal)", "paid this month")
-            ownerMetric("Net", "$\(summary.netMonth)", "month pulse")
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8)
+            ],
+            spacing: 8
+        ) {
+            financialMetric("Revenue", "$\(summary.monthRevenue)", "paid")
+            financialMetric("Open", "$\(summary.openInvoiceTotal)", "draft + sent")
+            financialMetric("Expenses", "$\(summary.expenseTotal)", "receipts")
+            financialMetric("Payroll", "$\(summary.payrollTotal)", "paid")
+            financialMetric("Net", "$\(summary.netMonth)", "pulse")
         }
+    }
+
+    private func financialMetric(_ label: String, _ value: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label.uppercased())
+                .font(.system(size: 8, weight: .black))
+                .tracking(1.1)
+                .foregroundStyle(FieldLGXTheme.tertiaryText)
+                .lineLimit(1)
+            Text(value)
+                .font(.system(size: 20, weight: .black, design: .rounded))
+                .foregroundStyle(FieldLGXTheme.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+            Text(detail)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(FieldLGXTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+        }
+        .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
+        .fieldPanel(padding: 12)
     }
 
     private func recentReceipts(_ receipts: [MobileReceipt]) -> some View {
@@ -265,7 +295,7 @@ struct AgreementsScreen: View {
             .foregroundStyle(FieldLGXTheme.text)
             .padding(.horizontal, 10)
             .frame(height: 28)
-            .background(Color.white.opacity(0.07))
+            .background(FieldLGXTheme.elevatedBackground.opacity(0.78))
             .clipShape(Capsule())
     }
 
@@ -292,9 +322,11 @@ struct OwnerSettingsScreen: View {
     let accessToken: String?
     let signOut: () -> Void
 
+    @AppStorage(FieldLGXAppearanceChoice.storageKey) private var appearanceRawValue = FieldLGXAppearanceChoice.system.rawValue
     @State private var response: OwnerSettingsResponse?
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var iconMessage: String?
 
     var body: some View {
         ownerScreen {
@@ -310,6 +342,7 @@ struct OwnerSettingsScreen: View {
                 contactSection(response)
                 billingSection(response.billing)
                 notificationSection(response.notifications)
+                appearanceSection
             } else if let errorMessage {
                 errorPanel(errorMessage)
             }
@@ -351,6 +384,124 @@ struct OwnerSettingsScreen: View {
         }
     }
 
+    private var appearanceSection: some View {
+        ownerCard(title: "Appearance", count: nil) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Theme")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(FieldLGXTheme.text)
+
+                HStack(spacing: 8) {
+                    ForEach(FieldLGXAppearanceChoice.allCases) { choice in
+                        appearanceButton(choice)
+                    }
+                }
+
+                Text("App icon")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(FieldLGXTheme.text)
+                    .padding(.top, 4)
+
+                VStack(spacing: 8) {
+                    ForEach(FieldLGXAppIconChoice.allCases) { choice in
+                        Button {
+                            changeAppIcon(to: choice)
+                        } label: {
+                            HStack(spacing: 12) {
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(iconSwatch(for: choice))
+                                    .frame(width: 38, height: 38)
+                                    .overlay(
+                                        Image("FieldLGXMonogram")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .padding(6)
+                                    )
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(choice.title)
+                                        .font(.system(size: 14, weight: .black))
+                                        .foregroundStyle(FieldLGXTheme.text)
+                                    Text(choice.subtitle)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(FieldLGXTheme.secondaryText)
+                                }
+                                Spacer()
+                                if UIApplication.shared.alternateIconName == choice.alternateIconName {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(FieldLGXTheme.lime)
+                                }
+                            }
+                            .padding(12)
+                            .fieldInsetSurface()
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                if let iconMessage {
+                    Text(iconMessage)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(FieldLGXTheme.secondaryText)
+                }
+            }
+        }
+    }
+
+    private func appearanceButton(_ choice: FieldLGXAppearanceChoice) -> some View {
+        let selected = appearanceRawValue == choice.rawValue
+        return Button {
+            appearanceRawValue = choice.rawValue
+        } label: {
+            VStack(spacing: 7) {
+                Image(systemName: choice.systemImage)
+                    .font(.system(size: 15, weight: .black))
+                Text(choice.title)
+                    .font(.system(size: 12, weight: .black))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .foregroundStyle(selected ? .black : FieldLGXTheme.text)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(selected ? FieldLGXTheme.lime : FieldLGXTheme.elevatedBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(selected ? FieldLGXTheme.lime : FieldLGXTheme.panelStroke, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(choice.title) theme")
+    }
+
+    private func iconSwatch(for choice: FieldLGXAppIconChoice) -> AnyShapeStyle {
+        switch choice {
+        case .primary, .dark:
+            AnyShapeStyle(Color.black)
+        case .light:
+            AnyShapeStyle(Color(red: 0.97, green: 0.99, blue: 0.94))
+        }
+    }
+
+    private func changeAppIcon(to choice: FieldLGXAppIconChoice) {
+        guard UIApplication.shared.supportsAlternateIcons else {
+            iconMessage = "This device does not support alternate app icons."
+            return
+        }
+        guard UIApplication.shared.alternateIconName != choice.alternateIconName else {
+            iconMessage = "\(choice.title) icon is already active."
+            return
+        }
+        UIApplication.shared.setAlternateIconName(choice.alternateIconName) { error in
+            if let error {
+                iconMessage = "Could not change icon: \(error.localizedDescription)"
+            } else {
+                iconMessage = "\(choice.title) icon selected."
+            }
+        }
+    }
+
     private func load() async {
         isLoading = true
         errorMessage = nil
@@ -378,7 +529,7 @@ private func ownerScreen<Content: View>(@ViewBuilder content: @escaping () -> Co
                 content()
             }
             .padding(.horizontal, 16)
-            .padding(.top, 16)
+            .padding(.top, FieldLGXTheme.ownerTopOffset)
             .padding(.bottom, 92)
         }
     }
@@ -402,23 +553,25 @@ private func errorPanel(_ message: String) -> some View {
 }
 
 private func ownerMetric(_ label: String, _ value: String, _ detail: String) -> some View {
-    VStack(alignment: .leading, spacing: 7) {
+    VStack(alignment: .leading, spacing: 5) {
         Text(label.uppercased())
-            .font(.system(size: 10, weight: .black))
-            .tracking(1.8)
+            .font(.system(size: 8, weight: .black))
+            .tracking(1.15)
             .foregroundStyle(FieldLGXTheme.tertiaryText)
+            .lineLimit(1)
         Text(value)
-            .font(.system(size: 26, weight: .black, design: .rounded))
+            .font(.system(size: 21, weight: .black, design: .rounded))
             .foregroundStyle(FieldLGXTheme.text)
             .lineLimit(1)
-            .minimumScaleFactor(0.68)
+            .minimumScaleFactor(0.55)
         Text(detail)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.system(size: 10, weight: .bold))
             .foregroundStyle(FieldLGXTheme.secondaryText)
-            .lineLimit(2)
+            .lineLimit(1)
+            .minimumScaleFactor(0.62)
     }
-    .frame(maxWidth: .infinity, minHeight: 108, alignment: .leading)
-    .fieldPanel(padding: 15)
+    .frame(maxWidth: .infinity, minHeight: 82, alignment: .leading)
+    .fieldPanel(padding: 12)
 }
 
 private func ownerCard<Content: View>(title: String, count: Int?, @ViewBuilder content: () -> Content) -> some View {

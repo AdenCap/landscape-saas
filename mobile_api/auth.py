@@ -14,7 +14,7 @@ from cryptography.exceptions import InvalidSignature
 
 from .models import MobileDeviceSession, hash_token
 
-ACCESS_TOKEN_TTL_SECONDS = 15 * 60
+ACCESS_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60
 
 
 def _signing_key():

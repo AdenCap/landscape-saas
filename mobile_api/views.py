@@ -13,7 +13,7 @@ from django.views.decorators.http import require_POST, require_http_methods
 from accounts.timezone_utils import business_today
 from billing.models import Estimate, EstimateImage, EstimateLineItem, Invoice, InvoiceLineItem
 from billing.services import invoice_card_payment_default
-from billing.views import _approve_and_deliver_invoice, _log_invoice_audit, _sync_invoice_payment_from_line_items
+from billing.views import _approve_and_deliver_invoice, _estimate_acceptance_totals, _log_invoice_audit, _sync_invoice_payment_from_line_items
 from customers.models import Customer, Property
 from financials.models import Receipt
 from jobs.models import Crew, Job, JobCompletionPhoto, JobIssue, JobNote, JobPhoto, JobServiceItem, PropertyNote
@@ -727,6 +727,9 @@ def calendar(request):
 
 def _apply_job_write_fields(job, data, business):
     update_fields = []
+    target_route_order = None
+    original_route_date = job.scheduled_date
+    original_route_crew_id = job.assigned_crew_id
     if "scheduled_date" in data:
         value = data.get("scheduled_date")
         parsed = _parse_date(value) if value else None
@@ -778,9 +781,64 @@ def _apply_job_write_fields(job, data, business):
             except (Crew.DoesNotExist, ValueError, TypeError):
                 return JsonResponse({"error": "Crew not found."}, status=404)
         update_fields.append("assigned_crew")
+    if "route_order" in data:
+        try:
+            target_route_order = max(int(data.get("route_order") or 1), 1)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Invalid route order."}, status=400)
     if update_fields:
         job.save(update_fields=update_fields)
+    if target_route_order is not None:
+        _move_job_route_order(job, business, target_route_order)
+        if original_route_date != job.scheduled_date or original_route_crew_id != job.assigned_crew_id:
+            _normalize_job_route_order(business, original_route_date, original_route_crew_id)
     return None
+
+
+def _move_job_route_order(job, business, target_route_order):
+    """
+    Insert a job into the requested route slot for its scheduled day and crew.
+    This keeps mowing/route work reorderable without forcing a start time.
+    """
+    if not job.scheduled_date:
+        job.route_order = target_route_order
+        job.save(update_fields=["route_order"])
+        return
+
+    route_jobs = Job.objects.filter(
+        property__customer__business=business,
+        scheduled_date=job.scheduled_date,
+    )
+    if job.assigned_crew_id:
+        route_jobs = route_jobs.filter(assigned_crew_id=job.assigned_crew_id)
+    else:
+        route_jobs = route_jobs.filter(assigned_crew__isnull=True)
+
+    ordered_jobs = list(route_jobs.exclude(id=job.id).order_by("route_order", "scheduled_time", "id"))
+    insert_index = min(max(target_route_order - 1, 0), len(ordered_jobs))
+    ordered_jobs.insert(insert_index, job)
+    _save_route_order(ordered_jobs)
+
+
+def _normalize_job_route_order(business, scheduled_date, crew_id):
+    if not scheduled_date:
+        return
+    route_jobs = Job.objects.filter(
+        property__customer__business=business,
+        scheduled_date=scheduled_date,
+    )
+    if crew_id:
+        route_jobs = route_jobs.filter(assigned_crew_id=crew_id)
+    else:
+        route_jobs = route_jobs.filter(assigned_crew__isnull=True)
+    _save_route_order(list(route_jobs.order_by("route_order", "scheduled_time", "id")))
+
+
+def _save_route_order(ordered_jobs):
+    for index, route_job in enumerate(ordered_jobs, start=1):
+        if route_job.route_order != index:
+            route_job.route_order = index
+            route_job.save(update_fields=["route_order"])
 
 
 def _replace_job_service_items(job, items, business):
@@ -1627,11 +1685,34 @@ def estimate_action(request, estimate_id):
     except Estimate.DoesNotExist:
         return JsonResponse({"error": "Estimate not found."}, status=404)
 
-    action = (_json_body(request).get("action") or "").strip()
+    body = _json_body(request)
+    action = (body.get("action") or "").strip()
     if action == "mark_sent":
         estimate.status = "sent"
         estimate.sent_at = timezone.now()
         estimate.save(update_fields=["status", "sent_at"])
+    elif action == "accept":
+        if estimate.status == "accepted":
+            return JsonResponse({"error": "Estimate is already accepted."}, status=400)
+        if estimate.status == "declined":
+            return JsonResponse({"error": "Declined estimates cannot be accepted."}, status=400)
+        if not estimate.line_items.exists():
+            return JsonResponse({"error": "Add at least one line item before accepting this estimate."}, status=400)
+        selected_optional_ids = body.get("selected_optional_ids") or []
+        base_total, optional_total, selected_optional_ids = _estimate_acceptance_totals(estimate, selected_optional_ids)
+        estimate.status = "accepted"
+        estimate.accepted_at = timezone.now()
+        estimate.accepted_total = base_total + optional_total
+        estimate.accepted_optional_item_ids = selected_optional_ids
+        update_fields = ["status", "accepted_at", "accepted_total", "accepted_optional_item_ids", "updated_at"]
+        if not estimate.sent_at:
+            estimate.sent_at = timezone.now()
+            update_fields.append("sent_at")
+        estimate.save(update_fields=update_fields)
+        if estimate.accepted_total:
+            for app in estimate.fertilizer_applications.all():
+                app.charge_amount = estimate.accepted_total
+                app.save(update_fields=["charge_amount", "updated_at"])
     elif action == "followup":
         if estimate.status == "accepted":
             return JsonResponse({"error": "Accepted estimates do not need follow-up."}, status=400)
@@ -2083,6 +2164,7 @@ def _job_alerts(job):
 def _service_item_payload(item):
     return {
         "id": item.id,
+        "service_id": item.service_id,
         "name": item.description or item.service.name,
         "detail_description": item.detail_description,
         "quantity": str(item.quantity),
@@ -2132,6 +2214,8 @@ def _job_payload(job, target_date, payment_status=None):
             "longitude": str(job.property.longitude) if job.property.longitude is not None else None,
         },
         "assigned": {
+            "crew_id": job.assigned_crew_id,
+            "employee_id": job.assigned_to_id,
             "crew": job.assigned_crew.name if job.assigned_crew else None,
             "employee": job.assigned_to.get_full_name() or job.assigned_to.username if job.assigned_to else None,
         },

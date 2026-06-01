@@ -33,7 +33,7 @@ struct InvoiceDetailScreen: View {
                     }
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 16)
+                .padding(.top, FieldLGXTheme.ownerTopOffset)
                 .padding(.bottom, 18)
             }
             .refreshable {
@@ -51,7 +51,7 @@ struct InvoiceDetailScreen: View {
             Button {
                 dismiss()
             } label: {
-                Label("Money", systemImage: "chevron.left")
+                Label("Back", systemImage: "chevron.left")
                     .font(.system(size: 15, weight: .black))
                     .foregroundStyle(FieldLGXTheme.text)
                     .padding(.horizontal, 14)

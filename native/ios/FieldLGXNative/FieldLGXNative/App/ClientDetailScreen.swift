@@ -5,6 +5,7 @@ struct ClientDetailScreen: View {
     let accessToken: String?
     let previewClient: MobileClient
 
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var client: MobileClient?
     @State private var isLoading = false
@@ -16,6 +17,7 @@ struct ClientDetailScreen: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    backBar
                     if let activeClient {
                         header(activeClient)
                         quickActions(activeClient)
@@ -31,7 +33,7 @@ struct ClientDetailScreen: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 20)
+                .padding(.top, FieldLGXTheme.ownerTopOffset)
                 .padding(.bottom, 18)
             }
             .refreshable {
@@ -39,8 +41,27 @@ struct ClientDetailScreen: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .task {
             await loadClient()
+        }
+    }
+
+    private var backBar: some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Label("Back", systemImage: "chevron.left")
+                    .font(.system(size: 15, weight: .black))
+                    .foregroundStyle(FieldLGXTheme.text)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .background(FieldLGXTheme.elevatedBackground)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(FieldLGXTheme.panelStroke, lineWidth: 1))
+            }
+            Spacer()
         }
     }
 

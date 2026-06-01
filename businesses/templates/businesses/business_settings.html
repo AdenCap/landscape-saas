@@ -815,6 +815,22 @@
           </div>
           <div class="setting-toggle-row">
             <div>
+              <strong>Card processing fee</strong>
+              <p class="field-help">Optionally add a disclosed fee only when a customer chooses credit card checkout. Confirm this is allowed for your state and card network rules.</p>
+            </div>
+            <label class="settings-switch">
+              {{ form.card_processing_fee_enabled }}
+              <span></span>
+            </label>
+          </div>
+          <div class="settings-field">
+            <label for="{{ form.card_processing_fee_percent.id_for_label }}">Card processing fee percent</label>
+            {{ form.card_processing_fee_percent }}
+            {{ form.card_processing_fee_percent.errors }}
+            <p class="field-help">Default is 3%. The invoice total stays unchanged; this fee is added only to the Stripe card checkout amount.</p>
+          </div>
+          <div class="setting-toggle-row">
+            <div>
               <strong>Saved cards on file</strong>
               <p class="field-help">Allow authorized customer cards to be saved and used for customer-level auto-charge rules.</p>
             </div>

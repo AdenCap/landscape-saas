@@ -16,8 +16,13 @@ struct CalendarScreen: View {
     @State private var scheduleMessage: String?
     @State private var didLoadServerDate = false
     @AppStorage("fieldlgx_calendar_color_mode") private var colorMode = "status"
+    @AppStorage("fieldlgx_calendar_day_layout") private var dayLayout = "crews"
 
     private let views = ["day", "week", "month"]
+    private let dayLayouts = [
+        ("timeline", "Timeline"),
+        ("crews", "Crews")
+    ]
     private let colorModes = [
         ("status", "Status"),
         ("assignee", "Crew"),
@@ -33,6 +38,9 @@ struct CalendarScreen: View {
                     calendarToolbar
                     viewPicker
                     colorModePicker
+                    if selectedView == "day" {
+                        dayLayoutPicker
+                    }
 
                     if isLoading && calendar == nil {
                         ProgressView()
@@ -53,8 +61,8 @@ struct CalendarScreen: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 16)
-                .padding(.bottom, 18)
+                .padding(.top, FieldLGXTheme.ownerTopOffset)
+                .padding(.bottom, 118)
             }
             .refreshable {
                 await loadCalendar()
@@ -97,7 +105,7 @@ struct CalendarScreen: View {
                 Text("Schedule")
                     .font(.system(size: 26, weight: .black, design: .rounded))
                     .foregroundStyle(FieldLGXTheme.text)
-                Text("Drag jobs onto days or time rows. Tap to edit details.")
+                Text("Drag jobs into crew routes, days, or time rows. Tap to edit details.")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(FieldLGXTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -136,7 +144,7 @@ struct CalendarScreen: View {
             }
         }
         .padding(5)
-        .background(Color.black.opacity(0.22))
+        .background(FieldLGXTheme.elevatedBackground.opacity(0.82))
         .clipShape(Capsule())
         .overlay(Capsule().stroke(FieldLGXTheme.panelStroke, lineWidth: 1))
     }
@@ -159,7 +167,30 @@ struct CalendarScreen: View {
             }
         }
         .padding(5)
-        .background(Color.black.opacity(0.18))
+        .background(FieldLGXTheme.elevatedBackground.opacity(0.82))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(FieldLGXTheme.panelStroke, lineWidth: 1))
+    }
+
+    private var dayLayoutPicker: some View {
+        HStack(spacing: 8) {
+            ForEach(dayLayouts, id: \.0) { layout in
+                Button {
+                    dayLayout = layout.0
+                } label: {
+                    Label(layout.1, systemImage: layout.0 == "timeline" ? "calendar.day.timeline.left" : "person.3.sequence")
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundStyle(dayLayout == layout.0 ? .black : FieldLGXTheme.secondaryText)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 38)
+                        .background(dayLayout == layout.0 ? FieldLGXTheme.lime : FieldLGXTheme.elevatedBackground)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(5)
+        .background(FieldLGXTheme.elevatedBackground.opacity(0.82))
         .clipShape(Capsule())
         .overlay(Capsule().stroke(FieldLGXTheme.panelStroke, lineWidth: 1))
     }
@@ -197,8 +228,14 @@ struct CalendarScreen: View {
                 Button {
                     focusedDate = Date()
                 } label: {
-                    Text("Today")
-                        .font(.system(size: 14, weight: .black))
+                    VStack(spacing: 2) {
+                        Text(focusedDayTitle)
+                            .font(.system(size: 14, weight: .black))
+                        Text(focusedDaySubtitle)
+                            .font(.system(size: 10, weight: .black))
+                            .tracking(1.0)
+                            .foregroundStyle(FieldLGXTheme.tertiaryText)
+                    }
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                 }
@@ -428,11 +465,15 @@ struct CalendarScreen: View {
             }
             .padding(.horizontal, 12)
             .frame(minHeight: 38)
-            .background(Color.black.opacity(0.16))
+            .background(FieldLGXTheme.elevatedBackground.opacity(0.72))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
             if selectedView == "day" {
-                dayTimelineBoard(calendar)
+                if dayLayout == "crews" {
+                    dayCrewBoard(calendar)
+                } else {
+                    dayTimelineBoard(calendar)
+                }
             } else if selectedView == "month" {
                 monthOverview(calendar)
             } else {
@@ -451,7 +492,9 @@ struct CalendarScreen: View {
     private var calendarHint: String {
         switch selectedView {
         case "day":
-            return "Hold and drag a job to a time row to reschedule today"
+            return dayLayout == "crews"
+                ? "Scan every crew route. Tap a job for full edit, photos, notes, and billing."
+                : "Hold and drag a job to a time row to reschedule today"
         case "week":
             return "Hold and drag a job to another day"
         default:
@@ -470,7 +513,7 @@ struct CalendarScreen: View {
                     .foregroundStyle(FieldLGXTheme.secondaryText)
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.black.opacity(0.16))
+                    .background(FieldLGXTheme.elevatedBackground.opacity(0.72))
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             } else {
                 if !unscheduledJobs.isEmpty {
@@ -501,11 +544,11 @@ struct CalendarScreen: View {
             }
         }
         .padding(10)
-        .background(Color.black.opacity(0.16))
+        .background(FieldLGXTheme.elevatedBackground.opacity(0.72))
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
         )
     }
 
@@ -531,11 +574,11 @@ struct CalendarScreen: View {
             }
             .padding(8)
             .frame(maxWidth: .infinity, minHeight: jobs.isEmpty ? 58 : nil, alignment: .topLeading)
-            .background(Color.black.opacity(jobs.isEmpty ? 0.10 : 0.20))
+            .background(FieldLGXTheme.elevatedBackground.opacity(jobs.isEmpty ? 0.55 : 0.86))
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(jobs.isEmpty ? Color.white.opacity(0.055) : FieldLGXTheme.panelStroke, lineWidth: 1)
+                    .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
             )
             .onDrop(of: [UTType.text], isTargeted: nil) { providers in
                 handleJobDrop(providers, targetDateString: focusedDateString, targetTime: targetTime)
@@ -545,24 +588,28 @@ struct CalendarScreen: View {
 
     private func dayTimelineJobCard(_ job: TodayJob) -> some View {
         let accent = serviceAccent(for: job)
+        let completed = isCompleted(job)
 
         return NavigationLink {
             JobDetailScreen(jobID: job.id, accessToken: accessToken, previewJob: job)
         } label: {
             HStack(spacing: 10) {
                 VStack(spacing: 2) {
+                    Image(systemName: completed ? "checkmark" : "clock.fill")
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundStyle(.black)
                     Text(displayTime(for: job))
                         .font(.system(size: 11, weight: .black, design: .rounded))
                         .foregroundStyle(.black)
                         .lineLimit(1)
                         .minimumScaleFactor(0.66)
-                    Text(job.status.replacingOccurrences(of: "_", with: " ").uppercased())
+                    Text(statusDisplay(for: job))
                         .font(.system(size: 7, weight: .black))
                         .foregroundStyle(.black.opacity(0.62))
                         .lineLimit(1)
                 }
-                .frame(width: 54, height: 48)
-                .background(accent)
+                .frame(width: 58, height: 54)
+                .background(completed ? FieldLGXTheme.lime : accent)
                 .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -582,22 +629,34 @@ struct CalendarScreen: View {
                 }
 
                 Spacer(minLength: 0)
-                Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 15, weight: .black))
-                    .foregroundStyle(FieldLGXTheme.tertiaryText)
+                if completed {
+                    Text("DONE")
+                        .font(.system(size: 10, weight: .black))
+                        .tracking(1.2)
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 10)
+                        .frame(height: 26)
+                        .background(FieldLGXTheme.lime)
+                        .clipShape(Capsule())
+                } else {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundStyle(FieldLGXTheme.tertiaryText)
+                }
             }
             .padding(10)
-            .background(FieldLGXTheme.elevatedBackground)
+            .background(completed ? FieldLGXTheme.elevatedBackground.opacity(0.58) : FieldLGXTheme.elevatedBackground)
             .overlay(alignment: .leading) {
                 Rectangle()
-                    .fill(accent)
+                    .fill(completed ? FieldLGXTheme.lime : accent)
                     .frame(width: 5)
             }
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(accent.opacity(0.32), lineWidth: 1)
+                    .stroke((completed ? FieldLGXTheme.lime : accent).opacity(completed ? 0.72 : 0.32), lineWidth: completed ? 1.5 : 1)
             )
+            .opacity(completed ? 0.82 : 1)
         }
         .buttonStyle(.plain)
         .onDrag {
@@ -616,7 +675,7 @@ struct CalendarScreen: View {
                     .foregroundStyle(FieldLGXTheme.secondaryText)
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.black.opacity(0.16))
+                    .background(FieldLGXTheme.elevatedBackground.opacity(0.72))
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             } else {
                 ForEach(sections) { section in
@@ -637,73 +696,147 @@ struct CalendarScreen: View {
                                 .foregroundStyle(FieldLGXTheme.tertiaryText)
                         }
 
-                        ForEach(section.jobs) { job in
+                        routeDropZone(
+                            title: section.jobs.isEmpty ? "Drop first stop here" : "Drop to start route",
+                            subtitle: section.name,
+                            crewID: section.crewID,
+                            routeOrder: 1
+                        )
+
+                        ForEach(Array(section.jobs.enumerated()), id: \.element.id) { index, job in
                             let accent = serviceAccent(for: job)
+                            let completed = isCompleted(job)
 
-                            NavigationLink {
-                                JobDetailScreen(jobID: job.id, accessToken: accessToken, previewJob: job)
-                            } label: {
-                                HStack(spacing: 12) {
-                                    VStack(spacing: 2) {
-                                        Text(job.scheduledTime ?? "Any")
-                                            .font(.system(size: 13, weight: .black, design: .rounded))
-                                            .foregroundStyle(.black)
-                                            .lineLimit(1)
-                                            .minimumScaleFactor(0.65)
-                                        Text(job.status.uppercased())
-                                            .font(.system(size: 8, weight: .black))
-                                            .foregroundStyle(.black.opacity(0.62))
-                                            .lineLimit(1)
+                            VStack(spacing: 7) {
+                                NavigationLink {
+                                    JobDetailScreen(jobID: job.id, accessToken: accessToken, previewJob: job)
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        VStack(spacing: 2) {
+                                            Image(systemName: completed ? "checkmark" : routeIcon(for: job))
+                                                .font(.system(size: 13, weight: .black))
+                                                .foregroundStyle(.black)
+                                            Text(routePositionText(index: index, job: job))
+                                                .font(.system(size: 13, weight: .black, design: .rounded))
+                                                .foregroundStyle(.black)
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.65)
+                                            Text(statusDisplay(for: job))
+                                                .font(.system(size: 8, weight: .black))
+                                                .foregroundStyle(.black.opacity(0.62))
+                                                .lineLimit(1)
+                                        }
+                                        .frame(width: 62, height: 58)
+                                        .background(completed ? FieldLGXTheme.lime : accent)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(job.customer.name)
+                                                .font(.system(size: 17, weight: .black, design: .rounded))
+                                                .foregroundStyle(FieldLGXTheme.text)
+                                                .lineLimit(1)
+                                            Text(jobSubtitle(job))
+                                                .font(.system(size: 13, weight: .semibold))
+                                                .foregroundStyle(FieldLGXTheme.secondaryText)
+                                                .lineLimit(2)
+                                            HStack(spacing: 6) {
+                                                Text(job.property.address)
+                                                    .font(.system(size: 11, weight: .bold))
+                                                    .foregroundStyle(FieldLGXTheme.tertiaryText)
+                                                    .lineLimit(1)
+                                                if job.scheduledTime == nil {
+                                                    Text("ROUTE")
+                                                        .font(.system(size: 9, weight: .black))
+                                                        .tracking(1)
+                                                        .foregroundStyle(FieldLGXTheme.lime)
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(minLength: 0)
+                                        if completed {
+                                            Image(systemName: "checkmark.seal.fill")
+                                                .font(.system(size: 22, weight: .black))
+                                                .foregroundStyle(FieldLGXTheme.lime)
+                                        }
                                     }
-                                    .frame(width: 58, height: 52)
-                                    .background(accent)
-                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(job.customer.name)
-                                            .font(.system(size: 17, weight: .black, design: .rounded))
-                                            .foregroundStyle(FieldLGXTheme.text)
-                                            .lineLimit(1)
-                                        Text(jobSubtitle(job))
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundStyle(FieldLGXTheme.secondaryText)
-                                            .lineLimit(2)
-                                        Text(job.property.address)
-                                            .font(.system(size: 11, weight: .bold))
-                                            .foregroundStyle(FieldLGXTheme.tertiaryText)
-                                            .lineLimit(1)
+                                    .padding(12)
+                                    .background(completed ? FieldLGXTheme.elevatedBackground.opacity(0.58) : FieldLGXTheme.elevatedBackground)
+                                    .overlay(alignment: .leading) {
+                                        Rectangle()
+                                            .fill(completed ? FieldLGXTheme.lime : accent)
+                                            .frame(width: 5)
                                     }
+                                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                            .stroke((completed ? FieldLGXTheme.lime : accent).opacity(completed ? 0.72 : 0.32), lineWidth: completed ? 1.5 : 1)
+                                    )
+                                    .opacity(completed ? 0.84 : 1)
+                                }
+                                .buttonStyle(.plain)
+                                .onDrag {
+                                    NSItemProvider(object: "\(job.id)" as NSString)
+                                }
 
-                                    Spacer(minLength: 0)
-                                }
-                                .padding(12)
-                                .background(FieldLGXTheme.elevatedBackground)
-                                .overlay(alignment: .leading) {
-                                    Rectangle()
-                                        .fill(accent)
-                                        .frame(width: 5)
-                                }
-                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                        .stroke(accent.opacity(0.32), lineWidth: 1)
+                                routeDropZone(
+                                    title: "Drop after \(job.customer.name)",
+                                    subtitle: section.name,
+                                    crewID: section.crewID,
+                                    routeOrder: index + 2,
+                                    compact: true
                                 )
-                            }
-                            .buttonStyle(.plain)
-                            .onDrag {
-                                NSItemProvider(object: "\(job.id)" as NSString)
                             }
                         }
                     }
                     .padding(14)
-                    .background(Color.black.opacity(0.16))
+                    .background(FieldLGXTheme.elevatedBackground.opacity(0.72))
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
                     )
                 }
             }
+        }
+    }
+
+    private func routeDropZone(title: String, subtitle: String, crewID: Int?, routeOrder: Int, compact: Bool = false) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.down.to.line.compact")
+                .font(.system(size: compact ? 11 : 13, weight: .black))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: compact ? 10 : 12, weight: .black))
+                    .lineLimit(1)
+                if !compact {
+                    Text("Route slot \(routeOrder) - \(subtitle)")
+                        .font(.system(size: 10, weight: .bold))
+                        .lineLimit(1)
+                        .opacity(0.66)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(FieldLGXTheme.secondaryText)
+        .padding(.horizontal, 12)
+        .frame(height: compact ? 28 : 42)
+        .background(FieldLGXTheme.elevatedBackground.opacity(compact ? 0.46 : 0.62))
+        .clipShape(RoundedRectangle(cornerRadius: compact ? 12 : 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: compact ? 12 : 16, style: .continuous)
+                .stroke(style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                .foregroundStyle(FieldLGXTheme.panelStroke.opacity(0.88))
+        )
+        .onDrop(of: [UTType.text], isTargeted: nil) { providers in
+            handleJobDrop(
+                providers,
+                targetDateString: focusedDateString,
+                targetTime: nil,
+                targetRouteOrder: routeOrder,
+                targetCrewID: crewID,
+                clearCrew: crewID == nil
+            )
         }
     }
 
@@ -713,11 +846,11 @@ struct CalendarScreen: View {
             allDayRow
             timeGrid(jobsForActiveScope(calendar.jobs))
         }
-        .background(Color.black.opacity(0.16))
+        .background(FieldLGXTheme.elevatedBackground.opacity(0.72))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
         )
     }
 
@@ -774,7 +907,7 @@ struct CalendarScreen: View {
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundStyle(FieldLGXTheme.tertiaryText)
                                 .frame(maxWidth: .infinity, minHeight: 72)
-                                .background(Color.black.opacity(0.16))
+                                .background(FieldLGXTheme.elevatedBackground.opacity(0.74))
                                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         } else {
                             ForEach(dayJobs) { job in
@@ -784,11 +917,11 @@ struct CalendarScreen: View {
                     }
                     .padding(10)
                     .frame(width: 224, alignment: .topLeading)
-                    .background(Color.black.opacity(0.16))
+                    .background(FieldLGXTheme.panel.opacity(0.82))
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
                     )
                     .onDrop(of: [UTType.text], isTargeted: nil) { providers in
                         handleJobDrop(providers, targetDateString: day.dateString)
@@ -802,18 +935,19 @@ struct CalendarScreen: View {
 
     private func weekLaneJobCard(_ job: TodayJob) -> some View {
         let accent = serviceAccent(for: job)
+        let completed = isCompleted(job)
 
         return NavigationLink {
             JobDetailScreen(jobID: job.id, accessToken: accessToken, previewJob: job)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
-                    Text(job.scheduledTime ?? "Any")
+                    Label(job.scheduledTime ?? "Any", systemImage: completed ? "checkmark" : "clock.fill")
                         .font(.system(size: 12, weight: .black, design: .rounded))
                         .foregroundStyle(.black)
                         .padding(.horizontal, 8)
                         .frame(height: 28)
-                        .background(accent)
+                        .background(completed ? FieldLGXTheme.lime : accent)
                         .clipShape(Capsule())
                     Text(crewName(for: job).uppercased())
                         .font(.system(size: 9, weight: .black))
@@ -821,6 +955,12 @@ struct CalendarScreen: View {
                         .foregroundStyle(FieldLGXTheme.tertiaryText)
                         .lineLimit(1)
                     Spacer(minLength: 0)
+                    if completed {
+                        Text("DONE")
+                            .font(.system(size: 9, weight: .black))
+                            .tracking(1.1)
+                            .foregroundStyle(FieldLGXTheme.lime)
+                    }
                 }
 
                 Text(job.customer.name)
@@ -835,17 +975,18 @@ struct CalendarScreen: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(FieldLGXTheme.elevatedBackground)
+            .background(completed ? FieldLGXTheme.elevatedBackground.opacity(0.58) : FieldLGXTheme.elevatedBackground)
             .overlay(alignment: .leading) {
                 Rectangle()
-                    .fill(accent)
+                    .fill(completed ? FieldLGXTheme.lime : accent)
                     .frame(width: 5)
             }
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(accent.opacity(0.32), lineWidth: 1)
+                    .stroke((completed ? FieldLGXTheme.lime : accent).opacity(completed ? 0.72 : 0.32), lineWidth: completed ? 1.5 : 1)
             )
+            .opacity(completed ? 0.86 : 1)
         }
         .buttonStyle(.plain)
         .onDrag {
@@ -901,11 +1042,11 @@ struct CalendarScreen: View {
                 .foregroundStyle(FieldLGXTheme.secondaryText)
         }
         .padding(12)
-        .background(Color.black.opacity(0.16))
+        .background(FieldLGXTheme.panel.opacity(0.82))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
         )
     }
 
@@ -924,10 +1065,10 @@ struct CalendarScreen: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .frame(height: 62)
-                    .background(Color.black.opacity(0.30))
+                    .background(FieldLGXTheme.elevatedBackground.opacity(0.82))
                     .overlay(alignment: .trailing) {
                         Rectangle()
-                            .fill(Color.white.opacity(0.055))
+                            .fill(FieldLGXTheme.panelStroke.opacity(0.8))
                             .frame(width: 1)
                     }
             }
@@ -942,11 +1083,11 @@ struct CalendarScreen: View {
                 .frame(width: 50, alignment: .leading)
                 .padding(.leading, 6)
             Rectangle()
-                .fill(Color.white.opacity(0.06))
+                .fill(FieldLGXTheme.panelStroke.opacity(0.8))
                 .frame(height: 1)
         }
         .frame(height: 28)
-        .background(Color.black.opacity(0.14))
+        .background(FieldLGXTheme.elevatedBackground.opacity(0.68))
     }
 
     private func timeGrid(_ jobs: [TodayJob]) -> some View {
@@ -966,14 +1107,14 @@ struct CalendarScreen: View {
                                     .fill(Color.clear)
                                     .overlay(alignment: .trailing) {
                                         Rectangle()
-                                            .fill(Color.white.opacity(0.045))
+                                            .fill(FieldLGXTheme.panelStroke.opacity(0.62))
                                             .frame(width: 1)
                                     }
                             }
                         }
                         .overlay(alignment: .top) {
                             Rectangle()
-                                .fill(Color.white.opacity(0.055))
+                                .fill(FieldLGXTheme.panelStroke.opacity(0.78))
                                 .frame(height: 1)
                         }
                     }
@@ -991,11 +1132,18 @@ struct CalendarScreen: View {
 
     private func calendarJobBlock(_ job: TodayJob, index: Int) -> some View {
         let accent = serviceAccent(for: job)
+        let completed = isCompleted(job)
 
         return NavigationLink {
             JobDetailScreen(jobID: job.id, accessToken: accessToken, previewJob: job)
         } label: {
             VStack(alignment: .leading, spacing: 3) {
+                if completed {
+                    Label("Completed", systemImage: "checkmark.seal.fill")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                }
                 Text(job.customer.name)
                     .font(.system(size: 13, weight: .black))
                     .foregroundStyle(.white)
@@ -1008,14 +1156,15 @@ struct CalendarScreen: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .frame(width: 124, height: 104, alignment: .topLeading)
-            .background(serviceGradient(for: job))
+            .background(completed ? completedGradient : serviceGradient(for: job))
             .overlay(alignment: .leading) {
                 Rectangle()
-                    .fill(accent)
+                    .fill(completed ? FieldLGXTheme.lime : accent)
                     .frame(width: 6)
             }
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .shadow(color: Color.black.opacity(0.22), radius: 12, x: 0, y: 8)
+            .opacity(completed ? 0.86 : 1)
         }
         .buttonStyle(.plain)
         .offset(x: 58 + CGFloat(index % 3) * 42, y: 120 + CGFloat(index) * 58)
@@ -1031,6 +1180,7 @@ struct CalendarScreen: View {
 
     private struct CrewSection: Identifiable {
         let id: String
+        let crewID: Int?
         let name: String
         let jobs: [TodayJob]
     }
@@ -1072,13 +1222,9 @@ struct CalendarScreen: View {
     }
 
     private func dayChips(for calendar: CalendarResponse) -> [DayChip] {
-        guard
-            let start = Self.dayFormatter.date(from: calendar.range.start),
-            let end = Self.dayFormatter.date(from: calendar.range.end)
-        else { return [] }
         let focused = Self.dayFormatter.string(from: focusedDate)
-        let dates = sequence(first: start) { current in
-            Calendar.current.date(byAdding: .day, value: 1, to: current).flatMap { $0 <= end ? $0 : nil }
+        let dates = (-2...6).compactMap { offset in
+            Calendar.current.date(byAdding: .day, value: offset, to: focusedDate)
         }
         let weekdayFormatter = DateFormatter()
         weekdayFormatter.locale = Locale(identifier: "en_US_POSIX")
@@ -1086,15 +1232,10 @@ struct CalendarScreen: View {
         let dayFormatter = DateFormatter()
         dayFormatter.locale = Locale(identifier: "en_US_POSIX")
         dayFormatter.dateFormat = "d"
+        let crewScopedJobs = calendar.jobs.filter { selectedCrew == "all" || crewName(for: $0) == selectedCrew }
         return dates.map { date in
             let value = Self.dayFormatter.string(from: date)
-            let count = calendar.jobs.filter { job in
-                guard let jobDate = job.scheduledDate else { return false }
-                if let endDate = job.scheduledEndDate {
-                    return jobDate <= value && value <= endDate
-                }
-                return jobDate == value
-            }.count
+            let count = crewScopedJobs.filter { jobOverlaps($0, dateString: value) }.count
             return DayChip(
                 dateString: value,
                 weekday: weekdayFormatter.string(from: date).uppercased(),
@@ -1141,6 +1282,10 @@ struct CalendarScreen: View {
         job.assigned.crew ?? job.assigned.employee ?? "Unassigned"
     }
 
+    private func crewIdentifier(for job: TodayJob) -> Int? {
+        job.assigned.crewID
+    }
+
     private func crewNames(from jobs: [TodayJob]) -> [String] {
         Array(Set(jobs.map { crewName(for: $0) })).sorted { lhs, rhs in
             if lhs == "Unassigned" { return false }
@@ -1150,19 +1295,29 @@ struct CalendarScreen: View {
     }
 
     private func crewSections(from jobs: [TodayJob]) -> [CrewSection] {
-        crewNames(from: jobs).map { crew in
-            CrewSection(
-                id: crew,
+        let grouped = Dictionary(grouping: jobs) { job in
+            crewName(for: job)
+        }
+        return grouped.keys.sorted { lhs, rhs in
+            if lhs == "Unassigned" { return false }
+            if rhs == "Unassigned" { return true }
+            return lhs < rhs
+        }.map { crew in
+            let crewJobs = grouped[crew] ?? []
+            let crewID = crewJobs.compactMap { crewIdentifier(for: $0) }.first
+            return CrewSection(
+                id: crewID.map { "crew-\($0)" } ?? "name-\(crew)",
+                crewID: crewID,
                 name: crew,
-                jobs: jobs
-                    .filter { crewName(for: $0) == crew }
+                jobs: crewJobs
                     .sorted {
                         let lhsTime = $0.scheduledTime ?? "99:99"
                         let rhsTime = $1.scheduledTime ?? "99:99"
-                        if lhsTime == rhsTime {
-                            return $0.routeOrder < $1.routeOrder
+                        if $0.routeOrder == $1.routeOrder {
+                            if lhsTime == rhsTime { return $0.id < $1.id }
+                            return lhsTime < rhsTime
                         }
-                        return lhsTime < rhsTime
+                        return $0.routeOrder < $1.routeOrder
                     }
             )
         }
@@ -1201,13 +1356,21 @@ struct CalendarScreen: View {
 
     private func activeRangeLabel(_ calendar: CalendarResponse) -> String {
         if selectedView == "day" {
-            return focusedDateString
+            return focusedDaySubtitle.uppercased()
         }
         return "\(calendar.range.start) to \(calendar.range.end)"
     }
 
     private var focusedDateString: String {
         Self.dayFormatter.string(from: focusedDate)
+    }
+
+    private var focusedDayTitle: String {
+        Calendar.current.isDateInToday(focusedDate) ? "Today" : Self.dayTitleFormatter.string(from: focusedDate)
+    }
+
+    private var focusedDaySubtitle: String {
+        Self.longDayFormatter.string(from: focusedDate)
     }
 
     private func weekDays(from start: String) -> [String] {
@@ -1263,6 +1426,34 @@ struct CalendarScreen: View {
         return job.property.address
     }
 
+    private func isCompleted(_ job: TodayJob) -> Bool {
+        let normalized = job.status
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "_")
+        return ["completed", "complete", "done", "finished"].contains(normalized)
+    }
+
+    private func statusDisplay(for job: TodayJob) -> String {
+        if isCompleted(job) {
+            return "COMPLETE"
+        }
+        return job.status
+            .replacingOccurrences(of: "_", with: " ")
+            .uppercased()
+    }
+
+    private func routeIcon(for job: TodayJob) -> String {
+        job.scheduledTime == nil ? "point.topleft.down.curvedto.point.bottomright.up" : "clock.fill"
+    }
+
+    private func routePositionText(index: Int, job: TodayJob) -> String {
+        if let scheduledTime = job.scheduledTime, !scheduledTime.isEmpty {
+            return scheduledTime
+        }
+        return "#\(index + 1)"
+    }
+
     private func serviceAccent(for job: TodayJob) -> Color {
         if colorMode == "payment" {
             if let paymentColor = job.paymentColor, let color = Color(hex: paymentColor) {
@@ -1291,10 +1482,22 @@ struct CalendarScreen: View {
     private func serviceGradient(for job: TodayJob) -> LinearGradient {
         let accent = serviceAccent(for: job)
         return LinearGradient(
+                colors: [
+                    accent.opacity(0.88),
+                    accent.opacity(0.58),
+                    FieldLGXTheme.background.opacity(0.42)
+                ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var completedGradient: LinearGradient {
+        LinearGradient(
             colors: [
-                accent.opacity(0.88),
-                accent.opacity(0.58),
-                Color.black.opacity(0.35)
+                FieldLGXTheme.lime.opacity(0.68),
+                FieldLGXTheme.elevatedBackground.opacity(0.88),
+                FieldLGXTheme.background.opacity(0.62)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -1347,7 +1550,14 @@ struct CalendarScreen: View {
         return value
     }
 
-    private func handleJobDrop(_ providers: [NSItemProvider], targetDateString: String, targetTime: String? = nil) -> Bool {
+    private func handleJobDrop(
+        _ providers: [NSItemProvider],
+        targetDateString: String,
+        targetTime: String? = nil,
+        targetRouteOrder: Int? = nil,
+        targetCrewID: Int? = nil,
+        clearCrew: Bool = false
+    ) -> Bool {
         guard let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.text.identifier) }) else {
             return false
         }
@@ -1360,23 +1570,43 @@ struct CalendarScreen: View {
             }
             guard let rawValue, let jobID = Int(rawValue.trimmingCharacters(in: .whitespacesAndNewlines)) else { return }
             Task { @MainActor in
-                await moveJob(jobID: jobID, to: targetDateString, at: targetTime)
+                await moveJob(
+                    jobID: jobID,
+                    to: targetDateString,
+                    at: targetTime,
+                    routeOrder: targetRouteOrder,
+                    crewID: targetCrewID,
+                    clearCrew: clearCrew
+                )
             }
         }
         return true
     }
 
     @MainActor
-    private func moveJob(jobID: Int, to targetDateString: String, at targetTime: String? = nil) async {
+    private func moveJob(
+        jobID: Int,
+        to targetDateString: String,
+        at targetTime: String? = nil,
+        routeOrder: Int? = nil,
+        crewID: Int? = nil,
+        clearCrew: Bool = false
+    ) async {
         guard let job = calendar?.jobs.first(where: { $0.id == jobID }) else { return }
         let requestedTime = targetTime ?? job.scheduledTime
-        if job.scheduledDate == targetDateString && requestedTime == job.scheduledTime {
+        if job.scheduledDate == targetDateString,
+           requestedTime == job.scheduledTime,
+           routeOrder == nil,
+           crewID == nil,
+           !clearCrew {
             scheduleMessage = "\(job.customer.name) is already scheduled there."
             return
         }
 
         guard let accessToken, accessToken != "preview-token" else {
-            scheduleMessage = "Moved \(job.customer.name) to \(targetDateString)\(targetTime.map { " at \($0)" } ?? "")."
+            scheduleMessage = routeOrder == nil
+                ? "Moved \(job.customer.name) to \(targetDateString)\(targetTime.map { " at \($0)" } ?? "")."
+                : "Moved \(job.customer.name) in the route."
             return
         }
 
@@ -1391,9 +1621,14 @@ struct CalendarScreen: View {
                 scheduledEndDate: shiftedEndDate,
                 scheduledEndTime: shiftedEndTime,
                 notes: job.notes,
-                status: job.status
+                status: job.status,
+                crewID: crewID,
+                clearCrew: clearCrew,
+                routeOrder: routeOrder
             )
-            scheduleMessage = "Moved \(job.customer.name) to \(targetDateString)\(targetTime.map { " at \($0)" } ?? "")."
+            scheduleMessage = routeOrder == nil
+                ? "Moved \(job.customer.name) to \(targetDateString)\(targetTime.map { " at \($0)" } ?? "")."
+                : "Moved \(job.customer.name) in the route."
             await loadCalendar()
         } catch {
             scheduleMessage = "Could not move \(job.customer.name). Open the job to edit it."
@@ -1465,7 +1700,12 @@ struct CalendarScreen: View {
 
     private func loadCalendar() async {
         guard let accessToken, accessToken != "preview-token" else {
-            calendar = .preview
+            let response = CalendarResponse.preview
+            if !didLoadServerDate, let previewDate = Self.dayFormatter.date(from: response.date) {
+                focusedDate = previewDate
+                didLoadServerDate = true
+            }
+            calendar = response
             return
         }
         isLoading = true
@@ -1498,6 +1738,22 @@ struct CalendarScreen: View {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
+
+    private static let dayTitleFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE M/d"
+        return formatter
+    }()
+
+    private static let longDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEEE, MMMM d"
+        return formatter
+    }()
 }
 
 private struct CalendarAgendaRow: View {
@@ -1509,15 +1765,18 @@ private struct CalendarAgendaRow: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(spacing: 3) {
+                    Image(systemName: isCompleted ? "checkmark" : "clock.fill")
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundStyle(.black)
                     Text(timeText)
-                        .font(.system(size: 15, weight: .black, design: .rounded))
+                        .font(.system(size: 13, weight: .black, design: .rounded))
                         .foregroundStyle(.black)
                     Text(dayText)
                         .font(.system(size: 9, weight: .black))
                         .tracking(1.0)
                         .foregroundStyle(.black.opacity(0.62))
                 }
-                .frame(width: 62, height: 58)
+                .frame(width: 64, height: 64)
                 .background(FieldLGXTheme.lime)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
@@ -1538,6 +1797,16 @@ private struct CalendarAgendaRow: View {
                 }
 
                 Spacer(minLength: 6)
+                if isCompleted {
+                    Text("DONE")
+                        .font(.system(size: 10, weight: .black))
+                        .tracking(1.2)
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 10)
+                        .frame(height: 26)
+                        .background(FieldLGXTheme.lime)
+                        .clipShape(Capsule())
+                }
             }
 
             HStack(spacing: 9) {
@@ -1566,12 +1835,13 @@ private struct CalendarAgendaRow: View {
             }
         }
         .padding(14)
-        .background(FieldLGXTheme.elevatedBackground)
+        .background(isCompleted ? FieldLGXTheme.elevatedBackground.opacity(0.58) : FieldLGXTheme.elevatedBackground)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+                .stroke(isCompleted ? FieldLGXTheme.lime.opacity(0.72) : FieldLGXTheme.panelStroke, lineWidth: isCompleted ? 1.5 : 1)
         )
+        .opacity(isCompleted ? 0.86 : 1)
     }
 
     private var subtitle: String {
@@ -1587,6 +1857,14 @@ private struct CalendarAgendaRow: View {
 
     private var timeText: String {
         job.scheduledTime ?? "Any"
+    }
+
+    private var isCompleted: Bool {
+        let normalized = job.status
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "_")
+        return ["completed", "complete", "done", "finished"].contains(normalized)
     }
 
     private var dayText: String {
@@ -1684,6 +1962,29 @@ private struct CalendarQuickEditSheet: View {
                         jumpButton("+2 Weeks", days: 14)
                     }
 
+                    NavigationLink {
+                        JobDetailScreen(jobID: job.id, accessToken: accessToken, previewJob: job)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "arrow.up.right.square")
+                                .font(.system(size: 17, weight: .black))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Open full job")
+                                    .font(.system(size: 16, weight: .black))
+                                Text("Items, descriptions, notes, photos, issues, and invoices")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .opacity(0.7)
+                            }
+                            Spacer()
+                        }
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 56)
+                        .background(FieldLGXTheme.lime)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+
                     VStack(alignment: .leading, spacing: 12) {
                         sheetLabel("Schedule")
                         DatePicker("Date", selection: $scheduledDate, displayedComponents: .date)
@@ -1780,7 +2081,6 @@ private struct CalendarQuickEditSheet: View {
                 .padding(18)
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     private func jumpButton(_ title: String, days: Int) -> some View {
@@ -2139,7 +2439,7 @@ struct CreateJobSheet: View {
 private extension CalendarResponse {
     static let preview = CalendarResponse(
         view: "week",
-        date: "2026-05-08",
+        date: "2026-05-04",
         range: CalendarRange(start: "2026-05-04", end: "2026-05-10"),
         summary: CalendarSummary(total: 2, unassigned: 1, completed: 0),
         jobs: TodayResponse.preview.jobs,

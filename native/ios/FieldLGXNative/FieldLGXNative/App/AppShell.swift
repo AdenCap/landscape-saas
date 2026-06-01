@@ -9,21 +9,41 @@ struct AppShell: View {
 
     var body: some View {
         Group {
-            if let user = session.currentUser {
-                if user.role == .owner || user.role == .manager {
-                    ownerShell(user: user)
-                } else {
-                    TabView {
-                        ForEach(AppTab.tabs(for: user.role)) { tab in
-                            NavigationStack {
-                                screen(for: tab, user: user)
-                            }
-                            .tabItem {
-                                Label(tab.title, systemImage: tab.systemImage)
+            if session.isBiometricLocked && session.currentUser == nil && session.hasSavedSession {
+                FieldLGXUnlockScreen(
+                    unlock: {
+                        Task { await session.unlockWithDeviceAuthentication() }
+                    },
+                    signOut: session.signOut
+                )
+            } else if let user = session.currentUser {
+                ZStack {
+                    if user.role == .owner || user.role == .manager {
+                        ownerShell(user: user)
+                    } else {
+                        TabView {
+                            ForEach(AppTab.tabs(for: user.role)) { tab in
+                                NavigationStack {
+                                    screen(for: tab, user: user)
+                                }
+                                .tabItem {
+                                    Label(tab.title, systemImage: tab.systemImage)
+                                }
                             }
                         }
+                        .tint(FieldLGXTheme.lime)
                     }
-                    .tint(FieldLGXTheme.lime)
+
+                    if session.isBiometricLocked {
+                        FieldLGXUnlockScreen(
+                            unlock: {
+                                Task { await session.unlockWithDeviceAuthentication() }
+                            },
+                            signOut: session.signOut
+                        )
+                        .transition(.opacity)
+                        .zIndex(30)
+                    }
                 }
             } else if session.isRestoring {
                 RestoreSessionScreen()
@@ -35,9 +55,12 @@ struct AppShell: View {
             await session.restoreSessionIfPossible()
         }
         .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            Task {
-                await session.refreshSessionIfNeeded()
+            if phase == .active {
+                Task {
+                    await session.refreshSessionIfNeeded()
+                }
+            } else if phase == .background {
+                session.lockForQuickUnlock()
             }
         }
     }
@@ -51,10 +74,15 @@ struct AppShell: View {
             NavigationStack {
                 screen(for: selectedOwnerTab, user: user)
             }
+            .environment(\.fieldLGXUsesOwnerChrome, true)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                FieldLGXTopChrome {
+                    showingCommandMenu = true
+                }
+            }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 FieldLGXBottomChrome(
-                    selectedTab: $selectedOwnerTab,
-                    openMenu: { showingCommandMenu = true }
+                    selectedTab: $selectedOwnerTab
                 ) {
                     activeCreateFlow = .menu
                 }
@@ -63,7 +91,7 @@ struct AppShell: View {
             if showingCommandMenu {
                 FieldLGXCommandDrawer(
                     selectedTab: $selectedOwnerTab,
-                    createJob: {
+                    create: {
                         showingCommandMenu = false
                         activeCreateFlow = .menu
                     },
@@ -196,6 +224,53 @@ struct AppShell: View {
     }
 }
 
+private struct FieldLGXUnlockScreen: View {
+    let unlock: () -> Void
+    let signOut: () -> Void
+
+    var body: some View {
+        ZStack {
+            FieldLGXScreenBackground()
+            VStack(spacing: 18) {
+                Image("FieldLGXMonogram")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 92, height: 92)
+                    .shadow(color: FieldLGXTheme.lime.opacity(0.4), radius: 24)
+
+                VStack(spacing: 7) {
+                    Text("FIELDLGX")
+                        .font(.system(size: 24, weight: .black))
+                        .tracking(4)
+                        .foregroundStyle(FieldLGXTheme.text)
+                    Text("Unlock your saved session")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(FieldLGXTheme.secondaryText)
+                }
+
+                Button(action: unlock) {
+                    Label("Unlock with Face ID", systemImage: "faceid")
+                        .font(.system(size: 17, weight: .black))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(FieldLGXTheme.lime)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .padding(.top, 8)
+
+                Button(action: signOut) {
+                    Text("Use a different account")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(FieldLGXTheme.secondaryText)
+                }
+            }
+            .padding(22)
+            .frame(maxWidth: 360)
+        }
+    }
+}
+
 private enum OwnerCreateFlow: String, Identifiable {
     case menu
     case client
@@ -270,13 +345,12 @@ private struct OwnerQuickCreateSheet: View {
             }
             .padding(16)
         }
-        .preferredColorScheme(.dark)
     }
 }
 
 private struct FieldLGXCommandDrawer: View {
     @Binding var selectedTab: AppTab
-    let createJob: () -> Void
+    let create: () -> Void
     let signOut: () -> Void
     let close: () -> Void
 
@@ -349,8 +423,8 @@ private struct FieldLGXCommandDrawer: View {
                         .accessibilityLabel("Close command menu")
                     }
 
-                    Button(action: createJob) {
-                        Label("Create job", systemImage: "plus")
+                    Button(action: create) {
+                        Label("Create", systemImage: "plus")
                             .font(.system(size: 16, weight: .black))
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity)
@@ -401,7 +475,6 @@ private struct FieldLGXCommandDrawer: View {
                 .padding(.bottom, 72)
             }
         }
-        .preferredColorScheme(.dark)
     }
 
     private func routeTile(_ route: CommandMenuRoute) -> some View {
@@ -460,7 +533,6 @@ private struct CommandMenuRoute: Identifiable {
 
 private struct FieldLGXBottomChrome: View {
     @Binding var selectedTab: AppTab
-    let openMenu: () -> Void
     let create: () -> Void
 
     var body: some View {
@@ -468,7 +540,6 @@ private struct FieldLGXBottomChrome: View {
             bottomItem(.command, title: "Dashboard", image: "square.grid.2x2")
             bottomItem(.work, title: "Jobs", image: "checklist")
             bottomItem(.calendar, title: "Calendar", image: "calendar")
-            menuItem()
 
             Button(action: create) {
                 VStack(spacing: 7) {
@@ -478,17 +549,17 @@ private struct FieldLGXBottomChrome: View {
                         .font(.system(size: 12, weight: .black))
                 }
                 .foregroundStyle(.black)
-                .frame(width: 70, height: 48)
+                .frame(width: 86, height: 52)
                 .background(FieldLGXTheme.lime)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             .accessibilityLabel("Create")
         }
         .padding(.horizontal, 16)
-        .padding(.top, 4)
-        .padding(.bottom, 3)
+        .padding(.top, 7)
+        .padding(.bottom, 5)
         .frame(maxWidth: .infinity)
-        .background(Color(red: 0.055, green: 0.06, blue: 0.055))
+        .background(FieldLGXTheme.background.opacity(0.98))
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(Color.white.opacity(0.08))
@@ -512,25 +583,6 @@ private struct FieldLGXBottomChrome: View {
             .frame(maxWidth: .infinity, minHeight: 40)
         }
         .buttonStyle(.plain)
-    }
-
-    private func menuItem() -> some View {
-        let isActive = ![AppTab.command, .work, .calendar].contains(selectedTab)
-
-        return Button(action: openMenu) {
-            VStack(spacing: 5) {
-                Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 17, weight: .bold))
-                Text("Menu")
-                    .font(.system(size: 10, weight: .bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-            .foregroundStyle(isActive ? FieldLGXTheme.lime : FieldLGXTheme.secondaryText)
-            .frame(maxWidth: .infinity, minHeight: 40)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Open command menu")
     }
 }
 
@@ -564,7 +616,7 @@ private struct MoreScreen: View {
                     .buttonStyle(FieldLGXPrimaryButtonStyle())
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 20)
+                .padding(.top, FieldLGXTheme.ownerTopOffset)
                 .padding(.bottom, 96)
             }
         }

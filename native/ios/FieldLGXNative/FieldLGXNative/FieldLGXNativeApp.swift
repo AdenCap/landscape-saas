@@ -5,6 +5,7 @@ import UIKit
 @main
 struct FieldLGXNativeApp: App {
     @State private var session: AuthSession
+    @AppStorage(FieldLGXAppearanceChoice.storageKey) private var appearanceRawValue = FieldLGXAppearanceChoice.system.rawValue
 
     init() {
         _session = State(initialValue: Self.initialSession())
@@ -57,8 +58,83 @@ struct FieldLGXNativeApp: App {
     var body: some Scene {
         WindowGroup {
             FieldLGXRootView(session: session)
+                .preferredColorScheme(FieldLGXAppearanceChoice(rawValue: appearanceRawValue)?.colorScheme)
         }
         .modelContainer(for: [PendingMutation.self, CachedTodaySnapshot.self])
+    }
+}
+
+enum FieldLGXAppearanceChoice: String, CaseIterable, Identifiable {
+    static let storageKey = "fieldlgx.appearance"
+
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: "System"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .system: "Match iPhone"
+        case .light: "Bright field mode"
+        case .dark: "Premium dark mode"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .system: "iphone"
+        case .light: "sun.max.fill"
+        case .dark: "moon.stars.fill"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+}
+
+enum FieldLGXAppIconChoice: String, CaseIterable, Identifiable {
+    case primary
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .primary: "Default"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .primary: "Current FIELDLGX icon"
+        case .light: "White field grid"
+        case .dark: "Black field grid"
+        }
+    }
+
+    var alternateIconName: String? {
+        switch self {
+        case .primary: nil
+        case .light: "AppIconLight"
+        case .dark: "AppIconDark"
+        }
     }
 }
 

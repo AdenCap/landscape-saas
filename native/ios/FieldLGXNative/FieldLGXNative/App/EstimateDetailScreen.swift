@@ -14,6 +14,7 @@ struct EstimateDetailScreen: View {
     @State private var actionMessage: String?
     @State private var estimatePhotoItem: PhotosPickerItem?
     @State private var isUploadingPhoto = false
+    @State private var selectedOptionalLineItemIDs: Set<Int> = []
 
     var body: some View {
         ZStack {
@@ -29,7 +30,7 @@ struct EstimateDetailScreen: View {
                             .frame(maxWidth: .infinity, minHeight: 220)
                     } else if let detail {
                         hero(detail.estimate, summary: detail.summary, deposit: detail.deposit)
-                        actionPanel(detail.estimate)
+                        actionPanel(detail)
                         photoPanel(detail.estimate)
                         lineItems(detail.lineItems)
                     } else if let errorMessage {
@@ -37,7 +38,7 @@ struct EstimateDetailScreen: View {
                     }
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 16)
+                .padding(.top, FieldLGXTheme.ownerTopOffset)
                 .padding(.bottom, 18)
             }
             .refreshable {
@@ -61,7 +62,7 @@ struct EstimateDetailScreen: View {
             Button {
                 dismiss()
             } label: {
-                Label("Money", systemImage: "chevron.left")
+                Label("Back", systemImage: "chevron.left")
                     .font(.system(size: 15, weight: .black))
                     .foregroundStyle(FieldLGXTheme.text)
                     .padding(.horizontal, 14)
@@ -131,8 +132,12 @@ struct EstimateDetailScreen: View {
         )
     }
 
-    private func actionPanel(_ estimate: MobileEstimate) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+    private func actionPanel(_ detail: EstimateDetailResponse) -> some View {
+        let estimate = detail.estimate
+        let optionalItems = detail.lineItems.filter(\.isOptional)
+        let canAccept = !["accepted", "declined"].contains(estimate.status.lowercased())
+
+        return VStack(alignment: .leading, spacing: 12) {
             Text("NEXT ACTION")
                 .font(.system(size: 12, weight: .black))
                 .tracking(2.2)
@@ -140,6 +145,17 @@ struct EstimateDetailScreen: View {
 
             if estimate.status.lowercased() == "draft" {
                 estimateButton(title: "Mark sent", systemImage: "paperplane.fill", action: "mark_sent", filled: true)
+            }
+            if canAccept {
+                if !optionalItems.isEmpty {
+                    optionalAcceptancePicker(optionalItems)
+                }
+                estimateButton(
+                    title: "Accept for \(acceptedTotalText(detail))",
+                    systemImage: "checkmark.seal.fill",
+                    action: "accept",
+                    filled: true
+                )
             }
             estimateButton(title: "Send follow-up", systemImage: "arrow.triangle.2.circlepath", action: "followup", filled: estimate.status.lowercased() != "draft")
                 .disabled(estimate.status.lowercased() == "accepted" || isActing)
@@ -152,6 +168,51 @@ struct EstimateDetailScreen: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
         )
+    }
+
+    private func optionalAcceptancePicker(_ items: [MoneyLineItem]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Optional items")
+                .font(.system(size: 13, weight: .black))
+                .foregroundStyle(FieldLGXTheme.text)
+            ForEach(items) { item in
+                Button {
+                    if selectedOptionalLineItemIDs.contains(item.id) {
+                        selectedOptionalLineItemIDs.remove(item.id)
+                    } else {
+                        selectedOptionalLineItemIDs.insert(item.id)
+                    }
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: selectedOptionalLineItemIDs.contains(item.id) ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 20, weight: .black))
+                            .foregroundStyle(selectedOptionalLineItemIDs.contains(item.id) ? FieldLGXTheme.lime : FieldLGXTheme.tertiaryText)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(item.description)
+                                .font(.system(size: 14, weight: .black))
+                                .foregroundStyle(FieldLGXTheme.text)
+                            if !item.detailDescription.isEmpty {
+                                Text(item.detailDescription)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(FieldLGXTheme.secondaryText)
+                                    .lineLimit(2)
+                            }
+                        }
+                        Spacer()
+                        Text("$\(item.lineTotal)")
+                            .font(.system(size: 13, weight: .black))
+                            .foregroundStyle(FieldLGXTheme.text)
+                    }
+                    .padding(12)
+                    .background(FieldLGXTheme.elevatedBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .background(FieldLGXTheme.elevatedBackground.opacity(0.72))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private func estimateButton(title: String, systemImage: String, action: String, filled: Bool) -> some View {
@@ -322,7 +383,13 @@ struct EstimateDetailScreen: View {
 
     private func runEstimateAction(_ action: String) async {
         guard let accessToken, accessToken != "preview-token" else {
-            actionMessage = action == "mark_sent" ? "Estimate marked sent." : "Follow-up queued for this estimate."
+            if action == "mark_sent" {
+                actionMessage = "Estimate marked sent."
+            } else if action == "accept" {
+                actionMessage = "Estimate accepted and ready to schedule."
+            } else {
+                actionMessage = "Follow-up queued for this estimate."
+            }
             return
         }
         isActing = true
@@ -331,12 +398,44 @@ struct EstimateDetailScreen: View {
 
         do {
             _ = try await APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken)
-                .estimateAction(id: estimateID, action: action)
-            actionMessage = action == "mark_sent" ? "Estimate marked sent." : "Follow-up queued."
+                .estimateAction(id: estimateID, action: action, selectedOptionalIDs: Array(selectedOptionalLineItemIDs))
+            if action == "mark_sent" {
+                actionMessage = "Estimate marked sent."
+            } else if action == "accept" {
+                actionMessage = "Estimate accepted and ready to schedule."
+            } else {
+                actionMessage = "Follow-up queued."
+            }
             await loadDetail()
         } catch {
-            actionMessage = action == "mark_sent" ? "Could not mark estimate sent." : "Could not send follow-up."
+            if action == "mark_sent" {
+                actionMessage = "Could not mark estimate sent."
+            } else if action == "accept" {
+                actionMessage = "Could not accept estimate."
+            } else {
+                actionMessage = "Could not send follow-up."
+            }
         }
+    }
+
+    private func acceptedTotalText(_ detail: EstimateDetailResponse) -> String {
+        let base = decimal(detail.summary.baseTotal)
+        let optionalTotal = detail.lineItems.reduce(Decimal.zero) { total, item in
+            guard item.isOptional, selectedOptionalLineItemIDs.contains(item.id) else { return total }
+            return total + decimal(item.lineTotal)
+        }
+        return currency(base + optionalTotal)
+    }
+
+    private func decimal(_ value: String) -> Decimal {
+        Decimal(string: value) ?? 0
+    }
+
+    private func currency(_ value: Decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: value as NSDecimalNumber) ?? "$\(value)"
     }
 
     private func uploadEstimatePhoto(_ item: PhotosPickerItem) async {
@@ -370,7 +469,7 @@ private extension EstimateDetailResponse {
     static func preview(estimate: MobileEstimate) -> EstimateDetailResponse {
         EstimateDetailResponse(
             estimate: estimate,
-            summary: EstimateSummary(baseTotal: estimate.total, addonsTotal: "0.00", total: estimate.total, lineItems: 1),
+            summary: EstimateSummary(baseTotal: estimate.total, addonsTotal: "250.00", total: "\(estimate.total)", lineItems: 2),
             deposit: EstimateDeposit(required: estimate.depositRequired, type: "fixed", amount: "150.00", amountDue: "150.00", paid: false),
             lineItems: [
                 MoneyLineItem(
@@ -383,6 +482,18 @@ private extension EstimateDetailResponse {
                     lineTotal: estimate.total,
                     isPaid: false,
                     isOptional: false,
+                    isDiscount: false
+                ),
+                MoneyLineItem(
+                    id: 2,
+                    description: "Add seasonal color",
+                    detailDescription: "Install premium annuals around the entry bed",
+                    quantity: "1.00",
+                    unit: "optional",
+                    unitPrice: "250.00",
+                    lineTotal: "250.00",
+                    isPaid: false,
+                    isOptional: true,
                     isDiscount: false
                 )
             ],

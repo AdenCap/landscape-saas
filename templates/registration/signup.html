@@ -26,7 +26,7 @@
       {% include "registration/_social_buttons.html" with divider_text="or create account with email" %}
 
       {% if form.non_field_errors %}
-      <div style="margin-bottom:12px;padding:10px;border:1px solid #7f1d1d;background:#450a0a;color:#fecaca;border-radius:10px;font-size:14px;">{{ form.non_field_errors }}</div>
+      <div style="margin-bottom:12px;padding:10px;border:1px solid var(--danger-border);background:var(--danger-surface);color:var(--danger-text);border-radius:10px;font-size:14px;">{{ form.non_field_errors }}</div>
       {% endif %}
 
       <form method="post" action="{% url 'signup' %}?step=2" style="display:grid;gap:12px;">
@@ -89,7 +89,7 @@
   </div>
 </section>
 <style>
-.auth-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:#0f0f0f;color:var(--text);transition:border-color .2s ease,box-shadow .2s ease;outline:none}
+.auth-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-lowest);color:var(--text);transition:border-color .2s ease,box-shadow .2s ease;outline:none}
 .auth-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(34,197,94,.15)}
 .auth-input:hover:not(:focus){border-color:var(--text-muted)}
 @media(max-width:900px){.shell[style*='grid-template-columns:.95fr 1.05fr']{grid-template-columns:1fr!important}}

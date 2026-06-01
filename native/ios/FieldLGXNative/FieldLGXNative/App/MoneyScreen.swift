@@ -67,7 +67,7 @@ struct MoneyScreen: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 16)
+                .padding(.top, FieldLGXTheme.ownerTopOffset)
                 .padding(.bottom, 18)
             }
             .refreshable {
@@ -159,10 +159,17 @@ struct MoneyScreen: View {
     }
 
     private func summaryGrid(_ summary: MoneySummary) -> some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8)
+            ],
+            spacing: 8
+        ) {
             metric("Outstanding", "$\(summary.outstanding)", "open invoices")
             metric("Overdue", "$\(summary.overdue)", "needs follow-up")
-            metric("Ready to send", "\(summary.drafts)", "needs review")
+            metric("Ready", "\(summary.drafts)", "to send")
             metric("Building", "$\(summary.buildingTotal ?? "0.00")", "\(summary.buildingInvoices ?? 0) recurring")
             metric("Paid month", "$\(summary.paidMonth)", "collected")
             metric("Estimates", "\(summary.openEstimates)", "open quotes")
@@ -172,20 +179,23 @@ struct MoneyScreen: View {
     private func metric(_ label: String, _ value: String, _ detail: String) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(label.uppercased())
-                .font(.system(size: 10, weight: .black))
-                .tracking(1.8)
+                .font(.system(size: 8, weight: .black))
+                .tracking(1.1)
                 .foregroundStyle(FieldLGXTheme.tertiaryText)
+                .lineLimit(1)
             Text(value)
-                .font(.system(size: 28, weight: .black, design: .rounded))
+                .font(.system(size: 21, weight: .black, design: .rounded))
                 .foregroundStyle(label == "Overdue" ? .red.opacity(0.95) : FieldLGXTheme.text)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.52)
             Text(detail)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(FieldLGXTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
         }
-        .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
-        .fieldPanel(padding: 16)
+        .frame(maxWidth: .infinity, minHeight: 82, alignment: .leading)
+        .fieldPanel(padding: 12)
     }
 
     private func invoiceSection(_ invoices: [MobileInvoice]) -> some View {
@@ -520,7 +530,7 @@ struct EstimatesScreen: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 16)
+                .padding(.top, FieldLGXTheme.ownerTopOffset)
                 .padding(.bottom, 18)
             }
             .refreshable {

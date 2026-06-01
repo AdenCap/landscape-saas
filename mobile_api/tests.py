@@ -735,6 +735,52 @@ class MobileCalendarTests(TestCase):
         self.assertEqual(self.job.status, "in_progress")
         self.assertEqual(self.job.notes, "Moved from native app.")
 
+    def test_update_job_from_native_inserts_route_order_without_forcing_time(self):
+        crew = Crew.objects.create(business=self.business, name="Route Crew")
+        first = Job.objects.create(
+            property=self.property,
+            scheduled_date=self.today,
+            status="scheduled",
+            assigned_crew=crew,
+            route_order=1,
+        )
+        second = Job.objects.create(
+            property=self.property,
+            scheduled_date=self.today,
+            status="scheduled",
+            assigned_crew=crew,
+            route_order=2,
+        )
+        moving = Job.objects.create(
+            property=self.property,
+            scheduled_date=self.today,
+            status="scheduled",
+            route_order=9,
+        )
+
+        response = self.client.patch(
+            reverse("mobile_api:job_detail", args=[moving.id]),
+            data={
+                "scheduled_date": self.today.isoformat(),
+                "scheduled_time": "",
+                "assigned_crew_id": crew.id,
+                "route_order": 2,
+                "notes": "",
+            },
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        moving.refresh_from_db()
+        self.assertEqual(first.route_order, 1)
+        self.assertEqual(moving.route_order, 2)
+        self.assertEqual(second.route_order, 3)
+        self.assertEqual(moving.assigned_crew, crew)
+        self.assertIsNone(moving.scheduled_time)
+
     def test_job_options_returns_properties_services_and_crews(self):
         service = ServiceTemplate.objects.create(business=self.business, name="Edging", default_rate=Decimal("45.00"))
         crew = Crew.objects.create(business=self.business, name="Crew Native")
@@ -943,6 +989,44 @@ class MobileMoneyTests(TestCase):
         self.assertEqual(response.json()["photo_count"], 1)
         estimate_image = EstimateImage.objects.get(estimate=self.estimate)
         self.assertEqual(estimate_image.caption, "Front bed before cleanup.")
+
+    def test_owner_accepts_estimate_from_native_with_selected_optional_items(self):
+        self.estimate.status = "sent"
+        self.estimate.save(update_fields=["status"])
+        EstimateLineItem.objects.create(
+            estimate=self.estimate,
+            description="Base cleanup",
+            quantity=Decimal("1.00"),
+            unit_price=Decimal("900.00"),
+            is_addon=False,
+        )
+        accepted_addon = EstimateLineItem.objects.create(
+            estimate=self.estimate,
+            description="Seasonal color",
+            quantity=Decimal("1.00"),
+            unit_price=Decimal("250.00"),
+            is_addon=True,
+        )
+        declined_addon = EstimateLineItem.objects.create(
+            estimate=self.estimate,
+            description="Lighting upgrade",
+            quantity=Decimal("1.00"),
+            unit_price=Decimal("400.00"),
+            is_addon=True,
+        )
+
+        response = self.client.post(
+            reverse("mobile_api:estimate_action", args=[self.estimate.id]),
+            data={"action": "accept", "selected_optional_ids": [accepted_addon.id, declined_addon.id + 999]},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.estimate.refresh_from_db()
+        self.assertEqual(self.estimate.status, "accepted")
+        self.assertEqual(self.estimate.accepted_total, Decimal("1150.00"))
+        self.assertEqual(self.estimate.accepted_optional_item_ids, [accepted_addon.id])
 
     def test_upload_receipt_from_native_links_to_job(self):
         job = Job.objects.create(

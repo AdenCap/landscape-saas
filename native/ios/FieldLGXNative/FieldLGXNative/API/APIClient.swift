@@ -5,14 +5,17 @@ enum FieldLGXConfig {
     static var apiBaseURL: URL {
         if let value = Bundle.main.object(forInfoDictionaryKey: "FIELDLGX_API_BASE_URL") as? String,
            let url = URL(string: value),
-           !value.isEmpty {
+           !value.isEmpty,
+           value.hasPrefix("http"),
+           !value.contains("$(") {
             return url
         }
         #if DEBUG
-        return URL(string: "http://127.0.0.1:8004")!
-        #else
-        return URL(string: "https://fieldlgx.com")!
+        if ProcessInfo.processInfo.arguments.contains("--fieldlgx-local-api") {
+            return URL(string: "http://127.0.0.1:8004")!
+        }
         #endif
+        return URL(string: "https://app.fieldlgx.com")!
     }
 }
 
@@ -161,8 +164,12 @@ struct APIClient {
         ])
     }
 
-    func estimateAction(id: Int, action: String) async throws -> EstimateActionResponse {
-        try await post(path: "/api/mobile/v1/estimates/\(id)/action/", body: ["action": action])
+    func estimateAction(id: Int, action: String, selectedOptionalIDs: [Int] = []) async throws -> EstimateActionResponse {
+        var body: [String: Any] = ["action": action]
+        if !selectedOptionalIDs.isEmpty {
+            body["selected_optional_ids"] = selectedOptionalIDs
+        }
+        return try await postJSONObject(path: "/api/mobile/v1/estimates/\(id)/action/", body: body)
     }
 
     func uploadEstimatePhoto(id: Int, imageData: Data, caption: String = "", fileName: String = "estimate-photo.jpg") async throws -> EstimatePhotoUploadResponse {
@@ -217,7 +224,20 @@ struct APIClient {
         return try await postJSONObject(path: "/api/mobile/v1/jobs/", body: body)
     }
 
-    func updateJob(id: Int, scheduledDate: String, scheduledTime: String, scheduledEndDate: String? = nil, scheduledEndTime: String? = nil, notes: String, status: String? = nil, crewID: Int? = nil, color: String? = nil) async throws -> JobDetailResponse {
+    func updateJob(
+        id: Int,
+        scheduledDate: String,
+        scheduledTime: String,
+        scheduledEndDate: String? = nil,
+        scheduledEndTime: String? = nil,
+        notes: String,
+        status: String? = nil,
+        crewID: Int? = nil,
+        clearCrew: Bool = false,
+        color: String? = nil,
+        routeOrder: Int? = nil,
+        serviceItems: [JobCreateServiceItem]? = nil
+    ) async throws -> JobDetailResponse {
         var body: [String: Any] = [
             "scheduled_date": scheduledDate,
             "scheduled_time": scheduledTime,
@@ -232,11 +252,19 @@ struct APIClient {
         if let status {
             body["status"] = status
         }
-        if let crewID {
+        if clearCrew {
+            body["assigned_crew_id"] = NSNull()
+        } else if let crewID {
             body["assigned_crew_id"] = crewID
         }
         if let color {
             body["color"] = color
+        }
+        if let routeOrder {
+            body["route_order"] = routeOrder
+        }
+        if let serviceItems {
+            body["service_items"] = serviceItems.map(\.dictionary)
         }
         return try await patch(path: "/api/mobile/v1/jobs/\(id)/", body: body)
     }

@@ -44,6 +44,8 @@ enum FieldLGXTheme {
 
     static let cardRadius: CGFloat = 24
     static let pagePadding: CGFloat = 16
+    static let compactRadius: CGFloat = 8
+    static let ownerTopOffset: CGFloat = 58
 
     static var panelGradient: LinearGradient {
         LinearGradient(
@@ -55,6 +57,56 @@ enum FieldLGXTheme {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
+    }
+}
+
+struct FieldLGXTopChrome: View {
+    let openMenu: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 9) {
+                Image("FieldLGXMonogram")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 27, height: 27)
+
+                Text("FIELDLGX")
+                    .font(.system(size: 18, weight: .black))
+                    .tracking(0.4)
+                    .foregroundStyle(FieldLGXTheme.text)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Button(action: openMenu) {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 20, weight: .black))
+                    .foregroundStyle(FieldLGXTheme.secondaryText)
+                    .frame(width: 44, height: 40)
+                    .background(FieldLGXTheme.elevatedBackground.opacity(0.92))
+                    .clipShape(RoundedRectangle(cornerRadius: FieldLGXTheme.compactRadius, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FieldLGXTheme.compactRadius, style: .continuous)
+                            .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+                    )
+            }
+            .accessibilityLabel("Open menu")
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 7)
+        .padding(.bottom, 8)
+        .background(
+            FieldLGXTheme.background
+                .opacity(0.94)
+                .ignoresSafeArea(edges: .top)
+        )
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(FieldLGXTheme.panelStroke)
+                .frame(height: 1)
+        }
     }
 }
 
@@ -98,6 +150,17 @@ struct FieldLGXScreenBackground: View {
                 .stroke(FieldLGXTheme.gridLine, lineWidth: 1)
         }
         .ignoresSafeArea()
+    }
+}
+
+private struct FieldLGXOwnerChromeKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var fieldLGXUsesOwnerChrome: Bool {
+        get { self[FieldLGXOwnerChromeKey.self] }
+        set { self[FieldLGXOwnerChromeKey.self] = newValue }
     }
 }
 

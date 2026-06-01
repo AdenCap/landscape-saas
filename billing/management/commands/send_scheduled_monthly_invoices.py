@@ -93,7 +93,7 @@ class Command(BaseCommand):
         invoice.recompute_totals()
 
         # Build pay URL using SITE_URL (no request object in management commands)
-        site_url = getattr(settings, "SITE_URL", "https://fieldlgx.com").rstrip("/")
+        site_url = getattr(settings, "SITE_URL", "https://app.fieldlgx.com").rstrip("/")
         pay_path = reverse("billing:invoice_pay_page", args=[invoice.id, invoice.payment_token])
         pay_url = site_url + pay_path
 

@@ -11,7 +11,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -36,11 +38,23 @@ SECRET_KEY = _secret or "django-insecure-dev-only-do-not-use-in-production"
 # SECURITY WARNING: don't run with debug turned on in production!
 # Default to True so you see full error pages in development; set DJANGO_DEBUG=0 to disable.
 DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
+IS_TESTING = "test" in sys.argv
+DISABLE_GLOBAL_RATE_LIMIT = (
+    IS_TESTING
+    or os.environ.get("DISABLE_GLOBAL_RATE_LIMIT", "0").lower() in ("1", "true", "yes")
+)
 
-# Site URL for self-referencing (logo proxy, emails, etc.)
-SITE_URL = os.environ.get("SITE_URL", "").strip() or "https://fieldlgx.com"
-CANONICAL_BASE_URL = os.environ.get("CANONICAL_BASE_URL", SITE_URL).strip().rstrip("/") or "https://fieldlgx.com"
+# Public marketing URL and authenticated app URL are intentionally separate.
+# fieldlgx.com is the public trust/landing surface; app.fieldlgx.com is where
+# login, dashboards, billing, estimates, and field workflows live.
+PUBLIC_SITE_URL = os.environ.get("PUBLIC_SITE_URL", "").strip().rstrip("/") or "https://fieldlgx.com"
+APP_BASE_URL = os.environ.get("APP_BASE_URL", "").strip().rstrip("/") or "https://app.fieldlgx.com"
+
+# Site URL for self-referencing app links (emails, logo proxy, client portals, etc.)
+SITE_URL = os.environ.get("SITE_URL", "").strip().rstrip("/") or APP_BASE_URL
+CANONICAL_BASE_URL = os.environ.get("CANONICAL_BASE_URL", PUBLIC_SITE_URL).strip().rstrip("/") or PUBLIC_SITE_URL
 CANONICAL_HOST = os.environ.get("CANONICAL_HOST", "fieldlgx.com").strip().lower()
+APP_HOST = os.environ.get("APP_HOST", urlsplit(APP_BASE_URL).netloc or "app.fieldlgx.com").strip().lower()
 
 
 def _csv_env(name):
@@ -60,7 +74,7 @@ def _unique(values):
 
 # In production, set ALLOWED_HOSTS (comma-separated) or leave unset.
 # When PORT is set (e.g. App Platform, Render), allow .ondigitalocean.app so the app accepts requests.
-_default_public_hosts = ["fieldlgx.com", "www.fieldlgx.com"]
+_default_public_hosts = ["fieldlgx.com", "www.fieldlgx.com", "app.fieldlgx.com"]
 _allowed = _csv_env("ALLOWED_HOSTS")
 if _allowed:
     ALLOWED_HOSTS = _unique(_allowed + _default_public_hosts)
@@ -76,11 +90,36 @@ else:
 
 # For HTTPS in production, set CSRF_TRUSTED_ORIGINS (comma-separated), e.g. https://yourapp.com,https://www.yourapp.com
 # On Vercel, set to your deployment URL(s), e.g. https://your-project.vercel.app
-_default_csrf_origins = ["https://fieldlgx.com", "https://www.fieldlgx.com"]
+_default_csrf_origins = ["https://fieldlgx.com", "https://www.fieldlgx.com", "https://app.fieldlgx.com"]
 _csrf_origins = _csv_env("CSRF_TRUSTED_ORIGINS")
 CSRF_TRUSTED_ORIGINS = _unique(_csrf_origins + _default_csrf_origins)
 
 CANONICAL_REDIRECT_HOSTS = _unique(_csv_env("CANONICAL_REDIRECT_HOSTS") or ["www.fieldlgx.com"])
+APP_REDIRECT_HOSTS = _unique(_csv_env("APP_REDIRECT_HOSTS") or ["fieldlgx.com", "www.fieldlgx.com"])
+APP_PATH_PREFIXES = tuple(
+    _csv_env("APP_PATH_PREFIXES")
+    or [
+        "/accounts/",
+        "/admin/",
+        "/api/",
+        "/billing/",
+        "/clients/",
+        "/crews/",
+        "/dashboard/",
+        "/employees/",
+        "/equipment/",
+        "/estimator/",
+        "/fertilization/",
+        "/financials/",
+        "/jobs/",
+        "/notifications/",
+        "/platform/",
+        "/pricebook/",
+        "/settings/",
+        "/subscription/",
+        "/time/",
+    ]
+)
 
 # ── Security headers (always applied) ─────────────────────────────────────
 # These are safe in dev and critical in prod; always enforce.
@@ -210,6 +249,7 @@ TEMPLATES = [
                 'businesses.context_processors.terminology',
                 'businesses.context_processors.navigation',
                 'billing.context_processors.estimate_queue_count',
+                'config.context_processors.app_urls',
             ],
         },
     },
@@ -363,7 +403,7 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 

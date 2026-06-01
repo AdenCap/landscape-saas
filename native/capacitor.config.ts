@@ -4,7 +4,7 @@ const config: CapacitorConfig = {
   appId: 'com.fieldlgx.app',
   appName: 'FieldLgx',
   server: {
-    url: 'https://fieldlgx.com',
+    url: 'https://app.fieldlgx.com',
     cleartext: false,
   },
   // Web directory (placeholder — not used when server.url is set)

@@ -11,6 +11,7 @@ struct JobDetailScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
+    @Environment(\.fieldLGXUsesOwnerChrome) private var usesOwnerChrome
     @State private var detail: JobDetailResponse?
     @State private var isLoading = false
     @State private var actionInFlight: JobAction?
@@ -69,7 +70,7 @@ struct JobDetailScreen: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 16)
+                .padding(.top, usesOwnerChrome ? FieldLGXTheme.ownerTopOffset : 16)
                 .padding(.bottom, 18)
             }
             .refreshable {
@@ -136,7 +137,7 @@ struct JobDetailScreen: View {
                     .foregroundStyle(FieldLGXTheme.text)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
-                    .background(Color.black.opacity(0.24))
+                    .background(FieldLGXTheme.elevatedBackground)
                     .clipShape(Capsule())
                     .overlay(Capsule().stroke(FieldLGXTheme.panelStroke, lineWidth: 1))
             }
@@ -852,6 +853,10 @@ struct JobDetailScreen: View {
 
     private func loadDetail() async {
         guard let accessToken else {
+            errorMessage = "Sign in again to load this job."
+            return
+        }
+        if accessToken == "preview-token" {
             detail = .preview
             return
         }
@@ -862,21 +867,6 @@ struct JobDetailScreen: View {
         do {
             detail = try await client(accessToken: accessToken).jobDetail(id: jobID)
         } catch {
-            detail = detail ?? previewJob.map { job in
-                JobDetailResponse(
-                    job: job,
-                    actions: JobActions(
-                        canStart: job.status == "scheduled",
-                        canComplete: job.status == "in_progress",
-                        canSkip: job.status == "scheduled" || job.status == "in_progress",
-                        requiresCompletionPhoto: false,
-                        hasCompletionPhoto: false
-                    ),
-                    jobNotes: [],
-                    jobIssues: [],
-                    serverTime: ""
-                )
-            }
             errorMessage = error.localizedDescription
         }
     }
@@ -1152,10 +1142,16 @@ private struct EditJobSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var scheduledDate: Date
+    @State private var scheduledEndDate: Date
     @State private var scheduledTime: Date
+    @State private var scheduledEndTime: Date
+    @State private var spansMultipleDays: Bool
+    @State private var status: String
+    @State private var selectedColor: String
     @State private var notes: String
     @State private var options: JobOptionsResponse?
     @State private var selectedCrewID: Int?
+    @State private var editableItems: [EditableJobItem]
     @State private var isSaving = false
     @State private var errorMessage: String?
 
@@ -1164,8 +1160,14 @@ private struct EditJobSheet: View {
         self.job = job
         self.onSaved = onSaved
         _scheduledDate = State(initialValue: Self.parseDay(job.scheduledDate))
+        _scheduledEndDate = State(initialValue: Self.parseDay(job.scheduledEndDate ?? job.scheduledDate))
         _scheduledTime = State(initialValue: Self.parseTime(job.scheduledTime))
+        _scheduledEndTime = State(initialValue: Self.parseTime(job.scheduledEndTime))
+        _spansMultipleDays = State(initialValue: (job.scheduledEndDate ?? job.scheduledDate) != job.scheduledDate)
+        _status = State(initialValue: job.status)
+        _selectedColor = State(initialValue: job.jobColorOverride ?? job.statusColor ?? job.color ?? "#3b82f6")
         _notes = State(initialValue: job.notes)
+        _editableItems = State(initialValue: job.serviceItems.map { EditableJobItem(from: $0) })
     }
 
     var body: some View {
@@ -1178,7 +1180,11 @@ private struct EditJobSheet: View {
                         header
                         scheduleCard
                         crewCard
+                        statusCard
+                        colorCard
+                        serviceItemsCard
                         notesCard
+                        photoShortcutCard
 
                         if let errorMessage {
                             Text(errorMessage)
@@ -1225,7 +1231,7 @@ private struct EditJobSheet: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("QUICK EDIT")
+            Text("FULL JOB EDIT")
                 .font(.system(size: 12, weight: .black))
                 .tracking(2.4)
                 .foregroundStyle(FieldLGXTheme.lime)
@@ -1247,6 +1253,11 @@ private struct EditJobSheet: View {
             label("Schedule")
             DatePicker("Date", selection: $scheduledDate, displayedComponents: .date)
             DatePicker("Time", selection: $scheduledTime, displayedComponents: .hourAndMinute)
+            Toggle("Multi-day job", isOn: $spansMultipleDays)
+            if spansMultipleDays {
+                DatePicker("End date", selection: $scheduledEndDate, in: scheduledDate..., displayedComponents: .date)
+                DatePicker("End time", selection: $scheduledEndTime, displayedComponents: .hourAndMinute)
+            }
         }
         .font(.system(size: 16, weight: .bold))
         .foregroundStyle(FieldLGXTheme.text)
@@ -1284,6 +1295,162 @@ private struct EditJobSheet: View {
         }
     }
 
+    private var statusCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            label("Status")
+            Picker("Status", selection: $status) {
+                Text("Scheduled").tag("scheduled")
+                Text("In progress").tag("in_progress")
+                Text("Completed").tag("completed")
+                Text("Skipped").tag("skipped")
+                Text("Cancelled").tag("cancelled")
+            }
+            .pickerStyle(.segmented)
+        }
+        .padding(16)
+        .background(FieldLGXTheme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+        )
+    }
+
+    private var colorCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            label("Calendar color")
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 42), spacing: 10)], spacing: 10) {
+                ForEach(Self.calendarColors, id: \.self) { hex in
+                    Button {
+                        selectedColor = hex
+                    } label: {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color(hex: hex) ?? FieldLGXTheme.lime)
+                                .frame(height: 42)
+                            if selectedColor.lowercased() == hex.lowercased() {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .black))
+                                    .foregroundStyle(.black)
+                            }
+                        }
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.white.opacity(selectedColor.lowercased() == hex.lowercased() ? 0.75 : 0.14), lineWidth: 2)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(16)
+        .background(FieldLGXTheme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private var serviceItemsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                label("Job items")
+                Spacer()
+                Button {
+                    addServiceItem()
+                } label: {
+                    Label("Add item", systemImage: "plus")
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .background(FieldLGXTheme.lime)
+                        .clipShape(Capsule())
+                }
+            }
+
+            if editableItems.isEmpty {
+                Text("Add at least one line item so crews and invoices carry the right scope.")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(FieldLGXTheme.secondaryText)
+                    .padding(14)
+                    .fieldInsetSurface()
+            }
+
+            ForEach($editableItems) { $item in
+                VStack(alignment: .leading, spacing: 10) {
+                    if let options, !options.services.isEmpty {
+                        Picker("Service", selection: $item.serviceID) {
+                            ForEach(options.services) { service in
+                                Text(service.name).tag(service.id)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .tint(FieldLGXTheme.text)
+                        .onChange(of: item.serviceID) { _, newValue in
+                            if let service = options.services.first(where: { $0.id == newValue }) {
+                                item.description = service.name
+                                if item.unit.isEmpty { item.unit = service.unit }
+                                if item.unitPrice.isEmpty || item.unitPrice == "0.00" { item.unitPrice = service.unitPrice }
+                            }
+                        }
+                    }
+
+                    TextField("Title shown to crew and invoice", text: $item.description)
+                        .font(.system(size: 16, weight: .black))
+                        .foregroundStyle(FieldLGXTheme.text)
+                        .padding(12)
+                        .fieldInsetSurface()
+
+                    TextField("Description, scope, materials, client request", text: $item.detailDescription, axis: .vertical)
+                        .font(.system(size: 15, weight: .semibold))
+                        .lineLimit(2...5)
+                        .foregroundStyle(FieldLGXTheme.text)
+                        .padding(12)
+                        .fieldInsetSurface()
+
+                    HStack(spacing: 8) {
+                        TextField("Qty", text: $item.quantity)
+                            .keyboardType(.decimalPad)
+                        TextField("Unit", text: $item.unit)
+                        TextField("Price", text: $item.unitPrice)
+                            .keyboardType(.decimalPad)
+                    }
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(FieldLGXTheme.text)
+                    .textFieldStyle(.plain)
+                    .padding(12)
+                    .fieldInsetSurface()
+
+                    Button(role: .destructive) {
+                        editableItems.removeAll { $0.id == item.id }
+                    } label: {
+                        Label("Remove item", systemImage: "trash")
+                            .font(.system(size: 13, weight: .black))
+                    }
+                    .disabled(editableItems.count <= 1)
+                    .foregroundStyle(editableItems.count <= 1 ? FieldLGXTheme.tertiaryText : .red.opacity(0.9))
+                }
+                .padding(12)
+                .background(FieldLGXTheme.elevatedBackground.opacity(0.88))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+                )
+            }
+        }
+        .padding(16)
+        .background(FieldLGXTheme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+        )
+    }
+
     private var notesCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             label("Job notes")
@@ -1299,6 +1466,23 @@ private struct EditJobSheet: View {
                         .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
                 )
         }
+    }
+
+    private var photoShortcutCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            label("Photos, notes, and issues")
+            Text("Use the job detail actions for completion photos, site photos, crew notes, and reported issues. They stay attached to this job record.")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(FieldLGXTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .background(FieldLGXTheme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+        )
     }
 
     private func label(_ text: String) -> some View {
@@ -1318,6 +1502,7 @@ private struct EditJobSheet: View {
             )
             options = response
             selectedCrewID = matchingCrewID(in: response)
+            hydrateMissingServiceIDs(from: response)
             return
         }
 
@@ -1325,6 +1510,7 @@ private struct EditJobSheet: View {
             let response = try await APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken).jobOptions()
             options = response
             selectedCrewID = matchingCrewID(in: response)
+            hydrateMissingServiceIDs(from: response)
         } catch {
             errorMessage = "Crew options are unavailable, but schedule and notes can still be edited."
         }
@@ -1350,8 +1536,25 @@ private struct EditJobSheet: View {
                 id: job.id,
                 scheduledDate: Self.dayFormatter.string(from: scheduledDate),
                 scheduledTime: Self.timeFormatter.string(from: scheduledTime),
+                scheduledEndDate: spansMultipleDays ? Self.dayFormatter.string(from: scheduledEndDate) : "",
+                scheduledEndTime: spansMultipleDays ? Self.timeFormatter.string(from: scheduledEndTime) : "",
                 notes: notes,
-                crewID: selectedCrewID
+                status: status,
+                crewID: selectedCrewID,
+                color: selectedColor,
+                serviceItems: editableItems.compactMap { item in
+                    guard item.serviceID > 0, !item.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        return nil
+                    }
+                    return JobCreateServiceItem(
+                        serviceID: item.serviceID,
+                        description: item.description,
+                        detailDescription: item.detailDescription,
+                        quantity: item.quantity.isEmpty ? "1" : item.quantity,
+                        unit: item.unit.isEmpty ? "visit" : item.unit,
+                        unitPrice: item.unitPrice.isEmpty ? "0" : item.unitPrice
+                    )
+                }
             )
             onSaved(response)
             dismiss()
@@ -1389,6 +1592,71 @@ private struct EditJobSheet: View {
         formatter.dateFormat = "HH:mm"
         return formatter
     }()
+
+    private static let calendarColors = [
+        "#3b82f6", "#22c55e", "#f59e0b", "#ef4444",
+        "#8b5cf6", "#ec4899", "#06b6d4", "#94a3b8"
+    ]
+
+    private func addServiceItem() {
+        if let service = options?.services.first {
+            editableItems.append(EditableJobItem(service: service))
+        } else {
+            editableItems.append(EditableJobItem())
+        }
+    }
+
+    private func hydrateMissingServiceIDs(from options: JobOptionsResponse) {
+        for index in editableItems.indices where editableItems[index].serviceID == 0 {
+            let normalizedName = editableItems[index].description.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if let service = options.services.first(where: { $0.name.lowercased() == normalizedName }) {
+                editableItems[index].serviceID = service.id
+                if editableItems[index].unit.isEmpty {
+                    editableItems[index].unit = service.unit
+                }
+            }
+        }
+        if editableItems.isEmpty, let service = options.services.first {
+            editableItems.append(EditableJobItem(service: service))
+        }
+    }
+}
+
+private struct EditableJobItem: Identifiable, Equatable {
+    let id = UUID()
+    var serviceID: Int
+    var description: String
+    var detailDescription: String
+    var quantity: String
+    var unit: String
+    var unitPrice: String
+
+    init() {
+        serviceID = 0
+        description = ""
+        detailDescription = ""
+        quantity = "1"
+        unit = "visit"
+        unitPrice = "0.00"
+    }
+
+    init(service: JobOptionService) {
+        serviceID = service.id
+        description = service.name
+        detailDescription = ""
+        quantity = "1"
+        unit = service.unit.isEmpty ? "visit" : service.unit
+        unitPrice = service.unitPrice
+    }
+
+    init(from item: TodayServiceItem) {
+        serviceID = item.serviceID ?? 0
+        description = item.name
+        detailDescription = item.detailDescription
+        quantity = item.quantity
+        unit = item.unit
+        unitPrice = item.unitPrice
+    }
 }
 
 private struct CameraCaptureSheet: UIViewControllerRepresentable {
