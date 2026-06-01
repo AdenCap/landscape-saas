@@ -2,7 +2,7 @@
 {% block title %}Sign in — FIELDLGX{% endblock %}
 
 {% block content %}
-<section class="section" style="padding-top:34px;">
+<section class="section auth-section">
   <div class="shell" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;">
     <div class="card login-features" data-r style="padding:22px;">
       <h1 style="font-size:38px;line-height:1.02;letter-spacing:-.03em;margin:0 0 10px;">Welcome back.</h1>
@@ -21,6 +21,8 @@
       <div style="margin-bottom:12px;padding:10px;border:1px solid var(--danger-border);background:var(--danger-surface);color:var(--danger-text);border-radius:10px;font-size:14px;">Invalid username or password. Please try again.</div>
       {% endif %}
 
+      {% include "registration/_social_buttons.html" with divider_text="or sign in with email" %}
+
       <form method="post" action="{% url 'login' %}" style="display:grid;gap:12px;">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ next }}" />
@@ -36,17 +38,19 @@
         <button class="btn btn-primary" type="submit" style="width:100%;">Sign in</button>
       </form>
 
-      {% include "registration/_social_buttons.html" with divider_text="or continue with" %}
     </div>
   </div>
 </section>
 <style>
-.auth-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-lowest);color:var(--text);transition:border-color .2s ease,box-shadow .2s ease;outline:none}
+.auth-section{padding-top:120px;min-height:calc(100vh - 80px)}
+.auth-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-lowest);color:var(--text);transition:border-color .2s ease,box-shadow .2s ease,background .2s ease;outline:none}
+.auth-input::placeholder{color:var(--text-secondary);opacity:.88}
 .auth-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(34,197,94,.15)}
-.auth-input:hover:not(:focus){border-color:var(--text-muted)}
+.auth-input:hover:not(:focus){border-color:var(--border-hover);background:var(--surface-low)}
 @media(max-width:900px){
   .shell[style*='grid-template-columns:1fr 1fr']{grid-template-columns:1fr!important}
   .login-features{display:none!important}
 }
+@media(max-width:768px){.auth-section{padding-top:92px}}
 </style>
 {% endblock %}

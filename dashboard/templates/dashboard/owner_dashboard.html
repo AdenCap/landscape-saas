@@ -329,6 +329,74 @@
     margin: -4px;
     color: var(--fc-ink);
   }
+  html.theme-light-effective .field-command {
+    --fc-bg: #f7faef;
+    --fc-ink: #172012;
+    --fc-muted: #465142;
+    --fc-dim: #5f6b5b;
+    --fc-line: rgba(25, 37, 17, .13);
+    --fc-line-2: rgba(25, 37, 17, .24);
+    --fc-panel: rgba(255,255,255,.88);
+  }
+  html.theme-light-effective .field-command:before {
+    background:
+      radial-gradient(circle at 50% -10%, rgba(185,255,101,.20), transparent 34%),
+      linear-gradient(90deg, rgba(25,37,17,.035) 1px, transparent 1px),
+      linear-gradient(rgba(25,37,17,.035) 1px, transparent 1px);
+  }
+  html.theme-light-effective .fc-panel,
+  html.theme-light-effective .fc-stat,
+  html.theme-light-effective .fc-ops-summary a {
+    background: linear-gradient(145deg, rgba(255,255,255,.96), rgba(245,249,238,.90));
+    border-color: var(--fc-line);
+    box-shadow: 0 22px 55px rgba(35, 50, 24, .12), inset 0 1px 0 rgba(255,255,255,.90);
+  }
+  html.theme-light-effective .fc-dispatch {
+    background:
+      linear-gradient(rgba(25,37,17,.030) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(25,37,17,.025) 1px, transparent 1px),
+      linear-gradient(145deg, rgba(255,255,255,.97), rgba(241,247,233,.92));
+  }
+  html.theme-light-effective .fc-dispatch-primary,
+  html.theme-light-effective .fc-command-tile,
+  html.theme-light-effective .fc-command-strip a,
+  html.theme-light-effective .fc-brief-item,
+  html.theme-light-effective .fc-job-row,
+  html.theme-light-effective .fc-money-item,
+  html.theme-light-effective .fc-actions-grid a,
+  html.theme-light-effective .fc-empty {
+    background: rgba(255,255,255,.82);
+    border-color: rgba(25,37,17,.12);
+    color: var(--fc-ink);
+  }
+  html.theme-light-effective .fc-command-alert,
+  html.theme-light-effective .fc-priority {
+    background: rgba(185,255,101,.20);
+    border-color: rgba(72,105,30,.24);
+  }
+  html.theme-light-effective .fc-panel:after {
+    background: linear-gradient(110deg, transparent, rgba(255,255,255,.44), transparent);
+  }
+  html.theme-light-effective .fc-command-strip .material-symbols-outlined {
+    background: rgba(25,37,17,.07);
+    color: var(--fc-muted);
+  }
+  html.theme-light-effective .fc-command-bar,
+  html.theme-light-effective .fc-command-bar kbd {
+    background: rgba(255,255,255,.86);
+    border-color: var(--fc-line);
+  }
+  html.theme-light-effective .fc-stat strong,
+  html.theme-light-effective .fc-command-tile strong,
+  html.theme-light-effective .fc-command-strip strong,
+  html.theme-light-effective .fc-command-job strong,
+  html.theme-light-effective .fc-job-main strong,
+  html.theme-light-effective .fc-money-item strong,
+  html.theme-light-effective .fc-load-row strong,
+  html.theme-light-effective .fc-feed-item strong,
+  html.theme-light-effective .fc-panel h2 {
+    color: var(--fc-ink);
+  }
   .field-command:before {
     content: "";
     position: fixed;

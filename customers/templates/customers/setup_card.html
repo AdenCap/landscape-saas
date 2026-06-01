@@ -29,13 +29,14 @@
   var stripe = Stripe('{{ stripe_publishable_key }}', {
     stripeAccount: '{{ stripe_account_id }}'
   });
+  var isLightTheme = document.documentElement.classList.contains('theme-light-effective') || document.documentElement.getAttribute('data-theme') === 'light';
   var elements = stripe.elements({
     appearance: {
-      theme: 'night',
+      theme: isLightTheme ? 'stripe' : 'night',
       variables: {
-        colorPrimary: '#9dd850',
-        colorBackground: '#131313',
-        colorText: '#e5e2e1',
+        colorPrimary: isLightTheme ? '#22c55e' : '#9dd850',
+        colorBackground: isLightTheme ? '#ffffff' : '#131313',
+        colorText: isLightTheme ? '#111111' : '#e5e2e1',
         colorDanger: '#f87171',
         borderRadius: '8px',
       }
@@ -43,7 +44,7 @@
   });
   var cardElement = elements.create('card', {
     style: {
-      base: { fontSize: '16px', color: '#e5e2e1' },
+      base: { fontSize: '16px', color: isLightTheme ? '#111111' : '#e5e2e1' },
       invalid: { color: '#f87171' }
     }
   });

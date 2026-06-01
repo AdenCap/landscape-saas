@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=31">
+<link rel="stylesheet" href="{% static 'css/calendar.css' %}?v=33">
 <style>
   /* Quick-create line items */
   .qc-line-row { display:grid;grid-template-columns:minmax(0,1fr) 58px 72px 28px;gap:8px;margin-bottom:8px;align-items:start; }
@@ -362,6 +362,10 @@
         </div>
         <h4 id="modal-customer-name">Client</h4>
         <a id="modal-address-link" class="job-summary-address" href="#" target="_blank" rel="noopener"></a>
+        <div class="job-directions-actions" id="modal-directions-actions">
+          <a id="modal-apple-directions" class="btn btn-primary btn-sm" href="#" target="_blank" rel="noopener">Directions</a>
+          <a id="modal-google-directions" class="btn btn-secondary btn-sm" href="#" target="_blank" rel="noopener">Google Maps</a>
+        </div>
         <div class="job-summary-grid">
           <div>
             <span class="job-summary-label">Assigned</span>
@@ -439,6 +443,13 @@
             </select>
           </div>
         </div>
+        <div class="job-day-assignment-panel" id="modal-day-assignment-panel" style="display:none;">
+          <div class="job-panel-subtitle">
+            <strong>Daily crew plan</strong>
+            <span>Change individual days without touching prior days.</span>
+          </div>
+          <div id="modal-day-assignment-list" class="job-day-assignment-list"></div>
+        </div>
         <div class="form-group modal-color-row">
           <label>Job color</label>
           <div class="color-swatches" id="modal-color-swatches">
@@ -491,6 +502,8 @@
           </select>
           <input type="date" name="scheduled_date" id="modal-return-date" required aria-label="Return visit date">
           <input type="date" name="scheduled_end_date" id="modal-return-end-date" aria-label="Return visit end date">
+          <input type="time" name="scheduled_time" id="modal-return-time" aria-label="Return visit start time">
+          <input type="time" name="scheduled_end_time" id="modal-return-end-time" aria-label="Return visit end time">
           <input type="text" name="notes" id="modal-return-notes" placeholder="Return note">
           <button type="submit" class="btn btn-secondary btn-sm">Add return</button>
         </form>
@@ -769,5 +782,5 @@ document.getElementById('cal-mobile-fab').addEventListener('click', function() {
   var QC_CREWS = [{% for c in filter_crews %}{id:{{ c.id }},name:"{{ c.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
   var QC_EMPLOYEES = [{% for e in filter_employees %}{id:{{ e.id }},name:"{{ e.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
 </script>
-<script src="{% static 'js/calendar.js' %}?v=42"></script>
+<script src="{% static 'js/calendar.js' %}?v=46"></script>
 {% endblock %}

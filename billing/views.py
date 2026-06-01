@@ -5500,13 +5500,18 @@ def estimate_client_accept(request, estimate_id, token):
                     amt = f"${li.line_total:,.2f}" if li.line_total else ""
                     declined_lines_text += f"  - {desc} (optional, not accepted): {amt}\n"
 
+                declined_section = (
+                    f"Optional Items Not Accepted:\n{declined_lines_text}\n"
+                    if declined_lines_text
+                    else ""
+                )
                 body_text = (
                     f"Great news! {estimate.customer.name} has accepted your estimate.\n\n"
                     f"Estimate #{estimate.id}: {estimate.title or 'Service Estimate'}\n"
                     f"Customer: {estimate.customer.name}\n"
                     f"Accepted Total: ${total:,.2f}\n\n"
                     f"Accepted Work:\n{accepted_lines_text}\n"
-                    f"{f'Optional Items Not Accepted:\\n{declined_lines_text}\\n' if declined_lines_text else ''}"
+                    f"{declined_section}"
                     f"Accepted at: {estimate.accepted_at.strftime('%B %d, %Y at %I:%M %p')}\n\n"
                     f"Next steps: Convert to invoice or schedule the work.\n"
                     f"View estimate: {getattr(settings, 'SITE_URL', 'https://app.fieldlgx.com').rstrip('/')}/billing/estimates/{estimate.id}/\n"

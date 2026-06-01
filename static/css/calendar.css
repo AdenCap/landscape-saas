@@ -23,8 +23,53 @@
   --fc-button-active-border-color: var(--primary);
   /* Event colors controlled by eventDidMount in JS — do NOT set CSS defaults here */
   --fc-event-text-color: #fff;
+  --cal-event-text: #fff;
+  --cal-event-subtext: rgba(255,255,255,0.75);
+  --cal-event-muted: rgba(255,255,255,0.62);
+  --cal-event-faint: rgba(255,255,255,0.5);
   --fc-non-business-color: rgba(0, 0, 0, 0.06);
   font-family: var(--font-family);
+}
+
+/* Light theme FullCalendar overrides */
+[data-theme="light"] .fc {
+  --fc-border-color: var(--border);
+  --fc-bg-color: var(--surface-lowest);
+  --fc-highlight-color: var(--primary-light);
+  --fc-neutral-bg-color: var(--surface-container);
+  --fc-list-event-hover-bg-color: var(--surface-high);
+  --fc-page-bg-color: var(--bg);
+  --fc-neutral-text-color: var(--text-secondary);
+  --fc-button-bg-color: var(--surface-lowest);
+  --fc-button-border-color: var(--border);
+  --fc-button-text-color: var(--text);
+  --fc-button-hover-bg-color: var(--surface-high);
+  --fc-event-text-color: #111111;
+  --cal-event-text: #11180f;
+  --cal-event-subtext: rgba(17,24,15,0.76);
+  --cal-event-muted: rgba(17,24,15,0.64);
+  --cal-event-faint: rgba(17,24,15,0.52);
+  --fc-non-business-color: rgba(0, 0, 0, 0.04);
+}
+
+html.theme-light-effective .fc {
+  --fc-border-color: var(--border);
+  --fc-bg-color: var(--surface-lowest);
+  --fc-highlight-color: var(--primary-light);
+  --fc-neutral-bg-color: var(--surface-container);
+  --fc-list-event-hover-bg-color: var(--surface-high);
+  --fc-page-bg-color: var(--bg);
+  --fc-neutral-text-color: var(--text-secondary);
+  --fc-button-bg-color: var(--surface-lowest);
+  --fc-button-border-color: var(--border);
+  --fc-button-text-color: var(--text);
+  --fc-button-hover-bg-color: var(--surface-high);
+  --fc-event-text-color: #111111;
+  --cal-event-text: #11180f;
+  --cal-event-subtext: rgba(17,24,15,0.76);
+  --cal-event-muted: rgba(17,24,15,0.64);
+  --cal-event-faint: rgba(17,24,15,0.52);
+  --fc-non-business-color: rgba(0, 0, 0, 0.04);
 }
 
 /* ── Toolbar ── */
@@ -263,7 +308,7 @@
 
 .fc .fc-timegrid-event .cal-event-crew {
   font-size: 10px;
-  color: rgba(255,255,255,0.7);
+  color: var(--cal-event-muted);
 }
 
 .fc .fc-timegrid-now-indicator-arrow {
@@ -376,6 +421,10 @@
   text-shadow: 0 1px 2px rgba(0,0,0,0.5), 0 0px 4px rgba(0,0,0,0.3);
 }
 
+html.theme-light-effective .cal-event-card {
+  text-shadow: none;
+}
+
 .cal-event-dot {
   width: 6px;
   height: 6px;
@@ -395,7 +444,7 @@
 .cal-event-name {
   font-weight: 700;
   font-size: 12px;
-  color: #fff;
+  color: var(--cal-event-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -406,7 +455,7 @@
 .cal-event-svc {
   font-size: 11px;
   font-weight: 700;
-  color: #fff;
+  color: var(--cal-event-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -416,7 +465,7 @@
 
 .cal-event-addr {
   font-size: 10px;
-  color: rgba(255,255,255,0.75);
+  color: var(--cal-event-subtext);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -455,7 +504,7 @@
 .cal-event-crew {
   font-size: 10px;
   font-weight: 600;
-  color: rgba(255,255,255,0.65);
+  color: var(--cal-event-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -466,14 +515,14 @@
 .cal-event-recur {
   font-size: 9px;
   font-weight: 600;
-  color: rgba(255,255,255,0.5);
+  color: var(--cal-event-faint);
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
 .cal-event-time {
   font-size: 10px;
   font-weight: 700;
-  color: #fff;
+  color: var(--cal-event-text);
   flex-shrink: 0;
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
@@ -803,7 +852,7 @@
   font-size: 11px;
   font-weight: 700;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   padding: 2px 7px;
   border-radius: 10px;
   transition: opacity var(--motion-base) var(--motion-ease);
@@ -1129,7 +1178,7 @@ body.is-dragging * {
 
 .rain-modal-options .btn.selected {
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   border-color: var(--primary);
 }
 
@@ -1344,7 +1393,11 @@ body.modal-open {
 }
 
 #job-modal .job-command-card {
+  display: flex;
+  flex-direction: column;
   max-width: 760px;
+  max-height: min(92vh, 900px);
+  overflow: hidden;
   border-radius: 28px;
   border-color: rgba(255,255,255,0.16);
   background:
@@ -1378,7 +1431,9 @@ body.modal-open {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 0.78fr);
   gap: 14px;
-  padding: 16px 24px 4px;
+  padding: 16px 24px 96px;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 #job-modal .job-mobile-summary {
@@ -3473,4 +3528,130 @@ body.modal-open {
   .fc .fc-daygrid-day {
     min-height: 60px;
   }
+}
+
+
+/* Effective light theme contrast fixes for dark-theme-only calendar/modal rules. */
+html.theme-light-effective #job-modal .job-summary-address,
+html.theme-light-effective #job-modal .modal-services-list li small,
+html.theme-light-effective #job-modal .modal-services-list li span,
+html.theme-light-effective .cal-event-card--list .cal-event-addr,
+html.theme-light-effective .cal-event-card--list .cal-event-crew {
+  color: var(--text-secondary) !important;
+  text-shadow: none !important;
+}
+
+html.theme-light-effective #job-modal .modal-body label {
+  color: var(--text-muted) !important;
+}
+
+html.theme-light-effective .cal-event-name,
+html.theme-light-effective .cal-event-svc,
+html.theme-light-effective .cal-event-time,
+html.theme-light-effective .fc-timegrid-event .cal-event-name,
+html.theme-light-effective .fc-timegrid-event .cal-event-svc,
+html.theme-light-effective .fc-timegrid-event .cal-event-time {
+  color: var(--cal-event-text) !important;
+  text-shadow: none !important;
+}
+
+html.theme-light-effective .fc-timegrid-event .cal-event-crew,
+html.theme-light-effective .cal-event-addr,
+html.theme-light-effective .cal-event-crew,
+html.theme-light-effective .cal-event-recur {
+  text-shadow: none !important;
+}
+
+html.theme-light-effective .fc .fc-col-header-cell {
+  background: var(--surface-container) !important;
+  border-color: var(--border) !important;
+}
+
+html.theme-light-effective .fc .fc-col-header-cell-cushion {
+  color: var(--text-secondary) !important;
+}
+
+html.theme-light-effective .fc .fc-day-today .fc-col-header-cell-cushion {
+  color: var(--primary-dark, var(--primary)) !important;
+}
+
+html.theme-light-effective .fc .fc-daygrid-day:hover {
+  background: var(--surface-container) !important;
+}
+
+html.theme-light-effective .fc .fc-daygrid-day-number {
+  color: var(--text-secondary) !important;
+}
+
+html.theme-light-effective .fc .fc-day-other {
+  background: rgba(0, 0, 0, 0.03) !important;
+}
+
+html.theme-light-effective .mobile-fab,
+html.theme-light-effective .color-mode-btn.active {
+  color: var(--on-primary) !important;
+}
+
+/* Per-day crew assignment editor */
+.job-day-assignment-panel {
+  grid-column: 1 / -1;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.035);
+}
+.job-panel-subtitle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 10px 0 8px;
+}
+.job-panel-subtitle strong { color: var(--text); font-size: 13px; }
+.job-panel-subtitle span { color: var(--text-muted); font-size: 11px; }
+.job-day-assignment-list {
+  display: grid;
+  gap: 8px;
+}
+.job-day-assignment-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-surface-hover);
+}
+.job-day-assignment-date {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  padding-top: 8px;
+}
+.job-day-assignment-row select,
+.job-day-assignment-row input {
+  width: 100%;
+  min-height: 34px;
+}
+.job-day-employee-pills {
+  display: grid;
+  gap: 4px;
+  max-height: 150px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.job-day-employee-pills label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  font-size: 12px;
+  color: var(--text);
+}
+@media (max-width: 760px) {
+  .job-day-assignment-row { grid-template-columns: 1fr; }
 }

@@ -166,7 +166,9 @@ class GlobalRateLimitMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if getattr(settings, "DISABLE_GLOBAL_RATE_LIMIT", False):
+        # Unit/integration tests make many same-IP writes in one process; do not
+        # let abuse protection mask the application behavior under test.
+        if getattr(settings, "DISABLE_GLOBAL_RATE_LIMIT", False) or getattr(settings, "TESTING", False):
             return self.get_response(request)
 
         # Only rate-limit write methods

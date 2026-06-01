@@ -1,18 +1,21 @@
 import json
+from pathlib import Path
 from decimal import Decimal
-from datetime import date, time
+from datetime import date, datetime, time, timedelta
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 from django.db.models import Q
+from django.utils import timezone
 
 from accounts.models import User
 from billing.models import Estimate, EstimateImage, EstimateLineItem, Invoice
 from businesses.models import Business
 from customers.models import Customer, Property
-from jobs.models import Crew, Job, JobNote, JobPhoto, JobServiceItem, JobWorkVisit, PropertyNote, RecurringJob
+from jobs.models import Crew, Job, JobDayAssignment, JobNote, JobPhoto, JobServiceItem, JobWorkVisit, Meeting, PropertyNote, RecurringJob
 from jobs.services import generate_jobs
 from pricing.models import ServiceTemplate
 
@@ -60,7 +63,9 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
             description="Base cleanup",
             detail_description="Remove leaves, cut back grasses, and haul debris.",
             quantity=1,
-            unit_price=Decimal("300.00"),
+            unit_price=Decimal("0.00"),
+            material_cost=Decimal("180.00"),
+            labor_cost=Decimal("120.00"),
         )
         selected = EstimateLineItem.objects.create(
             estimate=estimate,
@@ -79,6 +84,18 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
         )
         estimate.accepted_optional_item_ids = [selected.id]
         estimate.save(update_fields=["accepted_optional_item_ids"])
+        EstimateImage.objects.create(
+            estimate=estimate,
+            image="estimates/2026/05/front-bed-before.jpg",
+            caption="Front bed before cleanup",
+            order=1,
+        )
+        EstimateImage.objects.create(
+            estimate=estimate,
+            image="estimates/2026/05/gate-access.jpg",
+            caption="Gate/access point",
+            order=2,
+        )
         return estimate, selected, declined
 
     def test_schedule_from_estimate_copies_only_accepted_items_to_job(self):
@@ -112,6 +129,61 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
             "Remove leaves, cut back grasses, and haul debris.",
             "Install 3 yards around front beds.",
         ])
+
+    def test_schedule_from_estimate_transfers_photos_to_job_site_photos(self):
+        estimate, _selected, _declined = self._accepted_estimate_with_options()
+
+        response = self.client.post(
+            reverse("schedule_from_estimate", args=[estimate.id]),
+            data={"schedule_date": "2026-05-06"},
+        )
+
+        self.assertRedirects(response, reverse("job_list"))
+        job = Job.objects.get(property=self.property, scheduled_date=date(2026, 5, 6))
+        photos = list(job.site_photos.order_by("caption"))
+        self.assertEqual(len(photos), 2)
+        self.assertEqual({photo.caption for photo in photos}, {"Front bed before cleanup", "Gate/access point"})
+        self.assertEqual({photo.category for photo in photos}, {"before"})
+        self.assertEqual({photo.uploaded_by_id for photo in photos}, {self.owner.id})
+        self.assertIn("estimates/2026/05/front-bed-before.jpg", {photo.image.name for photo in photos})
+
+    def test_estimate_to_scheduled_job_to_completed_job_to_invoice_preserves_quote_details(self):
+        self.customer.invoice_frequency = "per_service"
+        self.customer.save(update_fields=["invoice_frequency"])
+        estimate, _selected, _declined = self._accepted_estimate_with_options()
+
+        response = self.client.post(
+            reverse("schedule_from_estimate", args=[estimate.id]),
+            data={"schedule_date": "2026-05-06"},
+        )
+        self.assertRedirects(response, reverse("job_list"))
+        job = Job.objects.get(property=self.property, scheduled_date=date(2026, 5, 6))
+
+        self.assertIn("From estimate", job.notes)
+        self.assertEqual(job.site_photos.count(), 2)
+        job_items = list(job.service_items.order_by("id"))
+        self.assertEqual([item.description for item in job_items], ["Base cleanup", "Mulch refresh"])
+        self.assertEqual([item.detail_description for item in job_items], [
+            "Remove leaves, cut back grasses, and haul debris.",
+            "Install 3 yards around front beds.",
+        ])
+        self.assertEqual([item.unit_price for item in job_items], [Decimal("300.00"), Decimal("125.00")])
+
+        response = self.client.post(reverse("complete_job", args=[job.id]))
+
+        invoice = Invoice.objects.get(job=job)
+        self.assertRedirects(response, reverse("billing:invoice_detail", args=[invoice.id]))
+        job.refresh_from_db()
+        self.assertEqual(job.status, "completed")
+        self.assertEqual(job.site_photos.count(), 2)
+        invoice_items = list(invoice.line_items.order_by("id"))
+        self.assertEqual([item.description for item in invoice_items], ["Base cleanup", "Mulch refresh"])
+        self.assertEqual([item.detail_description for item in invoice_items], [
+            "Remove leaves, cut back grasses, and haul debris.",
+            "Install 3 yards around front beds.",
+        ])
+        self.assertEqual([item.unit_price for item in invoice_items], [Decimal("300.00"), Decimal("125.00")])
+        self.assertEqual(invoice.total, Decimal("425.00"))
 
     def test_accepted_estimate_can_be_scheduled_and_invoiced_without_existing_service_templates(self):
         self.service.delete()
@@ -154,7 +226,8 @@ class EstimateSchedulingOptionalItemsTests(TestCase):
 
         self.assertRedirects(response, reverse("job_list"))
         job = Job.objects.get(property=self.property, scheduled_date=date(2026, 5, 6))
-        photo = JobPhoto.objects.get(job=job)
+        self.assertEqual(JobPhoto.objects.filter(job=job).count(), 3)
+        photo = JobPhoto.objects.get(job=job, caption="Front bed before cleanup.")
         self.assertEqual(photo.caption, "Front bed before cleanup.")
         self.assertEqual(photo.category, "before")
         self.assertIn("before-bed", photo.image.name)
@@ -397,6 +470,8 @@ class JobServiceItemSchedulingTests(TestCase):
         self.assertEqual(payload["visit"]["notes"], "Finish cleanup after inspection.")
 
     def test_owner_can_move_return_visit_without_moving_original_job(self):
+        self.job.scheduled_time = time(8, 0)
+        self.job.save(update_fields=["scheduled_time"])
         visit = JobWorkVisit.objects.create(
             job=self.job,
             service_item=self.item,
@@ -409,6 +484,8 @@ class JobServiceItemSchedulingTests(TestCase):
             data=json.dumps({
                 "scheduled_date": "2026-05-23",
                 "scheduled_end_date": "2026-05-24",
+                "scheduled_time": "13:30",
+                "scheduled_end_time": "15:00",
             }),
             content_type="application/json",
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
@@ -419,7 +496,40 @@ class JobServiceItemSchedulingTests(TestCase):
         self.job.refresh_from_db()
         self.assertEqual(visit.scheduled_date, date(2026, 5, 23))
         self.assertEqual(visit.scheduled_end_date, date(2026, 5, 24))
+        self.assertEqual(visit.scheduled_time, time(13, 30))
+        self.assertEqual(visit.scheduled_end_time, time(15, 0))
+        self.assertEqual(response.json()["visit"]["scheduled_time"], "13:30")
+        self.assertEqual(response.json()["visit"]["scheduled_end_time"], "15:00")
         self.assertEqual(self.job.scheduled_date, date(2026, 5, 11))
+        self.assertEqual(self.job.scheduled_time, time(8, 0))
+
+    def test_partial_return_visit_update_preserves_existing_times(self):
+        visit = JobWorkVisit.objects.create(
+            job=self.job,
+            service_item=self.item,
+            scheduled_date=date(2026, 5, 19),
+            scheduled_time=time(10, 0),
+            scheduled_end_time=time(11, 15),
+            notes="Return after pavers arrive.",
+        )
+
+        response = self.client.post(
+            reverse("update_job_work_visit", args=[self.job.id, visit.id]),
+            data=json.dumps({
+                "scheduled_date": "2026-05-20",
+                "scheduled_end_date": "",
+            }),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        visit.refresh_from_db()
+        self.assertEqual(visit.scheduled_date, date(2026, 5, 20))
+        self.assertEqual(visit.scheduled_time, time(10, 0))
+        self.assertEqual(visit.scheduled_end_time, time(11, 15))
+        self.assertEqual(response.json()["visit"]["scheduled_time"], "10:00")
+        self.assertEqual(response.json()["visit"]["scheduled_end_time"], "11:15")
 
     def test_owner_can_remove_return_visit_inline_from_calendar_modal(self):
         visit = JobWorkVisit.objects.create(
@@ -438,10 +548,14 @@ class JobServiceItemSchedulingTests(TestCase):
         self.assertFalse(JobWorkVisit.objects.filter(id=visit.id).exists())
 
     def test_calendar_events_include_return_visit_without_moving_original_job(self):
+        self.job.scheduled_time = time(8, 0)
+        self.job.save(update_fields=["scheduled_time"])
         JobWorkVisit.objects.create(
             job=self.job,
             service_item=self.item,
             scheduled_date=date(2026, 5, 19),
+            scheduled_time=time(13, 30),
+            scheduled_end_time=time(15, 0),
             notes="Return after pavers arrive.",
         )
 
@@ -454,7 +568,8 @@ class JobServiceItemSchedulingTests(TestCase):
         self.assertEqual(len(original), 1)
         self.assertEqual(original[0]["start"], "2026-05-11")
         self.assertEqual(len(returns), 1)
-        self.assertEqual(returns[0]["start"], "2026-05-19T08:00:00")
+        self.assertEqual(returns[0]["start"], "2026-05-19T13:30:00")
+        self.assertEqual(returns[0]["end"], "2026-05-19T15:00:00")
         self.assertEqual(returns[0]["extendedProps"]["jobId"], self.job.id)
         self.assertTrue(returns[0]["extendedProps"]["returnVisit"])
 
@@ -590,6 +705,88 @@ class CalendarRecurringRescheduleTests(TestCase):
         self.assertEqual(next_job.scheduled_time, time(8, 0))
         self.assertEqual(next_job.scheduled_end_time, time(9, 0))
         self.assertEqual(self.recurring_job.start_date, date(2026, 5, 4))
+
+    def test_reschedule_in_progress_job_clears_actual_times_so_calendar_does_not_snap_back(self):
+        job = self._create_job(date(2026, 5, 4), start_time=time(8, 0), end_time=time(9, 0))
+        started_at = timezone.make_aware(datetime(2026, 5, 4, 8, 15))
+        job.status = "in_progress"
+        job.started_at = started_at
+        job.save(update_fields=["status", "started_at"])
+
+        response = self.client.post(
+            reverse("calendar_job_reschedule", args=[job.id]),
+            data=json.dumps(
+                {
+                    "scheduled_date": "2026-05-06T10:30:00",
+                    "scheduled_end": "2026-05-06T12:00:00",
+                    "apply_to_future": False,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        job.refresh_from_db()
+        self.assertEqual(job.scheduled_date, date(2026, 5, 6))
+        self.assertEqual(job.scheduled_time, time(10, 30))
+        self.assertEqual(job.scheduled_end_time, time(12, 0))
+        self.assertIsNone(job.started_at)
+        self.assertIsNone(job.completed_at)
+
+    def test_calendar_events_use_planned_time_not_completed_actual_time(self):
+        job = self._create_job(date(2026, 5, 4), start_time=time(8, 0), end_time=time(9, 0))
+        job.status = "completed"
+        job.started_at = timezone.make_aware(datetime(2026, 5, 4, 14, 15))
+        job.completed_at = timezone.make_aware(datetime(2026, 5, 4, 15, 45))
+        job.save(update_fields=["status", "started_at", "completed_at"])
+
+        response = self.client.get(
+            reverse("calendar_events"),
+            {"start": "2026-05-04", "end": "2026-05-05"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        event = next(e for e in response.json() if e["id"] == str(job.id))
+        self.assertEqual(event["start"], "2026-05-04T08:00:00")
+        self.assertEqual(event["end"], "2026-05-04T09:00:00")
+
+    def test_calendar_events_use_planned_time_not_in_progress_actual_time(self):
+        job = self._create_job(date(2026, 5, 4), start_time=time(8, 0), end_time=time(9, 0))
+        job.status = "in_progress"
+        job.started_at = timezone.make_aware(datetime(2026, 5, 4, 11, 20))
+        job.save(update_fields=["status", "started_at"])
+
+        response = self.client.get(
+            reverse("calendar_events"),
+            {"start": "2026-05-04", "end": "2026-05-05"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        event = next(e for e in response.json() if e["id"] == str(job.id))
+        self.assertEqual(event["start"], "2026-05-04T08:00:00")
+        self.assertEqual(event["end"], "2026-05-04T09:00:00")
+
+    def test_meeting_can_be_rescheduled_from_calendar_drag_without_defaulting_time(self):
+        meeting = Meeting.objects.create(
+            business=self.business,
+            title="Estimate walk-through",
+            customer=self.customer,
+            scheduled_at=timezone.make_aware(datetime(2026, 5, 4, 9, 0)),
+            duration_minutes=45,
+            created_by=self.owner,
+        )
+
+        response = self.client.post(
+            reverse("calendar_meeting_reschedule", args=[meeting.id]),
+            data=json.dumps({"scheduled_at": "2026-05-06T14:35:00"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        meeting.refresh_from_db()
+        self.assertEqual(timezone.localtime(meeting.scheduled_at).date(), date(2026, 5, 6))
+        self.assertEqual(timezone.localtime(meeting.scheduled_at).time().replace(tzinfo=None), time(14, 35))
+        self.assertEqual(meeting.duration_minutes, 45)
 
     def test_reschedule_recurring_job_to_future_updates_times_when_date_does_not_change(self):
         selected_job = self._create_job(date(2026, 5, 4))
@@ -900,6 +1097,125 @@ class CalendarRecurringRescheduleTests(TestCase):
         self.assertIsNone(self.recurring_job.assigned_crew_id)
         self.assertEqual(self.recurring_job.assigned_to_id, employee.id)
 
+    def test_multi_day_day_assignment_changes_one_day_without_touching_other_days(self):
+        crew_a = Crew.objects.create(business=self.business, name="Crew A")
+        crew_b = Crew.objects.create(business=self.business, name="Crew B")
+        job = self._create_job(date(2026, 5, 4), start_time=None, end_time=None)
+        job.scheduled_end_date = date(2026, 5, 6)
+        job.assigned_crew = crew_a
+        job.save(update_fields=["scheduled_end_date", "assigned_crew"])
+
+        response = self.client.post(
+            reverse("calendar_job_day_assignment_update", args=[job.id]),
+            data=json.dumps({"date": "2026-05-05", "assigned_crew_id": crew_b.id}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        job.refresh_from_db()
+        self.assertEqual(job.assigned_crew_id, crew_a.id)
+        self.assertEqual(JobDayAssignment.objects.get(job=job, date=date(2026, 5, 5)).assigned_crew_id, crew_b.id)
+        self.assertFalse(JobDayAssignment.objects.filter(job=job, date=date(2026, 5, 4)).exists())
+        self.assertFalse(JobDayAssignment.objects.filter(job=job, date=date(2026, 5, 6)).exists())
+
+    def test_crew_today_uses_day_assignment_override_for_multi_day_job(self):
+        today = timezone.localdate()
+        crew_a_user = User.objects.create_user(username="crew-a", password="password", role="crew", business=self.business)
+        crew_b_user = User.objects.create_user(username="crew-b", password="password", role="crew", business=self.business)
+        crew_a = Crew.objects.create(business=self.business, name="Crew A")
+        crew_b = Crew.objects.create(business=self.business, name="Crew B")
+        crew_a.members.add(crew_a_user)
+        crew_b.members.add(crew_b_user)
+        job = self._create_job(today, start_time=None, end_time=None)
+        job.scheduled_end_date = today + timedelta(days=2)
+        job.assigned_crew = crew_a
+        job.save(update_fields=["scheduled_end_date", "assigned_crew"])
+        JobDayAssignment.objects.create(job=job, date=today, assigned_crew=crew_b)
+
+        self.client.force_login(crew_a_user)
+        response_a = self.client.get(reverse("crew_today"))
+        self.assertEqual(response_a.status_code, 200)
+        self.assertNotIn(job, list(response_a.context["jobs"]))
+
+        self.client.force_login(crew_b_user)
+        response_b = self.client.get(reverse("crew_today"))
+        self.assertEqual(response_b.status_code, 200)
+        self.assertIn(job, list(response_b.context["jobs"]))
+
+    def test_calendar_crew_filter_uses_day_assignment_override_for_multi_day_job(self):
+        crew_a = Crew.objects.create(business=self.business, name="Crew A")
+        crew_b = Crew.objects.create(business=self.business, name="Crew B")
+        job = self._create_job(date(2026, 5, 4), start_time=None, end_time=None)
+        job.scheduled_end_date = date(2026, 5, 6)
+        job.assigned_crew = crew_a
+        job.save(update_fields=["scheduled_end_date", "assigned_crew"])
+        JobDayAssignment.objects.create(job=job, date=date(2026, 5, 5), assigned_crew=crew_b)
+
+        response_a = self.client.get(reverse("calendar_events"), {
+            "start": "2026-05-05",
+            "end": "2026-05-06",
+            "crews": str(crew_a.id),
+        })
+        response_b = self.client.get(reverse("calendar_events"), {
+            "start": "2026-05-05",
+            "end": "2026-05-06",
+            "crews": str(crew_b.id),
+        })
+        response_b_week = self.client.get(reverse("calendar_events"), {
+            "start": "2026-05-04",
+            "end": "2026-05-07",
+            "crews": str(crew_b.id),
+        })
+        response_all_week = self.client.get(reverse("calendar_events"), {
+            "start": "2026-05-04",
+            "end": "2026-05-07",
+        })
+
+        self.assertEqual(response_a.status_code, 200)
+        self.assertEqual(response_b.status_code, 200)
+        self.assertEqual(response_b_week.status_code, 200)
+        self.assertEqual(response_all_week.status_code, 200)
+        self.assertEqual(response_a.json(), [])
+        self.assertEqual(response_b.json()[0]["extendedProps"]["jobId"], job.id)
+        self.assertEqual(response_b.json()[0]["start"], "2026-05-05")
+        self.assertEqual(response_b.json()[0]["end"], "2026-05-06")
+        self.assertEqual(response_b.json()[0]["extendedProps"]["crew"], "Crew B")
+        self.assertEqual(response_b.json()[0]["extendedProps"]["crewIds"], [crew_b.id])
+        self.assertIs(response_b.json()[0]["editable"], False)
+        self.assertIs(response_b.json()[0]["durationEditable"], False)
+        self.assertEqual(len(response_b_week.json()), 1)
+        self.assertEqual(response_b_week.json()[0]["start"], "2026-05-05")
+        self.assertEqual(response_b_week.json()[0]["end"], "2026-05-06")
+        self.assertEqual(response_b_week.json()[0]["extendedProps"]["crewIds"], [crew_b.id])
+        self.assertEqual(
+            [(event["start"], event["end"], event["extendedProps"]["crewIds"]) for event in response_all_week.json()],
+            [
+                ("2026-05-04", "2026-05-05", [crew_a.id]),
+                ("2026-05-05", "2026-05-06", [crew_b.id]),
+                ("2026-05-06", "2026-05-07", [crew_a.id]),
+            ],
+        )
+
+    def test_calendar_template_loads_current_split_crew_javascript(self):
+        response = self.client.get(reverse("calendar"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "static/js/calendar.js?v=46")
+        self.assertContains(response, "modal-apple-directions")
+        self.assertContains(response, "modal-google-directions")
+
+        js = Path(settings.BASE_DIR) / "static" / "js" / "calendar.js"
+        script = js.read_text()
+        self.assertIn("function crewEventOrder", script)
+        self.assertIn("slotEventOverlap: false", script)
+        self.assertIn("calendar.rerenderEvents()", script)
+        self.assertIn("modal-apple-directions", script)
+        self.assertIn("modal-google-directions", script)
+        self.assertIn("https://maps.apple.com/?daddr=", script)
+        self.assertIn("function buildReturnVisitCalendarPayload", script)
+        self.assertIn("payload.scheduled_time = formatTimeInput(start)", script)
+        self.assertIn("payload.scheduled_end_time = end ? formatTimeInput(end) : ''", script)
+
 
 class MowingFrequencyUpdateTests(TestCase):
     def setUp(self):
@@ -1084,6 +1400,197 @@ class MowingFrequencyUpdateTests(TestCase):
 
         item = JobServiceItem.objects.get(job__scheduled_date=date(2026, 5, 1))
         self.assertEqual(item.description, "Mowing")
+
+
+class CrewTodayDirectCompletionTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(
+            name="Green Valley",
+            subscription_status="active",
+        )
+        self.owner = User.objects.create_user(
+            username="crew-owner",
+            password="password",
+            role="owner",
+            business=self.business,
+        )
+        self.customer = Customer.objects.create(
+            business=self.business,
+            name="Direct Complete Client",
+        )
+        self.property = Property.objects.create(
+            customer=self.customer,
+            address="123 Direct Complete Ave",
+        )
+        self.job = Job.objects.create(
+            property=self.property,
+            scheduled_date=date(2026, 5, 22),
+            status="scheduled",
+        )
+        self.client.force_login(self.owner)
+
+    @patch("jobs.views._business_today")
+    def test_scheduled_crew_stop_shows_complete_job_button(self, mock_today):
+        mock_today.return_value = date(2026, 5, 22)
+
+        response = self.client.get(reverse("crew_today"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("complete_job", args=[self.job.id]))
+        self.assertContains(response, 'class="js-complete-job-form"')
+        self.assertContains(response, "Complete Job")
+
+    def test_ajax_can_complete_scheduled_job_without_starting_or_on_my_way(self):
+        response = self.client.post(
+            reverse("complete_job", args=[self.job.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, "completed")
+        self.assertIsNotNone(self.job.completed_at)
+        self.assertIsNone(self.job.started_at)
+        self.assertIsNone(self.job.en_route_at)
+
+    @patch("jobs.views._business_today")
+    def test_scheduled_crew_stop_shows_job_and_recurring_notes_on_card(self, mock_today):
+        mock_today.return_value = date(2026, 5, 22)
+        recurring = RecurringJob.objects.create(
+            property=self.property,
+            frequency="weekly",
+            start_date=date(2026, 5, 1),
+            notes="Recurring note: watch sprinkler heads.",
+        )
+        self.job.recurring_job = recurring
+        self.job.notes = "Crew note: backyard gate sticks."
+        self.job.save(update_fields=["recurring_job", "notes"])
+        JobNote.objects.create(
+            job=self.job,
+            author=self.owner,
+            text="Job note: customer requested short trim today.",
+            visibility=JobNote.VISIBILITY_CREW,
+        )
+
+        response = self.client.get(reverse("crew_today"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Recurring note")
+        self.assertContains(response, "Recurring note: watch sprinkler heads.")
+        self.assertContains(response, "Crew note")
+        self.assertContains(response, "Crew note: backyard gate sticks.")
+        self.assertContains(response, "Job note")
+        self.assertContains(response, "Job note: customer requested short trim today.")
+
+    @patch("jobs.views._business_today")
+    def test_scheduled_crew_stop_shows_attached_job_photos_on_card(self, mock_today):
+        mock_today.return_value = date(2026, 5, 22)
+        JobPhoto.objects.create(
+            job=self.job,
+            image="job_photos/2026/05/front-bed-before.jpg",
+            category="before",
+            caption="Front bed before cleanup",
+            uploaded_by=self.owner,
+        )
+
+        response = self.client.get(reverse("crew_today"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Job photos")
+        self.assertContains(response, "View / add")
+        self.assertContains(response, "/media/job_photos/2026/05/front-bed-before.jpg")
+        self.assertContains(response, "Front bed before cleanup")
+        self.assertContains(response, "Before")
+
+    @patch("jobs.views._business_today")
+    def test_scheduled_crew_stop_has_apple_and_google_directions_buttons(self, mock_today):
+        mock_today.return_value = date(2026, 5, 22)
+
+        response = self.client.get(reverse("crew_today"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Apple Maps")
+        self.assertContains(response, "Google Maps")
+        self.assertContains(response, "https://maps.apple.com/?daddr=123%20Direct%20Complete%20Ave")
+        self.assertContains(response, "https://www.google.com/maps/dir/?api=1&destination=123%20Direct%20Complete%20Ave")
+        self.assertContains(response, "jc-direction-grid")
+
+    @patch("jobs.views._business_today")
+    def test_crew_today_matches_owner_calendar_time_order_before_route_order(self, mock_today):
+        mock_today.return_value = date(2026, 5, 22)
+        self.job.route_order = 2
+        self.job.scheduled_time = time(8, 0)
+        self.job.save(update_fields=["route_order", "scheduled_time"])
+
+        second_customer = Customer.objects.create(business=self.business, name="Second Calendar Client")
+        second_property = Property.objects.create(customer=second_customer, address="222 Calendar Order Ave")
+        second_job = Job.objects.create(
+            property=second_property,
+            scheduled_date=date(2026, 5, 22),
+            scheduled_time=time(10, 0),
+            route_order=0,
+            status="scheduled",
+        )
+        third_customer = Customer.objects.create(business=self.business, name="Third Calendar Client")
+        third_property = Property.objects.create(customer=third_customer, address="333 Calendar Order Ave")
+        third_job = Job.objects.create(
+            property=third_property,
+            scheduled_date=date(2026, 5, 22),
+            scheduled_time=time(9, 0),
+            route_order=1,
+            status="scheduled",
+        )
+
+        calendar_response = self.client.get(reverse("calendar_events"), {"start": "2026-05-22", "end": "2026-05-23"})
+        calendar_events = [
+            event for event in calendar_response.json()
+            if event["id"] in {str(self.job.id), str(second_job.id), str(third_job.id)}
+        ]
+        owner_calendar_order = [event["id"] for event in sorted(calendar_events, key=lambda event: event["start"])]
+
+        response = self.client.get(reverse("crew_today"))
+        crew_order = [str(job.id) for job in response.context["jobs"]]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(owner_calendar_order, crew_order)
+
+    @patch("jobs.views._business_today")
+    def test_crew_today_includes_small_phone_layout_rules(self, mock_today):
+        mock_today.return_value = date(2026, 5, 22)
+
+        response = self.client.get(reverse("crew_today"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "@media (max-width:480px)")
+        self.assertContains(response, "grid-template-columns:1fr 1fr")
+        self.assertContains(response, "min-height:48px")
+
+    def test_job_notes_endpoint_includes_job_specific_and_recurring_notes(self):
+        recurring = RecurringJob.objects.create(
+            property=self.property,
+            frequency="weekly",
+            start_date=date(2026, 5, 1),
+            notes="Recurring JSON note.",
+        )
+        self.job.recurring_job = recurring
+        self.job.save(update_fields=["recurring_job"])
+        JobNote.objects.create(
+            job=self.job,
+            author=self.owner,
+            text="Job-specific JSON note.",
+            visibility=JobNote.VISIBILITY_CREW,
+        )
+
+        response = self.client.get(reverse("get_job_notes", args=[self.job.id]))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        note_texts = [note["text"] for note in payload["notes"]]
+        note_types = {note["text"]: note["note_type"] for note in payload["notes"]}
+        self.assertIn("Recurring JSON note.", note_texts)
+        self.assertIn("Job-specific JSON note.", note_texts)
+        self.assertEqual(note_types["Recurring JSON note."], "recurring")
+        self.assertEqual(note_types["Job-specific JSON note."], "job")
 
 
 class JobCompletionAutoChargeTests(TestCase):

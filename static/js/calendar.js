@@ -43,6 +43,20 @@ document.addEventListener('DOMContentLoaded', function () {
   var STORAGE_CREW_LANES = 'fieldlgx_calendar_crew_lanes';
   var crewLanesMode = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_CREW_LANES) === '1');
 
+  function crewEventOrder(a, b) {
+    if (!crewLanesMode) return 0;
+    var aProps = (a && a.extendedProps) || {};
+    var bProps = (b && b.extendedProps) || {};
+    var aCrew = aProps.crewSortKey || 'zz-unassigned';
+    var bCrew = bProps.crewSortKey || 'zz-unassigned';
+    if (aCrew < bCrew) return -1;
+    if (aCrew > bCrew) return 1;
+    var aStart = a && a.start ? a.start.getTime() : 0;
+    var bStart = b && b.start ? b.start.getTime() : 0;
+    if (aStart !== bStart) return aStart - bStart;
+    return String((a && a.id) || '').localeCompare(String((b && b.id) || ''));
+  }
+
   // ── Helper functions ──
   function pad2(n) { return String(n).padStart(2, '0'); }
 
@@ -55,6 +69,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function formatDateTimeStr(d) {
     return formatDateStr(d) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+  }
+
+  function formatTimeInput(d) {
+    if (!d || !d.getHours) return '';
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+
+  function buildReturnVisitCalendarPayload(event) {
+    var start = event.start;
+    var end = event.end;
+    var payload = {
+      scheduled_date: formatDateStr(start),
+      scheduled_end_date: null,
+      scheduled_time: '',
+      scheduled_end_time: ''
+    };
+    if (end) {
+      if (event.allDay) {
+        var returnLastDay = new Date(end.getTime() - 86400000);
+        payload.scheduled_end_date = returnLastDay > start ? formatDateStr(returnLastDay) : null;
+      } else if (formatDateStr(end) > formatDateStr(start)) {
+        payload.scheduled_end_date = formatDateStr(end);
+      }
+    }
+    if (!event.allDay) {
+      payload.scheduled_time = formatTimeInput(start);
+      payload.scheduled_end_time = end ? formatTimeInput(end) : '';
+    }
+    return payload;
   }
 
   function formatTimeShort(d) {
@@ -203,6 +246,7 @@ document.addEventListener('DOMContentLoaded', function () {
     height: isMobile ? 'calc(100vh - 130px)' : 'calc(100vh - 120px)',
     dayMaxEvents: isMobile ? 3 : 5,
     slotEventOverlap: false,
+    eventOrder: crewEventOrder,
     // When crew-lanes mode is ON, raise the cap so all overlapping crews render side-by-side.
     // On mobile, lanes mode is ignored (screen too narrow for useful side-by-side layout).
     eventMaxStack: isMobile ? 2 : (crewLanesMode ? 12 : 3),
@@ -325,29 +369,44 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Drag event to reschedule ──
     eventDrop: function(info) {
-      var jobId = info.event.extendedProps?.jobId;
+      var props = info.event.extendedProps || {};
+      var meetingId = props.meetingId;
+      if (props.type === 'meeting' && meetingId) {
+        var meetingStart = info.event.start;
+        var meetingEnd = info.event.end;
+        var meetingPayload = { scheduled_at: formatDateTimeStr(meetingStart) };
+        if (meetingStart && meetingEnd) {
+          meetingPayload.duration_minutes = Math.max(1, Math.round((meetingEnd.getTime() - meetingStart.getTime()) / 60000));
+        }
+        fetch('/jobs/calendar/meeting/' + meetingId + '/reschedule/', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+          body: JSON.stringify(meetingPayload)
+        }).then(function(r) {
+          if (!r.ok) {
+            info.revert();
+            return r.json().then(function(d) { throw new Error((d && d.error) || 'Could not move meeting'); });
+          }
+          return r.json();
+        }).then(function() {
+          showToast('Meeting rescheduled');
+        }).catch(function(err) {
+          info.revert();
+          showToast(err.message || 'Could not move meeting', 'error');
+        });
+        return;
+      }
+      var jobId = props?.jobId;
       if (!jobId) return;
       // Guard against rapid double-fires (debounce at 120ms)
       if (window._calDropBusy) { info.revert(); return; }
       window._calDropBusy = true;
       setTimeout(function() { window._calDropBusy = false; }, 120);
 
-      var props = info.event.extendedProps || {};
       var start = info.event.start;
       var end = info.event.end;
       if (props.returnVisit && props.visitId) {
-        var returnPayload = {
-          scheduled_date: formatDateStr(start),
-          scheduled_end_date: null
-        };
-        if (end) {
-          if (info.event.allDay) {
-            var returnLastDay = new Date(end.getTime() - 86400000);
-            returnPayload.scheduled_end_date = returnLastDay > start ? formatDateStr(returnLastDay) : null;
-          } else if (formatDateStr(end) > formatDateStr(start)) {
-            returnPayload.scheduled_end_date = formatDateStr(end);
-          }
-        }
+        var returnPayload = buildReturnVisitCalendarPayload(info.event);
         fetch('/jobs/' + jobId + '/visits/' + props.visitId + '/update/', {
           method: 'POST', credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF(), 'X-Requested-With': 'XMLHttpRequest' },
@@ -428,24 +487,39 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Resize event (change duration) ──
     eventResize: function(info) {
-      var jobId = info.event.extendedProps?.jobId;
-      if (!jobId) return;
       var props = info.event.extendedProps || {};
+      var meetingId = props.meetingId;
+      if (props.type === 'meeting' && meetingId) {
+        var meetingStart = info.event.start;
+        var meetingEnd = info.event.end;
+        var meetingPayload = { scheduled_at: formatDateTimeStr(meetingStart) };
+        if (meetingStart && meetingEnd) {
+          meetingPayload.duration_minutes = Math.max(1, Math.round((meetingEnd.getTime() - meetingStart.getTime()) / 60000));
+        }
+        fetch('/jobs/calendar/meeting/' + meetingId + '/reschedule/', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+          body: JSON.stringify(meetingPayload)
+        }).then(function(r) {
+          if (!r.ok) {
+            info.revert();
+            return r.json().then(function(d) { throw new Error((d && d.error) || 'Could not resize meeting'); });
+          }
+          return r.json();
+        }).then(function() {
+          showToast('Meeting duration updated');
+        }).catch(function(err) {
+          info.revert();
+          showToast(err.message || 'Could not resize meeting', 'error');
+        });
+        return;
+      }
+      var jobId = props?.jobId;
+      if (!jobId) return;
       var start = info.event.start;
       var end = info.event.end;
       if (props.returnVisit && props.visitId) {
-        var returnPayload = {
-          scheduled_date: formatDateStr(start),
-          scheduled_end_date: null
-        };
-        if (end) {
-          if (info.event.allDay) {
-            var returnLastDay = new Date(end.getTime() - 86400000);
-            returnPayload.scheduled_end_date = returnLastDay > start ? formatDateStr(returnLastDay) : null;
-          } else if (formatDateStr(end) > formatDateStr(start)) {
-            returnPayload.scheduled_end_date = formatDateStr(end);
-          }
-        }
+        var returnPayload = buildReturnVisitCalendarPayload(info.event);
         fetch('/jobs/' + jobId + '/visits/' + props.visitId + '/update/', {
           method: 'POST',
           credentials: 'same-origin',
@@ -854,13 +928,23 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     (job && job.work_visits ? job.work_visits : []).forEach(function(v, index) {
       var range = formatDateRange(v.scheduled_date, v.scheduled_end_date);
-      var note = v.notes ? '<small>' + escapeHtml(v.notes) + '</small>' : '<small>Return visit #' + (index + 1) + '</small>';
+      var time = v.scheduled_time ? formatJobTimeLabel(v.scheduled_time) + (v.scheduled_end_time ? ' - ' + formatJobTimeLabel(v.scheduled_end_time) : '') : '';
+      var noteText = v.notes || ('Return visit #' + (index + 1));
+      var edit = ownerMode
+        ? '<div class="modal-return-edit" data-visit-id="' + escapeHtml(v.id) + '">' +
+            '<input type="date" class="modal-return-edit-date" value="' + escapeHtml(v.scheduled_date || '') + '" aria-label="Return visit date">' +
+            '<input type="date" class="modal-return-edit-end-date" value="' + escapeHtml(v.scheduled_end_date || '') + '" aria-label="Return visit end date">' +
+            '<input type="time" class="modal-return-edit-time" value="' + escapeHtml(v.scheduled_time || '') + '" aria-label="Return visit start time">' +
+            '<input type="time" class="modal-return-edit-end-time" value="' + escapeHtml(v.scheduled_end_time || '') + '" aria-label="Return visit end time">' +
+            '<button type="button" class="modal-return-save btn btn-primary btn-sm" data-visit-id="' + escapeHtml(v.id) + '">Save</button>' +
+          '</div>'
+        : '';
       var remove = ownerMode
         ? '<button type="button" class="modal-return-remove" data-visit-id="' + escapeHtml(v.id) + '" aria-label="Remove return visit">Remove</button>'
         : '';
       rows.push(
         '<div class="modal-return-row" data-visit-id="' + escapeHtml(v.id) + '">' +
-          '<div><strong>' + escapeHtml(range) + '</strong>' + note + '</div>' +
+          '<div><strong>' + escapeHtml(range) + (time ? ' · ' + escapeHtml(time) : '') + '</strong><small>' + escapeHtml(noteText) + '</small>' + edit + '</div>' +
           '<span>' + escapeHtml(v.service_name || 'Whole job') + '</span>' +
           remove +
         '</div>'
@@ -962,6 +1046,8 @@ document.addEventListener('DOMContentLoaded', function () {
             colorPicker.value = '#94a3b8';
           }
 
+          renderDayAssignmentEditor(job, data);
+
           // Contact links
           var email = customer.email || '';
           var phone = (customer.phone || '').replace(/\D/g, '');
@@ -1000,9 +1086,13 @@ document.addEventListener('DOMContentLoaded', function () {
           returnForm.style.display = ownerMode ? 'grid' : 'none';
           var returnDate = document.getElementById('modal-return-date');
           var returnEndDate = document.getElementById('modal-return-end-date');
+          var returnTime = document.getElementById('modal-return-time');
+          var returnEndTime = document.getElementById('modal-return-end-time');
           var returnNotes = document.getElementById('modal-return-notes');
           if (returnDate) returnDate.value = '';
           if (returnEndDate) returnEndDate.value = '';
+          if (returnTime) returnTime.value = job.scheduled_time || '';
+          if (returnEndTime) returnEndTime.value = job.scheduled_end_time || '';
           if (returnNotes) returnNotes.value = '';
         }
 
@@ -1097,7 +1187,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     customerEl.textContent = job.customer_name || (data.customer && data.customer.name) || 'Client';
     addressLink.textContent = job.address || 'No address';
-    addressLink.href = job.address ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(job.address) : '#';
+    var googleUrl = job.address ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(job.address) : '#';
+    var appleUrl = job.address ? 'https://maps.apple.com/?daddr=' + encodeURIComponent(job.address) : '#';
+    addressLink.href = googleUrl;
+    var directionsWrap = document.getElementById('modal-directions-actions');
+    var appleDirections = document.getElementById('modal-apple-directions');
+    var googleDirections = document.getElementById('modal-google-directions');
+    if (directionsWrap) directionsWrap.style.display = job.address ? 'flex' : 'none';
+    if (appleDirections) appleDirections.href = appleUrl;
+    if (googleDirections) googleDirections.href = googleUrl;
 
     var scheduleParts = [];
     if (job.scheduled_date) {
@@ -1205,6 +1303,82 @@ document.addEventListener('DOMContentLoaded', function () {
         showToast('Failed to load meeting', 'error');
       });
   }
+
+  function renderDayAssignmentEditor(job, data) {
+    var panel = document.getElementById('modal-day-assignment-panel');
+    var list = document.getElementById('modal-day-assignment-list');
+    if (!panel || !list) return;
+    var days = job.assignment_days || [];
+    if (!days || days.length <= 1) {
+      panel.style.display = 'none';
+      list.innerHTML = '';
+      return;
+    }
+    panel.style.display = 'block';
+    var assignments = {};
+    (job.day_assignments || []).forEach(function(a) { assignments[a.date] = a; });
+    list.innerHTML = days.map(function(day) {
+      var a = assignments[day] || {};
+      var crewOptions = '<option value="">Use employee(s) / unassigned</option>' + (data.crews || []).map(function(c) {
+        return '<option value="' + c.id + '"' + (a.assigned_crew_id === c.id ? ' selected' : '') + '>' + escapeHtml(c.name) + '</option>';
+      }).join('');
+      var employeeChecks = (data.employees || []).map(function(e) {
+        var checked = (a.assigned_employee_ids || []).indexOf(e.id) !== -1;
+        return '<label><input type="checkbox" value="' + e.id + '"' + (checked ? ' checked' : '') + '> ' + escapeHtml(e.name) + '</label>';
+      }).join('');
+      return '<div class="job-day-assignment-row" data-date="' + escapeHtml(day) + '">' +
+        '<div class="job-day-assignment-date">' + escapeHtml(day) + '</div>' +
+        '<select class="job-day-crew"><option value="">Use job default</option>' + crewOptions + '</select>' +
+        '<div class="job-day-employee-pills">' + employeeChecks + '</div>' +
+        '<button type="button" class="btn btn-secondary btn-sm job-day-save">Save day</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  function saveDayAssignment(row) {
+    var modal = document.getElementById('job-modal');
+    var jobId = modal && modal.dataset.jobId;
+    if (!jobId || !row) return;
+    var crewSelect = row.querySelector('.job-day-crew');
+    var crewId = crewSelect && crewSelect.value ? parseInt(crewSelect.value, 10) : null;
+    var employeeIds = [];
+    if (!crewId) {
+      row.querySelectorAll('.job-day-employee-pills input:checked').forEach(function(cb) {
+        employeeIds.push(parseInt(cb.value, 10));
+      });
+    }
+    fetch('/jobs/calendar/job/' + jobId + '/day-assignment/', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ date: row.dataset.date, assigned_crew_id: crewId, assigned_employee_ids: employeeIds })
+    }).then(function(r) {
+      if (!r.ok) return r.json().then(function(d) { throw new Error((d && d.error) || 'Failed to save day assignment'); });
+      return r.json();
+    }).then(function(data) {
+      calendar.refetchEvents();
+      showToast(data.date + ' assigned to ' + data.assignment_name);
+    }).catch(function(e) {
+      showToast(e.message || 'Failed to save day assignment', 'error');
+    });
+  }
+
+  document.addEventListener('click', function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('job-day-save')) {
+      saveDayAssignment(e.target.closest('.job-day-assignment-row'));
+    }
+  });
+
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('job-day-crew') && e.target.value) {
+      var row = e.target.closest('.job-day-assignment-row');
+      if (row) row.querySelectorAll('.job-day-employee-pills input').forEach(function(cb) { cb.checked = false; });
+    }
+    if (e.target && e.target.closest && e.target.closest('.job-day-employee-pills') && e.target.checked) {
+      var employeeRow = e.target.closest('.job-day-assignment-row');
+      var employeeCrew = employeeRow && employeeRow.querySelector('.job-day-crew');
+      if (employeeCrew) employeeCrew.value = '';
+    }
+  });
 
   // ── Modal field handlers ──
   var crewSel = document.getElementById('modal-crew');
@@ -1376,6 +1550,8 @@ document.addEventListener('DOMContentLoaded', function () {
     var endDateEl = document.getElementById('modal-return-end-date');
     var serviceEl = document.getElementById('modal-return-service');
     var notesEl = document.getElementById('modal-return-notes');
+    var timeEl = document.getElementById('modal-return-time');
+    var endTimeEl = document.getElementById('modal-return-end-time');
     var scheduledDate = dateEl ? dateEl.value : '';
     if (!scheduledDate) {
       showToast('Choose a return date', 'error');
@@ -1385,6 +1561,8 @@ document.addEventListener('DOMContentLoaded', function () {
       service_item: serviceEl ? serviceEl.value : '',
       scheduled_date: scheduledDate,
       scheduled_end_date: endDateEl ? endDateEl.value : '',
+      scheduled_time: timeEl ? timeEl.value : '',
+      scheduled_end_time: endTimeEl ? endTimeEl.value : '',
       notes: notesEl ? notesEl.value : ''
     };
     var btn = returnFormEl.querySelector('button[type="submit"]');
@@ -1407,6 +1585,8 @@ document.addEventListener('DOMContentLoaded', function () {
       renderReturnVisits(activeModalJob, activeModalOwnerMode);
       if (dateEl) dateEl.value = '';
       if (endDateEl) endDateEl.value = '';
+      if (timeEl) timeEl.value = activeModalJob.scheduled_time || '';
+      if (endTimeEl) endTimeEl.value = activeModalJob.scheduled_end_time || '';
       if (notesEl) notesEl.value = '';
       calendar.refetchEvents();
       showToast('Return visit added');
@@ -1422,10 +1602,55 @@ document.addEventListener('DOMContentLoaded', function () {
 
   var returnListEl = document.getElementById('modal-return-list');
   if (returnListEl) returnListEl.addEventListener('click', function(e) {
-    var btn = e.target.closest('.modal-return-remove');
-    if (!btn) return;
+    var saveBtn = e.target.closest('.modal-return-save');
     var modal = document.getElementById('job-modal');
     var jobId = modal ? modal.dataset.jobId : '';
+    if (saveBtn) {
+      var visitIdToSave = saveBtn.getAttribute('data-visit-id');
+      var row = saveBtn.closest('.modal-return-row');
+      if (!jobId || !visitIdToSave || !row) return;
+      var edit = row.querySelector('.modal-return-edit');
+      var dateEl = edit ? edit.querySelector('.modal-return-edit-date') : null;
+      var endDateEl = edit ? edit.querySelector('.modal-return-edit-end-date') : null;
+      var timeEl = edit ? edit.querySelector('.modal-return-edit-time') : null;
+      var endTimeEl = edit ? edit.querySelector('.modal-return-edit-end-time') : null;
+      if (!dateEl || !dateEl.value) {
+        showToast('Choose a return date', 'error');
+        return;
+      }
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+      fetch('/jobs/' + jobId + '/visits/' + visitIdToSave + '/update/', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF(), 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({
+          scheduled_date: dateEl.value,
+          scheduled_end_date: endDateEl ? endDateEl.value : '',
+          scheduled_time: timeEl ? timeEl.value : '',
+          scheduled_end_time: endTimeEl ? endTimeEl.value : ''
+        })
+      }).then(function(r) {
+        if (!r.ok) return r.json().then(function(d) { throw new Error((d && d.error) || 'Could not update return visit'); });
+        return r.json();
+      }).then(function(data) {
+        if (activeModalJob && activeModalJob.work_visits) {
+          activeModalJob.work_visits = activeModalJob.work_visits.map(function(v) {
+            return String(v.id) === String(visitIdToSave) ? data.visit : v;
+          });
+        }
+        renderReturnVisits(activeModalJob, activeModalOwnerMode);
+        calendar.refetchEvents();
+        showToast('Return visit updated');
+      }).catch(function(err) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save';
+        showToast(err.message || 'Could not update return visit', 'error');
+      });
+      return;
+    }
+    var btn = e.target.closest('.modal-return-remove');
+    if (!btn) return;
     var visitId = btn.getAttribute('data-visit-id');
     if (!jobId || !visitId) return;
     btn.disabled = true;
@@ -2740,6 +2965,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (typeof updateLegend === 'function') updateLegend();
       }
       _applyLanesBtnStyle();
+      calendar.setOption('slotEventOverlap', false);
+      calendar.setOption('eventOrder', crewEventOrder);
+      calendar.rerenderEvents();
       showToast(crewLanesMode ? 'Split by crew — ON' : 'Split by crew — OFF');
     });
   }

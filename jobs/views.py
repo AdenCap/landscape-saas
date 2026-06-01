@@ -1,5 +1,6 @@
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 from urllib.parse import quote
 
 from django.conf import settings
@@ -16,7 +17,7 @@ from accounts.utils import get_business
 from accounts.models import Notification
 from billing.services import auto_charge_invoice_card, create_draft_invoice_for_job, estimate_line_unit_price
 from billing.monthly import generate_monthly_invoice_for_customer
-from .models import Job, JobServiceItem, JobWorkVisit, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobPhoto, JobAssignmentLog, Meeting, JobNote, PropertyNote
+from .models import Job, JobServiceItem, JobWorkVisit, Crew, RecurringJob, JobIssue, JobIssuePhoto, JobCompletionPhoto, JobPhoto, JobAssignmentLog, JobDayAssignment, Meeting, JobNote, PropertyNote
 from .service_labels import clean_service_label
 from customers.models import Property
 from .forms import AddJobServiceItemForm, CreateJobForm, get_job_service_formset, ReportIssueForm, MeetingForm
@@ -30,6 +31,20 @@ def _request_data(request):
         except (TypeError, ValueError):
             return {}
     return request.POST
+
+
+def _parse_calendar_datetime(value):
+    """Parse FullCalendar local date/datetime strings into an aware datetime."""
+    if not value:
+        raise ValueError("Missing datetime")
+    value = str(value).strip()
+    if value.endswith("Z"):
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        dt = datetime.fromisoformat(value)
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, timezone.get_current_timezone())
+    return dt
 
 
 def _append_note_text(existing, text):
@@ -51,6 +66,15 @@ def _parse_iso_date(value):
         raise ValueError("Invalid date.")
 
 
+def _parse_iso_time(value):
+    if value in (None, ""):
+        return None
+    try:
+        return time.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        raise ValueError("Invalid time.")
+
+
 def _wants_json(request):
     return request.headers.get("X-Requested-With") == "XMLHttpRequest" or "application/json" in request.headers.get("Accept", "")
 
@@ -66,6 +90,8 @@ def _serialize_job_work_visit(visit):
         "service_name": service_name,
         "scheduled_date": visit.scheduled_date.isoformat(),
         "scheduled_end_date": visit.scheduled_end_date.isoformat() if visit.scheduled_end_date else "",
+        "scheduled_time": visit.scheduled_time.strftime("%H:%M") if visit.scheduled_time else "",
+        "scheduled_end_time": visit.scheduled_end_time.strftime("%H:%M") if visit.scheduled_end_time else "",
         "notes": visit.notes or "",
         "status": visit.status,
     }
@@ -76,6 +102,41 @@ def _line_item_active_on(item, target_date):
         return True
     item_end = item.scheduled_end_date or item.scheduled_date
     return item.scheduled_date <= target_date <= item_end
+
+
+def _job_date_range(job):
+    if not job.scheduled_date:
+        return []
+    end_date = job.scheduled_end_date if job.scheduled_end_date and job.scheduled_end_date > job.scheduled_date else job.scheduled_date
+    days = (end_date - job.scheduled_date).days
+    return [job.scheduled_date + timedelta(days=i) for i in range(days + 1)]
+
+
+def _assignment_name_for(day_assignment=None, job=None):
+    source = day_assignment or job
+    if not source:
+        return "Unassigned"
+    if getattr(source, "assigned_crew", None):
+        return source.assigned_crew.name
+    employees = list(source.assigned_employees.all()) if hasattr(source, "assigned_employees") else []
+    if employees:
+        return ", ".join((u.get_full_name() or u.username) for u in employees)
+    if getattr(source, "assigned_to", None):
+        return source.assigned_to.get_full_name() or source.assigned_to.username
+    return "Unassigned"
+
+
+def _user_matches_day_assignment(user, day_assignment):
+    if day_assignment.assigned_to_id == user.id:
+        return True
+    if day_assignment.assigned_employees.filter(id=user.id).exists():
+        return True
+    if day_assignment.assigned_crew_id:
+        crew = day_assignment.assigned_crew
+        if crew.crew_leader_id == user.id:
+            return True
+        return crew.members.filter(id=user.id).exists()
+    return False
 
 
 def _visit_active_on(visit, target_date):
@@ -408,13 +469,16 @@ def schedule_from_estimate(request, estimate_id):
             unit_price=line_price,
         )
 
-    for image in estimate.images.all():
+    # Attach the estimate photos to the scheduled job so the owner and crew can see
+    # the same site/reference images that were quoted. The ImageField path is reused
+    # instead of duplicating the media file.
+    for estimate_image in estimate.images.all():
         JobPhoto.objects.create(
             job=job,
-            image=image.image,
+            image=estimate_image.image,
             category="before",
-            caption=image.caption,
-            uploaded_by=request.user,
+            caption=estimate_image.caption,
+            uploaded_by=request.user if request.user.is_authenticated else None,
         )
 
     # Mark estimate as scheduled
@@ -511,6 +575,9 @@ def calendar_events(request):
         'service_items__service',
         'assigned_employees',
         'crews',
+        'day_assignments__assigned_crew',
+        'day_assignments__assigned_to',
+        'day_assignments__assigned_employees',
         'work_visits__service_item__service',
     ).filter(Q(scheduled_date__isnull=False) | Q(work_visits__isnull=False)).distinct()
 
@@ -549,20 +616,23 @@ def calendar_events(request):
     # Filters from query params
     service_ids = request.GET.get("services", "")
     crew_ids = request.GET.get("crews", "")
+    crew_filter_ids = []
     employee_ids = request.GET.get("employees", "")
     if service_ids:
         ids = [int(x) for x in service_ids.split(",") if x.strip().isdigit()]
         if ids:
             jobs = jobs.filter(service_items__service_id__in=ids).distinct()
     if crew_ids:
-        cids = [int(x) for x in crew_ids.split(",") if x.strip().isdigit()]
-        if cids:
+        crew_filter_ids = [int(x) for x in crew_ids.split(",") if x.strip().isdigit()]
+        if crew_filter_ids:
             # Match jobs where the crew is either the primary (assigned_crew FK)
-            # OR one of the additional crews (crews M2M). Wave 3: preserves existing
-            # behavior for single-crew jobs — the 0029 data migration backfilled the
-            # primary into the M2M, so both clauses match the same rows for legacy data.
+            # OR one of the additional crews (crews M2M) OR a per-day multi-day
+            # override. A second in-memory effective-crew check below removes
+            # primary crews on dates where the day override replaced them.
             jobs = jobs.filter(
-                Q(assigned_crew_id__in=cids) | Q(crews__id__in=cids)
+                Q(assigned_crew_id__in=crew_filter_ids) |
+                Q(crews__id__in=crew_filter_ids) |
+                Q(day_assignments__assigned_crew_id__in=crew_filter_ids)
             ).distinct()
     if employee_ids:
         eids = [int(x) for x in employee_ids.split(",") if x.strip().isdigit()]
@@ -630,8 +700,85 @@ def calendar_events(request):
         "not_invoiced": "#6b7280",  # Gray — no invoice created
     }
 
+    def _date_range_days(start, end):
+        if not start or not end:
+            return []
+        days = []
+        cursor = start
+        while cursor <= end and len(days) < 370:
+            days.append(cursor)
+            cursor += timedelta(days=1)
+        return days
+
+    def _visible_job_days(job):
+        job_start = job.scheduled_date
+        if not job_start:
+            return []
+        job_end = job.scheduled_end_date or job_start
+        range_end = (visible_end - timedelta(days=1)) if visible_end else None
+        start = max(job_start, visible_start) if visible_start else job_start
+        end = min(job_end, range_end) if range_end else job_end
+        if start > end:
+            return []
+        return _date_range_days(start, end)
+
+    def _effective_crew_summary(job):
+        """Crews that own the job in the visible calendar range.
+
+        Multi-day day assignments override the parent job on their specific dates;
+        dates without an override still use the parent assigned_crew/crews values.
+        """
+        crew_by_id = {}
+        assigned_by_date = {
+            assignment.date: assignment
+            for assignment in job.day_assignments.all()
+            if assignment.assigned_crew_id
+        }
+        visible_days = _visible_job_days(job)
+        default_days_exist = False
+        if visible_days:
+            for day in visible_days:
+                assignment = assigned_by_date.get(day)
+                if assignment and assignment.assigned_crew_id:
+                    crew_by_id[assignment.assigned_crew_id] = assignment.assigned_crew
+                else:
+                    default_days_exist = True
+        else:
+            default_days_exist = True
+
+        if default_days_exist:
+            if job.assigned_crew_id:
+                crew_by_id[job.assigned_crew_id] = job.assigned_crew
+            for crew in job.crews.all():
+                crew_by_id[crew.id] = crew
+
+        crew_items = [(cid, crew) for cid, crew in crew_by_id.items() if cid and crew]
+        crew_items.sort(key=lambda item: (item[1].name or "", item[0]))
+        return crew_items
+
+    def _default_crew_items(job):
+        crew_by_id = {}
+        if job.assigned_crew_id:
+            crew_by_id[job.assigned_crew_id] = job.assigned_crew
+        for crew in job.crews.all():
+            crew_by_id[crew.id] = crew
+        crew_items = [(cid, crew) for cid, crew in crew_by_id.items() if cid and crew]
+        crew_items.sort(key=lambda item: (item[1].name or "", item[0]))
+        return crew_items
+
+    def _day_crew_items(job, day):
+        assignment = next((a for a in job.day_assignments.all() if a.date == day and a.assigned_crew_id), None)
+        if assignment:
+            return [(assignment.assigned_crew_id, assignment.assigned_crew)]
+        return _default_crew_items(job)
+
     events = []
     for job in job_list:
+        effective_crews = _effective_crew_summary(job)
+        effective_crew_ids = [crew_id for crew_id, _crew in effective_crews]
+        if crew_filter_ids and not any(crew_id in crew_filter_ids for crew_id in effective_crew_ids):
+            continue
+
         # Determine payment status
         pay_status = job_payment.get(job.id, "not_invoiced")
         # Apply payment filter
@@ -646,23 +793,8 @@ def calendar_events(request):
                 continue
 
         base_color = _color_for_assignee(job, crew_colors, user_colors)
-        crew_dot_color = _crew_color_for_job(job, crew_colors, user_colors)
         is_completed = job.status == 'completed'
         bg = base_color or STATUS_COLORS.get('scheduled', '#3b82f6')
-
-        if job.assigned_crew:
-            assignee_name = job.assigned_crew.name
-        elif job.assigned_to:
-            # Check for multiple assigned employees
-            all_employees = list(job.assigned_employees.all())
-            if len(all_employees) > 1:
-                assignee_name = ", ".join(
-                    (e.get_full_name() or e.username) for e in all_employees
-                )
-            else:
-                assignee_name = job.assigned_to.get_full_name() or job.assigned_to.username
-        else:
-            assignee_name = 'Unassigned'
 
         customer_name = job.property.customer.name if job.property.customer else ""
         # Use prefetched data — prefer description (user-facing label) over service.name (internal template name)
@@ -680,25 +812,38 @@ def calendar_events(request):
         # Multi-day jobs: render as all-day spanning events
         is_multi_day = bool(job.scheduled_date and job.scheduled_end_date and job.scheduled_end_date > job.scheduled_date)
 
-        # Wave 3: additional crews (excluding primary, which is already shown as the main crew)
-        # Uses prefetched .crews — no extra queries. Empty list for single-crew jobs.
-        additional_crews = []
-        if job.assigned_crew_id:
-            for c in job.crews.all():
-                if c.id != job.assigned_crew_id:
-                    additional_crews.append({
-                        "id": c.id,
-                        "name": c.name,
-                        "color": crew_colors.get(c.id, UNASSIGNED_COLOR),
-                    })
+        def _crew_display_props(crew_items):
+            crew_ids = [crew_id for crew_id, _crew in crew_items]
+            if crew_items:
+                name = ", ".join(crew.name for _crew_id, crew in crew_items)
+                dot_color = crew_colors.get(crew_items[0][0], UNASSIGNED_COLOR)
+            elif job.assigned_to:
+                all_employees = list(job.assigned_employees.all())
+                if len(all_employees) > 1:
+                    name = ", ".join((e.get_full_name() or e.username) for e in all_employees)
+                else:
+                    name = job.assigned_to.get_full_name() or job.assigned_to.username
+                dot_color = _crew_color_for_job(job, crew_colors, user_colors)
+            else:
+                name = 'Unassigned'
+                dot_color = _crew_color_for_job(job, crew_colors, user_colors)
+            return {
+                "crew": name,
+                "crewIds": crew_ids,
+                "crewSortKey": ",".join(str(crew_id) for crew_id in crew_ids) or "zz-unassigned",
+                "crewColor": dot_color,
+                "assigneeColor": dot_color,
+                "additionalCrews": [
+                    {"id": crew_id, "name": crew.name, "color": crew_colors.get(crew_id, UNASSIGNED_COLOR)}
+                    for crew_id, crew in crew_items[1:]
+                ],
+            }
 
         # Build shared extended props (same for all event types)
         ext_props = {
-            "status": job.status, "crew": assignee_name, "jobId": job.id,
+            "status": job.status, "jobId": job.id,
             "customer": customer_name, "services": services_str,
-            "crewColor": crew_dot_color,
             "statusColor": STATUS_COLORS.get(job.status, '#3b82f6'),
-            "assigneeColor": crew_dot_color,
             "jobColorOverride": (job.color or "").strip() or None,
             "serviceAbbr": service_names[0] if service_names else "",
             "recurring": bool(job.recurring_job_id) or "[Mowing]" in (job.notes or "") or "[Fertilization]" in (job.notes or ""),
@@ -709,14 +854,61 @@ def calendar_events(request):
             "paymentStatus": pay_status,
             "paymentColor": PAYMENT_COLORS.get(pay_status, '#6b7280'),
             "multiDay": is_multi_day,
-            "additionalCrews": additional_crews,
+            **_crew_display_props(effective_crews),
         }
 
         if not job.scheduled_date:
             evt = None
+        elif is_multi_day and any(a.assigned_crew_id for a in job.day_assignments.all()):
+            # Multi-day jobs with day-level crew overrides must be emitted in
+            # per-crew date segments. Otherwise filtering Crew B for one override
+            # day would incorrectly render the whole multi-day span as Crew B.
+            def _segment_event(segment_start, segment_end, segment_crews):
+                segment_props = dict(ext_props)
+                segment_props.update(_crew_display_props(segment_crews or []))
+                return {
+                    "id": f"{job.id}-{segment_start.isoformat()}",
+                    "title": title,
+                    "start": segment_start.strftime("%Y-%m-%d"),
+                    "end": (segment_end + timedelta(days=1)).strftime("%Y-%m-%d"),
+                    "allDay": True,
+                    "editable": False,
+                    "durationEditable": False,
+                    "backgroundColor": bg,
+                    "borderColor": bg,
+                    "extendedProps": segment_props,
+                }
+
+            segment_start = None
+            segment_end = None
+            segment_crews = None
+            for day in _visible_job_days(job):
+                day_crews = _day_crew_items(job, day)
+                if crew_filter_ids and not any(crew_id in crew_filter_ids for crew_id, _crew in day_crews):
+                    if segment_start and segment_end:
+                        events.append(_segment_event(segment_start, segment_end, segment_crews))
+                        segment_start = segment_end = segment_crews = None
+                    continue
+
+                day_crew_ids = [crew_id for crew_id, _crew in day_crews]
+                segment_crew_ids = [crew_id for crew_id, _crew in (segment_crews or [])]
+                if segment_start and segment_end and day == segment_end + timedelta(days=1) and day_crew_ids == segment_crew_ids:
+                    segment_end = day
+                else:
+                    if segment_start and segment_end:
+                        events.append(_segment_event(segment_start, segment_end, segment_crews))
+                    segment_start = day
+                    segment_end = day
+                    segment_crews = day_crews
+
+            if segment_start and segment_end:
+                evt = _segment_event(segment_start, segment_end, segment_crews)
+            else:
+                evt = None
         elif is_multi_day:
-            # Multi-day: all-day event spanning from start date to end date
-            # FullCalendar uses exclusive end dates, so add 1 day
+            # Multi-day jobs without day-level crew overrides retain the original
+            # single spanning event so return visits and existing integrations can
+            # still find the parent job by its stable calendar event id.
             start_str = job.scheduled_date.strftime("%Y-%m-%d")
             end_str = (job.scheduled_end_date + timedelta(days=1)).strftime("%Y-%m-%d")
             evt = {
@@ -730,16 +922,15 @@ def calendar_events(request):
                 "extendedProps": ext_props,
             }
         elif job.scheduled_time:
-            # Timed event (week/day view)
+            # Timed event (week/day view). The calendar is the planned schedule,
+            # so render from scheduled fields only. Actual started/completed
+            # timestamps are still shown in job details/duration, but using them
+            # here makes completed or in-progress jobs appear in random actual-work
+            # slots and then snap back after a user drags them to a new time.
             dt = datetime.combine(job.scheduled_date, job.scheduled_time)
-            # Only use started_at for completed/in_progress jobs — NOT scheduled ones
-            if job.started_at and job.status in ("completed", "in_progress"):
-                dt = datetime.combine(job.started_at.date(), job.started_at.time())
             start_str = dt.strftime("%Y-%m-%dT%H:%M:%S")
-            # End time: completed > scheduled_end_time > default 1 hour
-            if job.completed_at and job.started_at and job.status == "completed":
-                end_str = datetime.combine(job.completed_at.date(), job.completed_at.time()).strftime("%Y-%m-%dT%H:%M:%S")
-            elif job.scheduled_end_time:
+            # End time: scheduled_end_time > default 1 hour
+            if job.scheduled_end_time:
                 end_str = datetime.combine(job.scheduled_date, job.scheduled_end_time).strftime("%Y-%m-%dT%H:%M:%S")
             else:
                 end_dt = dt + timedelta(hours=1)
@@ -791,7 +982,25 @@ def calendar_events(request):
                 "visitNotes": visit.notes or "",
                 "multiDay": bool(visit.scheduled_end_date and visit.scheduled_end_date > visit.scheduled_date),
             })
-            if visit.scheduled_end_date and visit.scheduled_end_date > visit.scheduled_date:
+            if visit.scheduled_time:
+                visit_start = datetime.combine(visit.scheduled_date, visit.scheduled_time)
+                visit_finish_date = visit.scheduled_end_date or visit.scheduled_date
+                if visit.scheduled_end_time:
+                    visit_end_dt = datetime.combine(visit_finish_date, visit.scheduled_end_time)
+                else:
+                    visit_end_dt = visit_start + timedelta(hours=1)
+                if visit_end_dt <= visit_start:
+                    visit_end_dt = visit_start + timedelta(hours=1)
+                visit_evt = {
+                    "id": f"visit-{job.id}-{visit.service_item_id or 'job'}-{visit.scheduled_date.isoformat()}",
+                    "title": visit_title,
+                    "start": visit_start.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "end": visit_end_dt.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "backgroundColor": bg,
+                    "borderColor": bg,
+                    "extendedProps": visit_ext_props,
+                }
+            elif visit.scheduled_end_date and visit.scheduled_end_date > visit.scheduled_date:
                 visit_evt = {
                     "id": f"visit-{job.id}-{visit.service_item_id or 'job'}-{visit.scheduled_date.isoformat()}",
                     "title": visit_title,
@@ -864,7 +1073,14 @@ def calendar_job_data(request, job_id):
         return JsonResponse({"error": "No business"}, status=403)
     job = get_object_or_404(
         Job.objects.select_related('property', 'property__customer', 'assigned_to', 'assigned_crew')
-        .prefetch_related('service_items__service', 'work_visits__service_item__service'),
+        .prefetch_related(
+            'service_items__service',
+            'work_visits__service_item__service',
+            'assigned_employees',
+            'day_assignments__assigned_crew',
+            'day_assignments__assigned_to',
+            'day_assignments__assigned_employees',
+        ),
         id=job_id,
         property__customer__business=business,
     )
@@ -940,6 +1156,19 @@ def calendar_job_data(request, job_id):
                 u.get_full_name() or u.username
                 for u in job.assigned_employees.all()
             ],
+            "assignment_days": [d.isoformat() for d in _job_date_range(job)],
+            "day_assignments": [
+                {
+                    "id": day_assignment.id,
+                    "date": day_assignment.date.isoformat(),
+                    "assigned_crew_id": day_assignment.assigned_crew_id,
+                    "assigned_to_id": day_assignment.assigned_to_id,
+                    "assigned_employee_ids": list(day_assignment.assigned_employees.values_list('id', flat=True)),
+                    "assignment_name": _assignment_name_for(day_assignment=day_assignment),
+                    "notes": day_assignment.notes or "",
+                }
+                for day_assignment in job.day_assignments.all()
+            ] if is_owner else [],
             "color": job.color or "",
             "has_unbilled_items": job.service_items.filter(billed_at__isnull=True).exists() if is_owner else False,
             "has_services": job.service_items.exists(),
@@ -1144,6 +1373,71 @@ def calendar_job_update(request, job_id):
 
 @require_POST
 @role_required("owner", "manager")
+def calendar_job_day_assignment_update(request, job_id):
+    """Set a crew/employee assignment for one date of a multi-day job.
+
+    This intentionally stores a per-day override instead of changing the parent Job,
+    so previous days and other days in the span keep their original crew.
+    """
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "No business"}, status=403)
+    job = get_object_or_404(
+        Job.objects.select_related("property", "property__customer"),
+        id=job_id,
+        property__customer__business=business,
+    )
+    data = json.loads(request.body) if request.body else {}
+    try:
+        assignment_date = _parse_iso_date(data.get("date"))
+    except ValueError:
+        return JsonResponse({"error": "Invalid date."}, status=400)
+    if not assignment_date:
+        return JsonResponse({"error": "Missing date."}, status=400)
+    job_days = _job_date_range(job)
+    if assignment_date not in job_days:
+        return JsonResponse({"error": "Date is outside this job's scheduled range."}, status=400)
+
+    crew = None
+    employee_ids = data.get("assigned_employee_ids") or []
+    employees = User.objects.none()
+    if data.get("assigned_crew_id"):
+        crew = Crew.objects.filter(business=business, id=data.get("assigned_crew_id")).first()
+        if not crew:
+            return JsonResponse({"error": "Crew not found."}, status=404)
+        employee_ids = []
+    elif employee_ids:
+        if not isinstance(employee_ids, list):
+            return JsonResponse({"error": "assigned_employee_ids must be a list."}, status=400)
+        employees = User.objects.filter(business=business, role__in=["crew", "owner"], id__in=employee_ids)
+        found_ids = set(employees.values_list("id", flat=True))
+        if set(int(eid) for eid in employee_ids) - found_ids:
+            return JsonResponse({"error": "One or more employees were not found."}, status=404)
+
+    day_assignment, _created = JobDayAssignment.objects.get_or_create(job=job, date=assignment_date)
+    day_assignment.assigned_crew = crew
+    day_assignment.assigned_to = employees.first() if employee_ids else None
+    day_assignment.notes = (data.get("notes") or "")[:500]
+    day_assignment.save()
+    day_assignment.assigned_employees.set(employees if employee_ids else [])
+
+    JobAssignmentLog.objects.create(
+        job=job,
+        user=request.user,
+        details=f"{assignment_date.isoformat()} assignment set to {_assignment_name_for(day_assignment=day_assignment)}",
+    )
+    return JsonResponse({
+        "status": "ok",
+        "date": assignment_date.isoformat(),
+        "assignment_name": _assignment_name_for(day_assignment=day_assignment),
+        "assigned_crew_id": day_assignment.assigned_crew_id,
+        "assigned_to_id": day_assignment.assigned_to_id,
+        "assigned_employee_ids": list(day_assignment.assigned_employees.values_list("id", flat=True)),
+    })
+
+
+@require_POST
+@role_required("owner", "manager")
 def calendar_job_reschedule(request, job_id):
     """Update job scheduled_date when dragged to new date.
     For recurring jobs, supports apply_to_future to shift all future jobs."""
@@ -1186,9 +1480,11 @@ def calendar_job_reschedule(request, job_id):
         elif time_obj is not None:
             job.scheduled_time = time_obj
 
-        # Clear started_at/completed_at if the job is being rescheduled while in "scheduled" status
-        # This prevents the calendar from showing the event at the old started_at position
-        if job.status == "scheduled":
+        # Clear actual tracking timestamps whenever an active/scheduled job is manually
+        # moved on the calendar. Calendar event rendering intentionally prefers
+        # started_at/completed_at for active jobs, so leaving stale actual times makes
+        # a successfully rescheduled event refetch back to its previous slot.
+        if job.status in ("scheduled", "en_route", "in_progress"):
             job.started_at = None
             job.completed_at = None
 
@@ -1586,6 +1882,35 @@ def calendar_meeting_data(request, meeting_id):
     })
 
 
+@require_POST
+@role_required("owner", "manager")
+def calendar_meeting_reschedule(request, meeting_id):
+    """Move a meeting from FullCalendar drag/drop while preserving the exact time."""
+    business = get_business(request)
+    if not business:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+    meeting = get_object_or_404(Meeting, id=meeting_id, business=business)
+    data = json.loads(request.body) if request.body else {}
+    scheduled_at_raw = data.get("scheduled_at") or data.get("scheduled_date") or data.get("date")
+    if not scheduled_at_raw:
+        return JsonResponse({"error": "Missing scheduled_at"}, status=400)
+    try:
+        meeting.scheduled_at = _parse_calendar_datetime(scheduled_at_raw)
+        if "duration_minutes" in data:
+            try:
+                meeting.duration_minutes = max(1, int(data.get("duration_minutes") or 60))
+            except (TypeError, ValueError):
+                pass
+        meeting.save(update_fields=["scheduled_at", "duration_minutes"])
+    except (TypeError, ValueError) as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    return JsonResponse({
+        "status": "ok",
+        "scheduled_at": timezone.localtime(meeting.scheduled_at).strftime("%Y-%m-%dT%H:%M:%S"),
+        "duration_minutes": meeting.duration_minutes or 60,
+    })
+
+
 @role_required("owner", "manager", "crew")
 def daily_route_view(request):
     business = get_business(request) if request.user.is_authenticated else None
@@ -1841,11 +2166,21 @@ def crew_today_view(request):
         Q(work_visits__scheduled_date=today) |
         Q(work_visits__scheduled_date__lte=today, work_visits__scheduled_end_date__gte=today)
     ).select_related(
-        "property", "property__customer", "assigned_to", "assigned_crew"
+        "property", "property__customer", "assigned_to", "assigned_crew", "recurring_job"
     ).prefetch_related(
         "service_items__service",
         "work_visits__service_item__service",
         "assigned_employees",
+        "job_notes__author",
+        Prefetch(
+            "site_photos",
+            queryset=JobPhoto.objects.select_related("uploaded_by").order_by("-uploaded_at"),
+            to_attr="crew_site_photos",
+        ),
+        "day_assignments__assigned_crew__members",
+        "day_assignments__assigned_crew__crew_leader",
+        "day_assignments__assigned_to",
+        "day_assignments__assigned_employees",
         Prefetch(
             "property__property_notes",
             queryset=PropertyNote.objects.filter(visibility=PropertyNote.VISIBILITY_CREW).select_related("author"),
@@ -1865,10 +2200,16 @@ def crew_today_view(request):
             Q(assigned_to=request.user) |                    # Direct assignment
             Q(assigned_employees=request.user) |             # M2M assignment
             Q(assigned_crew__members=request.user) |         # Crew member
-            Q(assigned_crew__crew_leader=request.user)       # Crew leader
+            Q(assigned_crew__crew_leader=request.user) |      # Crew leader
+            Q(day_assignments__date=today, day_assignments__assigned_to=request.user) |
+            Q(day_assignments__date=today, day_assignments__assigned_employees=request.user) |
+            Q(day_assignments__date=today, day_assignments__assigned_crew__members=request.user) |
+            Q(day_assignments__date=today, day_assignments__assigned_crew__crew_leader=request.user)
         ).distinct()
 
-    # Sort: match the owner's calendar order (time + route), but push done jobs to bottom
+    # Sort to match the owner's calendar order, but push done jobs to bottom.
+    # FullCalendar shows timed jobs by scheduled_time; route_order is the tie-breaker
+    # for jobs at the same time or jobs without explicit times.
     from django.db.models import Case, When, IntegerField, Value
     jobs = list(jobs.annotate(
         is_done=Case(
@@ -1876,7 +2217,19 @@ def crew_today_view(request):
             default=Value(0),
             output_field=IntegerField(),
         )
-    ).order_by("is_done", "scheduled_time", "route_order"))
+    ).order_by("is_done", "scheduled_time", "route_order", "id"))
+
+    if request.user.role == "crew":
+        filtered_jobs = []
+        for job in jobs:
+            today_override = next((da for da in job.day_assignments.all() if da.date == today), None)
+            if today_override:
+                if _user_matches_day_assignment(request.user, today_override):
+                    job.effective_day_assignment = today_override
+                    filtered_jobs.append(job)
+            else:
+                filtered_jobs.append(job)
+        jobs = filtered_jobs
 
     # For each job, compute filtered_service_items for today.
     #   - Single-day job: all items (same as before)
@@ -1914,6 +2267,30 @@ def crew_today_view(request):
         for note in getattr(job.property, "crew_visible_notes", [])[:3]:
             property_alerts.append({"label": "Permanent note", "text": note.text})
         job.property_alerts = property_alerts
+
+        note_previews = []
+        seen_note_texts = set()
+
+        def add_note_preview(label, text):
+            normalized = (text or "").strip()
+            if not normalized or normalized in seen_note_texts:
+                return
+            seen_note_texts.add(normalized)
+            note_previews.append({"label": label, "text": normalized})
+
+        if job.recurring_job_id:
+            add_note_preview("Recurring note", getattr(job.recurring_job, "notes", ""))
+        add_note_preview("Crew note", job.notes)
+        visible_job_notes = list(job.job_notes.all())
+        if request.user.role == "crew":
+            visible_job_notes = [note for note in visible_job_notes if note.visibility == JobNote.VISIBILITY_CREW]
+        for note in visible_job_notes[:3]:
+            add_note_preview("Job note", note.text)
+        job.note_previews = note_previews
+
+        site_photos = list(getattr(job, "crew_site_photos", []))
+        job.photo_previews = site_photos[:4]
+        job.extra_photo_count = max(len(site_photos) - len(job.photo_previews), 0)
 
     job_ids_with_photos = set(
         JobCompletionPhoto.objects.filter(job__in=jobs).values_list("job_id", flat=True)
@@ -1961,6 +2338,9 @@ def _user_can_access_job(user, job):
         if job.assigned_crew.crew_leader_id == user.id:
             return True
         if job.assigned_crew.members.filter(id=user.id).exists():
+            return True
+    for day_assignment in job.day_assignments.select_related("assigned_crew", "assigned_to").prefetch_related("assigned_crew__members", "assigned_employees"):
+        if _user_matches_day_assignment(user, day_assignment):
             return True
     return False
 
@@ -3371,10 +3751,12 @@ def add_job_work_visit(request, job_id):
     try:
         visit_start = _parse_iso_date(data.get("scheduled_date"))
         visit_end = _parse_iso_date(data.get("scheduled_end_date"))
+        visit_time = _parse_iso_time(data.get("scheduled_time"))
+        visit_end_time = _parse_iso_time(data.get("scheduled_end_time"))
     except ValueError:
         if _wants_json(request):
-            return JsonResponse({"error": "Choose valid return visit dates."}, status=400)
-        messages.error(request, "Choose valid return visit dates.")
+            return JsonResponse({"error": "Choose valid return visit dates and times."}, status=400)
+        messages.error(request, "Choose valid return visit dates and times.")
         return redirect("job_detail", job_id=job.id)
     if not visit_start:
         if _wants_json(request):
@@ -3391,6 +3773,8 @@ def add_job_work_visit(request, job_id):
         service_item=service_item,
         scheduled_date=visit_start,
         scheduled_end_date=visit_end if visit_end and visit_end > visit_start else None,
+        scheduled_time=visit_time,
+        scheduled_end_time=visit_end_time,
         notes=(data.get("notes") or "").strip(),
     )
     if _wants_json(request):
@@ -3411,14 +3795,18 @@ def update_job_work_visit(request, job_id, visit_id):
     try:
         visit_start = _parse_iso_date(data.get("scheduled_date"))
         visit_end = _parse_iso_date(data.get("scheduled_end_date"))
+        visit_time = _parse_iso_time(data.get("scheduled_time")) if "scheduled_time" in data else visit.scheduled_time
+        visit_end_time = _parse_iso_time(data.get("scheduled_end_time")) if "scheduled_end_time" in data else visit.scheduled_end_time
     except ValueError:
-        return JsonResponse({"error": "Choose valid return visit dates."}, status=400)
+        return JsonResponse({"error": "Choose valid return visit dates and times."}, status=400)
     if not visit_start:
         return JsonResponse({"error": "Choose a return visit date."}, status=400)
     if visit_start and visit_end and visit_end < visit_start:
         return JsonResponse({"error": "Return visit end date cannot be before the start date."}, status=400)
     visit.scheduled_date = visit_start
     visit.scheduled_end_date = visit_end if visit_end and visit_end > visit_start else None
+    visit.scheduled_time = visit_time
+    visit.scheduled_end_time = visit_end_time
     if "notes" in data:
         visit.notes = (data.get("notes") or "").strip()
     if "service_item" in data:
