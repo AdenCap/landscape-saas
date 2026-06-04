@@ -8,6 +8,12 @@ struct CommandScreen: View {
     @State private var command: CommandResponse?
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var searchText = ""
+    @State private var searchResults: [SearchResult] = []
+    @State private var isSearching = false
+    @State private var searchMessage: String?
+    @State private var searchTask: Task<Void, Never>?
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         ZStack {
@@ -96,22 +102,178 @@ struct CommandScreen: View {
     }
 
     private var commandSearch: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(FieldLGXTheme.secondaryText)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(searchFocused ? FieldLGXTheme.lime : FieldLGXTheme.secondaryText)
 
-            Text("Search clients, jobs, invoices, commands")
-                .font(.system(size: 19, weight: .semibold))
-                .foregroundStyle(FieldLGXTheme.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.74)
+                TextField("Search clients, jobs, invoices, commands", text: $searchText)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(FieldLGXTheme.text)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .submitLabel(.search)
+                    .focused($searchFocused)
+                    .onSubmit {
+                        runSearch(immediate: true)
+                    }
+                    .onChange(of: searchText) { _, _ in
+                        runSearch()
+                    }
+
+                if isSearching {
+                    ProgressView()
+                        .tint(FieldLGXTheme.lime)
+                        .scaleEffect(0.78)
+                } else if !searchText.isEmpty {
+                    Button {
+                        clearSearch()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 19, weight: .bold))
+                            .foregroundStyle(FieldLGXTheme.tertiaryText)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
+            .padding(.horizontal, 18)
+            .background(commandInsetBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay(commandPanelStroke(cornerRadius: 28))
+
+            if shouldShowSearchResults {
+                searchResultsPanel
+            }
         }
-        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
-        .padding(.horizontal, 18)
+    }
+
+    private var shouldShowSearchResults: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var searchResultsPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let searchMessage {
+                Text(searchMessage)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(FieldLGXTheme.secondaryText)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            ForEach(searchResults) { result in
+                NavigationLink {
+                    searchDestination(for: result)
+                } label: {
+                    searchResultRow(result)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(8)
+        .background(commandPanelGradient)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(commandPanelStroke(cornerRadius: 24))
+    }
+
+    private func searchResultRow(_ result: SearchResult) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: searchIcon(for: result))
+                .font(.system(size: 15, weight: .black))
+                .foregroundStyle(result.kind == "command" ? .black : FieldLGXTheme.lime)
+                .frame(width: 34, height: 34)
+                .background(result.kind == "command" ? FieldLGXTheme.lime : FieldLGXTheme.elevatedBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(result.title)
+                    .font(.system(size: 16, weight: .black))
+                    .foregroundStyle(FieldLGXTheme.text)
+                    .lineLimit(1)
+
+                Text(result.subtitle)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(FieldLGXTheme.secondaryText)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 8)
+
+            Text(result.detail)
+                .font(.system(size: 11, weight: .black))
+                .foregroundStyle(FieldLGXTheme.lime)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .black))
+                .foregroundStyle(FieldLGXTheme.tertiaryText)
+        }
+        .padding(12)
         .background(commandInsetBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(commandPanelStroke(cornerRadius: 28))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func searchDestination(for result: SearchResult) -> some View {
+        switch result.kind {
+        case "client":
+            ClientDetailScreen(
+                clientID: result.objectID ?? 0,
+                accessToken: accessToken,
+                previewClient: previewClient(from: result)
+            )
+        case "job":
+            JobDetailScreen(jobID: result.objectID ?? 0, accessToken: accessToken, previewJob: nil)
+        case "invoice":
+            InvoiceDetailScreen(invoiceID: result.objectID ?? 0, accessToken: accessToken, previewInvoice: nil)
+        case "estimate":
+            EstimateDetailScreen(estimateID: result.objectID ?? 0, accessToken: accessToken, previewEstimate: nil)
+        default:
+            commandDestination(for: result.destination)
+        }
+    }
+
+    @ViewBuilder
+    private func commandDestination(for destination: String) -> some View {
+        switch destination {
+        case "calendar":
+            CalendarScreen(accessToken: accessToken)
+        case "work":
+            WorkScreen(accessToken: accessToken)
+        case "clients":
+            ClientsScreen(accessToken: accessToken)
+        case "money":
+            MoneyScreen(accessToken: accessToken)
+        case "estimates":
+            EstimatesScreen(accessToken: accessToken)
+        case "financials":
+            FinancialsScreen(accessToken: accessToken)
+        case "employees":
+            EmployeesScreen(accessToken: accessToken)
+        case "mowing":
+            WorkScreen(accessToken: accessToken, initialService: "mowing", pageTitle: "Mowing", pageEyebrow: "Mowing route", pageSubtitle: "Recurring lawns, one-time cuts, crew notes, photos, and billing from one mobile page.", lockServiceFilter: true)
+        case "fertilization":
+            WorkScreen(accessToken: accessToken, initialService: "fertilization", pageTitle: "Fertilization", pageEyebrow: "Fertilization", pageSubtitle: "Applications, rounds, property notes, job progress, and follow-up work for the field.", lockServiceFilter: true)
+        case "settings":
+            OwnerSettingsScreen(accessToken: accessToken, signOut: signOut)
+        default:
+            WorkScreen(accessToken: accessToken)
+        }
+    }
+
+    private func searchIcon(for result: SearchResult) -> String {
+        switch result.kind {
+        case "client": "person"
+        case "job": "checklist"
+        case "invoice": "doc.text"
+        case "estimate": "doc.badge.plus"
+        case "command": commandIcon(for: result.destination)
+        default: "magnifyingglass"
+        }
     }
 
     private func dispatchPanel(_ command: CommandResponse) -> some View {
@@ -675,6 +837,85 @@ struct CommandScreen: View {
         }
     }
 
+    private func runSearch(immediate: Bool = false) {
+        searchTask?.cancel()
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if query.count < 2 {
+            searchResults = []
+            searchMessage = query.isEmpty ? nil : "Type at least 2 characters to search."
+            isSearching = false
+            return
+        }
+
+        searchTask = Task {
+            if !immediate {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+            }
+            guard !Task.isCancelled else { return }
+            await performSearch(query)
+        }
+    }
+
+    @MainActor
+    private func performSearch(_ query: String) async {
+        guard let accessToken, accessToken != "preview-token" else {
+            searchResults = CommandResponse.previewSearchResults
+            searchMessage = nil
+            return
+        }
+        isSearching = true
+        searchMessage = nil
+        defer { isSearching = false }
+
+        do {
+            let response = try await APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken).search(query: query)
+            guard searchText.trimmingCharacters(in: .whitespacesAndNewlines) == query else { return }
+            searchResults = response.results
+            searchMessage = response.results.isEmpty ? "No results found." : nil
+        } catch {
+            #if DEBUG
+            print("FIELDLGX command search failed: \(error)")
+            #endif
+            searchResults = []
+            searchMessage = "Search could not load. Try again."
+        }
+    }
+
+    private func clearSearch() {
+        searchTask?.cancel()
+        searchText = ""
+        searchResults = []
+        searchMessage = nil
+        isSearching = false
+        searchFocused = false
+    }
+
+    private func previewClient(from result: SearchResult) -> MobileClient {
+        MobileClient(
+            id: result.objectID ?? 0,
+            name: result.title,
+            email: "",
+            phone: "",
+            primaryAddress: result.subtitle,
+            mailingAddress: result.subtitle,
+            notes: "",
+            billing: ClientBilling(
+                invoiceFrequency: "per_job",
+                monthlyInvoiceSendDay: nil,
+                invoiceDueDays: nil,
+                hasCardOnFile: false,
+                cardLast4: "",
+                cardBrand: "",
+                autoCharge: false,
+                autoChargeCompletedJobs: false,
+                autoChargeMonthlyInvoices: false
+            ),
+            stats: ClientStats(jobs: 0, invoices: 0, estimates: 0),
+            properties: [],
+            updatedAt: ""
+        )
+    }
+
     private func icon(for kind: String) -> String {
         switch kind {
         case "schedule": "calendar.badge.clock"
@@ -682,6 +923,22 @@ struct CommandScreen: View {
         case "billing": "dollarsign.circle"
         case "stable": "checkmark.circle"
         default: "exclamationmark.circle"
+        }
+    }
+
+    private func commandIcon(for destination: String) -> String {
+        switch destination {
+        case "calendar": "calendar"
+        case "work": "checklist"
+        case "clients": "person.2"
+        case "money": "doc.text"
+        case "estimates": "doc.badge.plus"
+        case "financials": "chart.line.uptrend.xyaxis"
+        case "employees": "person.3"
+        case "mowing": "leaf"
+        case "fertilization": "sprout"
+        case "settings": "gearshape"
+        default: "arrow.up.right"
         }
     }
 
@@ -728,6 +985,12 @@ private extension TodayJob {
 }
 
 private extension CommandResponse {
+    static let previewSearchResults = [
+        SearchResult(id: "client-1", kind: "client", title: "Maple Ridge", subtitle: "123 Command Ave", detail: "Client", objectID: 1, destination: ""),
+        SearchResult(id: "job-1", kind: "job", title: "Mowing", subtitle: "Maple Ridge · Today", detail: "Scheduled", objectID: 1, destination: ""),
+        SearchResult(id: "command-calendar", kind: "command", title: "Open calendar", subtitle: "Move jobs, routes, and crews", detail: "Calendar", objectID: nil, destination: "calendar"),
+    ]
+
     static let preview = CommandResponse(
         date: "2026-05-06",
         summary: CommandSummary(

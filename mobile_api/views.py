@@ -422,6 +422,123 @@ def command(request):
     })
 
 
+def _search_result(kind, title, subtitle, detail, object_id=None, destination=None):
+    return {
+        "id": f"{kind}-{object_id or destination or title}".lower().replace(" ", "-"),
+        "kind": kind,
+        "title": title,
+        "subtitle": subtitle,
+        "detail": detail,
+        "object_id": object_id,
+        "destination": destination or "",
+    }
+
+
+def search(request):
+    session = session_from_request(request)
+    if not session:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+    if session.user.role not in {"owner", "manager"}:
+        return JsonResponse({"error": "Search is only available to owners and managers."}, status=403)
+
+    query = (request.GET.get("q") or "").strip()
+    if len(query) < 2:
+        return JsonResponse({
+            "query": query,
+            "results": [],
+            "server_time": timezone.now().isoformat(),
+        })
+
+    business = session.business
+    results = []
+
+    customers = Customer.objects.filter(business=business).prefetch_related("properties").filter(
+        Q(name__icontains=query) |
+        Q(email__icontains=query) |
+        Q(phone__icontains=query) |
+        Q(properties__address__icontains=query)
+    ).distinct().order_by("name")[:6]
+    for customer in customers:
+        payload = _client_payload(customer, include_notes=False)
+        subtitle = payload["primary_address"] or customer.email or customer.phone or "Client profile"
+        results.append(_search_result("client", customer.name, subtitle, "Client", customer.id))
+
+    jobs = _job_queryset_for_mobile(session).filter(
+        Q(property__customer__name__icontains=query) |
+        Q(property__address__icontains=query) |
+        Q(notes__icontains=query) |
+        Q(service_items__description__icontains=query) |
+        Q(service_items__detail_description__icontains=query)
+    ).select_related(
+        "property",
+        "property__customer",
+        "assigned_crew",
+        "assigned_to",
+    ).prefetch_related("service_items__service").annotate(
+        site_photo_count=Count("site_photos"),
+    ).distinct().order_by("-scheduled_date", "-id")[:6]
+    for job in jobs:
+        service_name = job.service_items.first().description if job.service_items.exists() else "Job"
+        date_text = job.scheduled_date.isoformat() if job.scheduled_date else "Needs scheduled"
+        subtitle = f"{job.property.customer.name} · {date_text}"
+        results.append(_search_result("job", service_name or "Job", subtitle, job.status.replace("_", " ").title(), job.id))
+
+    invoice_filter = (
+        Q(customer__name__icontains=query) |
+        Q(customer__email__icontains=query) |
+        Q(line_items__description__icontains=query) |
+        Q(line_items__detail_description__icontains=query)
+    )
+    if query.isdigit():
+        invoice_filter |= Q(id=int(query))
+    invoices = Invoice.objects.filter(business=business).select_related("customer").filter(
+        invoice_filter
+    ).distinct().order_by("-issue_date", "-id")[:5]
+    for invoice in invoices:
+        subtitle = f"{invoice.customer.name} · ${invoice.total:.2f}"
+        results.append(_search_result("invoice", f"Invoice #{invoice.id}", subtitle, invoice.status.title(), invoice.id))
+
+    estimate_filter = (
+        Q(customer__name__icontains=query) |
+        Q(title__icontains=query) |
+        Q(notes__icontains=query) |
+        Q(line_items__description__icontains=query) |
+        Q(line_items__detail_description__icontains=query)
+    )
+    if query.isdigit():
+        estimate_filter |= Q(id=int(query))
+    estimates = Estimate.objects.filter(business=business).select_related("customer").filter(
+        estimate_filter
+    ).distinct().order_by("-updated_at", "-id")[:5]
+    for estimate in estimates:
+        total = estimate.accepted_total if estimate.accepted_total is not None else estimate.total()
+        subtitle = f"{estimate.customer.name} · ${total:.2f}"
+        results.append(_search_result("estimate", estimate.title or f"Estimate #{estimate.id}", subtitle, estimate.status.title(), estimate.id))
+
+    command_catalog = [
+        ("calendar", "Open calendar", "Move jobs, routes, and crews", "Calendar"),
+        ("work", "Jobs pipeline", "Scheduled, completed, and billing-ready work", "Jobs"),
+        ("clients", "Clients", "Profiles, notes, properties, and billing preferences", "Clients"),
+        ("money", "Invoices", "Send, edit, collect, and review invoices", "Invoices"),
+        ("estimates", "Estimates", "Quotes, optional items, deposits, and follow-ups", "Estimates"),
+        ("financials", "Financials", "Revenue, expenses, receipts, and profit", "Financials"),
+        ("employees", "Employees", "Crews, time, routes, and field staff", "Employees"),
+        ("mowing", "Mowing", "Recurring lawns and route work", "Mowing"),
+        ("fertilization", "Fertilization", "Applications, rounds, and enrolled clients", "Fertilization"),
+        ("settings", "Settings", "Payments, branding, templates, and preferences", "Settings"),
+    ]
+    query_lower = query.lower()
+    for destination, title, subtitle, detail in command_catalog:
+        if query_lower in title.lower() or query_lower in subtitle.lower() or query_lower in detail.lower():
+            results.append(_search_result("command", title, subtitle, detail, destination=destination))
+
+    return JsonResponse({
+        "query": query,
+        "results": results[:24],
+        "server_time": timezone.now().isoformat(),
+    })
+
+
 def _service_filter_payload(business):
     filters = [{"key": "all", "label": "All"}]
     for service in ServiceTemplate.objects.filter(business=business).order_by("name"):

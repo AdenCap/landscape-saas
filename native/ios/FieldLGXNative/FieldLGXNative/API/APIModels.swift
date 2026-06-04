@@ -238,6 +238,38 @@ struct CommandAttention: Codable, Equatable, Identifiable {
     }
 }
 
+struct SearchResponse: Codable, Equatable {
+    let query: String
+    let results: [SearchResult]
+    let serverTime: String
+
+    enum CodingKeys: String, CodingKey {
+        case query
+        case results
+        case serverTime = "server_time"
+    }
+}
+
+struct SearchResult: Codable, Equatable, Identifiable {
+    let id: String
+    let kind: String
+    let title: String
+    let subtitle: String
+    let detail: String
+    let objectID: Int?
+    let destination: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case kind
+        case title
+        case subtitle
+        case detail
+        case objectID = "object_id"
+        case destination
+    }
+}
+
 struct WorkResponse: Codable, Equatable {
     let date: String
     let summary: WorkSummary

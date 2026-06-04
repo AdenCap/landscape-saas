@@ -382,6 +382,36 @@ class MobileCommandTests(TestCase):
         self.assertEqual(payload["summary"]["today_jobs"], 3)
         self.assertEqual(payload["summary"]["active_routes"], 1)
 
+    def test_search_returns_actionable_owner_results(self):
+        response = self.client.get(
+            reverse("mobile_api:search"),
+            {"q": "Maple"},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        kinds = {item["kind"] for item in payload["results"]}
+        self.assertIn("client", kinds)
+        self.assertIn("job", kinds)
+        self.assertIn("invoice", kinds)
+        self.assertIn("estimate", kinds)
+        client_result = next(item for item in payload["results"] if item["kind"] == "client")
+        self.assertEqual(client_result["object_id"], self.customer.id)
+        self.assertEqual(client_result["title"], "Maple Ridge")
+
+    def test_search_returns_command_shortcuts(self):
+        response = self.client.get(
+            reverse("mobile_api:search"),
+            {"q": "invoice"},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        command = next(item for item in payload["results"] if item["kind"] == "command")
+        self.assertEqual(command["destination"], "money")
+
     def test_calendar_defaults_to_business_today_and_returns_desktop_colors(self):
         Invoice.objects.create(
             business=self.business,
@@ -415,6 +445,21 @@ class MobileCommandTests(TestCase):
 
         response = self.client.get(
             reverse("mobile_api:command"),
+            HTTP_AUTHORIZATION=f"Bearer {crew_login['access_token']}",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_search_requires_owner_or_manager(self):
+        crew_login = self.client.post(
+            reverse("mobile_api:login"),
+            data={"email": "commandcrew@example.com", "password": "testpass123"},
+            content_type="application/json",
+        ).json()
+
+        response = self.client.get(
+            reverse("mobile_api:search"),
+            {"q": "Maple"},
             HTTP_AUTHORIZATION=f"Bearer {crew_login['access_token']}",
         )
 

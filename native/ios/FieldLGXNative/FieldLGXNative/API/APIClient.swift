@@ -59,6 +59,11 @@ struct APIClient {
         return try await get(path: "/api/mobile/v1/command/")
     }
 
+    func search(query: String) async throws -> SearchResponse {
+        let value = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+        return try await get(path: "/api/mobile/v1/search/?q=\(value)")
+    }
+
     func work(date: Date = Date(), service: String = "all") async throws -> WorkResponse {
         let dateString = Self.dayFormatter.string(from: date)
         let serviceValue = service.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? service
