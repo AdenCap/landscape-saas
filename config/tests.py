@@ -1,6 +1,8 @@
 import os
+import tempfile
 from unittest.mock import Mock, patch
 
+from django.core.files.base import ContentFile
 from django.test import Client, RequestFactory, SimpleTestCase, override_settings
 
 from config.middleware import CanonicalHostRedirectMiddleware
@@ -104,3 +106,30 @@ class SupabaseStorageTests(SimpleTestCase):
         called_headers = mock_get.call_args.kwargs["headers"]
         self.assertEqual(called_url, "https://example.supabase.co/storage/v1/object/uploads/business_logos/logo.png")
         self.assertEqual(called_headers["Authorization"], "Bearer service-role-key")
+
+    @patch.dict(os.environ, {
+        "SUPABASE_PROJECT_URL": "https://example.supabase.co",
+        "SUPABASE_SERVICE_KEY": "service-role-key",
+        "SUPABASE_STORAGE_BUCKET": "uploads",
+    })
+    @patch("config.supabase_storage.requests.post")
+    def test_save_falls_back_to_local_media_when_supabase_rejects_upload(self, mock_post):
+        bucket_response = Mock()
+        bucket_response.status_code = 400
+        bucket_response.text = "bucket already exists"
+        upload_response = Mock()
+        upload_response.status_code = 400
+        upload_response.text = "upload rejected"
+        mock_post.side_effect = [bucket_response, upload_response]
+
+        with tempfile.TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root, SITE_URL="https://app.fieldlgx.test"):
+                storage = SupabaseStorage()
+
+                saved_name = storage.save("estimates/2026/06/photo.jpg", ContentFile(b"photo-bytes"))
+
+                self.assertTrue(saved_name.startswith("local/"))
+                self.assertTrue(storage.exists(saved_name))
+                with storage.open(saved_name, "rb") as saved_file:
+                    self.assertEqual(saved_file.read(), b"photo-bytes")
+                self.assertEqual(storage.url(saved_name), f"https://app.fieldlgx.test/uploads/{saved_name}")

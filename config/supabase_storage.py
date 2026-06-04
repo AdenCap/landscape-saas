@@ -12,11 +12,16 @@ The bucket name defaults to "uploads" and is auto-created if missing.
 """
 import os
 import uuid
+import logging
 from urllib.parse import quote
 
 import requests
+from django.conf import settings
 from django.core.files.base import ContentFile
-from django.core.files.storage import Storage
+from django.core.files.storage import FileSystemStorage, Storage
+
+
+logger = logging.getLogger(__name__)
 
 
 class SupabaseStorage(Storage):
@@ -31,6 +36,18 @@ class SupabaseStorage(Storage):
             "Authorization": f"Bearer {self.service_key}",
         }
         self._bucket_ensured = False
+        self._local_storage = FileSystemStorage(location=settings.MEDIA_ROOT)
+
+    def _local_name(self, name):
+        unique_name = f"{uuid.uuid4().hex[:12]}_{name.replace('/', '_')}"
+        return f"local/{unique_name}"
+
+    def _save_local(self, name, data):
+        local_name = self._local_name(name)
+        return self._local_storage.save(local_name, ContentFile(data))
+
+    def _is_local_name(self, name):
+        return str(name or "").lstrip("/").startswith("local/")
 
     def _ensure_bucket(self):
         """Create the bucket if it doesn't exist (runs once per process)."""
@@ -53,6 +70,8 @@ class SupabaseStorage(Storage):
         if not name:
             return ""
         name = str(name)
+        if self._is_local_name(name):
+            return name.lstrip("/")
         public_prefix = f"{self.project_url}/storage/v1/object/public/{self.bucket}/"
         signed_prefix = f"{self.project_url}/storage/v1/object/sign/{self.bucket}/"
         object_prefix = f"{self.project_url}/storage/v1/object/{self.bucket}/"
@@ -62,12 +81,17 @@ class SupabaseStorage(Storage):
         return name.lstrip("/")
 
     def _save(self, name, content):
-        self._ensure_bucket()
         # Add a unique prefix to avoid collisions
         ext = name.rsplit(".", 1)[-1] if "." in name else "bin"
         unique_name = f"{uuid.uuid4().hex[:12]}_{name.replace('/', '_')}"
         content.seek(0)
         data = content.read()
+
+        if not self.project_url or not self.service_key:
+            logger.warning("Supabase Storage env is missing; saving %s locally.", name)
+            return self._save_local(name, data)
+
+        self._ensure_bucket()
 
         # Detect content type
         content_type = "application/octet-stream"
@@ -97,7 +121,13 @@ class SupabaseStorage(Storage):
         )
 
         if resp.status_code not in (200, 201):
-            raise RuntimeError(f"Supabase Storage upload failed ({resp.status_code}): {resp.text[:200]}")
+            logger.error(
+                "Supabase Storage upload failed for %s (%s): %s. Saving locally.",
+                name,
+                resp.status_code,
+                resp.text[:500],
+            )
+            return self._save_local(name, data)
 
         # Store only the object path. url() serves it through the Django app so
         # private Supabase buckets and missing public policies still work.
@@ -118,6 +148,8 @@ class SupabaseStorage(Storage):
         obj_path = self._object_path(name)
         if not obj_path:
             return False
+        if self._is_local_name(obj_path):
+            return self._local_storage.exists(obj_path)
         try:
             resp = requests.head(
                 f"{self._base}/object/{self.bucket}/{obj_path}",
@@ -132,6 +164,9 @@ class SupabaseStorage(Storage):
         """Delete a file from Supabase Storage."""
         obj_path = self._object_path(name)
         if not obj_path:
+            return
+        if self._is_local_name(obj_path):
+            self._local_storage.delete(obj_path)
             return
 
         try:
@@ -149,6 +184,8 @@ class SupabaseStorage(Storage):
         obj_path = self._object_path(name)
         if not obj_path:
             return ContentFile(b"")
+        if self._is_local_name(obj_path):
+            return self._local_storage.open(obj_path, mode)
         try:
             resp = requests.get(
                 f"{self._base}/object/{self.bucket}/{obj_path}",
