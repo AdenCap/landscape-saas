@@ -980,6 +980,9 @@ struct CreateEstimateSheet: View {
     @State private var errorMessage: String?
     @State private var statusMessage: String?
     @State private var showingCreateClient = false
+    @State private var photoItems: [PhotosPickerItem] = []
+    @State private var photoData: [Data] = []
+    @State private var isPreparingPhotos = false
 
     var body: some View {
         MoneyCreateShell(title: "Create estimate", eyebrow: "NEW ESTIMATE", errorMessage: errorMessage, statusMessage: statusMessage) {
@@ -1003,9 +1006,13 @@ struct CreateEstimateSheet: View {
                 moneyField("Deposit amount", text: $depositAmount)
             }
             estimateLineItems
+            estimatePhotos
             saveButton("Create estimate") { await save() }
         }
         .task { await loadClients() }
+        .onChange(of: photoItems) { _, newItems in
+            Task { await loadEstimatePhotos(from: newItems) }
+        }
         .sheet(isPresented: $showingCreateClient) {
             CreateClientSheet(accessToken: accessToken) { response in
                 await loadClients(selecting: response.client.id)
@@ -1013,6 +1020,56 @@ struct CreateEstimateSheet: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+    }
+
+    private var estimatePhotos: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                moneyLabel("Photos")
+                Spacer()
+                Text(photoSummary)
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundStyle(FieldLGXTheme.secondaryText)
+            }
+
+            PhotosPicker(selection: $photoItems, maxSelectionCount: 8, matching: .images) {
+                HStack(spacing: 12) {
+                    Image(systemName: photoData.isEmpty ? "photo.badge.plus" : "checkmark.circle.fill")
+                        .font(.system(size: 18, weight: .black))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(photoData.isEmpty ? "Attach estimate photos" : "Estimate photos ready")
+                            .font(.system(size: 16, weight: .black))
+                        Text("Property photos stay with the quote, job, and client view.")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(FieldLGXTheme.secondaryText)
+                            .lineLimit(2)
+                    }
+                    Spacer()
+                    if isPreparingPhotos {
+                        ProgressView()
+                            .tint(FieldLGXTheme.lime)
+                    }
+                }
+                .foregroundStyle(FieldLGXTheme.text)
+                .padding(14)
+                .background(FieldLGXTheme.panelGradient)
+                .clipShape(RoundedRectangle(cornerRadius: FieldLGXTheme.cardRadius, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: FieldLGXTheme.cardRadius, style: .continuous)
+                        .stroke(FieldLGXTheme.panelStroke, lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    private var photoSummary: String {
+        if isPreparingPhotos {
+            return "Preparing"
+        }
+        if photoData.isEmpty {
+            return "Optional"
+        }
+        return "\(photoData.count) selected"
     }
 
     private var clientPicker: some View {
@@ -1163,7 +1220,9 @@ struct CreateEstimateSheet: View {
         defer { isSaving = false }
         let payload = estimatePayload(clientID: clientID)
         do {
-            _ = try await APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken).createEstimate(payload: payload)
+            let api = APIClient(baseURL: FieldLGXConfig.apiBaseURL, accessToken: accessToken)
+            let created = try await api.createEstimate(payload: payload)
+            try await uploadPhotosIfNeeded(estimateID: created.estimate.id, api: api)
             await onCreated()
             dismiss()
         } catch {
@@ -1181,6 +1240,31 @@ struct CreateEstimateSheet: View {
             } catch {
                 errorMessage = "Could not create this estimate or save it offline."
             }
+        }
+    }
+
+    @MainActor
+    private func loadEstimatePhotos(from items: [PhotosPickerItem]) async {
+        isPreparingPhotos = true
+        defer { isPreparingPhotos = false }
+        var loaded: [Data] = []
+        for item in items {
+            guard let data = try? await item.loadTransferable(type: Data.self) else {
+                continue
+            }
+            loaded.append(data)
+        }
+        photoData = loaded
+    }
+
+    private func uploadPhotosIfNeeded(estimateID: Int, api: APIClient) async throws {
+        for (index, data) in photoData.enumerated() {
+            _ = try await api.uploadEstimatePhoto(
+                id: estimateID,
+                imageData: data,
+                caption: "",
+                fileName: "estimate-photo-\(index + 1).jpg"
+            )
         }
     }
 
