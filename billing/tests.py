@@ -1,10 +1,12 @@
 import json
+import tempfile
 from decimal import Decimal
 from datetime import date
 from io import StringIO
 from unittest.mock import patch
 
 from django.core.management import call_command
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -16,6 +18,7 @@ from pricing.models import ServiceTemplate
 from billing.models import (
     DocumentTemplate,
     Estimate,
+    EstimateImage,
     EstimateLineItem,
     Invoice,
     InvoiceLineItem,
@@ -1439,6 +1442,36 @@ class DocumentTemplateStudioTests(TestCase):
         self.assertNotIn("Optional lighting", body_html)
         self.assertNotIn("$250", body_html)
         self.assertIn("View Estimate", body_html)
+
+    def test_owner_can_save_estimate_photos_from_review_page(self):
+        estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            title="Front beds",
+            status="draft",
+        )
+        review_url = reverse("billing:estimate_detail", args=[estimate.id])
+        image = SimpleUploadedFile(
+            "front-bed.jpg",
+            b"\xff\xd8\xff\xe0" + b"photo-data",
+            content_type="image/jpeg",
+        )
+
+        with tempfile.TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                response = self.client.post(
+                    reverse("billing:estimate_add_image", args=[estimate.id]),
+                    data={
+                        "images": [image],
+                        "caption": "Front bed before",
+                        "next": review_url,
+                    },
+                )
+
+                self.assertRedirects(response, review_url)
+                saved = EstimateImage.objects.get(estimate=estimate)
+                self.assertEqual(saved.caption, "Front bed before")
+                self.assertTrue(saved.image.name.startswith("estimates/"))
 
     @patch("businesses.email_sender.is_email_configured", return_value=True)
     @patch("businesses.email_sender.send_business_email", return_value=(True, "ok"))

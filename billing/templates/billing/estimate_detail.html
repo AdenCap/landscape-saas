@@ -240,6 +240,28 @@
     </div>
   </section>
 
+  <section class="er-payment-panel estimate-photo-panel">
+    <div class="estimate-photo-copy">
+      <p>Estimate photos</p>
+      <h2>Attach photos before sending.</h2>
+      <span>Saved photos appear on the client estimate and PDF photo section when photos are enabled for the template.</span>
+    </div>
+    <form method="post" action="{% url 'billing:estimate_add_image' estimate.id %}" enctype="multipart/form-data" class="estimate-detail-photo-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <label class="estimate-detail-photo-drop">
+        <span class="material-symbols-outlined">add_a_photo</span>
+        <strong>Add property photos</strong>
+        <small>JPG, PNG, WebP, HEIC up to 10 MB each</small>
+        <input type="file" name="images" accept="image/*" multiple>
+      </label>
+      <div class="estimate-detail-photo-actions">
+        <input type="text" name="caption" placeholder="Optional caption, applies to all photos" class="form-control">
+        <button type="submit" class="btn btn-secondary">Save photos to estimate</button>
+      </div>
+    </form>
+  </section>
+
   <div class="card estimate-preview-card">
     {% if doc_template %}<style>.estimate-preview-header { border-bottom-color: {{ doc_template.primary_color }} !important; } .estimate-preview-card .doc-header-custom { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-muted); } .estimate-preview-card .doc-footer-custom, .estimate-preview-card .doc-terms, .estimate-preview-card .doc-custom-fields { margin-top: 16px; font-size: 14px; color: var(--text-muted); } .estimate-preview-card .doc-custom-fields dt { font-weight: 600; font-size: 12px; margin-top: 8px; } .estimate-preview-card .doc-custom-fields dd { margin: 2px 0 0 0; }</style>{% endif %}
     {% if doc_template and doc_template.header_text %}
@@ -919,6 +941,67 @@
   }
 
   .estimate-preview-card { padding: 28px; font-size: 16px; }
+  .estimate-photo-panel {
+    display: grid;
+    grid-template-columns: minmax(0, .8fr) minmax(320px, 1.2fr);
+    gap: 18px;
+    align-items: stretch;
+    margin-bottom: 22px;
+  }
+  .estimate-photo-copy p {
+    margin: 0 0 8px;
+    color: var(--er-accent);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+  .estimate-photo-copy h2 {
+    margin: 0 0 8px;
+    font-size: 26px;
+  }
+  .estimate-photo-copy span {
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .estimate-detail-photo-form {
+    display: grid;
+    gap: 12px;
+  }
+  .estimate-detail-photo-drop {
+    position: relative;
+    display: grid;
+    gap: 4px;
+    place-items: center;
+    min-height: 128px;
+    padding: 22px;
+    border: 1px dashed rgba(157,216,80,.42);
+    border-radius: 22px;
+    background: rgba(157,216,80,.07);
+    color: var(--text);
+    text-align: center;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .estimate-detail-photo-drop .material-symbols-outlined {
+    color: var(--primary);
+    font-size: 34px;
+  }
+  .estimate-detail-photo-drop small {
+    color: var(--text-muted);
+  }
+  .estimate-detail-photo-drop input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .estimate-detail-photo-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
   .estimate-preview-header {
     margin-bottom: 24px;
     padding-bottom: 20px;
@@ -990,6 +1073,10 @@
     .er-payment-grid { grid-template-columns: 1fr; }
     .er-payment-head { align-items: stretch; flex-direction: column; }
     .er-payment-action { width: 100%; }
+    .estimate-photo-panel,
+    .estimate-detail-photo-actions {
+      grid-template-columns: 1fr;
+    }
     .estimate-preview-card { padding: 16px; }
   }
   .estimate-review-flow .estimate-detail-header {

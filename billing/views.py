@@ -5618,6 +5618,17 @@ def _redirect_to_estimate_deposit_checkout(request, estimate, token):
         return redirect("billing:estimate_client_accepted", estimate_id=estimate.id, token=token)
 
 
+def _redirect_after_estimate_image_upload(request, estimate):
+    next_url = request.POST.get("next") or request.GET.get("next")
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(next_url)
+    return redirect("billing:estimate_edit", estimate_id=estimate.id)
+
+
 @require_POST
 @role_required("owner", "manager")
 def estimate_add_image(request, estimate_id):
@@ -5635,7 +5646,7 @@ def estimate_add_image(request, estimate_id):
     files = request.FILES.getlist("images")
     if not files:
         messages.error(request, "No images selected.")
-        return redirect("billing:estimate_edit", estimate_id=estimate.id)
+        return _redirect_after_estimate_image_upload(request, estimate)
 
     added = 0
     next_order = estimate.images.count()
@@ -5657,7 +5668,7 @@ def estimate_add_image(request, estimate_id):
 
     if added:
         messages.success(request, f"{added} image{'s' if added != 1 else ''} added.")
-    return redirect("billing:estimate_edit", estimate_id=estimate.id)
+    return _redirect_after_estimate_image_upload(request, estimate)
 
 
 @require_POST

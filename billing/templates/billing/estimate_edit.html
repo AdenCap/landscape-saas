@@ -291,6 +291,7 @@
     {% endif %}
     <form method="post" action="{% url 'billing:estimate_add_image' estimate.id %}" enctype="multipart/form-data" class="estimate-add-image-form">
       {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
       <div class="drop-zone" id="drop-zone">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:8px;opacity:.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <p style="margin:0 0 4px;font-weight:600;font-size:15px">Drag images here or click to browse</p>
@@ -302,7 +303,7 @@
         <label>Caption (optional, applies to all)</label>
         <input type="text" name="caption" placeholder="e.g. Front yard, Before" class="form-control">
       </div>
-      <button type="submit" class="btn btn-secondary" style="margin-top:12px">Upload images</button>
+      <button type="submit" class="btn btn-secondary" style="margin-top:12px">Save photos to estimate</button>
     </form>
   </section>
 </div>
