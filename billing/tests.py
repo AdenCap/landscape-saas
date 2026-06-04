@@ -1473,6 +1473,34 @@ class DocumentTemplateStudioTests(TestCase):
                 self.assertEqual(saved.caption, "Front bed before")
                 self.assertTrue(saved.image.name.startswith("estimates/"))
 
+    def test_estimate_photo_storage_failure_does_not_500(self):
+        estimate = Estimate.objects.create(
+            business=self.business,
+            customer=self.customer,
+            title="Front beds",
+            status="draft",
+        )
+        review_url = reverse("billing:estimate_detail", args=[estimate.id])
+        image = SimpleUploadedFile(
+            "front-bed.jpg",
+            b"\xff\xd8\xff\xe0" + b"photo-data",
+            content_type="image/jpeg",
+        )
+        storage = EstimateImage._meta.get_field("image").storage
+
+        with patch.object(storage, "save", side_effect=RuntimeError("storage offline")):
+            response = self.client.post(
+                reverse("billing:estimate_add_image", args=[estimate.id]),
+                data={
+                    "images": [image],
+                    "caption": "Front bed before",
+                    "next": review_url,
+                },
+            )
+
+        self.assertRedirects(response, review_url)
+        self.assertFalse(EstimateImage.objects.filter(estimate=estimate).exists())
+
     @patch("businesses.email_sender.is_email_configured", return_value=True)
     @patch("businesses.email_sender.send_business_email", return_value=(True, "ok"))
     def test_resend_invoice_email_attaches_pdf(self, mock_send, _mock_configured):

@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import re
 import secrets
 import stripe
@@ -17,6 +18,7 @@ from django.urls import reverse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
+from django.db import transaction
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Q, Sum
 from django.db.models.functions import Coalesce
 
@@ -85,6 +87,8 @@ from .services import (
     mark_invoice_paid_from_stripe,
 )
 from .monthly import build_missing_monthly_invoices_for_period
+
+logger = logging.getLogger(__name__)
 
 @role_required("owner", "manager")
 def invoice_list_view(request):
@@ -5649,6 +5653,7 @@ def estimate_add_image(request, estimate_id):
         return _redirect_after_estimate_image_upload(request, estimate)
 
     added = 0
+    had_upload_error = False
     next_order = estimate.images.count()
     for uploaded in files:
         if uploaded.content_type not in ALLOWED_IMAGE_TYPES:
@@ -5657,17 +5662,29 @@ def estimate_add_image(request, estimate_id):
         if uploaded.size > MAX_UPLOAD_SIZE:
             messages.warning(request, f"Skipped {uploaded.name}: file too large (max 10 MB).")
             continue
-        EstimateImage.objects.create(
-            estimate=estimate,
-            image=uploaded,
-            caption=caption,
-            order=next_order,
-        )
+        try:
+            with transaction.atomic():
+                EstimateImage.objects.create(
+                    estimate=estimate,
+                    image=uploaded,
+                    caption=caption,
+                    order=next_order,
+                )
+        except Exception as exc:
+            logger.exception("Estimate image upload failed for estimate %s", estimate.id)
+            had_upload_error = True
+            messages.error(
+                request,
+                f"Could not save {uploaded.name}. Please check storage settings and try again.",
+            )
+            continue
         next_order += 1
         added += 1
 
     if added:
         messages.success(request, f"{added} image{'s' if added != 1 else ''} added.")
+    elif not had_upload_error:
+        messages.error(request, "No images were saved.")
     return _redirect_after_estimate_image_upload(request, estimate)
 
 
