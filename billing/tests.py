@@ -751,6 +751,61 @@ class MonthlyInvoiceRepairTests(TestCase):
         self.assertContains(response, 'name="invoice_ids" value="%s"' % invoice.id)
         self.assertContains(response, "Send invoice")
 
+    def test_monthly_queue_does_not_cap_building_invoices_at_100(self):
+        for index in range(105):
+            customer = Customer.objects.create(
+                business=self.business,
+                name=f"Batch Client {index:03d}",
+                invoice_frequency="monthly",
+            )
+            invoice = Invoice.objects.create(
+                business=self.business,
+                customer=customer,
+                status="draft",
+                period_start=date(2026, 4, 1),
+                period_end=date(2026, 4, 30),
+                subtotal=Decimal("40.00"),
+                tax=Decimal("0"),
+                total=Decimal("40.00"),
+            )
+            InvoiceLineItem.objects.create(
+                invoice=invoice,
+                description=f"Mowing visit {index:03d}",
+                quantity=1,
+                unit_price=Decimal("40.00"),
+            )
+
+        response = self.client.get(reverse("billing:monthly_invoice_list") + "?year=2026")
+
+        self.assertContains(response, "Batch Client 104")
+        self.assertContains(response, "Mowing visit 104")
+        self.assertContains(response, "Total queue")
+        self.assertContains(response, ">105<")
+
+    def test_invoice_building_tab_does_not_cap_invoices_at_100(self):
+        for index in range(105):
+            customer = Customer.objects.create(
+                business=self.business,
+                name=f"Building Client {index:03d}",
+                invoice_frequency="monthly",
+            )
+            Invoice.objects.create(
+                business=self.business,
+                customer=customer,
+                status="draft",
+                period_start=date(2026, 4, 1),
+                period_end=date(2026, 4, 30),
+                subtotal=Decimal("55.00"),
+                tax=Decimal("0"),
+                total=Decimal("55.00"),
+            )
+
+        response = self.client.get(reverse("billing:invoice_list"), {"status": "building"})
+
+        self.assertContains(response, "Building Client 104")
+        self.assertContains(response, "Building batches")
+        self.assertContains(response, ">105<")
+
     def test_unbilled_work_page_lists_completed_uninvoiced_items(self):
         item = self._completed_job_item(date(2026, 4, 12), Decimal("115.00"))
 

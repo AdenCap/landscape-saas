@@ -219,7 +219,8 @@ def invoice_list(request):
             search_filter |= Q(id=int(search_query))
         qs = qs.filter(search_filter)
 
-    invoices = qs.order_by("-issue_date", "-id")[:100]
+    ordered_invoices = qs.order_by("-issue_date", "-id")
+    invoices = ordered_invoices if status_filter == "building" else ordered_invoices[:100]
     invoice_rows = []
     for invoice in invoices:
         due_state = "none"
@@ -358,7 +359,7 @@ def monthly_invoice_list(request):
         (5, "May"), (6, "June"), (7, "July"), (8, "August"),
         (9, "September"), (10, "October"), (11, "November"), (12, "December"),
     ]
-    monthly_for_stats = list(monthly[:100])
+    monthly_for_stats = list(monthly)
     draft_invoices = [inv for inv in monthly_for_stats if inv.status == "draft"]
     sent_invoices = [inv for inv in monthly_for_stats if inv.status == "sent"]
     paid_invoices = [inv for inv in monthly_for_stats if inv.status == "paid"]
