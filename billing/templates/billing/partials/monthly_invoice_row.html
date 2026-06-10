@@ -1,0 +1,70 @@
+{% load billing_filters %}
+
+<article class="batch-row status-{{ row.invoice.status }} mode-{{ mode }}">
+  <div class="batch-select-cell">
+    {% if row.can_select %}
+    <input form="batch-selected-form" type="checkbox" name="invoice_ids" value="{{ row.invoice.id }}" aria-label="Select invoice {{ row.invoice.id }}">
+    {% elif mode == "building" %}
+    <span class="material-symbols-outlined">sync</span>
+    {% else %}
+    <span class="material-symbols-outlined">check_circle</span>
+    {% endif %}
+  </div>
+  <div class="batch-row-main">
+    <div class="batch-row-title">
+      <div>
+        <span class="batch-kicker">Invoice #{{ row.invoice.id }}</span>
+        <h3>{{ row.invoice.customer.name }}</h3>
+      </div>
+      <span class="batch-badge">{{ row.invoice.get_status_display }}</span>
+    </div>
+    <div class="batch-row-meta">
+      <span>
+        <span class="material-symbols-outlined">calendar_month</span>
+        {{ row.invoice.period_start|date:"M j, Y" }}{% if row.invoice.period_end %} - {{ row.invoice.period_end|date:"M j, Y" }}{% endif %}
+      </span>
+      <span>
+        <span class="material-symbols-outlined">{% if mode == "building" %}playlist_add{% else %}schedule_send{% endif %}</span>
+        {% if mode == "building" %}Still collecting completed work{% elif row.send_on %}Send target {{ row.send_on|date:"M j" }}{% else %}Manual send{% endif %}
+      </span>
+      {% if row.invoice.customer.email %}
+      <span>
+        <span class="material-symbols-outlined">mail</span>
+        {{ row.invoice.customer.email }}
+      </span>
+      {% endif %}
+      <span>
+        <span class="material-symbols-outlined">visibility</span>
+        {% if row.invoice.view_count %}Viewed {{ row.invoice.view_count }}x{% else %}Not viewed{% endif %}
+      </span>
+    </div>
+    <div class="batch-line-preview" aria-label="Invoice {{ row.invoice.id }} line item preview">
+      {% for item in row.line_items %}
+      <div class="batch-line-chip">
+        <span>{{ item.description }}</span>
+        <strong>{{ item.line_total|currency }}</strong>
+      </div>
+      {% empty %}
+      <div class="batch-line-empty">No line items yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="batch-row-total">
+    <span>Total</span>
+    <strong>{{ row.invoice.total|currency }}</strong>
+  </div>
+  <div class="batch-row-actions">
+    <a href="{% url 'billing:invoice_detail' row.invoice.id %}">Open</a>
+    {% if row.invoice.status == "draft" or row.invoice.status == "sent" %}
+    <a href="{% url 'billing:invoice_edit_line_items' row.invoice.id %}">Edit items</a>
+    {% endif %}
+    {% if row.can_select %}
+    <form method="post" action="{% url 'billing:monthly_invoice_batch_send' %}" onsubmit="return confirm('Approve and send invoice #{{ row.invoice.id }}?');">
+      {% csrf_token %}
+      <input type="hidden" name="year" value="{{ year_param }}">
+      <input type="hidden" name="invoice_ids" value="{{ row.invoice.id }}">
+      <button type="submit">Send invoice</button>
+    </form>
+    {% endif %}
+  </div>
+</article>

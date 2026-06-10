@@ -9,6 +9,7 @@ from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import Notification, User
 from businesses.models import Business
@@ -422,6 +423,9 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.assertEqual(self.invoice.due_date, date(2026, 5, 31))
 
     def test_invoice_command_center_exposes_actionable_totals(self):
+        self.invoice.view_count = 2
+        self.invoice.last_viewed_at = timezone.now()
+        self.invoice.save(update_fields=["view_count", "last_viewed_at"])
         monthly = Invoice.objects.create(
             business=self.business,
             customer=self.customer,
@@ -458,7 +462,11 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.assertEqual(metrics["unbilled_total"], Decimal("95.00"))
         self.assertEqual(metrics["unbilled_item_count"], 1)
         self.assertContains(response, "Work not invoiced")
-        self.assertContains(response, "Building batches")
+        self.assertContains(response, "Monthly ready")
+        self.assertContains(response, "Building now")
+        self.assertContains(response, 'href="%s"' % reverse("billing:monthly_invoice_list"))
+        self.assertContains(response, ">Monthly<")
+        self.assertContains(response, "Viewed 2x")
         self.assertContains(response, "$95")
 
     def test_invoice_search_surfaces_building_monthly_invoices(self):
@@ -646,7 +654,10 @@ class MonthlyInvoiceRepairTests(TestCase):
             data={"year": "2026", "month": "4"},
         )
 
-        self.assertRedirects(response, reverse("billing:monthly_invoice_list") + "?year=2026")
+        self.assertRedirects(
+            response,
+            reverse("billing:monthly_invoice_list") + "?period_month=4&year=2026",
+        )
         first.refresh_from_db()
         second.refresh_from_db()
         may_item.refresh_from_db()
@@ -667,7 +678,10 @@ class MonthlyInvoiceRepairTests(TestCase):
             data={"year": "2026", "month": "4"},
         )
 
-        self.assertRedirects(response, reverse("billing:monthly_invoice_list") + "?year=2026")
+        self.assertRedirects(
+            response,
+            reverse("billing:monthly_invoice_list") + "?period_month=4&year=2026",
+        )
         invoice = Invoice.objects.get(customer=self.customer, period_start=date(2026, 4, 1))
         descriptions = list(invoice.line_items.order_by("id").values_list("description", flat=True))
         self.assertEqual(
@@ -700,7 +714,10 @@ class MonthlyInvoiceRepairTests(TestCase):
             data={"year": "2026", "month": "4"},
         )
 
-        self.assertRedirects(response, reverse("billing:monthly_invoice_list") + "?year=2026")
+        self.assertRedirects(
+            response,
+            reverse("billing:monthly_invoice_list") + "?period_month=4&year=2026",
+        )
         invoice = Invoice.objects.get(customer=self.customer, period_start=date(2026, 4, 1))
         line = invoice.line_items.get()
         self.assertEqual(line.description, "Mowing - 42 April Ave (2026-04-05)")
@@ -743,6 +760,11 @@ class MonthlyInvoiceRepairTests(TestCase):
 
         response = self.client.get(reverse("billing:monthly_invoice_list") + "?year=2026")
 
+        self.assertContains(response, "Invoice workspace")
+        self.assertContains(response, 'class="batch-workspace-tab active"')
+        self.assertContains(response, ">Monthly<")
+        self.assertContains(response, "Find monthly invoices")
+        self.assertContains(response, "Build missing drafts")
         self.assertContains(response, "Weekly mowing - April 5")
         self.assertContains(response, "Spring cleanup add-on")
         self.assertContains(response, "Mulch bed cleanup")
@@ -779,8 +801,146 @@ class MonthlyInvoiceRepairTests(TestCase):
 
         self.assertContains(response, "Batch Client 104")
         self.assertContains(response, "Mowing visit 104")
-        self.assertContains(response, "Total queue")
+        self.assertContains(response, "Ready to review and send")
         self.assertContains(response, ">105<")
+
+    def test_monthly_queue_separates_current_building_from_completed_periods(self):
+        current_start = timezone.localdate().replace(day=1)
+        current_invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            period_start=current_start,
+            period_end=current_start,
+            subtotal=Decimal("95.00"),
+            tax=Decimal("0"),
+            total=Decimal("95.00"),
+        )
+        ready_invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+            subtotal=Decimal("110.00"),
+            tax=Decimal("0"),
+            total=Decimal("110.00"),
+        )
+        sent_invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="sent",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            subtotal=Decimal("120.00"),
+            tax=Decimal("0"),
+            total=Decimal("120.00"),
+        )
+        InvoiceLineItem.objects.create(invoice=current_invoice, description="Current month mowing", quantity=1, unit_price=Decimal("95.00"))
+        InvoiceLineItem.objects.create(invoice=ready_invoice, description="April mowing", quantity=1, unit_price=Decimal("110.00"))
+        InvoiceLineItem.objects.create(invoice=sent_invoice, description="March mowing", quantity=1, unit_price=Decimal("120.00"))
+
+        response = self.client.get(reverse("billing:monthly_invoice_list") + "?year=2026")
+
+        self.assertContains(response, "Currently building")
+        self.assertContains(response, "Still collecting completed work")
+        self.assertContains(response, "Completed periods")
+        self.assertContains(response, "Ready to review and send")
+        self.assertContains(response, "Current month mowing")
+        self.assertContains(response, "April mowing")
+        self.assertContains(response, "Past monthly invoices")
+        self.assertContains(response, "History is tucked away")
+        self.assertNotContains(response, "March mowing")
+
+        history_response = self.client.get(reverse("billing:monthly_invoice_list") + "?year=2026&show_history=1")
+        self.assertContains(history_response, "Past monthly invoices")
+        self.assertContains(history_response, "March mowing")
+
+    def test_monthly_history_can_filter_by_status_and_year(self):
+        sent_invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="sent",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            subtotal=Decimal("120.00"),
+            tax=Decimal("0"),
+            total=Decimal("120.00"),
+        )
+        paid_invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="paid",
+            period_start=date(2025, 12, 1),
+            period_end=date(2025, 12, 31),
+            subtotal=Decimal("130.00"),
+            tax=Decimal("0"),
+            total=Decimal("130.00"),
+        )
+        InvoiceLineItem.objects.create(invoice=sent_invoice, description="March monthly mowing", quantity=1, unit_price=Decimal("120.00"))
+        InvoiceLineItem.objects.create(invoice=paid_invoice, description="December monthly mowing", quantity=1, unit_price=Decimal("130.00"))
+
+        response = self.client.get(
+            reverse("billing:monthly_invoice_list"),
+            {"show_history": "1", "history_status": "sent", "history_year": "2026"},
+        )
+
+        self.assertContains(response, "March monthly mowing")
+        self.assertNotContains(response, "December monthly mowing")
+
+    def test_monthly_queue_can_filter_by_invoice_period_month(self):
+        april_invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+            subtotal=Decimal("140.00"),
+            tax=Decimal("0"),
+            total=Decimal("140.00"),
+        )
+        may_invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="draft",
+            period_start=date(2026, 5, 1),
+            period_end=date(2026, 5, 31),
+            subtotal=Decimal("155.00"),
+            tax=Decimal("0"),
+            total=Decimal("155.00"),
+        )
+        march_invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="sent",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            subtotal=Decimal("130.00"),
+            tax=Decimal("0"),
+            total=Decimal("130.00"),
+        )
+        InvoiceLineItem.objects.create(invoice=april_invoice, description="April monthly route", quantity=1, unit_price=Decimal("140.00"))
+        InvoiceLineItem.objects.create(invoice=may_invoice, description="May monthly route", quantity=1, unit_price=Decimal("155.00"))
+        InvoiceLineItem.objects.create(invoice=march_invoice, description="March monthly route", quantity=1, unit_price=Decimal("130.00"))
+
+        response = self.client.get(
+            reverse("billing:monthly_invoice_list"),
+            {"year": "2026", "period_month": "4"},
+        )
+
+        self.assertContains(response, "April monthly route")
+        self.assertNotContains(response, "May monthly route")
+        self.assertNotContains(response, "March monthly route")
+        self.assertContains(response, "April 2026")
+        self.assertContains(response, 'name="period_month"')
+
+        history_response = self.client.get(
+            reverse("billing:monthly_invoice_list"),
+            {"year": "2026", "period_month": "3", "show_history": "1"},
+        )
+
+        self.assertContains(history_response, "March monthly route")
+        self.assertNotContains(history_response, "April monthly route")
 
     def test_invoice_building_tab_does_not_cap_invoices_at_100(self):
         for index in range(105):
@@ -803,7 +963,7 @@ class MonthlyInvoiceRepairTests(TestCase):
         response = self.client.get(reverse("billing:invoice_list"), {"status": "building"})
 
         self.assertContains(response, "Building Client 104")
-        self.assertContains(response, "Building batches")
+        self.assertContains(response, "Recurring invoices compiling")
         self.assertContains(response, ">105<")
 
     def test_unbilled_work_page_lists_completed_uninvoiced_items(self):

@@ -11,9 +11,9 @@
 
     <header class="ic-hero">
       <div>
-        <p class="ic-eyebrow"><span></span> Money Command</p>
+        <p class="ic-eyebrow"><span></span> Invoice Command</p>
         <h1>Invoices</h1>
-        <p class="ic-subcopy">Focus on invoices that need action now while recurring batches keep building quietly in the background.</p>
+        <p class="ic-subcopy">Review what needs sent, see recurring invoices that are still collecting work, and know when clients have opened their invoice.</p>
       </div>
       <div class="ic-hero-actions">
         <a href="{% url 'billing:invoice_create' %}" class="ic-primary-action">
@@ -21,20 +21,25 @@
           <span>Create invoice</span>
         </a>
         <a href="{% url 'billing:outstanding_invoices' %}" class="ic-secondary-action">Outstanding</a>
-        <a href="{% url 'billing:monthly_invoice_list' %}" class="ic-secondary-action">Batches</a>
+        <a href="{% url 'billing:monthly_invoice_list' %}" class="ic-secondary-action">Build monthly</a>
       </div>
     </header>
 
     <section class="ic-stat-grid ic-command-grid" aria-label="Invoice command summary">
       <a href="{% url 'billing:invoice_list' %}?status=draft" class="ic-stat ic-command-stat">
-        <span>Ready to send</span>
+        <span>Needs review</span>
         <strong>{{ command_metrics.draft_total|currency }}</strong>
-        <small>{{ command_metrics.draft_count }} invoice{{ command_metrics.draft_count|pluralize }} needing review</small>
+        <small>{{ command_metrics.draft_count }} draft invoice{{ command_metrics.draft_count|pluralize }} ready to approve or edit</small>
       </a>
       <a href="{% url 'billing:monthly_invoice_list' %}" class="ic-stat ic-command-stat">
-        <span>Building batches</span>
-        <strong>{{ command_metrics.monthly_draft_total|currency }}</strong>
-        <small>{{ command_metrics.monthly_draft_count }} recurring invoice{{ command_metrics.monthly_draft_count|pluralize }} still collecting work</small>
+        <span>Monthly ready</span>
+        <strong>{{ command_metrics.monthly_ready_total|currency }}</strong>
+        <small>{{ command_metrics.monthly_ready_count }} completed period{{ command_metrics.monthly_ready_count|pluralize }} ready to review or send</small>
+      </a>
+      <a href="{% url 'billing:monthly_invoice_list' %}#building-now" class="ic-stat ic-command-stat">
+        <span>Building now</span>
+        <strong>{{ command_metrics.monthly_building_total|currency }}</strong>
+        <small>{{ command_metrics.monthly_building_count }} current monthly invoice{{ command_metrics.monthly_building_count|pluralize }} still collecting work</small>
       </a>
       <a href="{% url 'billing:unbilled_work' %}" class="ic-stat ic-command-stat ic-stat-work">
         <span>Work not invoiced</span>
@@ -42,7 +47,7 @@
         <small>{{ command_metrics.unbilled_item_count }} service item{{ command_metrics.unbilled_item_count|pluralize }} across {{ command_metrics.unbilled_job_count }} job{{ command_metrics.unbilled_job_count|pluralize }}</small>
       </a>
       <a href="{% url 'billing:invoice_list' %}?status=sent" class="ic-stat ic-command-stat">
-        <span>Outstanding</span>
+        <span>Sent awaiting payment</span>
         <strong>{{ command_metrics.sent_total|currency }}</strong>
         <small>{{ command_metrics.sent_count }} sent invoice{{ command_metrics.sent_count|pluralize }}</small>
       </a>
@@ -52,7 +57,7 @@
         <small>Needs follow-up</small>
       </a>
       <a href="{% url 'billing:invoice_list' %}?status=paid" class="ic-stat ic-command-stat">
-        <span>Paid month</span>
+        <span>Paid this month</span>
         <strong>{{ stats.paid_month_total|currency }}</strong>
         <small>recorded this month</small>
       </a>
@@ -60,7 +65,7 @@
 
     <nav class="ic-tabs" aria-label="Invoice filters">
       {% for tab in status_tabs %}
-      <a href="{{ tab.url }}" class="ic-tab {% if status_filter == tab.key or status_filter == 'all' and tab.key == 'all' %}active{% endif %}">
+      <a href="{{ tab.url }}" class="ic-tab {% if tab.active %}active{% endif %}">
         <span>{{ tab.label }}</span>
         <strong>{{ tab.count }}</strong>
       </a>
@@ -89,9 +94,9 @@
       <div class="ic-panel-head">
         <div>
           <p>Billing queue</p>
-          <h2>{% if status_filter == "draft" %}Ready to send{% elif status_filter == "building" %}Building batches{% elif status_filter == "sent" %}Sent invoices{% elif status_filter == "overdue" %}Overdue invoices{% elif status_filter == "due_soon" %}Due soon{% elif status_filter == "paid" %}Paid invoices{% else %}Needs attention{% endif %}</h2>
+          <h2>{% if status_filter == "draft" %}Needs review{% elif status_filter == "building" %}Recurring invoices compiling{% elif status_filter == "sent" %}Sent awaiting payment{% elif status_filter == "overdue" %}Overdue invoices{% elif status_filter == "due_soon" %}Due soon{% elif status_filter == "paid" %}Paid invoices{% else %}Needs attention{% endif %}</h2>
           {% if status_filter == "building" %}
-          <small class="ic-panel-sub">Recurring invoices are visible here while services are still being added. Review and send them from the batch workspace when the billing period closes.</small>
+          <small class="ic-panel-sub">These recurring invoices are draft invoices for monthly customers. They can keep collecting completed services until you open Build monthly, choose a period, review line items, and send.</small>
           {% endif %}
         </div>
         <span>{{ invoice_rows|length }}</span>
@@ -111,6 +116,7 @@
           </a>
           <div class="ic-card-actions">
             <span class="ic-badge status-{{ inv.status }}">{{ inv.get_status_display }}</span>
+            <span class="ic-viewed {{ row.viewed_state }}">{{ row.viewed_label }}</span>
             <a href="{% url 'billing:invoice_detail' inv.id %}">Open</a>
             {% if inv.customer_id %}<a href="{% url 'customer_detail' inv.customer_id %}">Client</a>{% endif %}
           </div>
@@ -133,6 +139,7 @@
               <th>Invoice</th>
               <th>Customer</th>
               <th>Status</th>
+              <th>Client viewed</th>
               <th>Due</th>
               <th>Total</th>
               <th></th>
@@ -151,6 +158,7 @@
                 {% if inv.customer.email %}<small>{{ inv.customer.email }}</small>{% endif %}
               </td>
               <td><span class="ic-badge status-{{ inv.status }}">{{ inv.get_status_display }}</span></td>
+              <td><span class="ic-viewed {{ row.viewed_state }}">{{ row.viewed_label }}</span><small>{{ row.viewed_detail }}</small></td>
               <td><span class="ic-due {{ row.due_state }}">{{ row.due_label }}</span></td>
               <td><strong>{{ inv.total|currency }}</strong></td>
               <td onclick="event.stopPropagation()"><a href="{% url 'billing:invoice_detail' inv.id %}" class="ic-open-link">Open</a></td>
@@ -158,11 +166,11 @@
             {% endwith %}
             {% empty %}
             <tr>
-              <td colspan="6">
+              <td colspan="7">
                 <div class="ic-empty">
                   <span class="material-symbols-outlined">receipt_long</span>
                   <h3>No invoices found.</h3>
-                  <p>Create an invoice manually, or generate one from completed work and accepted estimates.</p>
+                  <p>Create an invoice manually, build monthly invoices from completed services, or invoice completed work from a job.</p>
                   <a href="{% url 'billing:invoice_create' %}">Create invoice</a>
                 </div>
               </td>
@@ -528,7 +536,8 @@
     font-size: var(--text-sm);
   }
   .ic-badge,
-  .ic-due {
+  .ic-due,
+  .ic-viewed {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -544,6 +553,8 @@
   }
   .ic-badge.status-paid,
   .ic-due.paid { background: rgba(156,235,75,.16); color: var(--ic-accent); }
+  .ic-viewed.viewed { background: rgba(156,235,75,.16); color: var(--ic-accent); }
+  .ic-viewed.not-viewed { background: rgba(255,255,255,.08); color: var(--ic-muted); }
   .ic-badge.status-sent,
   .ic-due.scheduled,
   .ic-due.due-soon,

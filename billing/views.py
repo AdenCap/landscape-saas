@@ -106,6 +106,7 @@ def _invoice_command_metrics(business, today):
     from jobs.models import JobServiceItem
 
     building_invoice_q = Q(status="draft", job__isnull=True, period_start__isnull=False)
+    current_period_start = today.replace(day=1)
     unbilled_amount = ExpressionWrapper(
         F("quantity") * F("unit_price"),
         output_field=DecimalField(max_digits=12, decimal_places=2),
@@ -118,6 +119,8 @@ def _invoice_command_metrics(business, today):
     )
     draft_base = invoice_base.filter(status="draft").exclude(building_invoice_q)
     monthly_draft_base = invoice_base.filter(building_invoice_q)
+    monthly_building_base = monthly_draft_base.filter(period_start=current_period_start)
+    monthly_ready_base = monthly_draft_base.exclude(period_start=current_period_start)
     sent_base = invoice_base.filter(status="sent")
     unbilled_total = unbilled_base.aggregate(
         total=Coalesce(Sum(unbilled_amount), Decimal("0.00"))
@@ -127,6 +130,10 @@ def _invoice_command_metrics(business, today):
         "draft_count": draft_base.count(),
         "monthly_draft_total": monthly_draft_base.aggregate(total=Coalesce(Sum("total"), Decimal("0.00")))["total"],
         "monthly_draft_count": monthly_draft_base.count(),
+        "monthly_building_total": monthly_building_base.aggregate(total=Coalesce(Sum("total"), Decimal("0.00")))["total"],
+        "monthly_building_count": monthly_building_base.count(),
+        "monthly_ready_total": monthly_ready_base.aggregate(total=Coalesce(Sum("total"), Decimal("0.00")))["total"],
+        "monthly_ready_count": monthly_ready_base.count(),
         "unbilled_total": unbilled_total,
         "unbilled_item_count": unbilled_base.count(),
         "unbilled_job_count": unbilled_base.values("job_id").distinct().count(),
@@ -134,6 +141,37 @@ def _invoice_command_metrics(business, today):
         "sent_count": sent_base.count(),
         "overdue_total": sent_base.filter(due_date__lt=today).aggregate(total=Coalesce(Sum("total"), Decimal("0.00")))["total"],
     }
+
+
+def _invoice_workspace_tabs(business, today, active_key="all"):
+    building_invoice_q = Q(status="draft", job__isnull=True, period_start__isnull=False)
+    base_qs = Invoice.objects.filter(business=business) if business else Invoice.objects.none()
+    attention_qs = base_qs.exclude(building_invoice_q)
+    monthly_qs = base_qs.filter(building_invoice_q)
+    stats = attention_qs.aggregate(
+        total_count=Count("id"),
+        draft_count=Count("id", filter=Q(status="draft")),
+        sent_count=Count("id", filter=Q(status="sent")),
+        paid_count=Count("id", filter=Q(status="paid")),
+    )
+    overdue_count = attention_qs.filter(status="sent", due_date__lt=today).count()
+    due_soon_count = attention_qs.filter(
+        status="sent",
+        due_date__gte=today,
+        due_date__lte=today + timedelta(days=7),
+    ).count()
+    tabs = [
+        {"key": "all", "label": "All", "count": stats["total_count"], "url": reverse("billing:invoice_list")},
+        {"key": "draft", "label": "Needs review", "count": stats["draft_count"], "url": f"{reverse('billing:invoice_list')}?status=draft"},
+        {"key": "sent", "label": "Sent", "count": stats["sent_count"], "url": f"{reverse('billing:invoice_list')}?status=sent"},
+        {"key": "overdue", "label": "Overdue", "count": overdue_count, "url": f"{reverse('billing:invoice_list')}?status=overdue"},
+        {"key": "due_soon", "label": "Due soon", "count": due_soon_count, "url": f"{reverse('billing:invoice_list')}?status=due_soon"},
+        {"key": "monthly", "label": "Monthly", "count": monthly_qs.count(), "url": reverse("billing:monthly_invoice_list")},
+        {"key": "paid", "label": "Paid", "count": stats["paid_count"], "url": f"{reverse('billing:invoice_list')}?status=paid"},
+    ]
+    for tab in tabs:
+        tab["active"] = tab["key"] == active_key or (active_key == "all" and tab["key"] == "all")
+    return tabs
 
 
 def _invoice_combine_candidates(business):
@@ -248,25 +286,31 @@ def invoice_list(request):
         elif invoice.status == "draft":
             due_state = "draft"
             due_label = "Draft"
-        invoice_rows.append({"invoice": invoice, "due_state": due_state, "due_label": due_label})
+        viewed_state = "viewed" if invoice.view_count else "not-viewed"
+        viewed_label = f"Viewed {invoice.view_count}x" if invoice.view_count else "Not viewed"
+        viewed_detail = (
+            f"Last {invoice.last_viewed_at.strftime('%b %-d, %-I:%M %p')}"
+            if invoice.last_viewed_at
+            else "Opens and PDF downloads are tracked"
+        )
+        invoice_rows.append({
+            "invoice": invoice,
+            "due_state": due_state,
+            "due_label": due_label,
+            "viewed_state": viewed_state,
+            "viewed_label": viewed_label,
+            "viewed_detail": viewed_detail,
+        })
 
-    status_tabs = [
-        {"key": "all", "label": "All", "count": stats["total_count"], "url": reverse("billing:invoice_list")},
-        {"key": "draft", "label": "Drafts", "count": stats["draft_count"], "url": f"{reverse('billing:invoice_list')}?status=draft"},
-        {"key": "sent", "label": "Sent", "count": stats["sent_count"], "url": f"{reverse('billing:invoice_list')}?status=sent"},
-        {"key": "overdue", "label": "Overdue", "count": overdue_count, "url": f"{reverse('billing:invoice_list')}?status=overdue"},
-        {"key": "due_soon", "label": "Due soon", "count": due_soon_count, "url": f"{reverse('billing:invoice_list')}?status=due_soon"},
-        {"key": "building", "label": "Building", "count": building_stats["count"], "url": f"{reverse('billing:invoice_list')}?status=building"},
-        {"key": "paid", "label": "Paid", "count": stats["paid_count"], "url": f"{reverse('billing:invoice_list')}?status=paid"},
-    ]
+    command_metrics = _invoice_command_metrics(business, today) if business else {}
 
     return render(request, "billing/invoice_list.html", {
         "invoice_rows": invoice_rows,
         "invoices": invoices,
         "stats": stats,
-        "command_metrics": _invoice_command_metrics(business, today) if business else {},
+        "command_metrics": command_metrics,
         "building_stats": building_stats,
-        "status_tabs": status_tabs,
+        "status_tabs": _invoice_workspace_tabs(business, today, status_filter),
         "status_filter": status_filter,
         "search_query": search_query,
         "today": today,
@@ -344,14 +388,34 @@ def monthly_invoice_list(request):
         .prefetch_related("line_items")
         .order_by("-period_start", "-id")
     )
-    # Optional year filter
+    # Optional invoice period filters for looking up monthly invoices by service month.
     year_param = request.GET.get("year", "").strip()
     year_int = int(year_param) if year_param.isdigit() else None
     if year_int:
         monthly = monthly.filter(period_start__year=year_int)
+    period_month_param = request.GET.get("period_month", "").strip()
+    period_month_int = int(period_month_param) if period_month_param.isdigit() else None
+    if period_month_int and 1 <= period_month_int <= 12:
+        monthly = monthly.filter(period_start__month=period_month_int)
+    else:
+        period_month_param = ""
+        period_month_int = None
+    show_history = request.GET.get("show_history") == "1"
+    history_status = (request.GET.get("history_status") or "all").strip().lower()
+    if history_status not in {"all", "sent", "paid", "void"}:
+        history_status = "all"
+    history_year_param = (request.GET.get("history_year") or year_param).strip()
+    history_year_int = int(history_year_param) if history_year_param.isdigit() else None
+    history_month_param = (request.GET.get("history_month") or period_month_param).strip()
+    history_month_int = int(history_month_param) if history_month_param.isdigit() else None
+    if not history_month_int or history_month_int < 1 or history_month_int > 12:
+        history_month_param = ""
+        history_month_int = None
     from datetime import date as date_type
     from django.utils import timezone as tz
+    from jobs.models import JobServiceItem
     today = tz.localdate()
+    current_period_start = date_type(today.year, today.month, 1)
     build_period = today.replace(day=1) - timedelta(days=1)
     years = [today.year, today.year - 1, today.year - 2]
     months = [
@@ -359,14 +423,59 @@ def monthly_invoice_list(request):
         (5, "May"), (6, "June"), (7, "July"), (8, "August"),
         (9, "September"), (10, "October"), (11, "November"), (12, "December"),
     ]
+    month_lookup = dict(months)
+    selected_period_label = "All monthly invoice periods"
+    if period_month_int and year_int:
+        selected_period_label = f"{month_lookup.get(period_month_int)} {year_int}"
+    elif period_month_int:
+        selected_period_label = f"Every {month_lookup.get(period_month_int)}"
+    elif year_int:
+        selected_period_label = f"All {year_int} monthly invoices"
+    build_start = date_type(build_period.year, build_period.month, 1)
+    build_end = date_type(build_period.year + 1, 1, 1) if build_period.month == 12 else date_type(build_period.year, build_period.month + 1, 1)
+    pending_amount = ExpressionWrapper(
+        F("quantity") * F("unit_price"),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
+    monthly_customer_filter = Q(job__property__customer__invoice_frequency="monthly")
+    if getattr(business, "default_invoice_automation_mode", "") == "monthly":
+        monthly_customer_filter |= Q(job__property__customer__invoice_frequency="")
+    pending_items = JobServiceItem.objects.filter(
+        monthly_customer_filter,
+        job__property__customer__business=business,
+        job__status="completed",
+        job__scheduled_date__gte=build_start,
+        job__scheduled_date__lt=build_end,
+        billed_invoice__isnull=True,
+    )
+    pending_summary = pending_items.aggregate(
+        count=Count("id"),
+        total=Coalesce(Sum(pending_amount), Decimal("0.00")),
+        customers=Count("job__property__customer", distinct=True),
+    )
     monthly_for_stats = list(monthly)
-    draft_invoices = [inv for inv in monthly_for_stats if inv.status == "draft"]
+    building_invoices = [
+        inv for inv in monthly_for_stats
+        if inv.status == "draft" and inv.period_start == current_period_start
+    ]
+    ready_invoices = [
+        inv for inv in monthly_for_stats
+        if inv.status == "draft" and inv.period_start != current_period_start
+    ]
+    draft_invoices = building_invoices + ready_invoices
     sent_invoices = [inv for inv in monthly_for_stats if inv.status == "sent"]
     paid_invoices = [inv for inv in monthly_for_stats if inv.status == "paid"]
+    completed_invoices = [inv for inv in monthly_for_stats if inv.status in {"sent", "paid", "void"}]
+    history_invoices = completed_invoices
+    if history_status != "all":
+        history_invoices = [inv for inv in history_invoices if inv.status == history_status]
+    if history_year_int:
+        history_invoices = [inv for inv in history_invoices if inv.period_start and inv.period_start.year == history_year_int]
+    if history_month_int:
+        history_invoices = [inv for inv in history_invoices if inv.period_start and inv.period_start.month == history_month_int]
 
     # Build list with "send on" date for each invoice (when customer has monthly_invoice_send_day)
-    rows = []
-    for inv in monthly_for_stats:
+    def build_monthly_row(inv, *, can_select=True):
         send_on = None
         customer_day = getattr(inv.customer, "monthly_invoice_send_day", None)
         business_day = getattr(inv.business, "default_monthly_invoice_send_day", None)
@@ -378,24 +487,54 @@ def monthly_invoice_list(request):
             except (ValueError, TypeError):
                 pass
         line_items = list(inv.line_items.all())
-        rows.append({
+        return {
             "invoice": inv,
             "send_on": send_on,
             "line_items": line_items,
-        })
+            "can_select": can_select and inv.status == "draft",
+        }
+
+    building_rows = [build_monthly_row(inv, can_select=False) for inv in building_invoices]
+    ready_rows = [build_monthly_row(inv, can_select=True) for inv in ready_invoices]
+    completed_rows = [build_monthly_row(inv, can_select=False) for inv in history_invoices]
+    rows = building_rows + ready_rows + completed_rows
+
     return render(request, "billing/monthly_invoice_list.html", {
         "rows": rows,
-        "draft_count": len(draft_invoices),
+        "building_rows": building_rows,
+        "ready_rows": ready_rows,
+        "completed_rows": completed_rows,
+        "building_count": len(building_invoices),
+        "building_total": sum((inv.total for inv in building_invoices), Decimal("0")),
+        "ready_count": len(ready_invoices),
+        "ready_total": sum((inv.total for inv in ready_invoices), Decimal("0")),
+        "draft_count": len(ready_invoices),
         "sent_count": len(sent_invoices),
         "paid_count": len(paid_invoices),
-        "draft_total": sum((inv.total for inv in draft_invoices), Decimal("0")),
+        "completed_count": len(completed_invoices),
+        "history_count": len(history_invoices),
+        "draft_total": sum((inv.total for inv in ready_invoices), Decimal("0")),
         "sent_total": sum((inv.total for inv in sent_invoices), Decimal("0")),
         "year_param": year_param,
         "year_int": year_int,
+        "period_month_param": period_month_param,
+        "period_month_int": period_month_int,
+        "show_history": show_history,
+        "history_status": history_status,
+        "history_year_param": history_year_param,
+        "history_year_int": history_year_int,
+        "history_month_param": history_month_param,
+        "history_month_int": history_month_int,
         "years": years,
         "months": months,
+        "selected_period_label": selected_period_label,
         "build_year": build_period.year,
         "build_month": build_period.month,
+        "current_period_start": current_period_start,
+        "build_start": build_start,
+        "build_end": build_end - timedelta(days=1),
+        "pending_summary": pending_summary,
+        "status_tabs": _invoice_workspace_tabs(business, today, "monthly"),
     })
 
 
@@ -429,7 +568,7 @@ def monthly_invoice_build_missing(request):
         )
     else:
         messages.info(request, "No completed unbilled monthly services were found for that month.")
-    return redirect(f"{reverse('billing:monthly_invoice_list')}?year={year}")
+    return redirect(f"{reverse('billing:monthly_invoice_list')}?year={year}&period_month={month}")
 
 
 @role_required("owner", "manager")
@@ -1037,15 +1176,22 @@ def monthly_invoice_batch_send(request):
     selected_ids = [int(pk) for pk in request.POST.getlist("invoice_ids") if str(pk).isdigit()]
     year_param = (request.POST.get("year") or "").strip()
     year_int = int(year_param) if year_param.isdigit() else None
+    period_month_param = (request.POST.get("period_month") or "").strip()
+    period_month_int = int(period_month_param) if period_month_param.isdigit() else None
+    if not period_month_int or period_month_int < 1 or period_month_int > 12:
+        period_month_int = None
+    current_period_start = timezone.localdate().replace(day=1)
     if request.POST.get("send_all_ready") == "1":
         qs = Invoice.objects.filter(
             business=business,
             status="draft",
             job__isnull=True,
             period_start__isnull=False,
-        )
+        ).exclude(period_start=current_period_start)
         if year_int:
             qs = qs.filter(period_start__year=year_int)
+        if period_month_int:
+            qs = qs.filter(period_start__month=period_month_int)
     else:
         qs = Invoice.objects.filter(
             business=business,

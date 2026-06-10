@@ -11,14 +11,14 @@
 
     <header class="batch-hero">
       <div>
-        <p class="batch-eyebrow"><span></span> Batch invoicing</p>
-        <h1>Recurring invoice queue</h1>
-        <p>Review monthly and recurring drafts, see what is still building, send individual invoices, or approve a batch when the period closes.</p>
+        <p class="batch-eyebrow"><span></span> Monthly invoice builder</p>
+        <h1>Build, review, send.</h1>
+        <p>Pick a service month, pull completed unbilled jobs into customer invoices, review the line items, then send one invoice or the whole batch.</p>
       </div>
       <div class="batch-hero-actions">
         <a href="{% url 'billing:invoice_create' %}" class="batch-primary-action">
           <span class="material-symbols-outlined">add</span>
-          Create invoice
+          Manual invoice
         </a>
         <a href="{% url 'billing:document_template_edit' 'invoice' %}" class="batch-secondary-action">
           <span class="material-symbols-outlined">tune</span>
@@ -27,11 +27,25 @@
       </div>
     </header>
 
+    <nav class="batch-workspace-tabs" aria-label="Invoice workspace">
+      {% for tab in status_tabs %}
+      <a href="{{ tab.url }}" class="batch-workspace-tab {% if tab.active %}active{% endif %}">
+        <span>{{ tab.label }}</span>
+        <strong>{{ tab.count }}</strong>
+      </a>
+      {% endfor %}
+    </nav>
+
     <section class="batch-stat-grid" aria-label="Monthly invoice summary">
       <article class="batch-stat">
-        <span>Drafts ready</span>
-        <strong>{{ draft_count }}</strong>
-        <small>{{ draft_total|currency }} waiting approval</small>
+        <span>Ready to send</span>
+        <strong>{{ ready_count }}</strong>
+        <small>{{ ready_total|currency }} in completed periods ready for review</small>
+      </article>
+      <article class="batch-stat">
+        <span>Building now</span>
+        <strong>{{ building_count }}</strong>
+        <small>{{ building_total|currency }} still collecting this month's work</small>
       </article>
       <article class="batch-stat">
         <span>Sent open</span>
@@ -39,142 +53,223 @@
         <small>{{ sent_total|currency }} outstanding</small>
       </article>
       <article class="batch-stat">
-        <span>Paid</span>
-        <strong>{{ paid_count }}</strong>
-        <small>Recurring invoices collected</small>
+        <span>Unbilled in {{ build_start|date:"M Y" }}</span>
+        <strong>{{ pending_summary.count }}</strong>
+        <small>{{ pending_summary.total|currency }} across {{ pending_summary.customers }} customer{{ pending_summary.customers|pluralize }}</small>
       </article>
       <article class="batch-stat">
-        <span>Total queue</span>
-        <strong>{{ rows|length }}</strong>
-        <small>{% if year_int %}{{ year_int }}{% else %}Latest invoices{% endif %}</small>
+        <span>Completed history</span>
+        <strong>{{ completed_count }}</strong>
+        <small>Past monthly invoices available when needed</small>
       </article>
     </section>
 
-    <section class="batch-toolbar" aria-label="Batch invoice controls">
-      <form method="get" class="batch-filter-form">
-        <label for="year">Year</label>
-        <select name="year" id="year" onchange="this.form.submit()">
-          <option value="">All years</option>
-          {% for y in years %}
-          <option value="{{ y }}" {% if year_int == y %}selected{% endif %}>{{ y }}</option>
-          {% endfor %}
-        </select>
-      </form>
-      <form method="post" action="{% url 'billing:monthly_invoice_batch_send' %}" class="batch-send-all-form" onsubmit="return confirm('Approve and send every draft recurring invoice in this queue?');">
-        {% csrf_token %}
-        <input type="hidden" name="year" value="{{ year_param }}">
-        <input type="hidden" name="send_all_ready" value="1">
-        <button type="submit" class="batch-secondary-action" {% if not draft_count %}disabled{% endif %}>
-          <span class="material-symbols-outlined">outbox</span>
-          Send all drafts
-        </button>
-      </form>
-      <form method="post" action="{% url 'billing:monthly_invoice_build_missing' %}" class="batch-build-form" onsubmit="return confirm('Build draft recurring invoices for completed, unbilled work in the selected month?');">
-        {% csrf_token %}
-        <select name="month" aria-label="Month to build">
-          {% for value,label in months %}
-          <option value="{{ value }}" {% if build_month == value %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-        <select name="year" aria-label="Year to build">
-          {% for y in years %}
-          <option value="{{ y }}" {% if build_year == y %}selected{% endif %}>{{ y }}</option>
-          {% endfor %}
-        </select>
-        <button type="submit" class="batch-secondary-action">
-          <span class="material-symbols-outlined">playlist_add_check</span>
-          Build missing drafts
-        </button>
-      </form>
+    <section class="batch-toolbar batch-control-grid" aria-label="Monthly invoice controls">
+      <article class="batch-control-card batch-control-card-primary">
+        <div>
+          <p>Find monthly invoices</p>
+          <h3>{{ selected_period_label }}</h3>
+          <small>Use this to pull up a past month, current building invoices, or all monthly invoices.</small>
+        </div>
+        <form method="get" class="batch-filter-form">
+          <select name="period_month" id="period_month" aria-label="Invoice period month" onchange="this.form.submit()">
+            <option value="">All months</option>
+            {% for value,label in months %}
+            <option value="{{ value }}" {% if period_month_int == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <select name="year" id="year" onchange="this.form.submit()">
+            <option value="">All years</option>
+            {% for y in years %}
+            <option value="{{ y }}" {% if year_int == y %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+          {% if year_param or period_month_param %}
+          <a href="{% url 'billing:monthly_invoice_list' %}" class="batch-mini-link">Clear</a>
+          {% endif %}
+        </form>
+      </article>
+
+      <article class="batch-control-card">
+        <div>
+          <p>Ready queue</p>
+          <h3>Send completed periods</h3>
+          <small>{{ ready_count }} invoice{{ ready_count|pluralize }} ready in this view.</small>
+        </div>
+        <form method="post" action="{% url 'billing:monthly_invoice_batch_send' %}" class="batch-send-all-form" onsubmit="return confirm('Approve and send every ready monthly invoice in this view?');">
+          {% csrf_token %}
+          <input type="hidden" name="year" value="{{ year_param }}">
+          <input type="hidden" name="period_month" value="{{ period_month_param }}">
+          <input type="hidden" name="send_all_ready" value="1">
+          <button type="submit" class="batch-secondary-action" {% if not ready_count %}disabled{% endif %}>
+            <span class="material-symbols-outlined">outbox</span>
+            Send all ready
+          </button>
+        </form>
+      </article>
+
+      <article class="batch-control-card">
+        <div>
+          <p>Build missing drafts</p>
+          <h3>Create monthly invoices</h3>
+          <small>Use this after selecting the service month you want to invoice.</small>
+        </div>
+        <form method="post" action="{% url 'billing:monthly_invoice_build_missing' %}" class="batch-build-form" onsubmit="return confirm('Build draft recurring invoices for completed, unbilled work in the selected month?');">
+          {% csrf_token %}
+          <select name="month" aria-label="Month to build">
+            {% for value,label in months %}
+            <option value="{{ value }}" {% if build_month == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <select name="year" aria-label="Year to build">
+            {% for y in years %}
+            <option value="{{ y }}" {% if build_year == y %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="batch-secondary-action">
+            <span class="material-symbols-outlined">playlist_add_check</span>
+            Build month
+          </button>
+        </form>
+      </article>
+    </section>
+    <section class="batch-builder-note" aria-label="Selected build month">
+      <div>
+        <span class="material-symbols-outlined">calendar_month</span>
+        <strong>Selected service period: {{ build_start|date:"F j" }} - {{ build_end|date:"F j, Y" }}</strong>
+      </div>
+      <p>{{ pending_summary.count }} completed service item{{ pending_summary.count|pluralize }} are not attached to an invoice yet. Building the month will attach them to draft invoices for monthly customers only.</p>
     </section>
 
     <section class="batch-panel">
       <form id="batch-selected-form" method="post" action="{% url 'billing:monthly_invoice_batch_send' %}">
         {% csrf_token %}
         <input type="hidden" name="year" value="{{ year_param }}">
+        <input type="hidden" name="period_month" value="{{ period_month_param }}">
       </form>
       <div class="batch-panel-head">
         <div>
-          <p>Approval queue</p>
-          <h2>Review and send</h2>
+          <p>Customer invoices</p>
+          <h2>Review line items before sending</h2>
+          <small class="batch-panel-sub">Each row shows exactly what the client will be charged for. Open an invoice to adjust due date, card payments, line items, or payment status.</small>
         </div>
-        <button type="submit" form="batch-selected-form" class="batch-primary-action" {% if not draft_count %}disabled{% endif %}>
+        <button type="submit" form="batch-selected-form" class="batch-primary-action" {% if not ready_count %}disabled{% endif %}>
           <span class="material-symbols-outlined">send</span>
           Send selected
         </button>
       </div>
 
-      <div class="batch-list">
-        {% for row in rows %}
-        <article class="batch-row status-{{ row.invoice.status }}">
-          <div class="batch-select-cell">
-            {% if row.invoice.status == "draft" %}
-            <input form="batch-selected-form" type="checkbox" name="invoice_ids" value="{{ row.invoice.id }}" aria-label="Select invoice {{ row.invoice.id }}">
-            {% else %}
-            <span class="material-symbols-outlined">check_circle</span>
-            {% endif %}
-          </div>
-          <div class="batch-row-main">
-            <div class="batch-row-title">
-              <div>
-                <span class="batch-kicker">Invoice #{{ row.invoice.id }}</span>
-                <h3>{{ row.invoice.customer.name }}</h3>
-              </div>
-              <span class="batch-badge">{{ row.invoice.get_status_display }}</span>
+      <div class="batch-lanes">
+        <section class="batch-lane" id="ready-to-send">
+          <div class="batch-lane-head">
+            <div>
+              <p>Completed periods</p>
+              <h3>Ready to review and send</h3>
             </div>
-            <div class="batch-row-meta">
-              <span>
-                <span class="material-symbols-outlined">calendar_month</span>
-                {{ row.invoice.period_start|date:"M j, Y" }}{% if row.invoice.period_end %} - {{ row.invoice.period_end|date:"M j, Y" }}{% endif %}
-              </span>
-              <span>
-                <span class="material-symbols-outlined">schedule_send</span>
-                {% if row.send_on %}Send target {{ row.send_on|date:"M j" }}{% else %}Manual send{% endif %}
-              </span>
-              {% if row.invoice.customer.email %}
-              <span>
-                <span class="material-symbols-outlined">mail</span>
-                {{ row.invoice.customer.email }}
-              </span>
-              {% endif %}
+            <span>{{ ready_count }}</span>
+          </div>
+          <div class="batch-list">
+            {% for row in ready_rows %}
+              {% include "billing/partials/monthly_invoice_row.html" with row=row year_param=year_param mode="ready" %}
+            {% empty %}
+            <div class="batch-empty compact">
+              <span class="material-symbols-outlined">task_alt</span>
+              <h3>No completed monthly invoices waiting.</h3>
+              <p>When a prior service period has completed work, it will land here for review before sending.</p>
             </div>
-            <div class="batch-line-preview" aria-label="Invoice {{ row.invoice.id }} line item preview">
-              {% for item in row.line_items %}
-              <div class="batch-line-chip">
-                <span>{{ item.description }}</span>
-                <strong>{{ item.line_total|currency }}</strong>
-              </div>
-              {% empty %}
-              <div class="batch-line-empty">No line items yet.</div>
-              {% endfor %}
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="batch-lane" id="building-now">
+          <div class="batch-lane-head">
+            <div>
+              <p>Current period</p>
+              <h3>Currently building</h3>
             </div>
+            <span>{{ building_count }}</span>
           </div>
-          <div class="batch-row-total">
-            <span>Total</span>
-            <strong>{{ row.invoice.total|currency }}</strong>
+          <p class="batch-lane-copy">These invoices are still updating as {{ current_period_start|date:"F" }} work is completed. Open one to inspect line items, but keep it out of the send queue until the period is ready.</p>
+          <div class="batch-list">
+            {% for row in building_rows %}
+              {% include "billing/partials/monthly_invoice_row.html" with row=row year_param=year_param mode="building" %}
+            {% empty %}
+            <div class="batch-empty compact">
+              <span class="material-symbols-outlined">hourglass_empty</span>
+              <h3>No current monthly invoices building yet.</h3>
+              <p>As monthly customers complete work this month, their draft invoices will appear here.</p>
+            </div>
+            {% endfor %}
           </div>
-          <div class="batch-row-actions">
-            <a href="{% url 'billing:invoice_detail' row.invoice.id %}">Open</a>
-            {% if row.invoice.status == "draft" or row.invoice.status == "sent" %}
-            <a href="{% url 'billing:invoice_edit_line_items' row.invoice.id %}">Edit items</a>
-            {% endif %}
-            {% if row.invoice.status == "draft" %}
-            <form method="post" action="{% url 'billing:monthly_invoice_batch_send' %}" onsubmit="return confirm('Approve and send invoice #{{ row.invoice.id }}?');">
-              {% csrf_token %}
-              <input type="hidden" name="year" value="{{ year_param }}">
-              <input type="hidden" name="invoice_ids" value="{{ row.invoice.id }}">
-              <button type="submit">Send invoice</button>
-            </form>
-            {% endif %}
+        </section>
+
+        <section class="batch-lane batch-history-lane" id="completed-history">
+          {% if show_history %}
+          <div class="batch-lane-head">
+            <div>
+              <p>Past monthly invoices</p>
+              <h3>History</h3>
+            </div>
+            <span>{{ history_count }}</span>
           </div>
-        </article>
-        {% empty %}
-        <div class="batch-empty">
-          <span class="material-symbols-outlined">receipt_long</span>
-          <h3>No recurring invoices yet.</h3>
-          <p>Completed jobs for clients on recurring billing will appear here as drafts for approval.</p>
-        </div>
-        {% endfor %}
+          <form method="get" class="batch-history-filter" aria-label="Filter past monthly invoices">
+            {% if year_param %}<input type="hidden" name="year" value="{{ year_param }}">{% endif %}
+            {% if period_month_param %}<input type="hidden" name="period_month" value="{{ period_month_param }}">{% endif %}
+            <input type="hidden" name="show_history" value="1">
+            <label>
+              Status
+              <select name="history_status" onchange="this.form.submit()">
+                <option value="all" {% if history_status == "all" %}selected{% endif %}>All closed</option>
+                <option value="sent" {% if history_status == "sent" %}selected{% endif %}>Sent open</option>
+                <option value="paid" {% if history_status == "paid" %}selected{% endif %}>Paid</option>
+                <option value="void" {% if history_status == "void" %}selected{% endif %}>Void</option>
+              </select>
+            </label>
+            <label>
+              Year
+              <select name="history_year" onchange="this.form.submit()">
+                <option value="">All years</option>
+                {% for y in years %}
+                <option value="{{ y }}" {% if history_year_int == y %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              Month
+              <select name="history_month" onchange="this.form.submit()">
+                <option value="">All months</option>
+                {% for value,label in months %}
+                <option value="{{ value }}" {% if history_month_int == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <a href="{% url 'billing:monthly_invoice_list' %}{% if year_param or period_month_param %}?{% if year_param %}year={{ year_param }}{% endif %}{% if year_param and period_month_param %}&{% endif %}{% if period_month_param %}period_month={{ period_month_param }}{% endif %}{% endif %}#completed-history" class="batch-secondary-action">Hide history</a>
+          </form>
+          <div class="batch-list">
+            {% for row in completed_rows %}
+              {% include "billing/partials/monthly_invoice_row.html" with row=row year_param=year_param mode="history" %}
+            {% empty %}
+            <div class="batch-empty compact">
+              <span class="material-symbols-outlined">history</span>
+              <h3>No past monthly invoices match those filters.</h3>
+              <p>Adjust the status or year filter to find older monthly invoices.</p>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="batch-history-closed">
+            <div>
+              <p>Past monthly invoices</p>
+              <h3>History is tucked away</h3>
+              <small>{{ completed_count }} sent, paid, or void monthly invoice{{ completed_count|pluralize }} available for lookup.</small>
+            </div>
+            <a href="{% url 'billing:monthly_invoice_list' %}?{% if year_param %}year={{ year_param }}&{% endif %}{% if period_month_param %}period_month={{ period_month_param }}&{% endif %}show_history=1#completed-history" class="batch-secondary-action">
+              <span class="material-symbols-outlined">history</span>
+              View past monthly invoices
+            </a>
+          </div>
+          {% endif %}
+        </section>
       </div>
     </section>
   </div>
@@ -284,14 +379,59 @@
     cursor: not-allowed;
     opacity: .45;
   }
+  .batch-workspace-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    margin: 18px 0 0;
+    padding: 8px;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 999px;
+    background: rgba(0,0,0,.34);
+    scrollbar-width: none;
+  }
+  .batch-workspace-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .batch-workspace-tab {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+    padding: 0 18px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: rgba(244,244,241,.62);
+    text-decoration: none;
+    font-weight: 800;
+    transition: background .24s cubic-bezier(.2,.8,.2,1), border-color .24s cubic-bezier(.2,.8,.2,1), color .24s cubic-bezier(.2,.8,.2,1);
+  }
+  .batch-workspace-tab strong {
+    min-width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(255,255,255,.10);
+    color: #f4f4f1;
+    font-size: var(--text-sm);
+  }
+  .batch-workspace-tab.active {
+    background: rgba(255,255,255,.105);
+    border-color: rgba(255,255,255,.22);
+    color: #f4f4f1;
+  }
   .batch-stat-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 14px;
     margin-top: 28px;
   }
   .batch-stat,
   .batch-toolbar,
+  .batch-builder-note,
   .batch-panel {
     border: 1px solid rgba(255,255,255,.16);
     background:
@@ -322,13 +462,110 @@
     border-radius: 28px;
     padding: 14px;
   }
+  .batch-control-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 1.35fr) repeat(2, minmax(240px, 1fr));
+    align-items: stretch;
+    gap: 12px;
+  }
+  .batch-control-card {
+    display: grid;
+    align-content: space-between;
+    gap: 14px;
+    min-height: 152px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 24px;
+    padding: 16px;
+    background: rgba(0,0,0,.18);
+  }
+  .batch-control-card-primary {
+    border-color: rgba(157,242,74,.22);
+    background:
+      radial-gradient(circle at 90% 10%, rgba(157,242,74,.16), transparent 14rem),
+      rgba(0,0,0,.18);
+  }
+  .batch-control-card p {
+    margin: 0 0 6px;
+    color: rgba(244,244,241,.58);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .batch-control-card h3 {
+    margin: 0;
+    color: #f4f4f1;
+    font-size: 22px;
+    line-height: 1.05;
+  }
+  .batch-control-card small {
+    display: block;
+    margin-top: 7px;
+    color: rgba(244,244,241,.56);
+    line-height: 1.35;
+  }
+  .batch-mini-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 14px;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 999px;
+    color: rgba(244,244,241,.78);
+    text-decoration: none;
+    font-weight: 800;
+  }
+  .batch-builder-note {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-top: 18px;
+    border-radius: 28px;
+    padding: 18px 20px;
+  }
+  .batch-builder-note div {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 280px;
+  }
+  .batch-builder-note .material-symbols-outlined {
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    color: #071004;
+    background: #9df24a;
+  }
+  .batch-builder-note strong {
+    display: block;
+    font-size: 18px;
+  }
+  .batch-builder-note p,
+  .batch-panel-sub {
+    margin: 0;
+    color: rgba(244,244,241,.58);
+    line-height: 1.45;
+  }
+  .batch-panel-sub {
+    display: block;
+    max-width: 760px;
+    margin-top: 8px;
+  }
   .batch-filter-form,
+  .batch-send-all-form,
   .batch-build-form {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
   }
-  .batch-filter-form label {
+  .batch-filter-form label,
+  .batch-filter-form > span {
     color: rgba(244,244,241,.62);
     font-size: 12px;
     font-weight: 900;
@@ -367,6 +604,107 @@
     display: grid;
     gap: 12px;
   }
+  .batch-lanes {
+    display: grid;
+    gap: 18px;
+  }
+  .batch-lane {
+    display: grid;
+    gap: 12px;
+  }
+  .batch-lane + .batch-lane {
+    padding-top: 18px;
+    border-top: 1px solid rgba(255,255,255,.12);
+  }
+  .batch-lane-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .batch-lane-head p {
+    margin: 0;
+    color: rgba(244,244,241,.55);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .batch-lane-head h3 {
+    margin: 4px 0 0;
+    font-size: 24px;
+    line-height: 1;
+  }
+  .batch-lane-head > span {
+    min-width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: rgba(244,244,241,.86);
+    background: rgba(255,255,255,.12);
+    font-weight: 900;
+  }
+  .batch-lane-copy {
+    max-width: 760px;
+    margin: -4px 0 2px;
+    color: rgba(244,244,241,.58);
+    line-height: 1.45;
+  }
+  .batch-history-closed,
+  .batch-history-filter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 24px;
+    padding: 16px;
+    background: rgba(0,0,0,.22);
+  }
+  .batch-history-closed p {
+    margin: 0;
+    color: rgba(244,244,241,.55);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .batch-history-closed h3 {
+    margin: 4px 0;
+    font-size: 22px;
+  }
+  .batch-history-closed small {
+    color: rgba(244,244,241,.56);
+    font-weight: 700;
+  }
+  .batch-history-filter {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .batch-history-filter label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(244,244,241,.62);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .batch-history-filter select {
+    min-height: 42px;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 999px;
+    padding: 0 14px;
+    color: #f4f4f1;
+    background: rgba(0,0,0,.42);
+    font: inherit;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: none;
+  }
   .batch-row {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto auto;
@@ -376,6 +714,12 @@
     border-radius: 24px;
     padding: 16px;
     background: rgba(0,0,0,.28);
+  }
+  .batch-row.mode-building {
+    border-color: rgba(157,242,74,.22);
+    background:
+      radial-gradient(circle at 8% 50%, rgba(157,242,74,.12), transparent 16rem),
+      rgba(0,0,0,.28);
   }
   .batch-select-cell {
     width: 42px;
@@ -515,6 +859,13 @@
     text-align: center;
     background: rgba(0,0,0,.22);
   }
+  .batch-empty.compact {
+    padding: 22px;
+    text-align: left;
+  }
+  .batch-empty.compact .material-symbols-outlined {
+    font-size: 30px;
+  }
   .batch-empty .material-symbols-outlined {
     color: #9df24a;
     font-size: 42px;
@@ -536,11 +887,18 @@
     .batch-hero-actions,
     .batch-panel-head .batch-primary-action,
     .batch-toolbar .batch-secondary-action,
+    .batch-send-all-form,
     .batch-build-form {
       width: 100%;
     }
-    .batch-stat-grid {
+    .batch-control-grid {
       grid-template-columns: 1fr;
+    }
+    .batch-control-card {
+      min-height: 0;
+    }
+    .batch-stat-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .batch-row {
       grid-template-columns: auto minmax(0, 1fr);
@@ -553,7 +911,9 @@
     }
     .batch-row-actions a,
     .batch-row-actions form,
-    .batch-row-actions button {
+    .batch-row-actions button,
+    .batch-history-closed .batch-secondary-action,
+    .batch-history-filter .batch-secondary-action {
       flex: 1;
     }
     .batch-row-actions button {
@@ -613,7 +973,17 @@
       gap: 12px;
       border-radius: 26px;
     }
+    .batch-workspace-tabs {
+      border-radius: 26px;
+      margin-top: 14px;
+    }
+    .batch-builder-note {
+      align-items: flex-start;
+      flex-direction: column;
+      border-radius: 26px;
+    }
     .batch-filter-form,
+    .batch-send-all-form,
     .batch-build-form {
       justify-content: space-between;
     }
@@ -671,3 +1041,19 @@
   }
 </style>
 {% endblock %}
+    .batch-stat-grid {
+      grid-template-columns: 1fr;
+    }
+    .batch-lane-head h3 {
+      font-size: 21px;
+    }
+    .batch-history-closed,
+    .batch-history-filter,
+    .batch-history-filter label {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .batch-history-filter select,
+    .batch-history-filter .batch-secondary-action {
+      width: 100%;
+    }
