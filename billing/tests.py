@@ -1002,7 +1002,8 @@ class DocumentTemplateStudioTests(TestCase):
         self.business.contact_phone = "555-0111"
         self.business.contact_email = "office@greenvalley.test"
         self.business.website_url = "https://greenvalley.test"
-        self.business.save(update_fields=["contact_phone", "contact_email", "website_url"])
+        self.business.shop_address = "100 Office Lane, Indianapolis, IN 46204"
+        self.business.save(update_fields=["contact_phone", "contact_email", "website_url", "shop_address"])
 
     def test_owner_can_save_visible_template_options(self):
         response = self.client.post(
@@ -1124,9 +1125,11 @@ class DocumentTemplateStudioTests(TestCase):
         for expected in [long_header, long_terms, long_payment]:
             self.assertIn(expected, drawn_texts)
         self.assertNotIn(long_footer, drawn_texts)
+        self.assertTrue(any("Mail checks to: 100 Office Lane, Indianapolis, IN 46204" in text for text in drawn_texts))
         footer_texts = [call.args[2] for call in draw_footer_message.call_args_list]
         self.assertEqual(footer_texts.count(long_footer), 2)
         self.assertIn("greenvalley.test", billing_views._pdf_business_contact_lines(self.business))
+        self.assertIn("100 Office Lane, Indianapolis, IN 46204", billing_views._pdf_business_contact_lines(self.business))
 
     def test_invoice_pdf_service_dates_sort_and_strip_from_service_label(self):
         invoice = Invoice.objects.create(

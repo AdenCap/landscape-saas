@@ -2564,10 +2564,22 @@ def _pdf_business_contact_lines(business):
         lines.append(business.contact_phone)
     if business and business.contact_email:
         lines.append(business.contact_email)
+    business_address = _pdf_business_address(business)
+    if business_address:
+        lines.append(business_address)
     website = _pdf_business_website(business)
     if website:
         lines.append(website)
     return lines
+
+
+def _pdf_business_address(business):
+    if not business:
+        return ""
+    address = str(getattr(business, "shop_address", "") or "").strip()
+    if not address or address in {"---", "-", "—"}:
+        return ""
+    return address
 
 
 def _pdf_business_website(business):
@@ -2581,6 +2593,9 @@ def _pdf_payment_method_lines(business):
     if not business:
         return []
     lines = []
+    business_address = _pdf_business_address(business)
+    if business_address:
+        lines.append(f"Mail checks to: {business_address}")
     for label, handle in [
         ("Venmo", (business.venmo_username or "").strip()),
         ("Zelle", (business.zelle_email_or_phone or "").strip()),
