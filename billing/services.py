@@ -1,7 +1,10 @@
 from datetime import timedelta
 from decimal import Decimal
+import logging
+
 from django.db import transaction
 from django.core.exceptions import ImproperlyConfigured
+from django.core.mail import send_mail
 from django.utils import timezone
 from django.conf import settings
 import stripe
@@ -9,6 +12,8 @@ from accounts.timezone_utils import business_today as _biz_today
 from .models import Invoice, InvoiceLineItem, InvoiceAuditLog
 from jobs.models import JobServiceItem
 from jobs.service_labels import clean_service_label
+
+logger = logging.getLogger(__name__)
 
 
 def get_invoice_due_date(issue_date, business, customer=None):
@@ -85,8 +90,33 @@ def _notify_invoice_card_payment(invoice, amount=None):
                 to_user=owner,
                 message=message,
             )
+
+        recipients = sorted({
+            owner.email.strip()
+            for owner in owners
+            if getattr(owner, "email", "") and owner.email.strip()
+        })
+        if recipients:
+            amount_label = Decimal(str(amount_value or 0)).quantize(Decimal("0.01"))
+            invoice_url = f"{getattr(settings, 'APP_BASE_URL', '').rstrip('/')}/billing/{invoice.id}/"
+            subject = f"Invoice paid: #{invoice.id} - {invoice.customer.name}"
+            body = (
+                f"Invoice #{invoice.id} was paid by card.\n\n"
+                f"Customer: {invoice.customer.name}\n"
+                f"Amount received: ${amount_label}\n"
+                f"Business: {invoice.business.name}\n\n"
+                f"Open invoice: {invoice_url}\n\n"
+                "This payment was confirmed by Stripe and FIELDLGX marked the invoice paid automatically."
+            )
+            send_mail(
+                subject,
+                body,
+                getattr(settings, "DEFAULT_FROM_EMAIL", "FIELDLGX <noreply@fieldlgx.com>"),
+                recipients,
+                fail_silently=True,
+            )
     except Exception:
-        pass
+        logger.exception("Invoice card payment notification failed for invoice %s", getattr(invoice, "id", "unknown"))
 
 
 @transaction.atomic

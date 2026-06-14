@@ -5,6 +5,7 @@ from datetime import date
 from io import StringIO
 from unittest.mock import patch
 
+from django.core import mail
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -33,6 +34,7 @@ class InvoiceLineItemPaymentTests(TestCase):
         self.business = Business.objects.create(name="Green Valley", subscription_status="active")
         self.owner = User.objects.create_user(
             username="owner",
+            email="owner@example.com",
             password="password",
             role="owner",
             business=self.business,
@@ -261,6 +263,11 @@ class InvoiceLineItemPaymentTests(TestCase):
             to_user=self.owner,
             message__icontains=f"Invoice #{self.invoice.id}",
         ).exists())
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Invoice paid", mail.outbox[0].subject)
+        self.assertIn(f"Invoice #{self.invoice.id}", mail.outbox[0].body)
+        self.assertIn("Acme Home", mail.outbox[0].body)
+        self.assertIn("owner@example.com", mail.outbox[0].to)
 
     @patch("billing.views.stripe.checkout.Session.retrieve")
     def test_invoice_success_return_reconciles_paid_checkout_session(self, mock_retrieve):
