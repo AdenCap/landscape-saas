@@ -1163,6 +1163,105 @@ class DocumentTemplateStudioTests(TestCase):
             "Mowing - 9302 North Bayland Drive",
         )
 
+    def test_invoice_pdf_wraps_long_line_item_names_instead_of_truncating(self):
+        invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="sent",
+            subtotal=Decimal("0"),
+            tax=Decimal("0"),
+            total=Decimal("0"),
+        )
+        long_description = (
+            "Landscape renovation with drainage correction, premium mulch installation, "
+            "front bed edging, shrub trimming, and final cleanup"
+        )
+        InvoiceLineItem.objects.create(
+            invoice=invoice,
+            description=long_description,
+            quantity=1,
+            unit_price=Decimal("1250.00"),
+        )
+
+        from billing import views as billing_views
+        from reportlab.pdfgen import canvas
+
+        drawn_strings = []
+        original_draw_string = canvas.Canvas.drawString
+
+        def capture_draw_string(canvas_self, x, y, text, *args, **kwargs):
+            drawn_strings.append(str(text))
+            return original_draw_string(canvas_self, x, y, text, *args, **kwargs)
+
+        with patch.object(canvas.Canvas, "drawString", new=capture_draw_string):
+            billing_views._build_modern_invoice_pdf(invoice, None)
+
+        self.assertIn("Landscape renovation with drainage correction,", drawn_strings)
+        self.assertIn("premium mulch installation, front bed edging,", drawn_strings)
+        self.assertFalse(any("Landscape renovation with drainage correction..." in text for text in drawn_strings))
+
+    def test_invoice_pdf_wraps_long_header_card_and_footer_text(self):
+        self.business.name = "Green Valley Landscape Management and Outdoor Living"
+        self.business.shop_address = "100 Office Lane Suite 400, Indianapolis, IN 46204"
+        self.business.save(update_fields=["name", "shop_address"])
+        self.customer.name = "Alexander Buckley Property Management Group"
+        self.customer.address_line1 = "9302 North Bayland Drive Building Five"
+        self.customer.address_line2 = "Suite 1200"
+        self.customer.city = "McCordsville"
+        self.customer.state = "IN"
+        self.customer.postal_code = "46055"
+        self.customer.save(update_fields=["name", "address_line1", "address_line2", "city", "state", "postal_code"])
+        DocumentTemplate.objects.create(
+            business=self.business,
+            doc_type="invoice",
+            name="Invoice",
+            template_key="clean_light",
+            header_text=(
+                "Monthly service invoice with property notes, access details, and payment "
+                "instructions shown without clipping."
+            ),
+        )
+        invoice = Invoice.objects.create(
+            business=self.business,
+            customer=self.customer,
+            status="sent",
+            subtotal=Decimal("0"),
+            tax=Decimal("0"),
+            total=Decimal("0"),
+        )
+        InvoiceLineItem.objects.create(
+            invoice=invoice,
+            description="Mowing - 9302 North Bayland Drive Building Five Suite 1200 (2026-05-01)",
+            quantity=1,
+            unit_price=Decimal("85.00"),
+        )
+
+        from billing import views as billing_views
+        from reportlab.pdfgen import canvas
+
+        drawn_strings = []
+        original_draw_string = canvas.Canvas.drawString
+        original_draw_centred = canvas.Canvas.drawCentredString
+
+        def capture_draw_string(canvas_self, x, y, text, *args, **kwargs):
+            drawn_strings.append(str(text))
+            return original_draw_string(canvas_self, x, y, text, *args, **kwargs)
+
+        def capture_draw_centred(canvas_self, x, y, text, *args, **kwargs):
+            drawn_strings.append(str(text))
+            return original_draw_centred(canvas_self, x, y, text, *args, **kwargs)
+
+        with patch.object(canvas.Canvas, "drawString", new=capture_draw_string), \
+             patch.object(canvas.Canvas, "drawCentredString", new=capture_draw_centred):
+            billing_views._build_modern_invoice_pdf(invoice, None)
+
+        self.assertIn("Alexander Buckley Property", drawn_strings)
+        self.assertIn("Management Group", drawn_strings)
+        self.assertIn("9302 North Bayland Drive Building", drawn_strings)
+        self.assertIn("Five, Suite 1200, McCordsville, IN", drawn_strings)
+        self.assertTrue(any("Green Valley Landscape Management and Outdoor Living" in text for text in drawn_strings))
+        self.assertFalse(any("..." in text for text in drawn_strings))
+
     def test_client_accept_includes_selected_optional_items(self):
         estimate = Estimate.objects.create(
             business=self.business,

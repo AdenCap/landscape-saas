@@ -2433,6 +2433,14 @@ def _pdf_draw_wrapped(p, text, x, y, max_chars=70, max_lines=4, leading=10, font
     return y
 
 
+def _pdf_wrapped_card_lines(title, lines, title_chars=30, line_chars=34):
+    title_lines = _pdf_wrapped_lines(title, title_chars, None) or [""]
+    detail_lines = []
+    for line in [line for line in lines if line]:
+        detail_lines.extend(_pdf_wrapped_lines(line, line_chars, None))
+    return title_lines, detail_lines
+
+
 def _pdf_card(p, x, y_top, w, h, stroke=(0.86, 0.88, 0.84), fill=(1, 1, 1), radius=8):
     p.setFillColorRGB(*fill)
     p.setStrokeColorRGB(*stroke)
@@ -2514,11 +2522,11 @@ def _pdf_document_hero(
         brand_x = logo_box_x + 48
 
     p.setFillColorRGB(1, 1, 1)
-    p.setFont(h_font, 13)
-    p.drawString(brand_x, hero_y - 41, _pdf_ellipsize(business.name if business else "", 28))
-    p.setFont(b_font, 8.3)
-    p.setFillColorRGB(0.70, 0.73, 0.67)
-    p.drawString(brand_x, hero_y - 56, _pdf_ellipsize(header_text, 42))
+    p.setFont(h_font, 10.5)
+    brand_y = hero_y - 36
+    for line in _pdf_wrapped_lines(business.name if business else "", 32, 2):
+        p.drawString(brand_x, brand_y, line)
+        brand_y -= 11
 
     p.setFont(h_font, 25)
     p.setFillColorRGB(1, 1, 1)
@@ -2552,10 +2560,17 @@ def _pdf_document_hero(
     summary_chars = min(48, max(28, int((summary_right - summary_x) / 6.2)))
     p.setFillColorRGB(1, 1, 1)
     p.setFont(h_font, 13)
-    p.drawString(summary_x, hero_y - 94, _pdf_ellipsize(summary_title, summary_chars))
+    title_lines = _pdf_wrapped_lines(summary_title, summary_chars, 2) or [""]
+    title_y = hero_y - 91
+    for line in title_lines:
+        p.drawString(summary_x, title_y, line)
+        title_y -= 14
     p.setFont(b_font, 8.6)
     p.setFillColorRGB(0.70, 0.73, 0.67)
-    p.drawString(summary_x, hero_y - 111, _pdf_ellipsize(summary_text, summary_chars + 12))
+    text_y = title_y - 1
+    for line in _pdf_wrapped_lines(summary_text, summary_chars + 12, 2):
+        p.drawString(summary_x, text_y, line)
+        text_y -= 10
 
 
 def _pdf_business_contact_lines(business):
@@ -2622,12 +2637,16 @@ def _pdf_draw_footer(p, width, mid, right, business, accent, h_font, b_font):
     p.rect(48, 56, width - 96, 0.6, fill=True, stroke=False)
     p.setFillColorRGB(0.10, 0.11, 0.10)
     p.setFont(h_font, 8.5)
-    p.drawCentredString(mid, 42, _pdf_ellipsize(business.name if business else "", 70))
+    p.drawCentredString(mid, 42, _pdf_safe(business.name if business else "", 95))
     p.setFont(b_font, 7.6)
     p.setFillColorRGB(0.58, 0.60, 0.56)
     contact_parts = _pdf_business_contact_lines(business)
     if contact_parts:
-        p.drawCentredString(mid, 30, _pdf_ellipsize("  |  ".join(contact_parts), 105))
+        footer_lines = _pdf_wrapped_lines("  |  ".join(contact_parts), 118, 2)
+        footer_y = 30
+        for line in footer_lines:
+            p.drawCentredString(mid, footer_y, line)
+            footer_y -= 9
     p.setFont(b_font, 7)
     p.drawRightString(right, 18, _pdf_safe(f"Page {p.getPageNumber()}"))
     p.setFillColorRGB(*accent)
@@ -3125,7 +3144,6 @@ def _build_modern_invoice_pdf(invoice, request):
     y = hero_y - 168
     card_gap = 14
     card_w = (content_w - card_gap * 2) / 3
-    card_h = 104
     cards = [
         ("From", business.name if business else "", _pdf_business_contact_lines(business)[:3]),
         ("Bill To", customer.name, [customer.phone, _pdf_customer_address(customer), customer.email]),
@@ -3135,18 +3153,26 @@ def _build_modern_invoice_pdf(invoice, request):
             service_period and f"Period {service_period}",
         ]),
     ]
-    for idx, (label, title, lines) in enumerate(cards):
+    card_render_data = []
+    for label, title, lines in cards:
+        title_lines, detail_lines = _pdf_wrapped_card_lines(title, lines, title_chars=30, line_chars=34)
+        card_render_data.append((label, title_lines, detail_lines))
+    card_h = max(104, max(44 + len(title_lines) * 11 + len(detail_lines) * 11 for _, title_lines, detail_lines in card_render_data))
+    for idx, (label, title_lines, detail_lines) in enumerate(card_render_data):
         x = margin + idx * (card_w + card_gap)
         _pdf_card(p, x, y, card_w, card_h, stroke=border, fill=(1, 1, 1), radius=12)
         _pdf_section_label(p, label, x + 14, y - 18, accent, h_font)
         p.setFillColorRGB(*ink)
         p.setFont(h_font, 9.5)
-        p.drawString(x + 14, y - 35, _pdf_ellipsize(title, 32))
-        line_y = y - 51
+        title_y = y - 35
+        for line in title_lines:
+            p.drawString(x + 14, title_y, line)
+            title_y -= 11
+        line_y = title_y - 5
         p.setFont(b_font, 7.7)
         p.setFillColorRGB(*muted)
-        for line in [line for line in lines if line][:4]:
-            p.drawString(x + 14, line_y, _pdf_ellipsize(line, 34))
+        for line in detail_lines:
+            p.drawString(x + 14, line_y, line)
             line_y -= 11
 
     y -= card_h + 24
@@ -3179,11 +3205,12 @@ def _build_modern_invoice_pdf(invoice, request):
     col_total = right - 14
     computed_total = Decimal("0")
     for idx, item in enumerate(items):
+        service_lines = _pdf_wrapped_lines(_invoice_line_display_description(item), 46, None) or [""]
         detail = (getattr(item, "detail_description", "") or "").strip()
         detail_lines = _pdf_wrapped_lines(detail, 55, 3)
         if getattr(item, "is_paid", False) and invoice.status != "paid":
             detail_lines = (["Paid line item"] + detail_lines)[:3]
-        row_h = 28 + len(detail_lines) * 10
+        row_h = 28 + max(0, len(service_lines) - 1) * 10 + len(detail_lines) * 10
         if y - row_h < 120:
             y = new_page(table=True)
         if idx % 2 == 1:
@@ -3193,7 +3220,12 @@ def _build_modern_invoice_pdf(invoice, request):
         computed_total += lt
         p.setFillColorRGB(*ink)
         p.setFont(h_font, 9)
-        p.drawString(col_service, y, _pdf_ellipsize(_invoice_line_display_description(item), 46))
+        service_y = y
+        for line_index, line in enumerate(service_lines):
+            p.setFont(h_font if line_index == 0 else b_font, 9 if line_index == 0 else 8)
+            p.setFillColorRGB(*ink)
+            p.drawString(col_service, service_y, line)
+            service_y -= 10
         p.setFont(b_font, 8.5)
         p.drawString(col_date, y, _invoice_line_service_date_label(item))
         p.drawString(col_qty, y, str(item.quantity or 1))
@@ -3202,7 +3234,7 @@ def _build_modern_invoice_pdf(invoice, request):
         p.drawRightString(col_total, y, _pdf_money(lt))
         p.setFont(b_font, 8)
         p.setFillColorRGB(*muted)
-        dy = y - 12
+        dy = y - max(12, len(service_lines) * 10)
         for line in detail_lines:
             p.drawString(col_service, dy, line)
             dy -= 10
