@@ -9,6 +9,7 @@ urlpatterns = [
     path("import/", views.customer_import, name="customer_import"),
     path("import/template/", views.customer_import_template, name="customer_import_template"),
     path("export/", views.customer_export, name="customer_export"),
+    path("onboard/", views.customer_onboard, name="customer_onboard"),
     path("<int:customer_id>/", views.customer_detail, name="customer_detail"),
     path("<int:customer_id>/edit/", views.customer_edit, name="customer_edit"),
     path("<int:customer_id>/delete/", views.customer_delete, name="customer_delete"),

@@ -9,7 +9,8 @@
       <p>Find the account, open the property, contact the client, or jump straight into work.</p>
     </div>
     <div class="cl-actions">
-      <a href="{% url 'customer_create' %}" class="cl-action cl-action-hot"><span class="material-symbols-outlined">person_add</span>New client</a>
+      <a href="{% url 'customer_onboard' %}" class="cl-action cl-action-hot"><span class="material-symbols-outlined">person_add</span>New setup</a>
+      <a href="{% url 'customer_create' %}" class="cl-action"><span class="material-symbols-outlined">person_add</span>Client only</a>
       <a href="{% url 'customer_import' %}" class="cl-action"><span class="material-symbols-outlined">upload_file</span>Import</a>
       <a href="{% url 'client_messages_list' %}" class="cl-action"><span class="material-symbols-outlined">mail</span>Messages</a>
     </div>

@@ -38,6 +38,7 @@
 
     <div class="cc-hero-actions">
       <a href="{% url 'create_job' %}?customer={{ customer.id }}" class="cc-action cc-action-hot"><span class="material-symbols-outlined">add_task</span>Job</a>
+      <a href="#tab-work" class="cc-action" data-tab-link="work"><span class="material-symbols-outlined">playlist_add</span>Services</a>
       <a href="{% url 'billing:estimate_create' %}?customer={{ customer.id }}" class="cc-action"><span class="material-symbols-outlined">request_quote</span>Estimate</a>
       <a href="{% url 'property_add' customer.id %}" class="cc-action"><span class="material-symbols-outlined">add_home</span>Property</a>
       <a href="{% url 'customer_edit' customer.id %}" class="cc-action"><span class="material-symbols-outlined">edit</span>Edit</a>
@@ -65,6 +66,64 @@
       <strong>{{ open_estimate_count }}</strong>
       <small>draft or sent</small>
     </a>
+  </section>
+
+  <section class="cc-panel cc-service-command">
+    <div class="cc-panel-head">
+      <div>
+        <span class="cc-panel-kicker">Services</span>
+        <h2>Client service command</h2>
+      </div>
+      <a href="{% url 'mowing_hub' %}" class="cc-pill-link">Manage services</a>
+    </div>
+    <div class="cc-service-grid">
+      {% if mowing_card %}
+      <article class="cc-service-card">
+        <span class="material-symbols-outlined">grass</span>
+        <div>
+          <strong>Mowing</strong>
+          <small>{{ mowing_card.frequency }} · {{ mowing_card.property.address|truncatechars:38 }}</small>
+          <p>
+            {% if mowing_card.price %}${{ mowing_card.price|floatformat:0 }} per cut{% else %}No price set{% endif %}
+            {% if mowing_card.next_job %} · Next {{ mowing_card.next_job.scheduled_date|date:"M j" }}{% endif %}
+          </p>
+        </div>
+        <a href="{% url 'mowing_hub' %}">Manage</a>
+      </article>
+      {% endif %}
+      {% for card in fert_cards %}
+      <article class="cc-service-card">
+        <span class="material-symbols-outlined">eco</span>
+        <div>
+          <strong>{{ card.program }}</strong>
+          <small>{{ card.property.address|truncatechars:38 }} · {{ card.year }}</small>
+          <p>
+            {% if card.price %}${{ card.price|floatformat:0 }}{% else %}Price not set{% endif %}
+            {% if card.next_round %} · Round {{ card.next_round.round_number }} {{ card.next_round.scheduled_date|date:"M j" }}{% endif %}
+          </p>
+        </div>
+        <a href="{% url 'fertilization:hub' %}">Manage</a>
+      </article>
+      {% endfor %}
+      {% for agreement in agreement_cards %}
+      <article class="cc-service-card">
+        <span class="material-symbols-outlined">contract</span>
+        <div>
+          <strong>{{ agreement.name }}</strong>
+          <small>{{ agreement.billing }} · {{ agreement.visits_remaining }} visits remaining</small>
+          <p>${{ agreement.price|floatformat:0 }} · {{ agreement.status }}</p>
+        </div>
+        <a href="{% url 'service_agreements:hub' %}">Manage</a>
+      </article>
+      {% endfor %}
+      {% if not mowing_card and not fert_cards and not agreement_cards %}
+      <div class="cc-empty">
+        <strong>No active services yet.</strong>
+        <small>Add mowing, fertilization, or maintenance without leaving the client workflow.</small>
+        <a href="{% url 'mowing_hub' %}">Add service</a>
+      </div>
+      {% endif %}
+    </div>
   </section>
 
   {% if properties %}
@@ -1140,6 +1199,55 @@
     text-transform: uppercase;
   }
   .cc-table a { color: var(--cc-accent); font-weight: var(--type-strong-weight); }
+  .cc-service-command {
+    margin-bottom: 18px;
+  }
+  .cc-service-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .cc-service-card {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 16px;
+    border: 1px solid rgba(255,255,255,.11);
+    border-radius: 22px;
+    background: rgba(0,0,0,.18);
+    min-height: 120px;
+  }
+  .cc-service-card > .material-symbols-outlined {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 16px;
+    background: rgba(185,255,101,.14);
+    color: var(--cc-accent);
+  }
+  .cc-service-card strong,
+  .cc-service-card small,
+  .cc-service-card p {
+    display: block;
+  }
+  .cc-service-card strong {
+    font-size: var(--text-lg);
+  }
+  .cc-service-card small,
+  .cc-service-card p {
+    color: var(--cc-muted);
+  }
+  .cc-service-card p {
+    margin: 4px 0 0;
+    font-size: var(--text-sm);
+  }
+  .cc-service-card a {
+    color: var(--cc-accent);
+    font-weight: var(--type-strong-weight);
+    text-decoration: none;
+  }
   @keyframes cc-rise {
     from { opacity: 0; transform: translateY(18px) scale(.99); filter: blur(8px); }
     to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
@@ -1150,7 +1258,8 @@
   @media (max-width: 1180px) {
     .cc-hero,
     .cc-grid,
-    .cc-stat-grid { grid-template-columns: 1fr; }
+    .cc-stat-grid,
+    .cc-service-grid { grid-template-columns: 1fr; }
     .cc-hero-actions,
     .cc-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }

@@ -1,5 +1,6 @@
 import csv
-from datetime import date
+from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
@@ -11,6 +12,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods, require_POST
+from django.db import transaction
 from django.db.models import Count, DecimalField, IntegerField, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -30,6 +32,88 @@ from .forms import (
     ContractForm,
     SendMessageForm,
 )
+
+
+def _parse_decimal_or_none(value):
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        return Decimal(value)
+    except (InvalidOperation, TypeError):
+        return None
+
+
+def _parse_int_or_none(value):
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_date_or_none(value):
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _property_address_from_parts(address_line1, city, state, postal_code):
+    city_line = ", ".join(part for part in [city, state] if part)
+    if postal_code:
+        city_line = f"{city_line} {postal_code}".strip()
+    return ", ".join(part for part in [address_line1, city_line] if part)
+
+
+def _get_or_create_service_template(business, name, default_unit="visit"):
+    from pricing.models import ServiceTemplate
+
+    service = (
+        ServiceTemplate.objects.filter(business=business, name__iexact=name, active=True)
+        .order_by("id")
+        .first()
+    )
+    if service:
+        return service
+    return ServiceTemplate.objects.create(
+        business=business,
+        name=name,
+        default_unit=default_unit,
+        default_rate=0,
+        pricing_method="flat",
+        active=True,
+    )
+
+
+def _create_service_item(job, service, description, detail_description="", unit_price=None):
+    from jobs.models import JobServiceItem
+
+    return JobServiceItem.objects.create(
+        job=job,
+        service=service,
+        description=description or service.name,
+        detail_description=detail_description or "",
+        quantity=Decimal("1.00"),
+        unit=service.default_unit or "visit",
+        unit_price=unit_price if unit_price is not None else service.default_rate,
+    )
+
+
+def _mowing_interval_days(frequency, custom_interval_days=None):
+    if frequency == "custom" and custom_interval_days:
+        return max(1, int(custom_interval_days))
+    return {
+        "weekly": 7,
+        "10day": 10,
+        "biweekly": 14,
+        "monthly": 30,
+    }.get(frequency, 7)
 
 
 @role_required("owner", "manager")
@@ -158,6 +242,260 @@ def customer_list(request):
         "total_clients": total_clients,
         "active_clients_count": active_clients_count,
         "open_balance_total": open_balance_total,
+    })
+
+
+@role_required("owner", "manager")
+@require_http_methods(["GET", "POST"])
+def customer_onboard(request):
+    """One-screen client + property + service setup for field onboarding."""
+    business = _get_business(request)
+    if not business:
+        messages.error(request, "You must be associated with a business to add clients.")
+        return redirect("/")
+
+    from accounts.models import User
+    from fertilization.models import CustomerProgramEnrollment, FertilizationProgram, ScheduledRound
+    from jobs.models import Crew, Job, RecurringJob
+    from pricing.models import PropertyServiceRate
+    from service_agreements.models import AgreementLineItem, ServiceAgreement
+
+    today = _biz_today(business)
+    requested_service = (request.GET.get("service") or request.POST.get("primary_service") or "").strip().lower()
+    crews = Crew.objects.filter(business=business).order_by("name")
+    programs = FertilizationProgram.objects.filter(business=business, is_active=True).prefetch_related("rounds").order_by("name")
+
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()
+        phone = (request.POST.get("phone") or "").strip()
+        email = (request.POST.get("email") or "").strip()
+        address_line1 = (request.POST.get("address_line1") or "").strip()
+        city = (request.POST.get("city") or "").strip()
+        state = (request.POST.get("state") or "").strip()
+        postal_code = (request.POST.get("postal_code") or "").strip()
+        property_address = (request.POST.get("property_address") or "").strip()
+
+        if not name:
+            messages.error(request, "Client name is required.")
+            return redirect(f"{reverse('customer_onboard')}?service={requested_service}")
+
+        if not property_address:
+            property_address = _property_address_from_parts(address_line1, city, state, postal_code)
+
+        if not property_address:
+            messages.error(request, "Add a service address before setting up services.")
+            return redirect(f"{reverse('customer_onboard')}?service={requested_service}")
+
+        setup_notes = []
+        try:
+            with transaction.atomic():
+                customer = Customer.objects.create(
+                    business=business,
+                    name=name,
+                    phone=phone,
+                    email=email,
+                    communication_preference=request.POST.get("communication_preference") or "",
+                    address_line1=address_line1,
+                    city=city,
+                    state=state,
+                    postal_code=postal_code,
+                    invoice_frequency=request.POST.get("invoice_frequency") or "",
+                    monthly_invoice_send_day=_parse_int_or_none(request.POST.get("monthly_invoice_send_day")),
+                    invoice_due_days=_parse_int_or_none(request.POST.get("invoice_due_days")),
+                    notes=(request.POST.get("client_notes") or "").strip(),
+                )
+                prop = Property.objects.create(
+                    customer=customer,
+                    address=property_address,
+                    gate_code=(request.POST.get("gate_code") or "").strip(),
+                    has_dog=bool(request.POST.get("has_dog")),
+                    yard_sqft=_parse_int_or_none(request.POST.get("yard_sqft")),
+                    notes=(request.POST.get("property_notes") or "").strip(),
+                )
+
+                crew = None
+                crew_id = (request.POST.get("crew") or "").strip()
+                if crew_id:
+                    crew = Crew.objects.filter(id=crew_id, business=business).first()
+
+                if request.POST.get("enable_mowing"):
+                    mowing_service = _get_or_create_service_template(business, "Mowing")
+                    mowing_price = _parse_decimal_or_none(request.POST.get("mowing_price")) or Decimal("0.00")
+                    if mowing_price:
+                        PropertyServiceRate.objects.update_or_create(
+                            property=prop,
+                            service=mowing_service,
+                            defaults={"override_rate": mowing_price},
+                        )
+                    mowing_start = _parse_date_or_none(request.POST.get("mowing_start_date")) or today
+                    frequency = request.POST.get("mowing_frequency") or "weekly"
+                    custom_interval = _parse_int_or_none(request.POST.get("mowing_custom_interval"))
+                    if frequency != "custom":
+                        custom_interval = None
+                    recurring = RecurringJob.objects.create(
+                        property=prop,
+                        frequency=frequency,
+                        custom_interval_days=custom_interval,
+                        start_date=mowing_start,
+                        active=True,
+                        assigned_crew=crew,
+                        notes=(request.POST.get("mowing_notes") or "").strip(),
+                        service_snapshot=[{
+                            "service_id": mowing_service.id,
+                            "description": "Mowing",
+                            "detail_description": (request.POST.get("mowing_description") or "").strip(),
+                            "quantity": "1",
+                            "unit": mowing_service.default_unit or "visit",
+                            "unit_price": str(mowing_price or mowing_service.default_rate),
+                        }],
+                    )
+                    schedule_mode = request.POST.get("mowing_schedule_mode") or "first"
+                    should_create_mowing_jobs = schedule_mode in {"first", "season"}
+                    mowing_end = _parse_date_or_none(request.POST.get("mowing_season_end"))
+                    if schedule_mode == "season" and not mowing_end:
+                        mowing_end = date(mowing_start.year, 10, 31)
+                    if mowing_end and mowing_end < mowing_start:
+                        raise ValueError("Mowing season end date must be after the start date.")
+                    if should_create_mowing_jobs:
+                        current_mowing_date = mowing_start
+                        created_mowing_jobs = 0
+                        interval_days = _mowing_interval_days(frequency, custom_interval)
+                        while current_mowing_date and (schedule_mode == "first" or current_mowing_date <= mowing_end):
+                            job = Job.objects.create(
+                                property=prop,
+                                scheduled_date=current_mowing_date,
+                                scheduled_time=request.POST.get("mowing_time") or None,
+                                assigned_crew=crew,
+                                status="scheduled",
+                                notes=f"[Mowing] {(request.POST.get('mowing_notes') or '').strip()}".strip(),
+                                recurring_job=recurring,
+                            )
+                            if crew:
+                                job.crews.add(crew)
+                            _create_service_item(
+                                job,
+                                mowing_service,
+                                "Mowing",
+                                request.POST.get("mowing_description") or "",
+                                mowing_price or mowing_service.default_rate,
+                            )
+                            created_mowing_jobs += 1
+                            if schedule_mode == "first":
+                                break
+                            current_mowing_date += timedelta(days=interval_days)
+                        if schedule_mode == "season":
+                            setup_notes.append(f"mowing season ({created_mowing_jobs} visits)")
+                        else:
+                            setup_notes.append("mowing")
+                    else:
+                        setup_notes.append("mowing recurrence")
+
+                if request.POST.get("enable_fertilization"):
+                    program_id = (request.POST.get("fert_program") or "").strip()
+                    program = FertilizationProgram.objects.filter(id=program_id, business=business).first()
+                    if not program:
+                        raise ValueError("Choose a fertilization program.")
+                    start_round = _parse_int_or_none(request.POST.get("fert_start_round")) or 1
+                    year = _parse_int_or_none(request.POST.get("fert_year")) or today.year
+                    pricing_method = request.POST.get("fert_pricing_method") or "per_application"
+                    price_per_app = _parse_decimal_or_none(request.POST.get("fert_price_per_application"))
+                    annual_price = _parse_decimal_or_none(request.POST.get("fert_annual_price"))
+                    enrollment = CustomerProgramEnrollment.objects.create(
+                        business=business,
+                        property=prop,
+                        program=program,
+                        year=year,
+                        status="enrolled",
+                        pricing_method=pricing_method,
+                        price_per_application=price_per_app,
+                        annual_price=annual_price,
+                        notes=(request.POST.get("fert_notes") or "").strip(),
+                    )
+                    fert_service = _get_or_create_service_template(business, "Fertilization")
+                    rounds = program.rounds.filter(round_number__gte=start_round).order_by("round_number")
+                    first_round = None
+                    for round_template in rounds:
+                        scheduled_date = date(year, round_template.target_month_start, 15)
+                        price = price_per_app or (annual_price / program.rounds.count() if annual_price and program.rounds.count() else Decimal("0.00"))
+                        scheduled_round = ScheduledRound.objects.create(
+                            enrollment=enrollment,
+                            round_template=round_template,
+                            round_number=round_template.round_number,
+                            scheduled_date=scheduled_date,
+                            price=price,
+                            notes=(request.POST.get("fert_notes") or "").strip(),
+                        )
+                        if first_round is None:
+                            first_round = scheduled_round
+
+                    fert_first_date = _parse_date_or_none(request.POST.get("fert_first_date"))
+                    if request.POST.get("fert_schedule_first") and fert_first_date and first_round:
+                        round_name = first_round.round_template.name if first_round.round_template else f"Round {first_round.round_number}"
+                        job = Job.objects.create(
+                            property=prop,
+                            scheduled_date=fert_first_date,
+                            scheduled_time=request.POST.get("fert_time") or None,
+                            assigned_crew=crew,
+                            status="scheduled",
+                            notes=f"[Fertilization] {round_name} — {program.name}. {(request.POST.get('fert_notes') or '').strip()}".strip(),
+                        )
+                        if crew:
+                            job.crews.add(crew)
+                        _create_service_item(
+                            job,
+                            fert_service,
+                            f"{round_name} ({program.name})",
+                            request.POST.get("fert_description") or "",
+                            first_round.price or fert_service.default_rate,
+                        )
+                        first_round.job = job
+                        first_round.status = "scheduled"
+                        first_round.scheduled_date = fert_first_date
+                        first_round.save(update_fields=["job", "status", "scheduled_date"])
+                    setup_notes.append("fertilization")
+
+                if request.POST.get("enable_maintenance"):
+                    maintenance_name = (request.POST.get("maintenance_name") or "Maintenance plan").strip()
+                    maintenance_price = _parse_decimal_or_none(request.POST.get("maintenance_price")) or Decimal("0.00")
+                    agreement = ServiceAgreement.objects.create(
+                        business=business,
+                        customer=customer,
+                        name=maintenance_name,
+                        agreement_type="maintenance",
+                        status="active",
+                        start_date=_parse_date_or_none(request.POST.get("maintenance_start_date")) or today,
+                        billing_frequency=request.POST.get("maintenance_frequency") or "monthly",
+                        price=maintenance_price,
+                        visits_included=_parse_int_or_none(request.POST.get("maintenance_visits")) or 0,
+                        notes=(request.POST.get("maintenance_notes") or "").strip(),
+                    )
+                    AgreementLineItem.objects.create(
+                        agreement=agreement,
+                        service_name=maintenance_name,
+                        description=(request.POST.get("maintenance_description") or "").strip(),
+                        frequency=request.POST.get("maintenance_line_frequency") or "monthly",
+                        quantity=Decimal("1.00"),
+                        unit="visit",
+                        unit_price=maintenance_price,
+                    )
+                    setup_notes.append("maintenance")
+
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return redirect(f"{reverse('customer_onboard')}?service={requested_service}")
+
+        if setup_notes:
+            messages.success(request, f"{customer.name} was added with {', '.join(setup_notes)} ready to manage.")
+        else:
+            messages.success(request, f"{customer.name} was added. You can add services from this profile.")
+        return redirect("customer_detail", customer_id=customer.id)
+
+    return render(request, "customers/customer_onboard.html", {
+        "today": today,
+        "crews": crews,
+        "programs": programs,
+        "requested_service": requested_service,
+        "crew_users": User.objects.filter(business=business, role__in=["crew", "manager"]).order_by("first_name", "last_name", "username"),
     })
 
 
@@ -336,6 +674,42 @@ def customer_detail(request, customer_id):
         property__customer=customer, active=True
     ).select_related("property", "assigned_crew").first()
     is_mowing_client = mowing_enrollment is not None
+    mowing_card = None
+    if mowing_enrollment:
+        from pricing.models import PropertyServiceRate, ServiceTemplate
+        mowing_service_ids = list(ServiceTemplate.objects.filter(
+            business=business,
+            name__icontains="mow",
+        ).values_list("id", flat=True))
+        mowing_rate = None
+        if mowing_service_ids:
+            mowing_rate = (
+                PropertyServiceRate.objects.filter(
+                    property=mowing_enrollment.property,
+                    service_id__in=mowing_service_ids,
+                )
+                .exclude(override_rate__isnull=True)
+                .values_list("override_rate", flat=True)
+                .first()
+            )
+        if mowing_rate is None:
+            for snapshot in mowing_enrollment.service_snapshot or []:
+                if snapshot.get("unit_price"):
+                    mowing_rate = _parse_decimal_or_none(str(snapshot.get("unit_price")))
+                    break
+        mowing_next_job = (
+            Job.objects.filter(recurring_job=mowing_enrollment, scheduled_date__gte=_biz_today(business))
+            .exclude(status__in=["completed", "skipped"])
+            .order_by("scheduled_date", "scheduled_time", "id")
+            .first()
+        )
+        mowing_card = {
+            "property": mowing_enrollment.property,
+            "frequency": mowing_enrollment.get_frequency_display(),
+            "price": mowing_rate,
+            "next_job": mowing_next_job,
+            "crew": mowing_enrollment.assigned_crew,
+        }
 
     # Fertilization enrollment
     from fertilization.models import CustomerProgramEnrollment
@@ -344,12 +718,37 @@ def customer_detail(request, customer_id):
         status__in=["enrolled", "in_progress"],
     ).select_related("program", "property").order_by("-year")[:5]
     is_fert_client = fert_enrollments.exists()
+    fert_cards = []
+    for enrollment in fert_enrollments:
+        next_round = (
+            enrollment.scheduled_rounds.filter(status__in=["pending", "scheduled"])
+            .order_by("scheduled_date", "round_number")
+            .first()
+        )
+        price = enrollment.price_per_application
+        if not price and enrollment.annual_price and enrollment.program.num_rounds:
+            price = enrollment.annual_price / enrollment.program.num_rounds
+        fert_cards.append({
+            "program": enrollment.program.name,
+            "property": enrollment.property,
+            "year": enrollment.year,
+            "price": price,
+            "next_round": next_round,
+            "status": enrollment.get_status_display(),
+        })
 
     # Service agreements / maintenance contracts
     from service_agreements.models import ServiceAgreement
     active_agreements = ServiceAgreement.objects.filter(
         customer=customer, status__in=["active", "draft"]
     ).prefetch_related("line_items").order_by("-start_date")[:5]
+    agreement_cards = [{
+        "name": agreement.name,
+        "billing": agreement.get_billing_frequency_display(),
+        "price": agreement.price,
+        "visits_remaining": agreement.visits_remaining,
+        "status": agreement.get_status_display(),
+    } for agreement in active_agreements]
 
     # Property notes
     from jobs.models import PropertyNote
@@ -388,10 +787,13 @@ def customer_detail(request, customer_id):
         "show_property_estimator": show_property_estimator,
         "is_mowing_client": is_mowing_client,
         "mowing_enrollment": mowing_enrollment,
+        "mowing_card": mowing_card,
         "is_fert_client": is_fert_client,
         "fert_enrollments": fert_enrollments,
+        "fert_cards": fert_cards,
         "property_notes": property_notes,
         "active_agreements": active_agreements,
+        "agreement_cards": agreement_cards,
     })
 
 

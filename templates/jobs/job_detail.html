@@ -517,19 +517,29 @@
   {% endif %}
 </div>
 
-<div class="card" style="margin-bottom: 20px;">
-  <h2 class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-    Completion photos
+<div class="card jd-proof-card" style="margin-bottom: 20px;">
+  <h2 class="card-title jd-proof-title">
+    <span>
+      <span class="material-symbols-outlined">verified</span>
+      Completion proof
+    </span>
     <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-secondary btn-sm">Upload photo</a>
   </h2>
+  <p class="jd-proof-helper">Crew completion photos submitted before closing this job. Owners and managers can review proof here any time.</p>
   {% if job_completion_photos %}
-  <div class="completion-photos" style="display: flex; flex-wrap: wrap; gap: 12px;">
+  <div class="completion-photos jd-proof-grid">
     {% for p in job_completion_photos %}
-    <a href="{{ p.image.url }}" target="_blank" rel="noopener" style="display: block;"><img src="{{ p.image.url }}" alt="Completion" style="max-width: 120px; max-height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border);"></a>
+    <a href="{{ p.image.url }}" target="_blank" rel="noopener" class="jd-proof-photo">
+      <img src="{{ p.image.url }}" alt="Completion proof for {{ job.property.address }}">
+      <span>
+        {{ p.uploaded_by.get_full_name|default:p.uploaded_by.username|default:"Crew" }}
+        · {{ p.captured_at|date:"M j, g:i A" }}
+      </span>
+    </a>
     {% endfor %}
   </div>
   {% else %}
-  <p style="margin: 0; color: var(--text-muted);">No completion photos yet.</p>
+  <p class="jd-proof-empty">No completion photos yet.</p>
   {% endif %}
 </div>
 
@@ -790,6 +800,67 @@ window.filterPhotos = function(cat, btn) {
 <style>
   .photo-filter-btn { background: var(--surface-alt); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; }
   .photo-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .jd-proof-title {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .jd-proof-title > span {
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+  }
+  .jd-proof-title .material-symbols-outlined {
+    color:var(--jd-accent);
+  }
+  .jd-proof-helper,
+  .jd-proof-empty {
+    margin:0 0 14px;
+    color:var(--text-muted);
+    line-height:1.45;
+  }
+  .jd-proof-empty { margin-bottom:0; }
+  .jd-proof-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));
+    gap:12px;
+  }
+  .jd-proof-photo {
+    position:relative;
+    display:block;
+    min-height:150px;
+    overflow:hidden;
+    border-radius:16px;
+    border:1px solid var(--jd-line);
+    color:white;
+    text-decoration:none;
+    background:rgba(0,0,0,.28);
+  }
+  .jd-proof-photo img {
+    width:100%;
+    height:150px;
+    object-fit:cover;
+    display:block;
+    transition:transform .25s var(--jd-ease);
+  }
+  .jd-proof-photo:hover img { transform:scale(1.035); }
+  .jd-proof-photo span {
+    position:absolute;
+    left:8px;
+    right:8px;
+    bottom:8px;
+    padding:7px 9px;
+    border-radius:999px;
+    background:rgba(0,0,0,.68);
+    backdrop-filter:blur(12px);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:11px;
+    font-weight:800;
+  }
 
   .job-detail-page {
     --jd-bg: #030403;

@@ -1,12 +1,42 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Upload completion photo</h1>
-  <p>{{ job.property.address }} · Proof of work</p>
-</div>
+<div class="proof-page">
+  <div class="proof-hero">
+    <div>
+      <span>Completion proof</span>
+      <h1>{{ job.property.customer.name }}</h1>
+      <p>{{ job.property.address }} · {% if job.status == "completed" %}Completed{% else %}Ready for proof photo{% endif %}</p>
+    </div>
+    <a href="{% if request.user.role == 'owner' or request.user.role == 'manager' %}{% url 'job_detail' job.id %}#jd-photos{% else %}{% url 'crew_today' %}{% endif %}" class="proof-link">
+      {% if request.user.role == "owner" or request.user.role == "manager" %}Back to job{% else %}Back to route{% endif %}
+    </a>
+  </div>
 
-<div class="card">
+  {% if photo_uploaded %}
+  <div class="proof-complete-card">
+    <span class="material-symbols-outlined">verified</span>
+    <div>
+      <strong>Photo saved to this job.</strong>
+      <p>The owner can see it on the job detail page under Photos → Completion proof.</p>
+    </div>
+    {% if job.status != "completed" %}
+    <form method="post" action="{% url 'complete_job' job.id %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary">Mark job complete now</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="card proof-card">
+    <div class="proof-card-head">
+      <span class="material-symbols-outlined">add_a_photo</span>
+      <div>
+        <h2>{% if photo_uploaded %}Add another photo{% else %}Upload completion photo{% endif %}</h2>
+        <p>Use this for final proof of work before closing the job.</p>
+      </div>
+    </div>
   <form method="post" action="" enctype="multipart/form-data">
     {% csrf_token %}
     <div class="form-group">
@@ -22,11 +52,111 @@
       {% endif %}
     </div>
   </form>
+  </div>
 </div>
 
 <style>
+  .proof-page { max-width: 880px; margin: 0 auto; color: var(--text); }
+  .proof-hero {
+    display:flex;
+    justify-content:space-between;
+    gap:16px;
+    align-items:flex-start;
+    margin-bottom:18px;
+    padding:22px;
+    border:1px solid var(--border);
+    border-radius:24px;
+    background:linear-gradient(145deg, rgba(255,255,255,.10), rgba(255,255,255,.045));
+    box-shadow:0 24px 70px rgba(0,0,0,.22);
+  }
+  .proof-hero span,
+  .proof-card-head p {
+    color:var(--text-muted);
+  }
+  .proof-hero span {
+    display:block;
+    margin-bottom:8px;
+    font-size:12px;
+    font-weight:850;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--primary);
+  }
+  .proof-hero h1 { margin:0; font-size:clamp(32px, 8vw, 56px); line-height:.95; letter-spacing:0; }
+  .proof-hero p { margin:12px 0 0; color:var(--text-muted); font-size:16px; line-height:1.45; }
+  .proof-link {
+    flex:0 0 auto;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:44px;
+    padding:0 16px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    color:var(--text);
+    text-decoration:none;
+    font-weight:800;
+  }
+  .proof-complete-card {
+    display:grid;
+    grid-template-columns:auto minmax(0, 1fr) auto;
+    gap:16px;
+    align-items:center;
+    margin-bottom:16px;
+    padding:18px;
+    border-radius:22px;
+    border:1px solid rgba(185,255,101,.28);
+    background:linear-gradient(135deg, rgba(185,255,101,.18), rgba(255,255,255,.055));
+  }
+  .proof-complete-card > .material-symbols-outlined {
+    width:52px;
+    height:52px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:18px;
+    background:var(--primary);
+    color:#081008;
+    font-size:28px;
+  }
+  .proof-complete-card strong { display:block; font-size:20px; }
+  .proof-complete-card p { margin:4px 0 0; color:var(--text-muted); line-height:1.45; }
+  .proof-card { padding:20px; }
+  .proof-card-head {
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-bottom:18px;
+  }
+  .proof-card-head > .material-symbols-outlined {
+    color:var(--primary);
+    font-size:32px;
+  }
+  .proof-card-head h2 { margin:0; font-size:24px; }
+  .proof-card-head p { margin:4px 0 0; line-height:1.4; }
   .form-group { margin-bottom: 16px; }
-  .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
-  .form-actions { display: flex; gap: 12px; margin-top: 20px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 800; letter-spacing:.08em; text-transform:uppercase; margin-bottom: 8px; color: var(--text-muted); }
+  .form-group input[type="file"] {
+    width:100%;
+    min-height:54px;
+    padding:14px;
+    border:1px dashed var(--border);
+    border-radius:18px;
+    background:rgba(255,255,255,.04);
+    color:var(--text);
+  }
+  .form-actions { display: flex; gap: 12px; margin-top: 20px; flex-wrap:wrap; }
+  @media (max-width: 720px) {
+    .proof-hero,
+    .proof-complete-card {
+      grid-template-columns:1fr;
+      display:grid;
+    }
+    .proof-link,
+    .proof-complete-card .btn,
+    .form-actions .btn {
+      width:100%;
+    }
+  }
 </style>
 {% endblock %}

@@ -218,7 +218,11 @@ If you have any questions, please don't hesitate to reach out.
 <div id="add-section" style="display:none;margin-bottom:20px;">
   <div class="card" style="max-width:600px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;">Add Mowing Client</h3>
+      <div>
+        <h3 style="margin:0;font-family:var(--font-headline);font-weight:700;">Add Mowing Client</h3>
+        <p style="margin:6px 0 0;color:var(--text-muted);font-size:14px;">For a brand-new account, use guided setup to create the client, property, price, and first cut together.</p>
+      </div>
+      <a href="{% url 'customer_onboard' %}?service=mowing" class="btn btn-primary" style="white-space:nowrap;">Guided setup</a>
       <button type="button" onclick="document.getElementById('add-section').style.display='none'" class="btn btn-ghost" style="padding:4px 8px;">&times;</button>
     </div>
     <form method="post" action="{% url 'add_mowing_client' %}">

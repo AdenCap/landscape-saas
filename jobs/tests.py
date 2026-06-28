@@ -15,7 +15,7 @@ from accounts.models import User
 from billing.models import Estimate, EstimateImage, EstimateLineItem, Invoice
 from businesses.models import Business
 from customers.models import Customer, Property
-from jobs.models import Crew, Job, JobDayAssignment, JobNote, JobPhoto, JobServiceItem, JobWorkVisit, Meeting, PropertyNote, RecurringJob
+from jobs.models import Crew, Job, JobCompletionPhoto, JobDayAssignment, JobNote, JobPhoto, JobServiceItem, JobWorkVisit, Meeting, PropertyNote, RecurringJob
 from jobs.services import generate_jobs
 from pricing.models import ServiceTemplate
 
@@ -1452,6 +1452,39 @@ class CrewTodayDirectCompletionTests(TestCase):
         self.assertIsNotNone(self.job.completed_at)
         self.assertIsNone(self.job.started_at)
         self.assertIsNone(self.job.en_route_at)
+
+    def test_crew_completion_photo_upload_prompts_to_complete_job(self):
+        crew_user = User.objects.create_user(
+            username="crew-photo-user",
+            password="password",
+            role="crew",
+            business=self.business,
+        )
+        self.job.assigned_to = crew_user
+        self.job.save(update_fields=["assigned_to"])
+        self.client.force_login(crew_user)
+
+        photo = SimpleUploadedFile(
+            "completion.jpg",
+            b"\xff\xd8\xff\xe0" + b"0" * 100,
+            content_type="image/jpeg",
+        )
+        response = self.client.post(
+            reverse("upload_completion_photo", args=[self.job.id]),
+            {"photo": photo},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(JobCompletionPhoto.objects.filter(job=self.job).count(), 1)
+        self.assertContains(response, "Photo saved to this job.")
+        self.assertContains(response, "Mark job complete now")
+        self.assertContains(response, reverse("complete_job", args=[self.job.id]))
+
+        response = self.client.post(reverse("complete_job", args=[self.job.id]))
+        self.assertEqual(response.status_code, 302)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, "completed")
 
     @patch("jobs.views._business_today")
     def test_scheduled_crew_stop_shows_job_and_recurring_notes_on_card(self, mock_today):

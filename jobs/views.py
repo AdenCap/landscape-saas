@@ -7,6 +7,7 @@ from django.conf import settings
 from django.db.models import Q, Sum, F, Prefetch
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
@@ -2850,8 +2851,11 @@ def upload_completion_photo(request, job_id):
         messages.success(request, "Completion photo uploaded.")
         if request.user.role in ("owner", "manager"):
             return redirect("job_detail", job_id=job_id)
-        return redirect("crew_today")
-    return render(request, "jobs/upload_completion_photo.html", {"job": job})
+        return redirect(f"{reverse('upload_completion_photo', args=[job_id])}?uploaded=1")
+    return render(request, "jobs/upload_completion_photo.html", {
+        "job": job,
+        "photo_uploaded": request.GET.get("uploaded") == "1",
+    })
 
 
 @require_POST

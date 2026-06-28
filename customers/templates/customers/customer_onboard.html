@@ -1,0 +1,605 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="onboard-command">
+  <a href="{% url 'customer_list' %}" class="oc-back">
+    <span class="material-symbols-outlined">arrow_back</span>
+    Clients
+  </a>
+
+  <header class="oc-hero">
+    <div>
+      <div class="oc-kicker"><span></span>Client Setup</div>
+      <h1>Add a client and start service.</h1>
+      <p>Create the account, property, recurring service, and first scheduled visit from one clean flow.</p>
+    </div>
+    <div class="oc-hero-card">
+      <strong>One pass</strong>
+      <span>Client → property → service → schedule</span>
+    </div>
+  </header>
+
+  <form method="post" class="oc-form">
+    {% csrf_token %}
+    <input type="hidden" name="primary_service" value="{{ requested_service }}">
+
+    <section class="oc-panel">
+      <div class="oc-panel-head">
+        <div>
+          <span class="oc-panel-kicker">Step 1</span>
+          <h2>Client profile</h2>
+        </div>
+      </div>
+      <div class="oc-grid">
+        <label>
+          <span>Client name</span>
+          <input name="name" required autocomplete="name" placeholder="Maple Ridge HOA">
+        </label>
+        <label>
+          <span>Phone</span>
+          <input name="phone" type="tel" autocomplete="tel" placeholder="555-0100">
+        </label>
+        <label>
+          <span>Email</span>
+          <input name="email" type="email" autocomplete="email" placeholder="client@example.com">
+        </label>
+        <label>
+          <span>Preferred contact</span>
+          <select name="communication_preference">
+            <option value="">Not set</option>
+            <option value="email">Email</option>
+            <option value="sms">Text (SMS)</option>
+            <option value="both">Email and Text</option>
+          </select>
+        </label>
+        <label class="oc-wide">
+          <span>Mailing address</span>
+          <input name="address_line1" autocomplete="address-line1" placeholder="123 Oak Street">
+        </label>
+        <label>
+          <span>City</span>
+          <input name="city" autocomplete="address-level2">
+        </label>
+        <label>
+          <span>State</span>
+          <input name="state" autocomplete="address-level1">
+        </label>
+        <label>
+          <span>ZIP</span>
+          <input name="postal_code" autocomplete="postal-code">
+        </label>
+        <label>
+          <span>Invoice timing</span>
+          <select name="invoice_frequency" id="invoice-frequency">
+            <option value="">Ask each time</option>
+            <option value="per_service">Per service</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </label>
+        <label>
+          <span>Monthly send day</span>
+          <input name="monthly_invoice_send_day" type="number" min="1" max="28" placeholder="1">
+        </label>
+        <label>
+          <span>Due days</span>
+          <input name="invoice_due_days" type="number" min="0" max="365" placeholder="15">
+        </label>
+        <label class="oc-wide">
+          <span>Internal client note</span>
+          <textarea name="client_notes" rows="3" placeholder="Billing preferences, communication notes, decision makers..."></textarea>
+        </label>
+      </div>
+    </section>
+
+    <section class="oc-panel">
+      <div class="oc-panel-head">
+        <div>
+          <span class="oc-panel-kicker">Step 2</span>
+          <h2>Property</h2>
+        </div>
+      </div>
+      <div class="oc-grid">
+        <label class="oc-wide">
+          <span>Service address</span>
+          <input name="property_address" placeholder="Leave blank to use mailing address">
+        </label>
+        <label>
+          <span>Yard sq ft</span>
+          <input name="yard_sqft" type="number" min="0" placeholder="12000">
+        </label>
+        <label>
+          <span>Gate code</span>
+          <input name="gate_code" placeholder="1234#">
+        </label>
+        <label class="oc-check">
+          <input name="has_dog" type="checkbox">
+          <span>Dog at property</span>
+        </label>
+        <label class="oc-wide">
+          <span>Crew-visible property note</span>
+          <textarea name="property_notes" rows="3" placeholder="Gate, parking, pets, property instructions..."></textarea>
+        </label>
+      </div>
+    </section>
+
+    <section class="oc-panel">
+      <div class="oc-panel-head">
+        <div>
+          <span class="oc-panel-kicker">Step 3</span>
+          <h2>Services</h2>
+        </div>
+      </div>
+
+      <div class="oc-service-grid">
+        <article class="oc-service-card" data-service-card="mowing">
+          <label class="oc-service-toggle">
+            <input type="checkbox" name="enable_mowing" {% if requested_service == "mowing" %}checked{% endif %}>
+            <span>
+              <strong>Mowing</strong>
+              <small>Frequency, price, crew, and first cut.</small>
+            </span>
+          </label>
+          <div class="oc-service-fields">
+            <div class="oc-grid">
+              <label>
+                <span>Frequency</span>
+                <select name="mowing_frequency" id="mowing-frequency">
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Bi-weekly</option>
+                  <option value="10day">Every 10 days</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              <label>
+                <span>Custom days</span>
+                <input name="mowing_custom_interval" type="number" min="1" placeholder="14">
+              </label>
+              <label>
+                <span>Price per cut</span>
+                <input name="mowing_price" type="number" min="0" step="0.01" placeholder="65.00">
+              </label>
+              <label>
+                <span>Start date</span>
+                <input name="mowing_start_date" type="date" value="{{ today|date:'Y-m-d' }}">
+              </label>
+              <label>
+                <span>Schedule</span>
+                <select name="mowing_schedule_mode" id="mowing-schedule-mode">
+                  <option value="first">Schedule first cut</option>
+                  <option value="season">Schedule whole season</option>
+                  <option value="recurrence">Save recurrence only</option>
+                </select>
+              </label>
+              <label class="mowing-season-end">
+                <span>Season end</span>
+                <input name="mowing_season_end" type="date">
+                <small>Blank defaults to Oct 31.</small>
+              </label>
+              <label>
+                <span>Time</span>
+                <input name="mowing_time" type="time">
+              </label>
+              <label>
+                <span>Crew</span>
+                <select name="crew">
+                  <option value="">No crew yet</option>
+                  {% for crew in crews %}
+                  <option value="{{ crew.id }}">{{ crew.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label class="oc-check legacy-first-cut">
+                <input type="checkbox" name="mowing_schedule_first" checked>
+                <span>Put first mowing on calendar</span>
+              </label>
+              <label class="oc-wide">
+                <span>Description</span>
+                <textarea name="mowing_description" rows="2" placeholder="Areas included, edging, trimming, blow-off, special scope..."></textarea>
+              </label>
+              <label class="oc-wide">
+                <span>Recurring notes</span>
+                <textarea name="mowing_notes" rows="2" placeholder="Permanent mowing instructions for this property..."></textarea>
+              </label>
+            </div>
+          </div>
+        </article>
+
+        <article class="oc-service-card" data-service-card="fertilization">
+          <label class="oc-service-toggle">
+            <input type="checkbox" name="enable_fertilization" {% if requested_service == "fertilization" or requested_service == "fert" %}checked{% endif %}>
+            <span>
+              <strong>Fertilization</strong>
+              <small>Program, start round, pricing, and first application.</small>
+            </span>
+          </label>
+          <div class="oc-service-fields">
+            <div class="oc-grid">
+              <label>
+                <span>Program</span>
+                <select name="fert_program">
+                  <option value="">Choose program</option>
+                  {% for program in programs %}
+                  <option value="{{ program.id }}">{{ program.name }} · {{ program.num_rounds }} rounds</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>
+                <span>Start on round</span>
+                <input name="fert_start_round" type="number" min="1" max="12" value="1">
+              </label>
+              <label>
+                <span>Year</span>
+                <input name="fert_year" type="number" min="2020" max="2100" value="{{ today|date:'Y' }}">
+              </label>
+              <label>
+                <span>Pricing method</span>
+                <select name="fert_pricing_method">
+                  <option value="per_application">Per application</option>
+                  <option value="annual_flat">Annual flat</option>
+                </select>
+              </label>
+              <label>
+                <span>Per application</span>
+                <input name="fert_price_per_application" type="number" min="0" step="0.01" placeholder="85.00">
+              </label>
+              <label>
+                <span>Annual price</span>
+                <input name="fert_annual_price" type="number" min="0" step="0.01" placeholder="480.00">
+              </label>
+              <label>
+                <span>First date</span>
+                <input name="fert_first_date" type="date" value="{{ today|date:'Y-m-d' }}">
+              </label>
+              <label>
+                <span>Time</span>
+                <input name="fert_time" type="time">
+              </label>
+              <label class="oc-check">
+                <input type="checkbox" name="fert_schedule_first">
+                <span>Put first round on calendar</span>
+              </label>
+              <label class="oc-wide">
+                <span>Application notes</span>
+                <textarea name="fert_notes" rows="2" placeholder="Products, yard conditions, client concerns..."></textarea>
+              </label>
+            </div>
+          </div>
+        </article>
+
+        <article class="oc-service-card" data-service-card="maintenance">
+          <label class="oc-service-toggle">
+            <input type="checkbox" name="enable_maintenance" {% if requested_service == "maintenance" %}checked{% endif %}>
+            <span>
+              <strong>Maintenance plan</strong>
+              <small>Seasonal or recurring agreement setup.</small>
+            </span>
+          </label>
+          <div class="oc-service-fields">
+            <div class="oc-grid">
+              <label>
+                <span>Plan name</span>
+                <input name="maintenance_name" placeholder="Landscape Maintenance">
+              </label>
+              <label>
+                <span>Price</span>
+                <input name="maintenance_price" type="number" min="0" step="0.01" placeholder="350.00">
+              </label>
+              <label>
+                <span>Billing</span>
+                <select name="maintenance_frequency">
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="annual">Annual</option>
+                  <option value="one_time">One-time</option>
+                </select>
+              </label>
+              <label>
+                <span>Visits included</span>
+                <input name="maintenance_visits" type="number" min="0" placeholder="12">
+              </label>
+              <label>
+                <span>Start date</span>
+                <input name="maintenance_start_date" type="date" value="{{ today|date:'Y-m-d' }}">
+              </label>
+              <label class="oc-wide">
+                <span>Description</span>
+                <textarea name="maintenance_description" rows="2" placeholder="What the plan includes..."></textarea>
+              </label>
+              <label class="oc-wide">
+                <span>Agreement notes</span>
+                <textarea name="maintenance_notes" rows="2" placeholder="Owner-only terms or service notes..."></textarea>
+              </label>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="oc-submit-bar">
+      <div>
+        <strong>Ready to create the profile?</strong>
+        <span>The client opens immediately after setup.</span>
+      </div>
+      <button type="submit">Create client setup</button>
+    </div>
+  </form>
+</section>
+
+<style>
+  .onboard-command {
+    --oc-ink: #f4f5f0;
+    --oc-muted: #a3a8a0;
+    --oc-line: rgba(255,255,255,.13);
+    --oc-panel: rgba(255,255,255,.075);
+    --oc-accent: #b9ff65;
+    max-width: 1240px;
+    margin: -4px auto 40px;
+    color: var(--oc-ink);
+    font-family: var(--font-family);
+  }
+  .oc-back,
+  .oc-action,
+  .oc-submit-bar button {
+    text-decoration: none;
+  }
+  .oc-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--oc-muted);
+    border: 1px solid var(--oc-line);
+    border-radius: 999px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+  }
+  .oc-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 18px;
+    align-items: end;
+    margin-bottom: 18px;
+  }
+  .oc-kicker,
+  .oc-panel-kicker {
+    color: var(--oc-muted);
+    text-transform: uppercase;
+    letter-spacing: .16em;
+    font-size: 12px;
+    font-weight: 900;
+  }
+  .oc-kicker span {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 9px;
+    border-radius: 999px;
+    background: var(--oc-accent);
+    box-shadow: 0 0 22px rgba(185,255,101,.45);
+  }
+  .oc-hero h1 {
+    margin: 12px 0 8px;
+    font-size: clamp(44px, 8vw, 92px);
+    line-height: .88;
+    letter-spacing: 0;
+  }
+  .oc-hero p {
+    color: var(--oc-muted);
+    font-size: 19px;
+    line-height: 1.45;
+    max-width: 720px;
+  }
+  .oc-hero-card,
+  .oc-panel,
+  .oc-submit-bar {
+    border: 1px solid var(--oc-line);
+    border-radius: 28px;
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.11), rgba(255,255,255,.035)),
+      rgba(15,16,15,.75);
+    box-shadow: 0 24px 70px rgba(0,0,0,.24);
+  }
+  .oc-hero-card {
+    padding: 24px;
+  }
+  .oc-hero-card strong {
+    display: block;
+    font-size: 28px;
+  }
+  .oc-hero-card span {
+    display: block;
+    margin-top: 6px;
+    color: var(--oc-muted);
+  }
+  .oc-form {
+    display: grid;
+    gap: 18px;
+  }
+  .oc-panel {
+    padding: 24px;
+  }
+  .oc-panel-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .oc-panel h2 {
+    margin: 4px 0 0;
+    font-size: 28px;
+  }
+  .oc-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .oc-wide {
+    grid-column: 1 / -1;
+  }
+  .oc-grid label,
+  .oc-service-toggle {
+    display: grid;
+    gap: 8px;
+  }
+  .oc-grid label > span,
+  .oc-service-toggle small {
+    color: var(--oc-muted);
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .oc-grid input,
+  .oc-grid select,
+  .oc-grid textarea {
+    width: 100%;
+    border: 1px solid var(--oc-line);
+    border-radius: 18px;
+    background: rgba(0,0,0,.26);
+    color: var(--oc-ink);
+    padding: 15px 16px;
+    font: inherit;
+    font-size: 16px;
+    outline: none;
+  }
+  .oc-grid textarea {
+    resize: vertical;
+  }
+  .oc-grid input:focus,
+  .oc-grid select:focus,
+  .oc-grid textarea:focus {
+    border-color: rgba(185,255,101,.65);
+    box-shadow: 0 0 0 4px rgba(185,255,101,.12);
+  }
+  .oc-check {
+    display: flex !important;
+    align-items: center;
+    grid-template-columns: auto 1fr;
+    min-height: 56px;
+  }
+  .oc-check input {
+    width: 20px;
+    height: 20px;
+  }
+  .oc-service-grid {
+    display: grid;
+    gap: 14px;
+  }
+  .oc-service-card {
+    border: 1px solid var(--oc-line);
+    border-radius: 24px;
+    background: rgba(0,0,0,.22);
+    overflow: hidden;
+  }
+  .oc-service-toggle {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    padding: 18px;
+    cursor: pointer;
+  }
+  .oc-service-toggle input {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--oc-accent);
+  }
+  .oc-service-toggle strong {
+    display: block;
+    font-size: 22px;
+  }
+  .oc-service-fields {
+    display: none;
+    padding: 0 18px 18px;
+  }
+  .oc-service-card:has(.oc-service-toggle input:checked) {
+    border-color: rgba(185,255,101,.38);
+    background: linear-gradient(135deg, rgba(185,255,101,.09), rgba(255,255,255,.04));
+  }
+  .oc-service-card:has(.oc-service-toggle input:checked) .oc-service-fields {
+    display: block;
+  }
+  .legacy-first-cut {
+    display: none !important;
+  }
+  .mowing-season-end {
+    display: none !important;
+  }
+  .mowing-season-end.is-visible {
+    display: grid !important;
+  }
+  .mowing-season-end small {
+    color: var(--oc-muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .oc-submit-bar {
+    position: sticky;
+    bottom: 12px;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    backdrop-filter: blur(18px);
+  }
+  .oc-submit-bar strong,
+  .oc-submit-bar span {
+    display: block;
+  }
+  .oc-submit-bar span {
+    color: var(--oc-muted);
+    margin-top: 3px;
+  }
+  .oc-submit-bar button {
+    border: none;
+    border-radius: 999px;
+    background: var(--oc-accent);
+    color: #0b0d0a;
+    padding: 16px 22px;
+    font-weight: 950;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 18px 42px rgba(137,255,57,.22);
+  }
+  @media (max-width: 860px) {
+    .onboard-command {
+      margin: 0 auto 100px;
+      padding: 0 2px;
+    }
+    .oc-hero {
+      grid-template-columns: 1fr;
+    }
+    .oc-hero h1 {
+      font-size: 52px;
+    }
+    .oc-grid {
+      grid-template-columns: 1fr;
+    }
+    .oc-panel,
+    .oc-hero-card {
+      border-radius: 24px;
+      padding: 18px;
+    }
+    .oc-submit-bar {
+      align-items: stretch;
+      flex-direction: column;
+      bottom: 92px;
+    }
+    .oc-submit-bar button {
+      width: 100%;
+    }
+  }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var scheduleMode = document.getElementById('mowing-schedule-mode');
+  var seasonEnd = document.querySelector('.mowing-season-end');
+  function syncMowingSeasonEnd() {
+    if (!scheduleMode || !seasonEnd) return;
+    seasonEnd.classList.toggle('is-visible', scheduleMode.value === 'season');
+  }
+  if (scheduleMode) {
+    scheduleMode.addEventListener('change', syncMowingSeasonEnd);
+    syncMowingSeasonEnd();
+  }
+});
+</script>
+{% endblock %}
