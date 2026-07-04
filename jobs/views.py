@@ -2435,7 +2435,7 @@ def complete_job(request, job_id):
         return redirect("crew_today")
 
     business = getattr(job.property.customer, "business", None)
-    if business and getattr(business, "require_completion_photo", False):
+    if request.user.role == "crew" and business and getattr(business, "require_completion_photo", False):
         if not job.completion_photos.exists():
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                 return JsonResponse({"error": "Upload at least one completion photo before marking this job complete."}, status=400)

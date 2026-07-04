@@ -1486,6 +1486,43 @@ class CrewTodayDirectCompletionTests(TestCase):
         self.job.refresh_from_db()
         self.assertEqual(self.job.status, "completed")
 
+    def test_crew_completion_requires_photo_when_business_requires_it(self):
+        self.business.require_completion_photo = True
+        self.business.save(update_fields=["require_completion_photo"])
+        crew_user = User.objects.create_user(
+            username="crew-photo-required",
+            password="password",
+            role="crew",
+            business=self.business,
+        )
+        self.job.assigned_to = crew_user
+        self.job.save(update_fields=["assigned_to"])
+        self.client.force_login(crew_user)
+
+        response = self.client.post(
+            reverse("complete_job", args=[self.job.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, "scheduled")
+        self.assertIn("completion photo", response.json()["error"])
+
+    def test_owner_can_complete_without_photo_when_business_requires_it(self):
+        self.business.require_completion_photo = True
+        self.business.save(update_fields=["require_completion_photo"])
+
+        response = self.client.post(
+            reverse("complete_job", args=[self.job.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, "completed")
+        self.assertEqual(self.job.completed_by, self.owner)
+
     @patch("jobs.views._business_today")
     def test_scheduled_crew_stop_shows_job_and_recurring_notes_on_card(self, mock_today):
         mock_today.return_value = date(2026, 5, 22)

@@ -6,7 +6,7 @@
     <a href="#jd-overview">Overview</a>
     <a href="#jd-items">Items</a>
     <a href="#jd-notes">Notes</a>
-    <a href="#jd-photos">Photos</a>
+    <a href="#jd-photos">Photos{% if job_completion_photos %} ({{ job_completion_photos|length }}){% endif %}</a>
     <a href="#jd-costs">Costs</a>
     <a href="#jd-issues">Issues</a>
   </nav>
@@ -45,6 +45,17 @@
         {% endif %}
       </div>
       <div class="jd-inline-actions">
+        {% if request.user.role == "owner" or request.user.role == "manager" %}
+          {% if job.status != "completed" and job.status != "cancelled" and job.status != "skipped" %}
+          <form method="post" action="{% url 'complete_job' job.id %}" onsubmit="return confirm('Mark this job complete? Owners and managers can override the employee photo-proof requirement.')">
+            {% csrf_token %}
+            <button type="submit" class="jd-soft-button">
+              <span class="material-symbols-outlined">task_alt</span>
+              Mark complete
+            </button>
+          </form>
+          {% endif %}
+        {% endif %}
         {% if job.status == "completed" or job.status == "in_progress" %}
         <form method="post" action="{% url 'uncomplete_job' job.id %}" onsubmit="return confirm('Revert this job back to scheduled?')">
           {% csrf_token %}
@@ -522,6 +533,7 @@
     <span>
       <span class="material-symbols-outlined">verified</span>
       Completion proof
+      {% if job_completion_photos %}<em>{{ job_completion_photos|length }}</em>{% endif %}
     </span>
     <a href="{% url 'upload_completion_photo' job.id %}" class="btn btn-secondary btn-sm">Upload photo</a>
   </h2>
@@ -814,6 +826,21 @@ window.filterPhotos = function(cat, btn) {
   }
   .jd-proof-title .material-symbols-outlined {
     color:var(--jd-accent);
+  }
+  .jd-proof-title em {
+    min-width:24px;
+    height:24px;
+    padding:0 8px;
+    border-radius:999px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(163,255,77,.14);
+    border:1px solid rgba(163,255,77,.28);
+    color:var(--jd-accent);
+    font-style:normal;
+    font-size:12px;
+    font-weight:800;
   }
   .jd-proof-helper,
   .jd-proof-empty {
